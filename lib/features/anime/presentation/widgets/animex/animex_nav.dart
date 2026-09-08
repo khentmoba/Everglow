@@ -37,8 +37,24 @@ class AnimeXTopHeader extends StatelessWidget {
     return Container(
       height: AnimeXTokens.headerHeight,
       decoration: BoxDecoration(
-        color: AnimeXTokens.bg.withValues(alpha: 0.92),
-        border: const Border(bottom: BorderSide(color: AnimeXTokens.border)),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AnimeXTokens.surface.withValues(alpha: 0.96),
+            AnimeXTokens.bg.withValues(alpha: 0.94),
+          ],
+        ),
+        border: const Border(
+          bottom: BorderSide(color: AnimeXTokens.border),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 18,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Center(
         child: ConstrainedBox(
@@ -185,7 +201,6 @@ class AnimeXMobileBottomNav extends StatelessWidget {
     );
   }
 }
-
 class _Logo extends StatelessWidget {
   final VoidCallback onTap;
   const _Logo({required this.onTap});
@@ -199,11 +214,26 @@ class _Logo extends StatelessWidget {
         child: Text.rich(
           TextSpan(
             text: 'EVER',
-            style: bebasStyle(size: 26, color: AnimeXTokens.textPrimary),
+            style: bebasStyle(
+              size: 26,
+              color: AnimeXTokens.textPrimary,
+              letterSpacing: 0.06,
+            ),
             children: [
               TextSpan(
                 text: 'GLOW',
-                style: bebasStyle(size: 26, color: AnimeXTokens.accent),
+                style: bebasStyle(
+                  size: 26,
+                  color: AnimeXTokens.accent,
+                  letterSpacing: 0.06,
+                ).copyWith(
+                  shadows: [
+                    Shadow(
+                      color: AnimeXTokens.accent.withValues(alpha: 0.55),
+                      blurRadius: 14,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -213,7 +243,7 @@ class _Logo extends StatelessWidget {
   }
 }
 
-class _NavItem extends StatelessWidget {
+class _NavItem extends StatefulWidget {
   final String label;
   final bool active;
   final VoidCallback onTap;
@@ -225,29 +255,49 @@ class _NavItem extends StatelessWidget {
   });
 
   @override
+  State<_NavItem> createState() => _NavItemState();
+}
+
+class _NavItemState extends State<_NavItem> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final highlighted = widget.active || _hover;
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
+            color: widget.active
+                ? AnimeXTokens.accent.withValues(alpha: 0.14)
+                : (_hover
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.transparent),
+            borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
             border: Border(
               bottom: BorderSide(
-                color: active ? AnimeXTokens.accent : Colors.transparent,
+                color: widget.active
+                    ? AnimeXTokens.accent
+                    : Colors.transparent,
                 width: 2,
               ),
             ),
           ),
           child: Text(
-            label,
+            widget.label,
             style: dmSansStyle(
               size: 14,
-              color: active
+              color: highlighted
                   ? AnimeXTokens.textPrimary
                   : AnimeXTokens.textSecondary,
-              weight: FontWeight.w600,
+              weight: widget.active ? FontWeight.w700 : FontWeight.w600,
             ),
           ),
         ),

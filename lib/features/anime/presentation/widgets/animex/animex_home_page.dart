@@ -504,59 +504,136 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 900),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: () => widget.controller.goTo(AnimexPage.schedule),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              decoration: BoxDecoration(
-                color: AnimeXTokens.accent.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
-                border: Border.all(
-                  color: AnimeXTokens.accent.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.schedule_rounded,
-                    color: AnimeXTokens.accent,
-                    size: 22,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Airing Schedule',
-                          style: dmSansStyle(
-                            size: 15,
-                            color: AnimeXTokens.textPrimary,
-                            weight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "See what's airing this week — all 7 days",
-                          style: dmSansStyle(
-                            size: 12.5,
-                            color: AnimeXTokens.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: AnimeXTokens.accent,
-                    size: 18,
-                  ),
-                ],
+        child: _ScheduleCta(
+          onTap: () => widget.controller.goTo(AnimexPage.schedule),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleCta extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _ScheduleCta({required this.onTap});
+
+  @override
+  State<_ScheduleCta> createState() => _ScheduleCtaState();
+}
+
+class _ScheduleCtaState extends State<_ScheduleCta> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          transform: Matrix4.translationValues(0, _hover ? -2 : 0, 0),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                AnimeXTokens.accent.withValues(alpha: _hover ? 0.2 : 0.14),
+                AnimeXTokens.accent.withValues(alpha: 0.04),
+                AnimeXTokens.surfaceRaised.withValues(alpha: 0.6),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(AnimeXTokens.radius2xl + 4),
+            border: Border.all(
+              color: AnimeXTokens.accent.withValues(
+                alpha: _hover ? 0.45 : 0.25,
               ),
             ),
+            boxShadow: _hover
+                ? AnimeXTokens.accentGlowShadow(0.22)
+                : const [
+                    BoxShadow(
+                      color: Color(0x4D000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AnimeXTokens.accent,
+                      AnimeXTokens.accentHover,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    AnimeXTokens.radiusXl,
+                  ),
+                  boxShadow: AnimeXTokens.accentGlowShadow(0.4),
+                ),
+                child: const Icon(
+                  Icons.schedule_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Airing Schedule',
+                      style: dmSansStyle(
+                        size: 16,
+                        color: AnimeXTokens.textPrimary,
+                        weight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "See what's airing this week — all 7 days",
+                      style: dmSansStyle(
+                        size: 13,
+                        color: AnimeXTokens.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                transform: Matrix4.translationValues(_hover ? 4 : 0, 0, 0),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AnimeXTokens.accent.withValues(
+                    alpha: _hover ? 0.25 : 0.12,
+                  ),
+                  border: Border.all(
+                    color: AnimeXTokens.accent.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: AnimeXTokens.accentWarm,
+                  size: 18,
+                ),
+              ),
+            ],
           ),
         ),
       ),

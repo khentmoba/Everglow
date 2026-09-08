@@ -143,13 +143,14 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final episodeCount = item.episodeCount;
+    final score = widget.score ?? item.score;
 
     // The overlay portal renders the popover in the app overlay so it never
     // gets clipped by the horizontal scrollable it lives inside. The overlay
     // hands its children tight full-screen constraints, so the popover is
     // wrapped in an Align: Align keeps its own full-size box (for positioning)
     // but lays out the popover with loose constraints, letting the panel keep
-    // its compact 190px size instead of stretching across the screen.
+    // its compact size instead of stretching across the screen.
     return OverlayPortal(
       controller: _portal,
       overlayChildBuilder: (_) => CompositedTransformFollower(
@@ -164,7 +165,10 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
           child: MouseRegion(
             onEnter: (_) => _onPopoverEnter(),
             onExit: (_) => _onPopoverExit(),
-            child: _CardPopover(item: item, score: widget.score),
+            child: _PopoverEntrance(
+              fromLeft: _popoverLeft,
+              child: _CardPopover(item: item, score: score),
+            ),
           ),
         ),
       ),
@@ -183,34 +187,72 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                 CompositedTransformTarget(
                   link: _link,
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    transform: Matrix4.translationValues(
+                      0,
+                      _hover ? -4 : 0,
+                      0,
+                    ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(
-                        AnimeXTokens.radiusLg,
+                        AnimeXTokens.radiusCard,
                       ),
-                      boxShadow: const [],
+                      border: Border.all(
+                        color: _hover
+                            ? AnimeXTokens.accent.withValues(alpha: 0.55)
+                            : Colors.white.withValues(alpha: 0.08),
+                      ),
+                      boxShadow: _hover
+                          ? [
+                              const BoxShadow(
+                                color: Color(0xB3000000),
+                                blurRadius: 28,
+                                offset: Offset(0, 14),
+                              ),
+                              BoxShadow(
+                                color: AnimeXTokens.accent.withValues(
+                                  alpha: 0.28,
+                                ),
+                                blurRadius: 28,
+                                offset: const Offset(0, 8),
+                              ),
+                            ]
+                          : const [
+                              BoxShadow(
+                                color: Color(0x66000000),
+                                blurRadius: 14,
+                                offset: Offset(0, 6),
+                              ),
+                            ],
                     ),
                     child: AspectRatio(
                       aspectRatio: 2 / 3,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(
-                          AnimeXTokens.radiusLg,
+                          AnimeXTokens.radiusCard - 1,
                         ),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            _posterImage(item),
-                            const DecoratedBox(
+                            AnimatedScale(
+                              scale: _hover ? 1.06 : 1.0,
+                              duration: const Duration(milliseconds: 450),
+                              curve: Curves.easeOutCubic,
+                              child: _posterImage(item),
+                            ),
+                            DecoratedBox(
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   begin: Alignment.topCenter,
                                   end: Alignment.bottomCenter,
                                   colors: [
+                                    Colors.black.withValues(alpha: 0.12),
                                     Colors.transparent,
                                     AppColors.scrimStrong,
-                                    Color(0xB3000000),
+                                    const Color(0xD9000000),
                                   ],
-                                  stops: [0.45, 0.8, 1],
+                                  stops: const [0, 0.4, 0.78, 1],
                                 ),
                               ),
                             ),
@@ -234,20 +276,21 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                                     const AnimeXBadge(
                                       label: 'NEW',
                                       kind: AnimeXBadgeKind.newBadge,
-                                      dot: true,
                                     ),
                                   ],
                                 ],
                               ),
                             ),
-                            if (widget.score != null &&
+                            if (score != null &&
+                                score > 0 &&
                                 widget.hoverAction == null)
                               Positioned(
                                 top: 8,
                                 right: 8,
                                 child: AnimeXBadge(
-                                  label: _formatScore(widget.score!),
+                                  label: score.toStringAsFixed(1),
                                   kind: AnimeXBadgeKind.rating,
+                                  icon: Icons.star_rounded,
                                 ),
                               ),
                             if (widget.hoverAction != null && _hover)
@@ -257,16 +300,16 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                                 child: widget.hoverAction!,
                               ),
                             Positioned(
-                              left: 8,
-                              right: 8,
-                              bottom: 8,
+                              left: 10,
+                              right: 10,
+                              bottom: 10,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   if (item.airingStatus.isNotEmpty &&
                                       _isAiring(item.airingStatus))
                                     const Padding(
-                                      padding: EdgeInsets.only(bottom: 6),
+                                      padding: EdgeInsets.only(bottom: 8),
                                       child: AnimeXBadge(
                                         label: 'Airing',
                                         kind: AnimeXBadgeKind.airing,
@@ -275,12 +318,12 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                                     ),
                                   if (widget.progress != null) ...[
                                     ClipRRect(
-                                      borderRadius: BorderRadius.circular(3),
+                                      borderRadius: BorderRadius.circular(4),
                                       child: LinearProgressIndicator(
                                         value: widget.progress!.clamp(0.0, 1.0),
-                                        minHeight: 3,
+                                        minHeight: 4,
                                         backgroundColor: Colors.white
-                                            .withValues(alpha: 0.15),
+                                            .withValues(alpha: 0.18),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
                                               AnimeXTokens.accent,
@@ -297,19 +340,21 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Text(
                   item.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: dmSansStyle(
-                    size: 13,
-                    color: AnimeXTokens.textPrimary,
-                    weight: FontWeight.w600,
-                    height: 1.25,
+                    size: 13.5,
+                    color: _hover
+                        ? Colors.white
+                        : AnimeXTokens.textPrimary,
+                    weight: FontWeight.w700,
+                    height: 1.3,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   _metaLine(item),
                   maxLines: 1,
@@ -317,7 +362,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                   style: dmSansStyle(
                     size: 11.5,
                     color: AnimeXTokens.textSecondary,
-                    weight: FontWeight.w400,
+                    weight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -375,7 +420,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
 
 /// The hover detail panel anchored beside the card.
 class _CardPopover extends StatelessWidget {
-  static const double width = 190;
+  static double get width => AnimeXTokens.popoverWidth;
 
   final MediaItem item;
   final double? score;
@@ -384,98 +429,208 @@ class _CardPopover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final airing =
+        item.airingStatus.isNotEmpty && _isAiring(item.airingStatus);
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: width, maxHeight: 220),
+      constraints: BoxConstraints(
+        maxWidth: width,
+        maxHeight: AnimeXTokens.popoverMaxHeight,
+      ),
       child: Container(
         width: width,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AnimeXTokens.surfaceRaised,
-          border: Border.all(color: AnimeXTokens.border),
-          borderRadius: BorderRadius.circular(AnimeXTokens.radiusXl),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x8C000000),
-              blurRadius: 24,
-              offset: Offset(0, 8),
-            ),
-          ],
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF23232F), Color(0xFF13131A)],
+          ),
+          border: Border.all(color: AnimeXTokens.glassBorder),
+          borderRadius: BorderRadius.circular(AnimeXTokens.radius2xl + 4),
+          boxShadow: AnimeXTokens.popoverShadow,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              item.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: dmSansStyle(
-                size: 13,
-                color: AnimeXTokens.textPrimary,
-                weight: FontWeight.w700,
-                height: 1.25,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (score != null) ...[
-              Row(
-                children: [
-                  const Icon(
-                    Icons.star_rounded,
-                    color: AnimeXTokens.accentWarm,
-                    size: 15,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AnimeXTokens.radius2xl + 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                height: 3,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AnimeXTokens.accent,
+                      AnimeXTokens.accentWarm,
+                      AnimeXTokens.gold,
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatScore(score!),
-                    style: dmSansStyle(
-                      size: 13.5,
-                      color: AnimeXTokens.accentWarm,
-                      weight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-            ],
-            if (item.genres.isNotEmpty) ...[
-              Text(
-                item.genres.take(3).join(' · ').toUpperCase(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: dmSansStyle(
-                  size: 10.5,
-                  color: AnimeXTokens.textMuted,
-                  weight: FontWeight.w600,
-                  letterSpacing: 0.06,
                 ),
               ),
-              const SizedBox(height: 8),
-            ],
-            if (item.synopsis.isNotEmpty) ...[
-              Text(
-                item.synopsis,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: interBodyStyle(size: 11.5, height: 1.5),
-              ),
-              const SizedBox(height: 6),
-            ],
-            Container(
-              padding: const EdgeInsets.only(top: 6),
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AnimeXTokens.border)),
-              ),
-              child: Text(
-                _popoverMeta(),
-                style: dmSansStyle(
-                  size: 10.5,
-                  color: AnimeXTokens.textMuted,
-                  weight: FontWeight.w600,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                      Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: dmSansStyle(
+                          size: 15,
+                          color: Colors.white,
+                          weight: FontWeight.w800,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          if (score != null && score! > 0) ...[
+                            const Icon(
+                              Icons.star_rounded,
+                              color: AnimeXTokens.gold,
+                              size: 15,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              score!.toStringAsFixed(1),
+                              style: dmSansStyle(
+                                size: 13,
+                                color: AnimeXTokens.gold,
+                                weight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '/ 10',
+                              style: dmSansStyle(
+                                size: 11,
+                                color: AnimeXTokens.textMuted,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                          Expanded(
+                            child: Text(
+                              _popoverMeta(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: dmSansStyle(
+                                size: 11.5,
+                                color: AnimeXTokens.textSecondary,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (item.genres.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final genre in item.genres.take(3))
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  genre.toUpperCase(),
+                                  style: dmSansStyle(
+                                    size: 9.5,
+                                    color: AnimeXTokens.textSecondary,
+                                    weight: FontWeight.w700,
+                                    letterSpacing: 0.06,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      if (item.synopsis.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          item.synopsis,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: interBodyStyle(size: 12, height: 1.55),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.only(top: 10),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: AnimeXTokens.border),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: airing
+                                    ? AnimeXTokens.success
+                                    : AnimeXTokens.textMuted,
+                                shape: BoxShape.circle,
+                                boxShadow: airing
+                                    ? [
+                                        BoxShadow(
+                                          color: AnimeXTokens.success
+                                              .withValues(alpha: 0.6),
+                                          blurRadius: 8,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                airing
+                                    ? 'Airing now'
+                                    : _statusLabel(item.airingStatus),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: dmSansStyle(
+                                  size: 11.5,
+                                  color: airing
+                                      ? AnimeXTokens.success
+                                      : AnimeXTokens.textMuted,
+                                  weight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              'Details →',
+                              style: dmSansStyle(
+                                size: 11.5,
+                                color: AnimeXTokens.accentWarm,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -484,12 +639,47 @@ class _CardPopover extends StatelessWidget {
   String _popoverMeta() {
     final parts = <String>[
       if (item.episodeCount != null && item.episodeCount! > 0)
-        'EP ${item.episodeCount}',
+        (item.episodeCount! >= 100
+            ? '${item.episodeCount} EP'
+            : 'EP ${item.episodeCount}'),
       if (item.year.isNotEmpty) item.year,
       if (item.format.isNotEmpty) item.format,
     ];
     return parts.join(' · ');
   }
+}
+
+/// Fades + slides the popover in the moment the overlay shows it.
+class _PopoverEntrance extends StatelessWidget {
+  final bool fromLeft;
+  final Widget child;
+
+  const _PopoverEntrance({required this.fromLeft, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 170),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset((fromLeft ? 8 : -8) * (1 - t), 0),
+          child: child,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+String _statusLabel(String status) {
+  final s = status.toUpperCase();
+  if (s.contains('FINISH')) return 'Completed';
+  if (s.contains('NOT_YET') || s.contains('UPCOMING')) return 'Upcoming';
+  if (status.isEmpty) return 'Anime';
+  return status;
 }
 
 String _metaLine(MediaItem item) {
@@ -504,9 +694,4 @@ String _metaLine(MediaItem item) {
 bool _isAiring(String status) {
   final s = status.toUpperCase();
   return s.contains('RELEASING') || s.contains('AIRING');
-}
-
-String _formatScore(double score) {
-  final v = score.toStringAsFixed(1);
-  return '$v / 10';
 }
