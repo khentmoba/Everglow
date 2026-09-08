@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -90,7 +91,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     final totalPages = _pages!.filenames.length;
     setState(() {
       _currentPageEstimate = (ratio * totalPages)
-          .clamp(0, totalPages - 1)
+          .clamp(0, math.max(0, totalPages - 1))
           .toInt();
     });
 
@@ -334,7 +335,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           final ratio = widget.manga.lastReadPage / pages.filenames.length;
           final target = _scrollController.position.maxScrollExtent * ratio;
           _scrollController.jumpTo(
-            target.clamp(0, _scrollController.position.maxScrollExtent),
+            target.clamp(0.0, math.max(0.0, _scrollController.position.maxScrollExtent)),
           );
         }
       });

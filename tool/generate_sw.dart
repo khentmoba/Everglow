@@ -102,8 +102,30 @@ self.addEventListener("fetch", (e) => {
   // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
+  const offlineResponse = () => new Response("Offline", {
+    status: 503,
+    statusText: "Service Unavailable",
+    headers: { "Content-Type": "text/plain" },
+  });
+  const fallbackNavigate = async () => {
+    const cached = await caches.match(e.request);
+    if (cached) return cached;
+    const indexFallback = (await caches.match("/index.html")) || (await caches.match("/"));
+    if (indexFallback) return indexFallback;
+    try {
+      const net = await fetch("/index.html");
+      if (net && net.ok) return net;
+    } catch (_) {}
+    return offlineResponse();
+  };
   if (isNoStore(path)) {
-    e.respondWith(fetch(e.request, { cache: "no-store" }));
+    e.respondWith(
+      fetch(e.request, { cache: "no-store" }).catch(async () => {
+        if (e.request.mode === "navigate") return fallbackNavigate();
+        const cached = await caches.match(e.request);
+        return cached || offlineResponse();
+      }),
+    );
     return;
   }
   // Immutable bytes (CanvasKit/WASM/fonts/models) live in the
@@ -116,7 +138,10 @@ self.addEventListener("fetch", (e) => {
           caches.open(IMMUTABLE).then((c) => c.put(e.request, copy));
         }
         return res;
-      })),
+      })).catch(async () => {
+        const cached = await caches.match(e.request);
+        return cached || offlineResponse();
+      }),
     );
     return;
   }
@@ -128,7 +153,10 @@ self.addEventListener("fetch", (e) => {
           caches.open(SHELL).then((c) => c.put(e.request, copy));
         }
         return res;
-      })),
+      })).catch(async () => {
+        const cached = await caches.match(e.request);
+        return cached || offlineResponse();
+      }),
     );
     return;
   }
@@ -144,7 +172,12 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(e.request)),
+      .catch(async () => {
+        const cached = await caches.match(e.request);
+        if (cached) return cached;
+        if (e.request.mode === "navigate") return fallbackNavigate();
+        return offlineResponse();
+      }),
   );
 });
 // --- Push (merged here so one worker owns the scope) ---

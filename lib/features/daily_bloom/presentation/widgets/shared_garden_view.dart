@@ -19,17 +19,21 @@ class SharedGardenView extends StatefulWidget {
 }
 
 class _SharedGardenViewState extends State<SharedGardenView> {
+  GardenProvider? _gardenProvider;
+
   @override
-  void initState() {
-    super.initState();
-    final auth = context.read<AuthService>();
-    final provider = context.read<GardenProvider>();
-    provider.watchPartner(auth.partnerUid);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_gardenProvider == null) {
+      final auth = context.read<AuthService>();
+      _gardenProvider = context.read<GardenProvider>();
+      _gardenProvider?.watchPartner(auth.partnerUid);
+    }
   }
 
   @override
   void dispose() {
-    context.read<GardenProvider>().stopWatchingPartner();
+    _gardenProvider?.stopWatchingPartner();
     super.dispose();
   }
 

@@ -121,6 +121,50 @@
       #eg-splash .eg-heart, #eg-splash .eg-bar > div { animation: none; }
     }
   </style>
+  <script>
+    // Suppress multiple instances warning between model-viewer bundled three.js
+    // and cat_3d_engine.js three.module.js:
+    try {
+      Object.defineProperty(window, '__THREE__', {
+        get: function () { return undefined; },
+        set: function (_) {},
+        configurable: true,
+      });
+    } catch (_) {}
+
+    // Filter known external library/CanvasKit informational console noise:
+    (function () {
+      var origWarn = console.warn;
+      console.warn = function () {
+        if (arguments.length > 0 && typeof arguments[0] === 'string') {
+          if (arguments[0].indexOf('Multiple instances of Three.js') !== -1) return;
+          if (arguments[0].indexOf('Could not find a set of Noto fonts') !== -1) return;
+        }
+        return origWarn.apply(console, arguments);
+      };
+      var origLog = console.log;
+      console.log = function () {
+        if (arguments.length > 0 && typeof arguments[0] === 'string') {
+          if (arguments[0].indexOf('Could not find a set of Noto fonts') !== -1) return;
+        }
+        return origLog.apply(console, arguments);
+      };
+      var origInfo = console.info;
+      console.info = function () {
+        if (arguments.length > 0 && typeof arguments[0] === 'string') {
+          if (arguments[0].indexOf('Could not find a set of Noto fonts') !== -1) return;
+        }
+        return origInfo.apply(console, arguments);
+      };
+      var origError = console.error;
+      console.error = function () {
+        if (arguments.length > 0 && typeof arguments[0] === 'string') {
+          if (arguments[0].indexOf('Could not find a set of Noto fonts') !== -1) return;
+        }
+        return origError.apply(console, arguments);
+      };
+    })();
+  </script>
 
   <!-- Scoped importmap: "three" is only visible to cat_3d_engine.js and
        its transitive jsm imports. This avoids polluting the global module

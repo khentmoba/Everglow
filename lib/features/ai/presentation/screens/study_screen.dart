@@ -65,6 +65,7 @@ class _StudyScreenState extends State<StudyScreen> {
   // OFF keeps plain text. Defaults OFF so quick questions stay plain
   // chat; toggle it on for the interactive sheet.
   bool _canvasEnabled = false;
+  AIService? _aiService;
 
   @override
   void initState() {
@@ -73,8 +74,16 @@ class _StudyScreenState extends State<StudyScreen> {
     _scroll.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<AIService>().draftResponseNotifier.addListener(_onDraft);
+      final ai = context.read<AIService>();
+      _aiService = ai;
+      ai.draftResponseNotifier.addListener(_onDraft);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _aiService ??= context.read<AIService>();
   }
 
   @override
@@ -84,9 +93,7 @@ class _StudyScreenState extends State<StudyScreen> {
     _input.dispose();
     _scroll.dispose();
     _focusNode.dispose();
-    try {
-      context.read<AIService>().draftResponseNotifier.removeListener(_onDraft);
-    } catch (_) {}
+    _aiService?.draftResponseNotifier.removeListener(_onDraft);
     super.dispose();
   }
 
