@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -161,7 +162,10 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
       if (mounted) setState(() => _items = []);
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;
@@ -242,7 +246,10 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       }
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;
@@ -294,10 +301,11 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   }
 
   static final _cssArtifactRegex = RegExp(r'\bcss-[a-zA-Z0-9_-]+\b');
+  static final _multiSpaceRegex = RegExp(r'\s{2,}');
 
   static String _sanitizeTitle(String title) {
     var cleaned = title.replaceAll(_cssArtifactRegex, ' ').trim();
-    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ');
+    cleaned = cleaned.replaceAll(_multiSpaceRegex, ' ');
     return cleaned.isNotEmpty ? cleaned : title;
   }
 
@@ -422,7 +430,10 @@ class _AnimeShelfState extends State<_AnimeShelf> {
       }
       return;
     }
-    final future = _service.getPreviewItems(widget.userName);
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
+    );
     _future = future;
     future.then((items) {
       if (!mounted || _future != future) return;

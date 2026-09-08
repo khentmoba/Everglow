@@ -37,6 +37,32 @@ class BucketListService {
     );
   }
 
+  // Capped preview for the dashboard Dreams card: it renders a progress
+  // ring plus 3 wishes, so a 100-doc realtime stream is 8x over-fetch
+  // on every dashboard visit. Full list stays on watchAll for the
+  // bucket-list screen.
+  Stream<List<BucketItem>> watchPreview({int limit = 12}) {
+    Stream<List<BucketItem>> subscribe() {
+      return _db
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map(
+            (snapshot) => snapshot.docs
+                .map((doc) => BucketItem.fromFirestore(doc))
+                .toList(),
+          );
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
+      label: 'bucket-list-preview',
+      duration: const Duration(seconds: 8),
+    );
+  }
+
   /// Items filtered by status.
   Stream<List<BucketItem>> watchByStatus(BucketStatus status) {
     return withFirestoreTimeout(

@@ -540,10 +540,15 @@ const proxyAnimeImage = functions.https.onRequest(async (req, res) => {
  * blocked by any CORS or auth issues with direct Storage download URLs.
  *
  * Accepts:
- *   GET /proxyGalleryImage?url=<encoded Storage download URL>
+ *   GET /proxyGalleryImage?url=<encoded Storage download URL>[&w=<px>]
  *
  * Validates that the URL belongs to the project's Storage bucket,
  * then fetches and streams it back with permissive CORS headers.
+ *
+ * `w` is a client perf hint: when present (e.g. `&w=440` from gallery
+ * rails/grids), the response is served with a long immutable-style
+ * cache header so the downscaled thumb URL is cached independently of
+ * the full-res viewer URL. No server-side resize is performed.
  *
  * NOTE: Does NOT require Firebase Auth via Authorization header because
  * Flutter Web Image.network cannot send custom headers. The upstream
@@ -593,7 +598,17 @@ const proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     const contentType =
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
-    res.set('Cache-Control', 'public, max-age=3600');
+    // Thumb URLs (&w=) are stable per width: cache them long. Full-res
+    // viewer URLs keep the short TTL so re-uploads surface quickly.
+    const thumbWidth = Array.isArray(req.query.w)
+      ? req.query.w[0]
+      : req.query.w;
+    const thumbPx = typeof thumbWidth === 'string' ? parseInt(thumbWidth, 10) : NaN;
+    if (Number.isFinite(thumbPx) && thumbPx > 0 && thumbPx <= 1600) {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      res.set('Cache-Control', 'public, max-age=3600');
+    }
     const buffer = Buffer.from(await upstream.arrayBuffer());
     res.status(200).send(buffer);
   } catch (e) {

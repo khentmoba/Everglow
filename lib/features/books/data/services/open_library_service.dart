@@ -343,12 +343,12 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     }
   }
 
-  Stream<List<BookItem>> getReadListStream(String userName) {
+  Stream<List<BookItem>> getReadListStream(String userName, {int? limit}) {
     return withFirestoreTimeout(
       _firestore
           .collection('read_list')
           .where('userName', isEqualTo: userName)
-          .limit(500)
+          .limit(limit ?? 500)
           .snapshots()
           .map((snapshot) {
             final items =

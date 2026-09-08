@@ -100,8 +100,10 @@ class _MangaHeaderState extends State<_MangaHeader> {
   }
 
   void _subscribe() {
+    // Header only shows the badge count: 24 docs per partner is plenty
+    // instead of two merged 500-doc streams.
     final stream = widget.isCouple
-        ? _service.getCoupleLibraryStream()
+        ? _service.getCoupleLibraryPreviewStream(limit: 24)
         : _service.getLibraryStream(widget.userName);
     _streamSub = stream.listen((items) {
       final filtered = items.where((i) => i.libraryStatus != 'none').toList();
@@ -169,8 +171,10 @@ class _MangaShelfState extends State<_MangaShelf> {
   }
 
   void _subscribe() {
+    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
+    // the 500-doc reading stream.
     final stream = widget.readingOnly
-        ? _service.getReadingStream(widget.userName)
+        ? _service.getReadingPreviewStream(widget.userName, limit: 24)
         : _service.getLibraryStream(widget.userName);
     _streamSub = stream.listen((items) {
       if (!mounted) return;

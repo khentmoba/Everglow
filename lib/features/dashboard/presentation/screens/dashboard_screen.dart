@@ -110,7 +110,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         // These Firestore reads need a signed-in session. Guarding them
         // prevents permission-denied errors when the dashboard is opened
         // as a deep link before the gateway has authenticated the user.
-        // Deferred past the first frame so auth-gated previews paint first.
+        // Date ideas ride post-first-frame: the card shows one random
+        // idea on tap, so it must not contend with the ~25 preview
+        // streams attaching on the critical path.
         if (authService.isReady) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;

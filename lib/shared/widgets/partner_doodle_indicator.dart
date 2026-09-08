@@ -22,7 +22,11 @@ class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(milliseconds: 250), (_) {
+    // Freshness ticker: doodle state flips on 15s touch windows, and the
+    // widget only shows active/idle — 1s granularity is plenty. The
+    // previous 250ms setState rebuilt this subtree (StreamBuilder
+    // included) 4x per second for the whole dashboard lifetime.
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
   }
@@ -35,10 +39,12 @@ class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
+    // select() instead of watch(): partner fields change rarely, and a
+    // full watch rebuilds this indicator (and re-evaluates the stream
+    // builder below) on every unrelated auth notify.
+    final partnerUid = context.select<AuthService, String?>((a) => a.partnerUid);
+    final partnerName = context.select<AuthService, String>((a) => a.partnerName);
     final presence = context.read<PresenceService>();
-    final partnerUid = authService.partnerUid;
-    final partnerName = authService.partnerName;
 
     if (partnerUid == null) {
       return const SizedBox.shrink();

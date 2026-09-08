@@ -23,9 +23,15 @@ class GalleryService {
   /// Returns the URL used for displaying gallery images.
   /// Routes Firebase Storage URLs through a Cloud Function proxy
   /// on web to avoid CORS / auth issues.
-  static String displayUrl(String imageUrl) {
+  ///
+  /// Pass [thumb] for rails, grids, and marquees: it appends `&w=440`
+  /// so the proxy serves a downscaled variant instead of the full-res
+  /// upload. Full resolution stays the default for the photo viewer.
+  static String displayUrl(String imageUrl, {bool thumb = false}) {
     if (kIsWeb && imageUrl.contains('firebasestorage.googleapis.com')) {
-      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
+      final proxied =
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
+      return thumb ? '$proxied&w=440' : proxied;
     }
     return imageUrl;
   }

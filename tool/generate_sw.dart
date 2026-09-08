@@ -32,11 +32,22 @@ void main() {
 // (firebase-messaging-sw.js) would replace this one and kill offline
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
-const CACHE="$buildConst-CACHE-v1";
+const SHELL="$buildConst-SHELL-v1";
+// Immutable bytes keyed by engine revision, not by app build: CanvasKit
+// filenames are STABLE across Flutter builds, so a per-build purge would
+// force a ~7MB re-download on every deploy even when the engine did not
+// change. This cache is only purged when the stored revision mismatches.
+// NOTE: keep ENGINE_REV in sync with the build output. The deploy
+// workflow rewrites it from `flutter --version --machine` after the web
+// build; a stale value only costs one extra wasm download, never staleness.
+const ENGINE_REV="__ENGINE_REV__";
+const IMMUTABLE="canvaskit-"+ENGINE_REV;
 const CORE=["main.dart.js"];
-// Never cached: entry points, loaders, worker scripts, version probes.
+// Never cached: entry points, loaders, worker scripts, version probes,
+// and Cloud Function rewrites (same-origin /api/* GETs must never serve stale).
 const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
 function isNoStore(path) {
+  if (path.startsWith("/api/")) return true;
   for (const n of NO_STORE) if (path === n) return true;
   return false;
 }
@@ -55,23 +66,31 @@ async function trimRuntime(cacheName, maxEntries) {
   try {
     const c = await caches.open(cacheName);
     const keys = await c.keys();
+    // FIFO trim must never evict CORE shell bytes: delete oldest
+    // non-core entries first.
+    const evictable = [];
+    for (const k of keys) {
+      if (!isCore(new URL(k.url).pathname)) evictable.push(k);
+    }
     const excess = keys.length - maxEntries;
-    for (let i = 0; i < excess; i++) {
-      await c.delete(keys[i]);
+    for (let i = 0; i < excess && i < evictable.length; i++) {
+      await c.delete(evictable[i]);
     }
   } catch (_) {}
 }
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(CORE).catch(() => {})),
+    caches.open(SHELL).then((c) => c.addAll(CORE).catch(() => {}))
+      .then(() => caches.open(IMMUTABLE).then((c) =>
+        c.addAll(["/canvaskit/canvaskit.wasm"]).catch(() => {}))),
   );
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
       .then((ks) => Promise.all(
-        ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
+        ks.filter((k) => k !== SHELL && k !== IMMUTABLE).map((k) => caches.delete(k)),
       ))
       .then(() => self.clients.claim()),
   );
@@ -87,12 +106,26 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(fetch(e.request, { cache: "no-store" }));
     return;
   }
-  if (isCore(path) || isImmutable(e.request.url)) {
+  // Immutable bytes (CanvasKit/WASM/fonts/models) live in the
+  // engine-revision cache so app deploys do not evict them.
+  if (isImmutable(e.request.url) && !isCore(path)) {
     e.respondWith(
-      caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
+      caches.match(e.request, { cacheName: IMMUTABLE }).then((hit) => hit || fetch(e.request).then((res) => {
         if (res && res.ok) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
+          caches.open(IMMUTABLE).then((c) => c.put(e.request, copy));
+        }
+        return res;
+      })),
+    );
+    return;
+  }
+  if (isCore(path)) {
+    e.respondWith(
+      caches.match(e.request, { cacheName: SHELL }).then((hit) => hit || fetch(e.request).then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(SHELL).then((c) => c.put(e.request, copy));
         }
         return res;
       })),
@@ -105,8 +138,8 @@ self.addEventListener("fetch", (e) => {
       .then((res) => {
         if (res && res.ok) {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => {
-            c.put(e.request, copy).then(() => trimRuntime(CACHE, 240));
+          caches.open(SHELL).then((c) => {
+            c.put(e.request, copy).then(() => trimRuntime(SHELL, 240));
           });
         }
         return res;

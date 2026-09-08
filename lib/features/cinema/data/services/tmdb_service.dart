@@ -279,32 +279,32 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Future<List<MediaItem>> getPreviewItems(String userName, {int limit = 30}) =>
       _watchlist.getPreviewItems(userName, limit: limit);
 
-  Stream<List<MediaItem>> getWatchListStream(String userName) =>
-      _watchlist.getWatchListStream(userName);
+  Stream<List<MediaItem>> getWatchListStream(String userName, {int? limit}) =>
+      _watchlist.getWatchListStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleWatchListStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) => _watchlist.getCoupleWatchListStream(userA: userA, userB: userB);
 
-  Stream<List<MediaItem>> getAnimeWatchListStream(String userName) =>
-      _watchlist.getAnimeWatchListStream(userName);
+  Stream<List<MediaItem>> getAnimeWatchListStream(String userName, {int? limit}) =>
+      _watchlist.getAnimeWatchListStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) => _watchlist.getCoupleAnimeStream(userA: userA, userB: userB);
 
-  Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName) =>
-      _watchlist.getCurrentlyWatchingStream(userName);
+  Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName, {int? limit}) =>
+      _watchlist.getCurrentlyWatchingStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) => _watchlist.getCoupleCurrentlyWatchingStream(userA: userA, userB: userB);
 
-  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName) =>
-      _watchlist.getCurrentlyWatchingAnimeStream(userName);
+  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName, {int? limit}) =>
+      _watchlist.getCurrentlyWatchingAnimeStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingAnimeStream({
     String userA = 'khentsgdz',
