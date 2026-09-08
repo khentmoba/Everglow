@@ -264,6 +264,9 @@ class _GatewayPageState extends State<GatewayPage> {
         // every read — each stream fails with permission-denied and the
         // dashboard renders false-empty shelves.
         if (authService.user == null || authService.isAnonymousSession) {
+          // The code validated but no Firebase session exists (offline or
+          // anonymous): a connection problem, never a wrong code.
+          _notifier.setFailureReason(GatewayFailureReason.connection);
           _notifier.updateState(GatewayState.error);
           Future.delayed(const Duration(milliseconds: 500), () {
             if (!mounted || _hasNavigated) return;
@@ -418,7 +421,9 @@ class _GatewayPageState extends State<GatewayPage> {
                     }
                   },
                   keypad: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
+                    duration: AppMotion.orZero(
+                      const Duration(milliseconds: 500),
+                    ),
                     child:
                         (state == GatewayState.initialLoad ||
                             state == GatewayState.awaitingInput ||
@@ -429,6 +434,10 @@ class _GatewayPageState extends State<GatewayPage> {
                             child: PasscodeInput(
                               input: _notifier.currentInput,
                               isError: state == GatewayState.error,
+                              isVerifying:
+                                  state == GatewayState.evaluating,
+                              failureReason:
+                                  _notifier.lastFailureReason,
                               onDigitPressed: _notifier.appendDigit,
                               onBackspace: _notifier.backspace,
                             ),

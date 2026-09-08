@@ -27,6 +27,58 @@ jobs:
       #   flutter test --tags=network test/katana_smoke_test.dart
       - run: flutter test --exclude-tags="golden,network"
 
+  # Regression guards: static tripwires for breakage classes that
+  # `flutter analyze` + unit tests did not catch (PRs #1-#119 audit).
+  # Each script documents the PR/commit it prevents; all run with plain
+  # `dart` (no Flutter build) and fail the PR on violation.
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      # P1: shell-corrupted Firestore literals (PR #63) + rules coverage
+      # for every collection used in lib/ (#55/#57/#59 audits).
+      - run: dart tool/ci/check_firestore_collections.dart
+      # P3: bundled asset refs must resolve (PR #66 .png->.jpg blanks).
+      - run: dart tool/ci/check_assets.dart
+      # P3: no bare Image.network without errorBuilder (PR #119 blanks).
+      - run: dart tool/ci/check_image_fallback.dart
+      # P3: list streams stay bounded with .limit() (PR #36, 34d615a).
+      - run: dart tool/ci/check_stream_limits.dart
+      # Golden tests are excluded from CI so they can't gate PRs; new
+      # visual coverage must be behavioral (PR #119, 7dcb4d9).
+      - run: dart tool/ci/check_no_new_goldens.dart
+      # Pinned crash-guard + layout tests must stay intact (#107-#110,
+      # #54/#56/#58 overflow audits).
+      - run: dart tool/ci/check_model_guards.dart
+      - run: dart tool/ci/check_layout_tests.dart
+      # Hosting config shape (PR #112/#114 web-lite flip-flop).
+      - run: dart tool/ci/check_firebase_hosting.dart
+
+  # PRs previously merged with a broken web build: quality ran analyze
+  # + test but the web build only ran on main push, so hosting/revert
+  # breakage (early api_keys/import/asset-path fixes, PR #114) went
+  # green until deploy. This builds the exact prod artifact shape.
+  web_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Prepare local env asset
+        run: |
+          if [ ! -f assets/env.txt ]; then
+            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
+          fi
+      - run: dart tool/generate_sw.dart
+      - run: dart tool/build_web.dart -- --release --no-source-maps
+
   functions:
     runs-on: ubuntu-latest
     steps:
@@ -40,8 +92,15 @@ jobs:
         run: npm ci
       - working-directory: functions
         run: npm test
+      # Syntax-check every top-level function module, not just index.js:
+      # the #99-#105 split moved the tool loop to mochi_chat.js while
+      # the gate still pointed at index.js (fixed in PR #106).
       - working-directory: functions
-        run: node --check index.js
+        run: |
+          for f in *.js; do
+            echo "node --check $f"
+            node --check "$f" || exit 1
+          done
       - working-directory: functions
         run: node eval_gate.js
       - working-directory: functions
