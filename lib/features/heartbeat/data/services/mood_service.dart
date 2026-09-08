@@ -39,6 +39,11 @@ class MoodService implements MoodSource {
   }
 
   /// Checks if the user has already submitted a mood today.
+  ///
+  /// The `orderBy` is load-bearing: equality on `username` plus a range on
+  /// `timestamp` needs the composite index (username ASC, timestamp DESC)
+  /// already shipped in firestore.indexes.json. Without it Firestore
+  /// throws failed-precondition on every dashboard load.
   @override
   Future<bool> hasSubmittedToday(String username) async {
     final now = DateTime.now();
@@ -48,6 +53,7 @@ class MoodService implements MoodSource {
         .collection('moods')
         .where('username', isEqualTo: username)
         .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
+        .orderBy('timestamp', descending: true)
         .limit(1)
         .get();
 
