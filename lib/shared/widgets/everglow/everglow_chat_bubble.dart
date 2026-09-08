@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 import 'everglow_markdown.dart';
@@ -50,24 +49,32 @@ class EverglowUserBubble extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.deepRose, AppColors.roseDepths],
+                  colors: [
+                    AppColors.deepRose,
+                    AppColors.roseDepths,
+                    AppColors.roseDark,
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppRadius.x2),
-                  topRight: Radius.circular(AppRadius.x2),
-                  bottomLeft: Radius.circular(AppRadius.x2),
-                  bottomRight: Radius.circular(AppRadius.xs),
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(6),
                 ),
                 border: Border.all(
-                  color: AppColors.petalWhite.withValues(alpha: 0.14),
+                  color: AppColors.petalWhite.withValues(alpha: 0.20),
                 ),
                 boxShadow: [
-                  ...AppElevation.e2,
                   BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.30),
-                    blurRadius: 18,
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                  BoxShadow(
+                    color: AppColors.deepRose.withValues(alpha: 0.32),
+                    blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
                 ],
@@ -87,13 +94,24 @@ class EverglowUserBubble extends StatelessWidget {
                   ),
                   if (timeLabel != null && timeLabel!.isNotEmpty) ...[
                     const SizedBox(height: 5),
-                    Text(
-                      timeLabel!,
-                      style: AppTypography.bodySmall().copyWith(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.petalWhite.withValues(alpha: 0.75),
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.favorite_rounded,
+                          size: 9,
+                          color: AppColors.petalWhite.withValues(alpha: 0.65),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          timeLabel!,
+                          style: AppTypography.bodySmall().copyWith(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.petalWhite.withValues(alpha: 0.78),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -144,28 +162,30 @@ class EverglowAssistantBubble extends StatelessWidget {
       children: [
         if (avatarAsset != null)
           Container(
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              borderRadius: AppRadius.radiusSm,
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.blushGold.withValues(alpha: 0.35),
+                color: AppColors.blushGold.withValues(alpha: 0.45),
+                width: 1.2,
               ),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.blushGold.withValues(alpha: 0.25),
-                  blurRadius: 10,
+                  blurRadius: 14,
+                  spreadRadius: 1,
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: AppRadius.radiusSm,
+              borderRadius: BorderRadius.circular(11),
               child: Image.asset(
                 avatarAsset!,
-                width: 34,
-                height: 34,
-                cacheWidth: 102,
-                cacheHeight: 102,
+                width: 36,
+                height: 36,
+                cacheWidth: 108,
+                cacheHeight: 108,
                 filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),
@@ -179,28 +199,31 @@ class EverglowAssistantBubble extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.moonlight.withValues(alpha: 0.13),
-                  AppColors.moonlight.withValues(alpha: 0.07),
+                  AppColors.velvet.withValues(alpha: 0.68),
+                  AppColors.inkDeep.withValues(alpha: 0.88),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              color: AppColors.panelGlass,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(AppRadius.xs),
-                topRight: Radius.circular(AppRadius.xl),
-                bottomLeft: Radius.circular(AppRadius.xl),
-                bottomRight: Radius.circular(AppRadius.xl),
+                topLeft: Radius.circular(6),
+                topRight: Radius.circular(22),
+                bottomLeft: Radius.circular(22),
+                bottomRight: Radius.circular(22),
               ),
               border: Border.all(
                 color: AppColors.moonlight.withValues(alpha: 0.16),
               ),
               boxShadow: [
-                ...AppElevation.e2,
                 BoxShadow(
-                  color: AppColors.auroraLilac.withValues(alpha: 0.10),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
+                  color: AppColors.auroraLilac.withValues(alpha: 0.09),
+                  blurRadius: 24,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -211,32 +234,54 @@ class EverglowAssistantBubble extends StatelessWidget {
                 // Header: MOCHI · context + copy.
                 Row(
                   children: [
-                    Text(
-                      title.toUpperCase(),
-                      style: AppTypography.labelSmall().copyWith(
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                        color: AppColors.blushGold,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                      horizontal: 8.5,
+                      vertical: 3.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.blushGold.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.radiusFull,
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.28),
+                        width: 0.8,
                       ),
                     ),
-                    if (subtitle != null && subtitle!.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          '· $subtitle',
-                          style: AppTypography.bodySmall().copyWith(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🐾', style: TextStyle(fontSize: 10)),
+                        const SizedBox(width: 4.5),
+                        Text(
+                          title.toUpperCase(),
+                          style: AppTypography.labelSmall().copyWith(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: AppColors.blushGold,
                           ),
-                          overflow: TextOverflow.ellipsis,
                         ),
+                      ],
+                    ),
+                  ),
+                  if (subtitle != null && subtitle!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        '· $subtitle',
+                        style: AppTypography.bodySmall().copyWith(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.roseQuartz.withValues(alpha: 0.82),
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                    const Spacer(),
-                    EverglowCopyIconButton(textToCopy: text),
+                    ),
                   ],
-                ),
+                  const Spacer(),
+                  EverglowCopyIconButton(textToCopy: text),
+                ],
+              ),
                 const SizedBox(height: 9),
                 if (leadingReasoning != null) ...[
                   leadingReasoning!,
@@ -264,11 +309,11 @@ class EverglowAssistantBubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.shield_outlined,
-                        size: 10,
-                        color: AppColors.textDisabled.withValues(alpha: 0.55),
+                        Icons.auto_awesome_rounded,
+                        size: 11,
+                        color: AppColors.blushGold.withValues(alpha: 0.75),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 5),
                       Flexible(
                         child: Text(
                           timeLabel!,
