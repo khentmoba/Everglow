@@ -24,20 +24,19 @@ class _MochiHeader extends StatelessWidget {
     final showNav = isDesktop || MediaQuery.sizeOf(context).width >= 520;
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: isDesktop ? 18 : 8,
-        vertical: 8,
+        horizontal: isDesktop ? 20 : 10,
+        vertical: 10,
       ),
       decoration: BoxDecoration(
         color: isDesktop
-            ? AppColors.twilight.withValues(alpha: 0.7)
-            : Colors.transparent,
-        border: isDesktop
-            ? Border(
-                bottom: BorderSide(
-                  color: AppColors.blushGold.withValues(alpha: 0.06),
-                ),
-              )
-            : null,
+            ? AppColors.inkDeep.withValues(alpha: 0.75)
+            : AppColors.inkDeep.withValues(alpha: 0.40),
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.blushGold.withValues(alpha: 0.10),
+            width: 0.8,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -45,7 +44,7 @@ class _MochiHeader extends StatelessWidget {
             onPressed: onSidebarToggle,
             icon: Icon(
               sidebarOpen ? Icons.close_rounded : Icons.menu_rounded,
-              color: AppColors.textMuted,
+              color: AppColors.textMedium,
               size: 20,
             ),
             tooltip: sidebarOpen ? 'Close history' : 'History',
@@ -54,140 +53,248 @@ class _MochiHeader extends StatelessWidget {
             onPressed: onBack,
             icon: Icon(
               Icons.arrow_back_ios_new_rounded,
-              color: AppColors.textMuted,
+              color: AppColors.textMedium,
               size: 18,
             ),
             tooltip: 'Back',
           ),
-          const SizedBox(width: 2),
-          ClipRRect(
-            borderRadius: AppRadius.radiusSm,
-            child: Image.asset(
-              'assets/images/mochi_avatar.png',
-              width: 32,
-              height: 32,
-              cacheWidth: 96,
-              cacheHeight: 96,
-              filterQuality: FilterQuality.high,
-              fit: BoxFit.cover,
-            ),
+          const SizedBox(width: 4),
+          Stack(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.blushGold.withValues(alpha: 0.45),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.blushGold.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      spreadRadius: 1,
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: Image.asset(
+                    'assets/images/mochi_avatar.png',
+                    width: 36,
+                    height: 36,
+                    cacheWidth: 108,
+                    cacheHeight: 108,
+                    filterQuality: FilterQuality.high,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: AppColors.success,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.inkDeep, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Mochi',
+                    style: AppTypography.titleLarge().copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.blushGold.withValues(alpha: 0.14),
+                      borderRadius: AppRadius.radiusFull,
+                    ),
+                    child: Text(
+                      '🐾 CAT',
+                      style: AppTypography.labelSmall().copyWith(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppColors.blushGold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
               Text(
-                'Mochi',
-                style: AppTypography.titleLarge().copyWith(
-                  fontSize: 18,
-                  height: 1.0,
+                'Your cat who knows everything about you two',
+                style: AppTypography.bodySmall().copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                  height: 1.1,
                 ),
               ),
-              if (isDesktop)
-                Text(
-                  'Your cat who knows everything about you two',
-                  style: AppTypography.bodySmall().copyWith(
-                    color: AppColors.textDisabled,
-                    fontSize: 11,
-                    height: 1.0,
-                  ),
-                ),
             ],
           ),
           const Spacer(),
           if (showNav) ...[
-            Tooltip(
-              message: 'Memory Book',
-              child: InkWell(
-                onTap: () => context.push('/mochi-memory'),
-                borderRadius: AppRadius.radiusSm,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.menu_book_rounded,
-                    color: AppColors.textMuted,
-                    size: 20,
-                  ),
-                ),
-              ),
+            _HeaderActionButton(
+              tooltip: 'Memory Book',
+              icon: Icons.menu_book_rounded,
+              onTap: () => context.push('/mochi-memory'),
             ),
-            Tooltip(
-              message: 'Memory Trivia',
-              child: InkWell(
-                onTap: () => context.push('/mochi-trivia'),
-                borderRadius: AppRadius.radiusSm,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.quiz_rounded,
-                    color: AppColors.textMuted,
-                    size: 20,
-                  ),
-                ),
-              ),
+            const SizedBox(width: 6),
+            _HeaderActionButton(
+              tooltip: 'Memory Trivia',
+              icon: Icons.quiz_rounded,
+              onTap: () => context.push('/mochi-trivia'),
             ),
-            Tooltip(
-              message: 'Mochi Today',
-              child: InkWell(
-                onTap: () => context.push('/mochi-today'),
-                borderRadius: AppRadius.radiusSm,
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.wb_twilight_rounded,
-                    color: AppColors.textMuted,
-                    size: 20,
-                  ),
-                ),
-              ),
+            const SizedBox(width: 6),
+            _HeaderActionButton(
+              tooltip: 'Mochi Today',
+              icon: Icons.wb_twilight_rounded,
+              onTap: () => context.push('/mochi-today'),
             ),
-            const SizedBox(width: 4),
-            Container(width: 1, height: 20, color: AppColors.border),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
+            Container(
+              width: 1,
+              height: 20,
+              color: AppColors.blushGold.withValues(alpha: 0.15),
+            ),
+            const SizedBox(width: 6),
           ],
-          Tooltip(
-            message: 'New chat',
-            child: InkWell(
-              onTap: onNewChat,
-              borderRadius: AppRadius.radiusSm,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: AppColors.textMuted,
-                  size: 20,
-                ),
-              ),
-            ),
+          _HeaderActionButton(
+            tooltip: 'New chat',
+            icon: Icons.add_rounded,
+            onTap: onNewChat,
           ),
-          Tooltip(
-            message: deepThink ? 'Deep thinking: on' : 'Deep thinking: off',
-            child: InkWell(
-              onTap: onToggleDeepThink,
-              borderRadius: AppRadius.radiusSm,
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: deepThink
-                    ? BoxDecoration(
-                        color: AppColors.blushGold.withValues(alpha: 0.14),
-                        borderRadius: AppRadius.radiusSm,
-                        border: Border.all(
-                          color: AppColors.blushGold.withValues(alpha: 0.25),
-                        ),
-                      )
-                    : null,
-                child: Icon(
-                  deepThink
-                      ? Icons.psychology_rounded
-                      : Icons.psychology_outlined,
-                  color: deepThink ? AppColors.blushGold : AppColors.textMuted,
-                  size: 20,
-                ),
-              ),
-            ),
+          const SizedBox(width: 6),
+          _DeepThinkPill(
+            deepThink: deepThink,
+            onTap: onToggleDeepThink,
           ),
         ],
+      ),
+    );
+  }
+}
+class _HeaderActionButton extends StatelessWidget {
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeaderActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(7.5),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceGlass,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.blushGold.withValues(alpha: 0.12),
+              width: 0.8,
+            ),
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.textMedium,
+            size: 18,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeepThinkPill extends StatelessWidget {
+  final bool deepThink;
+  final VoidCallback onTap;
+
+  const _DeepThinkPill({
+    required this.deepThink,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: deepThink ? 'Deep thinking: on' : 'Deep thinking: off',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6.5),
+          decoration: BoxDecoration(
+            color: deepThink
+                ? AppColors.blushGold.withValues(alpha: 0.16)
+                : AppColors.surfaceGlass,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: deepThink
+                  ? AppColors.blushGold.withValues(alpha: 0.35)
+                  : AppColors.blushGold.withValues(alpha: 0.12),
+              width: 0.8,
+            ),
+            boxShadow: deepThink
+                ? [
+                    BoxShadow(
+                      color: AppColors.blushGold.withValues(alpha: 0.16),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                deepThink
+                    ? Icons.psychology_rounded
+                    : Icons.psychology_outlined,
+                color: deepThink ? AppColors.blushGold : AppColors.textMuted,
+                size: 18,
+              ),
+              const SizedBox(width: 4.5),
+              Text(
+                'Deep',
+                style: AppTypography.labelSmall().copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: deepThink ? AppColors.blushGold : AppColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -203,33 +310,113 @@ class _GreetingEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: centered ? 48 : 32),
+      padding: EdgeInsets.symmetric(horizontal: centered ? 40 : 20, vertical: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Animated Mochi welcoming avatar
           _DelayedFadeIn(
             delay: const Duration(milliseconds: 0),
+            child: Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.45),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.blushGold.withValues(alpha: 0.28),
+                    blurRadius: 28,
+                    spreadRadius: 2,
+                  ),
+                  BoxShadow(
+                    color: AppColors.auroraRose.withValues(alpha: 0.15),
+                    blurRadius: 36,
+                    spreadRadius: 4,
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Image.asset(
+                  'assets/images/mochi_avatar.png',
+                  width: 76,
+                  height: 76,
+                  cacheWidth: 228,
+                  cacheHeight: 228,
+                  filterQuality: FilterQuality.high,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _DelayedFadeIn(
+            delay: const Duration(milliseconds: 100),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.blushGold.withValues(alpha: 0.12),
+                borderRadius: AppRadius.radiusFull,
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.25),
+                  width: 0.8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: AppColors.success,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Purring & ready for you two',
+                    style: AppTypography.bodySmall().copyWith(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.blushGold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _DelayedFadeIn(
+            delay: const Duration(milliseconds: 180),
             child: Text(
               'Ask Mochi anything',
               textAlign: TextAlign.center,
               style: AppTypography.titleLarge().copyWith(
-                fontSize: centered ? 30 : 26,
-                color: AppColors.textHigh,
+                fontSize: centered ? 30 : 25,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5,
+                color: AppColors.petalWhite,
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _DelayedFadeIn(
-            delay: const Duration(milliseconds: 150),
+            delay: const Duration(milliseconds: 260),
             child: Text(
-              'Your cat who knows everything about you two.',
+              'Your companion cat who remembers all your special dates, games, movies & thoughts.',
               textAlign: TextAlign.center,
-              style: AppTypography.bodySmall().copyWith(
+              style: AppTypography.bodyMedium().copyWith(
                 color: AppColors.textMuted,
+                height: 1.45,
               ),
             ),
           ),
-          const SizedBox(height: 36),
+          const SizedBox(height: 32),
           _SuggestedGrid(onTap: onTap, centered: centered),
         ],
       ),
@@ -251,22 +438,63 @@ class _SuggestedGrid extends StatelessWidget {
   const _SuggestedGrid({required this.onTap, this.centered = false});
 
   static const _suggestions = [
-    _Suggestion('Add a movie to our watchlist', Icons.movie_filter_outlined),
+    _Suggestion(
+      'Build us a tiny game',
+      Icons.sports_esports_rounded,
+      accent: AppColors.auroraRose,
+      badge: 'GAME',
+    ),
+    _Suggestion(
+      'Quiz us with 5 fun questions',
+      Icons.quiz_rounded,
+      accent: AppColors.blushGold,
+      badge: 'QUIZ',
+    ),
     _Suggestion(
       'Save a note to the Starlight Jar',
-      Icons.auto_awesome_outlined,
+      Icons.auto_awesome_rounded,
+      accent: AppColors.auroraLilac,
+      badge: 'STARLIGHT',
     ),
-    _Suggestion('Quiz us with 5 fun questions', Icons.edit_note_rounded),
-    _Suggestion('Build us a tiny game', Icons.sports_esports_rounded),
-    _Suggestion('Plan a date for us', Icons.calendar_month_outlined),
-    _Suggestion('How are we doing today?', Icons.favorite_outline_rounded),
+    _Suggestion(
+      'Add a movie to our watchlist',
+      Icons.movie_filter_rounded,
+      accent: AppColors.auroraGold,
+      badge: 'CINEMA',
+    ),
+    _Suggestion(
+      'Plan a date for us',
+      Icons.favorite_rounded,
+      accent: AppColors.roseQuartz,
+      badge: 'DATE',
+    ),
+    _Suggestion(
+      'How are we doing today?',
+      Icons.wb_sunny_rounded,
+      accent: AppColors.auroraTeal,
+      badge: 'STATUS',
+    ),
     _Suggestion(
       'Mochi Today',
       Icons.wb_twilight_rounded,
       route: '/mochi-today',
+      accent: AppColors.auroraGold,
+      badge: 'RECAP',
     ),
-    _Suggestion('Memory Trivia', Icons.quiz_rounded, route: '/mochi-trivia'),
-    _Suggestion('Memory Book', Icons.menu_book_rounded, route: '/mochi-memory'),
+    _Suggestion(
+      'Memory Trivia',
+      Icons.psychology_rounded,
+      route: '/mochi-trivia',
+      accent: AppColors.auroraLilac,
+      badge: 'TRIVIA',
+    ),
+    _Suggestion(
+      'Memory Book',
+      Icons.menu_book_rounded,
+      route: '/mochi-memory',
+      accent: AppColors.roseQuartz,
+      badge: 'MEMORIES',
+    ),
   ];
 
   @override
@@ -330,42 +558,79 @@ class _SuggestionCardState extends State<_SuggestionCard> {
           child: AnimatedContainer(
             duration: AppMotion.fast,
             curve: AppMotion.easeOutStrong,
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: _hover
-                  ? AppColors.moonlight.withValues(alpha: 0.16)
-                  : AppColors.surfaceGlass,
-              borderRadius: AppRadius.radiusLg,
+                  ? AppColors.inkDeep.withValues(alpha: 0.95)
+                  : AppColors.inkDeep.withValues(alpha: 0.70),
+              borderRadius: AppRadius.radiusXl,
               border: Border.all(
                 color: _hover
-                    ? AppColors.blushGold.withValues(alpha: 0.22)
-                    : AppColors.blushGold.withValues(alpha: 0.10),
+                    ? widget.suggestion.accent.withValues(alpha: 0.45)
+                    : widget.suggestion.accent.withValues(alpha: 0.16),
+                width: 1.1,
               ),
-              boxShadow: _hover
-                  ? [
-                      BoxShadow(
-                        color: AppColors.blushGold.withValues(alpha: 0.10),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  widget.suggestion.icon,
-                  size: 18,
-                  color: AppColors.blushGold.withValues(alpha: 0.85),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  widget.suggestion.text,
-                  style: AppTypography.bodySmall().copyWith(
-                    color: AppColors.textMedium,
-                    height: 1.3,
+                if (_hover)
+                  BoxShadow(
+                    color: widget.suggestion.accent.withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: widget.suggestion.accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: widget.suggestion.accent.withValues(alpha: 0.30),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Icon(
+                    widget.suggestion.icon,
+                    size: 19,
+                    color: widget.suggestion.accent,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.suggestion.badge,
+                        style: AppTypography.labelSmall().copyWith(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.6,
+                          color: widget.suggestion.accent,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.suggestion.text,
+                        style: AppTypography.bodySmall().copyWith(
+                          color: AppColors.petalWhite,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          fontSize: 12.5,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -381,8 +646,16 @@ class _Suggestion {
   final String text;
   final IconData icon;
   final String? route;
+  final Color accent;
+  final String badge;
 
-  const _Suggestion(this.text, this.icon, {this.route});
+  const _Suggestion(
+    this.text,
+    this.icon, {
+    this.route,
+    this.accent = AppColors.blushGold,
+    this.badge = 'MOCHI',
+  });
 }
 
 // ─── Delayed fade-in wrapper ────────────────────────────────────
