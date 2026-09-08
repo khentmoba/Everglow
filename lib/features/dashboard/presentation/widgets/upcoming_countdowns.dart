@@ -28,33 +28,92 @@ class UpcomingCountdowns extends StatefulWidget {
 
 class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
   late final CalendarService _calendarService;
-  late Stream<List<CalendarEvent>> _upcoming;
+  StreamSubscription<List<CalendarEvent>>? _sub;
+  Timer? _retryTimer;
+  List<CalendarEvent>? _events;
+  Object? _error;
+  bool _isLoading = true;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
-    // Cache the stream so dashboard rebuilds don't resubscribe and
-    // restart the Firestore listener on every frame.
+    // One subscription for the widget lifetime so dashboard rebuilds don't
+    // resubscribe and restart the Firestore listener on every frame.
     _calendarService = CalendarService();
-    _upcoming = _calendarService.getUpcomingEvents(days: 60);
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = _calendarService.getUpcomingEvents(days: 60).listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _events = data;
+          _error = null;
+          _isLoading = false;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        _scheduleSilentRetry(error);
+      },
+      onDone: () {
+        // withFirestoreTimeout closes the stream without an error when the
+        // first snapshot never arrives (cold Firestore WebChannel on first
+        // load). Retry silently — the loading row stays up, so the user
+        // never sees a spurious "could not load dates". The error UI only
+        // appears after the retries are exhausted.
+        if (!mounted) return;
+        if (_isLoading && _events == null) _scheduleSilentRetry(_error);
+      },
+    );
+  }
+
+  void _scheduleSilentRetry(Object? error) {
+    if (!mounted) return;
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _error = error ?? _error;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted) _subscribe();
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _error = error ?? _error;
+      });
+    }
   }
 
   void _retry() {
     setState(() {
-      _upcoming = _calendarService.getUpcomingEvents(days: 60);
+      _isLoading = true;
+      _error = null;
+      _retryCount = 0;
     });
+    _subscribe();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<CalendarEvent>>(
-      stream: _upcoming,
-      builder: (context, snapshot) {
-        // Error (or timeout-closed with no data) must never masquerade as
-        // "empty" — the calendar screen would still show dates on tap.
-        if (snapshot.hasError ||
-            (!snapshot.hasData &&
-                snapshot.connectionState == ConnectionState.done)) {
+    final events = _events;
+    // While loading — including silent background retries after a slow
+    // first snapshot — keep the loading row up so first load never flashes
+    // "could not load dates". The error row only appears after all retries
+    // are exhausted, and the manual tap stays as a last resort.
+    if (!_isLoading && (_error != null || events == null)) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: FeatureSection(
@@ -89,7 +148,7 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '${firestoreErrorHint(snapshot.error)} — tap here to retry.',
+                        '${firestoreErrorHint(_error)} — tap here to retry.',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
                           color: AppColors.petalWhite.withValues(alpha: 0.6),
@@ -104,8 +163,9 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
           );
         }
 
-        // Waiting for the first snapshot is loading, not empty.
-        if (!snapshot.hasData) {
+        // Waiting for the first snapshot (or a silent retry) is loading,
+        // not empty — and never an error the user must dismiss by hand.
+        if (events == null) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: FeatureSection(
@@ -151,7 +211,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
           );
         }
 
-        final events = snapshot.data!;
         final displayEvents = events.take(3).toList();
 
         return Padding(
@@ -218,8 +277,6 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
                   ),
           ),
         );
-      },
-    );
   }
 }
 
