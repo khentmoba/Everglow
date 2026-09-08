@@ -51,7 +51,7 @@ void main() {
   });
 
   group('PasscodeInput entry copy + states', () {
-    testWidgets('shows private-place header and progress count',
+    testWidgets('does not show redundant header, shows progress count',
         (tester) async {
       await tester.pumpWidget(_wrap(PasscodeInput(
         input: '12',
@@ -61,9 +61,9 @@ void main() {
       await tester.pump();
       expect(
         find.text('Your private place for Khent & Clair'),
-        findsOneWidget,
+        findsNothing,
       );
-      expect(find.text('Enter your 4-digit passcode'), findsOneWidget);
+      expect(find.text('Enter your 4-digit passcode'), findsNothing);
       expect(find.text('2 of 4'), findsOneWidget);
     });
 
