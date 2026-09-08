@@ -12,6 +12,17 @@ import '../../features/xp/data/services/xp_service.dart';
 import '../config/env_config.dart';
 import '../utils/logger.dart';
 
+/// Thrown by [AuthService.verifyCouplePasscode] when no endpoint returned a
+/// definitive wrong-code answer (offline, timeout, 5xx). Lets the gateway
+/// show "couldn't connect" instead of "wrong code".
+class PasscodeConnectionException implements Exception {
+  final String? detail;
+  const PasscodeConnectionException([this.detail]);
+  @override
+  String toString() =>
+      'PasscodeConnectionException${detail == null ? '' : ': $detail'}';
+}
+
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   User? _user;
@@ -374,6 +385,9 @@ class AuthService extends ChangeNotifier {
 
   /// Server-verified Khent/Clair passcode -> Firebase custom token.
   /// Returns username (khentsgdz/clairjassen) on success, null on bad code.
+  /// Throws [PasscodeConnectionException] when no endpoint gave a
+  /// definitive answer (offline, timeout, 5xx) so the gateway can tell
+  /// "wrong code" apart from "couldn't connect".
   Future<String?> verifyCouplePasscode(String passcode) async {
     // Try hosting rewrite first (same-origin, no CORS), then direct CF URL.
     final urls = <Uri>[
@@ -383,6 +397,7 @@ class AuthService extends ChangeNotifier {
       ),
       Uri.parse('https://everglow-1c6db.web.app/api/verifyPasscode'),
     ];
+    Object? lastError;
     for (final url in urls) {
       try {
         final resp = await http
@@ -393,9 +408,11 @@ class AuthService extends ChangeNotifier {
             )
             .timeout(const Duration(seconds: 10));
         if (resp.statusCode == 401 || resp.statusCode == 400) {
+          // Definitive answer from the server: wrong code.
           return null;
         }
         if (resp.statusCode != 200) {
+          lastError = 'HTTP ${resp.statusCode}';
           Logger.e('verifyCouplePasscode $url -> ${resp.statusCode}: ${resp.body}');
           continue;
         }
@@ -403,10 +420,17 @@ class AuthService extends ChangeNotifier {
         final token = data['token'] as String?;
         final username = data['username'] as String?;
         if (token == null || token.isEmpty || username == null) {
+          lastError = 'missing token/username';
           Logger.e('verifyCouplePasscode missing token/username from $url');
           continue;
         }
-        await _auth.signInWithCustomToken(token);
+        try {
+          await _auth.signInWithCustomToken(token);
+        } catch (e) {
+          lastError = e;
+          Logger.e('verifyCouplePasscode sign-in failed via $url', error: e);
+          continue;
+        }
         _currentUser = username;
         await _saveSession(username);
         unawaited(_syncUserDoc());
@@ -414,10 +438,13 @@ class AuthService extends ChangeNotifier {
         notifyListeners();
         return username;
       } catch (e) {
+        lastError = e;
         Logger.e('verifyCouplePasscode $url failed', error: e);
       }
     }
-    return null;
+    // No endpoint gave a definitive wrong-code answer and none succeeded:
+    // the network or server is at fault, not the code itself.
+    throw PasscodeConnectionException(lastError?.toString());
   }
 
   /// Offline fallback for Khent/Clair when verifyPasscode is unreachable.

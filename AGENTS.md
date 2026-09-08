@@ -38,7 +38,7 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 - Never push straight to `main`. `main` auto-deploys live to Clair.
 - One small branch per fix or feature, then open a PR and merge only when checks pass.
 - Keep it tiny: one topic per PR. No giant mixed PRs (routes + AI + voice + design in one go).
-- Before every PR: run `flutter analyze`, run `flutter test`, and open the app in Chrome (`flutter run -d chrome`) to look at what you changed.
+- Before every PR: run `flutter analyze`, run `flutter test`, run the regression guards (`dart tool/ci/check_*.dart`), and open the app in Chrome (`flutter run -d chrome`) to look at what you changed. CI enforces all of these plus a release web build on every PR.
 - If functions or hosting checks fail, stop and fix. Do not add `continue-on-error` or hide failures.
 - Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
 

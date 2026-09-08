@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' show Picture, PictureRecorder;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 
 class PetalShower extends StatefulWidget {
   final bool isVisible;
@@ -25,7 +26,12 @@ class _PetalShowerState extends State<PetalShower>
     _controller = AnimationController(
       duration: const Duration(seconds: 4),
       vsync: this,
-    )..repeat();
+    );
+    // Reduced motion: petals stay hidden (see build) and the ticker
+    // never starts, so there is no perpetual background animation.
+    if (!AppMotion.reduced) {
+      _controller.repeat();
+    }
 
     // Pre-render a single petal shape into a Picture so every frame
     // replays it with a simple translate+rotate instead of allocating
@@ -74,7 +80,9 @@ class _PetalShowerState extends State<PetalShower>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isVisible) return const SizedBox.shrink();
+    if (!widget.isVisible || AppMotion.reduced) {
+      return const SizedBox.shrink();
+    }
 
     return RepaintBoundary(
       child: AnimatedBuilder(
