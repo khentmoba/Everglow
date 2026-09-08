@@ -852,6 +852,9 @@ class AniListService with ConnectivityAware {
       format: format,
       studio: studioName,
       genres: genres,
+      // Cards and hover popovers read `item.score`; the parallel `scores`
+      // list on the page is never consumed, so the score lives here.
+      score: scoreVal > 0 ? scoreVal : null,
     );
     return (item: item, score: scoreVal);
   }

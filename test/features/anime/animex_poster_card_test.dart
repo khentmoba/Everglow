@@ -111,4 +111,63 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(popoverBox, findsNothing);
   });
+
+  testWidgets('hover popover renders enriched details when resolved in cache', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final slimItem = MediaItem(
+      id: 'bleach-1',
+      tmdbId: 269,
+      title: 'Bleach',
+      mediaType: 'tv',
+      posterPath: '',
+      year: '2004',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime(2026, 1, 1),
+      source: 'jikan',
+    );
+    addTearDown(AnimeXPosterCard.clearResolvedCacheForTesting);
+
+    // Pre-populate resolved cache for Bleach (malId: 269 -> 'm269')
+    AnimeXPosterCard.cacheResolvedForTesting(
+      'm269',
+      slimItem.copyWith(
+        synopsis: 'Ichigo Kurosaki is a high schooler who can see ghosts.',
+        genres: const ['Action', 'Adventure', 'Supernatural'],
+        score: 7.9,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AnimeXPosterCard(
+            item: slimItem,
+            width: 175,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+
+    await gesture.moveTo(tester.getCenter(find.byType(AnimeXPosterCard)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Popover is displayed with Bleach enriched details
+    expect(find.text('Bleach'), findsNWidgets(2));
+    expect(find.textContaining('Ichigo Kurosaki'), findsOneWidget);
+    expect(find.text('ACTION'), findsOneWidget);
+    // Score is rendered on both the card rating badge and the popover
+    expect(find.text('7.9'), findsNWidgets(2));
+    expect(find.text('Details →'), findsOneWidget);
+  });
 }

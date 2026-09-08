@@ -1,12 +1,27 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/calendar_event.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class CalendarService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static CalendarService? _instance;
+  factory CalendarService({FirebaseFirestore? db}) {
+    if (db != null) {
+      return _instance = CalendarService._internal(db: db);
+    }
+    return _instance ??= CalendarService._internal();
+  }
+  CalendarService._internal({FirebaseFirestore? db}) : _customDb = db;
+
+  final FirebaseFirestore? _customDb;
+  FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'calendar_events';
 
+  List<CalendarEvent>? _cachedUpcoming;
+  List<CalendarEvent>? get cachedUpcoming => _cachedUpcoming;
+
+  final Map<int, _SharedUpcomingStream> _sharedUpcoming = {};
   /// Stream of events for a specific month.
   ///
   /// Re-attaches once when the first snapshot is slow: cold dashboard
@@ -51,7 +66,31 @@ class CalendarService {
   /// asked for a manual retry. 12s x 3 attempts keeps the loading state up
   /// while a slow first load still has a chance; only a persistent failure
   /// surfaces as an error.
+  /// Get upcoming events within N days. Wrapped with timeout so a slow
+  /// Firestore WebChannel doesn't keep Coming Up in skeleton forever.
+  ///
+  /// Shares the active Firestore listener between multiple dashboard widgets
+  /// (Coming Up + Upcoming Dates) so cold starts only attach ONE query
+  /// instead of doubling WebChannel load.
   Stream<List<CalendarEvent>> getUpcomingEvents({int days = 30}) {
+    final entry = _sharedUpcoming.putIfAbsent(days, () {
+      late final _SharedUpcomingStream shared;
+      shared = _SharedUpcomingStream(
+        sourceFactory: () => _createUpcomingStream(days),
+        onEmpty: () {
+          _sharedUpcoming.remove(days);
+        },
+        onData: (data) {
+          _cachedUpcoming = data;
+        },
+      );
+      return shared;
+    });
+
+    return entry.stream;
+  }
+
+  Stream<List<CalendarEvent>> _createUpcomingStream(int days) {
     Stream<List<CalendarEvent>> subscribe() {
       final now = DateTime.now();
       final endDate = now.add(Duration(days: days));
@@ -77,6 +116,14 @@ class CalendarService {
       duration: const Duration(seconds: 12),
       maxAttempts: 3,
     );
+  }
+
+  /// Invalidate the upcoming cache and re-run active listeners if needed.
+  void invalidateUpcomingCache() {
+    _cachedUpcoming = null;
+    for (final shared in _sharedUpcoming.values) {
+      shared.restart();
+    }
   }
 
   /// Add a new calendar event.
@@ -127,6 +174,77 @@ class CalendarService {
     } catch (e) {
       Logger.e("Error getting events for day", error: e);
       return [];
+    }
+  }
+}
+
+class _SharedUpcomingStream {
+  final Stream<List<CalendarEvent>> Function() sourceFactory;
+  final void Function() onEmpty;
+  final void Function(List<CalendarEvent>) onData;
+
+  late final StreamController<List<CalendarEvent>> _controller;
+  StreamSubscription<List<CalendarEvent>>? _sourceSub;
+  List<CalendarEvent>? _lastData;
+
+  _SharedUpcomingStream({
+    required this.sourceFactory,
+    required this.onEmpty,
+    required this.onData,
+  }) {
+    _controller = StreamController<List<CalendarEvent>>.broadcast(
+      onListen: _onListen,
+      onCancel: _onCancel,
+    );
+  }
+
+  Stream<List<CalendarEvent>> get stream => _controller.stream;
+
+  void _onListen() {
+    if (_lastData != null) {
+      final cached = _lastData!;
+      scheduleMicrotask(() {
+        if (!_controller.isClosed && _controller.hasListener) {
+          _controller.add(cached);
+        }
+      });
+    }
+
+    _sourceSub ??= sourceFactory().listen(
+      (data) {
+        _lastData = data;
+        onData(data);
+        if (!_controller.isClosed) {
+          _controller.add(data);
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!_controller.isClosed) {
+          _controller.addError(error, stack);
+        }
+      },
+      onDone: () {
+        if (!_controller.isClosed) {
+          _controller.close();
+        }
+      },
+    );
+  }
+
+  void _onCancel() {
+    if (!_controller.hasListener) {
+      _sourceSub?.cancel();
+      _sourceSub = null;
+      onEmpty();
+    }
+  }
+
+  void restart() {
+    _sourceSub?.cancel();
+    _sourceSub = null;
+    _lastData = null;
+    if (_controller.hasListener) {
+      _onListen();
     }
   }
 }
