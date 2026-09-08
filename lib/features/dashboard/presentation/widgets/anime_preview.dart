@@ -444,6 +444,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
         _hasLoaded = true;
         _loadError = false;
       });
+      if (watched.isNotEmpty) _backfillPosters(watched);
     }).catchError((Object e) {
       if (!mounted || _future != future) return;
       setState(() {
@@ -451,6 +452,17 @@ class _AnimeShelfState extends State<_AnimeShelf> {
         _loadError = true;
       });
     });
+  }
+
+  /// Resolves posters for finished entries saved without one, mirroring
+  /// the anime Watching Now shelf — without this, finished cards fall
+  /// back to the placeholder tile forever.
+  Future<void> _backfillPosters(List<MediaItem> items) async {
+    try {
+      var updated = await _service.backfillMissingPosters(items);
+      updated = await _service.refreshAnimePosters(updated);
+      if (mounted) setState(() => _items = updated);
+    } catch (_) {}
   }
 
   @override
