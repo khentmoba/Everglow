@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_poster_card.dart';
+import 'package:everglow/features/anime/presentation/widgets/animex/animex_tokens.dart';
 
 MediaItem _sampleItem() {
   return MediaItem(
@@ -72,21 +73,21 @@ void main() {
     final popoverBox = find.byWidgetPredicate(
       (w) =>
           w is ConstrainedBox &&
-          w.constraints.maxWidth == 190 &&
-          w.constraints.maxHeight == 220,
+          w.constraints.maxWidth == AnimeXTokens.popoverWidth &&
+          w.constraints.maxHeight == AnimeXTokens.popoverMaxHeight,
     );
     expect(popoverBox, findsOneWidget);
 
     final popoverSize = tester.getSize(popoverBox);
 
     // The popover must never balloon to fill the screen/overlay.
-    expect(popoverSize.width, lessThanOrEqualTo(190.1));
-    expect(popoverSize.height, lessThanOrEqualTo(220.1));
+    expect(popoverSize.width, lessThanOrEqualTo(256.1));
+    expect(popoverSize.height, lessThanOrEqualTo(320.1));
 
     final synopsisRect = tester.getRect(synopsisFinder);
     expect(
       synopsisRect.width,
-      lessThan(190),
+      lessThan(256),
       reason: 'Popover text should stay inside the compact panel.',
     );
 

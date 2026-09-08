@@ -38,38 +38,132 @@ class _AnimeXTickerState extends State<AnimeXTicker>
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final labelWidth = narrow ? 108.0 : 168.0;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _paused = true),
       onExit: (_) => setState(() => _paused = false),
       child: Container(
-        height: 34,
-        decoration: const BoxDecoration(
-          color: AnimeXTokens.surface,
-          border: Border(
-            top: BorderSide(color: AnimeXTokens.border),
+        height: 40,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AnimeXTokens.surface.withValues(alpha: 0.9),
+              AnimeXTokens.bg,
+            ],
+          ),
+          border: const Border(
             bottom: BorderSide(color: AnimeXTokens.border),
           ),
         ),
         clipBehavior: Clip.hardEdge,
-        child: _paused
-            ? _track(context)
-            : AnimatedBuilder(
-                animation: _ctrl,
-                builder: (context, _) {
-                  return Transform.translate(
-                    offset: Offset(-_ctrl.value * _trackWidth(context), 0),
-                    child: _track(context),
-                  );
-                },
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.only(left: labelWidth),
+                child: _paused
+                    ? _track(context)
+                    : AnimatedBuilder(
+                        animation: _ctrl,
+                        builder: (context, _) {
+                          return Transform.translate(
+                            offset: Offset(
+                              -_ctrl.value * _trackWidth(context),
+                              0,
+                            ),
+                            child: _track(context),
+                          );
+                        },
+                      ),
               ),
+            ),
+            // Fixed "Airing Today" label pinned to the left edge.
+            Container(
+              width: labelWidth,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AnimeXTokens.bg, AnimeXTokens.bg],
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      color: AnimeXTokens.success,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AnimeXTokens.success,
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    narrow ? 'AIRING' : 'AIRING TODAY',
+                    style: dmSansStyle(
+                      size: 11,
+                      color: AnimeXTokens.textPrimary,
+                      weight: FontWeight.w800,
+                      letterSpacing: 0.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: labelWidth,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: Container(
+                  width: 40,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AnimeXTokens.bg,
+                        AnimeXTokens.bg.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: IgnorePointer(
+                child: Container(
+                  width: 64,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AnimeXTokens.bg.withValues(alpha: 0),
+                        AnimeXTokens.bg,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   double _trackWidth(BuildContext context) {
     // Approximate the rendered width of a single track copy.
-    final perItem = widget.items.length * 210.0 + 120;
+    final perItem = widget.items.length * 230.0 + 120;
     return perItem;
   }
 
@@ -97,14 +191,14 @@ class _AnimeXTickerState extends State<AnimeXTicker>
               Container(
                 width: 5,
                 height: 5,
-                decoration: const BoxDecoration(
-                  color: AnimeXTokens.success,
+                decoration: BoxDecoration(
+                  color: AnimeXTokens.accentWarm.withValues(alpha: 0.7),
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
+                constraints: const BoxConstraints(maxWidth: 190),
                 child: Text(
                   item.title,
                   maxLines: 1,
@@ -117,12 +211,28 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                'EP ${item.currentEpisode ?? 1}',
-                style: dmSansStyle(
-                  size: 11,
-                  color: AnimeXTokens.accentWarm,
-                  weight: FontWeight.w700,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: AnimeXTokens.accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(
+                    AnimeXTokens.radiusSm,
+                  ),
+                  border: Border.all(
+                    color: AnimeXTokens.accent.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  'EP ${item.currentEpisode ?? 1}',
+                  style: dmSansStyle(
+                    size: 10.5,
+                    color: AnimeXTokens.accentWarm,
+                    weight: FontWeight.w800,
+                    letterSpacing: 0.04,
+                  ),
                 ),
               ),
             ],

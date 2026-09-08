@@ -14,76 +14,98 @@ enum AnimeXBadgeKind {
 }
 
 /// Compact status/quality badge (badge-* classes in the reference UI).
+/// Rendered as a frosted-glass pill so it stays legible over artwork.
 class AnimeXBadge extends StatelessWidget {
   final String label;
   final AnimeXBadgeKind kind;
   final bool dot;
+  final IconData? icon;
 
   const AnimeXBadge({
     super.key,
     required this.label,
     this.kind = AnimeXBadgeKind.episodes,
     this.dot = false,
+    this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
-    final (Color fg, Color bg) = switch (kind) {
+    final (Color fg, Color bg, Color border) = switch (kind) {
       AnimeXBadgeKind.sub => (
         AnimeXTokens.success,
-        AnimeXTokens.success.withValues(alpha: 0.15),
+        AnimeXTokens.success.withValues(alpha: 0.18),
+        AnimeXTokens.success.withValues(alpha: 0.35),
       ),
       AnimeXBadgeKind.dub => (
         AnimeXTokens.dubBlue,
-        AnimeXTokens.dubBlue.withValues(alpha: 0.15),
+        AnimeXTokens.dubBlue.withValues(alpha: 0.18),
+        AnimeXTokens.dubBlue.withValues(alpha: 0.35),
       ),
       AnimeXBadgeKind.rating => (
-        AnimeXTokens.accentWarm,
-        AnimeXTokens.accentWarm.withValues(alpha: 0.15),
+        AnimeXTokens.gold,
+        const Color(0xB31A1408),
+        AnimeXTokens.gold.withValues(alpha: 0.35),
       ),
       AnimeXBadgeKind.airing => (
         AnimeXTokens.success,
-        AnimeXTokens.success.withValues(alpha: 0.10),
+        const Color(0xB30B1A12),
+        AnimeXTokens.success.withValues(alpha: 0.3),
       ),
       AnimeXBadgeKind.finished => (
-        AnimeXTokens.textMuted,
-        Colors.white.withValues(alpha: 0.06),
+        AnimeXTokens.textSecondary,
+        const Color(0xB316161D),
+        AnimeXTokens.glassBorder,
       ),
       AnimeXBadgeKind.upcoming => (
-        AnimeXTokens.accent,
-        AnimeXTokens.accent.withValues(alpha: 0.15),
+        AnimeXTokens.accentWarm,
+        AnimeXTokens.accent.withValues(alpha: 0.22),
+        AnimeXTokens.accent.withValues(alpha: 0.4),
       ),
       AnimeXBadgeKind.newBadge => (
-        AnimeXTokens.success,
-        AnimeXTokens.success.withValues(alpha: 0.15),
+        Colors.white,
+        AnimeXTokens.accent.withValues(alpha: 0.85),
+        Colors.white.withValues(alpha: 0.25),
       ),
       AnimeXBadgeKind.episodes => (
-        AnimeXTokens.textSecondary,
-        Colors.white.withValues(alpha: 0.08),
+        Colors.white,
+        const Color(0xB30E0E13),
+        AnimeXTokens.glassBorder,
       ),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+        border: Border.all(color: border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (dot)
+          if (icon != null) ...[
+            Icon(icon, size: 11, color: fg),
+            const SizedBox(width: 4),
+          ] else if (dot)
             Padding(
               padding: const EdgeInsets.only(right: 5),
               child: _PulsingDot(color: fg),
             ),
           Text(
-            label,
+            label.toUpperCase(),
             style: dmSansStyle(
-              size: 11,
+              size: 10.5,
               color: fg,
-              weight: FontWeight.w600,
-              letterSpacing: 0.05,
+              weight: FontWeight.w700,
+              letterSpacing: 0.07,
             ),
           ),
         ],
