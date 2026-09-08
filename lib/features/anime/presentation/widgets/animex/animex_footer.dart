@@ -104,7 +104,7 @@ class _FooterLink extends StatelessWidget {
           style: dmSansStyle(
             size: 13,
             color: AnimeXTokens.textMuted,
-            weight: FontWeight.w500,
+            weight: FontWeight.w600,
           ),
         ),
       ),

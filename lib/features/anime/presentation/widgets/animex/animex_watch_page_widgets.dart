@@ -80,7 +80,7 @@ class _InfoItem extends StatelessWidget {
             style: dmSansStyle(
               size: 13,
               color: AnimeXTokens.textPrimary,
-              weight: FontWeight.w500,
+              weight: FontWeight.w600,
             ),
           ),
         ],

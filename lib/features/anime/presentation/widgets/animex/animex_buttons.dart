@@ -147,7 +147,7 @@ class AnimeXSecondaryButton extends StatelessWidget {
               style: dmSansStyle(
                 size: 14,
                 color: AnimeXTokens.textPrimary,
-                weight: strong ? FontWeight.w600 : FontWeight.w500,
+                weight: strong ? FontWeight.w600 : FontWeight.w600,
               ),
             ),
           ],
@@ -201,7 +201,7 @@ class AnimeXGhostButton extends StatelessWidget {
               style: dmSansStyle(
                 size: 13,
                 color: hover ? AnimeXTokens.textPrimary : color,
-                weight: FontWeight.w500,
+                weight: FontWeight.w600,
               ),
             ),
           ],

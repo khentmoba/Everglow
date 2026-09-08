@@ -30,20 +30,7 @@ class TopMusicTrack {
         : 'Unknown Artist';
     final trackName = json['name'] as String? ?? 'Unknown Track';
 
-    final images = json['image'] as List<dynamic>?;
-    String? imgUrl;
-    if (images != null && images.isNotEmpty) {
-      dynamic selectedImage = images.last;
-      for (final img in images) {
-        if (img is Map && img['size'] == 'extralarge') {
-          selectedImage = img;
-          break;
-        }
-      }
-      if (selectedImage is Map) {
-        imgUrl = selectedImage['#text'] as String?;
-      }
-    }
+    final imgUrl = pickLastfmImageUrl(json['image'] as List<dynamic>?);
 
     final dynamic attr = json['@attr'];
     final rank =
@@ -56,7 +43,7 @@ class TopMusicTrack {
       trackName: trackName,
       artistName: artistName,
       playCount: playCount,
-      imageUrl: cleanLastfmImageUrl(imgUrl),
+      imageUrl: imgUrl,
       spotifyUrl:
           'https://open.spotify.com/search/${Uri.encodeComponent('$artistName $trackName')}',
       mbid: mbidValue?.isNotEmpty == true ? mbidValue : null,

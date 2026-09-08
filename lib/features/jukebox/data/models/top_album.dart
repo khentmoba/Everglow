@@ -26,18 +26,7 @@ class TopAlbum {
     final artistName = artistJson is Map
         ? (artistJson['name'] as String? ?? 'Unknown Artist')
         : (artistJson as String? ?? 'Unknown Artist');
-    final images = json['image'] as List<dynamic>?;
-    String? imgUrl;
-    if (images != null && images.isNotEmpty) {
-      dynamic sel = images.last;
-      for (final img in images) {
-        if (img is Map && img['size'] == 'extralarge') {
-          sel = img;
-          break;
-        }
-      }
-      if (sel is Map) imgUrl = sel['#text'] as String?;
-    }
+    final imgUrl = pickLastfmImageUrl(json['image'] as List<dynamic>?);
     final attr = json['@attr'];
     final rank =
         int.tryParse(attr is Map ? (attr['rank']?.toString() ?? '') : '') ?? 0;
@@ -49,7 +38,7 @@ class TopAlbum {
       name: name,
       artistName: artistName,
       playCount: playCount,
-      imageUrl: cleanLastfmImageUrl(imgUrl),
+      imageUrl: imgUrl,
       url: url,
       mbid: mbid?.isNotEmpty == true ? mbid : null,
     );
