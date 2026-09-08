@@ -57,6 +57,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   bool _isSearching = false;
   String? _statusMessage;
   Timer? _timeoutTimer;
+  StreamSubscription<DocumentSnapshot>? _matchSub;
 
   static const List<_CategoryData> _categories = [
     _CategoryData('Engineering', Icons.settings_suggest, 'engineering'),
@@ -107,15 +108,19 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         _statusMessage = 'Waiting for partner...';
         _startTimeoutTimer();
 
-        FirebaseFirestore.instance
+        _matchSub?.cancel();
+        _matchSub = FirebaseFirestore.instance
             .collection('active_matches')
             .doc(match.matchId)
             .snapshots()
             .listen((snapshot) {
               if (!mounted) return;
+              if (!snapshot.exists) return;
               final updatedMatch = GameMatch.fromFirestore(snapshot);
               if (updatedMatch.status == 'active') {
                 _timeoutTimer?.cancel();
+                _matchSub?.cancel();
+                _matchSub = null;
                 _goToGame(updatedMatch);
               }
             });
@@ -274,6 +279,8 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
   @override
   void dispose() {
     _timeoutTimer?.cancel();
+    _matchSub?.cancel();
+    _matchSub = null;
     super.dispose();
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/utils/tmdb_images.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -351,13 +352,11 @@ class _ShelfCardState extends State<ShelfCard> {
   bool _pressed = false;
   bool _hovered = false;
 
-  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
-
   String get _resolvedImageUrl {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
-    return '$_tmdbImageBase$url';
+    return TmdbImages.posterFor(url);
   }
 
   void _handleTap() {

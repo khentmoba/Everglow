@@ -115,11 +115,10 @@ const proxyMangaImage = functions.https.onRequest(async (req, res) => {
     return;
   }
   // Image proxies allow anonymous access for <img> tags that cannot send
-  // Authorization headers. If a token is provided (header or ?token=),
+  // Authorization headers. If a token is provided in the header,
   // validate it; otherwise allow based on host allowlist alone.
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -206,8 +205,7 @@ const proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -293,8 +291,7 @@ const proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -400,8 +397,7 @@ const proxyComick = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -777,8 +773,7 @@ const proxyScanlation = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -905,8 +900,7 @@ const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
   // Allow anonymous for manga scraping (host allowlist restricts to public sites).
   // If a token is provided, validate it.
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -1233,8 +1227,7 @@ const proxyMangaDex = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -1773,8 +1766,104 @@ async function initWasm() {
   return globalThis.getAdv || null;
 }
 
+/**
+ * Generic allow-listed JSON catalog proxy for keyless public APIs
+ * (Open Library, Jikan). The client passes ?base=<openlibrary|jikan> and
+ * ?path=<api path with query>. Only those two hosts are reachable;
+ * auth is optional (validated when present) like proxyMangaDex.
+ *
+ *   GET /proxyCatalog?base=openlibrary&path=search.json%3Fq%3D...%26limit%3D20
+ *   GET /proxyCatalog?base=jikan&path=anime%3Fq%3D...%26limit%3D20
+ *
+ * The pure parts (base allow-list, path sanitize, URL build) live in
+ * [resolveCatalogUpstream] below so unit tests cover them without
+ * stubbing firebase-functions' onRequest wrapper.
+ */
+const _catalogBases = {
+  openlibrary: 'https://openlibrary.org/',
+  jikan: 'https://api.jikan.moe/v4/',
+};
+
+function resolveCatalogUpstream(baseKey, pathParam) {
+  const upstreamBase = _catalogBases[String(baseKey || '').toLowerCase()];
+  if (!upstreamBase) throw new Error('base must be openlibrary or jikan');
+  if (typeof pathParam !== 'string' || pathParam.length === 0) {
+    throw new Error('Missing ?path=<api path> query param');
+  }
+  if (/(^|\/)\.\.(\/|$)/.test(pathParam)) throw new Error('Invalid path');
+  const qIndex = pathParam.indexOf('?');
+  const rawPath = qIndex === -1 ? pathParam : pathParam.slice(0, qIndex);
+  const rawQuery = qIndex === -1 ? '' : pathParam.slice(qIndex + 1);
+  const safePath = rawPath.replace(/^\/+/, '').replace(/\.\.+/g, '');
+  if (safePath.length === 0 || safePath.length > 200) {
+    throw new Error('Invalid path');
+  }
+  const targetUrl = new URL(safePath, upstreamBase);
+  if (rawQuery) targetUrl.search = rawQuery;
+  if (targetUrl.search.length > 300) throw new Error('Invalid path');
+  return targetUrl;
+}
+
+const proxyCatalog = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.status(405).json({ error: 'Only GET is accepted' });
+    return;
+  }
+  const header = req.get('Authorization') || req.headers.authorization || '';
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
+  if (idToken) {
+    try {
+      await getAdmin().auth().verifyIdToken(idToken);
+    } catch (e) {
+      res.status(401).json({ error: 'Invalid or expired auth token' });
+      return;
+    }
+  }
+
+  let targetUrl;
+  try {
+    targetUrl = resolveCatalogUpstream(req.query.base, req.query.path);
+  } catch (err) {
+    res.status(400).json({ error: err.message || 'Invalid path' });
+    return;
+  }
+
+  try {
+    const upstream = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(20000),
+    });
+    const body = await upstream.text();
+    res.status(upstream.status);
+    res.set(
+      'Content-Type',
+      upstream.headers.get('content-type') || 'application/json',
+    );
+    res.set('Cache-Control', 'public, max-age=300');
+    res.send(body);
+  } catch (e) {
+    console.warn(`proxyCatalog failed (${targetUrl}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
+  }
+});
+
 module.exports = {
   proxyBookText,
+  proxyCatalog,
+  resolveCatalogUpstream,
   proxyMangaImage,
   proxyMangaKakalotImage,
   proxyMangaKatana,

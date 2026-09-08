@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
+import '../../../cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '_partner_label.dart';
@@ -59,67 +58,51 @@ class _CinemaHeader extends StatefulWidget {
 class _CinemaHeaderState extends State<_CinemaHeader> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _CinemaHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       _items = [];
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) setState(() => _items = []);
       return;
     }
-    _streamSub?.cancel();
-    // Header only shows the badge count: 24 docs is plenty instead of
-    // the 500-doc watch-list stream (sort/filter in Dart, unchanged).
-    _streamSub = _service.getWatchListStream(widget.userName, limit: 24).listen(
-      (items) {
-        _retryCount = 0;
-        // Cinema owns every watched movie (live-action or anime) plus
-        // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
-        // the Anime rail.
-        final watched =
-            items.watchedCinema;
-        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        if (!mounted) return;
-        setState(() => _items = watched);
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[CinemaPreview/header:${widget.userName}] watch_list stream error: $e',
-        );
-        if (!mounted) return;
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          setState(() => _items = []);
-        }
-      },
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
     );
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      // Cinema owns every watched movie (live-action or anime) plus
+      // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
+      // the Anime rail.
+      final watched = items.watchedCinema;
+      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      setState(() => _items = watched);
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      setState(() => _items = []);
+    });
   }
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 
@@ -153,80 +136,64 @@ class _CinemaShelfState extends State<_CinemaShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _CinemaShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
       _loadError = false;
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) {
         setState(() => _hasLoaded = true);
       }
       return;
     }
-    _streamSub?.cancel();
-    // Each sub-row renders up to 12 cards: 24 docs is plenty instead of
-    // the 500-doc watch-list stream (sort/filter in Dart, unchanged).
-    _streamSub = _service.getWatchListStream(widget.userName, limit: 24).listen(
-      (items) {
-        _retryCount = 0;
-        // Cinema owns every watched movie (live-action or anime) plus
-        // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
-        // the Anime rail.
-        final watched =
-            items.watchedCinema;
-        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        if (!mounted) return;
-        setState(() {
-          _items = watched;
-          _hasLoaded = true;
-          _loadError = false;
-        });
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[CinemaPreview/shelf:${widget.userName}] watch_list stream error: $e',
-        );
-        if (!mounted) return;
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          // Report the failure instead of a false-empty shelf: a denied
-          // stream means the data is unreachable, not absent.
-          setState(() {
-            _hasLoaded = true;
-            _loadError = true;
-          });
-        }
-      },
+    final future = _service.getPreviewItems(
+      widget.userName,
+      limit: TMDBWatchlistService.previewLimit,
     );
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      // Cinema owns every watched movie (live-action or anime) plus
+      // non-anime TV — see MediaItem.isCinemaItem. Anime series live in
+      // the Anime rail.
+      final watched = items.watchedCinema;
+      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+      setState(() {
+        _items = watched;
+        _hasLoaded = true;
+        _loadError = false;
+      });
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      // Report the failure instead of a false-empty shelf: a denied
+      // fetch means the data is unreachable, not absent.
+      setState(() {
+        _hasLoaded = true;
+        _loadError = true;
+      });
+    });
   }
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 

@@ -64,48 +64,42 @@ class SpotifyAuthService extends ChangeNotifier {
 
   StreamSubscription? _authSub;
 
+  void _listenToTokenDoc(String uid) {
+    _sub?.cancel();
+    _sub = _firestore
+        .collection('spotify_tokens')
+        .doc(uid)
+        .snapshots()
+        .listen((doc) {
+          final data = doc.data();
+          final was = _linked;
+          final wasId = _spotifyUserId;
+          _linked = doc.exists && data != null && (data['access_token'] != null);
+          _spotifyUserId = data?['spotify_user_id'] as String?;
+          _displayName = data?['spotify_display_name'] as String?;
+          if (was != _linked || wasId != _spotifyUserId) notifyListeners();
+        }, onError: (_) {});
+  }
+
   /// Starts listening to link status for current Firebase user.
   void start() {
     _authSub?.cancel();
     _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-      _sub?.cancel();
       if (user == null) {
+        _sub?.cancel();
+        _sub = null;
         _linked = false;
         _spotifyUserId = null;
         _displayName = null;
         notifyListeners();
         return;
       }
-      _sub = _firestore
-          .collection('spotify_tokens')
-          .doc(user.uid)
-          .snapshots()
-          .listen((doc) {
-            final data = doc.data();
-            final was = _linked;
-            final wasId = _spotifyUserId;
-            _linked =
-                doc.exists && data != null && (data['access_token'] != null);
-            _spotifyUserId = data?['spotify_user_id'] as String?;
-            _displayName = data?['spotify_display_name'] as String?;
-            if (was != _linked || wasId != _spotifyUserId) notifyListeners();
-          }, onError: (_) {});
+      _listenToTokenDoc(user.uid);
     });
-    // Also kick immediately for already-authed case
+    // Also kick immediately for already-authed case (guarded: single sub).
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null && _sub == null) {
-      _sub = _firestore
-          .collection('spotify_tokens')
-          .doc(uid)
-          .snapshots()
-          .listen((doc) {
-            final data = doc.data();
-            _linked =
-                doc.exists && data != null && (data['access_token'] != null);
-            _spotifyUserId = data?['spotify_user_id'] as String?;
-            _displayName = data?['spotify_display_name'] as String?;
-            notifyListeners();
-          }, onError: (_) {});
+      _listenToTokenDoc(uid);
     }
   }
 

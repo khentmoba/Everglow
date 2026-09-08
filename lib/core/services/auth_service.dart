@@ -38,8 +38,7 @@ class AuthService extends ChangeNotifier {
         // see permission-denied streams and false-empty shelves. Drop the
         // false session so the gateway forces a real login instead.
         if (user.isAnonymous && isCoupleUser) {
-          // ignore: avoid_print
-          print(
+          Logger.e(
             '[AuthService] clearing anonymous session for couple user $_currentUser — real login required',
           );
           unawaited(_auth.signOut());
@@ -60,8 +59,7 @@ class AuthService extends ChangeNotifier {
       // with a couple username can never read couple data. Sign out so the
       // gateway asks for a real login instead of showing empty shelves.
       if (isCoupleUser && _auth.currentUser?.isAnonymous == true) {
-        // ignore: avoid_print
-        print(
+        Logger.e(
           '[AuthService] clearing persisted anonymous session for $_currentUser — real login required',
         );
         try {
@@ -187,31 +185,11 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
     } on FirebaseAuthException catch (e) {
       Logger.e('Login failed with FirebaseAuthException', error: e);
-      if (e.code == 'user-not-found' ||
-          e.code == 'invalid-credential' ||
-          e.code == 'invalid-email') {
-        try {
-          await _auth.createUserWithEmailAndPassword(
-            email: email,
-            password: password,
-          );
-          _currentUser = username;
-          await _saveSession(username);
-          unawaited(_syncUserDoc());
-          _lastAuthError = null;
-          Logger.i(
-            "Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})",
-          );
-          notifyListeners();
-        } catch (regErr) {
-          _lastAuthError = 'Account creation failed. Please try again.';
-          Logger.e("Registration error for $username", error: regErr);
-          await ensureAuthenticated();
-        }
-      } else {
-        _lastAuthError = 'Authentication failed: ${e.message ?? e.code}';
-        await ensureAuthenticated();
-      }
+      _lastAuthError = 'Authentication failed: ${e.message ?? e.code}';
+      Logger.e(
+        'Passcode login failed for $username — account must exist; client never auto-registers',
+        error: e,
+      );
     } catch (e) {
       _lastAuthError = 'Login error. Falling back to guest access.';
       Logger.e("General auth error during passcode login", error: e);
@@ -255,8 +233,7 @@ class AuthService extends ChangeNotifier {
         'partnerUsername': partnerUsername,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      // ignore: avoid_print
-      print('[AuthService] users doc synced for $_currentUser ($myUid)');
+      Logger.i('[AuthService] users doc synced for $_currentUser ($myUid)');
 
       // Remaining work doesn't block first paint — fire-and-forget.
       unawaited(
@@ -283,16 +260,16 @@ class AuthService extends ChangeNotifier {
       try {
         repaired = await _repairStaleUserDoc(db, myUid);
       } catch (e2) {
-        // ignore: avoid_print
-        print(
-          '[AuthService] users doc repair failed for $_currentUser ($myUid): $e2',
+        Logger.e(
+          '[AuthService] users doc repair failed for $_currentUser ($myUid)',
+          error: e2,
         );
       }
       if (!repaired) {
         _hasSyncedUserDoc = false;
-        // ignore: avoid_print
-        print(
-          '[AuthService] _syncUserDoc failed for $_currentUser ($myUid): $e',
+        Logger.e(
+          '[AuthService] _syncUserDoc failed for $_currentUser ($myUid)',
+          error: e,
         );
       }
     }
@@ -307,16 +284,14 @@ class AuthService extends ChangeNotifier {
     if (!doc.exists) return false;
     final data = doc.data() ?? {};
     if (!needsUserDocRepair(data, _currentUser)) return false;
-    // ignore: avoid_print
-    print('[AuthService] repairing stale users doc for $_currentUser ($myUid)');
+    Logger.i('[AuthService] repairing stale users doc for $_currentUser ($myUid)');
     await db.collection('users').doc(myUid).delete();
     await db.collection('users').doc(myUid).set({
       'username': _currentUser,
       'partnerUsername': partnerUsername,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-    // ignore: avoid_print
-    print('[AuthService] users doc repaired for $_currentUser ($myUid)');
+    Logger.i('[AuthService] users doc repaired for $_currentUser ($myUid)');
     return true;
   }
 
@@ -464,12 +439,16 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Direct login for Breyan/Octagram (client-verified, non-sensitive).
+  /// Passcodes come from EnvConfig only (build-time --dart-define or .env);
+  /// no hardcoded literals so builds without config can't be bypassed.
   Future<bool> loginCinemaWithPasscode(String passcode) async {
-    if (passcode == EnvConfig.breyanPasscode || passcode == '9132') {
+    if (EnvConfig.breyanPasscode.isNotEmpty &&
+        passcode == EnvConfig.breyanPasscode) {
       await loginWithPasscode('breyan');
       return lastAuthError == null;
     }
-    if (passcode == EnvConfig.octagramPasscode || passcode == '8080') {
+    if (EnvConfig.octagramPasscode.isNotEmpty &&
+        passcode == EnvConfig.octagramPasscode) {
       await loginWithPasscode('octagram');
       return lastAuthError == null;
     }

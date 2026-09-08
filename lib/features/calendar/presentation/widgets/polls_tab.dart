@@ -295,12 +295,14 @@ class _PollCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _vote(
-                      context,
-                      poll,
-                      poll.options.first.id,
-                      currentUser,
-                    ),
+                    onPressed: poll.options.isEmpty
+                        ? null
+                        : () => _vote(
+                              context,
+                              poll,
+                              poll.options.first.id,
+                              currentUser,
+                            ),
                     icon: const Icon(
                       Icons.how_to_vote_rounded,
                       size: 14,
@@ -364,7 +366,7 @@ class _PollCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Decided: ${poll.options.firstWhere((o) => o.id == poll.decidedOptionId, orElse: () => poll.options.first).label}',
+                      'Decided: ${poll.options.isEmpty ? '—' : poll.options.firstWhere((o) => o.id == poll.decidedOptionId, orElse: () => poll.options.first).label}',
                       style: AppTypography.outfitBold.copyWith(
                         fontSize: 12,
                         color: AppColors.warmAmber,
@@ -442,7 +444,11 @@ class _PollCard extends StatelessWidget {
     if (confirm != true) return;
     await CalendarPollService().close(poll.id, winning);
     // Create calendar event for winners
-    final opt = poll.options.firstWhere((o) => o.id == winning);
+    if (poll.options.isEmpty) return;
+    final opt = poll.options.firstWhere(
+      (o) => o.id == winning,
+      orElse: () => poll.options.first,
+    );
     final event = CalendarEvent(
       id: '',
       title: poll.title,

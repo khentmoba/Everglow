@@ -267,6 +267,7 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
   }
 
   Widget _buildOnThisDayBanner(List<MemoryFact> facts) {
+    if (facts.isEmpty) return const SizedBox.shrink();
     final first = facts.first;
     return Container(
       margin: const EdgeInsets.symmetric(

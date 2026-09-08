@@ -24,6 +24,27 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   // on the un-capped streams for the cinema/anime screens.
   static const int previewLimit = 24;
 
+  /// Lightweight one-shot fetch for dashboard previews. Reads [limit]
+  /// docs once instead of holding a realtime stream each (Cinema + Anime
+  /// + Currently Watching previously opened ~1500 realtime docs per
+  /// dashboard mount).
+  Future<List<MediaItem>> getPreviewItems(
+    String userName, {
+    int limit = 30,
+  }) async {
+    if (userName.isEmpty) return const [];
+    final snapshot = await firestore
+        .collection('watch_list')
+        .where('userName', isEqualTo: userName)
+        .limit(limit)
+        .get();
+    final items = snapshot.docs
+        .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
+        .toList()
+      ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
+    return items;
+  }
+
   // ─── CRUD ──────────────────────────────────────────────────────────────
 
   Future<void> saveToWatchList(

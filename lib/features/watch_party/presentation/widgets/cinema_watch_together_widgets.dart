@@ -108,7 +108,7 @@ class _ActivePartyCard extends StatelessWidget {
     final path = room.posterPath;
     if (path.isEmpty) return '';
     if (path.startsWith('http')) return path;
-    return 'https://image.tmdb.org/t/p/w500$path';
+    return TmdbImages.posterFor(path);
   }
 
   @override

@@ -103,9 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         // Session facts for the console: pairs every permission-denied
         // shelf report with the UID, guest flag, and user-doc sync state
         // so the cause is readable without opening the Firebase console.
-        // Raw print: Logger is silent in release builds.
-        // ignore: avoid_print
-        print('[AuthDiag] ${authService.diagLine}');
+        Logger.i('[AuthDiag] ${authService.diagLine}');
         // Garden sync rides along with _syncPresenceHeartbeat below so it
         // retries while the UID is unavailable instead of running once.
 
@@ -121,9 +119,9 @@ class _DashboardScreenState extends State<DashboardScreen>
             context.read<DateIdeaService>().initialize().catchError((Object e) {
               Logger.e('Date ideas init failed', error: e);
             });
-          });
-          context.read<GuardianService>().initialize().catchError((Object e) {
-            Logger.e('Guardian init failed', error: e);
+            context.read<GuardianService>().initialize().catchError((Object e) {
+              Logger.e('Guardian init failed', error: e);
+            });
           });
         }
 

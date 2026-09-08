@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide FilterChip;
+import '../../../../../shared/utils/responsive_image.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../core/theme/app_breakpoints.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -651,7 +652,7 @@ class AnimeHomeTab extends StatelessWidget {
                         AppNetworkImage(
                           imageUrl: item.backdropUrl,
                           fit: BoxFit.cover,
-                          cacheWidth: 900,
+                          cacheWidth: heroCacheWidth(context),
                           errorWidget: AppNetworkImage(
                             imageUrl: item.posterPath,
                             fit: BoxFit.cover,

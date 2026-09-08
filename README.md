@@ -242,7 +242,7 @@ The workflow:
 
 ## Release History
 
-The full release-by-release history is in [CHANGELOG.md](./CHANGELOG.md). Highlights:
+The full release-by-release history is in the [releases page](https://github.com/khentmoba/Everglow/releases) and `RELEASE_NOTES_v*.md`. Highlights:
 
 - **v6.0.0** — Bucket List, Calendar, Gallery, Daily Bloom Overhaul, Push Notifications, AI Function Calling
 - **v5.3.0** — Anime Embed Support in Video Player, Provider Switching

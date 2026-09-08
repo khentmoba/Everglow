@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../shared/utils/responsive_image.dart';
 import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../../../../../shared/widgets/app_network_image.dart';
@@ -64,7 +65,7 @@ class CinemaHero extends StatelessWidget {
           if (isPlayingTrailer && trailerKey != null)
             _buildTrailer()
           else
-            _buildBackdrop(),
+            _buildBackdrop(context),
           _buildScrims(),
           _buildTopBar(),
           if (trailerKey != null && !isLoadingTrailer && !isPlayingTrailer)
@@ -125,7 +126,7 @@ class CinemaHero extends StatelessWidget {
     );
   }
 
-  Widget _buildBackdrop() {
+  Widget _buildBackdrop(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -133,7 +134,9 @@ class CinemaHero extends StatelessWidget {
           AppNetworkImage(
             imageUrl: backdropUrl,
             fit: BoxFit.cover,
-            cacheWidth: 1100,
+            cacheWidth: heroCacheWidth(context),
+            placeholder: _buildPlaceholder(isLoading: true),
+            errorWidget: _buildPlaceholder(isLoading: false),
           )
         else
           _buildPlaceholder(isLoading: isDetailsLoading),
