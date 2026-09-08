@@ -10,18 +10,33 @@ import 'package:everglow/shared/widgets/everglow/everglow_marquee.dart';
 /// rows to fill the viewport. Short rows must render each child exactly
 /// once and stay put; only overflowing rows should auto-scroll.
 void main() {
-  Widget harness({required double width, required List<Widget> children}) {
+  Widget harness({
+    required double width,
+    required List<Widget> children,
+    bool edgeFade = true,
+  }) {
     return MaterialApp(
       home: Scaffold(
         body: Center(
           child: SizedBox(
             width: width,
-            child: EverglowMarquee(height: 194, children: children),
+            child: EverglowMarquee(
+              height: 194,
+              edgeFade: edgeFade,
+              children: children,
+            ),
           ),
         ),
       ),
     );
   }
+
+  Finder edgeFadeOverlay() => find.byWidgetPredicate(
+    (w) =>
+        w is Container &&
+        w.foregroundDecoration is BoxDecoration &&
+        (w.foregroundDecoration as BoxDecoration).gradient is LinearGradient,
+  );
 
   List<Widget> cards(List<String> titles) => [
     for (final t in titles)
@@ -83,5 +98,34 @@ void main() {
     await tester.pumpWidget(harness(width: 800, children: const []));
     await tester.pump();
     expect(find.byType(EverglowMarquee), findsOneWidget);
+  });
+
+  testWidgets('overflowing row fades its clip edges', (tester) async {
+    final titles = [for (var i = 0; i < 12; i++) 'Item $i'];
+    await tester.pumpWidget(harness(width: 800, children: cards(titles)));
+    await tester.pump();
+
+    expect(edgeFadeOverlay(), findsOneWidget);
+  });
+
+  testWidgets('fitting row renders no edge fade', (tester) async {
+    await tester.pumpWidget(
+      harness(width: 800, children: cards(['Movie A', 'Movie B'])),
+    );
+    await tester.pump();
+
+    expect(edgeFadeOverlay(), findsNothing);
+  });
+
+  testWidgets('edgeFade false disables the overlay on overflowing rows', (
+    tester,
+  ) async {
+    final titles = [for (var i = 0; i < 12; i++) 'Item $i'];
+    await tester.pumpWidget(
+      harness(width: 800, children: cards(titles), edgeFade: false),
+    );
+    await tester.pump();
+
+    expect(edgeFadeOverlay(), findsNothing);
   });
 }
