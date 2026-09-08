@@ -11,6 +11,7 @@ class PickedImageData {
 
 Future<PickedImageData?> pickImageBytes() async {
   final info = await ImagePickerWeb.getImageInfo;
-  if (info == null || info.data == null) return null;
-  return PickedImageData(bytes: info.data!, fileName: info.fileName);
+  final data = info?.data;
+  if (info == null || data == null) return null;
+  return PickedImageData(bytes: data, fileName: info.fileName);
 }

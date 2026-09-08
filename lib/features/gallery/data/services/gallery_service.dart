@@ -2,9 +2,10 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -36,6 +37,10 @@ class GalleryService {
   }
 
   /// Upload a photo and store its metadata in Firestore.
+  ///
+  /// Uploads a web-friendly full image (max 1600px, JPEG q85) plus a
+  /// 400px grid thumbnail. Grids load `thumbUrl`; the viewer loads the
+  /// full `imageUrl`. Falls back to the original bytes when decoding fails.
   Future<MemoryPhoto> uploadPhoto({
     required Uint8List imageBytes,
     required String fileName,
@@ -48,23 +53,39 @@ class GalleryService {
     String? locationName,
     DateTime? takenAt,
   }) async {
-    // Upload to Firebase Storage
-    final String path =
-        "gallery/$userId/${DateTime.now().millisecondsSinceEpoch}_$fileName";
-    final Reference ref = _storage.ref().child(path);
-    final UploadTask uploadTask = ref.putData(
-      imageBytes,
-      SettableMetadata(
-        contentType: _guessContentType(fileName),
-        cacheControl: 'public, max-age=31536000',
-      ),
-    );
-    final TaskSnapshot snapshot = await uploadTask;
-    final String downloadUrl = await snapshot.ref.getDownloadURL();
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final base = 'gallery/$userId/${stamp}_$safeName';
+    final fullBytes = _resizedJpeg(imageBytes, 1600) ?? imageBytes;
+    final thumbBytes = _resizedJpeg(imageBytes, 400);
+
+    Future<String> put(String path, Uint8List bytes) async {
+      final ref = _storage.ref().child(path);
+      final snap = await ref.putData(
+        bytes,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          cacheControl: 'public, max-age=31536000',
+        ),
+      );
+      return snap.ref.getDownloadURL();
+    }
+
+    final downloadUrl = await put('${base}_full.jpg', fullBytes);
+    final thumbBytesLocal = thumbBytes;
+    String? thumbUrl;
+    if (thumbBytesLocal != null) {
+      try {
+        thumbUrl = await put('${base}_thumb.jpg', thumbBytesLocal);
+      } catch (e) {
+        Logger.e('Thumbnail upload failed, grid falls back to full', error: e);
+      }
+    }
 
     // Save metadata to Firestore
     final docRef = await _db.collection(_collection).add({
       'imageUrl': downloadUrl,
+      'thumbUrl': ?thumbUrl,
       'caption': caption,
       'uploadedBy': uploadedBy,
       'uploadedAt': FieldValue.serverTimestamp(),
@@ -82,6 +103,7 @@ class GalleryService {
     return MemoryPhoto(
       id: docRef.id,
       imageUrl: downloadUrl,
+      thumbUrl: thumbUrl,
       caption: caption,
       uploadedBy: uploadedBy,
       uploadedAt: DateTime.now(),
@@ -93,14 +115,27 @@ class GalleryService {
     );
   }
 
-  /// Guess content type from file extension, defaulting to image/jpeg.
-  static String _guessContentType(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.endsWith('.png')) return 'image/png';
-    if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.heic')) return 'image/heic';
-    return 'image/jpeg';
+  /// Decode + downscale to [maxSize] longest edge, re-encode JPEG q85.
+  /// Returns null when the bytes aren't a decodable image.
+  static Uint8List? _resizedJpeg(Uint8List bytes, int maxSize) {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return null;
+      final longest = decoded.width > decoded.height
+          ? decoded.width
+          : decoded.height;
+      final resized = longest <= maxSize
+          ? decoded
+          : img.copyResize(
+              decoded,
+              width: decoded.width >= decoded.height ? maxSize : null,
+              height: decoded.height > decoded.width ? maxSize : null,
+            );
+      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    } catch (e) {
+      Logger.e('Image resize failed, using original bytes', error: e);
+      return null;
+    }
   }
 
   /// Stream of all photos, newest first.
@@ -131,7 +166,7 @@ class GalleryService {
         );
   }
 
-  /// Delete a photo from Firestore and Storage.
+  /// Delete a photo from Firestore and Storage (full + thumbnail).
   Future<void> deletePhoto(MemoryPhoto photo) async {
     try {
       // Delete from Firestore
@@ -140,16 +175,22 @@ class GalleryService {
       // Delete from Storage (best-effort). The direct delete only works
       // for the uploader's own files; for the partner's photo it falls back
       // to the couple-only cloud function so no orphaned file is left behind.
-      try {
-        final ref = _storage.refFromURL(photo.imageUrl);
-        await ref.delete();
-      } catch (_) {
-        await _deleteStorageViaFunction(photo.imageUrl);
+      for (final url in {
+        photo.imageUrl,
+        if (photo.thumbUrl?.isNotEmpty == true) photo.thumbUrl!,
+      }) {
+        try {
+          final ref = _storage.refFromURL(url);
+          await ref.delete();
+        } catch (_) {
+          await _deleteStorageViaFunction(url);
+        }
       }
 
       Logger.i("Photo deleted: ${photo.id}");
     } catch (e) {
-      debugPrint("Error deleting photo: $e");
+      Logger.e("Error deleting photo: ${photo.id}", error: e);
+      rethrow;
     }
   }
 
@@ -189,24 +230,23 @@ class GalleryService {
     }
   }
 
-  /// Search photos by caption or tags (client-side).
-  Stream<List<MemoryPhoto>> searchPhotos(String query) {
+  /// Search photos by caption or tags (client-side, one-shot so typing
+  /// doesn't re-query on every remote write).
+  Future<List<MemoryPhoto>> searchPhotos(String query) async {
     final lowerQuery = query.toLowerCase();
-    return _db
+    final snapshot = await _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
         .limit(50)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => MemoryPhoto.fromFirestore(doc))
-              .where(
-                (photo) =>
-                    photo.caption.toLowerCase().contains(lowerQuery) ||
-                    photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-              )
-              .toList(),
-        );
+        .get();
+    return snapshot.docs
+        .map((doc) => MemoryPhoto.fromFirestore(doc))
+        .where(
+          (photo) =>
+              photo.caption.toLowerCase().contains(lowerQuery) ||
+              photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
+        )
+        .toList();
   }
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.
@@ -249,17 +289,22 @@ class GalleryService {
     }
   }
 
-  /// This Week In Past — 7-day window around today (Immich-inspired: This week in past slides)
+  /// This Week In Past — 7-day window around today (Immich-inspired: This week in past slides).
+  /// Memoized per calendar day so every dashboard open doesn't re-read 300 docs.
+  DateTime? _thisWeekDay;
+  List<MemoryPhoto>? _thisWeekCache;
   Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (_thisWeekDay == today && _thisWeekCache != null) return _thisWeekCache!;
     try {
       final all = await _db
           .collection(_collection)
           .orderBy('uploadedAt', descending: true)
-          .limit(300)
+          .limit(100)
           .get();
       final photos = all.docs.map((d) => MemoryPhoto.fromFirestore(d)).toList();
-      return photos.where((p) {
+      final results = photos.where((p) {
         if (p.uploadedAt.year == now.year) return false;
         final thisYearAnniv = DateTime(
           now.year,
@@ -273,33 +318,27 @@ class GalleryService {
                 .abs();
         return diff <= 3; // within 3 days => 7-day window
       }).toList()..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      _thisWeekDay = today;
+      _thisWeekCache = results;
+      return results;
     } catch (e) {
       Logger.e("Error getting this-week photos", error: e);
       return [];
     }
   }
 
-  /// All photos that have a pinned location — for map view (Immich map)
-  Stream<List<MemoryPhoto>> getPhotosWithLocationStream() {
-    return _db
-        .collection(_collection)
-        .orderBy('uploadedAt', descending: true)
-        .limit(100)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((d) => MemoryPhoto.fromFirestore(d))
-              .where((p) => p.hasLocation)
-              .toList(),
-        );
-  }
+  /// All photos that have a pinned location — for map view (Immich map).
+  /// One-shot fetch: the map only needs a snapshot on open, not a realtime
+  /// stream that re-queries on every remote write.
+  Future<List<MemoryPhoto>> getPhotosWithLocationStream() =>
+      getPhotosWithLocation(limit: 100);
 
-  Future<List<MemoryPhoto>> getPhotosWithLocation() async {
+  Future<List<MemoryPhoto>> getPhotosWithLocation({int limit = 200}) async {
     try {
       final snap = await _db
           .collection(_collection)
           .orderBy('uploadedAt', descending: true)
-          .limit(200)
+          .limit(limit)
           .get();
       return snap.docs
           .map((d) => MemoryPhoto.fromFirestore(d))

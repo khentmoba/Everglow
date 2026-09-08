@@ -55,6 +55,72 @@ service cloud.firestore {
       return isRegistered() && request.auth.uid == userId;
     }
 
+    function isValidRoomShape(data) {
+      return data.keys().hasAll([
+            'hostUid',
+            'hostName',
+            'partnerUid',
+            'partnerName',
+            'mediaType',
+            'state',
+            'updatedAt',
+            'updatedBy',
+            'active',
+          ]) &&
+          data.mediaType in ['movie', 'tv'] &&
+          data.state in ['playing', 'paused', 'buffering'] &&
+          data.active is bool;
+    }
+
+    function isValidVoiceRoomShape(data) {
+      return data.keys().hasAll(['callerUid', 'calleeUid', 'state', 'updatedAt']) &&
+          data.callerUid is string &&
+          data.calleeUid is string &&
+          data.state in ['ringing', 'calling', 'connected', 'ended'] &&
+          (!('offer' in data) || data.offer is string) &&
+          (!('answer' in data) || data.answer is string);
+    }
+
+    function isValidAcademyQuestionShape(data) {
+      return data.keys().hasAll([
+            'id',
+            'questionText',
+            'options',
+            'correctOptionIndex',
+            'category',
+          ]) &&
+          data.id is string &&
+          data.questionText is string &&
+          data.questionText.size() > 0 &&
+          data.questionText.size() < 2000 &&
+          data.options is list &&
+          data.options.size() >= 2 &&
+          data.options.size() <= 6 &&
+          data.correctOptionIndex is int &&
+          data.correctOptionIndex >= 0 &&
+          data.correctOptionIndex < data.options.size() &&
+          data.category is string &&
+          data.size() < 8192;
+    }
+
+    function isValidMatchShape(data) {
+      return data.keys().hasAll([
+            'hostId',
+            'status',
+            'category',
+            'questionIndex',
+            'currentQuestionId',
+          ]) &&
+          data.hostId is string &&
+          data.status in ['waiting', 'active', 'finished'] &&
+          data.category is string &&
+          data.questionIndex is int &&
+          data.questionIndex >= 0 &&
+          data.questionIndex <= 10 &&
+          data.currentQuestionId is string &&
+          data.size() < 8192;
+    }
+
     // ---------- User profile and per-user subcollections ----------
 
     match /users/{userId} {
@@ -84,7 +150,7 @@ service cloud.firestore {
     match /sanctuary_messages/{messageId} {
       allow read: if isCouple();
       allow create: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.text is string && request.resource.data.text.size() < 5000;
-      allow update: if isCouple() && request.resource.data.size() < 8192;
+      allow update: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.text is string && request.resource.data.text.size() < 8192 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt', 'editedAt', 'edited']);
       allow delete: if isCouple();
     }
 
@@ -169,9 +235,9 @@ service cloud.firestore {
     match /moods/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /music_status/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /jukebox_dedications/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
-    match /presence/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
-    match /presence_sessions/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
-    match /starlight_jar/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.content is string && request.resource.data.content.size() < 5000; allow update: if isCouple() && request.resource.data.size() < 8192; allow delete: if isCouple(); }
+    match /presence/{docId} { allow read: if isCouple(); allow create: if isCouple() && docId == request.auth.uid && request.resource.data.size() < 102400; allow update: if isCouple() && docId == request.auth.uid && request.resource.data.size() < 102400; allow delete: if isCouple() && docId == request.auth.uid; }
+    match /presence_sessions/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.uid == request.auth.uid && request.resource.data.size() < 102400; allow update: if isCouple() && resource.data.uid == request.auth.uid && request.resource.data.uid == resource.data.uid && request.resource.data.size() < 102400; allow delete: if isCouple() && resource.data.uid == request.auth.uid; }
+    match /starlight_jar/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.content is string && request.resource.data.content.size() < 5000; allow update: if isCouple() && request.resource.data.size() < 8192 && request.resource.data.content is string && request.resource.data.content.size() < 5000 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'updatedAt', 'opened', 'openedAt']); allow delete: if isCouple(); }
     match /calendar_events/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /calendar_polls/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /bucket_list/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
@@ -209,10 +275,26 @@ service cloud.firestore {
     // ---------- Shared app data for all four profiles ----------
 
     match /academy_questions/{docId} {
-      allow read, write: if isAppUser();
+      allow read: if isAppUser();
+      allow create: if isAppUser() && isValidAcademyQuestionShape(request.resource.data);
+      allow update: if isAppUser() &&
+        isValidAcademyQuestionShape(request.resource.data);
+      allow delete: if false;
     }
     match /active_matches/{docId} {
-      allow read, write: if isAppUser();
+      allow read: if isAppUser();
+      allow create: if isAppUser() &&
+        request.resource.data.hostId == request.auth.uid &&
+        request.resource.data.status == 'waiting' &&
+        isValidMatchShape(request.resource.data);
+      allow update: if isAppUser() &&
+        (request.auth.uid == resource.data.hostId ||
+         request.auth.uid == resource.data.participantId) &&
+        isValidMatchShape(request.resource.data) &&
+        request.resource.data.hostId == resource.data.hostId &&
+        request.resource.data.category == resource.data.category;
+      allow delete: if isAppUser() &&
+        request.auth.uid == resource.data.hostId;
     }
     match /tt_rooms/{roomId} {
       allow read: if isAppUser();
@@ -221,7 +303,10 @@ service cloud.firestore {
         request.resource.data.status == 'waiting';
       allow update: if isAppUser() &&
         (request.auth.uid == resource.data.hostUid ||
-         request.auth.uid == resource.data.guestUid);
+         request.auth.uid == resource.data.guestUid) &&
+        request.resource.data.status in ['waiting', 'playing', 'finished'] &&
+        request.resource.data.hostUid == resource.data.hostUid &&
+        request.resource.data.category == resource.data.category;
       allow delete: if isAppUser() &&
         request.auth.uid == resource.data.hostUid;
     }
@@ -231,7 +316,8 @@ service cloud.firestore {
       allow create: if isCouple() ||
         (isCinemaProfile() && request.resource.data.userName == username());
       allow update, delete: if isCouple() ||
-        (isCinemaProfile() && resource.data.userName == username());
+        (isCinemaProfile() && resource.data.userName == username() &&
+         request.resource.data.userName == resource.data.userName);
     }
     match /fcm_tokens/{docId} {
       allow read: if isAppUser() && docId == username();
@@ -255,34 +341,9 @@ service cloud.firestore {
     match /mochi_stats/{docId} { allow read, write: if false; }
     match /mochi_stats/{docId}/{subcol}/{subId} { allow read, write: if false; }
     match /daily_digest/{docId} { allow read, write: if false; }
+
+    // Secure default: deny everything not explicitly allowed above.
+    match /{document=**} { allow read, write: if false; }
   }
-}
-
-// ---------- Shape validators ----------
-
-function isValidRoomShape(data) {
-  return data.keys().hasAll([
-        'hostUid',
-        'hostName',
-        'partnerUid',
-        'partnerName',
-        'mediaType',
-        'state',
-        'updatedAt',
-        'updatedBy',
-        'active',
-      ]) &&
-      data.mediaType in ['movie', 'tv'] &&
-      data.state in ['playing', 'paused', 'buffering'] &&
-      data.active is bool;
-}
-
-function isValidVoiceRoomShape(data) {
-  return data.keys().hasAll(['callerUid', 'calleeUid', 'state', 'updatedAt']) &&
-      data.callerUid is string &&
-      data.calleeUid is string &&
-      data.state in ['ringing', 'calling', 'connected', 'ended'] &&
-      (!('offer' in data) || data.offer is string) &&
-      (!('answer' in data) || data.answer is string);
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/responsive_image.dart';
 import '../app_network_image.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -563,7 +564,7 @@ class _ContinueCard extends StatelessWidget {
                 AppNetworkImage(
                   imageUrl: item.imageUrl,
                   fit: BoxFit.cover,
-                  cacheWidth: 900,
+                  cacheWidth: heroCacheWidth(context),
                   errorWidget: Container(color: AppColors.animeCard),
                 )
               else

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import 'logger.dart';
+
 /// Wraps a Firestore snapshot stream with a bounded budget for the *first*
 /// event so StreamBuilders never sit in `ConnectionState.waiting` forever.
 ///
@@ -111,8 +113,7 @@ class _FirstEventGuard<T> {
       // it can't deliver a stale first event later.
       _cancelSubscription();
       if (factory != null && _attempt < maxAttempts) {
-        // ignore: avoid_print
-        print(
+        Logger.e(
           '[Firestore] $name no first event after ${duration.inSeconds}s '
           '(attempt $_attempt/$maxAttempts) — re-attaching…',
         );
@@ -181,8 +182,7 @@ class _FirstEventGuard<T> {
           // races) deserve a silent re-attach before the UI gives up.
           _cancelSubscription();
           if (factory != null && _attempt < maxAttempts) {
-            // ignore: avoid_print
-            print(
+            Logger.e(
               '[Firestore] $name attempt $_attempt/$maxAttempts failed '
               'before first event (${_shortError(error)}) — re-attaching…',
             );
@@ -225,11 +225,10 @@ class _FirstEventGuard<T> {
     _settled = true;
     _cancelTimers();
     _cancelSubscription();
-    // Raw print: Logger is silent in release builds, and this line is
-    // the only trace distinguishing a timeout from permission-denied
-    // from offline in a production bug report.
-    // ignore: avoid_print
-    print('[Firestore] $name failed: ${_shortError(error)}');
+    // Logger.e always emits (even in release): this line is the only
+    // trace distinguishing a timeout from permission-denied from offline
+    // in a production bug report.
+    Logger.e('[Firestore] $name failed: ${_shortError(error)}');
     _controller.addError(error, stackTrace);
   }
 }

@@ -276,6 +276,9 @@ class TMDBService with ConnectivityAware, ErrorAware {
 
   // ─── Watchlist Streams ─────────────────────────────────────────────────
 
+  Future<List<MediaItem>> getPreviewItems(String userName, {int limit = 30}) =>
+      _watchlist.getPreviewItems(userName, limit: limit);
+
   Stream<List<MediaItem>> getWatchListStream(String userName, {int? limit}) =>
       _watchlist.getWatchListStream(userName, limit: limit);
 

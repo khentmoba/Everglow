@@ -12,9 +12,9 @@ const verifyPasscode = functions.https.onRequest(async(req,res)=>{
   res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Methods','POST, OPTIONS');res.set('Access-Control-Allow-Headers','Content-Type');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
   if(req.method!=='POST'){res.status(405).json({error:'POST only'});return;}
-  const ip=((req.headers['x-forwarded-for']||'').split(',')[0]||req.ip||'x').trim();
+  const ip=(req.ip||'x').trim();
   if(_pcHit(ip)){res.status(429).json({error:'Too many attempts'});return;}
-  const code=String((req.body&&req.body.passcode)||req.query.passcode||'').trim();
+  const code=String((req.body&&req.body.passcode)||'').trim();
   if(!code||!isValidPasscodeFormat(code)){res.status(400).json({error:'passcode required'});return;}
   const clair=(process.env.CLAIR_PASSCODE||'').trim();const khent=(process.env.KHENT_PASSCODE||'').trim();
   let username=null;if(clair&&code===clair)username='clairjassen';else if(khent&&code===khent)username='khentsgdz';else{res.status(401).json({error:'Invalid passcode'});return;}

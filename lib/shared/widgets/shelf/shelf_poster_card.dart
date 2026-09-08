@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_network_image.dart';
+import '../../utils/tmdb_images.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -66,7 +67,6 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _hovered = false;
   bool _focused = false;
 
-  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   bool get _isDesktop => AppBreakpoint.isDesktop(context);
   bool _canHover(BuildContext context) =>
@@ -76,7 +76,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
-    return '$_tmdbImageBase$url';
+    return TmdbImages.posterFor(url);
   }
 
   @override

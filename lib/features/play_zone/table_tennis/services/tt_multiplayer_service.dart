@@ -1,10 +1,10 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 import '../models/tt_room.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/logger.dart';
 
 class TTMultiplayerService {
   final FirebaseFirestore _fs;
@@ -114,7 +114,7 @@ class TTMultiplayerService {
           });
         })
         .catchError((e, st) {
-          if (kDebugMode) debugPrint('writeHostState failed: $e');
+          Logger.e('writeHostState failed', error: e);
         });
   }
 
@@ -137,7 +137,7 @@ class TTMultiplayerService {
           });
         })
         .catchError((e, st) {
-          if (kDebugMode) debugPrint('writeGuestPaddle failed: $e');
+          Logger.e('writeGuestPaddle failed', error: e);
         });
   }
 

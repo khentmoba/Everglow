@@ -60,12 +60,11 @@ class GatewayNotifier extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 220));
 
     // Breyan/Octagram stay client-verified (non-sensitive).
-    // Keep set from EnvConfig (now always has 9132/8080 fallback).
+    // Passcodes come from EnvConfig only (build-time --dart-define or .env);
+    // no hardcoded literals so builds without config can't be bypassed.
     final clientPasscodes = <String>{
       if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
       if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
-      '9132',
-      '8080',
     };
     final isClientCinemaCode = clientPasscodes.contains(_currentInput);
     if (isClientCinemaCode) {
@@ -84,21 +83,9 @@ class GatewayNotifier extends ChangeNotifier {
         }
       } catch (_) {}
     }
-    // Fallback: server offline, not configured, or verifier unwired.
-    // EnvConfig now has 0221/0938 in prod too, plus hardcoded literals
-    // so a Cloud Function outage never bricks the couple login.
-    final fallbackOk =
-        (_currentInput == EnvConfig.clairPasscode &&
-            EnvConfig.clairPasscode.isNotEmpty) ||
-        (_currentInput == EnvConfig.khentPasscode &&
-            EnvConfig.khentPasscode.isNotEmpty) ||
-        _currentInput == '0221' ||
-        _currentInput == '0938';
-    if (fallbackOk) {
-      _lastEnteredPasscode = _currentInput;
-      updateState(GatewayState.unlocking);
-      return;
-    }
+    // No offline fallback for couple codes: firestore.rules requires a real
+    // non-anonymous Firebase session, so unlocking the UI locally would only
+    // produce permission-denied shelves. Stay on the gateway and retry.
     updateState(GatewayState.error);
     // Wait for shake animation
     await Future.delayed(const Duration(milliseconds: 500));

@@ -42,7 +42,7 @@ class CalendarEvent {
   });
 
   factory CalendarEvent.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? const {};
     return CalendarEvent(
       id: doc.id,
       title: data['title'] ?? '',

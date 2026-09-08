@@ -53,7 +53,7 @@ class DatePoll {
   });
 
   factory DatePoll.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? const {};
     return DatePoll(
       id: doc.id,
       title: data['title'] ?? '',

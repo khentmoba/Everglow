@@ -62,11 +62,8 @@ class MusicSyncService {
     if (token == null || token.isEmpty) {
       throw StateError('Last.fm requires an authenticated user');
     }
-    final signed = url.replace(
-      queryParameters: {...url.queryParameters, '__auth': token},
-    );
     return _client
-        .get(signed, headers: {'Authorization': "Bearer $token"})
+        .get(url, headers: {'Authorization': "Bearer $token"})
         .timeout(const Duration(seconds: 10));
   }
 

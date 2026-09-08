@@ -62,7 +62,8 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 * The app never talks to TMDB, Last.fm, or AI directly. It calls our server helpers with a login token. Keys stay on the server.
 * Never commit passcodes, keys, or secrets. `assets/env.txt` is local only - do not read it or copy it.
 * Login codes are checked on the server. Do not put them in the file.
-* For live data use `.snapshots()`. If something fails, leave a `print` so we can see it.
+* Keyless public catalogs (Open Library, Jikan) go through `proxyCatalog` with a login token when signed in. No direct third-party fetches from the client except `proxyBookText` candidates and cover/thumbnail `<img>` URLs.
+* For live data use `.snapshots()`. If something fails, leave a `Logger.e` so we can see it in release too (raw `print` is banned by `avoid_print`).
 * Use Provider only. No Riverpod, no Bloc.
 * Use relative imports inside `lib/`, like `../../features/...`.
 * Dart files are `snake_case`. Screens end in `Screen`.

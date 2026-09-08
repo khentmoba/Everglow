@@ -124,7 +124,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
           '[VideoPlayerScreen] Providers updated from Firestore — retrying',
         );
         _failedProviderIds.clear();
-        _selectedProvider = newList.first;
+        _selectedProvider = newList.firstWhere(
+          (p) => !_failedProviderIds.contains(p.id),
+          orElse: () => _sourceService.defaultSource,
+        );
         setState(() {
           _iframeFailed = false;
           _isLoading = true;

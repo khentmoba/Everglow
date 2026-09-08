@@ -26,7 +26,7 @@ class DoodleStroke {
   bool get isTextAnnotation => text != null && text!.isNotEmpty;
 
   factory DoodleStroke.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? const {};
     return DoodleStroke(
       id: doc.id,
       points: (data['points'] as List)

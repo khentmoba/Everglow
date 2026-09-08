@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/utils/tmdb_images.dart';
 
 import '../../data/services/tmdb_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -39,7 +40,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
   bool _isLoadingEpisodes = true;
   bool _expanded = false;
 
-  static const _imageBase = 'https://image.tmdb.org/t/p/w400';
+
 
   @override
   void initState() {
@@ -280,7 +281,10 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                       height: 76,
                       child: stillPath != null && stillPath.isNotEmpty
                           ? AppNetworkImage(
-                              imageUrl: '$_imageBase$stillPath',
+                              imageUrl: TmdbImages.stillFor(
+                                stillPath,
+                                large: true,
+                              ),
                               fit: BoxFit.cover,
                               cacheWidth: 360,
                               errorWidget: _buildPlaceholder(epNum),

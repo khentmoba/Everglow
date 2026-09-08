@@ -38,7 +38,7 @@ class StarNote {
   });
 
   factory StarNote.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? const {};
     return StarNote(
       id: doc.id,
       content: data['content'] ?? '',

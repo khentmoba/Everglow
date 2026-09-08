@@ -30,15 +30,7 @@ function getDb() {
  */
 async function requireAuth(req, res) {
   const header = req.get('Authorization') || req.headers.authorization || '';
-  let idToken = String(header).replace(/^Bearer\s+/i, '').trim();
-  if (!idToken) {
-    // Fallback to query-string token for clients that sign URLs via ?__auth=
-    // (e.g. MusicSyncService). Header takes precedence; query is checked only
-    // when the header is absent so logs do not contain credentials.
-    const qp = req.query || {};
-    const qToken = qp.__auth || qp.token || qp.auth || '';
-    idToken = String(qToken).trim();
-  }
+  const idToken = String(header).replace(/^Bearer\s+/i, '').trim();
   if (!idToken) {
     res.status(401).json({ error: 'Authentication required' });
     return null;
