@@ -43,4 +43,6 @@ jobs:
       - working-directory: functions
         run: node --check index.js
       - working-directory: functions
+        run: node eval_gate.js
+      - working-directory: functions
         run: npm audit --omit=dev --audit-level=moderate
