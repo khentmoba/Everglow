@@ -8,6 +8,7 @@ import '../../../data/services/anilist_service.dart';
 import 'animex_badges.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 
 /// Poster card used across the anime section rows and grids. Matches the
 /// reference UI: 2:3 poster with rounded corners, status/EP/rating badges,
@@ -487,26 +488,23 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
         ),
       );
     }
-    return Image.network(
-      url,
+    return AppNetworkImage(
+      imageUrl: url,
       fit: BoxFit.cover,
       cacheWidth: 400,
-      loadingBuilder: (_, child, progress) {
-        if (progress == null) return child;
-        return Container(
-          color: AnimeXTokens.surfaceRaised,
-          alignment: Alignment.center,
-          child: const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AnimeXTokens.textMuted,
-            ),
+      placeholder: Container(
+        color: AnimeXTokens.surfaceRaised,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AnimeXTokens.textMuted,
           ),
-        );
-      },
-      errorBuilder: (_, _, _) => Container(
+        ),
+      ),
+      errorWidget: Container(
         color: AnimeXTokens.surfaceRaised,
         alignment: Alignment.center,
         child: const Icon(

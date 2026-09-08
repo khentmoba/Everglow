@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:go_router/go_router.dart';
@@ -43,8 +44,8 @@ class DashboardOverlays extends StatelessWidget {
                         'assets/images/mochi_avatar.png',
                         width: 48,
                         height: 48,
-                        cacheWidth: 144,
-                        cacheHeight: 144,
+                        cacheWidth: kIsWeb ? null : 144,
+                        cacheHeight: kIsWeb ? null : 144,
                         filterQuality: FilterQuality.high,
                         fit: BoxFit.cover,
                       ),

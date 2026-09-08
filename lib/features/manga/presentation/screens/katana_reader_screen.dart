@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -576,7 +577,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       url,
       fit: _fitHeight ? BoxFit.contain : BoxFit.fitWidth,
       width: double.infinity,
-      cacheWidth: decodeWidth,
+      cacheWidth: kIsWeb ? null : decodeWidth,
       errorBuilder: (_, _, _) => Container(
         height: 220,
         color: KatanaColors.border,

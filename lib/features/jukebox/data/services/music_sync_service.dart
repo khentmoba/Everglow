@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/loved_track.dart';
@@ -9,15 +10,19 @@ import '../models/top_artist.dart';
 import '../models/top_music_track.dart';
 import '../models/lastfm_image_utils.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/catalog_proxy_client.dart';
 
 class MusicSyncService {
   MusicSyncService({
     http.Client? client,
     Future<Uri> Function(Uri url)? signUrl,
+    CatalogProxyClient? proxyClient,
   }) : _client = client ?? http.Client(),
+       _proxy = proxyClient ?? CatalogProxyClient(client: client),
        _signUrl = signUrl;
 
   final http.Client _client;
+  final CatalogProxyClient _proxy;
   final Future<Uri> Function(Uri url)? _signUrl;
 
   /// Last.fm requests are signed and proxied server-side so the API key is
@@ -381,15 +386,28 @@ class MusicSyncService {
   }
 
   Future<List<Map<String, dynamic>>> _searchItunes(String term) async {
-    final uri = Uri.parse('https://itunes.apple.com/search').replace(
-      queryParameters: {
-        'term': term,
-        'entity': 'song',
-        'media': 'music',
-        'limit': '10',
-      },
-    );
-    final response = await _client.get(uri).timeout(const Duration(seconds: 8));
+    final query = {
+      'term': term,
+      'entity': 'song',
+      'media': 'music',
+      'limit': '10',
+    };
+    http.Response response;
+    if (kIsWeb) {
+      // Direct browser calls to itunes.apple.com redirect to musics:// and
+      // get blocked by browser CORS policy. Route through proxyCatalog.
+      response = await _proxy.get(
+        'itunes',
+        'search',
+        query: query,
+        timeout: const Duration(seconds: 8),
+      );
+    } else {
+      final uri = Uri.parse('https://itunes.apple.com/search').replace(
+        queryParameters: query,
+      );
+      response = await _client.get(uri).timeout(const Duration(seconds: 8));
+    }
     if (response.statusCode != 200) return const [];
     final data = json.decode(response.body);
     final results = data is Map<String, dynamic> ? data['results'] : null;

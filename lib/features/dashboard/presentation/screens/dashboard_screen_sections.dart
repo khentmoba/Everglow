@@ -89,7 +89,7 @@ extension _DashboardScreenSections on _DashboardScreenState {
                 child: Image.asset(
                   'assets/images/logo.png',
                   fit: BoxFit.cover,
-                  cacheWidth: 324,
+                  cacheWidth: kIsWeb ? null : 324,
                 ),
               ),
             ),

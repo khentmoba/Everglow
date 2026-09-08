@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -522,8 +523,8 @@ class _SidebarPanel extends StatelessWidget {
               'assets/images/mochi_avatar.png',
               width: 28,
               height: 28,
-              cacheWidth: 84,
-              cacheHeight: 84,
+              cacheWidth: kIsWeb ? null : 84,
+              cacheHeight: kIsWeb ? null : 84,
               filterQuality: FilterQuality.high,
               fit: BoxFit.cover,
             ),
