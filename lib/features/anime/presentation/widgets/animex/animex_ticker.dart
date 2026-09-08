@@ -18,7 +18,6 @@ class AnimeXTicker extends StatefulWidget {
 class _AnimeXTickerState extends State<AnimeXTicker>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  bool _paused = false;
 
   @override
   void initState() {
@@ -42,8 +41,8 @@ class _AnimeXTickerState extends State<AnimeXTicker>
     final labelWidth = narrow ? 108.0 : 168.0;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _paused = true),
-      onExit: (_) => setState(() => _paused = false),
+      onEnter: (_) => _ctrl.stop(),
+      onExit: (_) => _ctrl.repeat(),
       child: Container(
         height: 40,
         decoration: BoxDecoration(
@@ -65,20 +64,22 @@ class _AnimeXTickerState extends State<AnimeXTicker>
             Positioned.fill(
               child: Padding(
                 padding: EdgeInsets.only(left: labelWidth),
-                child: _paused
-                    ? _track(context)
-                    : AnimatedBuilder(
-                        animation: _ctrl,
-                        builder: (context, _) {
-                          return Transform.translate(
-                            offset: Offset(
-                              -_ctrl.value * _trackWidth(context),
-                              0,
-                            ),
-                            child: _track(context),
-                          );
-                        },
-                      ),
+                child: OverflowBox(
+                  maxWidth: double.infinity,
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedBuilder(
+                    animation: _ctrl,
+                    builder: (context, _) {
+                      return Transform.translate(
+                        offset: Offset(
+                          -_ctrl.value * _trackWidth(context),
+                          0,
+                        ),
+                        child: _track(context),
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
             // Fixed "Airing Today" label pinned to the left edge.
@@ -107,13 +108,17 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    narrow ? 'AIRING' : 'AIRING TODAY',
-                    style: dmSansStyle(
-                      size: 11,
-                      color: AnimeXTokens.textPrimary,
-                      weight: FontWeight.w800,
-                      letterSpacing: 0.1,
+                  Flexible(
+                    child: Text(
+                      narrow ? 'AIRING' : 'AIRING TODAY',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: dmSansStyle(
+                        size: 11,
+                        color: AnimeXTokens.textPrimary,
+                        weight: FontWeight.w800,
+                        letterSpacing: 0.1,
+                      ),
                     ),
                   ),
                 ],
