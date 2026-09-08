@@ -471,7 +471,7 @@ class _CardPopover extends StatelessWidget {
                 style: dmSansStyle(
                   size: 10.5,
                   color: AnimeXTokens.textMuted,
-                  weight: FontWeight.w500,
+                  weight: FontWeight.w600,
                 ),
               ),
             ),

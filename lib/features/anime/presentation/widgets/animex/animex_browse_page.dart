@@ -243,7 +243,7 @@ class _AnimeXBrowsePageState extends State<AnimeXBrowsePage> {
             style: dmSansStyle(
               size: 12.5,
               color: AnimeXTokens.textSecondary,
-              weight: FontWeight.w500,
+              weight: FontWeight.w600,
             ),
           ),
         ),
@@ -324,7 +324,7 @@ class _Select extends StatelessWidget {
               style: dmSansStyle(
                 size: 13,
                 color: AnimeXTokens.textPrimary,
-                weight: FontWeight.w500,
+                weight: FontWeight.w600,
               ),
             ),
             const SizedBox(width: 8),

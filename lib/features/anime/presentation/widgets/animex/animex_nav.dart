@@ -247,7 +247,7 @@ class _NavItem extends StatelessWidget {
               color: active
                   ? AnimeXTokens.textPrimary
                   : AnimeXTokens.textSecondary,
-              weight: FontWeight.w500,
+              weight: FontWeight.w600,
             ),
           ),
         ),

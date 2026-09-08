@@ -112,7 +112,7 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                   style: dmSansStyle(
                     size: 12.5,
                     color: AnimeXTokens.textSecondary,
-                    weight: FontWeight.w500,
+                    weight: FontWeight.w600,
                   ),
                 ),
               ),
