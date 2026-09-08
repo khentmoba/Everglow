@@ -129,6 +129,39 @@ void main() {
       expect(artwork, 'https://lastfm.example/real-cover.png');
     });
 
+    test('uses a smaller Last.fm cover when extralarge is blank', () async {
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['method'], 'track.getinfo');
+        return _jsonResponse({
+          'track': {
+            'album': {
+              'image': [
+                {'#text': '', 'size': 'small'},
+                {'#text': '', 'size': 'extralarge'},
+                {
+                  '#text': 'https://lastfm.example/mega-cover.png',
+                  'size': 'mega',
+                },
+              ],
+            },
+          },
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Harry Styles',
+        track: 'Fine Line',
+      );
+
+      expect(artwork, 'https://lastfm.example/mega-cover.png');
+    });
+
     test('prefers an exact track-name match over iTunes ordering', () async {
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
