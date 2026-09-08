@@ -50,7 +50,7 @@ class GuardianService {
 
   Future<void> _initializeWithRetry() async {
     for (var attempt = 1; attempt <= _maxInitAttempts; attempt++) {
-      await _initializeOnce();
+      await _initializeOnce(attempt);
       if (_cachedMessages.isNotEmpty) return;
       if (attempt < _maxInitAttempts) {
         await Future<void>.delayed(Duration(seconds: attempt * 2));
@@ -58,13 +58,13 @@ class GuardianService {
     }
   }
 
-  Future<void> _initializeOnce() async {
+  Future<void> _initializeOnce(int attempt) async {
     try {
       final snapshot = await _db
           .collection('guardian_messages')
           .limit(_maxCached)
           .get()
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 15));
       var docs = snapshot.docs;
       if (docs.isEmpty) {
         await seedMessages();
@@ -72,7 +72,7 @@ class GuardianService {
             .collection('guardian_messages')
             .limit(_maxCached)
             .get()
-            .timeout(const Duration(seconds: 8));
+            .timeout(const Duration(seconds: 15));
         docs = seeded.docs;
       }
       _cachedMessages = docs
@@ -81,7 +81,17 @@ class GuardianService {
       _rebuildIndex();
       _lastFetch = DateTime.now();
     } catch (e) {
-      Logger.e('Error initializing guardian messages', error: e);
+      if (attempt < _maxInitAttempts) {
+        Logger.w(
+          'Guardian messages init attempt $attempt/$_maxInitAttempts slow or failed, retrying...',
+          error: e,
+        );
+      } else {
+        Logger.e(
+          'Error initializing guardian messages after $_maxInitAttempts attempts',
+          error: e,
+        );
+      }
       // Keep stale cache if we have one; otherwise stay empty until the
       // retry in [_initializeWithRetry] runs.
     }

@@ -39,9 +39,12 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
   @override
   void initState() {
     super.initState();
-    // One subscription for the widget lifetime so dashboard rebuilds don't
-    // resubscribe and restart the Firestore listener on every frame.
     _calendarService = CalendarService();
+    final cached = _calendarService.cachedUpcoming;
+    if (cached != null) {
+      _events = cached;
+      _isLoading = false;
+    }
     _subscribe();
   }
 

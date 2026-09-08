@@ -18,8 +18,8 @@ class GardenService implements GardenStatsSource {
 
   @override
   Stream<GardenStats> watchStats(String userId) {
-    return withFirestoreTimeout(
-      _db
+    Stream<GardenStats> subscribe() {
+      return _db
           .collection('users')
           .doc(userId)
           .collection('garden_stats')
@@ -30,8 +30,15 @@ class GardenService implements GardenStatsSource {
               return GardenStats.initial();
             }
             return GardenStats.fromFirestore(snapshot);
-          }),
+          });
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'garden-stats',
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
     );
   }
 
@@ -107,7 +114,28 @@ class GardenService implements GardenStatsSource {
   /// Watch partner's garden stats for the shared garden view.
   @override
   Stream<GardenStats> watchPartnerStats(String partnerUid) {
-    return watchStats(partnerUid);
+    Stream<GardenStats> subscribe() {
+      return _db
+          .collection('users')
+          .doc(partnerUid)
+          .collection('garden_stats')
+          .doc('stats')
+          .snapshots()
+          .map((snapshot) {
+            if (!snapshot.exists) {
+              return GardenStats.initial();
+            }
+            return GardenStats.fromFirestore(snapshot);
+          });
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
+      label: 'garden-partner-stats',
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
+    );
   }
 
   /// Update the user's selected plant type.

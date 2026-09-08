@@ -116,11 +116,19 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (authService.isReady) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            context.read<DateIdeaService>().initialize().catchError((Object e) {
-              Logger.e('Date ideas init failed', error: e);
+            // Stagger one-off catalog fetches so they don't contend with
+            // critical-path dashboard stream attachments on cold start.
+            Future.delayed(const Duration(milliseconds: 600), () {
+              if (!mounted) return;
+              context.read<GuardianService>().initialize().catchError((Object e) {
+                Logger.e('Guardian init failed', error: e);
+              });
             });
-            context.read<GuardianService>().initialize().catchError((Object e) {
-              Logger.e('Guardian init failed', error: e);
+            Future.delayed(const Duration(milliseconds: 1200), () {
+              if (!mounted) return;
+              context.read<DateIdeaService>().initialize().catchError((Object e) {
+                Logger.e('Date ideas init failed', error: e);
+              });
             });
           });
         }
@@ -237,7 +245,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     garden.updateUserId(uid);
     if (_lastGardenUid != uid) {
       _lastGardenUid = uid;
-      garden.recordInteraction();
+      // Record visit after the initial stream attachments have settled
+      // so the write and XP transaction don't contend with cold-start reads.
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted && _lastGardenUid == uid) {
+          garden.recordInteraction();
+        }
+      });
     }
   }
 
