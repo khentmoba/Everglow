@@ -180,6 +180,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         _hasLoaded = true;
         _loadError = false;
       });
+      if (watched.isNotEmpty) _backfillPosters(watched);
     }).catchError((Object e) {
       if (!mounted || _future != future) return;
       // Report the failure instead of a false-empty shelf: a denied
@@ -189,6 +190,20 @@ class _CinemaShelfState extends State<_CinemaShelf> {
         _loadError = true;
       });
     });
+  }
+
+  /// Resolves posters for entries saved without one (e.g. older docs from
+  /// before `posterPath` was stored, or progress saves from the video
+  /// player). Mirrors the Currently Watching shelf — without this, Watched
+  /// cards fall back to the placeholder tile forever.
+  Future<void> _backfillPosters(List<MediaItem> items) async {
+    try {
+      var updated = await _service.backfillMissingPosters(items);
+      updated = await _service.refreshAnimePosters(updated);
+      if (mounted) setState(() => _items = updated);
+    } catch (_) {
+      // Silently fail — placeholder will show
+    }
   }
 
   @override
