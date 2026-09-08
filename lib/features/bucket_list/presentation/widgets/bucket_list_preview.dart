@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -20,36 +22,98 @@ class BucketListPreview extends StatefulWidget {
 class _BucketListPreviewState extends State<BucketListPreview> {
   bool _hovered = false;
   late final BucketListService _service;
-  late Stream<List<BucketItem>> _stream;
+  StreamSubscription<List<BucketItem>>? _sub;
+  Timer? _retryTimer;
+  List<BucketItem>? _items;
+  Object? _error;
+  bool _isLoading = true;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
-    // Cache the stream so dashboard rebuilds don't resubscribe and
-    // restart the Firestore listener on every frame. Preview cap (12)
-    // is plenty: the card renders a progress ring plus 3 wishes.
+    // One subscription for the widget lifetime so dashboard rebuilds don't
+    // resubscribe and restart the Firestore listener on every frame.
+    // Preview cap (12) is plenty: the card renders a progress ring plus
+    // 3 wishes.
     _service = BucketListService();
-    _stream = _service.watchPreview(limit: 12);
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = _service.watchPreview(limit: 12).listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _items = data;
+          _error = null;
+          _isLoading = false;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        _scheduleSilentRetry(error);
+      },
+      onDone: () {
+        // withFirestoreTimeout closes the stream without an error when the
+        // first snapshot never arrives (cold Firestore WebChannel on first
+        // load). Retry silently — the loading shimmer stays up, so Clair
+        // never sees a spurious "could not load" that needs a manual tap.
+        // The error row only appears after the retries are exhausted.
+        if (!mounted) return;
+        if (_isLoading && _items == null) _scheduleSilentRetry(_error);
+      },
+    );
+  }
+
+  void _scheduleSilentRetry(Object? error) {
+    if (!mounted) return;
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _error = error ?? _error;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted) _subscribe();
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _error = error ?? _error;
+      });
+    }
   }
 
   void _retry() {
     setState(() {
-      _stream = _service.watchPreview(limit: 12);
+      _isLoading = true;
+      _error = null;
+      _retryCount = 0;
     });
+    _subscribe();
   }
 
   @override
   Widget build(BuildContext context) {
     const hue = AppColors.blushGold;
 
-    return StreamBuilder<List<BucketItem>>(
-      stream: _stream,
-      builder: (context, snapshot) {
-        // Error (or timeout-closed with no data) must never masquerade as
-        // "empty" — the bucket-list screen would still show dreams on tap.
-        if (snapshot.hasError ||
-            (!snapshot.hasData &&
-                snapshot.connectionState == ConnectionState.done)) {
+    final items = _items;
+    // While loading — including silent background retries after a slow
+    // first snapshot — keep the loading state up so first load never
+    // flashes "could not load". The error row only appears after all
+    // retries are exhausted, and the manual tap stays as a last resort.
+    // Error (or timeout-closed with no data) must never masquerade as
+    // "empty" — the bucket-list screen would still show dreams on tap.
+    if (!_isLoading && (_error != null || items == null)) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: GestureDetector(
@@ -68,7 +132,7 @@ class _BucketListPreviewState extends State<BucketListPreview> {
                   child: _EmptyAddRow(
                     hue: hue,
                     text:
-                        '${firestoreErrorHint(snapshot.error)} — tap here to retry.',
+                        '${firestoreErrorHint(_error)} — tap here to retry.',
                   ),
                 ),
               ),
@@ -77,7 +141,7 @@ class _BucketListPreviewState extends State<BucketListPreview> {
         }
 
         // Waiting for the first snapshot is loading, not empty.
-        if (!snapshot.hasData) {
+        if (items == null) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: GestureDetector(
@@ -117,7 +181,7 @@ class _BucketListPreviewState extends State<BucketListPreview> {
           );
         }
 
-        final all = snapshot.data!;
+        final all = items;
         final completed = all
             .where((i) => i.status == BucketStatus.completed)
             .length;
@@ -363,8 +427,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
             ),
           ),
         );
-      },
-    );
   }
 }
 

@@ -7,9 +7,13 @@ class FakeMoodSource extends MoodSource {
   bool submittedToday = false;
   int submits = 0;
   Object? submitError;
+  Object? statusError;
 
   @override
-  Future<bool> hasSubmittedToday(String username) async => submittedToday;
+  Future<bool> hasSubmittedToday(String username) async {
+    if (statusError != null) throw statusError!;
+    return submittedToday;
+  }
 
   @override
   Future<void> submitMood({
@@ -35,6 +39,33 @@ void main() {
       final fake = FakeMoodSource()..submittedToday = true;
       final controller = MoodController(fake);
 
+      await controller.checkTodayStatus('clair');
+
+      expect(controller.hasSubmittedToday, isTrue);
+    });
+
+    test('checkTodayStatus keeps its value when the service throws', () async {
+      final fake = FakeMoodSource()
+        ..submittedToday = true
+        ..statusError = Exception('offline');
+      final controller = MoodController(fake);
+
+      // Must not throw, and must not flip to "not submitted" (which would
+      // nag Clair for a mood she already gave).
+      await controller.checkTodayStatus('clair');
+
+      expect(controller.hasSubmittedToday, isFalse);
+    });
+
+    test('checkTodayStatus keeps a previous true when a later check fails',
+        () async {
+      final fake = FakeMoodSource()..submittedToday = true;
+      final controller = MoodController(fake);
+
+      await controller.checkTodayStatus('clair');
+      expect(controller.hasSubmittedToday, isTrue);
+
+      fake.statusError = Exception('offline');
       await controller.checkTodayStatus('clair');
 
       expect(controller.hasSubmittedToday, isTrue);

@@ -180,7 +180,15 @@ class _FirstEventGuard<T> {
           }
           // Pre-first-event failure: transient blips (and token-refresh
           // races) deserve a silent re-attach before the UI gives up.
+          // Permanent failures (missing index, denied session) would fail
+          // identically on every attempt: surface them at once so the UI
+          // can show the actionable hint instead of spinning through the
+          // whole retry budget first.
           _cancelSubscription();
+          if (_isPermanent(error)) {
+            _finishError(error, stackTrace);
+            return;
+          }
           if (factory != null && _attempt < maxAttempts) {
             Logger.e(
               '[Firestore] $name attempt $_attempt/$maxAttempts failed '
@@ -231,6 +239,22 @@ class _FirstEventGuard<T> {
     Logger.e('[Firestore] $name failed: ${_shortError(error)}');
     _controller.addError(error, stackTrace);
   }
+}
+
+/// True for failures a retry cannot fix: the next attempt would fail the
+/// same way, so re-attaching only delays the actionable error UI.
+bool _isPermanent(Object error) {
+  if (error is FirebaseException) {
+    switch (error.code) {
+      case 'failed-precondition':
+      case 'permission-denied':
+      case 'unauthenticated':
+      case 'invalid-argument':
+      case 'not-found':
+        return true;
+    }
+  }
+  return false;
 }
 
 String _shortError(Object error) {
