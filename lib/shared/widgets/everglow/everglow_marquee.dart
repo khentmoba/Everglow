@@ -24,12 +24,21 @@ import "../../../core/theme/app_motion.dart";
 ///   wrap this in `DeferredSection` so its ticker starts near the viewport.
 /// - The ticker pauses on app background via [WidgetsBindingObserver] and
 ///   respects [TickerMode] (e.g. paused routes) through the controller.
+/// Overflowing rows also fade both clip edges ([edgeFade]): without it a
+/// drifting card is hard-sliced mid-glyph at the viewport bounds (see the
+/// Watched shelf, where titles like "…rden" were cut at both edges), which
+/// reads as a broken list. The fade dissolves edge cards into the dark
+/// backdrop instead, so the drift reads as an intentional rail.
 class EverglowMarquee extends StatefulWidget {
   final List<Widget> children;
   final double itemSpacing;
   final double pixelsPerSecond;
   final bool shimmer;
   final double height;
+  /// Soften the left/right clip bounds on overflowing (scrolling) rows.
+  /// Static rows render no fade. Disable for light backgrounds where a
+  /// fade-to-black would read as a smudge.
+  final bool edgeFade;
 
   const EverglowMarquee({
     super.key,
@@ -38,6 +47,7 @@ class EverglowMarquee extends StatefulWidget {
     this.pixelsPerSecond = 30,
     this.shimmer = false,
     this.height = 180,
+    this.edgeFade = true,
   });
 
   @override
@@ -171,7 +181,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     // Overflowing rows keep the infinite marquee. Two copies plus the
     // inter-set gap form one seamless wrap period of exactly _loopWidth,
     // so the second set slides in as the first slides out (no blank gap).
-    return SizedBox(
+    Widget row = SizedBox(
       height: widget.height,
       child: OverflowBox(
         maxWidth: double.infinity,
@@ -192,6 +202,29 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         ),
       ),
     );
+    // Dissolve drifting cards at the clip bounds instead of slicing them
+    // mid-glyph. Foreground decoration paints over the row with no extra
+    // saveLayer and no layout change, so the scroll-jank work is unaffected.
+    // Static rows fit, never clip, and render no fade.
+    if (widget.edgeFade) {
+      row = Container(
+        foregroundDecoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Color(0xFF000000),
+              Colors.transparent,
+              Colors.transparent,
+              Color(0xFF000000),
+            ],
+            stops: [0.0, 0.035, 0.965, 1.0],
+          ),
+        ),
+        child: row,
+      );
+    }
+    return row;
   }
 
   double _estimateSetWidth() {
