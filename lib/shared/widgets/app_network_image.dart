@@ -1,4 +1,5 @@
 import "package:cached_network_image/cached_network_image.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 /// Shared network image with web-performance defaults.
@@ -25,6 +26,11 @@ import "package:flutter/material.dart";
 /// scrolling a rail back and forth never re-fetches bytes that were
 /// already decoded. `cacheWidth`/`cacheHeight` become `memCacheWidth` /
 /// `memCacheHeight` so the in-memory bitmap stays downscaled too.
+///
+/// Exception: on Flutter Web they are ignored (native browser decode).
+/// An upstream CanvasKit bug (flutter/flutter#158093, #160199) turns any
+/// downscaled decode into `WebGL: INVALID_VALUE: texImage2D: no image`
+/// + black rectangles, so web always decodes at natural size.
 class AppNetworkImage extends StatelessWidget {
   final String imageUrl;
 
@@ -85,10 +91,15 @@ class AppNetworkImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isValidUrl(imageUrl)) return _fallback(context);
+    // Flutter Web CanvasKit (flutter/flutter#158093, #160199) has an upstream
+    // engine bug where setting cacheWidth/memCacheWidth smaller than the intrinsic
+    // image dimensions causes ResizeImage/createImageBitmap to detach the source
+    // buffer before Skia uploads it, logging "WebGL: INVALID_VALUE: texImage2D: no image"
+    // and rendering pure black rectangles. On web, allow native browser decode.
     final safeCacheWidth =
-        (cacheWidth != null && cacheWidth! > 0) ? cacheWidth : null;
+        (!kIsWeb && cacheWidth != null && cacheWidth! > 0) ? cacheWidth : null;
     final safeCacheHeight =
-        (cacheHeight != null && cacheHeight! > 0) ? cacheHeight : null;
+        (!kIsWeb && cacheHeight != null && cacheHeight! > 0) ? cacheHeight : null;
     Widget image = CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
@@ -100,15 +111,7 @@ class AppNetworkImage extends StatelessWidget {
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       placeholderFadeInDuration: Duration.zero,
-      imageBuilder: (context, provider) => Image(
-        image: provider,
-        width: width,
-        height: height,
-        fit: fit,
-        filterQuality: filterQuality,
-        gaplessPlayback: true,
-        excludeFromSemantics: true,
-      ),
+      useOldImageOnUrlChange: true,
       placeholder: (context, _) {
         if (placeholder != null) return placeholder!;
         return Container(
