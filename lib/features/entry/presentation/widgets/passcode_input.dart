@@ -134,8 +134,6 @@ class _PasscodeInputState extends State<PasscodeInput>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildHeader(),
-                    const SizedBox(height: 10),
                     _buildDots(),
                     const SizedBox(height: 8),
                     _buildStatusLine(),
@@ -151,31 +149,6 @@ class _PasscodeInputState extends State<PasscodeInput>
     );
   }
 
-  Widget _buildHeader() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Your private place for Khent & Clair',
-          textAlign: TextAlign.center,
-          style: AppTypography.bodySmall().copyWith(
-            color: AppColors.roseQuartz.withValues(alpha: 0.88),
-            fontSize: 13,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Enter your 4-digit passcode',
-          textAlign: TextAlign.center,
-          style: AppTypography.bodySmall().copyWith(
-            color: AppColors.textMuted.withValues(alpha: 0.85),
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildDots() {
     final progressLabel = widget.isVerifying
