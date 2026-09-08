@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -630,8 +631,8 @@ class _StudyScreenState extends State<StudyScreen> {
                     'assets/images/mochi_avatar.png',
                     width: 76,
                     height: 76,
-                    cacheWidth: 228,
-                    cacheHeight: 228,
+                    cacheWidth: kIsWeb ? null : 228,
+                    cacheHeight: kIsWeb ? null : 228,
                     filterQuality: FilterQuality.high,
                     fit: BoxFit.cover,
                   ),
@@ -1148,8 +1149,8 @@ class _StreamingBubble extends StatelessWidget {
                 'assets/images/mochi_avatar.png',
                 width: 36,
                 height: 36,
-                cacheWidth: 108,
-                cacheHeight: 108,
+                cacheWidth: kIsWeb ? null : 108,
+                cacheHeight: kIsWeb ? null : 108,
                 filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -184,8 +185,8 @@ class EverglowAssistantBubble extends StatelessWidget {
                 avatarAsset!,
                 width: 36,
                 height: 36,
-                cacheWidth: 108,
-                cacheHeight: 108,
+                cacheWidth: kIsWeb ? null : 108,
+                cacheHeight: kIsWeb ? null : 108,
                 filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),

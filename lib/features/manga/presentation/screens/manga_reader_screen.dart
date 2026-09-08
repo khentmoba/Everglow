@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -837,7 +838,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               url,
               width: double.infinity,
               fit: BoxFit.fitWidth,
-              cacheWidth: heroCacheWidth(context),
+              cacheWidth: kIsWeb ? null : heroCacheWidth(context),
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return Container(

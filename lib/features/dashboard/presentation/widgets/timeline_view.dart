@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_elevation.dart';
@@ -963,7 +964,7 @@ class MilestonePhoto extends StatelessWidget {
         path,
         fit: BoxFit.cover,
         width: double.infinity,
-        cacheWidth: 640,
+        cacheWidth: kIsWeb ? null : 640,
         errorBuilder: (context, error, stack) => _photoFallback(),
       );
     }
