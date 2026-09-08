@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../domain/models/user_progress.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -192,7 +193,7 @@ class XPProgressBar extends StatelessWidget {
                         Positioned(
                           left: (fillW - 7).clamp(
                             0.0,
-                            constraints.maxWidth - 14,
+                            math.max(0.0, constraints.maxWidth - 14),
                           ),
                           child: Container(
                             width: 14,

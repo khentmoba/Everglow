@@ -844,8 +844,8 @@ class _JarStarFieldPainter extends CustomPainter {
           m.baseY +
           cos(tY * 2 * pi + m.phaseY) * m.ampY +
           cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
-      final dx = rawDx.clamp(jarLeft, jarRight - maxSize);
-      final dy = rawDy.clamp(jarTop, jarBottom - maxSize);
+      final dx = rawDx.clamp(jarLeft, max<double>(jarLeft, jarRight - maxSize));
+      final dy = rawDy.clamp(jarTop, max<double>(jarTop, jarBottom - maxSize));
       final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
       final opacity = (0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35)
           .clamp(0.0, 1.0);

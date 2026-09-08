@@ -57,6 +57,7 @@ class _MochiScreenState extends State<MochiScreen> {
   final List<String> _attachedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
   final MochiWebBridge _webBridge = MochiWebBridge();
+  AIService? _aiService;
 
   @override
   void initState() {
@@ -66,6 +67,7 @@ class _MochiScreenState extends State<MochiScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final ai = context.read<AIService>();
+      _aiService = ai;
       ai.addListener(_onAiChanged);
       ai.toolResultsNotifier.addListener(_onToolResults);
       await ai.loadAssistantConversation();
@@ -76,15 +78,22 @@ class _MochiScreenState extends State<MochiScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _aiService ??= context.read<AIService>();
+  }
+
+  @override
   void dispose() {
     _input.dispose();
     _scroll.removeListener(_onScroll);
     _scroll.dispose();
     _focusNode.dispose();
-    try {
-      try { context.read<AIService>().toolResultsNotifier.removeListener(_onToolResults); } catch (_) {}
-      context.read<AIService>().removeListener(_onAiChanged);
-    } catch (_) {}
+    final ai = _aiService;
+    if (ai != null) {
+      ai.toolResultsNotifier.removeListener(_onToolResults);
+      ai.removeListener(_onAiChanged);
+    }
     _webBridge.uninstallPasteListener();
     super.dispose();
   }
