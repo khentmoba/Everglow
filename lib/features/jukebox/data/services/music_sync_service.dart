@@ -316,19 +316,8 @@ class MusicSyncService {
         final data = json.decode(response.body);
         final album = data['track']?['album'];
         if (album is Map) {
-          final images = album['image'] as List<dynamic>?;
-          if (images != null && images.isNotEmpty) {
-            dynamic selectedImage = images.last;
-            for (final img in images) {
-              if (img is Map && img['size'] == 'extralarge') {
-                selectedImage = img;
-                break;
-              }
-            }
-            if (selectedImage is Map) {
-              return cleanLastfmImageUrl(selectedImage['#text'] as String?);
-            }
-          }
+          final picked = pickLastfmImageUrl(album['image'] as List<dynamic>?);
+          if (picked != null) return picked;
         }
         return null;
       } else {
