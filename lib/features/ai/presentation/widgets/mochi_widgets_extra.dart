@@ -846,23 +846,43 @@ class _ToolStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = _toolAccent(status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6.5),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
+        gradient: LinearGradient(
+          colors: [
+            accent.withValues(alpha: 0.18),
+            accent.withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: AppRadius.radiusFull,
-        border: Border.all(color: accent.withValues(alpha: 0.25)),
+        border: Border.all(color: accent.withValues(alpha: 0.32), width: 0.9),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.16),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 7),
           Icon(_toolIcon(status), size: 13, color: accent),
           const SizedBox(width: 6),
           Text(
             _formatToolStatus(status),
             style: AppTypography.bodySmall().copyWith(
-              fontSize: 11,
-              color: accent,
-              fontWeight: FontWeight.w500,
+              fontSize: 11.5,
+              color: AppColors.petalWhite,
+              fontWeight: FontWeight.w600,
               height: 1.0,
             ),
           ),
@@ -904,25 +924,15 @@ class _QuickReplyChips extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(
         horizontal: centered ? 24 : 12,
-        vertical: 6,
+        vertical: 8,
       ),
       child: Row(
         children: _chips.map((e) {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: ActionChip(
-              label: Text(
-                e.$1,
-                style: AppTypography.bodySmall().copyWith(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textMedium,
-                ),
-              ),
-              backgroundColor: AppColors.surfaceGlass,
-              side: BorderSide(color: AppColors.border),
-              shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusFull),
-              onPressed: enabled ? () => onSelect(e.$2) : null,
+            child: _QuickPill(
+              label: e.$1,
+              onTap: enabled ? () => onSelect(e.$2) : null,
             ),
           );
         }).toList(),
@@ -933,6 +943,80 @@ class _QuickReplyChips extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 760),
         child: inner,
+      ),
+    );
+  }
+}
+
+class _QuickPill extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const _QuickPill({required this.label, this.onTap});
+  @override
+  State<_QuickPill> createState() => _QuickPillState();
+}
+
+class _QuickPillState extends State<_QuickPill> {
+  bool _hover = false;
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.5,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _hover && enabled
+                        ? AppColors.velvet.withValues(alpha: 0.95)
+                        : AppColors.inkDeep.withValues(alpha: 0.85),
+                    _hover && enabled
+                        ? AppColors.plum.withValues(alpha: 0.75)
+                        : AppColors.velvet.withValues(alpha: 0.65),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _hover && enabled
+                      ? AppColors.blushGold.withValues(alpha: 0.40)
+                      : AppColors.moonlight.withValues(alpha: 0.16),
+                  width: 0.9,
+                ),
+                boxShadow: _hover && enabled
+                    ? [
+                        BoxShadow(
+                          color: AppColors.blushGold.withValues(alpha: 0.14),
+                          blurRadius: 12,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Text(
+                widget.label,
+                style: AppTypography.bodySmall().copyWith(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: _hover && enabled
+                      ? AppColors.petalWhite
+                      : AppColors.textMedium,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -971,20 +1055,46 @@ class _ToolResultCards extends StatelessWidget {
           } else if (r['error'] != null) {
             label = 'Failed';
           }
-
           return Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: accent.withValues(alpha: 0.2)),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.inkDeep.withValues(alpha: 0.90),
+                  AppColors.velvet.withValues(alpha: 0.72),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: accent.withValues(alpha: 0.28), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.28),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 14, color: accent),
-                const SizedBox(width: 8),
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: accent.withValues(alpha: 0.30),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Icon(icon, size: 15, color: accent),
+                ),
+                const SizedBox(width: 10),
                 Flexible(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -992,28 +1102,32 @@ class _ToolResultCards extends StatelessWidget {
                       Text(
                         label,
                         style: AppTypography.bodySmall().copyWith(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           color: accent,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
                         ),
                       ),
-                      if (title.isNotEmpty)
+                      if (title.isNotEmpty) ...[
+                        const SizedBox(height: 2),
                         Text(
                           title,
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textHigh,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.petalWhite,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                      ],
                       if (msg.isNotEmpty && !needsConfirm)
                         Text(
                           msg,
                           style: AppTypography.bodySmall().copyWith(
                             fontSize: 11.5,
                             color: AppColors.textMuted,
+                            height: 1.4,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1025,6 +1139,7 @@ class _ToolResultCards extends StatelessWidget {
                             fontSize: 11.5,
                             color: AppColors.textMuted,
                             fontStyle: FontStyle.italic,
+                            height: 1.4,
                           ),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,

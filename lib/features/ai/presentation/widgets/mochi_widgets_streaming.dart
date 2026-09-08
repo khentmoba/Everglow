@@ -107,16 +107,30 @@ class _ThreeDotsState extends State<_ThreeDots>
           children: List.generate(3, (i) {
             final t = (_c.value - i * 0.18).clamp(0.0, 1.0);
             final opacity = (t < 0.5 ? t * 2 : (1 - t) * 2).clamp(0.3, 1.0);
+            final scale = 0.75 + 0.45 * opacity;
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Opacity(
                 opacity: opacity,
-                child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    color: AppColors.roseQuartz,
-                    shape: BoxShape.circle,
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.blushGold, AppColors.auroraRose],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.blushGold.withValues(alpha: 0.45),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -182,11 +196,13 @@ class _StreamingProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: LinearProgressIndicator(
-        minHeight: 2,
-        backgroundColor: AppColors.moonlight.withValues(alpha: 0.14),
-        valueColor: const AlwaysStoppedAnimation(AppColors.blushGold),
+      borderRadius: BorderRadius.circular(4),
+      child: SizedBox(
+        height: 3,
+        child: LinearProgressIndicator(
+          backgroundColor: AppColors.inkDeep.withValues(alpha: 0.6),
+          valueColor: const AlwaysStoppedAnimation(AppColors.blushGold),
+        ),
       ),
     );
   }
@@ -205,30 +221,64 @@ class _ThinkingIndicator extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ClipRRect(
-            borderRadius: AppRadius.radiusSm,
-            child: Image.asset(
-              'assets/images/mochi_avatar.png',
-              width: 28,
-              height: 28,
-              cacheWidth: 84,
-              cacheHeight: 84,
-              filterQuality: FilterQuality.high,
-              fit: BoxFit.cover,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(11),
+              border: Border.all(
+                color: AppColors.blushGold.withValues(alpha: 0.45),
+                width: 1.1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.blushGold.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                'assets/images/mochi_avatar.png',
+                width: 32,
+                height: 32,
+                cacheWidth: 96,
+                cacheHeight: 96,
+                filterQuality: FilterQuality.high,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
             decoration: BoxDecoration(
-              color: AppColors.surfaceGlass,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(4),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.velvet.withValues(alpha: 0.68),
+                  AppColors.inkDeep.withValues(alpha: 0.88),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              border: Border.all(color: AppColors.border, width: 0.5),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(6),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+              ),
+              border: Border.all(
+                color: AppColors.moonlight.withValues(alpha: 0.16),
+                width: 0.9,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.30),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -364,6 +414,7 @@ class _ComposerInput extends StatefulWidget {
 class _ComposerInputState extends State<_ComposerInput> {
   bool _hasText = false;
   bool _isListening = false;
+  bool _focused = false;
   final MochiWebBridge _bridge = MochiWebBridge();
 
   @override
@@ -470,13 +521,41 @@ class _ComposerInputState extends State<_ComposerInput> {
                     ),
                   ),
                 ),
-              Container(
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceGlass,
-                  borderRadius: AppRadius.radiusX2,
-                  border: Border.all(color: AppColors.border, width: 0.5),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.inkDeep.withValues(alpha: 0.92),
+                      AppColors.velvet.withValues(alpha: 0.78),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: _focused
+                        ? AppColors.blushGold.withValues(alpha: 0.42)
+                        : AppColors.moonlight.withValues(alpha: 0.16),
+                    width: 1.1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                    if (_focused)
+                      BoxShadow(
+                        color: AppColors.blushGold.withValues(alpha: 0.16),
+                        blurRadius: 22,
+                        offset: const Offset(0, 4),
+                      ),
+                  ],
                 ),
                 child: Focus(
+                  onFocusChange: (v) => setState(() => _focused = v),
                   onKeyEvent: (node, event) {
                     if (event is KeyDownEvent &&
                         event.logicalKey == LogicalKeyboardKey.enter) {
@@ -489,16 +568,31 @@ class _ComposerInputState extends State<_ComposerInput> {
                   },
                   child: Row(
                     children: [
-                      IconButton(
-                        onPressed: widget.onPickImages,
-                        icon: Icon(
-                          Icons.add_photo_alternate_rounded,
-                          color: widget.attachedImages.isNotEmpty
-                              ? AppColors.blushGold
-                              : AppColors.textMuted,
-                          size: 22,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Container(
+                          decoration: widget.attachedImages.isNotEmpty
+                              ? BoxDecoration(
+                                  color: AppColors.blushGold.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.blushGold.withValues(alpha: 0.35),
+                                    width: 0.8,
+                                  ),
+                                )
+                              : null,
+                          child: IconButton(
+                            onPressed: widget.onPickImages,
+                            icon: Icon(
+                              Icons.add_photo_alternate_rounded,
+                              color: widget.attachedImages.isNotEmpty
+                                  ? AppColors.blushGold
+                                  : AppColors.textMuted,
+                              size: 21,
+                            ),
+                            tooltip: 'Attach images',
+                          ),
                         ),
-                        tooltip: 'Attach images',
                       ),
                       if (_bridge.isSpeechSupported)
                         IconButton(
@@ -521,42 +615,84 @@ class _ComposerInputState extends State<_ComposerInput> {
                               ? 'Listening...'
                               : 'Voice input',
                         ),
-                      // Canvas toggle — one tap turns the interactive
-                      // quiz / flashcards view on or off. Highlighted
-                      // gold when ON so Clair can see the state at a glance.
-                      IconButton(
-                        onPressed: widget.onToggleCanvas,
-                        icon: Icon(
-                          widget.canvasEnabled
-                              ? Icons.dashboard_customize_rounded
-                              : Icons.dashboard_customize_outlined,
-                          color: widget.canvasEnabled
-                              ? AppColors.blushGold
-                              : AppColors.textMuted,
-                          size: 22,
+                      // Canvas toggle — glowing gold pill when ON.
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2),
+                        child: Tooltip(
+                          message: widget.canvasEnabled
+                              ? 'Canvas: on — quizzes open as interactive cards'
+                              : 'Canvas: off — Mochi chats normally',
+                          child: InkWell(
+                            onTap: widget.onToggleCanvas,
+                            borderRadius: BorderRadius.circular(12),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: widget.canvasEnabled
+                                    ? AppColors.blushGold.withValues(alpha: 0.18)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: widget.canvasEnabled
+                                      ? AppColors.blushGold.withValues(alpha: 0.40)
+                                      : Colors.transparent,
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    widget.canvasEnabled
+                                        ? Icons.dashboard_customize_rounded
+                                        : Icons.dashboard_customize_outlined,
+                                    color: widget.canvasEnabled
+                                        ? AppColors.blushGold
+                                        : AppColors.textMuted,
+                                    size: 20,
+                                  ),
+                                  if (widget.canvasEnabled) ...[
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Canvas',
+                                      style: AppTypography.labelSmall().copyWith(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.blushGold,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                        tooltip: widget.canvasEnabled
-                            ? 'Canvas: on — quizzes open as interactive cards'
-                            : 'Canvas: off — Mochi chats normally',
                       ),
                       Expanded(
                         child: TextField(
                           controller: widget.controller,
                           focusNode: widget.focusNode,
-                          style: AppTypography.bodyMedium(),
+                          style: AppTypography.bodyMedium().copyWith(
+                            color: AppColors.petalWhite,
+                            height: 1.5,
+                            fontSize: 14.5,
+                          ),
                           minLines: 1,
                           maxLines: 6,
                           textInputAction: TextInputAction.newline,
                           decoration: InputDecoration(
-                            hintText:
-                                'Talk to Mochi...  (Enter to send, Shift+Enter for newline)',
+                            hintText: 'Share with Mochi… 🐾',
                             hintStyle: AppTypography.bodyMedium().copyWith(
                               color: AppColors.textDisabled,
-                              fontSize: 13,
+                              fontSize: 13.5,
                             ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 4,
+                              horizontal: 8,
                               vertical: 14,
                             ),
                           ),
@@ -573,42 +709,62 @@ class _ComposerInputState extends State<_ComposerInput> {
                                 ? 'Stop generating'
                                 : 'Send message',
                             child: AnimatedContainer(
-                              duration: AppMotion.fast,
-                              width: 36,
-                              height: 36,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
                                 gradient: (!ai.isLoading && canSend)
                                     ? const LinearGradient(
                                         colors: [
-                                          AppColors.blushGold,
                                           AppColors.deepRose,
+                                          AppColors.auroraRose,
                                         ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       )
                                     : null,
                                 color: ai.isLoading
-                                    ? AppColors.deepRose.withValues(alpha: 0.35)
+                                    ? AppColors.deepRose.withValues(alpha: 0.45)
                                     : (!canSend
                                           ? AppColors.velvet.withValues(
-                                              alpha: 0.4,
+                                              alpha: 0.55,
                                             )
                                           : null),
-                                borderRadius: AppRadius.radiusLg,
+                                borderRadius: BorderRadius.circular(14),
+                                border: (!ai.isLoading && canSend)
+                                    ? Border.all(
+                                        color: AppColors.petalWhite.withValues(
+                                          alpha: 0.22,
+                                        ),
+                                        width: 1,
+                                      )
+                                    : null,
+                                boxShadow: (!ai.isLoading && canSend)
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.deepRose.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                          blurRadius: 14,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ]
+                                    : null,
                               ),
                               child: Center(
                                 child: ai.isLoading
                                     ? const Icon(
                                         Icons.stop_rounded,
                                         color: AppColors.petalWhite,
-                                        size: 20,
+                                        size: 21,
                                       )
                                     : Icon(
                                         Icons.arrow_upward_rounded,
                                         color: canSend
                                             ? AppColors.petalWhite
                                             : AppColors.textDisabled,
-                                        size: 20,
+                                        size: 21,
                                       ),
                               ),
                             ),
@@ -623,10 +779,10 @@ class _ComposerInputState extends State<_ComposerInput> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Mochi remembers your conversations privately — history lives in the left panel.',
+                    '🐾 Mochi remembers privately for you two · history in the left panel',
                     style: AppTypography.bodySmall().copyWith(
                       color: AppColors.textDisabled,
-                      fontSize: 10,
+                      fontSize: 10.5,
                     ),
                     textAlign: TextAlign.center,
                   ),
