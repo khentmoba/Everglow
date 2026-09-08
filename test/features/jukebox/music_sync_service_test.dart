@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
+import 'package:everglow/shared/utils/catalog_proxy_client.dart';
 
 const _jsonHeaders = {'content-type': 'application/json; charset=utf-8'};
 
@@ -249,6 +250,49 @@ void main() {
       );
 
       expect(artwork, isNull);
+    });
+
+    test('routes iTunes search through proxyCatalog client', () async {
+      final requestedBases = <String>[];
+      final requestedPaths = <String>[];
+      final proxyClient = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        final base = request.url.queryParameters['base'] ?? '';
+        final path = request.url.queryParameters['path'] ?? '';
+        requestedBases.add(base);
+        requestedPaths.add(path);
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Dulo Ng Hangganan',
+              artistName: 'IV Of Spades',
+              artwork:
+                  'https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/cover.jpg/'
+                  '100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+
+      final proxy = CatalogProxyClient(client: proxyClient);
+      final resp = await proxy.get(
+        'itunes',
+        'search',
+        query: {
+          'term': 'IV Of Spades Dulo Ng Hangganan',
+          'entity': 'song',
+          'media': 'music',
+          'limit': '10',
+        },
+      );
+
+      expect(resp.statusCode, 200);
+      expect(requestedBases, ['itunes']);
+      expect(requestedPaths.first, contains('search?'));
+      expect(requestedPaths.first, contains('term=IV+Of+Spades'));
     });
   });
 }

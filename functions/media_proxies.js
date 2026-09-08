@@ -1768,12 +1768,13 @@ async function initWasm() {
 
 /**
  * Generic allow-listed JSON catalog proxy for keyless public APIs
- * (Open Library, Jikan). The client passes ?base=<openlibrary|jikan> and
- * ?path=<api path with query>. Only those two hosts are reachable;
+ * (Open Library, Jikan, iTunes). The client passes ?base=<openlibrary|jikan|itunes> and
+ * ?path=<api path with query>. Only those hosts are reachable;
  * auth is optional (validated when present) like proxyMangaDex.
  *
  *   GET /proxyCatalog?base=openlibrary&path=search.json%3Fq%3D...%26limit%3D20
  *   GET /proxyCatalog?base=jikan&path=anime%3Fq%3D...%26limit%3D20
+ *   GET /proxyCatalog?base=itunes&path=search%3Fterm%3D...%26entity%3Dsong%26media%3Dmusic
  *
  * The pure parts (base allow-list, path sanitize, URL build) live in
  * [resolveCatalogUpstream] below so unit tests cover them without
@@ -1782,11 +1783,12 @@ async function initWasm() {
 const _catalogBases = {
   openlibrary: 'https://openlibrary.org/',
   jikan: 'https://api.jikan.moe/v4/',
+  itunes: 'https://itunes.apple.com/',
 };
 
 function resolveCatalogUpstream(baseKey, pathParam) {
   const upstreamBase = _catalogBases[String(baseKey || '').toLowerCase()];
-  if (!upstreamBase) throw new Error('base must be openlibrary or jikan');
+  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, or itunes');
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     throw new Error('Missing ?path=<api path> query param');
   }
