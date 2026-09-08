@@ -170,4 +170,85 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('AnimeXSpotlight maintains slide visibility and sync when items update', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1568, 731));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final items5 = List.generate(5, (i) => _animexItem(i + 1));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: items5,
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Advance time to item 4 (_index = 3)
+    await tester.pump(const Duration(seconds: 30));
+    expect(find.text('#4 TRENDING'), findsOneWidget);
+
+    // Update with fewer items (e.g. 3 items)
+    final items3 = List.generate(3, (i) => _animexItem(i + 1));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: items3,
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Exactly one slide layer should be visible (opacity > 0)
+    final opacities = tester.widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity));
+    final visibleCount = opacities.where((op) => op.opacity > 0).length;
+    expect(visibleCount, 1, reason: 'Active slide layer must be visible, never 0');
+  });
+
+  testWidgets('AnimeXSpotlight survives repeated fullscreen toggle cycles without error', (
+    WidgetTester tester,
+  ) async {
+    final items = List.generate(5, (i) => _animexItem(i + 1));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: items,
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Simulate toggling fullscreen and unfullscreen repeatedly
+    for (var i = 0; i < 5; i++) {
+      // Enter fullscreen (1920x1080)
+      await tester.binding.setSurfaceSize(const Size(1920, 1080));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // Exit fullscreen (1568x731)
+      await tester.binding.setSurfaceSize(const Size(1568, 731));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(tester.takeException(), isNull);
+    final opacities = tester.widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity));
+    final visibleCount = opacities.where((op) => op.opacity > 0).length;
+    expect(visibleCount, 1, reason: 'Active slide must stay visible after repeated toggles');
+  });
 }

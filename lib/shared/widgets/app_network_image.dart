@@ -85,13 +85,17 @@ class AppNetworkImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isValidUrl(imageUrl)) return _fallback(context);
+    final safeCacheWidth =
+        (cacheWidth != null && cacheWidth! > 0) ? cacheWidth : null;
+    final safeCacheHeight =
+        (cacheHeight != null && cacheHeight! > 0) ? cacheHeight : null;
     Widget image = CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
       height: height,
       fit: fit,
-      memCacheWidth: cacheWidth,
-      memCacheHeight: cacheHeight,
+      memCacheWidth: safeCacheWidth,
+      memCacheHeight: safeCacheHeight,
       filterQuality: filterQuality,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
