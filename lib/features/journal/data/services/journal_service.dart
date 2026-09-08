@@ -83,29 +83,26 @@ class JournalService {
   }
 
   /// Client-side search (like Starlight): filter title/content/tags.
-  Stream<List<JournalEntry>> search(String query) {
+  /// One-shot fetch (not a stream) so typing doesn't re-query on every
+  /// remote write; callers debounce and memoize the future.
+  Future<List<JournalEntry>> search(String query) async {
     final q = query.toLowerCase().trim();
-    if (q.isEmpty) return watchAll();
-    return withFirestoreTimeout(
-      _db
-          .collection(_collection)
-          .orderBy('createdAt', descending: true)
-          .limit(80)
-          .snapshots()
-          .map(
-            (snap) => snap.docs
-                .map((d) => JournalEntry.fromFirestore(d))
-                .where(
-                  (e) =>
-                      e.title.toLowerCase().contains(q) ||
-                      e.content.toLowerCase().contains(q) ||
-                      e.tags.any((t) => t.toLowerCase().contains(q)) ||
-                      e.category.name.contains(q),
-                )
-                .toList(),
-          ),
-      label: 'journal-search',
-    );
+    if (q.isEmpty) return const [];
+    final snap = await _db
+        .collection(_collection)
+        .orderBy('createdAt', descending: true)
+        .limit(80)
+        .get();
+    return snap.docs
+        .map((d) => JournalEntry.fromFirestore(d))
+        .where(
+          (e) =>
+              e.title.toLowerCase().contains(q) ||
+              e.content.toLowerCase().contains(q) ||
+              e.tags.any((t) => t.toLowerCase().contains(q)) ||
+              e.category.name.contains(q),
+        )
+        .toList();
   }
 
   /// On This Day — same monthDay

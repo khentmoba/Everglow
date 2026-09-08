@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../../../../shared/utils/tmdb_images.dart';
 
 /// Data class for anime season navigation entries. Each entry represents one
 /// season of a multi-season anime series, built from AniList SEQUEL/PREQUEL
@@ -160,7 +161,7 @@ class EpisodeListSection extends StatelessWidget {
     final epStillUrl = epStillPath != null
         ? (isFullUrl
               ? _proxyIfBlocked(epStillPath)
-              : 'https://image.tmdb.org/t/p/w300$epStillPath')
+              : TmdbImages.stillFor(epStillPath))
         : null;
 
     return EpisodeTile(

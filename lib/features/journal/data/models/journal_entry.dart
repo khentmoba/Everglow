@@ -92,7 +92,7 @@ class JournalEntry {
   }
 
   factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? const {};
     final content = data['content'] ?? '';
     return JournalEntry(
       id: doc.id,

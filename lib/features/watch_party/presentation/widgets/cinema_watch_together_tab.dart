@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../shared/utils/tmdb_images.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_typography.dart';

@@ -31,7 +31,7 @@ class MemoryPhoto {
 
   factory MemoryPhoto.fromFirestore(DocumentSnapshot doc) {
     return MemoryPhoto.fromMap(
-      doc.data() as Map<String, dynamic>,
+      doc.data() as Map<String, dynamic>? ?? const {},
       id: doc.id,
     );
   }

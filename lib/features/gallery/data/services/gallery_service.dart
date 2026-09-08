@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../domain/models/memory_photo.dart';
@@ -143,7 +143,8 @@ class GalleryService {
 
       Logger.i("Photo deleted: ${photo.id}");
     } catch (e) {
-      debugPrint("Error deleting photo: $e");
+      Logger.e("Error deleting photo: ${photo.id}", error: e);
+      rethrow;
     }
   }
 
@@ -183,24 +184,23 @@ class GalleryService {
     }
   }
 
-  /// Search photos by caption or tags (client-side).
-  Stream<List<MemoryPhoto>> searchPhotos(String query) {
+  /// Search photos by caption or tags (client-side, one-shot so typing
+  /// doesn't re-query on every remote write).
+  Future<List<MemoryPhoto>> searchPhotos(String query) async {
     final lowerQuery = query.toLowerCase();
-    return _db
+    final snapshot = await _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
         .limit(50)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => MemoryPhoto.fromFirestore(doc))
-              .where(
-                (photo) =>
-                    photo.caption.toLowerCase().contains(lowerQuery) ||
-                    photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-              )
-              .toList(),
-        );
+        .get();
+    return snapshot.docs
+        .map((doc) => MemoryPhoto.fromFirestore(doc))
+        .where(
+          (photo) =>
+              photo.caption.toLowerCase().contains(lowerQuery) ||
+              photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
+        )
+        .toList();
   }
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.
@@ -243,17 +243,22 @@ class GalleryService {
     }
   }
 
-  /// This Week In Past — 7-day window around today (Immich-inspired: This week in past slides)
+  /// This Week In Past — 7-day window around today (Immich-inspired: This week in past slides).
+  /// Memoized per calendar day so every dashboard open doesn't re-read 300 docs.
+  DateTime? _thisWeekDay;
+  List<MemoryPhoto>? _thisWeekCache;
   Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (_thisWeekDay == today && _thisWeekCache != null) return _thisWeekCache!;
     try {
       final all = await _db
           .collection(_collection)
           .orderBy('uploadedAt', descending: true)
-          .limit(300)
+          .limit(100)
           .get();
       final photos = all.docs.map((d) => MemoryPhoto.fromFirestore(d)).toList();
-      return photos.where((p) {
+      final results = photos.where((p) {
         if (p.uploadedAt.year == now.year) return false;
         final thisYearAnniv = DateTime(
           now.year,
@@ -267,33 +272,27 @@ class GalleryService {
                 .abs();
         return diff <= 3; // within 3 days => 7-day window
       }).toList()..sort((a, b) => b.uploadedAt.compareTo(a.uploadedAt));
+      _thisWeekDay = today;
+      _thisWeekCache = results;
+      return results;
     } catch (e) {
       Logger.e("Error getting this-week photos", error: e);
       return [];
     }
   }
 
-  /// All photos that have a pinned location — for map view (Immich map)
-  Stream<List<MemoryPhoto>> getPhotosWithLocationStream() {
-    return _db
-        .collection(_collection)
-        .orderBy('uploadedAt', descending: true)
-        .limit(100)
-        .snapshots()
-        .map(
-          (snap) => snap.docs
-              .map((d) => MemoryPhoto.fromFirestore(d))
-              .where((p) => p.hasLocation)
-              .toList(),
-        );
-  }
+  /// All photos that have a pinned location — for map view (Immich map).
+  /// One-shot fetch: the map only needs a snapshot on open, not a realtime
+  /// stream that re-queries on every remote write.
+  Future<List<MemoryPhoto>> getPhotosWithLocationStream() =>
+      getPhotosWithLocation(limit: 100);
 
-  Future<List<MemoryPhoto>> getPhotosWithLocation() async {
+  Future<List<MemoryPhoto>> getPhotosWithLocation({int limit = 200}) async {
     try {
       final snap = await _db
           .collection(_collection)
           .orderBy('uploadedAt', descending: true)
-          .limit(200)
+          .limit(limit)
           .get();
       return snap.docs
           .map((d) => MemoryPhoto.fromFirestore(d))

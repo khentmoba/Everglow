@@ -27,6 +27,7 @@ const proxyTmdb = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Vary', 'Authorization');
   // Authenticated per-user responses stay private, but the CDN may serve
   // the identical TMDB catalog payload across users for 5 minutes. The
   // browser still revalidates via the in-memory instance cache below;
@@ -93,6 +94,7 @@ const proxyLastfm = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Vary', 'Authorization');
   res.set('Cache-Control', 'private, no-store');
 
   if (req.method === 'OPTIONS') { res.status(204).send(''); return; }

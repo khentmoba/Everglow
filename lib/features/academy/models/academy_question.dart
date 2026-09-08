@@ -38,7 +38,7 @@ class AcademyQuestion {
   }
 
   factory AcademyQuestion.fromFirestore(DocumentSnapshot doc) {
-    return AcademyQuestion.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    return AcademyQuestion.fromMap(doc.data() as Map<String, dynamic>? ?? const {}, doc.id);
   }
 
   static String generateId(String questionText) {

@@ -187,31 +187,11 @@ class AuthService extends ChangeNotifier {
       notifyListeners();
     } on FirebaseAuthException catch (e) {
       Logger.e('Login failed with FirebaseAuthException', error: e);
-      if (e.code == 'user-not-found' ||
-          e.code == 'invalid-credential' ||
-          e.code == 'invalid-email') {
-        try {
-          await _auth.createUserWithEmailAndPassword(
-            email: email,
-            password: password,
-          );
-          _currentUser = username;
-          await _saveSession(username);
-          unawaited(_syncUserDoc());
-          _lastAuthError = null;
-          Logger.i(
-            "Successfully registered and logged in as new user: $username (UID: ${_auth.currentUser?.uid})",
-          );
-          notifyListeners();
-        } catch (regErr) {
-          _lastAuthError = 'Account creation failed. Please try again.';
-          Logger.e("Registration error for $username", error: regErr);
-          await ensureAuthenticated();
-        }
-      } else {
-        _lastAuthError = 'Authentication failed: ${e.message ?? e.code}';
-        await ensureAuthenticated();
-      }
+      _lastAuthError = 'Authentication failed: ${e.message ?? e.code}';
+      Logger.e(
+        'Passcode login failed for $username — account must exist; client never auto-registers',
+        error: e,
+      );
     } catch (e) {
       _lastAuthError = 'Login error. Falling back to guest access.';
       Logger.e("General auth error during passcode login", error: e);
@@ -464,12 +444,16 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Direct login for Breyan/Octagram (client-verified, non-sensitive).
+  /// Passcodes come from EnvConfig only (build-time --dart-define or .env);
+  /// no hardcoded literals so builds without config can't be bypassed.
   Future<bool> loginCinemaWithPasscode(String passcode) async {
-    if (passcode == EnvConfig.breyanPasscode || passcode == '9132') {
+    if (EnvConfig.breyanPasscode.isNotEmpty &&
+        passcode == EnvConfig.breyanPasscode) {
       await loginWithPasscode('breyan');
       return lastAuthError == null;
     }
-    if (passcode == EnvConfig.octagramPasscode || passcode == '8080') {
+    if (EnvConfig.octagramPasscode.isNotEmpty &&
+        passcode == EnvConfig.octagramPasscode) {
       await loginWithPasscode('octagram');
       return lastAuthError == null;
     }

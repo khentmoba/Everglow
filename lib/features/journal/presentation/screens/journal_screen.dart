@@ -26,6 +26,7 @@ class JournalScreen extends StatefulWidget {
 class _JournalScreenState extends State<JournalScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  Future<List<JournalEntry>>? _searchFuture;
   JournalCategory? _categoryFilter;
   String? _authorFilter; // username or null
   bool _pinnedOnly = false;
@@ -94,7 +95,14 @@ class _JournalScreenState extends State<JournalScreen> {
                   child: EverglowSearchField(
                     controller: _searchController,
                     hint: 'Search memories, tags, dreams...',
-                    onChanged: (v) => setState(() => _searchQuery = v),
+                    onChanged: (v) {
+                      setState(() {
+                        _searchQuery = v;
+                        _searchFuture = v.trim().isEmpty
+                            ? null
+                            : service.search(v);
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -167,10 +175,10 @@ class _JournalScreenState extends State<JournalScreen> {
                 _buildOnThisDay(service),
                 // Entries list
                 Expanded(
-                  child: EverglowStreamView<List<JournalEntry>>(
-                    stream: _searchQuery.isNotEmpty
-                        ? service.search(_searchQuery)
-                        : service.watchAll(),
+                  child: _searchQuery.trim().isNotEmpty
+                      ? _buildSearchResults(service)
+                      : EverglowStreamView<List<JournalEntry>>(
+                    stream: service.watchAll(),
                     streamLabel: 'journal-entries',
                     errorMessage: 'Could not load journal',
                     errorIcon: Icons.menu_book_outlined,
@@ -228,6 +236,55 @@ class _JournalScreenState extends State<JournalScreen> {
         foregroundColor: AppColors.petalWhite,
         child: const Icon(Icons.add_rounded),
       ),
+    );
+  }
+
+  Widget _buildSearchResults(JournalService service) {
+    final future = _searchFuture;
+    if (future == null) return const SizedBox.shrink();
+    return FutureBuilder<List<JournalEntry>>(
+      future: future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: EverglowSkeleton(
+              width: double.infinity,
+              height: 120,
+              radius: 16,
+            ),
+          );
+        }
+        if (snap.hasError) {
+          return EverglowEmptyState(
+            icon: Icons.menu_book_outlined,
+            title: 'Search failed',
+            subtitle: 'Try again',
+            ctaLabel: 'Retry',
+            onCta: () => setState(() {
+              _searchFuture = service.search(_searchQuery);
+            }),
+          );
+        }
+        final entries = _visibleEntries(snap.data ?? const <JournalEntry>[]);
+        if (entries.isEmpty) {
+          return const EverglowEmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'No matching entries',
+            subtitle: 'Try adjusting filters or search',
+          );
+        }
+        final auth = context.read<AuthService>();
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          itemCount: entries.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, idx) => JournalEntryCard(
+            entry: entries[idx],
+            onTap: () => _showEntryDetail(context, entries[idx], auth),
+          ),
+        );
+      },
     );
   }
 

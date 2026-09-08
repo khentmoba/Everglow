@@ -182,7 +182,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
     _autoplay = !_hostExplicitlyPaused;
 
-    _selectedProvider = _providers.first;
+    _selectedProvider = _sourceService.defaultSource;
     _hlsViewType =
         'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
 
@@ -198,7 +198,10 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
           '[WatchPartyScreen] Providers updated from Firestore — retrying',
         );
         _failedProviderIds.clear();
-        _selectedProvider = newList.first;
+        _selectedProvider = newList.firstWhere(
+          (p) => !_failedProviderIds.contains(p.id),
+          orElse: () => _sourceService.defaultSource,
+        );
         setState(() {
           _iframeFailed = false;
           _isLoading = true;

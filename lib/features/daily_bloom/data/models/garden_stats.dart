@@ -26,7 +26,7 @@ class GardenStats {
   }
 
   factory GardenStats.fromFirestore(DocumentSnapshot doc) {
-    return GardenStats.fromMap(doc.data() as Map<String, dynamic>);
+    return GardenStats.fromMap(doc.data() as Map<String, dynamic>? ?? const {});
   }
 
   factory GardenStats.fromMap(Map<String, dynamic> data) {

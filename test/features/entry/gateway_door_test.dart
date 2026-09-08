@@ -30,10 +30,24 @@ void main() {
     expect(find.text('1'), findsOneWidget);
   });
 
-  testWidgets('documented passcode 0938 unlocks the gateway notifier', (
+  testWidgets('couple passcode requires server verification (no offline unlock)', (
     tester,
   ) async {
     final notifier = GatewayNotifier();
+    for (final digit in ['0', '9', '3', '8']) {
+      notifier.appendDigit(digit);
+    }
+    await tester.pump(const Duration(milliseconds: 1200));
+    // Without a verifier wired, a couple code must NOT unlock the UI:
+    // firestore.rules needs a real Firebase session, so a local unlock
+    // would only show permission-denied shelves.
+    expect(notifier.currentState, GatewayState.awaitingInput);
+  });
+
+  testWidgets('server-verified couple passcode 0938 unlocks', (tester) async {
+    final notifier = GatewayNotifier()
+      ..verifyCouplePasscode = (passcode) async =>
+          passcode == '0938' ? 'khentsgdz' : null;
     for (final digit in ['0', '9', '3', '8']) {
       notifier.appendDigit(digit);
     }

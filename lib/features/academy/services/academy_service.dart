@@ -21,6 +21,7 @@ class AcademyService {
   }) async {
     final query = await _questionsRef
         .where('category', isEqualTo: category)
+        .limit(limit * 3)
         .get();
 
     final questions = query.docs
@@ -159,13 +160,26 @@ class AcademyService {
         final isHost = match.hostId == userId;
         final nextIndex = match.questionIndex + 1;
 
-        // Fetch all questions for this match category to get the next one
-        // Note: In a real app, we might store question IDs in the match document
-        // For now, we'll fetch them again (cached ideally)
-        final questions = await getQuestions(match.category);
-
+        // Bound against the 10-question match length; finish when the pool
+        // is exhausted instead of indexing past the end.
         final isFinished = nextIndex >= 10;
-        final nextQuestionId = isFinished ? '' : questions[nextIndex].id;
+        String nextQuestionId = '';
+        if (!isFinished) {
+          final questions = await getQuestions(match.category);
+          if (nextIndex >= questions.length) {
+            final exhausted = match.copyWith(
+              khentScore: isHost ? match.khentScore + 10 : match.khentScore,
+              clairScore: !isHost ? match.clairScore + 10 : match.clairScore,
+              questionIndex: nextIndex,
+              currentQuestionId: '',
+              status: 'finished',
+              winnerId: _calculateWinner(match, isHost),
+            );
+            transaction.update(matchRef, exhausted.toMap());
+            return true;
+          }
+          nextQuestionId = questions[nextIndex].id;
+        }
 
         final updatedMatch = match.copyWith(
           khentScore: isHost ? match.khentScore + 10 : match.khentScore,
@@ -197,10 +211,20 @@ class AcademyService {
     final staleTime = DateTime.now().subtract(const Duration(minutes: 30));
     final staleQuery = await _matchesRef
         .where('createdAt', isLessThan: Timestamp.fromDate(staleTime))
+        .limit(50)
         .get();
 
+    var batch = _firestore.batch();
+    var pending = 0;
     for (var doc in staleQuery.docs) {
-      await doc.reference.delete();
+      batch.delete(doc.reference);
+      pending++;
+      if (pending >= 400) {
+        await batch.commit();
+        batch = _firestore.batch();
+        pending = 0;
+      }
     }
+    if (pending > 0) await batch.commit();
   }
 }

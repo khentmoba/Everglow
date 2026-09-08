@@ -218,11 +218,11 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
       // TMDB poster_path is a relative path — prepend the base URL.
       final rawPoster = _details?['poster_path'] as String?;
       resolvedPoster = rawPoster != null && rawPoster.isNotEmpty
-          ? 'https://image.tmdb.org/t/p/w500$rawPoster'
+          ? TmdbImages.posterFor(rawPoster)
           : null;
       final rawBackdrop = _details?['backdrop_path'] as String?;
       resolvedBackdrop = rawBackdrop != null && rawBackdrop.isNotEmpty
-          ? 'https://image.tmdb.org/t/p/w780$rawBackdrop'
+          ? TmdbImages.backdropFor(rawBackdrop)
           : null;
     }
 
