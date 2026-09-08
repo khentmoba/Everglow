@@ -9,7 +9,7 @@ const indexExports = require('./index.js');
 test('proxyCatalog allow-list rejects unknown base', () => {
   assert.throws(
     () => resolveCatalogUpstream('evil', 'search.json?q=x'),
-    /base must be openlibrary or jikan/,
+    /base must be openlibrary, jikan, or itunes/,
   );
 });
 
@@ -48,6 +48,16 @@ test('proxyCatalog builds jikan anime lookup URL server-side', () => {
   const url = resolveCatalogUpstream('jikan', 'anime?q=naruto&limit=1');
   assert.equal(url.origin + url.pathname, 'https://api.jikan.moe/v4/anime');
   assert.equal(url.searchParams.get('q'), 'naruto');
+});
+
+test('proxyCatalog builds itunes search URL server-side', () => {
+  const url = resolveCatalogUpstream(
+    'itunes',
+    'search?term=dune&entity=song&media=music&limit=1',
+  );
+  assert.equal(url.origin + url.pathname, 'https://itunes.apple.com/search');
+  assert.equal(url.searchParams.get('term'), 'dune');
+  assert.equal(url.searchParams.get('entity'), 'song');
 });
 
 test('proxyCatalog strips path traversal but keeps legit query', () => {
