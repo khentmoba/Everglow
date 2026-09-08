@@ -43,6 +43,12 @@ check('constants.rounds', rounds !== null && Number(rounds[1]) === tools.MAX_TOO
 
 const declared = [...chatSrc.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
 const declaredSet = new Set(declared);
+// Self-check against path drift (PR #106 class): the tool loop moved from
+// index.js to mochi_chat.js during the functions split while the gate
+// still scanned index.js. A scan that finds zero tools means the gate is
+// looking at the wrong file, not that the contract is empty.
+check('tools.scanned-file-live', declared.length > 0,
+  'mochi_chat.js yielded 0 tools; gate path drifted?');
 check('tools.count', declared.length === tools.TOOL_NAMES.length,
   `index=${declared.length} pinned=${tools.TOOL_NAMES.length}`);
 check('tools.declared-in-pinned', declared.every((n) => tools.TOOL_NAMES.includes(n)));

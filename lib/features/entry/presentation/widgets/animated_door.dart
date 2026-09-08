@@ -51,25 +51,30 @@ class _AnimatedDoorState extends State<AnimatedDoor>
   void initState() {
     super.initState();
     _entranceController = AnimationController(
-      duration: const Duration(milliseconds: 1400),
+      duration: AppMotion.orZero(const Duration(milliseconds: 1400)),
       vsync: this,
     );
     _swingController = AnimationController(
-      duration: const Duration(milliseconds: 1700),
+      duration: AppMotion.orZero(const Duration(milliseconds: 1700)),
       vsync: this,
     );
     _handleController = AnimationController(
-      duration: const Duration(milliseconds: 700),
+      duration: AppMotion.orZero(const Duration(milliseconds: 700)),
       vsync: this,
     );
     _zoomController = AnimationController(
-      duration: const Duration(milliseconds: 1100),
+      duration: AppMotion.orZero(const Duration(milliseconds: 1100)),
       vsync: this,
     );
     _breatheController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
-    )..repeat(reverse: true);
+    );
+    // Reduced motion: hold the door still instead of breathing forever.
+    // Sparkles render one static frame via the same controller value.
+    if (!AppMotion.reduced) {
+      _breatheController.repeat(reverse: true);
+    }
 
     _entrance = CurvedAnimation(
       parent: _entranceController,
