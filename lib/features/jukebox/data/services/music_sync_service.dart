@@ -81,6 +81,33 @@ class MusicSyncService {
   /// Resets the invalid-user cache (e.g. if a user later creates an account).
   static void resetInvalidUsers() => _invalidUsers.clear();
 
+  /// Normalizes a Last.fm list node to maps. Last.fm collapses a
+  /// single-element list to a bare object, so an `is List` check alone
+  /// would drop a user's only result.
+  List<Map<String, dynamic>> _asMapList(dynamic node) {
+    if (node is List) return node.whereType<Map<String, dynamic>>().toList();
+    if (node is Map<String, dynamic>) return [node];
+    if (node is Map) return [Map<String, dynamic>.from(node)];
+    return const [];
+  }
+
+  /// Last.fm reports failures (rate limit, temp error, offline) as HTTP 200
+  /// with an `error` payload, which the proxy forwards untouched. Without
+  /// this check those are indistinguishable from "user has no scrobbles",
+  /// so they are logged loudly instead of as a quiet empty state.
+  void _warnOnLastfmError(dynamic data, String what, String username) {
+    final error = data is Map ? data['error'] : null;
+    final message = data is Map ? data['message'] : null;
+    if (error != null || message != null) {
+      Logger.w(
+        'Jukebox Service: Last.fm error for $what ($username): '
+        '[$error] $message',
+      );
+    } else {
+      Logger.d('Jukebox Service: No $what found for $username in response.');
+    }
+  }
+
   Future<MusicStatus?> fetchRecentTrack(String username) async {
     final tracks = await fetchRecentTracks(username, limit: 1);
     return tracks.isEmpty ? null : tracks.first;
@@ -108,20 +135,15 @@ class MusicSyncService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final tracks = data['recenttracks']?['track'];
-        if (tracks is List && tracks.isNotEmpty) {
+        final tracks = _asMapList(data['recenttracks']?['track']);
+        if (tracks.isNotEmpty) {
           return tracks
               .map(
-                (track) => MusicStatus.fromTrackJson(
-                  track as Map<String, dynamic>,
-                  username,
-                ),
+                (track) => MusicStatus.fromTrackJson(track, username),
               )
               .toList();
         } else {
-          Logger.d(
-            'Jukebox Service: No tracks found for $username in response.',
-          );
+          _warnOnLastfmError(data, 'tracks', username);
         }
       } else if (response.statusCode == 404) {
         // Last.fm returns 404 with `{"error": 6, "message": "User not found"}`
@@ -170,13 +192,11 @@ class MusicSyncService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final tracks = data['toptracks']?['track'];
-        if (tracks is List && tracks.isNotEmpty) {
+        final tracks = _asMapList(data['toptracks']?['track']);
+        if (tracks.isNotEmpty) {
           final parsed = <TopMusicTrack>[];
           for (var i = 0; i < tracks.length; i++) {
-            final track = TopMusicTrack.fromJson(
-              tracks[i] as Map<String, dynamic>,
-            );
+            final track = TopMusicTrack.fromJson(tracks[i]);
             // Last.fm includes a rank, but fall back to the list order so
             // the leaderboard always renders 1..10.
             parsed.add(
@@ -189,14 +209,13 @@ class MusicSyncService {
                       playCount: track.playCount,
                       imageUrl: track.imageUrl,
                       spotifyUrl: track.spotifyUrl,
+                      mbid: track.mbid,
                     ),
             );
           }
           return parsed;
         } else {
-          Logger.d(
-            'Jukebox Service: No top tracks found for $username in response.',
-          );
+          _warnOnLastfmError(data, 'top tracks', username);
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
@@ -424,11 +443,9 @@ class MusicSyncService {
       final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final artists = data['topartists']?['artist'];
-        if (artists is List && artists.isNotEmpty) {
-          return artists
-              .map((a) => TopArtist.fromJson(a as Map<String, dynamic>))
-              .toList();
+        final artists = _asMapList(data['topartists']?['artist']);
+        if (artists.isNotEmpty) {
+          return artists.map(TopArtist.fromJson).toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
@@ -461,11 +478,9 @@ class MusicSyncService {
       final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final albums = data['topalbums']?['album'];
-        if (albums is List && albums.isNotEmpty) {
-          return albums
-              .map((a) => TopAlbum.fromJson(a as Map<String, dynamic>))
-              .toList();
+        final albums = _asMapList(data['topalbums']?['album']);
+        if (albums.isNotEmpty) {
+          return albums.map(TopAlbum.fromJson).toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
@@ -497,11 +512,9 @@ class MusicSyncService {
       final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final tracks = data['lovedtracks']?['track'];
-        if (tracks is List && tracks.isNotEmpty) {
-          return tracks
-              .map((t) => LovedTrack.fromJson(t as Map<String, dynamic>))
-              .toList();
+        final tracks = _asMapList(data['lovedtracks']?['track']);
+        if (tracks.isNotEmpty) {
+          return tracks.map(LovedTrack.fromJson).toList();
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
@@ -537,16 +550,12 @@ class MusicSyncService {
       final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final tracks = data['recenttracks']?['track'];
-        if (tracks is List && tracks.isNotEmpty) {
+        final tracks = _asMapList(data['recenttracks']?['track'])
+            .where((t) => t['date'] != null)
+            .toList();
+        if (tracks.isNotEmpty) {
           return tracks
-              .where((t) => t is Map<String, dynamic> && t['date'] != null)
-              .map(
-                (t) => MusicStatus.fromTrackJson(
-                  t as Map<String, dynamic>,
-                  username,
-                ),
-              )
+              .map((t) => MusicStatus.fromTrackJson(t, username))
               .toList();
         }
       } else if (response.statusCode == 404) {
