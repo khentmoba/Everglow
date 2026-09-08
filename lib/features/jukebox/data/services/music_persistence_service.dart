@@ -42,16 +42,21 @@ class MusicPersistenceService {
   }
 
   Stream<Map<String, MusicStatus>> musicStatusStream(List<String> usernames) {
+    if (usernames.isEmpty) return Stream.value(const {});
+    final ids = usernames.take(10).toList();
     return withFirestoreTimeout(
-      _firestore.collection(_collectionPath).snapshots().map((snapshot) {
-        final Map<String, MusicStatus> results = {};
-        for (var doc in snapshot.docs) {
-          if (usernames.contains(doc.id)) {
-            results[doc.id] = MusicStatus.fromMap(doc.data());
-          }
-        }
-        return results;
-      }),
+      _firestore
+          .collection(_collectionPath)
+          .where(FieldPath.documentId, whereIn: ids)
+          .limit(10)
+          .snapshots()
+          .map((snapshot) {
+            final Map<String, MusicStatus> results = {};
+            for (var doc in snapshot.docs) {
+              results[doc.id] = MusicStatus.fromMap(doc.data());
+            }
+            return results;
+          }),
       label: 'music-status',
     );
   }

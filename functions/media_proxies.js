@@ -115,11 +115,10 @@ const proxyMangaImage = functions.https.onRequest(async (req, res) => {
     return;
   }
   // Image proxies allow anonymous access for <img> tags that cannot send
-  // Authorization headers. If a token is provided (header or ?token=),
+  // Authorization headers. If a token is provided in the header,
   // validate it; otherwise allow based on host allowlist alone.
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -206,8 +205,7 @@ const proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -293,8 +291,7 @@ const proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -400,8 +397,7 @@ const proxyComick = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -762,8 +758,7 @@ const proxyScanlation = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -890,8 +885,7 @@ const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
   // Allow anonymous for manga scraping (host allowlist restricts to public sites).
   // If a token is provided, validate it.
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);
@@ -1218,8 +1212,7 @@ const proxyMangaDex = functions.https.onRequest(async (req, res) => {
     return;
   }
   const header = req.get('Authorization') || req.headers.authorization || '';
-  const tokenFromQuery = req.query.token ? String(req.query.token) : '';
-  const idToken = (header ? String(header).replace(/^Bearer\s+/i, '') : '') || tokenFromQuery;
+  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
     try {
       await getAdmin().auth().verifyIdToken(idToken);

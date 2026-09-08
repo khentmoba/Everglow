@@ -121,24 +121,23 @@ class StarlightService {
     }
   }
 
-  /// Search stars by content (client-side full-text).
-  Stream<List<StarNote>> searchStars(String query) {
+  /// Search stars by content (client-side full-text, one-shot so typing
+  /// doesn't re-query on every remote write).
+  Future<List<StarNote>> searchStars(String query) async {
     final lowerQuery = query.toLowerCase();
-    return _db
+    final snapshot = await _db
         .collection(_collection)
         .orderBy('timestamp', descending: true)
         .limit(50)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => StarNote.fromFirestore(doc))
-              .where(
-                (note) =>
-                    note.content.toLowerCase().contains(lowerQuery) ||
-                    note.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-              )
-              .toList(),
-        );
+        .get();
+    return snapshot.docs
+        .map((doc) => StarNote.fromFirestore(doc))
+        .where(
+          (note) =>
+              note.content.toLowerCase().contains(lowerQuery) ||
+              note.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
+        )
+        .toList();
   }
 
   /// Delete a star note.

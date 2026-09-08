@@ -21,7 +21,8 @@ class AcademySyncService {
     if (apiIds.isEmpty) return;
 
     // Pick one of the available API IDs for this category randomly
-    final apiCategoryId = (apiIds..shuffle()).first;
+    // (copy first: apiIds may be a cached list shared across calls).
+    final apiCategoryId = ([...apiIds]..shuffle()).first;
 
     final count = await _getUnusedQuestionCount(category);
 
@@ -43,12 +44,13 @@ class AcademySyncService {
   }
 
   Future<int> _getUnusedQuestionCount(String category) async {
-    final snapshot = await _firestore
+    final count = await _firestore
         .collection('academy_questions')
         .where('category', isEqualTo: category)
+        .count()
         .get();
 
-    return snapshot.docs.length;
+    return count.count ?? 0;
   }
 
   Future<void> _replenishQuestions(String category, int apiCategoryId) async {

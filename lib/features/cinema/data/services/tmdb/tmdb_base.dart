@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import '../../models/media_item.dart';
+import '../../../../../shared/utils/title_matcher.dart';
+import '../../../../../shared/utils/tmdb_images.dart';
 
 /// Process-wide ID token cache shared by all TMDB sub-services.
 ///
@@ -44,9 +46,9 @@ mixin TMDBBase {
   /// so the TMDB key remains server-side and is never compiled into web JS.
   final String tmdbBaseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyTmdb';
-  final String imageBaseUrl = 'https://image.tmdb.org/t/p/w500';
-  final String imageBaseBackdrop = 'https://image.tmdb.org/t/p/w780';
-  final String profileBaseUrl = 'https://image.tmdb.org/t/p/w185';
+  final String imageBaseUrl = TmdbImages.poster;
+  final String imageBaseBackdrop = TmdbImages.backdrop;
+  final String profileBaseUrl = TmdbImages.profile;
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   /// Sends a signed TMDB request. [http.get] cannot be used directly because
@@ -129,27 +131,6 @@ mixin TMDBBase {
   }
 
   /// Fuzzy title matching to verify poster/title correspondence.
-  bool titlesMatch(String storedTitle, String tmdbTitle) {
-    String normalize(String s) {
-      return s
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
-    }
-
-    final a = normalize(storedTitle);
-    final b = normalize(tmdbTitle);
-    if (a.isEmpty || b.isEmpty) return false;
-    if (a == b || a.contains(b) || b.contains(a)) return true;
-    final wordsA = a.split(' ');
-    final wordsB = b.split(' ');
-    final overlap = wordsA
-        .where((w) => w.length > 2 && wordsB.contains(w))
-        .length;
-    final minLen = wordsA.length < wordsB.length
-        ? wordsA.length
-        : wordsB.length;
-    return overlap >= (minLen * 0.5).ceil();
-  }
+  bool titlesMatch(String storedTitle, String tmdbTitle) =>
+      TitleMatcher.titlesMatch(storedTitle, tmdbTitle);
 }

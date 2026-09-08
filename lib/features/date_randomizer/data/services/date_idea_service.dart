@@ -12,13 +12,17 @@ class DateIdeaService {
   List<DateIdea> get cachedIdeas => _cachedIdeas;
 
   /// Fetches all ideas from Firestore. Seeds the database if empty.
+  /// Guarded: runs once per process and caps the read so a 1000+ doc seed
+  /// never blocks dashboard mount with an unbounded fetch.
+  bool _initialized = false;
   Future<void> initialize() async {
-    final snapshot = await _db.collection('date_ideas').get();
+    if (_initialized && _cachedIdeas.isNotEmpty) return;
+    final snapshot = await _db.collection('date_ideas').limit(500).get();
 
     if (snapshot.docs.isEmpty) {
       await seedIdeas();
       // Fetch again after seeding
-      final seededSnapshot = await _db.collection('date_ideas').get();
+      final seededSnapshot = await _db.collection('date_ideas').limit(500).get();
       _cachedIdeas = seededSnapshot.docs
           .map((doc) => DateIdea.fromFirestore(doc.data(), doc.id))
           .toList();
@@ -27,6 +31,7 @@ class DateIdeaService {
           .map((doc) => DateIdea.fromFirestore(doc.data(), doc.id))
           .toList();
     }
+    _initialized = true;
   }
 
   /// Selects a random [DateIdea] from the cached list.

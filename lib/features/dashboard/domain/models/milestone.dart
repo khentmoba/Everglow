@@ -57,7 +57,7 @@ class Milestone {
   });
 
   factory Milestone.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? const {};
     return Milestone(
       id: doc.id,
       title: data['title'] as String,

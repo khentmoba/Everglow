@@ -31,6 +31,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final _gallerySearchCtrl = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
+  Future<List<MemoryPhoto>>? _searchFuture;
   int _tabIndex = 0; // 0 grid, 1 map, 2 week
 
   @override
@@ -80,26 +81,41 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 if (_tabIndex == 0) const SizedBox(height: 4),
                 Expanded(
                   child: _tabIndex == 1
-                      ? EverglowStreamView<List<MemoryPhoto>>(
-                          stream:
-                              _galleryService.getPhotosWithLocationStream(),
-                          streamLabel: 'gallery-map',
-                          errorMessage: 'Could not load map photos',
-                          errorIcon: Icons.map_rounded,
-                          onRetry: () => setState(() {}),
-                          loadingView: const Padding(
-                            padding: EdgeInsets.all(20),
-                            child: EverglowSkeleton(width: double.infinity, height: 200, radius: 16),
-                          ),
-                          builder: (context, photos) =>
-                              GalleryMapView(photos: photos),
-                        )
+                    ? FutureBuilder<List<MemoryPhoto>>(
+                        future:
+                            _galleryService.getPhotosWithLocationStream(),
+                        builder: (context, snap) {
+                          if (snap.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: EverglowSkeleton(
+                                width: double.infinity,
+                                height: 200,
+                                radius: 16,
+                              ),
+                            );
+                          }
+                          if (snap.hasError) {
+                            return EverglowEmptyState(
+                              icon: Icons.map_rounded,
+                              title: 'Could not load map photos',
+                              subtitle: 'Try again',
+                              ctaLabel: 'Retry',
+                              onCta: () => setState(() {}),
+                            );
+                          }
+                          return GalleryMapView(
+                            photos: snap.data ?? const <MemoryPhoto>[],
+                          );
+                        },
+                      )
                       : _tabIndex == 2
                       ? const ThisWeekView()
+                      : _searchQuery.isNotEmpty
+                      ? _buildSearchResults()
                       : EverglowStreamView<List<MemoryPhoto>>(
-                          stream: _searchQuery.isNotEmpty
-                              ? _galleryService.searchPhotos(_searchQuery)
-                              : _galleryService.getPhotosStream(),
+                          stream: _galleryService.getPhotosStream(),
                           streamLabel: 'gallery-grid',
                           errorMessage: 'Could not load photos',
                           errorIcon: Icons.photo_library_outlined,
@@ -160,6 +176,71 @@ class _GalleryScreenState extends State<GalleryScreen> {
     );
   }
 
+  Widget _buildSearchResults() {
+    final future = _searchFuture;
+    if (future == null) return const SizedBox.shrink();
+    return FutureBuilder<List<MemoryPhoto>>(
+      future: future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const EverglowSkeletonGrid(
+            count: 6,
+            maxCrossAxisExtent: 220,
+            itemHeight: 200,
+            spacing: 10,
+            childAspectRatio: 0.75,
+          );
+        }
+        if (snap.hasError) {
+          return EverglowEmptyState(
+            icon: Icons.photo_library_outlined,
+            title: 'Search failed',
+            subtitle: 'Try again',
+            ctaLabel: 'Retry',
+            onCta: () => setState(() {
+              _searchFuture = _galleryService.searchPhotos(_searchQuery);
+            }),
+          );
+        }
+        final photos = snap.data ?? const <MemoryPhoto>[];
+        if (photos.isEmpty) {
+          return const EverglowEmptyState(
+            icon: Icons.search_off_rounded,
+            title: 'No matches',
+            subtitle: 'Try a different keyword',
+          );
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 220,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 0.82,
+          ),
+          itemCount: photos.length,
+          itemBuilder: (context, index) {
+            final photo = photos[index];
+            return _PhotoCard(
+              photo: photo,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PhotoViewerScreen(
+                      photos: photos,
+                      initialIndex: index,
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -180,7 +261,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
           onChanged: (v) {
             _searchDebounce?.cancel();
             _searchDebounce = Timer(const Duration(milliseconds: 300), () {
-              if (mounted) setState(() => _searchQuery = v.trim());
+              if (!mounted) return;
+              final q = v.trim();
+              setState(() {
+                _searchQuery = q;
+                _searchFuture = q.isEmpty
+                    ? null
+                    : _galleryService.searchPhotos(q);
+              });
             });
           },
           decoration: InputDecoration(

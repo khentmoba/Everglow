@@ -63,7 +63,7 @@ class GameMatch {
   }
 
   factory GameMatch.fromFirestore(DocumentSnapshot doc) {
-    return GameMatch.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    return GameMatch.fromMap(doc.data() as Map<String, dynamic>? ?? const {}, doc.id);
   }
 
   GameMatch copyWith({

@@ -6,6 +6,7 @@ import '../../../../core/services/on_this_day_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_radius.dart';
 import 'feature_section.dart';
+import '../../../../shared/utils/tmdb_images.dart';
 
 /// Dashboard card surfacing spontaneous nostalgia from Gallery, Cinema,
 /// and Chat. Hidden entirely when nothing matches.
@@ -133,7 +134,6 @@ class _MemoryCardState extends State<_MemoryCard> {
   bool _hovered = false;
   bool _pressed = false;
 
-  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w342';
 
   IconData get _sourceIcon {
     switch (widget.memory.source) {
@@ -161,7 +161,7 @@ class _MemoryCardState extends State<_MemoryCard> {
     final url = widget.memory.posterUrl ?? '';
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
-    return '$_tmdbImageBase$url';
+    return TmdbImages.posterFor(url);
   }
 
   @override

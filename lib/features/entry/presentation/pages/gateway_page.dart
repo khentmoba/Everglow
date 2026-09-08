@@ -195,16 +195,18 @@ class _GatewayPageState extends State<GatewayPage> {
       final cinemaOnlyPasscodes = {
         if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
         if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
-        '9132',
-        '8080',
       };
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
       Future<void> authTask;
-      final isBreyan = passcode == EnvConfig.breyanPasscode || passcode == '9132';
-      final isOctagram = passcode == EnvConfig.octagramPasscode || passcode == '8080';
-      final isClair = passcode == EnvConfig.clairPasscode || passcode == '0221';
-      final isKhent = passcode == EnvConfig.khentPasscode || passcode == '0938';
+      final isBreyan = EnvConfig.breyanPasscode.isNotEmpty &&
+          passcode == EnvConfig.breyanPasscode;
+      final isOctagram = EnvConfig.octagramPasscode.isNotEmpty &&
+          passcode == EnvConfig.octagramPasscode;
+      final isClair = EnvConfig.clairPasscode.isNotEmpty &&
+          passcode == EnvConfig.clairPasscode;
+      final isKhent = EnvConfig.khentPasscode.isNotEmpty &&
+          passcode == EnvConfig.khentPasscode;
       if (isBreyan) {
         authTask = authService.loginWithPasscode('breyan');
       } else if (isOctagram) {

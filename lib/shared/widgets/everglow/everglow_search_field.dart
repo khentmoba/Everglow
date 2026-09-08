@@ -31,24 +31,32 @@ class EverglowSearchField extends StatefulWidget {
 class _EverglowSearchFieldState extends State<EverglowSearchField> {
   late final FocusNode _focusNode;
   bool _focused = false;
+  bool _hasText = false;
+
+  void _onController() {
+    final has = widget.controller.text.isNotEmpty;
+    if (has != _hasText) setState(() => _hasText = has);
+  }
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
     _focusNode.addListener(() => setState(() => _focused = _focusNode.hasFocus));
-    widget.controller.addListener(() => setState(() {}));
+    _hasText = widget.controller.text.isNotEmpty;
+    widget.controller.addListener(_onController);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onController);
     _focusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasText = widget.controller.text.isNotEmpty;
+    final hasText = _hasText;
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 44),
       child: AnimatedContainer(

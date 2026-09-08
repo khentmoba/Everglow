@@ -576,7 +576,7 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       final o = ep['overview'] as String?;
       out[n] = (
         stillUrl: (p != null && p.isNotEmpty)
-            ? 'https://image.tmdb.org/t/p/w300$p'
+            ? TmdbImages.stillFor(p)
             : null,
         overview: (o != null && o.isNotEmpty) ? o : null,
       );

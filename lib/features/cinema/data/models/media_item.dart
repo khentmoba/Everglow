@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../shared/utils/tmdb_images.dart';
 
 double? _userRatingFromJson(Map<String, dynamic> json) =>
     json['userRating'] is num ? (json['userRating'] as num).toDouble() : null;
@@ -145,8 +146,8 @@ class MediaItem {
   /// Always returns a full image URL. If [posterPath] is already absolute
   /// (starts with `http`), it is returned as-is.  When it is a relative
   /// TMDB path like `/abc.jpg`, the w500 base URL is prepended.
-  static const _tmdbImageBase = 'https://image.tmdb.org/t/p/w500';
-  static const _tmdbBackdropBase = 'https://image.tmdb.org/t/p/w1280';
+  static const _tmdbImageBase = TmdbImages.poster;
+  static const _tmdbBackdropBase = TmdbImages.backdropLarge;
 
   String get posterUrl {
     if (posterPath.isEmpty) return '';

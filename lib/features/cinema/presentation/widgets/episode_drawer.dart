@@ -16,6 +16,7 @@ import '../../data/services/tmdb_service.dart';
 import '../../data/services/discord_share_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/everglow/everglow_button.dart';
+import '../../../../shared/utils/tmdb_images.dart';
 import 'package:go_router/go_router.dart';
 import 'episode_drawer_sections/drawer_helpers.dart';
 import 'episode_drawer_sections/episode_list_section.dart';
@@ -100,7 +101,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           : widget.item.posterPath;
     } else {
       backdropUrl = backdropPath != null
-          ? 'https://image.tmdb.org/t/p/w780$backdropPath'
+          ? TmdbImages.backdropFor(backdropPath)
           : widget.item.backdropPath.isNotEmpty
           ? widget.item.backdropPath
           : widget.item.posterPath;
@@ -507,7 +508,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     } else {
       final pp = _details?['poster_path'] as String?;
       posterUrl = pp != null && pp.isNotEmpty
-          ? 'https://image.tmdb.org/t/p/w342$pp'
+          ? TmdbImages.posterFor(pp)
           : widget.item.posterPath;
     }
     final isWide = MediaQuery.sizeOf(context).width >= 900;
@@ -950,7 +951,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       if (posterPath.isEmpty) {
         final rawPoster = _details?['poster_path'] as String?;
         if (rawPoster != null && rawPoster.isNotEmpty) {
-          posterPath = 'https://image.tmdb.org/t/p/w500$rawPoster';
+          posterPath = TmdbImages.posterFor(rawPoster);
         } else {
           posterPath = (_details?['_posterUrl'] as String?) ?? '';
         }

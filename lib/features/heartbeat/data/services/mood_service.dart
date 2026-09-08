@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/user_mood.dart';
 
+import '../../../../core/utils/logger.dart';
+
 class MoodSource {
   Future<void> submitMood({
     required String username,
@@ -67,6 +69,7 @@ class MoodService implements MoodSource {
       if (snapshot.docs.isEmpty) return null;
       return UserMood.fromFirestore(snapshot.docs.first.data());
     } catch (e) {
+      Logger.e('MoodService.getLatestMood failed for $username', error: e);
       return null;
     }
   }
