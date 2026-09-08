@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -17,108 +19,166 @@ class JournalPreview extends StatefulWidget {
 }
 
 class _JournalPreviewState extends State<JournalPreview> {
-  late Stream<List<JournalEntry>> _stream;
+  StreamSubscription<List<JournalEntry>>? _sub;
+  Timer? _retryTimer;
+  List<JournalEntry>? _entries;
+  Object? _error;
+  bool _isLoading = true;
+  int _retryCount = 0;
+  static const int _maxRetries = 3;
 
   @override
   void initState() {
     super.initState();
-    // Cache the stream so dashboard rebuilds don't resubscribe and
-    // restart the Firestore listener on every frame. Preview cap (12)
-    // is plenty: the rail renders 3 rows plus a count.
-    _stream = JournalService().watchPreview(limit: 12);
+    // One subscription for the widget lifetime so dashboard rebuilds don't
+    // resubscribe and restart the Firestore listener on every frame.
+    // Preview cap (12) is plenty: the rail renders 3 rows plus a count.
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    _retryTimer?.cancel();
+    _sub = JournalService().watchPreview(limit: 12).listen(
+      (data) {
+        if (!mounted) return;
+        _retryCount = 0;
+        setState(() {
+          _entries = data;
+          _error = null;
+          _isLoading = false;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        _scheduleSilentRetry(error);
+      },
+      onDone: () {
+        // withFirestoreTimeout closes the stream without an error when the
+        // first snapshot never arrives (cold Firestore WebChannel on first
+        // load). Retry silently — the skeleton stays up, so Clair never
+        // sees a spurious "could not load" that needs a manual tap. The
+        // error row only appears after the retries are exhausted.
+        if (!mounted) return;
+        if (_isLoading && _entries == null) _scheduleSilentRetry(_error);
+      },
+    );
+  }
+
+  void _scheduleSilentRetry(Object? error) {
+    if (!mounted) return;
+    if (_retryCount < _maxRetries) {
+      _retryCount++;
+      _error = error ?? _error;
+      _retryTimer = Timer(Duration(seconds: 1 + _retryCount), () {
+        if (mounted) _subscribe();
+      });
+    } else {
+      setState(() {
+        _isLoading = false;
+        _error = error ?? _error;
+      });
+    }
   }
 
   void _retry() {
     setState(() {
-      _stream = JournalService().watchPreview(limit: 12);
+      _isLoading = true;
+      _error = null;
+      _retryCount = 0;
     });
+    _subscribe();
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<JournalEntry>>(
-      stream: _stream,
-      builder: (context, snap) {
-        // Error (or timeout-closed with no data) must never masquerade as
-        // "empty" — the journal screen would still show entries on tap.
-        if (snap.hasError ||
-            (!snap.hasData &&
-                snap.connectionState == ConnectionState.done)) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: FeatureSection(
-              icon: Icons.menu_book_rounded,
+    final entries = _entries;
+    // While loading — including silent background retries after a slow
+    // first snapshot — keep the skeleton up so first load never flashes
+    // "could not load journal". The error row only appears after all
+    // retries are exhausted, and the manual tap stays as a last resort.
+    // Error (or timeout-closed with no data) must never masquerade as
+    // "empty" — the journal screen would still show entries on tap.
+    if (!_isLoading && (_error != null || entries == null)) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: FeatureSection(
+          icon: Icons.menu_book_rounded,
+          hue: AppColors.softLavender,
+          title: 'Our Journal',
+          subtitle: 'Could not load journal',
+          trailing: const SectionChevron(hue: AppColors.softLavender),
+          onTap: () => context.push('/journal'),
+          child: GestureDetector(
+            onTap: _retry,
+            child: _EmptyRow(
               hue: AppColors.softLavender,
-              title: 'Our Journal',
-              subtitle: 'Could not load journal',
-              trailing: const SectionChevron(hue: AppColors.softLavender),
-              onTap: () => context.push('/journal'),
-              child: GestureDetector(
-                onTap: _retry,
-                child: _EmptyRow(
-                  hue: AppColors.softLavender,
-                  icon: Icons.refresh_rounded,
-                  text:
-                      '${firestoreErrorHint(snap.error)} — tap here to retry.',
-                ),
-              ),
+              icon: Icons.refresh_rounded,
+              text:
+                  '${firestoreErrorHint(_error)} — tap here to retry.',
             ),
-          );
-        }
-
-        // Waiting for the first snapshot is loading, not empty.
-        if (!snap.hasData) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: FeatureSection(
-              icon: Icons.menu_book_rounded,
-              hue: AppColors.softLavender,
-              title: 'Our Journal',
-              subtitle: 'Loading memories…',
-              trailing: const SectionChevron(hue: AppColors.softLavender),
-              onTap: () => context.push('/journal'),
-              child: const Column(
-                children: [
-                  EverglowSkeleton(height: 38),
-                  SizedBox(height: 8),
-                  EverglowSkeleton(height: 38),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final entries = snap.data!;
-        final count = entries.length;
-        final pinned = entries.where((e) => e.isPinned).length;
-        final recent = entries.take(3).toList();
-
-        final subtitle = count == 0
-            ? 'No entries yet — write your first memory'
-            : '$count ${count == 1 ? 'entry' : 'entries'}'
-                  '${pinned > 0 ? ' • $pinned pinned' : ''}';
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: FeatureSection(
-            icon: Icons.menu_book_rounded,
-            hue: AppColors.softLavender,
-            title: 'Our Journal',
-            subtitle: subtitle,
-            trailing: const SectionChevron(hue: AppColors.softLavender),
-            onTap: () => context.push('/journal'),
-            child: recent.isEmpty
-                ? const _EmptyRow(
-                    hue: AppColors.softLavender,
-                    icon: Icons.edit_note_rounded,
-                    text: 'Capture a date, a fight, a laugh — keep it forever.',
-                  )
-                : Column(
-                    children: recent.map((e) => _JournalRow(entry: e)).toList(),
-                  ),
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    // Waiting for the first snapshot is loading, not empty.
+    if (entries == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: FeatureSection(
+          icon: Icons.menu_book_rounded,
+          hue: AppColors.softLavender,
+          title: 'Our Journal',
+          subtitle: 'Loading memories…',
+          trailing: const SectionChevron(hue: AppColors.softLavender),
+          onTap: () => context.push('/journal'),
+          child: const Column(
+            children: [
+              EverglowSkeleton(height: 38),
+              SizedBox(height: 8),
+              EverglowSkeleton(height: 38),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final count = entries.length;
+    final pinned = entries.where((e) => e.isPinned).length;
+    final recent = entries.take(3).toList();
+
+    final subtitle = count == 0
+        ? 'No entries yet — write your first memory'
+        : '$count ${count == 1 ? 'entry' : 'entries'}'
+              '${pinned > 0 ? ' • $pinned pinned' : ''}';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: FeatureSection(
+        icon: Icons.menu_book_rounded,
+        hue: AppColors.softLavender,
+        title: 'Our Journal',
+        subtitle: subtitle,
+        trailing: const SectionChevron(hue: AppColors.softLavender),
+        onTap: () => context.push('/journal'),
+        child: recent.isEmpty
+            ? const _EmptyRow(
+                hue: AppColors.softLavender,
+                icon: Icons.edit_note_rounded,
+                text: 'Capture a date, a fight, a laugh — keep it forever.',
+              )
+            : Column(
+                children: recent.map((e) => _JournalRow(entry: e)).toList(),
+              ),
+      ),
     );
   }
 }

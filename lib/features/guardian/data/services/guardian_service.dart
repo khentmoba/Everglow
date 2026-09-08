@@ -26,6 +26,11 @@ class GuardianService {
   /// Initializes the service by fetching messages from Firestore.
   /// Seeds the database if empty. Single read, dedupes concurrent calls,
   /// and reuses fresh cache within [_cacheTtl].
+  ///
+  /// Retries silently with backoff when the first load is slow: on a cold
+  /// start the Firestore WebChannel is still warming up while every
+  /// dashboard preview attaches, so one 8s timeout left the guardian
+  /// with no messages until the next app restart.
   Future<void> initialize() async {
     if (_inflight != null) return _inflight!;
     if (_cachedMessages.isNotEmpty &&
@@ -33,11 +38,23 @@ class GuardianService {
         DateTime.now().difference(_lastFetch!) < _cacheTtl) {
       return;
     }
-    _inflight = _initializeOnce();
+    _inflight = _initializeWithRetry();
     try {
       await _inflight;
     } finally {
       _inflight = null;
+    }
+  }
+
+  static const int _maxInitAttempts = 3;
+
+  Future<void> _initializeWithRetry() async {
+    for (var attempt = 1; attempt <= _maxInitAttempts; attempt++) {
+      await _initializeOnce();
+      if (_cachedMessages.isNotEmpty) return;
+      if (attempt < _maxInitAttempts) {
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      }
     }
   }
 
@@ -65,7 +82,8 @@ class GuardianService {
       _lastFetch = DateTime.now();
     } catch (e) {
       Logger.e('Error initializing guardian messages', error: e);
-      // Keep stale cache if we have one; otherwise stay empty.
+      // Keep stale cache if we have one; otherwise stay empty until the
+      // retry in [_initializeWithRetry] runs.
     }
   }
 
