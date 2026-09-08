@@ -35,6 +35,11 @@ class _CalendarPreviewState extends State<CalendarPreview> {
     // One subscription for the widget lifetime so dashboard rebuilds don't
     // resubscribe and restart the Firestore listener on every frame.
     _service = CalendarService();
+    final cached = _service.cachedUpcoming;
+    if (cached != null) {
+      _events = cached;
+      _isLoading = false;
+    }
     _subscribe();
   }
 

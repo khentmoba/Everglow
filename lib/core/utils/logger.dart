@@ -23,7 +23,9 @@ class Logger {
   static void i(String message) => _log(message);
 
   /// Warning-level.
-  static void w(String message) => _log(message);
+  static void w(String message, {Object? error, StackTrace? stackTrace}) {
+    _log('$message${error != null ? '\n$error' : ''}');
+  }
 
   /// Error-level with optional exception. Always emitted, including in
   /// release builds, so production diagnostics survive.
