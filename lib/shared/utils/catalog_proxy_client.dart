@@ -35,7 +35,12 @@ class CatalogProxyClient {
     Uri uri,
     Duration timeout,
   ) async {
-    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    String? token;
+    try {
+      token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    } catch (_) {
+      // Firebase not initialized (e.g. unit tests or early boot): continue anonymously.
+    }
     final headers = <String, String>{'Accept': 'application/json'};
     if (token != null && token.isNotEmpty) {
       headers['Authorization'] = 'Bearer $token';

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
@@ -153,7 +154,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                     child: Image.network(
                       GalleryService.displayUrl(photo.imageUrl),
                       fit: BoxFit.contain,
-                      cacheWidth: decodeWidth,
+                      cacheWidth: kIsWeb ? null : decodeWidth,
                       loadingBuilder: (context, child, progress) {
                         if (progress == null) return child;
                         return Center(
