@@ -115,13 +115,27 @@ class MusicStatsProvider extends ChangeNotifier {
   }
 
   Future<void> _periodicRecentRefresh() async {
+    // If the leaderboard is still empty (e.g. the boot fetch hit a
+    // transient Last.fm error payload), retry it here every minute
+    // instead of waiting up to 10 minutes for the top-tracks timer —
+    // otherwise one bad response sticks "No music stats yet" on screen.
+    final needTop =
+        _topTracks.isEmpty ||
+        _clairTopTracks.isEmpty ||
+        _khentTotalPlays == 0 ||
+        _clairTotalPlays == 0;
     await Future.wait([
       _refreshRecentTracks(_khentUser, _recentTracks),
       _refreshRecentTracks(_clairUser, _clairRecentTracks),
+      if (needTop) _refreshTopTracks(_khentUser, _topTracks),
+      if (needTop) _refreshTopTracks(_clairUser, _clairTopTracks),
+      if (needTop) _refreshUserTotals(),
     ]);
     await Future.wait([
       _enrichRecentTrackArtwork(_recentTracks),
       _enrichRecentTrackArtwork(_clairRecentTracks),
+      if (needTop) _enrichTopTrackArtwork(_topTracks),
+      if (needTop) _enrichTopTrackArtwork(_clairTopTracks),
     ]);
   }
 
@@ -146,11 +160,13 @@ class MusicStatsProvider extends ChangeNotifier {
     final khent = results[0];
     final clair = results[1];
     var changed = false;
-    if (khent != _khentTotalPlays) {
+    // user.getInfo returns 0 on failure — never let a failed poll zero out
+    // a good total, or the leaderboard header loses its listens pill.
+    if (khent > 0 && khent != _khentTotalPlays) {
       _khentTotalPlays = khent;
       changed = true;
     }
-    if (clair != _clairTotalPlays) {
+    if (clair > 0 && clair != _clairTotalPlays) {
       _clairTotalPlays = clair;
       changed = true;
     }
@@ -161,11 +177,16 @@ class MusicStatsProvider extends ChangeNotifier {
     String username,
     List<TopMusicTrack> destination,
   ) async {
+    // A failed fetch returns [] (Last.fm error payloads, timeouts, auth).
+    // Keep the last good leaderboard instead of wiping it — an empty
+    // response must never stick "No music stats yet" over good data.
+    // Only the very first load (destination still empty) may stay empty.
     final tracks = await _syncService.fetchTopTracks(
       username,
       limit: _topTracksLimit,
     );
     if (_disposed) return;
+    if (tracks.isEmpty && destination.isNotEmpty) return;
     destination
       ..clear()
       ..addAll(tracks);
@@ -181,6 +202,7 @@ class MusicStatsProvider extends ChangeNotifier {
       limit: _recentTracksLimit,
     );
     if (_disposed) return;
+    if (tracks.isEmpty && destination.isNotEmpty) return;
     destination
       ..clear()
       ..addAll(tracks);
