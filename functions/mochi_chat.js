@@ -238,7 +238,9 @@ You have access to custom tools:
 - complete_habit — Complete habits for today
 - get_calendar_events — Read calendar
 - get_bucket_list — Read bucket list
-- get_journal_entries — Read journal
+- get_journal_entries — Read recent journal entries (summaries)
+- search_journal_entries — Search journal entries across all time by keyword, topic, category, author, or tag
+- read_journal_entry — Read the complete, full unabridged text of a specific journal entry by ID or title
 - get_trips — Read trips
 - web_search — Search the web for current info, news, prices, or anything not covered by other tools
 - read_web_page — Fetch and read the full content of a web page (up to 3 URLs)
@@ -1157,6 +1159,37 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           properties: {
             limit: { type: 'number', description: 'Max entries (default 5, max 10)' },
             category: { type: 'string', enum: ['daily','gratitude','memory','letter','dream','idea','all'], description: 'Filter category (default all)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'search_journal_entries',
+        description: 'Search journal entries across all time by keyword, topic, category, author, or tag. Use when they ask about specific past memories, topics, dates, or reflections.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Keyword or phrase to search for in entry title, content, or tags' },
+            category: { type: 'string', enum: ['daily','gratitude','memory','letter','dream','idea','all'], description: 'Filter by category (default all)' },
+            author: { type: 'string', description: 'Filter by author (e.g. khentsgdz or clairjassen)' },
+            tag: { type: 'string', description: 'Filter by specific tag' },
+            limit: { type: 'number', description: 'Max matching entries to return (default 5, max 20)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'read_journal_entry',
+        description: 'Read the complete, full unabridged text and all details of a specific journal entry. Always use this whenever you need to read every single word, letter, or quote from an entry found via search_journal_entries or get_journal_entries.',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'The Firestore document ID of the journal entry (from search_journal_entries or get_journal_entries)' },
+            title: { type: 'string', description: 'The title of the journal entry (fallback if id is not known)' },
           },
         },
       },
@@ -2373,7 +2406,137 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 const v=d.data();
                 return { id: d.id, title: v.title||'', category: v.category||'daily', preview: (v.content||'').slice(0,150), author: v.author||'' };
               });
-              return JSON.stringify({ entries, count: entries.length });
+              return JSON.stringify({ entries, count: entries.length, note: 'Call read_journal_entry with entry id to read the full unabridged content.' });
+            }
+            case 'search_journal_entries': {
+              const query = String(args.query || '').trim().toLowerCase();
+              const cat = String(args.category || 'all').toLowerCase();
+              const author = String(args.author || '').trim().toLowerCase();
+              const tag = String(args.tag || '').trim().toLowerCase();
+              const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 20);
+
+              let q = db.collection('journal_entries');
+              const validCategories = ['daily', 'gratitude', 'memory', 'letter', 'dream', 'idea'];
+              if (validCategories.includes(cat)) {
+                q = q.where('category', '==', cat);
+              }
+              q = q.orderBy('createdAt', 'desc').limit(100);
+              const snap = await q.get();
+              if (snap.empty) return JSON.stringify({ entries: [], count: 0, query });
+
+              const queryTokens = query ? query.split(/\s+/).filter(Boolean) : [];
+
+              const matched = snap.docs.map((d) => {
+                const v = d.data();
+                const title = String(v.title || '');
+                const content = String(v.content || '');
+                const entryAuthor = String(v.author || '').toLowerCase();
+                const tags = Array.isArray(v.tags) ? v.tags.map((t) => String(t).toLowerCase()) : [];
+                const category = String(v.category || 'daily');
+                const mood = v.mood || null;
+                const createdAt = v.createdAt?.toDate?.()?.toISOString()?.slice(0, 10) || null;
+
+                if (author && !entryAuthor.includes(author)) return null;
+                if (tag && !tags.some((t) => t.includes(tag))) return null;
+
+                let score = 0;
+                let snippet = '';
+
+                if (queryTokens.length > 0) {
+                  const lowerTitle = title.toLowerCase();
+                  const lowerContent = content.toLowerCase();
+
+                  if (lowerTitle.includes(query)) score += 10;
+                  if (lowerContent.includes(query)) {
+                    score += 5;
+                    const idx = lowerContent.indexOf(query);
+                    const start = Math.max(0, idx - 40);
+                    const end = Math.min(content.length, idx + query.length + 80);
+                    snippet = (start > 0 ? '...' : '') + content.slice(start, end).replace(/\n/g, ' ') + (end < content.length ? '...' : '');
+                  }
+                  if (tags.some((t) => t.includes(query))) score += 7;
+
+                  for (const tok of queryTokens) {
+                    if (lowerTitle.includes(tok)) score += 3;
+                    if (tags.some((t) => t.includes(tok))) score += 2;
+                    if (lowerContent.includes(tok)) score += 1;
+                  }
+
+                  if (score === 0) return null;
+                } else {
+                  score = 1;
+                }
+
+                if (!snippet) {
+                  snippet = content.slice(0, 150).replace(/\n/g, ' ') + (content.length > 150 ? '...' : '');
+                }
+
+                return {
+                  id: d.id,
+                  title: title || 'Untitled',
+                  date: createdAt,
+                  author: v.author || '',
+                  category,
+                  mood,
+                  tags: v.tags || [],
+                  wordCount: v.wordCount || content.split(/\s+/).filter(Boolean).length,
+                  snippet,
+                  score,
+                };
+              }).filter(Boolean);
+
+              matched.sort((a, b) => b.score - a.score);
+              const results = matched.slice(0, limit);
+
+              return JSON.stringify({
+                entries: results,
+                count: results.length,
+                totalMatches: matched.length,
+                note: 'To read the complete unabridged text of any entry, call read_journal_entry with its id.'
+              });
+            }
+            case 'read_journal_entry': {
+              const id = String(args.id || args.entry_id || args.entryId || '').trim();
+              const title = String(args.title || '').trim();
+
+              let doc = null;
+              if (id) {
+                const docSnap = await db.collection('journal_entries').doc(id).get();
+                if (docSnap.exists) {
+                  doc = docSnap;
+                }
+              }
+
+              if (!doc && title) {
+                const titleLower = title.toLowerCase();
+                const snap = await db.collection('journal_entries').orderBy('createdAt', 'desc').limit(50).get();
+                doc = snap.docs.find((d) => String(d.data().title || '').trim().toLowerCase() === titleLower)
+                   || snap.docs.find((d) => String(d.data().title || '').toLowerCase().includes(titleLower));
+              }
+
+              if (!doc) {
+                return JSON.stringify({
+                  error: `Journal entry not found with ${id ? `id "${id}"` : ''}${id && title ? ' or ' : ''}${title ? `title "${title}"` : ''}. Use search_journal_entries to find the correct entry id.`
+                });
+              }
+
+              const v = doc.data();
+              const content = String(v.content || '');
+              return JSON.stringify({
+                success: true,
+                id: doc.id,
+                title: v.title || 'Untitled',
+                content: content,
+                author: v.author || '',
+                category: v.category || 'daily',
+                mood: v.mood || null,
+                tags: Array.isArray(v.tags) ? v.tags : [],
+                createdAt: v.createdAt?.toDate?.()?.toISOString() || null,
+                updatedAt: v.updatedAt?.toDate?.()?.toISOString() || null,
+                wordCount: v.wordCount || content.split(/\s+/).filter(Boolean).length,
+                isPinned: Boolean(v.isPinned),
+                isLocked: Boolean(v.isLocked),
+              });
             }
             case 'get_trips': {
               const limit = Math.min(Math.max(Number(args.limit)||5,1),10);
