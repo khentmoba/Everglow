@@ -42,9 +42,15 @@ class CalendarService {
   /// Get upcoming events within N days. Wrapped with timeout so a slow
   /// Firestore WebChannel doesn't keep Coming Up in skeleton forever.
   ///
-  /// Re-attaches once when the first snapshot is slow (see
-  /// [getEventsForMonth]): this stream backs both the Coming Up and the
-  /// Upcoming Dates previews, which were the most frequent false errors.
+  /// Silently re-attaches up to twice when the first snapshot is slow:
+  /// this stream backs both the Coming Up and the Upcoming Dates previews,
+  /// which were the most frequent false errors. Cold dashboard loads attach
+  /// every preview in the same tick while the WebChannel, the auth token,
+  /// and the `isCouple()` rule check are all still warming up, so a single
+  /// 8s budget expired before the server could answer and the card wrongly
+  /// asked for a manual retry. 12s x 3 attempts keeps the loading state up
+  /// while a slow first load still has a chance; only a persistent failure
+  /// surfaces as an error.
   Stream<List<CalendarEvent>> getUpcomingEvents({int days = 30}) {
     Stream<List<CalendarEvent>> subscribe() {
       final now = DateTime.now();
@@ -68,7 +74,8 @@ class CalendarService {
       subscribe(),
       resubscribe: subscribe,
       label: 'calendar-upcoming',
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
     );
   }
 
