@@ -72,64 +72,47 @@ class _CurrentlyWatchingHeader extends StatefulWidget {
 class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _CurrentlyWatchingHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       _items = [];
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) setState(() => _items = []);
       return;
     }
-    _streamSub?.cancel();
-    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
-      (items) {
-        _retryCount = 0;
-        // Cinema owns every movie (live-action or anime) plus non-anime TV;
-        // anime series live in the Anime rail. Filtering on isCinemaItem
-        // (instead of bare !isAnime) keeps anime films in this shelf so
-        // movie lovers never lose them from Currently Watching.
-        final filtered = items.cinemaItems;
-        if (!mounted) return;
-        setState(() => _items = filtered);
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[CurrentlyWatching/header:${widget.userName}] stream error: $e',
-        );
-        if (!mounted) return;
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          setState(() => _items = []);
-        }
-      },
-    );
+    final future = _service.getPreviewItems(widget.userName);
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      // Cinema owns every movie (live-action or anime) plus non-anime TV;
+      // anime series live in the Anime rail. Filtering on isCinemaItem
+      // (instead of bare !isAnime) keeps anime films in this shelf so
+      // movie lovers never lose them from Currently Watching.
+      setState(() => _items = items.watchingCinema);
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      setState(() => _items = []);
+    });
   }
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 
@@ -164,72 +147,54 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  StreamSubscription<List<MediaItem>>? _streamSub;
+  Future<List<MediaItem>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _subscribe();
+    _load();
   }
 
   @override
   void didUpdateWidget(covariant _CurrentlyWatchingShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
-      _streamSub?.cancel();
       setState(() {
         _items = [];
         _hasLoaded = false;
         _loadError = false;
       });
-      _subscribe();
+      _load();
     }
   }
 
-  int _retryCount = 0;
-
-  void _subscribe() {
+  void _load() {
     if (widget.userName.isEmpty) {
+      _future = null;
       if (mounted) setState(() => _hasLoaded = true);
       return;
     }
-    _streamSub?.cancel();
-    _streamSub = _service.getCurrentlyWatchingStream(widget.userName).listen(
-      (items) {
-        _retryCount = 0;
-        // Same cinema rule as the header: every movie counts here.
-        final filtered = items.cinemaItems;
-        if (!mounted) return;
-        setState(() {
-          _items = filtered;
-          _hasLoaded = true;
-          _loadError = false;
-        });
-        if (filtered.isNotEmpty) _backfillPosters(filtered);
-      },
-      onError: (Object e) {
-        // ignore: avoid_print
-        print(
-          '[CurrentlyWatching/shelf:${widget.userName}] stream error: $e',
-        );
-        if (!mounted) return;
-        // Firestore permission errors happen when the users/{uid} doc
-        // has not been created yet (isReady race). Retry quickly.
-        if (_retryCount < 3) {
-          _retryCount++;
-          Future.delayed(Duration(seconds: 1 + _retryCount), () {
-            if (mounted) _subscribe();
-          });
-        } else {
-          // Report the failure instead of a false-empty shelf: a denied
-          // stream means the data is unreachable, not absent.
-          setState(() {
-            _hasLoaded = true;
-            _loadError = true;
-          });
-        }
-      },
-    );
+    final future = _service.getPreviewItems(widget.userName);
+    _future = future;
+    future.then((items) {
+      if (!mounted || _future != future) return;
+      // Same cinema rule as the header: every movie counts here.
+      final filtered = items.watchingCinema;
+      setState(() {
+        _items = filtered;
+        _hasLoaded = true;
+        _loadError = false;
+      });
+      if (filtered.isNotEmpty) _backfillPosters(filtered);
+    }).catchError((Object e) {
+      if (!mounted || _future != future) return;
+      // Report the failure instead of a false-empty shelf: a denied
+      // fetch means the data is unreachable, not absent.
+      setState(() {
+        _hasLoaded = true;
+        _loadError = true;
+      });
+    });
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
@@ -244,7 +209,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
 
   @override
   void dispose() {
-    _streamSub?.cancel();
+    _future = null;
     super.dispose();
   }
 

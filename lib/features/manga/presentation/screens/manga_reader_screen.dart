@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../shared/utils/responsive_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -835,7 +836,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               url,
               width: double.infinity,
               fit: BoxFit.fitWidth,
-              cacheWidth: 1200,
+              cacheWidth: heroCacheWidth(context),
               loadingBuilder: (context, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return Container(

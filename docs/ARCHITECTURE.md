@@ -211,9 +211,11 @@ sequenceDiagram
   A-->>G: notifyListeners -> router to /dashboard
 ```
 
-Passcodes map to fixed profile usernames; credentials come from `EnvConfig`
-with local fallbacks. The user document is the root of access: security rules
-grant sanctuary access to authenticated users with a `users/{uid}` document.
+Couple passcodes are verified server-side (`verifyPasscode` Cloud Function);
+cinema-profile credentials come from `EnvConfig` (build-time `--dart-define`
+or local `.env`, never committed). The user document is the root of access:
+security rules grant sanctuary access to authenticated users with a
+`users/{uid}` document.
 
 ### 5.3 Realtime couple data (chat, presence, mood)
 
@@ -448,8 +450,9 @@ is derived from Firestore.
 
 ## 9. Security Model
 
-1. **Auth boundary**: anonymous fallback is allowed, but couple features check
-   for a `users/{uid}` document.
+1. **Auth boundary**: anonymous sessions are never valid for app reads
+   (`isNotAnonymous` is required by every rule); the gateway forces a real
+   login, and couple features additionally require a `users/{uid}` document.
 2. **Ownership**: `users/{uid}/*` and `presence/{uid}` are self-scoped.
 3. **Couple pair**: rooms/chat are read-write only for the two uids encoded in
    the document; uid pairs are immutable after creation.

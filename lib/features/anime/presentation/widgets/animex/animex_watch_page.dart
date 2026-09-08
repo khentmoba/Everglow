@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../../../shared/utils/responsive_image.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -324,7 +325,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             AppNetworkImage(
               imageUrl: banner,
               fit: BoxFit.cover,
-              cacheWidth: 1200,
+              cacheWidth: heroCacheWidth(context),
               errorWidget: Container(color: AnimeXTokens.surfaceRaised),
             )
           else

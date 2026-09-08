@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class MemoryPhoto {
   final String id;
   final String imageUrl;
+  final String? thumbUrl;
   final String caption;
   final String uploadedBy;
   final DateTime uploadedAt;
@@ -17,6 +18,7 @@ class MemoryPhoto {
   const MemoryPhoto({
     required this.id,
     required this.imageUrl,
+    this.thumbUrl,
     required this.caption,
     required this.uploadedBy,
     required this.uploadedAt,
@@ -40,6 +42,7 @@ class MemoryPhoto {
     return MemoryPhoto(
       id: id,
       imageUrl: data['imageUrl'] as String? ?? '',
+      thumbUrl: data['thumbUrl'] as String?,
       caption: data['caption'] as String? ?? '',
       uploadedBy: data['uploadedBy'] as String? ?? '',
       uploadedAt: _parseTimestamp(data['uploadedAt']),
@@ -82,6 +85,7 @@ class MemoryPhoto {
   Map<String, dynamic> toFirestore() {
     return {
       'imageUrl': imageUrl,
+      if (thumbUrl != null && thumbUrl!.isNotEmpty) 'thumbUrl': thumbUrl,
       'caption': caption,
       'uploadedBy': uploadedBy,
       'uploadedAt': FieldValue.serverTimestamp(),
@@ -94,6 +98,8 @@ class MemoryPhoto {
   }
 
   MemoryPhoto copyWith({
+    String? imageUrl,
+    String? thumbUrl,
     String? caption,
     List<String>? tags,
     double? latitude,
@@ -103,7 +109,8 @@ class MemoryPhoto {
     bool clearLocation = false,
   }) => MemoryPhoto(
     id: id,
-    imageUrl: imageUrl,
+    imageUrl: imageUrl ?? this.imageUrl,
+    thumbUrl: thumbUrl ?? this.thumbUrl,
     caption: caption ?? this.caption,
     uploadedBy: uploadedBy,
     uploadedAt: uploadedAt,

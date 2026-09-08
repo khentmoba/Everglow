@@ -37,8 +37,6 @@ Future<void> _startEverglow() async {
     try {
       widgetName = details.context?.toString() ?? 'no-widget';
     } catch (_) {}
-    // ignore: avoid_print
-    print('[FlutterError at $widgetName] ${details.exception}');
     Logger.e('[FlutterError at $widgetName]', error: details.exception, stackTrace: details.stack);
   };
   ErrorWidget.builder = (details) {
@@ -200,9 +198,7 @@ void _zoneErrorHandler(Object error, StackTrace stack) {
     if (kDebugMode) {
       debugPrint('[Unhandled] $error\n$stack');
     } else {
-      // debugPrint is throttled in release; keep an unfiltered console
-      // trail for production web debugging.
-      // ignore: avoid_print
+      // Logger.e always emits (even in release) for the production trail.
       Logger.e('[Unhandled]', error: error, stackTrace: stack);
     }
   }

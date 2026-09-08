@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../utils/responsive_image.dart';
 import '../app_network_image.dart';
 import '../../../core/theme/app_breakpoints.dart';
 import '../../../core/theme/app_colors.dart';
@@ -188,7 +189,7 @@ class _HeroBannerSlide extends StatelessWidget {
                           ? AppNetworkImage(
                               imageUrl: item.imageUrl,
                               fit: BoxFit.cover,
-                              cacheWidth: 1200,
+                              cacheWidth: heroCacheWidth(context),
                               errorWidget: Container(color: AppColors.velvet),
                             )
                           : ImageFiltered(
@@ -199,7 +200,7 @@ class _HeroBannerSlide extends StatelessWidget {
                               child: AppNetworkImage(
                                 imageUrl: item.imageUrl,
                                 fit: BoxFit.cover,
-                                cacheWidth: 1200,
+                                cacheWidth: heroCacheWidth(context),
                                 errorWidget: Container(color: AppColors.velvet),
                               ),
                             ),

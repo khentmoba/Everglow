@@ -11,6 +11,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 
 const {
   proxyBookText,
+  proxyCatalog,
   proxyMangaImage,
   proxyMangaKakalotImage,
   proxyMangaKatana,
@@ -83,6 +84,7 @@ exports.proxyAIv2 = onRequest({ invoker: 'public' }, handleProxyAI);
 // Re-exports: keep the deploy surface identical.
 module.exports = Object.assign({}, module.exports, {
   proxyBookText,
+  proxyCatalog,
   proxyMangaImage,
   proxyMangaKakalotImage,
   proxyMangaKatana,
