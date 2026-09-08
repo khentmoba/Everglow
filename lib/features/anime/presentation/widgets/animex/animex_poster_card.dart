@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
+import '../../../data/services/anilist_service.dart';
 
 import 'animex_badges.dart';
 import 'animex_tokens.dart';
@@ -40,6 +41,16 @@ class AnimeXPosterCard extends StatefulWidget {
     this.hoverAction,
   });
 
+  @visibleForTesting
+  static void cacheResolvedForTesting(String key, MediaItem item) {
+    _AnimeXPosterCardState._resolvedCache[key] = item;
+  }
+
+  @visibleForTesting
+  static void clearResolvedCacheForTesting() {
+    _AnimeXPosterCardState._resolvedCache.clear();
+  }
+
   @override
   State<AnimeXPosterCard> createState() => _AnimeXPosterCardState();
 }
@@ -56,8 +67,17 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   Timer? _showTimer;
   Timer? _hideTimer;
 
+  /// Session cache of hover-enriched items, keyed by AniList (`a{id}`) or
+  /// MAL (`m{id}`) id, so each anime resolves its details once.
+  static final Map<String, MediaItem> _resolvedCache = {};
+
+  /// Item enriched with lazily-fetched details, when the original is slim.
+  MediaItem? _resolvedItem;
+  bool _resolving = false;
+
   void _enter() {
     _pointerInsideCard = true;
+    _maybeResolveDetails();
     _hideTimer?.cancel();
     _showTimer?.cancel();
     if (_hover) return;
@@ -99,6 +119,74 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
     if (_active == this) _active = null;
   }
 
+  /// Lazily fills in missing hover details (synopsis, genres, score) for
+  /// items from slim sources — history, playlists, old watchlist entries,
+  /// fallbacks. Starts the moment the pointer enters so the data is
+  /// usually ready by the time the popover appears.
+  void _maybeResolveDetails() {
+    final item = widget.item;
+    if (item.synopsis.isNotEmpty && item.genres.isNotEmpty) return;
+    final key = _resolveKey(item);
+    if (key == null) return;
+    final cached = _resolvedCache[key];
+    if (cached != null) {
+      if (_resolvedItem == null && mounted) {
+        setState(() => _resolvedItem = cached);
+      } else {
+        _resolvedItem = cached;
+      }
+      return;
+    }
+    if (_resolving) return;
+    _resolving = true;
+    _resolveAsync(item, key);
+  }
+
+  Future<void> _resolveAsync(MediaItem item, String key) async {
+    try {
+      final detail = await AniListService().fetchDetailsWithFallback(
+        anilistId: item.anilistId,
+        malId: item.tmdbId != 0 ? item.tmdbId : null,
+      );
+      if (!mounted || detail == null) return;
+      final enriched = item.copyWith(
+        synopsis: item.synopsis.isNotEmpty ? item.synopsis : detail.synopsis,
+        genres: item.genres.isNotEmpty ? item.genres : detail.genres,
+        episodeCount: item.episodeCount ?? detail.episodeCount,
+        airingStatus: item.airingStatus.isNotEmpty
+            ? item.airingStatus
+            : detail.airingStatus,
+        format: item.format.isNotEmpty ? item.format : detail.format,
+        studio: item.studio.isNotEmpty
+            ? item.studio
+            : (detail.studios.isNotEmpty
+                  ? detail.studios.first
+                  : item.studio),
+        score: item.score ?? detail.averageScore,
+        year: item.year.isNotEmpty
+            ? item.year
+            : (detail.seasonYear?.toString() ?? item.year),
+        anilistId: item.anilistId ?? (detail.id != 0 ? detail.id : null),
+      );
+      _resolvedCache[key] = enriched;
+      if (_hover) {
+        setState(() => _resolvedItem = enriched);
+      } else {
+        _resolvedItem = enriched;
+      }
+    } catch (_) {
+      // Hover keeps the slim item; the watch page retries on tap.
+    } finally {
+      _resolving = false;
+    }
+  }
+
+  static String? _resolveKey(MediaItem item) {
+    if (item.anilistId != null) return 'a${item.anilistId}';
+    if (item.tmdbId != 0) return 'm${item.tmdbId}';
+    return null;
+  }
+
   void _onCardExit() {
     _pointerInsideCard = false;
     _showTimer?.cancel();
@@ -132,6 +220,15 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   }
 
   @override
+  void didUpdateWidget(covariant AnimeXPosterCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.anilistId != widget.item.anilistId ||
+        oldWidget.item.tmdbId != widget.item.tmdbId) {
+      _resolvedItem = null;
+    }
+  }
+
+  @override
   void dispose() {
     _showTimer?.cancel();
     _hideTimer?.cancel();
@@ -141,7 +238,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
 
   @override
   Widget build(BuildContext context) {
-    final item = widget.item;
+    final item = _resolvedItem ?? widget.item;
     final episodeCount = item.episodeCount;
     final score = widget.score ?? item.score;
 
@@ -167,7 +264,11 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
             onExit: (_) => _onPopoverExit(),
             child: _PopoverEntrance(
               fromLeft: _popoverLeft,
-              child: _CardPopover(item: item, score: score),
+              child: _CardPopover(
+                item: item,
+                score: score,
+                loadingDetails: _resolving && _resolvedItem == null,
+              ),
             ),
           ),
         ),
@@ -424,8 +525,13 @@ class _CardPopover extends StatelessWidget {
 
   final MediaItem item;
   final double? score;
+  final bool loadingDetails;
 
-  const _CardPopover({required this.item, this.score});
+  const _CardPopover({
+    required this.item,
+    this.score,
+    this.loadingDetails = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -560,6 +666,14 @@ class _CardPopover extends StatelessWidget {
                           ],
                         ),
                       ],
+                      if (loadingDetails && item.synopsis.isEmpty) ...[
+                        const SizedBox(height: 10),
+                        const _DetailBar(widthFactor: 1),
+                        const SizedBox(height: 6),
+                        const _DetailBar(widthFactor: 0.82),
+                        const SizedBox(height: 6),
+                        const _DetailBar(widthFactor: 0.6),
+                      ],
                       if (item.synopsis.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Text(
@@ -646,6 +760,28 @@ class _CardPopover extends StatelessWidget {
       if (item.format.isNotEmpty) item.format,
     ];
     return parts.join(' · ');
+  }
+}
+
+/// Placeholder synopsis lines while hover details load.
+class _DetailBar extends StatelessWidget {
+  final double widthFactor;
+
+  const _DetailBar({required this.widthFactor});
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        height: 10,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(5),
+        ),
+      ),
+    );
   }
 }
 
