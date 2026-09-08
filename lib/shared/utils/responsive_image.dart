@@ -12,7 +12,8 @@ int heroCacheWidth(BuildContext context) {
   final isDesktop = width >= 900;
   final target = isDesktop ? 1280.0 : 800.0;
   final w = width * dpr;
-  return (w > target ? target : w).round();
+  if (w <= 0) return target.round();
+  return (w > target ? target : w).clamp(400.0, target).round();
 }
 
 /// Debounced one-shot search helper: memoizes the latest future so a
