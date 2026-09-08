@@ -33,6 +33,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
   PresenceService? _presenceService;
   DragStartDetails? _pendingPanStartDetails;
   String? _pendingPanUserId;
+  String? _currentUserId;
 
   final List<DoodleStroke> _sessionStrokes = [];
   final List<DoodleStroke> _redoStack = [];
@@ -58,14 +59,14 @@ class _CanvasScreenState extends State<CanvasScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _presenceService ??= context.read<PresenceService>();
+    _currentUserId ??= context.read<AuthService>().uid;
   }
 
   @override
   void dispose() {
     _liveSubscription?.cancel();
     final presence = _presenceService;
-    final auth = mounted ? context.read<AuthService>() : null;
-    final uid = auth?.uid;
+    final uid = _currentUserId;
     if (presence != null && uid != null) {
       presence.clearDoodling(uid);
     }

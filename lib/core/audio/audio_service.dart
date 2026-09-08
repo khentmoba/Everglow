@@ -27,10 +27,13 @@ class AudioService {
     if (_isMuted) return;
 
     try {
+      if (_player.playing) {
+        await _player.stop();
+      }
       await _player.setAsset(assetPath);
       await _player.play();
     } catch (e) {
-      Logger.e('Error playing SFX', error: e);
+      Logger.d('SFX playback skipped: $e');
     }
   }
 

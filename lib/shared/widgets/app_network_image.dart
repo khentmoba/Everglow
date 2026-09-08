@@ -62,10 +62,29 @@ class AppNetworkImage extends StatelessWidget {
     this.filterQuality = FilterQuality.low,
   });
 
+  /// Validates that a string is a fetchable web URL. Protects WebGL/CanvasKit
+  /// from trying to decode 404/SPA-rewritten HTML or dummy 'null' strings as textures.
+  static bool isValidUrl(String? url) {
+    if (url == null) return false;
+    final trimmed = url.trim();
+    if (trimmed.isEmpty ||
+        trimmed == 'null' ||
+        trimmed == 'undefined' ||
+        trimmed == 'false') {
+      return false;
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return false;
+    return uri.hasScheme &&
+        (uri.scheme == 'http' ||
+            uri.scheme == 'https' ||
+            uri.scheme == 'blob' ||
+            uri.scheme == 'data');
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (imageUrl.isEmpty) return _fallback(context);
-
+    if (!isValidUrl(imageUrl)) return _fallback(context);
     Widget image = CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
