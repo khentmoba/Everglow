@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../data/services/letterbox_service.dart';
+import 'feature_section.dart';
 import 'note_card.dart';
 import 'note_dialog.dart';
 import 'package:provider/provider.dart';
@@ -222,47 +223,56 @@ class _LetterboxViewState extends State<LetterboxView> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Letterbox',
-                style: AppTypography.cormorantBold.copyWith(fontSize: 24),
+    final sealed = _notes.where((n) => !n.isUnlocked).length;
+    final unread = _notes.where((n) => n.isUnlocked && !n.isRead).length;
+    final String subtitle;
+    if (_isLoading && _notes.isEmpty) {
+      subtitle = 'fetching letters…';
+    } else if (_notes.isEmpty) {
+      subtitle = 'no letters yet';
+    } else if (sealed > 0 && unread > 0) {
+      subtitle = '$sealed sealed · $unread waiting to be read';
+    } else if (sealed > 0) {
+      subtitle = '$sealed sealed ${sealed == 1 ? 'letter' : 'letters'}';
+    } else if (unread > 0) {
+      subtitle = '$unread waiting to be read';
+    } else {
+      subtitle =
+          '${_notes.length} ${_notes.length == 1 ? 'letter' : 'letters'} · all read ♥';
+    }
+
+    // Same outer shape as UpcomingCountdowns so the Today pair sits evenly.
+    // No panel onTap: each letter card handles its own tap (see OnThisDayCard).
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: FeatureSection(
+        icon: Icons.mail_outline_rounded,
+        hue: AppColors.blushGold,
+        title: 'Letterbox',
+        subtitle: subtitle,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SectionPillLink(
+              label: 'View all',
+              onTap: () => context.push('/letterbox'),
+            ),
+            IconButton(
+              onPressed: _seedSampleNotes,
+              icon: Icon(
+                Icons.refresh_rounded,
+                color: AppColors.blushGold.withValues(alpha: 0.4),
+                size: 15,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () => context.push('/letterbox'),
-                    child: Text(
-                      'View All',
-                      style: AppTypography.outfitBold.copyWith(
-                        fontSize: 12,
-                        color: AppColors.blushGold,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: _seedSampleNotes,
-                    icon: const Icon(
-                      Icons.refresh,
-                      color: AppColors.blushGold,
-                      size: 20,
-                    ),
-                    tooltip: 'Reset Seeds',
-                  ),
-                ],
-              ),
-            ],
-          ),
+              tooltip: 'Reset seeds',
+              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
         ),
-        SizedBox(height: 200, child: _buildRail()),
-      ],
+        child: SizedBox(height: 188, child: _buildRail()),
+      ),
     );
   }
 
@@ -277,9 +287,9 @@ class _LetterboxViewState extends State<LetterboxView> {
     if (_isLoading && _notes.isEmpty) {
       return const EverglowSkeletonRow(
         count: 3,
-        itemWidth: 150,
-        itemHeight: 180,
-        spacing: 16,
+        itemWidth: 156,
+        itemHeight: 188,
+        spacing: 12,
       );
     }
 
@@ -293,7 +303,8 @@ class _LetterboxViewState extends State<LetterboxView> {
 
     return ListView.builder(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      physics: const BouncingScrollPhysics(),
+      clipBehavior: Clip.none,
       itemCount: _notes.length,
       itemBuilder: (context, index) {
         return NoteCard(
@@ -315,80 +326,92 @@ class _LetterboxRailEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          width: double.infinity,
-          height: 172,
-          decoration: BoxDecoration(
-            color: AppColors.velvet.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border, width: 1),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.inkDeep.withValues(alpha: 0.9),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.deepRose.withValues(alpha: 0.18),
-                      blurRadius: 12,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.mail_outline_rounded,
-                  size: 24,
-                  color: AppColors.roseQuartz,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'No letters yet',
-                style: AppTypography.cormorantBold.copyWith(fontSize: 16),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Keep checking back! \u{1F338}',
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 12,
-                  color: AppColors.petalWhite.withValues(alpha: 0.65),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: onSeed,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.deepRose, AppColors.velvet],
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.blushGold.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Text(
-                    'Seed Sample Notes',
-                    style: AppTypography.outfitBold.copyWith(
-                      fontSize: 12,
-                      color: AppColors.petalWhite,
-                    ),
-                  ),
-                ),
-              ),
+      child: Container(
+        width: double.infinity,
+        height: 188,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.blushGold.withValues(alpha: 0.08),
+              AppColors.velvet.withValues(alpha: 0.4),
             ],
           ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.blushGold.withValues(alpha: 0.16),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.blushGold.withValues(alpha: 0.22),
+                    AppColors.blushGold.withValues(alpha: 0.05),
+                  ],
+                ),
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.35),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.blushGold.withValues(alpha: 0.15),
+                    blurRadius: 14,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.mail_outline_rounded,
+                size: 22,
+                color: AppColors.blushGold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No letters yet',
+              style: AppTypography.cormorantBold.copyWith(fontSize: 17),
+            ),
+            Text(
+              'new love notes land here \u{1F338}',
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 12,
+                color: AppColors.petalWhite.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onSeed,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.blushGold.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppColors.blushGold.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Text(
+                  'Seed sample notes',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 11,
+                    color: AppColors.blushGold,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -402,21 +425,20 @@ class _LetterboxError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Container(
-          height: 172,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.velvet.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.cloud_off_rounded,
+      child: Container(
+        width: double.infinity,
+        height: 188,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.velvet.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
                 size: 32,
                 color: AppColors.roseQuartz,
               ),
@@ -474,7 +496,6 @@ class _LetterboxError extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
