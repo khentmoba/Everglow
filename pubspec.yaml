@@ -2,7 +2,7 @@ name: everglow
 description: "A private digital relationship scrapbook for Khent and Clair — Flutter Web + Firebase."
 publish_to: 'none'
 
-version: 6.0.0+1
+version: 6.1.0+1
 
 environment:
   sdk: ^3.11.3
