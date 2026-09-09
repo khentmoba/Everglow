@@ -39,14 +39,13 @@
   <link rel="manifest" href="manifest.json">
 
   <!-- Early connections: Flutter + Firebase backends first (critical path).
-       Media CDNs are NOT preconnected here on purpose — 3D/HLS/model-viewer
+       Media CDNs are NOT preconnected here on purpose — model-viewer/HLS
        load lazily after first frame (see __everglowEnsureMediaLibs below),
        so their DNS/TLS never delays LCP. -->
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://firebase.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="dns-prefetch" href="https://unpkg.com">
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link rel="dns-prefetch" href="https://ajax.googleapis.com">
 
@@ -122,22 +121,11 @@
     }
   </style>
   <script>
-    // Suppress multiple instances warning between model-viewer bundled three.js
-    // and cat_3d_engine.js three.module.js:
-    try {
-      Object.defineProperty(window, '__THREE__', {
-        get: function () { return undefined; },
-        set: function (_) {},
-        configurable: true,
-      });
-    } catch (_) {}
-
     // Filter known external library/CanvasKit informational console noise:
     (function () {
       var origWarn = console.warn;
       console.warn = function () {
         if (arguments.length > 0 && typeof arguments[0] === 'string') {
-          if (arguments[0].indexOf('Multiple instances of Three.js') !== -1) return;
           if (arguments[0].indexOf('Could not find a set of Noto fonts') !== -1) return;
         }
         return origWarn.apply(console, arguments);
@@ -166,34 +154,6 @@
     })();
   </script>
 
-  <!-- Scoped importmap: "three" is only visible to cat_3d_engine.js and
-       its transitive jsm imports. This avoids polluting the global module
-       namespace and prevents "Multiple instances of Three.js" warnings that
-       occurred when the map was global and collided with model-viewer's
-       bundled three or the Flutter canvaskit bundle. Kept inline (bytes are
-       trivial) so the lazy 3D loader below resolves correctly. -->
-  <script type="importmap">
-    {
-      "imports": {},
-      "scopes": {
-        "cat_3d_engine.js": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        },
-        "/cat_3d_engine.js": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        },
-        "./cat_3d_engine.js": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        },
-        "https://unpkg.com/three@0.160.0/examples/jsm/": {
-          "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-        }
-      }
-    }
-  </script>
 </head>
 <body spellcheck="false" translate="no">
   <div id="eg-splash" aria-hidden="true">
@@ -222,8 +182,8 @@
     })();
   </script>
   <script>
-    // Lazy media libs: 3D cat engine, <model-viewer>, and hls.js used to load
-    // in <head> on EVERY visit (3 CDN round-trips + parse before first paint)
+    // Lazy media libs: <model-viewer> and hls.js used to load
+    // in <head> on EVERY visit (2 CDN round-trips + parse before first paint)
     // even though they are only needed deep in the app (guardian 3D,
     // cinema/watch-party video). Now they load once, after first
     // frame or on explicit demand from Dart via JS interop:
@@ -254,7 +214,6 @@
           'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js',
           { type: 'module' }
         );
-        await loadScript('cat_3d_engine.js', { type: 'module', defer: true });
         st.loaded = true;
       })().catch(function (e) {
         // Never reject permanently: allow a later retry (offline -> online).
