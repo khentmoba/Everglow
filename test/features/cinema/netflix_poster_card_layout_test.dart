@@ -91,5 +91,8 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 500));
     expect(tester.takeException(), isNull);
+    // Stroke + fill texts share the same numeral.
+    expect(find.text('1'), findsNWidgets(2));
+    expect(find.text('5'), findsNWidgets(2));
   });
 }
