@@ -14,6 +14,7 @@ import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/animex_stores.dart';
 import '../../../data/services/aniskip_service.dart';
+import 'animex_videasy_progress.dart';
 
 import 'animex_badges.dart';
 import 'animex_buttons.dart';
@@ -64,6 +65,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// Cleared on episode/server change so it never leaks across videos.
   int? _skipJumpSeconds;
 
+  /// Last Videasy-reported playback position (seconds). Null on other
+  /// servers or before the first progress event — the skip buttons stay
+  /// manually visible until position is known.
+  double? _playbackPosition;
+
   AniListDetail? _detail;
   List<AniListEpisode> _episodes = [];
   late int _selectedEpisode;
@@ -106,9 +112,46 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// Jumps past the opening/ending. Videasy honors `progress=` so the
   /// player reloads at the destination; other servers have no known seek
   /// param, so Clair gets the exact time to drag to instead.
+  /// Videasy progress events drive the auto-appearing skip buttons. Only
+  /// visibility flips rebuild — the page doesn't repaint on every tick.
+  /// Stale events (previous episode still talking) are dropped.
+  void _onPlayerProgress(VideasyProgress progress) {
+    if (!mounted) return;
+    final episode = progress.episode;
+    if (episode != null && episode != _selectedEpisode) return;
+    final before = _skipRowVisible;
+    _playbackPosition = progress.positionSeconds;
+    if (before != _skipRowVisible) setState(() {});
+  }
+
+  /// Whether the skip row shows anything right now: without a known
+  /// position (other servers, events warming up) every marked button
+  /// shows; once Videasy reports position, each button only appears
+  /// inside its own timestamps.
+  bool get _skipRowVisible {
+    final times = _skipTimes;
+    if (times == null || times.isEmpty) return false;
+    final pos = _playbackPosition;
+    if (pos == null) return true;
+    return _skipButtonVisible(times.opening) ||
+        _skipButtonVisible(times.ending);
+  }
+
+  bool _skipButtonVisible(AniSkipTime? time) {
+    if (time == null) return false;
+    final pos = _playbackPosition;
+    if (pos == null) return true;
+    return skipVisibleAt(time, pos);
+  }
+
   void _skipTo(AniSkipTime time, String label) {
     if (_playerUrl.contains('videasy')) {
-      setState(() => _skipJumpSeconds = time.end.round());
+      // Position resets so the buttons stay visible while the player
+      // reloads at the destination, then auto-hide on the next event.
+      setState(() {
+        _skipJumpSeconds = time.end.round();
+        _playbackPosition = null;
+      });
       return;
     }
     ScaffoldMessenger.of(context)
@@ -275,6 +318,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _failedServerIndices.remove(index);
       _showErrorCard = false;
       _skipJumpSeconds = null;
+      _playbackPosition = null;
     });
     _probeCurrentServer();
   }
@@ -316,6 +360,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _showErrorCard = false;
     _skipTimes = null;
     _skipJumpSeconds = null;
+    _playbackPosition = null;
   }
 
   String get _displayTitle {
@@ -568,18 +613,18 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 key: ValueKey('player-$_playerUrl'),
                 url: _playerUrl,
                 onContentError: _handleContentError,
+                onProgress: _onPlayerProgress,
                 scrollController: _scrollCtrl,
               ),
             const SizedBox(height: 16),
-            if (_showErrorCard == false &&
+            if (!_showErrorCard &&
                 _playerUrl.isNotEmpty &&
-                _skipTimes != null &&
-                !_skipTimes!.isEmpty) ...[
+                _skipRowVisible) ...[
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  if (_skipTimes!.opening != null)
+                  if (_skipButtonVisible(_skipTimes!.opening))
                     AnimeXGhostButton(
                       label:
                           'Skip Opening \u2192 ${_skipTimes!.opening!.endLabel}',
@@ -587,7 +632,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                       color: AnimeXTokens.accentWarm,
                       onTap: () => _skipTo(_skipTimes!.opening!, 'opening'),
                     ),
-                  if (_skipTimes!.ending != null)
+                  if (_skipButtonVisible(_skipTimes!.ending))
                     AnimeXGhostButton(
                       label:
                           'Skip Ending \u2192 ${_skipTimes!.ending!.endLabel}',
