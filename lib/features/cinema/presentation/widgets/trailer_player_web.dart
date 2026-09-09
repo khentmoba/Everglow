@@ -8,6 +8,7 @@ class TrailerPlayer extends StatefulWidget {
   final bool muted;
   final bool autoplay;
   final bool loop;
+  final bool playing;
   final VoidCallback? onLoaded;
 
   const TrailerPlayer({
@@ -16,6 +17,7 @@ class TrailerPlayer extends StatefulWidget {
     this.muted = true,
     this.autoplay = true,
     this.loop = true,
+    this.playing = true,
     this.onLoaded,
   });
 
@@ -27,20 +29,15 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
-  @override
-  void initState() {
-    super.initState();
-    _viewType =
-        'everglow-trailer-player-${widget.videoKey}-${DateTime.now().microsecondsSinceEpoch}';
+  bool _loaded = false;
 
-    // Construct Youtube embed URL with optimized parameters
-    // mute=1 ensures autoplay succeeds in modern browsers without user gesture interaction
+  String _buildEmbedUrl(String key) {
     final queryParams = [
-      'autoplay=${widget.autoplay ? 1 : 0}',
+      'autoplay=${widget.autoplay && widget.playing ? 1 : 0}',
       'mute=${widget.muted ? 1 : 0}',
       'controls=0',
       'loop=${widget.loop ? 1 : 0}',
-      'playlist=${widget.videoKey}', // playlist param is required for loop=1 to work in YT embeds
+      'playlist=$key', // playlist param is required for loop=1 to work in YT embeds
       'rel=0',
       'modestbranding=1',
       'showinfo=0',
@@ -50,9 +47,31 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       'playsinline=1',
       'enablejsapi=1',
     ].join('&');
+    return 'https://www.youtube.com/embed/$key?$queryParams';
+  }
 
-    final embedUrl =
-        'https://www.youtube.com/embed/${widget.videoKey}?$queryParams';
+  void _postCommand(String command, [Object? args]) {
+    try {
+      final argsJson = args is String
+          ? '"$args"'
+          : (args != null ? '$args' : '""');
+      final json = '{"event":"command","func":"$command","args":$argsJson}';
+      _iframe.contentWindow?.postMessage(json.toJS, '*'.toJS);
+    } catch (_) {}
+  }
+
+  void _loadVideo(String key) {
+    _loaded = false;
+    _iframe.src = _buildEmbedUrl(key);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _viewType =
+        'everglow-trailer-player-${widget.videoKey}-${DateTime.now().microsecondsSinceEpoch}';
+
+    final embedUrl = _buildEmbedUrl(widget.videoKey);
 
     _iframe = web.HTMLIFrameElement()
       ..src = embedUrl
@@ -109,7 +128,15 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     wrapper.appendChild(overlay);
 
     _onLoadListener = ((web.Event _) {
+      _loaded = true;
       if (mounted) {
+        if (!widget.muted) {
+          _postCommand('unMute');
+          _postCommand('setVolume', 100);
+        }
+        if (!widget.playing) {
+          _postCommand('pauseVideo');
+        }
         widget.onLoaded?.call();
       }
     }).toJS;
@@ -119,6 +146,26 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       _viewType,
       (int viewId) => wrapper,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant TrailerPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoKey != widget.videoKey) {
+      _loadVideo(widget.videoKey);
+    } else {
+      if (oldWidget.muted != widget.muted && _loaded) {
+        if (widget.muted) {
+          _postCommand('mute');
+        } else {
+          _postCommand('unMute');
+          _postCommand('setVolume', 100);
+        }
+      }
+      if (oldWidget.playing != widget.playing && _loaded) {
+        _postCommand(widget.playing ? 'playVideo' : 'pauseVideo');
+      }
+    }
   }
 
   @override

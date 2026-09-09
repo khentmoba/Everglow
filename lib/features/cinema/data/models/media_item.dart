@@ -89,6 +89,11 @@ class MediaItem {
   /// missing reads as false so old documents need no migration.
   final bool remindMe;
 
+  /// YouTube trailer key (e.g. `dQw4w9WgXcQ`), when known. Used by the
+  /// anime spotlight hero to stream the official trailer in place of
+  /// the backdrop still.
+  final String? trailerYoutubeId;
+
   MediaItem({
     required this.id,
     required this.tmdbId,
@@ -118,6 +123,7 @@ class MediaItem {
     this.durationSeconds,
     this.progressUpdatedAt,
     this.remindMe = false,
+    this.trailerYoutubeId,
   });
 
   /// Normalized status for comparisons — guards against stray whitespace
@@ -298,6 +304,7 @@ class MediaItem {
           : null,
       progressUpdatedAt: _parseDateTime(data['progressUpdatedAt']),
       remindMe: data['remindMe'] == true,
+      trailerYoutubeId: data['trailerYoutubeId'] as String?,
     );
   }
 
@@ -347,6 +354,8 @@ class MediaItem {
       if (progressUpdatedAt != null)
         'progressUpdatedAt': Timestamp.fromDate(progressUpdatedAt!),
       if (remindMe) 'remindMe': true,
+      if (trailerYoutubeId != null && trailerYoutubeId!.isNotEmpty)
+        'trailerYoutubeId': trailerYoutubeId,
     };
   }
 
@@ -372,6 +381,8 @@ class MediaItem {
       if (score != null) 'score': score,
       if (userRating != null) 'userRating': userRating,
       if (ratedAt != null) 'ratedAt': ratedAt!.millisecondsSinceEpoch,
+      if (trailerYoutubeId != null && trailerYoutubeId!.isNotEmpty)
+        'trailerYoutubeId': trailerYoutubeId,
       'addedAt': addedAt.millisecondsSinceEpoch,
     };
   }
@@ -405,6 +416,7 @@ class MediaItem {
       ratedAt: json['ratedAt'] is int
           ? DateTime.fromMillisecondsSinceEpoch(json['ratedAt'] as int)
           : null,
+      trailerYoutubeId: json['trailerYoutubeId'] as String?,
     );
   }
 
@@ -437,6 +449,7 @@ class MediaItem {
     int? durationSeconds,
     DateTime? progressUpdatedAt,
     bool? remindMe,
+    String? trailerYoutubeId,
   }) {
     return MediaItem(
       id: id ?? this.id,
@@ -467,6 +480,7 @@ class MediaItem {
       durationSeconds: durationSeconds ?? this.durationSeconds,
       progressUpdatedAt: progressUpdatedAt ?? this.progressUpdatedAt,
       remindMe: remindMe ?? this.remindMe,
+      trailerYoutubeId: trailerYoutubeId ?? this.trailerYoutubeId,
     );
   }
 }

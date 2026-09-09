@@ -534,6 +534,11 @@ class AniListService with ConnectivityAware {
 
     final status = (m['status'] as String?) ?? '';
 
+    final trailer = m['trailer'] as Map<String, dynamic>?;
+    final trailerId = (trailer != null && trailer['site'] == 'youtube')
+        ? trailer['id'] as String?
+        : null;
+
     return MediaItem(
       id: '',
       tmdbId: malId,
@@ -552,6 +557,7 @@ class AniListService with ConnectivityAware {
       airingStatus: status,
       format: format,
       studio: studioName,
+      trailerYoutubeId: trailerId,
     );
   }
 
@@ -832,6 +838,10 @@ class AniListService with ConnectivityAware {
         .whereType<String>()
         .toList();
     final synopsis = _stripHtml((m['description'] as String?) ?? '');
+    final trailer = m['trailer'] as Map<String, dynamic>?;
+    final trailerId = (trailer != null && trailer['site'] == 'youtube')
+        ? trailer['id'] as String?
+        : null;
 
     final item = MediaItem(
       id: '',
@@ -855,6 +865,7 @@ class AniListService with ConnectivityAware {
       // Cards and hover popovers read `item.score`; the parallel `scores`
       // list on the page is never consumed, so the score lives here.
       score: scoreVal > 0 ? scoreVal : null,
+      trailerYoutubeId: trailerId,
     );
     return (item: item, score: scoreVal);
   }
@@ -1037,6 +1048,7 @@ query (
       genres
       studios(isMain: true) { nodes { id name } }
       nextAiringEpisode { airingAt episode }
+      trailer { id site }
     }
   }
 }
@@ -1076,6 +1088,7 @@ query ($airingAtGreater: Int, $airingAtLesser: Int, $perPage: Int) {
         averageScore
         genres
         studios(isMain: true) { nodes { id name } }
+        trailer { id site }
       }
     }
   }
