@@ -124,7 +124,11 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
     int id,
     String mediaType,
   ) async {
-    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id');
+    // Certifications ride along so the billboard can show an age chip
+    // without a second round trip (the proxy passes query params through).
+    final url = Uri.parse(
+      '$tmdbBaseUrl/$mediaType/$id',
+    ).replace(queryParameters: {'append_to_response': 'release_dates,content_ratings'});
     try {
       final response = await tmdbGet(url);
       if (response.statusCode == 200) {
