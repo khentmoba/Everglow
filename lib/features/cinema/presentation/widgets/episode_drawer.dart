@@ -114,6 +114,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     if (widget.cinemaVariant) {
       return _buildCinemaEnhanced(
         year: year,
+        releaseDate: releaseDate,
         rating: rating,
         ratingFraction: ratingFraction,
         runtime: runtime,
@@ -497,11 +498,13 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
 
   Widget _buildCinemaEnhanced({
     required String year,
+    required String releaseDate,
     required String rating,
     required double ratingFraction,
     required dynamic runtime,
     required String backdropUrl,
   }) {
+    final isUnreleased = _isUnreleased(releaseDate);
     String posterUrl;
     if (_isAnimeSourced) {
       posterUrl = _details?['_posterUrl'] as String? ?? widget.item.posterPath;
@@ -552,12 +555,19 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
               ),
             ),
             if (widget.item.mediaType == 'movie')
-              SliverToBoxAdapter(child: _buildCinemaActions())
+              SliverToBoxAdapter(
+                child: _buildCinemaActions(isUnreleased: isUnreleased),
+              )
             else
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (isUnreleased)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                        child: _RemindMeButton(item: widget.item),
+                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
                       child: _buildDiscordShareButton(
@@ -904,13 +914,27 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     );
   }
 
-  Widget _buildCinemaActions() {
+  /// True when the title's release/first-air date is in the future.
+  /// Unparseable or missing dates read as released — the bell only
+  /// appears when we positively know the title isn't out yet.
+  bool _isUnreleased(String releaseDate) {
+    if (releaseDate.isEmpty) return false;
+    final parsed = DateTime.tryParse(releaseDate);
+    if (parsed == null) return false;
+    final now = DateTime.now();
+    return parsed.isAfter(DateTime(now.year, now.month, now.day));
+  }
+
+  Widget _buildCinemaActions({required bool isUnreleased}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildCinemaPlayButton(),
+          if (isUnreleased)
+            _RemindMeButton(item: widget.item)
+          else
+            _buildCinemaPlayButton(),
           const SizedBox(height: AppSpacing.sm),
           _buildDiscordShareButton(),
         ],
@@ -1086,3 +1110,109 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
 /// Live countdown chip that ticks every minute showing time until the next
 /// episode airs. Self-contained StatefulWidget so it can manage its own
 /// timer lifecycle without cluttering the drawer state.
+
+/// "Remind me" bell for unreleased titles (cinema variant).
+///
+/// Self-contained: reads its initial state with one Firestore get and
+/// toggles the flag on the caller's own watchlist doc. No OS
+/// notification yet — the bell marks the title and surfaces it in the
+/// Library's Reminders filter.
+class _RemindMeButton extends StatefulWidget {
+  final MediaItem item;
+  const _RemindMeButton({required this.item});
+
+  @override
+  State<_RemindMeButton> createState() => _RemindMeButtonState();
+}
+
+class _RemindMeButtonState extends State<_RemindMeButton> {
+  bool? _set;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) {
+      if (mounted) setState(() => _set = false);
+      return;
+    }
+    final value = await TMDBService().isReminderSet(
+      widget.item.tmdbId,
+      userName,
+    );
+    if (mounted) setState(() => _set = value);
+  }
+
+  Future<void> _toggle() async {
+    final current = _set;
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (current == null || userName.isEmpty) return;
+    HapticFeedback.lightImpact();
+    setState(() => _set = !current);
+    try {
+      await TMDBService().setRemindMe(widget.item, userName, value: !current);
+    } catch (e) {
+      Logger.e('[EpisodeDrawer] Remind-me toggle failed', error: e);
+      if (mounted) setState(() => _set = current);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final set = _set ?? false;
+    return GestureDetector(
+      onTap: _set == null ? null : _toggle,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 52,
+        decoration: BoxDecoration(
+          color: set
+              ? AppColors.deepRose.withValues(alpha: 0.18)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: set
+                ? AppColors.deepRose
+                : AppColors.moonlight.withValues(alpha: 0.3),
+            width: 1.4,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_set == null)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  color: AppColors.deepRose,
+                  strokeWidth: 2,
+                ),
+              )
+            else ...[
+              Icon(
+                set
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_none_rounded,
+                color: set ? AppColors.deepRose : AppColors.textMedium,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                set ? 'Reminder Set' : 'Remind Me',
+                style: AppTypography.outfitHeading.copyWith(
+                  color: set ? AppColors.deepRose : AppColors.textMedium,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

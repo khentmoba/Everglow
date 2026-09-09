@@ -395,6 +395,62 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
+  /// Toggles the "Remind me" bell for an unreleased title. Creates a
+  /// lightweight To Watch entry when the caller has no document yet, so
+  /// the bell survives drawer re-opens and shows up in the Library.
+  Future<void> setRemindMe(
+    MediaItem item,
+    String userName, {
+    required bool value,
+  }) async {
+    if (userName.isEmpty) return;
+    try {
+      final collection = firestore.collection('watch_list');
+      final existing = await collection
+          .where('tmdbId', isEqualTo: item.tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      if (existing.docs.isEmpty) {
+        if (!value) return;
+        await collection.add(
+          item
+              .copyWith(
+                status: 'to-watch',
+                userName: userName,
+                remindMe: true,
+              )
+              .toFirestore(),
+        );
+        return;
+      }
+      await collection.doc(existing.docs.first.id).update({
+        'remindMe': value,
+      });
+    } catch (e) {
+      Logger.e('Error updating reminder', error: e);
+      rethrow;
+    }
+  }
+
+  /// One-shot read of the "Remind me" bell for the drawer's initial state.
+  Future<bool> isReminderSet(int tmdbId, String userName) async {
+    if (userName.isEmpty) return false;
+    try {
+      final existing = await firestore
+          .collection('watch_list')
+          .where('tmdbId', isEqualTo: tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      if (existing.docs.isEmpty) return false;
+      return existing.docs.first.data()['remindMe'] == true;
+    } catch (e) {
+      Logger.e('Error reading reminder', error: e);
+      return false;
+    }
+  }
+
     // ─── Direct Firestore streams (reverted from shared broadcast) ──
   // The previous shared _rawCache used asBroadcastStream without replay,
   // which caused late subscribers (e.g. Currently Watching shelf mounting

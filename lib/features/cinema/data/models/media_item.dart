@@ -85,6 +85,10 @@ class MediaItem {
   /// When the progress was last updated.
   final DateTime? progressUpdatedAt;
 
+  /// "Remind me" flag for unreleased titles. Optional in Firestore —
+  /// missing reads as false so old documents need no migration.
+  final bool remindMe;
+
   MediaItem({
     required this.id,
     required this.tmdbId,
@@ -113,6 +117,7 @@ class MediaItem {
     this.currentTimestamp,
     this.durationSeconds,
     this.progressUpdatedAt,
+    this.remindMe = false,
   });
 
   /// Normalized status for comparisons — guards against stray whitespace
@@ -292,6 +297,7 @@ class MediaItem {
           ? data['durationSeconds'] as int
           : null,
       progressUpdatedAt: _parseDateTime(data['progressUpdatedAt']),
+      remindMe: data['remindMe'] == true,
     );
   }
 
@@ -340,6 +346,7 @@ class MediaItem {
       if (durationSeconds != null) 'durationSeconds': durationSeconds,
       if (progressUpdatedAt != null)
         'progressUpdatedAt': Timestamp.fromDate(progressUpdatedAt!),
+      if (remindMe) 'remindMe': true,
     };
   }
 
@@ -429,6 +436,7 @@ class MediaItem {
     int? currentTimestamp,
     int? durationSeconds,
     DateTime? progressUpdatedAt,
+    bool? remindMe,
   }) {
     return MediaItem(
       id: id ?? this.id,
@@ -458,6 +466,7 @@ class MediaItem {
       currentTimestamp: currentTimestamp ?? this.currentTimestamp,
       durationSeconds: durationSeconds ?? this.durationSeconds,
       progressUpdatedAt: progressUpdatedAt ?? this.progressUpdatedAt,
+      remindMe: remindMe ?? this.remindMe,
     );
   }
 }
@@ -488,4 +497,7 @@ extension MediaItemLists on List<MediaItem> {
   /// Currently-watching cinema titles.
   List<MediaItem> get watchingCinema =>
       where((i) => i.isCurrentlyWatching && i.isCinemaItem).toList();
+
+  /// Titles with the "Remind me" bell set, any shelf.
+  List<MediaItem> get reminded => where((i) => i.remindMe).toList();
 }

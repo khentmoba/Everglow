@@ -7,7 +7,7 @@ import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_poster_card.dart';
 import '../../../../../core/theme/app_typography.dart';
 
-enum _LibraryFilter { all, watching, toWatch, watched }
+enum _LibraryFilter { all, watching, toWatch, watched, reminders }
 
 /// My List - a quiet poster grid of the couple's cinema collection.
 class CinemaLibraryTab extends StatefulWidget {
@@ -46,6 +46,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
       _LibraryFilter.watching => all.currentlyWatching,
       _LibraryFilter.toWatch => all.toWatch,
       _LibraryFilter.watched => all.watched,
+      _LibraryFilter.reminders => all.reminded,
     };
   }
 
@@ -138,6 +139,12 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                   label: 'Watched',
                   selected: _filter == _LibraryFilter.watched,
                   onTap: () => setState(() => _filter = _LibraryFilter.watched),
+                ),
+                _LibraryPill(
+                  label: 'Reminders',
+                  selected: _filter == _LibraryFilter.reminders,
+                  onTap: () =>
+                      setState(() => _filter = _LibraryFilter.reminders),
                 ),
               ],
             ),
