@@ -58,8 +58,8 @@ jobs:
       # Hosting config shape (PR #112/#114 web-lite flip-flop).
       - run: dart tool/ci/check_firebase_hosting.dart
       # Release paperwork must match the shipped version: pubspec <->
-      # AppVersion <-> CHANGELOG <-> README. Releases stay manual by
-      # design (Khent 4b451a2); this only checks, never publishes.
+      # AppVersion <-> CHANGELOG <-> README. release.yml publishes from
+      # this paperwork on version bumps; this guard keeps its input clean.
       - run: dart tool/ci/check_release_sync.dart
 
   # PRs previously merged with a broken web build: quality ran analyze

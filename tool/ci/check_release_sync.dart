@@ -1,9 +1,10 @@
 // Release-sync guard: the shipped version must match its paperwork.
 //
-// Khent decided releases are manual and curated, never automatic
-// (auto-releases once cluttered the page with date tags; see 4b451a2).
-// So CI must not publish releases — but every PR must keep these four
-// in agreement, or the README badge, changelog, and releases page drift:
+// Releases publish automatically via release.yml, but ONLY on version
+// bumps (the old every-deploy date tags were removed in 4b451a2 for
+// cluttering the page). This guard checks the paperwork on every PR so
+// the workflow always has clean input: these four must agree, or the
+// README badge, changelog, and releases page drift:
 //
 // 1. pubspec.yaml `version: X.Y.Z+N` (source of truth)
 // 2. lib/core/system/app_version.dart `current` (runtime mirror)
