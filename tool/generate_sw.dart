@@ -42,7 +42,7 @@ const SHELL="$buildConst-SHELL-v1";
 // build; a stale value only costs one extra wasm download, never staleness.
 const ENGINE_REV="__ENGINE_REV__";
 const IMMUTABLE="canvaskit-"+ENGINE_REV;
-const CORE=["main.dart.js"];
+const CORE=["main.dart.js","/index.html"];
 // Never cached: entry points, loaders, worker scripts, version probes,
 // and Cloud Function rewrites (same-origin /api/* GETs must never serve stale).
 const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
@@ -114,17 +114,35 @@ self.addEventListener("fetch", (e) => {
     if (indexFallback) return indexFallback;
     try {
       const net = await fetch("/index.html");
-      if (net && net.ok) return net;
+      if (net && net.ok) {
+        const copy = net.clone();
+        caches.open(SHELL).then((c) => {
+          c.put("/index.html", copy.clone());
+          c.put("/", copy);
+        });
+        return net;
+      }
     } catch (_) {}
     return offlineResponse();
   };
   if (isNoStore(path)) {
     e.respondWith(
-      fetch(e.request, { cache: "no-store" }).catch(async () => {
-        if (e.request.mode === "navigate") return fallbackNavigate();
-        const cached = await caches.match(e.request);
-        return cached || offlineResponse();
-      }),
+      fetch(e.request, { cache: "no-store" })
+        .then((res) => {
+          if (res && res.ok && (path === "/" || path === "/index.html")) {
+            const copy = res.clone();
+            caches.open(SHELL).then((c) => {
+              c.put("/index.html", copy.clone());
+              c.put("/", copy);
+            });
+          }
+          return res;
+        })
+        .catch(async () => {
+          if (e.request.mode === "navigate") return fallbackNavigate();
+          const cached = await caches.match(e.request);
+          return cached || offlineResponse();
+        }),
     );
     return;
   }

@@ -85,6 +85,21 @@ class AppNetworkImage extends StatefulWidget {
   @override
   State<AppNetworkImage> createState() => _AppNetworkImageState();
 
+  /// Overrides [kIsWeb] in widget tests to verify web vs native branches.
+  @visibleForTesting
+  static bool? debugUseWebImplementation;
+
+  static bool get _isWeb => debugUseWebImplementation ?? kIsWeb;
+
+  /// Global notification triggered when the app resumes (e.g. alt-tab return
+  /// or browser tab focus) to immediately re-attempt failed image loads.
+  static final ValueNotifier<int> appResumeNotifier = ValueNotifier<int>(0);
+
+  /// Called by the app lifecycle observer when the app transitions to [AppLifecycleState.resumed].
+  static void onAppResumed() {
+    appResumeNotifier.value++;
+  }
+
   /// Validates that a string is a fetchable web URL. Protects WebGL/CanvasKit
   /// from trying to decode 404/SPA-rewritten HTML or dummy 'null' strings as textures.
   static bool isValidUrl(String? url) {
@@ -120,6 +135,12 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
   Timer? _retryTimer;
 
   @override
+  void initState() {
+    super.initState();
+    AppNetworkImage.appResumeNotifier.addListener(_onAppResumed);
+  }
+
+  @override
   void didUpdateWidget(covariant AppNetworkImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl) {
@@ -132,8 +153,20 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
 
   @override
   void dispose() {
+    AppNetworkImage.appResumeNotifier.removeListener(_onAppResumed);
     _retryTimer?.cancel();
     super.dispose();
+  }
+
+  void _onAppResumed() {
+    if (!mounted) return;
+    // If this image was in an error/backoff state when the user alt-tabbed away
+    // or the device slept, retry immediately on returning.
+    if (_attempt > 0) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      setState(() => _generation++);
+    }
   }
 
   /// Schedules one reload for the current [_generation]. Called from the
@@ -155,55 +188,94 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
   @override
   Widget build(BuildContext context) {
     if (!AppNetworkImage.isValidUrl(widget.imageUrl)) return _fallback();
-    // Flutter Web CanvasKit (flutter/flutter#158093, #160199) has an upstream
-    // engine bug where setting cacheWidth/memCacheWidth smaller than the intrinsic
-    // image dimensions causes ResizeImage/createImageBitmap to detach the source
-    // buffer before Skia uploads it, logging "WebGL: INVALID_VALUE: texImage2D: no image"
-    // and rendering pure black rectangles. On web, allow native browser decode.
-    final safeCacheWidth =
-        (!kIsWeb && widget.cacheWidth != null && widget.cacheWidth! > 0)
-        ? widget.cacheWidth
-        : null;
-    final safeCacheHeight =
-        (!kIsWeb && widget.cacheHeight != null && widget.cacheHeight! > 0)
-        ? widget.cacheHeight
-        : null;
-    Widget image = CachedNetworkImage(
-      key: ValueKey('${widget.imageUrl}#$_generation'),
-      imageUrl: widget.imageUrl,
-      width: widget.width,
-      height: widget.height,
-      fit: widget.fit,
-      memCacheWidth: safeCacheWidth,
-      memCacheHeight: safeCacheHeight,
-      filterQuality: widget.filterQuality,
-      cacheManager: widget.cacheManager,
-      fadeInDuration: Duration.zero,
-      fadeOutDuration: Duration.zero,
-      placeholderFadeInDuration: Duration.zero,
-      useOldImageOnUrlChange: true,
-      placeholder: (context, _) {
-        if (widget.placeholder != null) return widget.placeholder!;
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          color: widget.placeholderColor,
-          alignment: Alignment.center,
-          child: const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Color(0xFFF4C2C2),
+
+    Widget image;
+
+    if (AppNetworkImage._isWeb) {
+      // Flutter Web CanvasKit (flutter/flutter#158093, #160199, #192347) has an upstream
+      // issue where CachedNetworkImage's default ImageRenderMethodForWeb.HtmlImage creates
+      // unattached HTMLImageElements that get their textures evicted by the browser on
+      // Alt-Tab / backgrounding, logging "WebGL: INVALID_VALUE: texImage2D: no image"
+      // and rendering blank. On Web, standard Image.network fetches arraybuffer bytes directly
+      // into Skia WASM memory and is fully immune to browser background texture purging.
+      image = Image.network(
+        widget.imageUrl,
+        key: ValueKey('${widget.imageUrl}#$_generation'),
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        filterQuality: widget.filterQuality,
+        gaplessPlayback: true,
+        excludeFromSemantics: true,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          if (widget.placeholder != null) return widget.placeholder!;
+          return Container(
+            width: widget.width,
+            height: widget.height,
+            color: widget.placeholderColor,
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFFF4C2C2),
+              ),
             ),
-          ),
-        );
-      },
-      errorWidget: (context, _, _) {
-        _scheduleRetry();
-        return _fallback();
-      },
-    );
+          );
+        },
+        errorBuilder: (context, _, _) {
+          _scheduleRetry();
+          return _fallback();
+        },
+      );
+    } else {
+      final safeCacheWidth =
+          (widget.cacheWidth != null && widget.cacheWidth! > 0)
+              ? widget.cacheWidth
+              : null;
+      final safeCacheHeight =
+          (widget.cacheHeight != null && widget.cacheHeight! > 0)
+              ? widget.cacheHeight
+              : null;
+      image = CachedNetworkImage(
+        key: ValueKey('${widget.imageUrl}#$_generation'),
+        imageUrl: widget.imageUrl,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        memCacheWidth: safeCacheWidth,
+        memCacheHeight: safeCacheHeight,
+        filterQuality: widget.filterQuality,
+        cacheManager: widget.cacheManager,
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        placeholderFadeInDuration: Duration.zero,
+        useOldImageOnUrlChange: true,
+        placeholder: (context, _) {
+          if (widget.placeholder != null) return widget.placeholder!;
+          return Container(
+            width: widget.width,
+            height: widget.height,
+            color: widget.placeholderColor,
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFFF4C2C2),
+              ),
+            ),
+          );
+        },
+        errorWidget: (context, _, _) {
+          _scheduleRetry();
+          return _fallback();
+        },
+      );
+    }
 
     // Reserve space before decode so rows/grids never jump.
     if (widget.aspectRatio != null &&
@@ -221,8 +293,13 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
       image = ClipRRect(borderRadius: widget.borderRadius!, child: image);
     }
 
-    // Isolate repaints: image decode/upload never repaints the parent row.
-    return RepaintBoundary(child: image);
+    // On native, isolate repaints so image decode/upload never repaints the parent row.
+    // On web, skip RepaintBoundary to avoid upstream CanvasKit Sliver bug (flutter/flutter#192347).
+    if (!AppNetworkImage._isWeb) {
+      image = RepaintBoundary(child: image);
+    }
+
+    return image;
   }
 
   Widget _fallback() {

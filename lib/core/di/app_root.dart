@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../features/watch_party/data/services/voice_chat_bootstrap.dart';
 import '../../features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
+import '../../shared/widgets/app_network_image.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 
@@ -21,8 +22,14 @@ class AppRoot extends StatefulWidget {
   State<AppRoot> createState() => _AppRootState();
 }
 
-class _AppRootState extends State<AppRoot> {
+class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   AuthService? _authService;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
@@ -38,8 +45,21 @@ class _AppRootState extends State<AppRoot> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authService?.removeListener(_syncListener);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // When waking from sleep or alt-tabbing back, evict stale live
+      // image instances so repaints re-decode cleanly rather than holding
+      // evicted WebGL textures, and trigger immediate retries for any
+      // thumbnails that failed during backgrounding or sleep.
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      AppNetworkImage.onAppResumed();
+    }
   }
 
   void _syncListener() {
