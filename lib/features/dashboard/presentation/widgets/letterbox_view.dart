@@ -44,8 +44,20 @@ class _LetterboxViewState extends State<LetterboxView> {
     if (cached.isNotEmpty) {
       _notes = cached.take(_previewLimit).toList();
       _isLoading = false;
+    } else {
+      _loadInitialCache();
     }
     _subscribe();
+  }
+
+  Future<void> _loadInitialCache() async {
+    final diskNotes = await _letterboxService.loadDiskCache();
+    if (diskNotes.isNotEmpty && mounted && _notes.isEmpty) {
+      setState(() {
+        _notes = diskNotes.take(_previewLimit).toList();
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -293,7 +305,7 @@ class _LetterboxViewState extends State<LetterboxView> {
       );
     }
 
-    if (_hasError) {
+    if (_hasError && _notes.isEmpty) {
       return _LetterboxError(onRetry: _retry);
     }
 
