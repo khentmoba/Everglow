@@ -570,6 +570,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           placeholderHeight: 560,
                           deferMs: 440,
                         ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           RandomizerCard(
                               service: context.read<DateIdeaService>(),
@@ -578,7 +579,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             placeholderHeight: 280,
                             deferMs: 460,
                           ),
-                          const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                          const SliverToBoxAdapter(child: SizedBox(height: 16)),
                           _animatedSliver(
                             const DashboardPair(
                               left: CurrentlyWatchingPreview(),
