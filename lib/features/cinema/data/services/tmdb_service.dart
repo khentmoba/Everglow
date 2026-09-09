@@ -277,6 +277,15 @@ class TMDBService with ConnectivityAware, ErrorAware {
     double? rating,
   }) => _watchlist.setUserRating(item, userName, rating: rating);
 
+  Future<void> setRemindMe(
+    MediaItem item,
+    String userName, {
+    required bool value,
+  }) => _watchlist.setRemindMe(item, userName, value: value);
+
+  Future<bool> isReminderSet(int tmdbId, String userName) =>
+      _watchlist.isReminderSet(tmdbId, userName);
+
   // ─── Watchlist Streams ─────────────────────────────────────────────────
 
   Future<List<MediaItem>> getPreviewItems(String userName, {int limit = 30}) =>

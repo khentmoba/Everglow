@@ -234,6 +234,8 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
                 _PosterFallback(title: widget.item.title),
               if (_hovered && isDesktop)
                 Container(color: NetflixColors.hoverScrim),
+              if (widget.item.remindMe)
+                const Positioned(top: 6, left: 6, child: _RemindBadge()),
               if (widget.progress != null)
                 Align(
                   alignment: Alignment.bottomCenter,
@@ -564,6 +566,36 @@ class NetflixRemoveBadge extends StatelessWidget {
             size: 15,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bell dot marking posters with "Remind me" set. Sits top-left so it
+/// never collides with the top-right remove badge.
+class _RemindBadge extends StatelessWidget {
+  const _RemindBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        color: NetflixColors.accent,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Icon(
+        Icons.notifications_rounded,
+        color: Colors.white,
+        size: 14,
       ),
     );
   }
