@@ -11,6 +11,7 @@ import '../../../data/models/anilist_detail.dart';
 import '../../../data/models/animex_models.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../../cinema/data/services/ani_zip_service.dart';
+import '../../../../cinema/data/services/player_memory_service.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/animex_stores.dart';
 import '../../../data/services/aniskip_service.dart';
@@ -76,6 +77,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   int _episodePage = 1;
   String _audio = 'sub';
   int _serverIndex = 0;
+  final PlayerMemoryService _memoryService = PlayerMemoryService();
+
+  /// Server name remembered from the last visit; applied once the
+  /// server list resolves in [_load].
+  String? _rememberedServer;
+
+  String get _memoryKey =>
+      PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
   List<_ServerOption> _servers = [];
   final Set<int> _failedServerIndices = {};
   bool _showErrorCard = false;
@@ -96,6 +105,28 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
     _load();
     _fetchSkipTimes();
+    _restoreMemory();
+  }
+
+  /// Restores this anime's last-used server and sub/dub choice.
+  /// The episode itself already resumes via [AnimexStores] history.
+  Future<void> _restoreMemory() async {
+    final memory = await _memoryService.load(_memoryKey);
+    if (!mounted) return;
+    final audio = memory.audio ?? '';
+    final server = memory.server;
+    if ((audio == 'sub' || audio == 'dub') && audio != _audio) {
+      setState(() => _audio = audio);
+    }
+    if (server != null && server.isNotEmpty) {
+      _rememberedServer = server;
+      final index = _servers.indexWhere(
+        (s) => s.available && s.name == server,
+      );
+      if (index != -1 && index != _serverIndex && mounted) {
+        setState(() => _serverIndex = index);
+      }
+    }
   }
 
   /// Loads AniSkip OP/ED times for the selected episode. Stale responses
@@ -195,7 +226,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
       }
       _servers = nextServers;
-      if (firstAvailable != -1 &&
+      final rememberedIndex = _rememberedServer == null
+          ? -1
+          : nextServers.indexWhere(
+              (s) => s.available && s.name == _rememberedServer,
+            );
+      if (rememberedIndex != -1) {
+        _serverIndex = rememberedIndex;
+      } else if (firstAvailable != -1 &&
           (_serverIndex >= _servers.length ||
               !_servers[_serverIndex].available)) {
         _serverIndex = firstAvailable;
@@ -309,6 +347,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _serverIndex = next.first;
       _showErrorCard = false;
     });
+    _persistServer(next.first);
     _probeCurrentServer();
   }
 
@@ -320,7 +359,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _skipJumpSeconds = null;
       _playbackPosition = null;
     });
+    _persistServer(index);
     _probeCurrentServer();
+  }
+
+  /// Remembers the working server for this anime so the next visit
+  /// opens straight on it. Fire-and-forget.
+  void _persistServer(int index) {
+    if (index < 0 || index >= _servers.length) return;
+    _memoryService.save(_memoryKey, server: _servers[index].name);
   }
 
   /// Fetches the embed URL from our origin (the providers send permissive
@@ -688,6 +735,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   audio: _audio,
                   onChanged: (a) {
                     setState(() => _audio = a);
+                    _memoryService.save(_memoryKey, audio: a);
                     _failedServerIndices.clear();
                     _showErrorCard = false;
                     _probeCurrentServer();

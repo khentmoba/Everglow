@@ -14,6 +14,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../cinema/data/services/ani_zip_service.dart';
+import '../../../cinema/data/services/player_memory_service.dart';
 import '../../../cinema/data/services/video_source_service.dart';
 import '../../../cinema/data/models/video_source_config.dart';
 import '../../../../core/services/auth_service.dart';
@@ -134,6 +135,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                     autoplay: !_hostExplicitlyPaused,
                     viewType: _hlsViewType,
                     controller: _hlsController,
+                    initialVolume: _hlsVolume,
                     onReady: () {
                       if (!mounted) return;
                       setState(() {
@@ -579,6 +581,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _buildServerChip(compact: true),
+          if (_isHlsServer) ...[
+            const SizedBox(width: 10),
+            _buildVolumeControl(),
+          ],
           const SizedBox(width: 10),
           Semantics(
             label: _hostExplicitlyPaused ? 'Play video' : 'Pause video',
@@ -629,6 +635,64 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Local volume for HLS rooms. Third-party iframes own their own
+  /// in-player volume (unreachable cross-origin), so this slider only
+  /// exists where we render the real `<video>` element. The level is
+  /// remembered per room on this device.
+  Widget _buildVolumeControl() {
+    return Semantics(
+      label: 'Volume',
+      slider: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceGlass,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.moonlight.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _hlsVolume <= 0
+                  ? Icons.volume_off_rounded
+                  : _hlsVolume < 0.5
+                      ? Icons.volume_down_rounded
+                      : Icons.volume_up_rounded,
+              color: AppColors.textMuted,
+              size: 16,
+            ),
+            SizedBox(
+              width: 84,
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 6,
+                  ),
+                  overlayShape: const RoundSliderOverlayShape(
+                    overlayRadius: 10,
+                  ),
+                ),
+                child: Slider(
+                  value: _hlsVolume,
+                  activeColor: AppColors.roseQuartz,
+                  onChanged: (v) {
+                    setState(() => _hlsVolume = v);
+                    _hlsController.setVolume(v);
+                  },
+                  onChangeEnd: _persistHlsVolume,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

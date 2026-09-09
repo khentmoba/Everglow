@@ -67,6 +67,13 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// cycles through the list when an embed fails.
   late VideoSourceConfig _selectedProvider;
 
+  /// Seek target for the initial embed URL. Starts as the route's `start`
+  /// param; per-title memory fills it in when the route carries none.
+  int? _resolvedStartSeconds;
+
+  /// Per-title comfort memory: last-used server, episode, and position.
+  final PlayerMemoryService _memoryService = PlayerMemoryService();
+
   /// Tracks which providers have already been tried and failed during
   /// this session so auto-fallback doesn't re-try a dead source.
   final Set<String> _failedProviderIds = {};
@@ -121,13 +128,14 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    // Load the user's saved default source, or fall back to the
-    // first recommended source from the service.
+    // Restore this title's last-used server (or the saved global default),
+    // falling back to the first recommended source from the service.
     final srcList = _selectableProviders;
     _selectedProvider = srcList.isNotEmpty
         ? srcList.first
         : _sourceService.defaultSource;
-    _loadSavedDefaultSource();
+    _resolvedStartSeconds = widget.startSeconds;
+    _restorePlayerMemory();
     _currentUserName = context.read<AuthService>().currentUser ?? '';
 
     // Listen for provider list updates from Firestore. If the iframe
@@ -315,6 +323,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _iframe.src = _buildPlayerUrl(_selectedProvider);
     _resolveNextEpisode();
     _scheduleUpNextFallback(null);
+    _persistPlayerMemory(resetPosition: true);
   }
 
   /// Called when the user picks a different season from [EpisodeNavigator].
@@ -341,6 +350,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _iframe.src = _buildPlayerUrl(_selectedProvider);
     _resolveNextEpisode();
     _scheduleUpNextFallback(null);
+    _persistPlayerMemory(resetPosition: true);
   }
 
   /// Saves or updates the watch progress in Firestore so the
@@ -391,6 +401,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
           : null,
       status: status,
     );
+    _persistPlayerMemory();
   }
 
   /// Returns the correct watching status value for the user.
@@ -515,6 +526,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
             ? _playbackDurationSeconds
             : null,
       );
+      _persistPlayerMemory();
     });
   }
 
@@ -710,25 +722,88 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     }
   }
 
-  /// Load the user's saved default source from SharedPreferences.
-  Future<void> _loadSavedDefaultSource() async {
-    // Anime always starts on the VidEasy embed (server one), regardless of
-    // any saved default that may point at a dead source.
-    if (widget.isAnime) return;
-    final savedId = await _sourceService.loadDefaultSourceId();
-    if (savedId != null && mounted) {
-      final match = _providerById(savedId);
-      if (match != null) {
-        setState(() => _selectedProvider = match);
-        _applySandbox(match);
-        // If the iframe already has a src (non-anime path sets it
-        // synchronously in initState), reload it under the new sandbox.
-        // Otherwise initState will set src after this with correct sandbox.
-        if (_iframe.src.isNotEmpty && _iframe.src != 'about:blank') {
-          _iframe.src = _buildPlayerUrl(match);
-        }
+  /// Per-title memory key. Anime items are keyed by MAL id (the id this
+  /// player navigates with), everything else by TMDB id.
+  String get _memoryKey => PlayerMemoryService.cinemaKey(
+    id: _externalId,
+    mediaType: widget.mediaType,
+    isAnime: widget.isAnime,
+  );
+
+  /// Restores this title's last-used server, episode, and position.
+  /// Explicit route params (tapped episode, Continue Watching resume)
+  /// always win; memory only fills in what the route didn't specify.
+  /// Falls back to the saved global default server when the title has
+  /// no memory yet (non-anime only — anime keeps its Videasy default).
+  Future<void> _restorePlayerMemory() async {
+    final memory = await _memoryService.load(_memoryKey);
+    if (!mounted) return;
+    var needsReload = false;
+
+    // Server: per-title memory first, then the global default.
+    final rememberedId = memory.providerId;
+    VideoSourceConfig? match = rememberedId == null
+        ? null
+        : _providerById(rememberedId);
+    if (match == null && !widget.isAnime) {
+      final savedId = await _sourceService.loadDefaultSourceId();
+      if (!mounted) return;
+      match = savedId == null ? null : _providerById(savedId);
+    }
+    if (match != null && match.id != _selectedProvider.id) {
+      _selectedProvider = match;
+      _applySandbox(match);
+      needsReload = true;
+    }
+
+    // Episode: only when the route didn't name one.
+    if (widget.mediaType == 'tv') {
+      if (widget.season == null &&
+          memory.season != null &&
+          memory.season! > 0) {
+        _currentSeason = memory.season!;
+        needsReload = true;
+      }
+      if (widget.episode == null &&
+          memory.episode != null &&
+          memory.episode! > 0) {
+        _currentEpisode = memory.episode!;
+        needsReload = true;
       }
     }
+
+    // Position: only when the route didn't carry one.
+    if ((_resolvedStartSeconds == null || _resolvedStartSeconds == 0) &&
+        memory.positionSeconds != null &&
+        memory.positionSeconds! > 0) {
+      _resolvedStartSeconds = memory.positionSeconds;
+      _playbackPositionSeconds = memory.positionSeconds!;
+      needsReload = true;
+    }
+
+    if (!needsReload) return;
+    setState(() {});
+    // If the iframe already has a src (non-anime path sets it
+    // synchronously in initState), reload it with the restored choices.
+    // Otherwise initState/_bootstrapAnime picks them up when setting src.
+    if (_iframe.src.isNotEmpty && _iframe.src != 'about:blank') {
+      _iframe.src = _buildPlayerUrl(_selectedProvider);
+    }
+  }
+
+  /// Persists the current server/episode/position for this title so the
+  /// next visit reopens exactly where Clair left off. Fire-and-forget.
+  void _persistPlayerMemory({bool resetPosition = false}) {
+    _memoryService.save(
+      _memoryKey,
+      providerId: _selectedProvider.id,
+      season: widget.mediaType == 'tv' ? _currentSeason : null,
+      episode: widget.mediaType == 'tv' ? _currentEpisode : null,
+      positionSeconds: _playbackPositionSeconds > 0
+          ? _playbackPositionSeconds
+          : null,
+      clearPosition: resetPosition,
+    );
   }
 
   /// Applies the `sandbox` attribute when the provider is marked
@@ -794,6 +869,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     });
     _applySandbox(provider);
     _iframe.src = _buildPlayerUrl(provider);
+    _persistPlayerMemory();
   }
 
   /// Toggles custom fullscreen (theater) mode. Instead of using the
@@ -868,6 +944,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _persistPlayerMemory();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     _progressHeartbeatTimer?.cancel();
@@ -935,7 +1012,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       id: id.toString(),
       season: _currentSeason,
       episode: _currentEpisode,
-      startSeconds: widget.startSeconds,
+      startSeconds: _resolvedStartSeconds,
     );
   }
 
