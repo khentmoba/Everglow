@@ -19,6 +19,8 @@
 import "dart:convert";
 import "dart:io";
 
+import "build_stamp.dart";
+
 Future<void> main(List<String> args) async {
   final buildArgs = args.where((a) => a != "--").toList();
   final canvaskitUrl = await _resolveCanvaskitUrl();
@@ -45,6 +47,48 @@ Future<void> main(List<String> args) async {
   if (canvaskitUrl != null) {
     print("[build_web] CanvasKit served from $canvaskitUrl");
   }
+  _stampCoreShell();
+}
+
+/// Rewrites the core-shell URL to `main.dart.js?v=<build stamp>` in the
+/// emitted loader + preload, so every build is a distinct service-worker
+/// cache key (see generate_sw.dart). Without this, filenames are stable
+/// across Flutter builds and a post-deploy reload can boot stale bytes
+/// from the still-active old worker — near-certain on slow lines.
+///
+/// Only quoted references are touched, so a `main.dart.js.map` source-map
+/// reference (source-mapped builds) can never be corrupted. Fails the
+/// build loudly when the expected reference is missing: a silent miss
+/// here would mean silently stale updates.
+void _stampCoreShell() {
+  final busted = 'main.dart.js?v=${buildStamp()}';
+  var bootstrapHits = 0;
+  for (final path in [
+    "build/web/flutter_bootstrap.js",
+    "build/web/flutter.js",
+    "build/web/index.html",
+  ]) {
+    final file = File(path);
+    if (!file.existsSync()) {
+      // flutter.js is an emitted spare (the page loads the inlined copy in
+      // flutter_bootstrap.js); the other two must exist.
+      if (path.endsWith("flutter.js")) continue;
+      throw StateError("[build_web] missing $path; cannot stamp core shell.");
+    }
+    final src = file.readAsStringSync();
+    final hits = '"main.dart.js"'.allMatches(src).length;
+    if (hits > 0) {
+      file.writeAsStringSync(src.replaceAll('"main.dart.js"', '"$busted"'));
+    }
+    if (path.endsWith("flutter_bootstrap.js")) bootstrapHits = hits;
+  }
+  if (bootstrapHits == 0) {
+    throw StateError(
+      '[build_web] flutter_bootstrap.js has no "main.dart.js" reference; '
+      'Flutter output changed — update _stampCoreShell.',
+    );
+  }
+  print("[build_web] core shell stamped: $busted");
 }
 
 Future<String?> _resolveCanvaskitUrl() async {
