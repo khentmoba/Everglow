@@ -1,9 +1,27 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/shared/widgets/app_network_image.dart';
+
+/// Cache backend that fails every load at once, so the retry path runs
+/// without real network or disk I/O (the default manager needs
+/// path_provider, which has no test implementation).
+class _FailingCacheManager extends CacheManager {
+  _FailingCacheManager() : super(Config('app-network-image-test'));
+
+  @override
+  Stream<FileResponse> getFileStream(
+    String url, {
+    String? key,
+    Map<String, String>? headers,
+    bool withProgress = false,
+  }) {
+    return Stream<FileResponse>.error(Exception('network down'));
+  }
+}
 
 void main() {
   group('AppNetworkImage.isValidUrl', () {
@@ -90,6 +108,38 @@ void main() {
       } else {
         expect(widget.memCacheWidth, 400);
       }
+    });
+
+    testWidgets('retries a failed load with a fresh key after backoff', (
+      tester,
+    ) async {
+      const url = 'https://example.com/does-not-exist.jpg';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppNetworkImage(
+              imageUrl: url,
+              width: 120,
+              height: 180,
+              cacheManager: _FailingCacheManager(),
+            ),
+          ),
+        ),
+      );
+
+      // Let the failed fetch surface and the fallback render.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+      final first =
+          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+
+      // First backoff is 2s: advancing past it rebuilds the inner image
+      // with a new key so it re-resolves instead of staying stuck.
+      await tester.pump(const Duration(seconds: 3));
+      final second =
+          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+      expect(second.key, isNot(equals(first.key)));
     });
 
     testWidgets('AppPosterImage creates 2:3 aspect ratio AppNetworkImage', (
