@@ -64,7 +64,7 @@ Future<void> main() async {
         // address the compiled bundle, where Flutter serves asset keys
         // under an extra `assets/` prefix: assets/assets/models/x.glb
         // on web == assets/models/x.glb in the repo. Normalize before
-        // resolving (see cat_visuals_web.dart, web/cat_3d_engine.js).
+        // resolving (see cat_visuals_web.dart).
         if (ref.startsWith('assets/assets/')) {
           ref = ref.substring('assets/'.length);
         }
