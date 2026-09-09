@@ -6,6 +6,7 @@ import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/services/journal_service.dart';
+import '../widgets/journal_ui.dart';
 
 class AddJournalEntryDialog extends StatefulWidget {
   final String author;
@@ -61,19 +62,19 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     });
   }
 
+  static int _countWords(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return 0;
+    return trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     if (title.isEmpty && content.isEmpty) return;
     setState(() => _saving = true);
     final now = DateTime.now();
-    final wordCount = content.trim().isEmpty
-        ? 0
-        : content
-              .trim()
-              .split(RegExp(r'\s+'))
-              .where((w) => w.isNotEmpty)
-              .length;
+    final wordCount = _countWords(content);
 
     if (widget.existing != null) {
       final updated = widget.existing!.copyWith(
@@ -133,12 +134,30 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    widget.existing == null ? 'New Entry 📔' : 'Edit Entry',
-                    style: AppTypography.cormorantBold.copyWith(fontSize: 22),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.existing == null
+                              ? 'A new page'
+                              : 'Edit this page',
+                          style: AppTypography.handwrittenTitle().copyWith(
+                            fontSize: 28,
+                          ),
+                        ),
+                        Text(
+                          'for us, by ${journalAuthorName(widget.author)}',
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 11,
+                            color: AppColors.petalWhite.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
                   EverglowIconButton.close(
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -159,6 +178,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 runSpacing: 8,
                 children: JournalCategory.values.map((c) {
                   final sel = _category == c;
+                  final hue = journalCategoryColor(c);
                   return GestureDetector(
                     onTap: () => setState(() => _category = c),
                     child: Container(
@@ -168,11 +188,13 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                       ),
                       decoration: BoxDecoration(
                         color: sel
-                            ? AppColors.deepRose.withValues(alpha: 0.3)
+                            ? hue.withValues(alpha: 0.22)
                             : AppColors.twilight,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: sel ? AppColors.blushGold : AppColors.border,
+                          color: sel
+                              ? hue
+                              : hue.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(
@@ -181,7 +203,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                           fontSize: 12,
                           fontWeight: sel ? FontWeight.bold : FontWeight.w500,
                           color: sel
-                              ? AppColors.blushGold
+                              ? hue
                               : AppColors.petalWhite.withValues(alpha: 0.7),
                         ),
                       ),
@@ -228,7 +250,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ),
                 decoration: InputDecoration(
                   hintText:
-                      'Write your heart out... markdown supported ✨\n\nMemos-style quick capture, DailyTxT-style private diary.',
+                      'Write your heart out... ✨\n\nA date, a fight, a laugh — keep it forever.',
                   hintStyle: AppTypography.outfitWhite.copyWith(
                     color: AppColors.petalWhite.withValues(alpha: 0.35),
                     fontSize: 13,
@@ -242,7 +264,27 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 6),
+              // Live word count — a little encouragement as they write.
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _contentController,
+                builder: (context, value, _) {
+                  final words = _countWords(value.text);
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      words == 0
+                          ? 'Every love story deserves ink ✨'
+                          : '$words ${words == 1 ? 'word' : 'words'} • ${journalReadingTime(words)}',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 11,
+                        color: AppColors.blushGold.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
               // Mood row (heartbeat link)
               Text(
                 'Mood (optional)',
