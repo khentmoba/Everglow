@@ -1,20 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/models/next_episode.dart';
 import '../../data/models/video_source_config.dart';
 import '../../data/services/cinema_video_sources.dart';
+import '../../data/services/next_episode_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../widgets/embed_webview.dart';
+import '../widgets/up_next_overlay.dart';
 
 /// Native player for the third-party embed sources.
 ///
 /// Web embeds are iframe-only, so on Android the same provider URL runs
 /// inside an in-app WebView. The provider list and URL shape match the web
 /// player exactly; only the delivery mechanism differs.
+///
+/// TV episodes get the same Up Next flow as the web player: a persistent
+/// Next pill plus a "Next episode in 10..." auto countdown near the end
+/// (runtime-estimate fallback — WebViews never report real position).
+/// Phones auto-fullscreen in landscape.
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
   final String mediaType;
@@ -43,29 +54,46 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final VideoSourceService _sourceService = VideoSourceService();
+  final NextEpisodeService _nextService = NextEpisodeService();
   late List<VideoSourceConfig> _providers;
   late VideoSourceConfig _currentProvider;
   String? _savedProviderId;
   bool _userSelectedSource = false;
 
+  late int _currentSeason;
+  late int _currentEpisode;
+
+  NextEpisode? _nextEpisode;
+  bool _upNextVisible = false;
+  int _upNextLeft = 10;
+  Timer? _upNextTimer;
+  Timer? _upNextFallbackTimer;
+  bool _upNextDismissed = false;
+  static const int _upNextCountdownSeconds = 10;
+  static const int _upNextLeadSeconds = 90;
+
   int get _externalId =>
       widget.isAnime ? (widget.malId ?? widget.tmdbId) : widget.tmdbId;
-
-  int get _season => widget.season ?? 1;
-  int get _episode => widget.episode ?? 1;
 
   @override
   void initState() {
     super.initState();
+    _currentSeason = widget.season ?? 1;
+    _currentEpisode = widget.episode ?? 1;
     _sourceService.addListener(_onSourcesChanged);
     _providers = _resolveProviders();
     _currentProvider = _resolveCurrent(_providers);
     _restoreDefaultSource();
+    _resolveNextEpisode();
+    _scheduleUpNextFallback();
   }
 
   @override
   void dispose() {
+    _upNextTimer?.cancel();
+    _upNextFallbackTimer?.cancel();
     _sourceService.removeListener(_onSourcesChanged);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
 
@@ -133,13 +161,110 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
+  Future<void> _resolveNextEpisode() async {
+    if (widget.mediaType != 'tv' || widget.isAnime) return;
+    final season = _currentSeason;
+    final episode = _currentEpisode;
+    final next = await _nextService.resolve(
+      tmdbId: widget.tmdbId,
+      season: season,
+      episode: episode,
+    );
+    if (!mounted) return;
+    if (season != _currentSeason || episode != _currentEpisode) return;
+    setState(() => _nextEpisode = next);
+  }
+
+  /// Runtime-estimate fallback: WebViews never report playback position,
+  /// so the countdown is scheduled for 90 seconds before the estimated
+  /// end (TMDB runtime, defaulting to 42 minutes).
+  Future<void> _scheduleUpNextFallback() async {
+    _upNextFallbackTimer?.cancel();
+    if (widget.mediaType != 'tv' || widget.isAnime) return;
+    final minutes = await _nextService.fetchEpisodeRuntime(
+      tmdbId: widget.tmdbId,
+    );
+    if (!mounted) return;
+    final totalSeconds = (minutes ?? 42) * 60;
+    final delaySeconds = totalSeconds - _upNextLeadSeconds;
+    if (delaySeconds <= 10) return;
+    _upNextFallbackTimer = Timer(
+      Duration(seconds: delaySeconds),
+      () {
+        if (!mounted) return;
+        _showUpNext();
+      },
+    );
+  }
+
+  void _showUpNext() {
+    if (_upNextVisible || _upNextDismissed) return;
+    if (_nextEpisode == null || !mounted) return;
+    setState(() {
+      _upNextVisible = true;
+      _upNextLeft = _upNextCountdownSeconds;
+    });
+    _upNextTimer?.cancel();
+    _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_upNextLeft <= 1) {
+        timer.cancel();
+        _playNextEpisode();
+        return;
+      }
+      setState(() => _upNextLeft--);
+    });
+  }
+
+  void _cancelUpNext() {
+    _upNextTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _upNextVisible = false;
+      _upNextDismissed = true;
+    });
+  }
+
+  void _playNextEpisode() {
+    final next = _nextEpisode;
+    if (next == null) return;
+    _upNextTimer?.cancel();
+    _upNextFallbackTimer?.cancel();
+    setState(() {
+      _currentSeason = next.season;
+      _currentEpisode = next.episode;
+      _upNextVisible = false;
+      _upNextDismissed = false;
+      _nextEpisode = null;
+    });
+    _resolveNextEpisode();
+    _scheduleUpNextFallback();
+  }
+
+  void _playPreviousEpisode() {
+    if (_currentEpisode <= 1) return;
+    _upNextTimer?.cancel();
+    _upNextFallbackTimer?.cancel();
+    setState(() {
+      _currentEpisode--;
+      _upNextVisible = false;
+      _upNextDismissed = false;
+      _nextEpisode = null;
+    });
+    _resolveNextEpisode();
+    _scheduleUpNextFallback();
+  }
+
   String _buildUrl() {
     return buildVideoSourceUrl(
       _currentProvider,
       mediaType: widget.mediaType,
       id: _externalId.toString(),
-      season: _season,
-      episode: _episode,
+      season: _currentSeason,
+      episode: _currentEpisode,
     );
   }
 
@@ -304,6 +429,58 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isPhone = size.shortestSide < 600;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    // Phones auto-fullscreen in landscape: player fills the screen,
+    // chrome hides, system UI goes immersive. Portrait restores all.
+    if (isPhone && isLandscape) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      });
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _buildFullscreenPlayer(),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: _LandscapeBackButton(
+                  onTap: () => Navigator.pop(context),
+                ),
+              ),
+              if (widget.mediaType == 'tv' &&
+                  !widget.isAnime &&
+                  _nextEpisode != null)
+                Positioned(
+                  right: 12,
+                  bottom: 12,
+                  child: _upNextVisible
+                      ? UpNextOverlay(
+                          next: _nextEpisode!,
+                          secondsLeft: _upNextLeft,
+                          totalSeconds: _upNextCountdownSeconds,
+                          onPlayNow: _playNextEpisode,
+                          onCancel: _cancelUpNext,
+                        )
+                      : NextEpisodeButton(
+                          next: _nextEpisode!,
+                          onTap: _playNextEpisode,
+                        ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    });
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -324,6 +501,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           _buildPlayerCard(),
+          if (widget.mediaType == 'tv' && !widget.isAnime) ...[
+            const SizedBox(height: AppSpacing.md),
+            _buildEpisodeStepper(),
+          ],
           const SizedBox(height: AppSpacing.lg),
           _buildSourceCard(),
           const SizedBox(height: AppSpacing.lg),
@@ -351,6 +532,32 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
+  Widget _buildEpisodeStepper() {
+    final canPrev = _currentEpisode > 1;
+    final next = _nextEpisode;
+    return Row(
+      children: [
+        Expanded(
+          child: _StepperButton(
+            label: 'Prev Episode',
+            icon: Icons.skip_previous_rounded,
+            enabled: canPrev,
+            onTap: canPrev ? _playPreviousEpisode : null,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StepperButton(
+            label: next == null ? 'Next Episode' : 'Next: ${next.label}',
+            icon: Icons.skip_next_rounded,
+            enabled: next != null,
+            onTap: next == null ? null : _playNextEpisode,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlayerCard() {
     return AspectRatio(
       aspectRatio: 16 / 9,
@@ -362,20 +569,53 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.md - 1),
-          child: EmbedWebView(
-            key: ValueKey(
-              '${_currentProvider.id}-$_externalId-$_season-$_episode',
-            ),
-            url: _buildUrl(),
-            onLoaded: () {
-              debugPrint(
-                '[VideoPlayerScreen] Loaded ${_currentProvider.id} for '
-                '$_externalId',
-              );
-            },
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              EmbedWebView(
+                key: ValueKey(
+                  '${_currentProvider.id}-$_externalId-$_currentSeason-$_currentEpisode',
+                ),
+                url: _buildUrl(),
+                onLoaded: () {
+                  debugPrint(
+                    '[VideoPlayerScreen] Loaded ${_currentProvider.id} for '
+                    '$_externalId',
+                  );
+                },
+              ),
+              if (widget.mediaType == 'tv' &&
+                  !widget.isAnime &&
+                  _nextEpisode != null)
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: _upNextVisible
+                      ? UpNextOverlay(
+                          next: _nextEpisode!,
+                          secondsLeft: _upNextLeft,
+                          totalSeconds: _upNextCountdownSeconds,
+                          onPlayNow: _playNextEpisode,
+                          onCancel: _cancelUpNext,
+                        )
+                      : NextEpisodeButton(
+                          next: _nextEpisode!,
+                          onTap: _playNextEpisode,
+                        ),
+                ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFullscreenPlayer() {
+    return EmbedWebView(
+      key: ValueKey(
+        'fs-${_currentProvider.id}-$_externalId-$_currentSeason-$_currentEpisode',
+      ),
+      url: _buildUrl(),
     );
   }
 
@@ -437,6 +677,97 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               const Icon(Icons.swap_horiz_rounded, color: AppColors.roseQuartz),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StepperButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _StepperButton({
+    required this.label,
+    required this.icon,
+    required this.enabled,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: enabled
+              ? AppColors.deepRose.withValues(alpha: 0.16)
+              : AppColors.moonlight.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: enabled
+                ? AppColors.deepRose.withValues(alpha: 0.5)
+                : AppColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: enabled
+                  ? AppColors.roseQuartz
+                  : AppColors.textDisabled,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: enabled
+                      ? AppColors.petalWhite
+                      : AppColors.textDisabled,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LandscapeBackButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _LandscapeBackButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: AppColors.inkDeep.withValues(alpha: 0.85),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppColors.moonlight.withValues(alpha: 0.2),
+          ),
+        ),
+        child: const Icon(
+          Icons.arrow_back_rounded,
+          color: Colors.white70,
+          size: 18,
         ),
       ),
     );

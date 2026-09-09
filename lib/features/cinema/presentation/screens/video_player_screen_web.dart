@@ -18,7 +18,11 @@ import '../../data/services/cinema_video_sources.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../../data/models/video_source_config.dart';
 import '../../data/models/media_item.dart';
+import '../../data/models/next_episode.dart';
+import '../../data/services/next_episode_service.dart';
+import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import '../widgets/episode_navigator.dart';
+import '../widgets/up_next_overlay.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 part 'video_player_widgets.dart';
@@ -61,6 +65,7 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
   @override
   Widget build(BuildContext context) {
+    _maybeAutoFullscreen(context);
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -115,6 +120,31 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                         providerName:
                                             _selectedProvider.shortName,
                                       ),
+                                    // Up Next countdown (auto near the end)
+                                    // or the persistent Next pill (any time).
+                                    if (!_isLoading &&
+                                        !_iframeFailed &&
+                                        widget.mediaType == 'tv' &&
+                                        _nextEpisode != null)
+                                      Positioned(
+                                        right: 12,
+                                        bottom: 12,
+                                        child: _upNextVisible
+                                            ? UpNextOverlay(
+                                                next: _nextEpisode!,
+                                                secondsLeft: _upNextLeft,
+                                                totalSeconds:
+                                                    _VideoPlayerScreenStateBase
+                                                        ._upNextCountdownSeconds,
+                                                onPlayNow:
+                                                    _playNextEpisode,
+                                                onCancel: _cancelUpNext,
+                                              )
+                                            : NextEpisodeButton(
+                                                next: _nextEpisode!,
+                                                onTap: _playNextEpisode,
+                                              ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -126,6 +156,11 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                     // Episode Navigator for TV content
                     if (widget.mediaType == 'tv' && !widget.isAnime)
                       EpisodeNavigator(
+                        // Rebuild on auto-advance so the playing episode
+                        // highlight follows the Up Next flow.
+                        key: ValueKey(
+                          'ep-nav-$_currentSeason-$_currentEpisode',
+                        ),
                         tmdbId: widget.tmdbId,
                         initialSeason: _currentSeason,
                         initialEpisode: _currentEpisode,
@@ -206,7 +241,11 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             child: _PlayerIconButton(
               icon: Icons.fullscreen_rounded,
               compact: compact,
-              onTap: _toggleFullScreen,
+              onTap: () {
+                // Manual toggle wins over auto-fullscreen.
+                _autoFullscreen = false;
+                _toggleFullScreen();
+              },
             ),
           ),
           SizedBox(width: compact ? 6 : 8),
