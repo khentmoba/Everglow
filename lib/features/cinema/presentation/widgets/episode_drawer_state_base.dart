@@ -23,6 +23,13 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
   List<Map<String, dynamic>> _cast = [];
   List<Map<String, dynamic>> _reviews = [];
   List<MediaItem> _similar = [];
+
+  /// Selected Cast / Reviews / More tab. Only the selected tab is built
+  /// and fetched, so the phone never lays out what Clair hasn't opened.
+  int _extraTab = 0;
+  bool _castRequested = false;
+  bool _reviewsRequested = false;
+  bool _similarRequested = false;
   late String _currentStatus;
   List<String> _genreNames = [];
 
@@ -106,11 +113,38 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _fetchMediaDetails();
     _loadTrailer();
-    _fetchCast();
-    // Delay reviews by 4s so episode Jikan fetches can clear the queue,
-    // reducing the chance of 429 rate-limit collisions.
-    Future.delayed(const Duration(seconds: 4), _fetchReviews);
-    _fetchSimilar();
+    // Only the default (Cast) tab fetches on open. Reviews and Similar
+    // fetch the first time Clair taps their tab (see [_selectExtraTab]).
+    _requestExtraTab(0);
+  }
+
+  /// Fetches the data for [index] once. Later selections reuse the
+  /// cached lists, so switching tabs never refetches.
+  void _requestExtraTab(int index) {
+    switch (index) {
+      case 0:
+        if (_castRequested) return;
+        _castRequested = true;
+        _fetchCast();
+      case 1:
+        if (_reviewsRequested) return;
+        _reviewsRequested = true;
+        // Delay reviews by 4s so episode Jikan fetches can clear the
+        // queue, reducing the chance of 429 rate-limit collisions.
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted) _fetchReviews();
+        });
+      case 2:
+        if (_similarRequested) return;
+        _similarRequested = true;
+        _fetchSimilar();
+    }
+  }
+
+  void _selectExtraTab(int index) {
+    if (_extraTab == index) return;
+    setState(() => _extraTab = index);
+    _requestExtraTab(index);
   }
 
   @override
