@@ -23,12 +23,12 @@ import 'episode_drawer_sections/episode_list_section.dart';
 import 'episode_drawer_sections/cast_section.dart';
 import 'episode_drawer_sections/reviews_section.dart';
 import 'episode_drawer_sections/similar_section.dart';
+import 'episode_drawer_sections/extra_tabs.dart';
 import 'episode_drawer_sections/trailer_section.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'episode_drawer_sections/cinema/cinema_hero.dart';
 import 'episode_drawer_sections/cinema/cinema_cast_section.dart';
 import 'episode_drawer_sections/cinema/cinema_reviews_section.dart';
-import 'episode_drawer_sections/cinema/cinema_section_header.dart';
 import 'episode_drawer_sections/cinema/cinema_similar_section.dart';
 part 'episode_drawer_widgets.dart';
 part 'episode_drawer_state_base.dart';
@@ -213,40 +213,15 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   ),
                 ),
 
-              // ── CAST ──
+              // ── CAST / REVIEWS / MORE (lazy tabs — only the open tab builds) ──
               SliverToBoxAdapter(
-                child: buildDrawerSectionHeader(
-                  _isAnimeSourced ? 'Voice Cast' : 'Cast',
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: CastSection(
-                  cast: _cast,
-                  isLoading: _isLoadingCast,
+                child: DrawerExtraTabs(
+                  selected: _extraTab,
+                  onSelect: _selectExtraTab,
                   isAnimeSourced: _isAnimeSourced,
                 ),
               ),
-
-              // ── REVIEWS ──
-              SliverToBoxAdapter(child: buildDrawerSectionHeader('Reviews')),
-              SliverToBoxAdapter(
-                child: ReviewsSection(
-                  reviews: _reviews,
-                  isLoading: _isLoadingReviews,
-                ),
-              ),
-
-              // ── MORE LIKE THIS ──
-              SliverToBoxAdapter(
-                child: buildDrawerSectionHeader("Mochi says… 🐱"),
-              ),
-              SliverToBoxAdapter(
-                child: SimilarSection(
-                  similar: _similar,
-                  isLoading: _isLoadingSimilar,
-                  onItemTap: _showSimilarItem,
-                ),
-              ),
+              SliverToBoxAdapter(child: _buildExtraTabBody()),
 
               const SliverToBoxAdapter(child: SizedBox(height: 60)),
             ],
@@ -254,6 +229,54 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
         ),
       ),
     );
+  }
+
+  /// Only the selected tab's section is built. Data stays cached in
+  /// [_cast]/[_reviews]/[_similar], so switching tabs never refetches.
+  Widget _buildExtraTabBody() {
+    switch (_extraTab) {
+      case 1:
+        return ReviewsSection(
+          reviews: _reviews,
+          isLoading: _isLoadingReviews,
+        );
+      case 2:
+        return SimilarSection(
+          similar: _similar,
+          isLoading: _isLoadingSimilar,
+          onItemTap: _showSimilarItem,
+        );
+      case 0:
+      default:
+        return CastSection(
+          cast: _cast,
+          isLoading: _isLoadingCast,
+          isAnimeSourced: _isAnimeSourced,
+        );
+    }
+  }
+
+  Widget _buildCinemaExtraTabBody() {
+    switch (_extraTab) {
+      case 1:
+        return CinemaReviewsSection(
+          reviews: _reviews,
+          isLoading: _isLoadingReviews,
+        );
+      case 2:
+        return CinemaSimilarSection(
+          similar: _similar,
+          isLoading: _isLoadingSimilar,
+          onItemTap: _showSimilarItem,
+        );
+      case 0:
+      default:
+        return CinemaCastSection(
+          cast: _cast,
+          isLoading: _isLoadingCast,
+          isAnimeSourced: _isAnimeSourced,
+        );
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -589,45 +612,16 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   ],
                 ),
               ),
+            // ── CAST / REVIEWS / MORE (lazy tabs — only the open tab builds) ──
             SliverToBoxAdapter(
-              child: CinemaSectionHeader(
-                eyebrow: _isAnimeSourced ? 'CHARACTERS & VOICES' : 'STAR CAST',
-                title: _isAnimeSourced ? 'Voice Cast' : 'Cast',
-                trailing: _cast.isNotEmpty ? '${_cast.length}' : null,
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: CinemaCastSection(
-                cast: _cast,
-                isLoading: _isLoadingCast,
+              child: DrawerExtraTabs(
+                selected: _extraTab,
+                onSelect: _selectExtraTab,
                 isAnimeSourced: _isAnimeSourced,
+                cinemaStyle: true,
               ),
             ),
-            const SliverToBoxAdapter(
-              child: CinemaSectionHeader(
-                eyebrow: 'WORD OF MOUTH',
-                title: 'Reviews',
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: CinemaReviewsSection(
-                reviews: _reviews,
-                isLoading: _isLoadingReviews,
-              ),
-            ),
-            const SliverToBoxAdapter(
-              child: CinemaSectionHeader(
-                eyebrow: 'DISCOVER MORE',
-                title: 'Mochi says\u2026 \u{1F431}',
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: CinemaSimilarSection(
-                similar: _similar,
-                isLoading: _isLoadingSimilar,
-                onItemTap: _showSimilarItem,
-              ),
-            ),
+            SliverToBoxAdapter(child: _buildCinemaExtraTabBody()),
             const SliverToBoxAdapter(child: SizedBox(height: 72)),
           ],
         ),
