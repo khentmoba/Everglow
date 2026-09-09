@@ -98,7 +98,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  // Only handle same-origin; CDN media (unpkg/jsdelivr/googleapis/gstatic)
+  // Only handle same-origin; CDN media (jsdelivr/googleapis/gstatic)
   // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
