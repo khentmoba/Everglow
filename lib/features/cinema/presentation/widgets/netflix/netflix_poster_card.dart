@@ -277,52 +277,47 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 
     if (widget.rank == null) return SizedBox(width: width, child: poster);
 
-    // Top-10 numeral treatment: oversized outlined number beside the poster.
+    // Top-10 numeral: a giant filled digit with a dark edge, tucked
+    // slightly behind the poster's left edge like Netflix. One stacked
+    // Text draws the stroke, the other the fill.
+    TextStyle numeral({required bool stroke}) =>
+        AppTypography.outfitWhite.copyWith(
+          fontSize: 200,
+          fontWeight: FontWeight.w900,
+          height: 0.8,
+          color: stroke ? null : NetflixColors.textSecondary,
+          foreground: stroke
+              ? (Paint()
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 8
+                  ..color = Colors.black)
+              : null,
+        );
     return SizedBox(
-      width: width + 96,
+      width: width + 64,
       height: height,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      child: Stack(
         children: [
-          SizedBox(
-            width: 92,
-            height: height,
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: Text(
-                  '${widget.rank}',
-                  style: AppTypography.outfitWhite.copyWith(
-                    fontSize: 150,
-                    fontWeight: FontWeight.w900,
-                    height: 0.9,
-                    foreground: Paint()
-                      ..style = PaintingStyle.stroke
-                      ..strokeWidth = 3
-                      ..color = _rankColor(widget.rank!),
-                  ),
-                ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 84,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.bottomLeft,
+              child: Stack(
+                children: [
+                  Text('${widget.rank}', style: numeral(stroke: true)),
+                  Text('${widget.rank}', style: numeral(stroke: false)),
+                ],
               ),
             ),
           ),
-          poster,
+          Positioned(right: 0, top: 0, bottom: 0, child: poster),
         ],
       ),
     );
-  }
-
-  Color _rankColor(int rank) {
-    switch (rank) {
-      case 1:
-        return Colors.white.withValues(alpha: 0.95);
-      case 2:
-        return Colors.white.withValues(alpha: 0.85);
-      case 3:
-        return Colors.white.withValues(alpha: 0.78);
-      default:
-        return Colors.white.withValues(alpha: 0.82);
-    }
   }
 }
 
