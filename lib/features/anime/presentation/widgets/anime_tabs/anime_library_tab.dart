@@ -243,7 +243,7 @@ class AnimeLibraryTab extends StatelessWidget {
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: isDesktop
                 ? 6
-                : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                : (AppBreakpoint.isTablet(context) ? 5 : 2),
             childAspectRatio: 0.65,
             crossAxisSpacing: 14,
             mainAxisSpacing: 14,
