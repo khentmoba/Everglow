@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 
 import '../../data/services/tmdb_service.dart';
+import 'episode_drawer_sections/episode_list_section.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 
@@ -188,7 +188,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
             else if (_episodes.isEmpty)
               _buildNoEpisodes()
             else
-              _buildEpisodeGrid(),
+              _buildEpisodeList(),
           ],
         ],
       ),
@@ -238,125 +238,39 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
     );
   }
 
-  Widget _buildEpisodeGrid() {
-    return SizedBox(
-      height: 120,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _episodes.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final ep = _episodes[index];
-          final epNum = ep['episode_number'] as int? ?? index + 1;
-          final name = ep['name'] as String? ?? 'Episode $epNum';
-          final stillPath = ep['still_path'] as String?;
-          final isSelected = epNum == _selectedEpisode;
-          return GestureDetector(
-            onTap: () => _selectEpisode(epNum),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 180,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.deepRose.withValues(alpha: 0.12)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isSelected
-                      ? AppColors.deepRose.withValues(alpha: 0.5)
-                      : Colors.white.withValues(alpha: 0.08),
-                ),
+  /// Vertical episode list shared with the details drawer ([EpisodeTile]).
+  ///
+  /// The player used to render its own horizontal thumbnail grid, so the
+  /// same episodes looked different in two places. Reusing the drawer tile
+  /// keeps one episode UI everywhere, with the playing episode highlighted.
+  Widget _buildEpisodeList() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 800),
+        child: Column(
+          children: [
+            for (var i = 0; i < _episodes.length; i++)
+              Builder(
+                builder: (context) {
+                  final ep = _episodes[i];
+                  final epNum = ep['episode_number'] as int? ?? i + 1;
+                  final name = ep['name'] as String? ?? 'Episode $epNum';
+                  final overview = ep['overview'] as String? ?? '';
+                  final stillPath = ep['still_path'] as String?;
+                  return EpisodeTile(
+                    epNum: epNum,
+                    epName: name,
+                    epOverview: overview,
+                    stillUrl:
+                        (stillPath != null && stillPath.isNotEmpty)
+                        ? TmdbImages.stillFor(stillPath)
+                        : null,
+                    selected: epNum == _selectedEpisode,
+                    onTap: () => _selectEpisode(epNum),
+                  );
+                },
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Thumbnail
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(9),
-                    ),
-                    child: SizedBox(
-                      width: 180,
-                      height: 76,
-                      child: stillPath != null && stillPath.isNotEmpty
-                          ? AppNetworkImage(
-                              imageUrl: TmdbImages.stillFor(
-                                stillPath,
-                                large: true,
-                              ),
-                              fit: BoxFit.cover,
-                              cacheWidth: 360,
-                              errorWidget: _buildPlaceholder(epNum),
-                            )
-                          : _buildPlaceholder(epNum),
-                    ),
-                  ),
-                  // Info
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(
-                                        0xFFC2185B,
-                                      ).withValues(alpha: 0.25)
-                                    : Colors.white.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                'E$epNum',
-                                style: AppTypography.outfitHeading.copyWith(
-                                  fontSize: 8,
-                                  color: isSelected
-                                      ? AppColors.deepRose
-                                      : Colors.white54,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitBold.copyWith(
-                            fontSize: 10,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder(int epNum) {
-    return Container(
-      color: AppColors.shimmerBase,
-      alignment: Alignment.center,
-      child: Text(
-        'E$epNum',
-        style: AppTypography.outfitWhite.copyWith(
-          color: Colors.white24,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
+          ],
         ),
       ),
     );

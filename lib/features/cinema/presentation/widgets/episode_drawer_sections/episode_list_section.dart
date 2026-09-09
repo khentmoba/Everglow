@@ -201,6 +201,9 @@ class EpisodeTile extends StatefulWidget {
   final String? stillUrl;
   final VoidCallback onTap;
 
+  /// Highlights the tile as the currently playing episode (player use).
+  final bool selected;
+
   const EpisodeTile({
     super.key,
     required this.epNum,
@@ -208,6 +211,7 @@ class EpisodeTile extends StatefulWidget {
     required this.epOverview,
     this.stillUrl,
     required this.onTap,
+    this.selected = false,
   });
 
   @override
@@ -244,7 +248,10 @@ class _EpisodeTileState extends State<EpisodeTile> {
               : AppColors.shimmerBase.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.roseQuartz.withValues(alpha: 0.08),
+            color: widget.selected
+                ? AppColors.deepRose.withValues(alpha: 0.65)
+                : AppColors.roseQuartz.withValues(alpha: 0.08),
+            width: widget.selected ? 1.4 : 1.0,
           ),
         ),
         child: ClipRRect(
@@ -303,16 +310,22 @@ class _EpisodeTileState extends State<EpisodeTile> {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: AppColors.deepRose.withValues(alpha: 0.15),
+                        color: widget.selected
+                            ? AppColors.deepRose
+                            : AppColors.deepRose.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: AppColors.deepRose.withValues(alpha: 0.5),
                           width: 1.2,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: AppColors.deepRose,
+                      child: Icon(
+                        widget.selected
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: widget.selected
+                            ? Colors.white
+                            : AppColors.deepRose,
                         size: 18,
                       ),
                     ),
