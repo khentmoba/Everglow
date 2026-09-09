@@ -422,6 +422,10 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                     }
                   },
                   onHover: isDesktop ? _onCardHover : null,
+                  onPlay: widget.onPlayItem,
+                  onToggleList: widget.onToggleListItem,
+                  onRate: widget.onRateItem,
+                  isInList: widget.isInList,
                 );
                 final remove = widget.onRemoveItem;
                 if (remove == null) return card;
