@@ -4,7 +4,8 @@ import '../models/academy_question.dart';
 import '../../../core/utils/logger.dart';
 
 class AcademySyncService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Lazy so widget tests can construct the service without Firebase.
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final TriviaApiService _apiService = TriviaApiService();
 
   static const int _minThreshold = 10;

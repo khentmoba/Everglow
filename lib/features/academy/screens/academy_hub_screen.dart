@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_elevation.dart';
 import '../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../shared/widgets/everglow/everglow_card.dart';
+import '../../../shared/widgets/everglow/everglow_section_header.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -78,6 +80,8 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
 
   Future<void> _checkAndSeedQuestions() async {
     try {
+      // Skip in widget tests / before Firebase init.
+      if (Firebase.apps.isEmpty) return;
       final snapshot = await FirebaseFirestore.instance
           .collection('academy_questions')
           .limit(1)
@@ -290,78 +294,131 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
       body: Stack(
         children: [
           const Positioned.fill(
-            child: EverglowBackground(baseColor: AppColors.inkDeep),
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: [
+                RadialGlow(
+                  color: AppColors.softLavender,
+                  alignment: Alignment(-0.7, -0.85),
+                  size: 0.8,
+                  opacity: 0.10,
+                ),
+                RadialGlow(
+                  color: AppColors.deepRose,
+                  alignment: Alignment(0.85, 0.9),
+                  size: 0.7,
+                  opacity: 0.10,
+                ),
+              ],
+            ),
           ),
           SafeArea(
             child: Column(
               children: [
                 const EverglowFeatureHeader(
                   title: 'Academy Hub',
-                  subtitle: 'play, learn, compete',
+                  subtitle: 'play \u00b7 learn \u00b7 compete together',
                   icon: Icons.school_rounded,
                   hue: AppColors.softLavender,
                 ),
                 Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.x3),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_isSearching) ...[
-                            const EverglowSkeleton(height: 24, width: 24, radius: 12),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.pageH(context),
+                      AppSpacing.md,
+                      AppSpacing.pageH(context),
+                      AppSpacing.x3,
+                    ),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildWelcome(),
                             const SizedBox(height: AppSpacing.xl),
-                            Text(
-                              _statusMessage ?? '',
-                              style: AppTypography.outfitWhite.copyWith(
-                                color: AppColors.roseQuartz,
+                            const EverglowSectionHeader(
+                              label: 'Choose a mode',
+                              icon: Icons.sports_esports_rounded,
+                              hue: AppColors.auroraRose,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            if (_isSearching) ...[
+                              const EverglowSkeleton(
+                                height: 24,
+                                width: 24,
+                                radius: 12,
                               ),
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-                            TextButton(
-                              onPressed: () =>
-                                  setState(() => _isSearching = false),
-                              child: Text(
-                                'Cancel Search',
-                                style: AppTypography.outfitWhite.copyWith(
-                                  color: AppColors.blushGold,
-                                ),
-                              ),
-                            ),
-                          ] else ...[
-                            _buildModeButton(
-                              'Solo Study',
-                              'Practice on your own',
-                              Icons.menu_book_rounded,
-                              () => _showCategoryPicker(
-                                _startSoloStudyWithCategory,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.x2),
-                            _buildModeButton(
-                              '1v1 Challenge',
-                              'Race against your partner',
-                              Icons.bolt_rounded,
-                              () => _showCategoryPicker(_startMatchmaking),
-                            ),
-                            const SizedBox(height: AppSpacing.x2),
-                            _buildModeButton(
-                              'Study with Mochi',
-                              'Ask about your PDFs',
-                              Icons.picture_as_pdf_rounded,
-                              () => context.push('/study'),
-                            ),
-                            if (_statusMessage != null) ...[
                               const SizedBox(height: AppSpacing.xl),
                               Text(
-                                _statusMessage!,
+                                _statusMessage ?? '',
+                                textAlign: TextAlign.center,
                                 style: AppTypography.outfitWhite.copyWith(
-                                  color: AppColors.blushGold,
+                                  fontSize: 14,
+                                  color: AppColors.roseQuartz,
                                 ),
                               ),
+                              const SizedBox(height: AppSpacing.xl),
+                              Center(
+                                child: TextButton(
+                                  onPressed: () => setState(
+                                    () => _isSearching = false,
+                                  ),
+                                  child: Text(
+                                    'Cancel Search',
+                                    style: AppTypography.outfitWhite.copyWith(
+                                      color: AppColors.blushGold,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              AcademyModeCard(
+                                title: '1v1 Challenge',
+                                subtitle: 'Race your love in real time',
+                                badge: 'LIVE \u00b7 TOGETHER',
+                                icon: Icons.bolt_rounded,
+                                accent: AppColors.deepRose,
+                                onTap: () =>
+                                    _showCategoryPicker(_startMatchmaking),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              AcademyModeCard(
+                                title: 'Solo Study',
+                                subtitle: 'Quiet questions, no timer',
+                                badge: 'CALM PRACTICE',
+                                icon: Icons.menu_book_rounded,
+                                accent: AppColors.auroraGold,
+                                onTap: () => _showCategoryPicker(
+                                  _startSoloStudyWithCategory,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.md),
+                              AcademyModeCard(
+                                title: 'Study with Mochi',
+                                subtitle: 'Ask about your PDFs',
+                                badge: 'AI HELPER',
+                                icon: Icons.picture_as_pdf_rounded,
+                                accent: AppColors.softLavender,
+                                onTap: () => context.push('/study'),
+                              ),
+                              if (_statusMessage != null) ...[
+                                const SizedBox(height: AppSpacing.xl),
+                                Text(
+                                  _statusMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.outfitWhite.copyWith(
+                                    fontSize: 13,
+                                    color: AppColors.blushGold,
+                                  ),
+                                ),
+                              ],
                             ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -374,57 +431,160 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     );
   }
 
-  Widget _buildModeButton(
-    String title,
-    String subtitle,
-    IconData icon,
-    VoidCallback onTap,
-  ) {
+  Widget _buildWelcome() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.velvet.withValues(alpha: 0.85),
+            AppColors.inkDeep.withValues(alpha: 0.9),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.x2),
+        border: Border.all(
+          color: AppColors.blushGold.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'What shall we learn today?',
+            style: AppTypography.cormorantBold.copyWith(
+              fontSize: 24,
+              height: 1.1,
+              color: AppColors.roseQuartz,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Solo for quiet practice, 1v1 to race your love, Mochi for PDFs.',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.petalWhite.withValues(alpha: 0.78),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Warm, tappable mode row — extracted so layout tests can pump it
+/// without Firebase, Auth, or GoRouter.
+class AcademyModeCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String? badge;
+  final IconData icon;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const AcademyModeCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accent,
+    required this.onTap,
+    this.badge,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return EverglowCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(18),
+      semanticLabel: title,
+      padding: const EdgeInsets.all(AppSpacing.xl),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.deepRose.withValues(alpha: 0.12),
-              border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.22)),
+              color: accent.withValues(alpha: 0.14),
+              border: Border.all(
+                color: accent.withValues(alpha: 0.35),
+              ),
             ),
-            child: Icon(icon, size: 22, color: AppColors.deepRose),
+            child: Icon(icon, size: 24, color: accent),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                if (badge != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      border: Border.all(
+                        color: accent.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Text(
+                      badge!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.outfitHeading.copyWith(
+                        fontSize: 9.5,
+                        letterSpacing: 1.2,
+                        color: accent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                ],
                 Text(
                   title,
-                  style: AppTypography.cormorantBold.copyWith(fontSize: 20, height: 1.0),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.cormorantBold.copyWith(
+                    fontSize: 21,
+                    height: 1.1,
+                  ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.outfitWhite.copyWith(
-                    fontSize: 12,
-                    color: AppColors.petalWhite.withValues(alpha: 0.62),
-                    letterSpacing: 0.2,
+                    fontSize: 13,
+                    height: 1.35,
+                    color: AppColors.petalWhite.withValues(alpha: 0.78),
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.md),
           Container(
             width: 32,
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.moonlight.withValues(alpha: 0.08),
-              border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.12)),
+              border: Border.all(
+                color: AppColors.moonlight.withValues(alpha: 0.14),
+              ),
             ),
-            child: const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.blushGold, size: 14),
+            child: Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: accent,
+              size: 14,
+            ),
           ),
         ],
       ),
@@ -486,8 +646,8 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
       );
 
       for (int i = 0; i < widget.categories.length; i++) {
-        final start = i * 0.06;
-        final end = start + 0.4;
+        final start = (i * 0.06).clamp(0.0, 1.0);
+        final end = (start + 0.4).clamp(0.0, 1.0);
 
         _fadeAnimations.add(
           Tween<double>(begin: 0.0, end: 1.0).animate(
