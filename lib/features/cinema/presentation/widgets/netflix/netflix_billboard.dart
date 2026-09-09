@@ -187,6 +187,42 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     return (v * 10).round().clamp(50, 99);
   }
 
+  /// Age certification ("PG-13", "TV-MA") from the appended TMDB payload.
+  /// Prefers the Philippine rating, falls back to US, then anything.
+  String? get _certification {
+    final d = _details;
+    if (d == null) return null;
+    if (_item.mediaType == 'movie') {
+      final rd = d['release_dates'];
+      final results = rd is Map ? rd['results'] as List? : null;
+      if (results == null) return null;
+      final dates = _pickRegion(results)?['release_dates'] as List?;
+      for (final r in dates ?? const []) {
+        final cert = (r is Map ? r['certification'] ?? '' : '').toString().trim();
+        if (cert.isNotEmpty) return cert;
+      }
+      return null;
+    }
+    final cr = d['content_ratings'];
+    final results = cr is Map ? cr['results'] as List? : null;
+    if (results == null) return null;
+    final rating = (_pickRegion(results)?['rating'] ?? '').toString().trim();
+    return rating.isEmpty ? null : rating;
+  }
+
+  Map<String, dynamic>? _pickRegion(List results) {
+    final rows = results.whereType<Map>().toList();
+    if (rows.isEmpty) return null;
+    for (final iso in ['PH', 'US']) {
+      for (final r in rows) {
+        if ((r['iso_3166_1'] ?? '').toString() == iso) {
+          return Map<String, dynamic>.from(r);
+        }
+      }
+    }
+    return Map<String, dynamic>.from(rows.first);
+  }
+
   String get _backdropUrl {
     if (_item.backdropUrl.isNotEmpty) return _item.backdropUrl;
     return _item.posterUrl;
@@ -331,35 +367,30 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isDesktop)
-              Row(
-                children: [
-                  if (_matchPercent > 0)
-                    Text(
-                      '$_matchPercent% Match',
-                      style: AppTypography.outfitHeading.copyWith(
-                        fontSize: 14,
-                        color: NetflixColors.match,
-                      ),
+            // Billboard items are the top of Trending, so every slide is
+            // a Top-10 title — the pill names its rank. A Wrap (not a Row)
+            // so the meta line fits phone widths too.
+            Wrap(
+              spacing: 10,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _TopTenPill(rank: _index + 1),
+                if (_matchPercent > 0)
+                  Text(
+                    '$_matchPercent% Match',
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 14,
+                      color: NetflixColors.match,
                     ),
-                  if (_item.year.isNotEmpty) ...[
-                    const SizedBox(width: 10),
-                    _MetaText(_item.year),
-                  ],
-                  if (_runtime != null) ...[
-                    const SizedBox(width: 10),
-                    _MetaText(_runtime!),
-                  ],
-                  if (_item.mediaType == 'movie') ...[
-                    const SizedBox(width: 10),
-                    const _HdBadge(),
-                  ],
-                  if (_item.mediaType == 'tv') ...[
-                    const SizedBox(width: 10),
-                    const _MetaText('Series'),
-                  ],
-                ],
-              ),
+                  ),
+                if (_item.year.isNotEmpty) _MetaText(_item.year),
+                if (_runtime != null) _MetaText(_runtime!),
+                if (_certification != null) _CertBadge(_certification!),
+                if (_item.mediaType == 'movie') const _HdBadge(),
+                if (_item.mediaType == 'tv') const _MetaText('Series'),
+              ],
+            ),
             const SizedBox(height: 12),
             Text(
               _item.title,
@@ -447,6 +478,55 @@ class _HdBadge extends StatelessWidget {
         style: AppTypography.outfitHeading.copyWith(
           fontSize: 10,
           letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// Age-rating chip ("PG-13", "TV-MA") beside the other meta badges.
+class _CertBadge extends StatelessWidget {
+  final String certification;
+  const _CertBadge(this.certification);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        certification,
+        style: AppTypography.outfitHeading.copyWith(
+          fontSize: 10,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// "#N in Top 10" pill — the billboard only ever shows trending titles.
+class _TopTenPill extends StatelessWidget {
+  final int rank;
+  const _TopTenPill({required this.rank});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: NetflixColors.accent,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '#$rank in Top 10',
+        style: AppTypography.outfitHeading.copyWith(
+          fontSize: 10.5,
+          color: Colors.white,
+          letterSpacing: 0.3,
         ),
       ),
     );
