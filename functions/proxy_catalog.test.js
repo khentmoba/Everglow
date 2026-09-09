@@ -9,7 +9,7 @@ const indexExports = require('./index.js');
 test('proxyCatalog allow-list rejects unknown base', () => {
   assert.throws(
     () => resolveCatalogUpstream('evil', 'search.json?q=x'),
-    /base must be openlibrary, jikan, or itunes/,
+    /base must be openlibrary, jikan, itunes, or aniskip/,
   );
 });
 
@@ -58,6 +58,18 @@ test('proxyCatalog builds itunes search URL server-side', () => {
   assert.equal(url.origin + url.pathname, 'https://itunes.apple.com/search');
   assert.equal(url.searchParams.get('term'), 'dune');
   assert.equal(url.searchParams.get('entity'), 'song');
+});
+
+test('proxyCatalog builds aniskip skip-times URL server-side', () => {
+  const url = resolveCatalogUpstream(
+    'aniskip',
+    'v1/skip-times/5114/1?types[]=op&types[]=ed',
+  );
+  assert.equal(
+    url.origin + url.pathname,
+    'https://api.aniskip.com/v1/skip-times/5114/1',
+  );
+  assert.deepEqual(url.searchParams.getAll('types[]'), ['op', 'ed']);
 });
 
 test('proxyCatalog strips path traversal but keeps legit query', () => {
