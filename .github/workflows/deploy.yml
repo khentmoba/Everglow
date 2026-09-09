@@ -76,6 +76,11 @@ jobs:
           dart tool/generate_sw.dart
           if [ -n "$REV" ]; then
             sed -i "s/__ENGINE_REV__/$REV/g" web/sw.js
+            # build/web/sw.js is the artifact that actually deploys (copied
+            # from web/ during the build above, before this stamp ran).
+            sed -i "s/__ENGINE_REV__/$REV/g" build/web/sw.js
+          else
+            echo "::warning::ENGINE_REV not found in flutter_bootstrap.js; worker engine cache will not rotate on upgrades"
           fi
 
       - name: Install firebase-tools
