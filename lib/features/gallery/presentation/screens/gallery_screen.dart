@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -40,6 +41,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
     _gallerySearchCtrl.dispose();
     _searchDebounce?.cancel();
     super.dispose();
+  }
+
+  static int _galleryColumns(BuildContext context) {
+    if (AppBreakpoint.isDesktop(context)) return 6;
+    if (AppBreakpoint.isTablet(context)) return 5;
+    return 3;
   }
 
   Future<void> _openAddPhoto() async {
@@ -121,12 +128,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           errorMessage: 'Could not load photos',
                           errorIcon: Icons.photo_library_outlined,
                           onRetry: () => setState(() {}),
-                          loadingView: const EverglowSkeletonGrid(
+                          loadingView: EverglowSkeletonGrid(
                             count: 6,
-                            maxCrossAxisExtent: 220,
-                            itemHeight: 200,
+                            crossAxisCount: _galleryColumns(context),
                             spacing: 10,
-                            childAspectRatio: 0.75,
+                            childAspectRatio: 0.82,
                           ),
                           isEmpty: (photos) => photos.isEmpty,
                           emptyView: EverglowEmptyState(
@@ -143,8 +149,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                 vertical: 6,
                               ),
                               gridDelegate:
-                                  const SliverGridDelegateWithMaxCrossAxisExtent(
-                                    maxCrossAxisExtent: 220,
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: _galleryColumns(context),
                                     mainAxisSpacing: 10,
                                     crossAxisSpacing: 10,
                                     childAspectRatio: 0.82,
@@ -184,12 +190,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
       future: future,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const EverglowSkeletonGrid(
+          return EverglowSkeletonGrid(
             count: 6,
-            maxCrossAxisExtent: 220,
-            itemHeight: 200,
+            crossAxisCount: _galleryColumns(context),
             spacing: 10,
-            childAspectRatio: 0.75,
+            childAspectRatio: 0.82,
           );
         }
         if (snap.hasError) {
@@ -213,8 +218,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
         }
         return GridView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 220,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: _galleryColumns(context),
             mainAxisSpacing: 10,
             crossAxisSpacing: 10,
             childAspectRatio: 0.82,
