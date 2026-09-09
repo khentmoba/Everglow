@@ -83,7 +83,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | Feature | Description | Version |
 |---------|-------------|---------|
 | **Mochi AI** | AI assistant with 11 callable tools — can manage watchlist, write notes, set moods, search movies/books/anime, check weather, create reminders, and more | 5.0.0 / **6.0.0** |
-| **Watch Party** | Watch party with WebRTC voice chat via ac-relay signaling server | — |
+| **Watch Party** | Watch party with WebRTC voice chat via Firestore signaling | — |
 | **Push Notifications** | FCM-powered notifications with topic subscriptions and in-app toasts | **6.0.0** |
 
 ### UI / UX
@@ -108,7 +108,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Routing** | go_router |
 | **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify |
 | **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
-| **Voice Chat** | WebRTC via ac-relay signaling server |
+| **Voice Chat** | WebRTC via Firestore signaling |
 | **AI** | Agnes 2.5 Flash via SSE streaming with 11 function-calling tools |
 | **Cloud Functions** | Authenticated proxies (TMDB, Last.fm, Spotify, manga, anime, Open Library) + AI (Agnes) + schedules/triggers |
 | **Notifications** | Firebase Cloud Messaging (FCM) with topic subscriptions |
@@ -151,7 +151,7 @@ lib/
     manga/                           # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
     play_zone/                       # Games hub + Table Tennis (WebGL + Firestore multiplayer)
     starlight_jar/                   # Gratitude notes jar
-    watch_party/                     # Watch party with WebRTC voice chat (ac-relay)
+    watch_party/                     # Watch party with WebRTC voice chat (Firestore signaling)
     xp/                              # XP/leveling system
   shared/
     utils/text_utils.dart            # stripMarkdown, extractTitles
@@ -160,8 +160,6 @@ lib/
   firebase_options.dart              # Generated Firebase config
 functions/
   index.js                           # Cloud Functions: proxies + AI (Mochi) + scheduled tasks
-ac-relay/
-  server.js                          # WebRTC signaling server for watch-party voice chat
 test/                                # Unit tests for calendar, canvas, dashboard, xp
 ```
 

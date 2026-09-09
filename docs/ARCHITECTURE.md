@@ -52,7 +52,6 @@ flowchart LR
     AGNES[Agnes 2.5 Flash LLM]
     LF[Last.fm]
     MD[MangaDex / Bato / Comick / etc.]
-    REL[ac-relay WebRTC signaling]
   end
 
   K --> H
@@ -69,8 +68,6 @@ flowchart LR
   FN --> AGNES
   FN --> LF
   FN --> MD
-  K --> REL
-  C --> REL
 ```
 
 The browser talks to Firestore/Storage directly through the Firebase SDK
@@ -333,7 +330,6 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 | Open Library | book text | `proxyBookText` server fetch |
 | MangaDex / Bato / Comick / Mangakakalot / Mangasee123 | manga catalog + images | allow-listed host proxies |
 | Last.fm | music status | server-side via `proxyLastfm` (authenticated) |
-| ac-relay | WebRTC signaling | standalone Node server, not deployed to Firebase |
 
 ## 7. Database Schema
 
