@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -122,8 +123,8 @@ class DashboardZoneHeader extends StatelessWidget {
   }
 }
 
-/// Light pair container for 2-across previews on wide screens.
-/// Stacks vertically on mobile.
+/// Light pair container for 2-across previews on tablet and up.
+/// Stacks vertically on phone (< 600px).
 class DashboardPair extends StatelessWidget {
   final Widget left;
   final Widget right;
@@ -134,7 +135,7 @@ class DashboardPair extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 720;
+        final isWide = constraints.maxWidth >= AppBreakpoint.mobile;
         if (isWide) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
