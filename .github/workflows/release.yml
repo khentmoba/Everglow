@@ -1,0 +1,87 @@
+# Release publisher: cuts a tag + GitHub Release whenever the shipped
+# version changes on main.
+#
+# This is NOT the old every-deploy auto-release (removed in 4b451a2 for
+# cluttering the page with date tags). This workflow only acts when
+# `pubspec.yaml` changes on main, and it publishes exactly one release
+# per version: tag vX.Y.Z + notes taken from the matching CHANGELOG.md
+# entry. Merges that don't bump the version are a no-op.
+#
+# Flow for a release PR: bump pubspec + AppVersion, add the CHANGELOG
+# entry, mirror it in README (the check_release_sync guard enforces all
+# of this), merge. This workflow then tags HEAD and publishes.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [pubspec.yaml]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version + notes from CHANGELOG
+        id: meta
+        run: |
+          FULL=$(grep -oP '^version:\s*\K\S+' pubspec.yaml)
+          VER=${FULL%%+*}
+          if ! printf '%s' "$VER" | grep -qP '^\d+\.\d+\.\d+$'; then
+            echo "pubspec version '$FULL' is not X.Y.Z(+N)."
+            exit 1
+          fi
+          if ! grep -qP "^## \\[$VER\\]" CHANGELOG.md; then
+            echo "CHANGELOG.md has no '## [$VER]' entry."
+            exit 1
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          # Nickname from '## [X.Y.Z] - DATE - Nickname' (optional part).
+          NICK=$(grep -oP "^## \\[$VER\\] - \\S+ - \\K.+" CHANGELOG.md | head -1)
+          if [ -n "$NICK" ]; then TITLE="v$VER — $NICK"; else TITLE="v$VER"; fi
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          # Entry body: lines after the heading up to the next '## ['.
+          awk -v ver="$VER" '
+            index($0, "## [" ver "]") == 1 { flag=1; next }
+            /^## \[/ { flag=0 }
+            flag
+          ' CHANGELOG.md > notes.md
+          {
+            echo ''
+            echo '---'
+            echo '**Live Site:** https://everglow-1c6db.web.app'
+          } >> notes.md
+          echo "Publishing $TITLE"
+
+      - name: Skip when already released
+        id: check
+        run: |
+          if gh release view "v${{ steps.meta.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release already exists; nothing to do."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag first via git (exactly at this merge commit), then publish.
+      # Never moves an existing tag: if the tag is already there without
+      # a release, only the release is created (recovery path).
+      - name: Create tag + GitHub Release
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          VER=${{ steps.meta.outputs.version }}
+          if git ls-remote --tags origin "v$VER" | grep -q .; then
+            echo "Tag v$VER already exists; creating the missing release only."
+          else
+            git tag "v$VER"
+            git push origin "v$VER"
+          fi
+          gh release create "v$VER" \
+            --title "${{ steps.meta.outputs.title }}" \
+            --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

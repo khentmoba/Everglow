@@ -14,21 +14,21 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v6.0.0** — Bucket List, Calendar, Gallery, Daily Bloom Overhaul, Push Notifications, AI Function Calling
-> [View full changelog →](https://github.com/khentmoba/Everglow/releases/latest)
+> **v6.1.0** — The Glow-Up Update: Journal, 50+ Mochi tools, Cinema polish, XP rewards, phone performance
+> [View full changelog →](https://github.com/khentmoba/Everglow/blob/main/CHANGELOG.md) · [Release page →](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0)
 
-**v6.0.0 — The Relationship Hub Update:**
+**v6.1.0 — The Glow-Up Update:**
 
-1. **Bucket List** — Shared couple bucket list with 6 categories (Travel, Experience, Food, Adventure, Milestone, Other), status tracking (Wished → Planned → Completed), and Firestore persistence.
-2. **Calendar** — Shared couple calendar with date nights, anniversaries, reminders, recurring events, month grid view, and day detail sheets.
-3. **Gallery** — Shared photo gallery with upload, captions, tags, full-screen viewer, and Firebase Storage.
-4. **Daily Bloom Overhaul** — 5 plant types (Lily, Rose, Sunflower, Tulip, Sakura) with unique painters, seasonal bonuses, shared garden view, weather overlay, and plant picker.
-5. **Push Notifications** — FCM-powered notifications with foreground stream, background handler, topic subscriptions, and in-app toast alerts.
-6. **AI Function Calling** — Mochi AI can now interact with Firestore, TMDB, Open Library, and more via 11 callable tools.
-7. **Dashboard Overhaul** — Calendar preview, gallery preview, relationship timeline, upcoming countdowns, and creator modal.
-8. **New Cloud Functions** — MangaKakalot, MangaKatana, Comick, and anime image proxies for CORS bypass.
+1. **Journal** — Shared couple journal with locked/private entries and tags, plus Mochi search and read-back.
+2. **Mochi AI grows up** — From 12 tools to 50+: web search, memory tools, gallery/garden awareness, study PDFs in chat, and a Notebook-style Study space with quizzes and flashcards.
+3. **Cinema, closer to Netflix** — Remind-me bell, Top-10 numerals, touch previews, unified episode list, removable continue-watching, and a no-ads-first player.
+4. **Anime** — AniSkip opening/ending skip buttons, AnimeX home polish, richer hover details.
+5. **XP rewards everyday love** — Faster 200 XP curve with auto-XP for moods, journaling, garden care, stars, and music.
+6. **Faster on phones** — Dashboard scroll fix, Coming Up auto-retry, 49 MB of dead game files dropped, guardian cat 4 MB → 283 KB.
+7. **Fresh coats of paint** — Redesigned Play Zone and Academy hubs, cozy Mochi chat and sidebar.
+8. **More reliable** — Crash guards with tests, Jukebox stays up through API hiccups, hardened Firestore rules.
 
-_Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [v4.0.0](https://github.com/khentmoba/Everglow/releases/tag/v4.0.0) · [v3.4.0](https://github.com/khentmoba/Everglow/releases/tag/v3.4.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) · [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.1.0](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -57,7 +57,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **Starlight Jar** | Drop gratitude notes and memories into a virtual jar | 1.1.0 / 6.0.0 |
 | **Relationship Timeline** | Visual timeline of relationship milestones on the dashboard | **6.0.0** |
 | **Upcoming Countdowns** | Countdown timers to next special day on the dashboard | **6.0.0** |
-| **Journal** | Shared journal with locked/private entries and tags | **6.0.0** |
+| **Journal** | Shared journal with locked/private entries and tags | **6.1.0** |
 
 ### Entertainment
 
@@ -82,7 +82,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 
 | Feature | Description | Version |
 |---------|-------------|---------|
-| **Mochi AI** | AI assistant with 11 callable tools — can manage watchlist, write notes, set moods, search movies/books/anime, check weather, create reminders, and more | 5.0.0 / **6.0.0** |
+| **Mochi AI** | AI assistant with 50+ callable tools — can manage watchlist, write notes, set moods, search movies/books/anime, check weather, create reminders, and more | 5.0.0 / **6.1.0** |
 | **Watch Party** | Watch party with WebRTC voice chat via Firestore signaling | — |
 | **Push Notifications** | FCM-powered notifications with topic subscriptions and in-app toasts | **6.0.0** |
 
@@ -109,7 +109,7 @@ _Previous releases: [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify |
 | **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
 | **Voice Chat** | WebRTC via Firestore signaling |
-| **AI** | Agnes 2.5 Flash via SSE streaming with 11 function-calling tools |
+| **AI** | Agnes 2.5 Flash via SSE streaming with 50+ function-calling tools |
 | **Cloud Functions** | Authenticated proxies (TMDB, Last.fm, Spotify, manga, anime, Open Library) + AI (Agnes) + schedules/triggers |
 | **Notifications** | Firebase Cloud Messaging (FCM) with topic subscriptions |
 
@@ -220,7 +220,9 @@ The workflow:
 
 | Function | Purpose |
 |----------|---------|
+| `proxyCatalog` | Keyless catalog proxy (Open Library, Jikan) with login-token guard |
 | `proxyBookText` | CORS proxy for Open Library plain text fetching |
+| `cleanupGallery` / `deleteGalleryPhoto` | Gallery storage cleanup + photo deletes |
 | `proxyMangaImage` | CORS proxy for MangaDex at-home image servers |
 | `proxyMangaKakalotImage` | CORS proxy for MangaKakalot chapter pages |
 | `proxyMangaKatana` | CORS proxy for MangaKatana chapter pages |
@@ -233,30 +235,41 @@ The workflow:
 | `proxyTmdb` | Authenticated TMDB proxy (server-side API key, ID-token required) |
 | `proxyLastfm` | Authenticated Last.fm proxy (server-side API key) |
 | `proxySpotifySearch` / `spotifyExchange` / `spotifyRefresh` / `spotifyCurrentlyPlaying` | Spotify OAuth + search + playback |
-| `proxyAI` / `proxyAIv2` | Mochi AI proxy — Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 11 tools |
+| `proxyAI` / `proxyAIv2` | Mochi AI proxy — Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 50+ tools |
 | `agnesImage` | Agnes image generation proxy (`agnes-image-2.0-flash`) |
 | `verifyPasscode` | Server-verified passcode login (Khent/Clair) |
 | `health` | Public liveness + Firestore reachability |
+| `onNewChatMessage` + 6 triggers | Firestore triggers: push + Discord fan-out for chat, moods, stars, watchlist, gallery, milestones, invites |
+| `mochiDailyDigest` + 7 schedules | Mochi scheduled jobs: digests, recaps, nudges, reminders, memory sweep |
+| `notifyDiscordWatch` / `discordInteractions` | Discord watch-party notifications + interactions |
+| `sweepStalePresence` / `mochiStats` | Presence janitor + Mochi usage stats |
 
 ## Release History
 
-The full release-by-release history is in the [releases page](https://github.com/khentmoba/Everglow/releases) and `RELEASE_NOTES_v*.md`. Highlights:
+The full release-by-release history lives in [`CHANGELOG.md`](./CHANGELOG.md) and the [releases page](https://github.com/khentmoba/Everglow/releases):
 
-- **v6.0.0** — Bucket List, Calendar, Gallery, Daily Bloom Overhaul, Push Notifications, AI Function Calling
-- **v5.3.0** — Anime Embed Support in Video Player, Provider Switching
-- **v5.2.0** — AniList/Jikan Rich Anime Details, Anime Search Modal, Cinema Rewrite
-- **v5.1.0** — Anime Browse Tab, MangaDex Catalog Proxy, Play Zone HUD Refactor
-- **v5.0.0** — Anime Feature, MangaDex Image Proxy, Anime Dashboard Preview
-- **v4.0.0** — Play Zone Start Gestures, Gesture Overlay Enhancements
-- **v3.4.0** — Manga Reader (MangaDex API Integration), Masked Special Forces Game
-- **v3.3.0** — Play Zone Games (Table Tennis World Tour), Watchlist Consolidation
-- **v3.2.0** — Our Books (Open Library Integration, In-App Reader), Instant Carousel Trailers
-- **v3.1.0** — Live Presence, Hover-to-Play Trailers, Our Cinema Glass UI
-- **v3.0.0** — Cinematic Cinema Overhaul, Piano Tiles Rewrite, Breyan + Octagram Access
-- **v2.1.0** — Play Zone Overhaul
-- **v2.0.0** — Mobile Optimization & Bloat Cleanup
-- **v1.5.x** — Cinema: trending, genres, multi-provider video, PH rankings
-- **v1.0.0** — Initial release
+- [**v6.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) — The Glow-Up Update: Journal, 50+ Mochi tools, Cinema polish, XP rewards, phone performance
+- [**v6.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) — The Relationship Hub Update: Bucket List, Calendar, Gallery, Daily Bloom Overhaul, Push Notifications, AI Function Calling
+- [**v5.3.0**](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) — Anime Embeds: provider switching, VidSrc, AniList fix
+- [**v5.2.0**](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) — Rich Anime Details: AniList/Jikan, anime search modal
+- [**v5.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) — Anime Browse tab, MangaDex proxy, Play Zone HUD refactor
+- [**v5.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) — Anime Arrives: dedicated screen, image proxy, dashboard preview
+- [**v4.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v4.0.0) — Play Zone Polish: boot gestures, manga reader consolidation
+- [**v3.4.0**](https://github.com/khentmoba/Everglow/releases/tag/v3.4.0) — Manga Reader, Masked Special Forces, cloud proxy
+- [**v3.3.0**](https://github.com/khentmoba/Everglow/releases/tag/v3.3.0) — Play Zone Games (Table Tennis, Fun Race 3D), watchlist consolidation
+- [**v3.2.0**](https://github.com/khentmoba/Everglow/releases/tag/v3.2.0) — Our Books (Open Library, in-app reader), instant trailers
+- [**v3.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v3.1.0) — Live Presence, hover-to-play trailers, Our Cinema glass UI
+- [**v3.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v3.0.0) — Cinematic Cinema overhaul, Piano Tiles rewrite, Breyan access
+- [**v2.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v2.1.0) — Play Zone Overhaul: HexGL Drift, Melody Tiles song selection
+- [**v2.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v2.0.0) — Melody Tiles, mobile optimization, bloat cleanup
+- [**v1.5.3**](https://github.com/khentmoba/Everglow/releases/tag/v1.5.3) — Cinema real iframe fix, provider cleanup, popup-ad sandbox
+- [**v1.5.2**](https://github.com/khentmoba/Everglow/releases/tag/v1.5.2) — Philippines Trending: real streaming rankings
+- [**v1.5.1**](https://github.com/khentmoba/Everglow/releases/tag/v1.5.1) — Sandbox bypass hardening + cinema and UI polish
+- [**v1.5.0**](https://github.com/khentmoba/Everglow/releases/tag/v1.5.0) — Cinema overhaul: genres, cast and reviews, carousel, rankings
+- [**v1.4.0**](https://github.com/khentmoba/Everglow/releases/tag/v1.4.0) — Cinema multi-provider video player + episode drawer
+- [**v1.3.0**](https://github.com/khentmoba/Everglow/releases/tag/v1.3.0) — Racing auto-respawn + touch UI
+- [**v1.2.0**](https://github.com/khentmoba/Everglow/releases/tag/v1.2.0) — Midnight Drive racing game
+- **v1.0.0** — First private builds (untagged)
 
 See [all releases](https://github.com/khentmoba/Everglow/releases) for the full changelog.
 
