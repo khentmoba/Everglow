@@ -3,13 +3,15 @@
 // web/version.json for the in-app update check, and prints the stamp.
 import "dart:io";
 
-void main() {
-  final pubspec = File("pubspec.yaml").readAsStringSync();
-  final versionMatch = RegExp(r"version:\s*(\S+)").firstMatch(pubspec);
-  final version = versionMatch?.group(1) ?? "0.0.0+0";
+import "build_stamp.dart";
 
-  final commitHash = _run("git", ["rev-parse", "--short", "HEAD"]).trim();
-  final buildConst = commitHash.isNotEmpty ? "$version-$commitHash" : version;
+void main() {
+  final buildConst = buildStamp();
+  // The version-busted core shell URL. build_web.dart stamps the exact same
+  // string into flutter_bootstrap.js + the index preload after `flutter
+  // build web`, so the loader requests this URL and the worker below can
+  // tell builds apart by URL alone.
+  final coreUrl = "main.dart.js?v=$buildConst";
 
   final sw = """
 // BUILD=$buildConst
@@ -19,10 +21,12 @@ void main() {
 // - Entry points (/, /index.html, flutter_bootstrap.js, version.json, sw.js)
 //   are served `no-cache` over HTTP, and network-only here. The shell can
 //   never go stale: a deploy is live on the next navigation.
-// - main.dart.js + CanvasKit/WASM/fonts/models are cache-first in a
-//   BUILD-stamped cache. Filenames are STABLE across Flutter builds (nothing
-//   here is content-hashed), so freshness comes from the stamp: `activate`
-//   deletes every older cache, atomically swapping shell versions.
+// - The core shell (main.dart.js) carries a `?v=BUILD` query stamped by
+//   tool/build_web.dart, so every build is a distinct cache key in the
+//   STABLE core cache below. A reload after a deploy always misses and
+//   fetches genuinely fresh bytes — no reliance on worker-activation
+//   timing (the old BUILD-stamped shell cache served stale bytes whenever
+//   the old worker was still active, which on slow lines was near-certain).
 // - Repeat visits serve heavy bytes from CacheStorage with zero network;
 //   HTTP `must-revalidate` (304s) is only the fallback when no worker
 //   controls the page yet (very first visit).
@@ -33,6 +37,10 @@ void main() {
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
 const SHELL="$buildConst-SHELL-v1";
+// Stable across builds on purpose: entries rotate by `?v=` query, so a new
+// build misses (fetches fresh) while the previous shell stays cached for
+// offline boots. Only the newest two shells are kept (see trimCore).
+const CORE="everglow-core-v1";
 // Immutable bytes keyed by engine revision, not by app build: CanvasKit
 // filenames are STABLE across Flutter builds, so a per-build purge would
 // force a ~7MB re-download on every deploy even when the engine did not
@@ -42,7 +50,10 @@ const SHELL="$buildConst-SHELL-v1";
 // build; a stale value only costs one extra wasm download, never staleness.
 const ENGINE_REV="__ENGINE_REV__";
 const IMMUTABLE="canvaskit-"+ENGINE_REV;
-const CORE=["main.dart.js","/index.html"];
+// Light precache only: the core shell is fetched on demand (by the page or
+// by the update warm-up) and rotating it here as well would just download
+// the 6MB twice on slow lines.
+const PRECACHE=["/index.html"];
 // Never cached: entry points, loaders, worker scripts, version probes,
 // and Cloud Function rewrites (same-origin /api/* GETs must never serve stale).
 const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
@@ -52,8 +63,9 @@ function isNoStore(path) {
   return false;
 }
 function isCore(path) {
-  for (const a of CORE) if (path.endsWith(a)) return true;
-  return false;
+  // Query-blind on purpose: URL.pathname excludes `?v=`, so every build's
+  // shell URL routes here while the cache key keeps the full query.
+  return path.endsWith("main.dart.js");
 }
 function isImmutable(url) {
   const p = new URL(url).pathname;
@@ -66,22 +78,33 @@ async function trimRuntime(cacheName, maxEntries) {
   try {
     const c = await caches.open(cacheName);
     const keys = await c.keys();
-    // FIFO trim must never evict CORE shell bytes: delete oldest
-    // non-core entries first.
-    const evictable = [];
-    for (const k of keys) {
-      if (!isCore(new URL(k.url).pathname)) evictable.push(k);
-    }
     const excess = keys.length - maxEntries;
-    for (let i = 0; i < excess && i < evictable.length; i++) {
-      await c.delete(evictable[i]);
+    for (let i = 0; i < excess; i++) await c.delete(keys[i]);
+  } catch (_) {}
+}
+async function trimCore() {
+  try {
+    const c = await caches.open(CORE);
+    const keys = await c.keys();
+    const shells = keys.filter((k) => new URL(k.url).pathname.endsWith("main.dart.js"));
+    // Keep current + previous: an offline deploy-day still boots.
+    while (shells.length > 2) await c.delete(shells.shift());
+  } catch (_) {}
+}
+async function newestCoreEntry() {
+  try {
+    const c = await caches.open(CORE);
+    const keys = await c.keys();
+    for (let i = keys.length - 1; i >= 0; i--) {
+      if (new URL(keys[i].url).pathname.endsWith("main.dart.js")) return keys[i];
     }
   } catch (_) {}
+  return null;
 }
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(SHELL).then((c) => c.addAll(CORE).catch(() => {}))
+    caches.open(SHELL).then((c) => c.addAll(PRECACHE).catch(() => {}))
       .then(() => caches.open(IMMUTABLE).then((c) =>
         c.addAll(["/canvaskit/canvaskit.wasm"]).catch(() => {}))),
   );
@@ -90,7 +113,7 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
       .then((ks) => Promise.all(
-        ks.filter((k) => k !== SHELL && k !== IMMUTABLE).map((k) => caches.delete(k)),
+        ks.filter((k) => k !== SHELL && k !== IMMUTABLE && k !== CORE).map((k) => caches.delete(k)),
       ))
       .then(() => self.clients.claim()),
   );
@@ -164,16 +187,26 @@ self.addEventListener("fetch", (e) => {
     return;
   }
   if (isCore(path)) {
+    // Exact-URL match (query included): a new `?v=` always misses and
+    // fetches genuinely fresh bytes, whatever worker is active. Offline
+    // with an unknown `?v=`, boot the newest cached shell instead of dying.
     e.respondWith(
-      caches.match(e.request, { cacheName: SHELL }).then((hit) => hit || fetch(e.request).then((res) => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(SHELL).then((c) => c.put(e.request, copy));
+      caches.match(e.request, { cacheName: CORE }).then((hit) => {
+        if (hit) return hit;
+        return fetch(e.request).then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CORE).then((c) => c.put(e.request, copy).then(() => trimCore()));
+          }
+          return res;
+        });
+      }).catch(async () => {
+        const fallback = await newestCoreEntry();
+        if (fallback) {
+          const res = await caches.match(fallback, { cacheName: CORE });
+          if (res) return res;
         }
-        return res;
-      })).catch(async () => {
-        const cached = await caches.match(e.request);
-        return cached || offlineResponse();
+        return offlineResponse();
       }),
     );
     return;
@@ -248,18 +281,7 @@ self.addEventListener("notificationclick", function(event) {
 
   File("web/sw.js").writeAsStringSync(sw);
   File("web/version.json").writeAsStringSync(
-    "{\"build\": \"$buildConst\"}\n",
+    '{"build": "$buildConst", "core": "$coreUrl"}\n',
   );
   print("sw.js written with BUILD = $buildConst");
-}
-
-String _run(String executable, List<String> args) {
-  try {
-    final result = Process.runSync(executable, args);
-    return result.exitCode == 0
-        ? (result.stdout as String).trim()
-        : "";
-  } catch (_) {
-    return "";
-  }
 }
