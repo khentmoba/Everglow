@@ -163,6 +163,12 @@ self.addEventListener("fetch", (e) => {
         })
         .catch(async () => {
           if (e.request.mode === "navigate") return fallbackNavigate();
+          if (path === "/version.json") {
+            return new Response(JSON.stringify({ offline: true }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           const cached = await caches.match(e.request);
           return cached || offlineResponse();
         }),
