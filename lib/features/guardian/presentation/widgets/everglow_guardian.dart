@@ -415,7 +415,9 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     ),
                   );
                 },
-                child: const CatVisuals(size: 80),
+                // Static 3D angle: auto-rotate forces a re-render every frame
+                // (battery drain on phones) for an 80px corner mascot.
+                child: const CatVisuals(size: 80, autoRotate: false),
               ),
             ),
           ],
