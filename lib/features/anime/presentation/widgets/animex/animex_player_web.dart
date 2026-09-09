@@ -8,12 +8,14 @@ import '../../../data/services/anilist_service.dart';
 
 import 'animex_buttons.dart';
 import 'animex_tokens.dart';
+import 'animex_videasy_progress.dart';
 
 class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
   final double aspectRatio;
   final String referrerPolicy;
   final VoidCallback? onContentError;
+  final void Function(VideasyProgress progress)? onProgress;
   final ScrollController? scrollController;
 
   const AnimeXPlayerFrame({
@@ -22,6 +24,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.aspectRatio = 16 / 9,
     this.referrerPolicy = 'no-referrer',
     this.onContentError,
+    this.onProgress,
     this.scrollController,
   });
 
@@ -174,7 +177,12 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (data == 'animex-content-error' && mounted && !_contentError) {
         setState(() => _contentError = true);
         widget.onContentError?.call();
+        return;
       }
+      // Videasy progress ticks (other servers stay silent — their skip
+      // buttons simply remain manual). Origin-checked inside the parser.
+      final progress = parseVideasyProgress(event.origin, data);
+      if (progress != null && mounted) widget.onProgress?.call(progress);
     }).toJS;
     web.window.addEventListener('message', _onMessage);
 
