@@ -18,6 +18,23 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   int _playbackPositionSeconds = 0;
   int _playbackDurationSeconds = 0;
 
+  // Up Next state — Netflix-style "Next episode in 10..." flow for TV.
+  // Auto countdown triggers on real playback position (Videasy/VidLink)
+  // or on a runtime-estimate fallback timer for silent providers
+  // (Everglow/CineSrc). The persistent Next pill shows whenever
+  // [_nextEpisode] exists so Clair never has to back out to pick it.
+  NextEpisode? _nextEpisode;
+  bool _upNextVisible = false;
+  int _upNextLeft = 10;
+  Timer? _upNextTimer;
+  Timer? _upNextFallbackTimer;
+  bool _upNextDismissed = false;
+  bool _hasRealProgress = false;
+  bool _autoFullscreen = false;
+  final NextEpisodeService _nextService = NextEpisodeService();
+  static const int _upNextCountdownSeconds = 10;
+  static const int _upNextLeadSeconds = 90;
+
   /// Tracks whether we've saved the initial "watching" status for this
   /// playback session so we don't spam Firestore on every rebuild.
   bool _hasSavedWatchProgress = false;
@@ -212,6 +229,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
     _playbackPositionSeconds = widget.startSeconds ?? 0;
+    _resolveNextEpisode();
+    _scheduleUpNextFallback(null);
 
     // For anime we don't have a TMDB id on the MediaItem — the slot
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
@@ -228,11 +247,15 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       (int viewId) => _iframe,
     );
 
+    // All orientations allowed — phones auto-enter theater mode in
+    // landscape (see [_maybeAutoFullscreen]) instead of being locked.
     SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   /// Anime bootstrap: look up the TMDB id for the MAL id via ani.zip,
@@ -251,6 +274,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     }
     _externalTmdbId = tmdbId;
     _iframe.src = _buildPlayerUrl(_selectedProvider);
+    _resolveNextEpisode();
   }
 
   /// Called when the iframe fires `error` or the [_loadTimeout] fires
@@ -272,6 +296,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   void _onEpisodeChanged(int episode) {
     if (episode == _currentEpisode) return;
     _progressHeartbeatTimer?.cancel();
+    _resetUpNextForNewEpisode();
     _playbackPositionSeconds = 0;
     _playbackDurationSeconds = 0;
     setState(() {
@@ -288,12 +313,15 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     });
     _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
+    _resolveNextEpisode();
+    _scheduleUpNextFallback(null);
   }
 
   /// Called when the user picks a different season from [EpisodeNavigator].
   void _onSeasonChanged(int season) {
     if (season == _currentSeason) return;
     _progressHeartbeatTimer?.cancel();
+    _resetUpNextForNewEpisode();
     _playbackPositionSeconds = 0;
     _playbackDurationSeconds = 0;
     setState(() {
@@ -311,6 +339,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     });
     _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
+    _resolveNextEpisode();
+    _scheduleUpNextFallback(null);
   }
 
   /// Saves or updates the watch progress in Firestore so the
@@ -401,6 +431,23 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         final data = msg.data;
         if (data == null) return;
 
+        // Videasy progress ticks (JSON string). Origin-checked inside
+        // the parser — other providers stay silent here.
+        try {
+          final dataStr = data.toString();
+          final videasy = parseVideasyProgress(origin, dataStr);
+          if (videasy != null) {
+            _contentCheckTimer?.cancel();
+            _onPlaybackTick(
+              videasy.positionSeconds.round(),
+              videasy.durationSeconds.round(),
+            );
+            return;
+          }
+        } catch (_) {
+          // Fall through to VidLink handling.
+        }
+
         // Only accept messages from the active provider's origin
         final activeOrigin = _originForProvider(_selectedProvider.id);
         if (origin != activeOrigin) return;
@@ -412,16 +459,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
           _contentCheckTimer?.cancel();
           final playback = _extractPlayback(map);
           if (playback != null && mounted) {
-            final position = playback.$1;
-            final duration = playback.$2;
-            if (position != _playbackPositionSeconds ||
-                duration != _playbackDurationSeconds) {
-              setState(() {
-                _playbackPositionSeconds = position;
-                _playbackDurationSeconds = duration;
-              });
-              _startProgressHeartbeat();
-            }
+            _onPlaybackTick(playback.$1, playback.$2);
           }
         }
       } catch (e) {
@@ -478,6 +516,185 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
             : null,
       );
     });
+  }
+
+  /// Central playback tick for Videasy + VidLink progress events.
+  /// Updates position/duration, keeps the Firestore heartbeat alive,
+  /// and triggers the Up Next countdown near the end of TV episodes.
+  void _onPlaybackTick(int position, int duration) {
+    if (!mounted) return;
+    _hasRealProgress = true;
+    // Real position beats the runtime estimate — cancel the fallback
+    // so the countdown only fires once, on truthful data.
+    _upNextFallbackTimer?.cancel();
+    if (position != _playbackPositionSeconds ||
+        duration != _playbackDurationSeconds) {
+      setState(() {
+        _playbackPositionSeconds = position;
+        _playbackDurationSeconds = duration;
+      });
+      _startProgressHeartbeat();
+    }
+    _checkUpNext();
+  }
+
+  /// Resolves the episode after the current one for the Up Next card
+  /// and the persistent Next pill. TV only — movies have no next.
+  Future<void> _resolveNextEpisode() async {
+    if (widget.mediaType != 'tv') return;
+    final tmdbId = widget.isAnime ? _activeTmdbId : widget.tmdbId;
+    if (tmdbId == null) return;
+    final season = _currentSeason;
+    final episode = _currentEpisode;
+    final next = await _nextService.resolve(
+      tmdbId: tmdbId,
+      season: season,
+      episode: episode,
+    );
+    if (!mounted) return;
+    // Stale response (user zapped episodes mid-flight) — drop it.
+    if (season != _currentSeason || episode != _currentEpisode) return;
+    setState(() => _nextEpisode = next);
+  }
+
+  /// Schedules the runtime-estimate fallback that shows Up Next on
+  /// providers that never report position (Everglow/CineSrc). When
+  /// [runtimeMinutes] is null it is fetched from TMDB; unknown runtimes
+  /// default to 42 minutes. Cancelled as soon as real progress arrives.
+  Future<void> _scheduleUpNextFallback(int? runtimeMinutes) async {
+    _upNextFallbackTimer?.cancel();
+    if (widget.mediaType != 'tv' || widget.isAnime) return;
+    var minutes = runtimeMinutes;
+    minutes ??= await _nextService.fetchEpisodeRuntime(
+      tmdbId: widget.tmdbId,
+    );
+    if (!mounted || _hasRealProgress) return;
+    final totalSeconds = (minutes ?? 42) * 60;
+    final delaySeconds = totalSeconds - _upNextLeadSeconds;
+    if (delaySeconds <= 10) return;
+    _upNextFallbackTimer = Timer(
+      Duration(seconds: delaySeconds),
+      () {
+        if (!mounted || _hasRealProgress) return;
+        _showUpNext();
+      },
+    );
+  }
+
+  /// Checks real playback position against the end of the episode.
+  /// Shows the countdown when 90 seconds (or less) remain.
+  void _checkUpNext() {
+    if (widget.mediaType != 'tv') return;
+    if (_upNextVisible || _upNextDismissed) return;
+    if (_nextEpisode == null) return;
+    final duration = _playbackDurationSeconds;
+    final position = _playbackPositionSeconds;
+    if (duration <= 60 || position <= 0) return;
+    final remaining = duration - position;
+    if (remaining <= _upNextLeadSeconds && remaining > 0) {
+      _showUpNext();
+    }
+  }
+
+  void _showUpNext() {
+    if (_upNextVisible || _upNextDismissed) return;
+    if (_nextEpisode == null || !mounted) return;
+    setState(() {
+      _upNextVisible = true;
+      _upNextLeft = _upNextCountdownSeconds;
+    });
+    _upNextTimer?.cancel();
+    _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_upNextLeft <= 1) {
+        timer.cancel();
+        _playNextEpisode();
+        return;
+      }
+      setState(() => _upNextLeft--);
+    });
+  }
+
+  void _cancelUpNext() {
+    _upNextTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _upNextVisible = false;
+      _upNextDismissed = true;
+    });
+  }
+
+  /// Plays the resolved next episode (same-season or season premiere).
+  /// Reloads the iframe in place — Clair never leaves the player.
+  void _playNextEpisode() {
+    final next = _nextEpisode;
+    if (next == null) return;
+    _upNextTimer?.cancel();
+    _upNextFallbackTimer?.cancel();
+    _progressHeartbeatTimer?.cancel();
+    _hasSavedWatchProgress = false;
+    setState(() {
+      _currentSeason = next.season;
+      _currentEpisode = next.episode;
+      _isLoading = true;
+      _iframeFailed = false;
+      _upNextVisible = false;
+      _upNextDismissed = false;
+      _nextEpisode = null;
+      _hasRealProgress = false;
+      _playbackPositionSeconds = 0;
+      _playbackDurationSeconds = 0;
+    });
+    _failedProviderIds.clear();
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    _loadTimer = Timer(_loadTimeout, () {
+      if (!mounted) return;
+      if (_isLoading) _onIframeLoadError();
+    });
+    _applySandbox(_selectedProvider);
+    _iframe.src = _buildPlayerUrl(_selectedProvider);
+    _resolveNextEpisode();
+    _scheduleUpNextFallback(null);
+  }
+
+  /// Resets Up Next state when the episode changes by any other path
+  /// (navigator, season switch). The caller re-resolves + reschedules.
+  void _resetUpNextForNewEpisode() {
+    _upNextTimer?.cancel();
+    _upNextFallbackTimer?.cancel();
+    _hasSavedWatchProgress = false;
+    _upNextVisible = false;
+    _upNextDismissed = false;
+    _nextEpisode = null;
+    _hasRealProgress = false;
+  }
+
+  /// Auto-enters theater mode when a phone rotates to landscape, and
+  /// auto-exits when it rotates back to portrait. Tablets/desktops and
+  /// manual toggles are never touched.
+  void _maybeAutoFullscreen(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final isPhone = size.shortestSide < 600;
+    if (!isPhone) return;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    if (isLandscape && !_isFullscreen && !_iframeFailed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isFullscreen) return;
+        _autoFullscreen = true;
+        _toggleFullScreen();
+      });
+    } else if (!isLandscape && _isFullscreen && _autoFullscreen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_isFullscreen || !_autoFullscreen) return;
+        _autoFullscreen = false;
+        _toggleFullScreen();
+      });
+    }
   }
 
   /// Returns the expected postMessage origin for a given provider.
