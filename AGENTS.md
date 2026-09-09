@@ -42,6 +42,41 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 - If functions or hosting checks fail, stop and fix. Do not add `continue-on-error` or hide failures.
 - Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
 
+## Releases — keep the version, README, and GitHub in sync
+
+Releases are manual and curated, never automatic. Auto-releases once
+cluttered the page with date tags, so Khent removed them (see `4b451a2`).
+CI must never publish releases — it only checks the paperwork matches
+(`tool/ci/check_release_sync.dart` runs on every PR and fails when the
+four files below disagree).
+
+Cut a release when user-visible fixes or features have piled up, or when
+Khent asks for one. One release PR per version:
+
+1. Pick the next version: patch (`6.1.1`) for fixes, minor (`6.2.0`) for
+   features, major (`7.0.0`) for big changes.
+2. Bump it in BOTH `pubspec.yaml` (`version: X.Y.Z+N`) and
+   `lib/core/system/app_version.dart` (`current`).
+3. Add a `## [X.Y.Z] - YYYY-MM-DD - Nickname` section on top of
+   `CHANGELOG.md`. Write for Clair: short, warm, grouped by what she
+   will notice. Never invent history — every version must match a real
+   tag plus a GitHub release.
+4. Update `README.md`: the `Latest Release` section mirrors the new
+   CHANGELOG entry, and `Release History` gains one linked line
+   (`.../releases/tag/vX.Y.Z`). Move the old latest into the history list.
+5. Open the release PR. Checks must pass, including the release-sync guard.
+6. After merge + successful deploy, tag and publish from `main`:
+   `git tag vX.Y.Z main && git push origin vX.Y.Z`, then
+   `gh release create vX.Y.Z --title "vX.Y.Z — Nickname" --notes-file <entry>`.
+   Paste the CHANGELOG entry as the notes. (Tag via git first — the API
+   rejects `gh release create --target <sha>` for new tags.)
+7. Open the releases page and confirm the new version shows, with the
+   README badge following it.
+
+Rules: never add auto-release steps to `deploy.yml`. Never date-based
+tags (`v2026.06.12` was deleted for this reason). Never move a published
+tag — if a release is wrong, cut a new patch version instead.
+
 
 ## Watch-outs (learned from live breaks)
 
