@@ -266,6 +266,7 @@ class NetflixContinueRow extends StatefulWidget {
   final void Function(MediaItem, bool add)? onToggleListItem;
   final void Function(MediaItem, double? rating)? onRateItem;
   final bool Function(MediaItem)? isInList;
+  final void Function(MediaItem)? onRemoveItem;
 
   const NetflixContinueRow({
     super.key,
@@ -278,6 +279,7 @@ class NetflixContinueRow extends StatefulWidget {
     this.onToggleListItem,
     this.onRateItem,
     this.isInList,
+    this.onRemoveItem,
   });
 
   @override
@@ -407,7 +409,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
               separatorBuilder: (_, _) => const SizedBox(width: 12),
               itemBuilder: (context, index) {
                 final item = widget.items[index];
-                return NetflixContinueCard(
+                final card = NetflixContinueCard(
                   item: item,
                   subtitle: widget.subtitleOf(item),
                   progress: widget.progressOf(item),
@@ -420,6 +422,21 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                     }
                   },
                   onHover: isDesktop ? _onCardHover : null,
+                );
+                final remove = widget.onRemoveItem;
+                if (remove == null) return card;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    card,
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: NetflixRemoveBadge(
+                        onTap: () => remove(item),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),

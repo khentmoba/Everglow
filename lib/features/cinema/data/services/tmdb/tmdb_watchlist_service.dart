@@ -312,6 +312,37 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
+  /// Removes a title from Continue Watching without dropping it from My List.
+  ///
+  /// Mirrors Netflix's "Remove From Row": the item keeps its place in the
+  /// library under To Watch, but its playback progress is cleared so it no
+  /// longer shows up in the watching shelves. Only ever touches the
+  /// caller's own document (see saveToWatchList). Does nothing when the
+  /// caller has no document for [tmdbId].
+  Future<void> clearWatchProgress(int tmdbId, String userName) async {
+    if (userName.isEmpty) return;
+    try {
+      final collection = firestore.collection('watch_list');
+      final existing = await collection
+          .where('tmdbId', isEqualTo: tmdbId)
+          .where('userName', isEqualTo: userName)
+          .limit(1)
+          .get();
+      if (existing.docs.isEmpty) return;
+      await collection.doc(existing.docs.first.id).update({
+        'status': 'to-watch',
+        'currentSeason': null,
+        'currentEpisode': null,
+        'currentTimestamp': null,
+        'durationSeconds': null,
+        'progressUpdatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      Logger.e('Error clearing watch progress', error: e);
+      rethrow;
+    }
+  }
+
   /// Adds or removes a lightweight "My List" entry from hover previews.
   Future<bool> setListMembership(
     MediaItem item,
