@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/bucket_item.dart';
-import 'bucket_item_card.dart';
+import '../widgets/bucket_item_card.dart';
+import '../widgets/bucket_ui.dart';
 
-/// Kanban board — Vikunja inspired, 3 columns for Wish/Planned/Completed.
+/// Kanban board — Wish / Planned / Fulfilled columns.
 ///
-/// Uses tap-to-move (no drag for web reliability) with progress counts.
+/// Tap-to-move via each card's detail sheet (no drag, for web + touch
+/// reliability). Cards render swipe-free here so gestures never fight
+/// the horizontal column scroll.
 class BucketKanbanBoard extends StatelessWidget {
   final List<BucketItem> items;
   final String currentUsername;
+  final VoidCallback onAdd;
 
   const BucketKanbanBoard({
     super.key,
     required this.items,
     required this.currentUsername,
+    required this.onAdd,
   });
 
   @override
@@ -26,22 +33,37 @@ class BucketKanbanBoard extends StatelessWidget {
 
     return ListView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
       children: BucketStatus.values
           .map(
-            (status) => _buildColumn(context, status, byStatus[status] ?? []),
+            (status) => _DreamColumn(
+              status: status,
+              items: byStatus[status] ?? [],
+              currentUsername: currentUsername,
+              onAdd: status == BucketStatus.wish ? onAdd : null,
+            ),
           )
           .toList(),
     );
   }
+}
 
-  Widget _buildColumn(
-    BuildContext context,
-    BucketStatus status,
-    List<BucketItem> colItems,
-  ) {
-    // Sort by priority rank desc, then dueDate asc, then createdAt desc.
-    final sorted = List<BucketItem>.from(colItems)
+class _DreamColumn extends StatelessWidget {
+  final BucketStatus status;
+  final List<BucketItem> items;
+  final String currentUsername;
+  final VoidCallback? onAdd;
+
+  const _DreamColumn({
+    required this.status,
+    required this.items,
+    required this.currentUsername,
+    this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = List<BucketItem>.from(items)
       ..sort((a, b) {
         final pr = b.priority.rank.compareTo(a.priority.rank);
         if (pr != 0) return pr;
@@ -53,51 +75,70 @@ class BucketKanbanBoard extends StatelessWidget {
         return b.createdAt.compareTo(a.createdAt);
       });
 
-    final hue = _statusHue(status);
+    final hue = bucketStatusHue(status);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final columnWidth = screenWidth < 560 ? screenWidth * 0.78 : 300.0;
+
     return Container(
-      width: 300,
+      width: columnWidth,
       margin: const EdgeInsets.only(right: 12),
       decoration: BoxDecoration(
         color: AppColors.panelGlass,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: hue.withValues(alpha: 0.14)),
+        borderRadius: AppRadius.radiusX2,
+        border: Border.all(color: hue.withValues(alpha: 0.16)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: hue.withValues(alpha: 0.08),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  hue.withValues(alpha: 0.16),
+                  hue.withValues(alpha: 0.04),
+                ],
+              ),
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
+                top: Radius.circular(AppRadius.x2),
               ),
             ),
             child: Row(
               children: [
-                Text(status.emoji, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Text(
-                  status.displayName,
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 13,
-                    color: hue,
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: hue.withValues(alpha: 0.14),
+                    border: Border.all(color: hue.withValues(alpha: 0.4)),
+                  ),
+                  child: Icon(bucketStatusIcon(status), size: 15, color: hue),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    bucketStatusLabel(status),
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 13,
+                      color: hue,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                    horizontal: 9,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: hue.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppRadius.radiusFull,
                   ),
                   child: Text(
                     '${sorted.length}',
-                    style: AppTypography.outfitWhite.copyWith(
+                    style: AppTypography.outfitBold.copyWith(
                       fontSize: 11,
-                      fontWeight: FontWeight.bold,
                       color: hue,
                     ),
                   ),
@@ -112,16 +153,18 @@ class BucketKanbanBoard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      _statusIcon(status),
+                      bucketStatusIcon(status),
                       size: 28,
-                      color: hue.withValues(alpha: 0.4),
+                      color: hue.withValues(alpha: 0.35),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'No ${status.displayName.toLowerCase()}',
+                      status == BucketStatus.completed
+                          ? 'None fulfilled yet'
+                          : 'No ${bucketStatusLabel(status).toLowerCase()} dreams',
                       style: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        color: AppColors.petalWhite.withValues(alpha: 0.5),
+                        color: AppColors.petalWhite.withValues(alpha: 0.45),
                       ),
                     ),
                   ],
@@ -131,52 +174,50 @@ class BucketKanbanBoard extends StatelessWidget {
           else
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
                 itemCount: sorted.length,
-                itemBuilder: (context, idx) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: BucketItemCard(
-                    item: sorted[idx],
-                    currentUsername: currentUsername,
-                  ),
+                itemBuilder: (context, idx) => BucketItemCard(
+                  item: sorted[idx],
+                  currentUsername: currentUsername,
+                  enableSwipe: false,
                 ),
               ),
             ),
-          // Quick add hint for wish column
-          if (status == BucketStatus.wish)
+          if (onAdd != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-              child: GestureDetector(
-                onTap: () {
-                  // Parent screen handles add; no-op here but keeps layout.
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.moonlight.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.blushGold.withValues(alpha: 0.1),
-                      style: BorderStyle.solid,
+              padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+              child: Semantics(
+                button: true,
+                label: 'Plant a new dream',
+                child: GestureDetector(
+                  onTap: onAdd,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AppColors.moonlight.withValues(alpha: 0.05),
+                      borderRadius: AppRadius.radiusLg,
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.18),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_rounded,
-                        size: 14,
-                        color: AppColors.petalWhite.withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Add dream',
-                        style: AppTypography.outfitWhite.copyWith(
-                          fontSize: 11,
-                          color: AppColors.petalWhite.withValues(alpha: 0.6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_rounded,
+                          size: 15,
+                          color: AppColors.blushGold.withValues(alpha: 0.8),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(
+                          'Plant a dream',
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 12,
+                            color: AppColors.blushGold.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -184,27 +225,5 @@ class BucketKanbanBoard extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _statusHue(BucketStatus s) {
-    switch (s) {
-      case BucketStatus.wish:
-        return AppColors.blushGold;
-      case BucketStatus.planned:
-        return AppColors.auroraTeal;
-      case BucketStatus.completed:
-        return Colors.greenAccent;
-    }
-  }
-
-  IconData _statusIcon(BucketStatus s) {
-    switch (s) {
-      case BucketStatus.wish:
-        return Icons.auto_awesome_outlined;
-      case BucketStatus.planned:
-        return Icons.event_note_outlined;
-      case BucketStatus.completed:
-        return Icons.check_circle_outline_rounded;
-    }
   }
 }
