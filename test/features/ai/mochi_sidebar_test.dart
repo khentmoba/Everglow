@@ -44,9 +44,7 @@ class _FakeConversationRepo implements IAIConversationRepository {
   Future<void> archiveSession(AIConversation conversation) async {}
 
   @override
-  Future<void> loadSessionIntoConversation(
-    AIConversation conversation,
-  ) async {}
+  Future<void> loadSessionIntoConversation(AIConversation conversation) async {}
 
   @override
   Future<void> clear(String feature, {bool archive = true}) async {
@@ -69,8 +67,7 @@ class _FakeConversationRepo implements IAIConversationRepository {
   Future<List<AISession>> listSessions({int limit = 50}) async => archived;
 
   @override
-  Stream<List<AISession>> watchSessions({int limit = 50}) =>
-      _controller.stream;
+  Stream<List<AISession>> watchSessions({int limit = 50}) => _controller.stream;
 
   @override
   Future<void> loadSession(String sessionId) async {}
@@ -120,12 +117,12 @@ class _FakeMemoryRepo implements IAIMemoryRepository {
   void reset() {}
 }
 
-AISession _session(String id, String title) => AISession(
+AISession _session(String id, String title, {String? summary}) => AISession(
   id: id,
   feature: 'assistant',
   messageCount: 4,
-  hasSummary: false,
-  summary: null,
+  hasSummary: summary != null,
+  summary: summary,
   createdAt: DateTime.now(),
   title: title,
 );
@@ -150,11 +147,7 @@ void main() {
         value: ai,
         child: const MaterialApp(
           home: Scaffold(
-            body: MochiSidebar(
-              isOpen: true,
-              onClose: _noop,
-              onNewChat: _noop,
-            ),
+            body: MochiSidebar(isOpen: true, onClose: _noop, onNewChat: _noop),
           ),
         ),
       ),
@@ -163,21 +156,28 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('archived sessions pushed by the stream appear with no refresh tap',
-      (tester) async {
+  testWidgets(
+    'archived sessions pushed by the stream appear with no refresh tap',
+    (tester) async {
+      await pumpSidebar(tester);
+      expect(find.textContaining('No conversations yet'), findsOneWidget);
+
+      convRepo.emitArchived([_session('a', 'Hello Mochi')]);
+      await tester.pump();
+
+      expect(find.text('Hello Mochi'), findsOneWidget);
+      expect(find.textContaining('No conversations yet'), findsNothing);
+    },
+  );
+
+  testWidgets('removed sessions disappear when the stream emits', (
+    tester,
+  ) async {
     await pumpSidebar(tester);
-    expect(find.textContaining('No conversations yet'), findsOneWidget);
-
-    convRepo.emitArchived([_session('a', 'Hello Mochi')]);
-    await tester.pump();
-
-    expect(find.text('Hello Mochi'), findsOneWidget);
-    expect(find.textContaining('No conversations yet'), findsNothing);
-  });
-
-  testWidgets('removed sessions disappear when the stream emits', (tester) async {
-    await pumpSidebar(tester);
-    convRepo.emitArchived([_session('a', 'First chat'), _session('b', 'Second chat')]);
+    convRepo.emitArchived([
+      _session('a', 'First chat'),
+      _session('b', 'Second chat'),
+    ]);
     await tester.pump();
     expect(find.text('First chat'), findsOneWidget);
     expect(find.text('Second chat'), findsOneWidget);
@@ -189,8 +189,9 @@ void main() {
     expect(find.text('Second chat'), findsOneWidget);
   });
 
-  testWidgets('current conversation shows as soon as AIService notifies',
-      (tester) async {
+  testWidgets('current conversation shows as soon as AIService notifies', (
+    tester,
+  ) async {
     await pumpSidebar(tester);
     expect(find.textContaining('No conversations yet'), findsOneWidget);
 
@@ -203,10 +204,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('Hi Mochi'), findsOneWidget);
+    expect(find.text('LIVE'), findsOneWidget);
   });
 
-  testWidgets('clearing the chat removes the live entry without refresh',
-      (tester) async {
+  testWidgets('clearing the chat removes the live entry without refresh', (
+    tester,
+  ) async {
     await pumpSidebar(tester);
     convRepo.assistantConv = AIConversation(
       id: 'assistant',
@@ -217,12 +220,77 @@ void main() {
     await tester.pump();
     expect(find.text('Hi Mochi'), findsOneWidget);
 
-    convRepo.assistantConv = AIConversation(id: 'assistant', feature: 'assistant');
+    convRepo.assistantConv = AIConversation(
+      id: 'assistant',
+      feature: 'assistant',
+    );
     ai.notifyListeners();
     await tester.pump();
 
     expect(find.text('Hi Mochi'), findsNothing);
     expect(find.textContaining('No conversations yet'), findsOneWidget);
+  });
+
+  testWidgets('mochi hub shortcuts render properly', (tester) async {
+    await pumpSidebar(tester);
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Memories'), findsOneWidget);
+    expect(find.text('Trivia'), findsOneWidget);
+  });
+
+  testWidgets('search filters sessions and shows clear option', (tester) async {
+    await pumpSidebar(tester);
+    convRepo.emitArchived([
+      _session('a', 'Movie night ideas'),
+      _session('b', 'Dinner recipe with pasta'),
+    ]);
+    await tester.pump();
+
+    expect(find.text('Movie night ideas'), findsOneWidget);
+    expect(find.text('Dinner recipe with pasta'), findsOneWidget);
+
+    // Enter query 'movie'
+    await tester.enterText(find.byType(TextField), 'movie');
+    await tester.pump();
+
+    expect(find.text('Movie night ideas'), findsOneWidget);
+    expect(find.text('Dinner recipe with pasta'), findsNothing);
+    expect(find.text('filtered'), findsOneWidget);
+
+    // Enter non-matching query
+    await tester.enterText(find.byType(TextField), 'astronaut');
+    await tester.pump();
+
+    expect(find.text('Movie night ideas'), findsNothing);
+    expect(find.textContaining('No matches for “astronaut”'), findsOneWidget);
+    expect(find.text('Clear search'), findsOneWidget);
+
+    // Tap clear search
+    await tester.tap(find.text('Clear search'));
+    await tester.pump();
+
+    expect(find.text('Movie night ideas'), findsOneWidget);
+    expect(find.text('Dinner recipe with pasta'), findsOneWidget);
+  });
+
+  testWidgets('session summary preview is displayed when present', (
+    tester,
+  ) async {
+    await pumpSidebar(tester);
+    convRepo.emitArchived([
+      _session(
+        'a',
+        'Starlight memories',
+        summary: 'Talked about stargazing trip in Palawan',
+      ),
+    ]);
+    await tester.pump();
+
+    expect(find.text('Starlight memories'), findsOneWidget);
+    expect(
+      find.text('Talked about stargazing trip in Palawan'),
+      findsOneWidget,
+    );
   });
 }
 
