@@ -46,6 +46,7 @@ dependencies:
   syncfusion_flutter_pdf: ^34.2.6
   image: ^4.9.2
   cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.2
 
 dev_dependencies:
   flutter_test:
