@@ -187,7 +187,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: isDesktop
                         ? 6
-                        : (AppBreakpoint.isTablet(context) ? 4 : 3),
+                        : (AppBreakpoint.isTablet(context) ? 5 : 3),
                     childAspectRatio: 0.67,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
@@ -307,7 +307,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: isDesktop
                   ? 6
-                  : (AppBreakpoint.isTablet(context) ? 4 : 3),
+                  : (AppBreakpoint.isTablet(context) ? 5 : 3),
               childAspectRatio: 0.67,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,

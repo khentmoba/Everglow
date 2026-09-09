@@ -302,8 +302,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
         const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
-            // 3 columns keeps the 9 tiles in a tidy 3x3 on phone + tablet.
-            const columns = 3;
+            // 3x3 on phone, denser on tablet (5) + desktop (6) so the 9
+            // tiles don't balloon into giant cards on Clair's tablet.
+            final columns = switch (AppBreakpoint.of(context)) {
+              BreakpointSize.mobile => 3,
+              BreakpointSize.tablet => 5,
+              BreakpointSize.desktop => 6,
+            };
             final tileWidth = (constraints.maxWidth - ((columns - 1) * 12)) / columns;
             return Wrap(
               spacing: 12,

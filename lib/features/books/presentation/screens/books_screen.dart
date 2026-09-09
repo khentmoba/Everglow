@@ -947,7 +947,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: AppBreakpoint.isDesktop(context)
                         ? 6
-                        : (AppBreakpoint.isTablet(context) ? 4 : 2),
+                        : (AppBreakpoint.isTablet(context) ? 5 : 2),
                     childAspectRatio: 0.62,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
