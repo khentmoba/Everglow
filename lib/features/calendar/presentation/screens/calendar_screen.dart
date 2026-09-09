@@ -162,6 +162,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                                     .clamp(0, 10),
                                                 itemBuilder: (context, index) {
                                                   final event = upcoming[index];
+                                                  if (index == 0) {
+                                                    return _NextDateHero(
+                                                      event: event,
+                                                      onTap: () => _openDaySheet(
+                                                        event.date,
+                                                      ),
+                                                    );
+                                                  }
                                                   return _UpcomingEventCard(
                                                     event: event,
                                                     onTap: () => _openDaySheet(
@@ -197,38 +205,79 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: Row(
         children: [
           Container(
-            width: 3,
-            height: 16,
+            width: 4,
+            height: 30,
             decoration: BoxDecoration(
               gradient: AppTheme.roseGoldGradient,
               borderRadius: AppRadius.radiusFull,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.deepRose.withValues(alpha: 0.4),
+                  blurRadius: 10,
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            'Upcoming',
-            style: AppTypography.titleLarge().copyWith(
-              fontSize: 18,
-              letterSpacing: 0.3,
-            ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Coming up',
+                style: AppTypography.cormorantBold.copyWith(
+                  fontSize: 21,
+                  height: 1.0,
+                  letterSpacing: 0.3,
+                  color: AppColors.petalWhite,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                count == 0 ? 'nothing planned yet' : 'your next dates',
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 10.5,
+                  letterSpacing: 0.4,
+                  color: AppColors.petalWhite.withValues(alpha: 0.45),
+                ),
+              ),
+            ],
           ),
           const Spacer(),
           if (count > 0)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.auroraRose.withValues(alpha: 0.14),
-                borderRadius: AppRadius.radiusFull,
-                border: Border.all(
-                  color: AppColors.auroraRose.withValues(alpha: 0.3),
-                ),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 11,
+                vertical: 5,
               ),
-              child: Text(
-                '$count',
-                style: AppTypography.outfitBold.copyWith(
-                  fontSize: 11,
-                  color: AppColors.auroraRose,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.auroraRose, AppColors.deepRose],
                 ),
+                borderRadius: AppRadius.radiusFull,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.deepRose.withValues(alpha: 0.4),
+                    blurRadius: 12,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.favorite_rounded,
+                    size: 10,
+                    color: AppColors.petalWhite,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    '$count',
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 12,
+                      color: AppColors.petalWhite,
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -238,54 +287,398 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 120,
+              height: 100,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.auroraRose.withValues(alpha: 0.22),
+                          AppColors.deepRose.withValues(alpha: 0.10),
+                        ],
+                      ),
+                      border: Border.all(
+                        color: AppColors.auroraRose.withValues(alpha: 0.4),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.deepRose.withValues(alpha: 0.25),
+                          blurRadius: 24,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: AppColors.auroraRose,
+                      size: 34,
+                    ),
+                  ),
+                  Positioned(
+                    top: 2,
+                    right: 8,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.inkDeep.withValues(alpha: 0.85),
+                        border: Border.all(
+                          color: AppColors.blushGold.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome_rounded,
+                        color: AppColors.blushGold,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 2,
+                    left: 6,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.inkDeep.withValues(alpha: 0.85),
+                        border: Border.all(
+                          color: AppColors.auroraLilac.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_month_rounded,
+                        color: AppColors.auroraLilac,
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Nothing planned yet',
+              style: AppTypography.cormorantBold.copyWith(
+                fontSize: 22,
+                color: AppColors.petalWhite,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Your next date night is waiting\nto be dreamed up.',
+              textAlign: TextAlign.center,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.petalWhite.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: _openAddEvent,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 22,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient: AppTheme.roseGoldGradient,
+                  borderRadius: AppRadius.radiusFull,
+                  border: Border.all(
+                    color: AppColors.petalWhite.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.deepRose.withValues(alpha: 0.45),
+                      blurRadius: 20,
+                      spreadRadius: -2,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.add_rounded,
+                      size: 17,
+                      color: AppColors.petalWhite,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Plan the next date',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 13,
+                        color: AppColors.petalWhite,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Featured spotlight for the very next date — a little countdown hero
+/// so Clair always sees what's coming first, big and warm.
+class _NextDateHero extends StatefulWidget {
+  final CalendarEvent event;
+  final VoidCallback onTap;
+
+  const _NextDateHero({required this.event, required this.onTap});
+
+  @override
+  State<_NextDateHero> createState() => _NextDateHeroState();
+}
+
+class _NextDateHeroState extends State<_NextDateHero> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final event = widget.event;
+    final info = calendarEventTypeInfo[event.type] ?? ('gift', '');
+    final hue = calendarEventHue(event.type);
+    final dayDiff = event.date.difference(DateTime.now()).inDays;
+    final countdown = dayDiff <= 0
+        ? 'Today!'
+        : dayDiff == 1
+        ? 'Tomorrow!'
+        : '$dayDiff';
+    final countdownLabel = dayDiff <= 1 ? 'is the day' : 'days to go';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, top: 4),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.orZero(AppMotion.fast),
+            curve: AppMotion.easeOutStrong,
+            transform: Matrix4.identity()
+              ..translateByDouble(0.0, _hovered ? -2.0 : 0.0, 0.0, 1.0),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.moonlight.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  hue.withValues(alpha: 0.28),
+                  AppColors.plum.withValues(alpha: 0.65),
+                  AppColors.inkDeep.withValues(alpha: 0.75),
+                ],
+              ),
+              borderRadius: AppRadius.radiusX2,
               border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.18),
+                color: _hovered
+                    ? hue.withValues(alpha: 0.65)
+                    : hue.withValues(alpha: 0.38),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: hue.withValues(alpha: _hovered ? 0.25 : 0.16),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: Icon(
-              Icons.event_busy_rounded,
-              color: AppColors.textDisabled,
-              size: 26,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -12,
+                  right: -8,
+                  child: IgnorePointer(
+                    child: Icon(
+                      Icons.favorite_rounded,
+                      size: 92,
+                      color: hue.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.roseGoldGradient,
+                            borderRadius: AppRadius.radiusFull,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 10,
+                                color: AppColors.petalWhite,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'NEXT DATE',
+                                style: AppTypography.outfitBold.copyWith(
+                                  fontSize: 9,
+                                  letterSpacing: 1.2,
+                                  color: AppColors.petalWhite,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          info.$2.toUpperCase(),
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 9.5,
+                            letterSpacing: 1.0,
+                            color: hue.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${info.$1}  ${event.title}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.cormorantBold.copyWith(
+                                  fontSize: 23,
+                                  height: 1.1,
+                                  color: AppColors.petalWhite,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 12,
+                                    color: hue.withValues(alpha: 0.9),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      DateFormat(
+                                        'EEEE, MMM d',
+                                      ).format(event.date),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.outfitBold.copyWith(
+                                        fontSize: 12,
+                                        color: AppColors.petalWhite.withValues(
+                                          alpha: 0.8,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (event.location != null) ...[
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.place_rounded,
+                                      size: 12,
+                                      color: AppColors.auroraTeal,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        event.location!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.outfitWhite
+                                            .copyWith(
+                                              fontSize: 11.5,
+                                              color: AppColors.auroraTeal,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.inkDeep.withValues(alpha: 0.55),
+                            borderRadius: AppRadius.radiusLg,
+                            border: Border.all(
+                              color: hue.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                countdown,
+                                style: AppTypography.cormorantBold.copyWith(
+                                  fontSize: 30,
+                                  height: 1.0,
+                                  color: hue,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                countdownLabel,
+                                style: AppTypography.outfitBold.copyWith(
+                                  fontSize: 9,
+                                  letterSpacing: 0.6,
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'No upcoming events',
-            style: AppTypography.outfitWhite.copyWith(
-              fontSize: 13,
-              color: AppColors.petalWhite.withValues(alpha: 0.55),
-            ),
-          ),
-          const SizedBox(height: 4),
-          TextButton.icon(
-            onPressed: _openAddEvent,
-            icon: const Icon(
-              Icons.add_rounded,
-              size: 16,
-              color: AppColors.blushGold,
-            ),
-            label: Text(
-              'Plan the next date',
-              style: AppTypography.outfitBold.copyWith(
-                fontSize: 11.5,
-                color: AppColors.blushGold,
-              ),
-            ),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.blushGold,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -329,27 +722,33 @@ class _UpcomingEventCardState extends State<_UpcomingEventCard> {
             curve: AppMotion.easeOutStrong,
             transform: Matrix4.identity()
               ..translateByDouble(0.0, _hovered ? -2.0 : 0.0, 0.0, 1.0),
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(13),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  AppColors.moonlight.withValues(alpha: 0.10),
-                  AppColors.inkDeep.withValues(alpha: 0.55),
+                  hue.withValues(alpha: 0.12),
+                  AppColors.silk.withValues(alpha: 0.55),
+                  AppColors.inkDeep.withValues(alpha: 0.6),
                 ],
               ),
               borderRadius: AppRadius.radiusLg,
               border: Border.all(
                 color: _hovered
-                    ? hue.withValues(alpha: 0.5)
-                    : hue.withValues(alpha: 0.2),
+                    ? hue.withValues(alpha: 0.55)
+                    : hue.withValues(alpha: 0.28),
               ),
               boxShadow: [
+                BoxShadow(
+                  color: AppColors.inkDeep.withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
                 if (_hovered)
                   BoxShadow(
-                    color: hue.withValues(alpha: 0.12),
-                    blurRadius: 18,
+                    color: hue.withValues(alpha: 0.16),
+                    blurRadius: 20,
                     offset: const Offset(0, 6),
                   ),
               ],
@@ -506,22 +905,46 @@ class _TimePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isToday = label == 'Today';
-    final fill = isToday ? AppColors.deepRose : hue;
-    final edge = isToday ? AppColors.auroraRose : hue;
+
+    if (isToday) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.auroraRose, AppColors.deepRose],
+          ),
+          borderRadius: AppRadius.radiusFull,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.deepRose.withValues(alpha: 0.45),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Text(
+          'Today ♥',
+          style: AppTypography.outfitBold.copyWith(
+            fontSize: 10.5,
+            letterSpacing: 0.2,
+            color: AppColors.petalWhite,
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: fill.withValues(alpha: 0.16),
+        color: hue.withValues(alpha: 0.14),
         borderRadius: AppRadius.radiusFull,
-        border: Border.all(color: edge.withValues(alpha: 0.35)),
+        border: Border.all(color: hue.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,
         style: AppTypography.outfitBold.copyWith(
           fontSize: 10.5,
           letterSpacing: 0.2,
-          color: edge,
+          color: hue,
         ),
       ),
     );

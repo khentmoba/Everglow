@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
@@ -199,20 +200,59 @@ class _CalendarPreviewState extends State<CalendarPreview> {
         child: displayEvents.isEmpty
             ? Row(
                 children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          AppColors.warmAmber.withValues(alpha: 0.22),
+                          AppColors.auroraRose.withValues(alpha: 0.12),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.warmAmber.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: AppColors.warmAmber,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'No dates yet',
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.petalWhite,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Tap to plan something special ♥',
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 11,
+                            color: AppColors.petalWhite.withValues(
+                              alpha: 0.55,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const Icon(
                     Icons.add_circle_outline_rounded,
                     color: AppColors.warmAmber,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Plan the next special day',
-                      style: AppTypography.outfitWhite.copyWith(
-                        fontSize: 12,
-                        color: AppColors.petalWhite.withValues(alpha: 0.6),
-                      ),
-                    ),
+                    size: 20,
                   ),
                 ],
               )
@@ -229,60 +269,122 @@ class _CalendarPreviewState extends State<CalendarPreview> {
                       ? 'Tomorrow'
                       : 'In $dayDiff days';
 
+                  final isToday = dayDiff == 0;
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: Row(
                       children: [
                         Container(
-                          width: 34,
-                          height: 34,
+                          width: 44,
+                          padding: const EdgeInsets.symmetric(vertical: 5),
                           decoration: BoxDecoration(
-                            color: AppColors.warmAmber.withValues(
-                              alpha: 0.12,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.warmAmber.withValues(alpha: 0.2),
+                                AppColors.auroraRose.withValues(alpha: 0.1),
+                              ],
                             ),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: AppColors.warmAmber.withValues(
-                                alpha: 0.3,
+                                alpha: 0.38,
                               ),
                             ),
                           ),
-                          child: Center(
-                            child: Text(
-                              info.$1,
-                              style: const TextStyle(fontSize: 15),
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                DateFormat(
+                                  'MMM',
+                                ).format(event.date).toUpperCase(),
+                                style: AppTypography.outfitBold.copyWith(
+                                  fontSize: 8,
+                                  letterSpacing: 1.0,
+                                  color: AppColors.warmAmber,
+                                ),
+                              ),
+                              Text(
+                                '${event.date.day}',
+                                style: AppTypography.cormorantBold.copyWith(
+                                  fontSize: 17,
+                                  height: 1.1,
+                                  color: AppColors.petalWhite,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 11),
                         Expanded(
-                          child: Text(
-                            event.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitWhite.copyWith(
-                              fontSize: 12,
-                              color: AppColors.petalWhite,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${info.$1}  ${event.title}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 12.5,
+                                  color: AppColors.petalWhite,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                DateFormat(
+                                  'EEEE · h:mm a',
+                                ).format(event.date),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 10.5,
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 3,
+                            horizontal: 10,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.warmAmber.withValues(
-                              alpha: 0.14,
-                            ),
+                            gradient: isToday
+                                ? const LinearGradient(
+                                    colors: [
+                                      AppColors.auroraRose,
+                                      AppColors.deepRose,
+                                    ],
+                                  )
+                                : null,
+                            color: isToday
+                                ? null
+                                : AppColors.warmAmber.withValues(
+                                    alpha: 0.14,
+                                  ),
                             borderRadius: BorderRadius.circular(20),
+                            border: isToday
+                                ? null
+                                : Border.all(
+                                    color: AppColors.warmAmber.withValues(
+                                      alpha: 0.35,
+                                    ),
+                                  ),
                           ),
                           child: Text(
-                            timeLabel,
+                            isToday ? 'Today ♥' : timeLabel,
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 10,
-                              color: AppColors.warmAmber,
+                              color: isToday
+                                  ? AppColors.petalWhite
+                                  : AppColors.warmAmber,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
