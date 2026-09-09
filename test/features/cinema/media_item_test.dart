@@ -107,4 +107,35 @@ void main() {
       expect(visible.any((i) => i.isAnimeSeries), isFalse);
     });
   });
+
+  group('MediaItem.remindMe', () {
+    test('defaults to false when the field is missing', () {
+      final parsed = MediaItem.fromFirestore({
+        'title': 'X',
+        'tmdbId': 1,
+        'status': 'to-watch',
+      }, 'doc');
+      expect(parsed.remindMe, isFalse);
+    });
+
+    test('round-trips through Firestore and copyWith', () {
+      final item = _item(mediaType: 'movie').copyWith(remindMe: true);
+      final parsed = MediaItem.fromFirestore(item.toFirestore(), 'doc');
+      expect(parsed.remindMe, isTrue);
+      expect(item.copyWith().remindMe, isTrue);
+    });
+
+    test('omits the field when false so old docs stay clean', () {
+      final data = _item(mediaType: 'movie').toFirestore();
+      expect(data.containsKey('remindMe'), isFalse);
+    });
+
+    test('reminded filter picks only flagged titles', () {
+      final items = [
+        _item(mediaType: 'movie'),
+        _item(mediaType: 'movie').copyWith(remindMe: true),
+      ];
+      expect(items.reminded.length, 1);
+    });
+  });
 }
