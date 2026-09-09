@@ -235,9 +235,13 @@ class _EverglowButtonState extends State<EverglowButton>
         Icon(widget.icon, size: 18, color: color),
         const SizedBox(width: AppSpacing.sm),
       ],
-      Text(
-        widget.label,
-        style: AppTypography.labelLarge().copyWith(color: color),
+      Flexible(
+        child: Text(
+          widget.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.labelLarge().copyWith(color: color),
+        ),
       ),
     ];
 
