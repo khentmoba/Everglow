@@ -16,6 +16,7 @@ class CinemaLibraryTab extends StatefulWidget {
   final void Function(MediaItem)? onPlayItem;
   final void Function(MediaItem, bool add)? onToggleListItem;
   final void Function(MediaItem, double? rating)? onRateItem;
+  final void Function(MediaItem)? onRemoveProgress;
   final void Function(int) onSwitchTab;
 
   const CinemaLibraryTab({
@@ -25,6 +26,7 @@ class CinemaLibraryTab extends StatefulWidget {
     this.onPlayItem,
     this.onToggleListItem,
     this.onRateItem,
+    this.onRemoveProgress,
     required this.onSwitchTab,
   });
 
@@ -171,7 +173,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
               ),
               itemBuilder: (context, index) {
                 final item = visible[index];
-                return NetflixPosterCard(
+                final card = NetflixPosterCard(
                   item: item,
                   compact: true,
                   selfPreview: true,
@@ -181,6 +183,21 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                   onToggleList: widget.onToggleListItem,
                   onRate: widget.onRateItem,
                   isInList: (_) => true,
+                );
+                final remove = widget.onRemoveProgress;
+                if (remove == null || !item.isCurrentlyWatching) return card;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    card,
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: NetflixRemoveBadge(
+                        onTap: () => remove(item),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),

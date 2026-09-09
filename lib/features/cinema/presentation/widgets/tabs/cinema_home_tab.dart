@@ -46,6 +46,7 @@ class CinemaHomeTab extends StatelessWidget {
   final void Function(MediaItem, bool add)? onToggleListItem;
   final void Function(MediaItem, double? rating)? onRateItem;
   final bool Function(MediaItem)? isInList;
+  final void Function(MediaItem)? onRemoveProgress;
   final void Function(int) onSwitchTab;
 
   const CinemaHomeTab({
@@ -72,6 +73,7 @@ class CinemaHomeTab extends StatelessWidget {
     this.onToggleListItem,
     this.onRateItem,
     this.isInList,
+    this.onRemoveProgress,
     required this.onSwitchTab,
   });
 
@@ -201,6 +203,7 @@ class CinemaHomeTab extends StatelessWidget {
                 progressOf: _continueProgress,
                 onTapItem: onMediaTap,
                 onPlayContinue: onPlayItem,
+                onRemoveItem: onRemoveProgress,
               ),
             ),
 

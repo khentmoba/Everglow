@@ -444,6 +444,29 @@ class _CinemaScreenState extends State<CinemaScreen> {
     }
   }
 
+  Future<void> _removeProgress(MediaItem item) async {
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) return;
+    HapticFeedback.lightImpact();
+    try {
+      await _tmdbService.clearWatchProgress(item.tmdbId, userName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Removed "${item.title}" from Continue Watching',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    } catch (e) {
+      debugPrint('[Cinema] Failed to clear watch progress: $e');
+    }
+  }
+
   Future<void> _rateItem(MediaItem item, double? rating) async {
     final userName = context.read<AuthService>().currentUser ?? '';
     if (userName.isEmpty) return;
@@ -520,6 +543,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onRateItem: _rateItem,
                   isInList: (item) =>
                       _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
+                  onRemoveProgress: _removeProgress,
                   onSwitchTab: _switchTab,
                 ),
                 CinemaSearchTab(
@@ -548,6 +572,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onPlayItem: _playMedia,
                   onToggleListItem: _toggleListItem,
                   onRateItem: _rateItem,
+                  onRemoveProgress: _removeProgress,
                   onSwitchTab: _switchTab,
                 ),
                 // Watch Together holds a room stream, so it
