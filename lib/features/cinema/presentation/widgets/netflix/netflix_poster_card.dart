@@ -490,6 +490,49 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
   }
 }
 
+/// Small dismiss (X) badge overlaid on continue-watching cards.
+///
+/// Tapping removes the title from Continue Watching (see
+/// `TMDBWatchlistService.clearWatchProgress`) without dropping it from
+/// My List — Netflix's "Remove From Row".
+class NetflixRemoveBadge extends StatelessWidget {
+  final VoidCallback? onTap;
+  final String tooltip;
+
+  const NetflixRemoveBadge({
+    super.key,
+    this.onTap,
+    this.tooltip = 'Remove from Continue Watching',
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.65),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+          ),
+          child: const Icon(
+            Icons.close_rounded,
+            color: Colors.white,
+            size: 15,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PosterFallback extends StatelessWidget {
   final String title;
   const _PosterFallback({required this.title});

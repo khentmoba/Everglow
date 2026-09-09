@@ -262,6 +262,9 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Future<void> removeFromWatchList(int tmdbId, String userName) =>
       _watchlist.removeFromWatchList(tmdbId, userName);
 
+  Future<void> clearWatchProgress(int tmdbId, String userName) =>
+      _watchlist.clearWatchProgress(tmdbId, userName);
+
   Future<bool> setListMembership(
     MediaItem item,
     String userName, {
