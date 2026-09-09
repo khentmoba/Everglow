@@ -63,4 +63,35 @@ void main() {
       expect(note.isRead, isTrue);
     });
   });
+
+  group('HiddenNote serialization', () {
+    test('round-trips through toJson and fromJson', () {
+      final original = HiddenNote(
+        id: 'letter-42',
+        title: 'A Love Note',
+        content: 'I love you so much!',
+        unlockDate: DateTime(2026, 9, 20, 15, 30),
+        isRead: true,
+      );
+
+      final json = original.toJson();
+      final restored = HiddenNote.fromJson(json);
+
+      expect(restored.id, equals(original.id));
+      expect(restored.title, equals(original.title));
+      expect(restored.content, equals(original.content));
+      expect(restored.unlockDate, equals(original.unlockDate));
+      expect(restored.isRead, isTrue);
+    });
+
+    test('fromJson handles nulls and missing fields gracefully', () {
+      final restored = HiddenNote.fromJson({});
+
+      expect(restored.id, isEmpty);
+      expect(restored.title, isEmpty);
+      expect(restored.content, isEmpty);
+      expect(restored.isRead, isFalse);
+      expect(restored.unlockDate, isNotNull);
+    });
+  });
 }

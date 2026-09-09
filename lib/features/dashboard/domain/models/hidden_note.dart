@@ -46,6 +46,37 @@ class HiddenNote {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'content': content,
+      'unlockDate': unlockDate.toIso8601String(),
+      'isRead': isRead,
+    };
+  }
+
+  factory HiddenNote.fromJson(Map<String, dynamic> json) {
+    DateTime unlockDate;
+    final rawDate = json['unlockDate'];
+    if (rawDate is String) {
+      unlockDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+    } else {
+      unlockDate = DateTime.now();
+    }
+
+    final rawRead = json['isRead'];
+    final isRead = rawRead is bool ? rawRead : false;
+
+    return HiddenNote(
+      id: (json['id'] as String?) ?? '',
+      title: (json['title'] as String?) ?? '',
+      content: (json['content'] as String?) ?? '',
+      unlockDate: unlockDate,
+      isRead: isRead,
+    );
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'title': title,

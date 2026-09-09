@@ -87,8 +87,20 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
     if (cached.isNotEmpty) {
       _allNotes = cached;
       _isLoading = false;
+    } else {
+      _loadInitialCache();
     }
     _subscribe();
+  }
+
+  Future<void> _loadInitialCache() async {
+    final diskNotes = await _service.loadDiskCache();
+    if (diskNotes.isNotEmpty && mounted && _allNotes.isEmpty) {
+      setState(() {
+        _allNotes = diskNotes;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -254,7 +266,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
   }
 
   Widget _buildLetterList() {
-    if (_isLoading) {
+    if (_isLoading && _allNotes.isEmpty) {
       return ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: 5,
@@ -269,7 +281,7 @@ class _LetterboxArchiveScreenState extends State<LetterboxArchiveScreen> {
       );
     }
 
-    if (_hasError) {
+    if (_hasError && _allNotes.isEmpty) {
       return EverglowErrorState(
         message: 'Could not load letters',
         onRetry: _retry,
