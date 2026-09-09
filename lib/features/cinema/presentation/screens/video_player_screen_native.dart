@@ -11,6 +11,7 @@ import '../../data/models/next_episode.dart';
 import '../../data/models/video_source_config.dart';
 import '../../data/services/cinema_video_sources.dart';
 import '../../data/services/next_episode_service.dart';
+import '../../data/services/player_memory_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../widgets/embed_webview.dart';
@@ -55,6 +56,7 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   final VideoSourceService _sourceService = VideoSourceService();
   final NextEpisodeService _nextService = NextEpisodeService();
+  final PlayerMemoryService _memoryService = PlayerMemoryService();
   late List<VideoSourceConfig> _providers;
   late VideoSourceConfig _currentProvider;
   String? _savedProviderId;
@@ -74,6 +76,14 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   int get _externalId =>
       widget.isAnime ? (widget.malId ?? widget.tmdbId) : widget.tmdbId;
+
+  /// Per-title memory key, shared with the web player so the picked
+  /// server follows Clair across phone and browser on this device.
+  String get _memoryKey => PlayerMemoryService.cinemaKey(
+    id: _externalId,
+    mediaType: widget.mediaType,
+    isAnime: widget.isAnime,
+  );
 
   @override
   void initState() {
@@ -135,7 +145,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _restoreDefaultSource() async {
     if (_userSelectedSource) return;
-    final id = await _sourceService.loadDefaultSourceId();
+    // This title's last-used server wins; the global default is fallback.
+    final memory = await _memoryService.load(_memoryKey);
+    if (!mounted || _userSelectedSource) return;
+    final id =
+        memory.providerId ??
+        await _sourceService.loadDefaultSourceId();
     if (!mounted || id == null) return;
     setState(() {
       _savedProviderId = id;
@@ -149,6 +164,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _userSelectedSource = true;
     _savedProviderId = provider.id;
     setState(() => _currentProvider = provider);
+    await _memoryService.save(_memoryKey, providerId: provider.id);
     await _sourceService.saveDefaultSourceId(provider.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -158,6 +174,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.deepRose,
       ),
+    );
+  }
+
+  /// Remembers the current server + episode for this title so the
+  /// next visit reopens where Clair left off. Fire-and-forget.
+  void _persistEpisodeMemory() {
+    _memoryService.save(
+      _memoryKey,
+      providerId: _currentProvider.id,
+      season: _currentSeason,
+      episode: _currentEpisode,
     );
   }
 
@@ -242,6 +269,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
     _resolveNextEpisode();
     _scheduleUpNextFallback();
+    _persistEpisodeMemory();
   }
 
   void _playPreviousEpisode() {
@@ -256,6 +284,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     });
     _resolveNextEpisode();
     _scheduleUpNextFallback();
+    _persistEpisodeMemory();
   }
 
   String _buildUrl() {

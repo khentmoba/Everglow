@@ -17,6 +17,7 @@ class HlsServerPlayerController {
   HlsServerPlayerState? _state;
   double _lastTime = 0.0;
   bool _muted = true;
+  double _volume = 1.0;
 
   void attach(HlsServerPlayerState state) {
     _state = state;
@@ -83,6 +84,15 @@ class HlsServerPlayerController {
   }
 
   bool get isMuted => _muted;
+
+  /// Local volume level (0..1). Applied to the element whenever it is
+  /// set; independent of [isMuted], which stays driven by autoplay.
+  double get volume => _volume;
+
+  void setVolume(double volume) {
+    _volume = volume.clamp(0.0, 1.0);
+    _state?._setVolume(_volume);
+  }
 }
 
 /// Platform view for a self-hosted HLS stream.
@@ -101,6 +111,11 @@ class HlsServerPlayer extends StatefulWidget {
   final String viewType;
   final HlsServerPlayerController controller;
 
+  /// Starting volume (0..1) for the `<video>` element. The screen owns
+  /// the persisted value and passes it down; updates flow through
+  /// [HlsServerPlayerController.setVolume].
+  final double initialVolume;
+
   final VoidCallback? onReady;
   final ValueChanged<double>? onTimeUpdate;
   final VoidCallback? onPlay;
@@ -115,6 +130,7 @@ class HlsServerPlayer extends StatefulWidget {
     required this.autoplay,
     required this.viewType,
     required this.controller,
+    this.initialVolume = 1.0,
     this.subtitleUrl,
     this.onReady,
     this.onTimeUpdate,
@@ -139,6 +155,7 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   double _pendingStart = 0.0;
   bool _pendingAutoplay = false;
   bool _muted = true;
+  double _volume = 1.0;
   int _pollTries = 0;
 
   JSFunction? _timeListener;
@@ -153,6 +170,8 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   void initState() {
     super.initState();
     widget.controller.attach(this);
+    _volume = widget.initialVolume.clamp(0.0, 1.0);
+    widget.controller._volume = _volume;
     _createVideo();
     _attachSubtitle();
     _loadStream(
@@ -167,6 +186,9 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.subtitleUrl != widget.subtitleUrl) {
       _attachSubtitle();
+    }
+    if (oldWidget.initialVolume != widget.initialVolume) {
+      _setVolume(widget.initialVolume);
     }
   }
 
@@ -229,6 +251,11 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
       video.crossOrigin = 'anonymous';
     } catch (_) {
       // Some browsers reject this for non-media URLs; playback still works.
+    }
+    try {
+      video.volume = _volume;
+    } catch (_) {
+      // Volume applies once media loads; _setVolume retries on change.
     }
     _video = video;
 
@@ -377,7 +404,10 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   void _play() {
     final video = _video;
     if (video == null || _destroyed) return;
-    video.muted = _muted;
+    try {
+      video.muted = _muted;
+      video.volume = _volume;
+    } catch (_) {}
     try {
       video.play();
     } catch (e) {
@@ -405,6 +435,13 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     _muted = muted;
     try {
       _video?.muted = muted;
+    } catch (_) {}
+  }
+
+  void _setVolume(double volume) {
+    _volume = volume.clamp(0.0, 1.0);
+    try {
+      _video?.volume = _volume;
     } catch (_) {}
   }
 
