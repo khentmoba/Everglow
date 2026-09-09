@@ -1,4 +1,4 @@
-// BUILD=6.1.0+1-9b21b04
+// BUILD=6.1.0+1-bb0bfd2
 // Everglow service worker: app-shell + asset caching + push.
 //
 // Pairing with firebase.json (last matching header rule wins there):
@@ -20,7 +20,7 @@
 // (firebase-messaging-sw.js) would replace this one and kill offline
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
-const SHELL="6.1.0+1-9b21b04-SHELL-v1";
+const SHELL="6.1.0+1-bb0bfd2-SHELL-v1";
 // Stable across builds on purpose: entries rotate by `?v=` query, so a new
 // build misses (fetches fresh) while the previous shell stays cached for
 // offline boots. Only the newest two shells are kept (see trimCore).
@@ -147,6 +147,12 @@ self.addEventListener("fetch", (e) => {
         })
         .catch(async () => {
           if (e.request.mode === "navigate") return fallbackNavigate();
+          if (path === "/version.json") {
+            return new Response(JSON.stringify({ offline: true }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
           const cached = await caches.match(e.request);
           return cached || offlineResponse();
         }),

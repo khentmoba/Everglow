@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/audio/audio_service.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -16,7 +17,12 @@ class XpAward {
 class XPService {
   static final XPService _instance = XPService._internal();
   factory XPService() => _instance;
-  XPService._internal();
+  XPService._internal([FirebaseFirestore? firestore])
+      : _customFirestore = firestore;
+
+  @visibleForTesting
+  XPService.withFirestore(FirebaseFirestore firestore)
+      : _customFirestore = firestore;
 
   static const XpAward moodAward = XpAward(20, 1);
   static const XpAward journalAward = XpAward(30, 2);
@@ -26,14 +32,37 @@ class XPService {
   static const XpAward playAward = XpAward(3, 20);
   static const XpAward dedicateAward = XpAward(15, 5);
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore? _customFirestore;
+  FirebaseFirestore get _firestore =>
+      _customFirestore ?? FirebaseFirestore.instance;
 
-  static String _todayKey() {
-    final now = DateTime.now();
+  /// Serializes progress writes so concurrent awards on boot (e.g. listen
+  /// + garden) execute in FIFO order without overwriting each other or
+  /// contending on Firestore locks.
+  Future<void> _lastOp = Future.value();
+
+  Future<T> _enqueue<T>(Future<T> Function() task) {
+    final completer = Completer<T>();
+    _lastOp = _lastOp.then((_) async {
+      try {
+        final res = await task();
+        completer.complete(res);
+      } catch (e, st) {
+        completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+
+  static String _todayKey([DateTime? date]) {
+    final now = date ?? DateTime.now();
     final m = now.month.toString().padLeft(2, '0');
     final d = now.day.toString().padLeft(2, '0');
     return '${now.year}-$m-$d';
   }
+
+  @visibleForTesting
+  static String todayKey([DateTime? date]) => _todayKey(date);
 
   Stream<UserProgress?> watchProgress(String uid) {
     return withFirestoreTimeout(
@@ -55,60 +84,66 @@ class XPService {
     await _addUncapped(uid, amount);
   }
 
-  Future<void> _addUncapped(String uid, int amount) async {
-    final docRef = _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('progress')
-        .doc('main');
+  Future<void> _addUncapped(String uid, int amount) {
+    return _enqueue(() async {
+      final docRef = _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('progress')
+          .doc('main');
 
-    await _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(docRef);
+      try {
+        final snapshot = await docRef.get().timeout(const Duration(seconds: 8));
 
-      if (!snapshot.exists) {
-        transaction.set(docRef, {
-          'xpTotal': amount,
-          'level': UserProgress.levelForXp(amount),
-          'streak': 1,
-          'lastActivity': FieldValue.serverTimestamp(),
-        });
-      } else {
-        final rawXp = snapshot.data()!['xpTotal'];
-        final currentXp =
-            rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
-        final newXp = currentXp + amount;
-        final newLevel = UserProgress.levelForXp(newXp);
-
-        transaction.update(docRef, {
-          'xpTotal': newXp,
-          'level': newLevel,
-          'lastActivity': FieldValue.serverTimestamp(),
-        });
-
-        final storedLevel = (snapshot.data()!['level'] as num?)?.toInt() ?? 1;
-        if (newLevel > storedLevel) {
-          AudioService().playSfx(AudioService.levelUp);
+        if (!snapshot.exists) {
+          await docRef.set({
+            'xpTotal': amount,
+            'level': UserProgress.levelForXp(amount),
+            'streak': 1,
+            'lastActivity': FieldValue.serverTimestamp(),
+          });
         } else {
-          AudioService().playSfx(AudioService.sparkle);
+          final data = snapshot.data() ?? <String, dynamic>{};
+          final rawXp = data['xpTotal'];
+          final currentXp =
+              rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
+          final newXp = currentXp + amount;
+          final newLevel = UserProgress.levelForXp(newXp);
+
+          await docRef.update({
+            'xpTotal': newXp,
+            'level': newLevel,
+            'lastActivity': FieldValue.serverTimestamp(),
+          });
+
+          final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
+          if (newLevel > storedLevel) {
+            AudioService().playSfx(AudioService.levelUp);
+          } else {
+            AudioService().playSfx(AudioService.sparkle);
+          }
         }
+      } on TimeoutException {
+        Logger.w('XP addXp timed out');
+      } catch (e) {
+        Logger.e('XP addXp failed', error: e);
       }
     });
   }
 
-  Future<bool> awardDaily(String uid, String action, XpAward award) async {
-    final docRef = _firestore
-        .collection('users')
-        .doc(uid)
-        .collection('progress')
-        .doc('main');
-    final today = _todayKey();
+  Future<bool> awardDaily(String uid, String action, XpAward award) {
+    return _enqueue(() async {
+      final docRef = _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('progress')
+          .doc('main');
+      final today = _todayKey();
 
-    try {
-      var granted = false;
-      await _firestore.runTransaction((transaction) async {
-        final snapshot = await transaction.get(docRef);
+      try {
+        final snapshot = await docRef.get().timeout(const Duration(seconds: 8));
         final data =
-            snapshot.exists ? snapshot.data()! : <String, dynamic>{};
+            snapshot.exists ? (snapshot.data() ?? <String, dynamic>{}) : <String, dynamic>{};
         final rawCounters = data['dailyXp'];
         final counters = rawCounters is Map
             ? Map<String, dynamic>.from(rawCounters)
@@ -118,7 +153,7 @@ class XPService {
             ? Map<String, dynamic>.from(todayEntry)
             : <String, dynamic>{};
         final used = (todayCounts[action] as num?)?.toInt() ?? 0;
-        if (used >= award.dailyCap) return;
+        if (used >= award.dailyCap) return false;
 
         todayCounts[action] = used + 1;
         counters[today] = todayCounts;
@@ -130,14 +165,14 @@ class XPService {
         final newLevel = UserProgress.levelForXp(newXp);
 
         if (snapshot.exists) {
-          transaction.update(docRef, {
+          await docRef.update({
             'xpTotal': newXp,
             'level': newLevel,
             'dailyXp': counters,
             'lastActivity': FieldValue.serverTimestamp(),
           });
         } else {
-          transaction.set(docRef, {
+          await docRef.set({
             'xpTotal': newXp,
             'level': newLevel,
             'streak': 1,
@@ -152,13 +187,15 @@ class XPService {
         } else {
           AudioService().playSfx(AudioService.sparkle);
         }
-        granted = true;
-      });
-      return granted;
-    } catch (e) {
-      Logger.e('XP awardDaily failed ($action)', error: e);
-      return false;
-    }
+        return true;
+      } on TimeoutException {
+        Logger.w('XP awardDaily timed out ($action)');
+        return false;
+      } catch (e) {
+        Logger.e('XP awardDaily failed ($action)', error: e);
+        return false;
+      }
+    });
   }
 
   Future<bool> awardMood(String uid) =>

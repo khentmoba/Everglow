@@ -29,7 +29,7 @@ class _JournalPreviewState extends State<JournalPreview> {
   Object? _error;
   bool _isLoading = true;
   int _retryCount = 0;
-  static const int _maxRetries = 3;
+  static const int _maxRetries = 1;
 
   @override
   void initState() {
