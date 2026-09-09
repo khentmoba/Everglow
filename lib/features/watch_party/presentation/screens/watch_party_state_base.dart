@@ -101,6 +101,28 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   bool _hlsReady = false;
   String? _hlsError;
 
+  /// Local HLS volume (0..1), remembered per room on this device.
+  /// Iframe embeds keep their own in-player volume; this only drives
+  /// the real `<video>` element we render for HLS rooms.
+  double _hlsVolume = 1.0;
+
+  final PlayerMemoryService _playerMemory = PlayerMemoryService();
+
+  String get _hlsVolumeKey => PlayerMemoryService.watchPartyKey(_room.id);
+
+  Future<void> _restoreHlsVolume() async {
+    final memory = await _playerMemory.load(_hlsVolumeKey);
+    if (!mounted) return;
+    final volume = (memory.volume ?? PlayerMemoryService.defaultVolume)
+        .clamp(0.0, 1.0);
+    setState(() => _hlsVolume = volume);
+    _hlsController.setVolume(volume);
+  }
+
+  void _persistHlsVolume(double volume) {
+    _playerMemory.save(_hlsVolumeKey, volume: volume.clamp(0.0, 1.0));
+  }
+
   bool get _isHlsServer =>
       _room.serverType == 'hls' && (_room.streamUrl ?? '').isNotEmpty;
 
@@ -185,6 +207,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _selectedProvider = _sourceService.defaultSource;
     _hlsViewType =
         'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
+    _restoreHlsVolume();
 
     // Listen for provider list updates from Firestore. If the iframe
     // has already failed with the hardcoded defaults, retry with the

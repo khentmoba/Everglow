@@ -12,6 +12,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../data/services/ani_zip_service.dart';
+import '../../data/services/player_memory_service.dart';
 import '../../data/services/tmdb_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/cinema_video_sources.dart';
