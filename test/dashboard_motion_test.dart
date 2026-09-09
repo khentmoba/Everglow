@@ -80,11 +80,21 @@ void main() {
                   ),
                 ),
                 const SizedBox(height: 24),
+                // Plain shape, not an Icon: Material icon glyphs rasterize
+                // differently across Flutter SDK versions and OS builds,
+                // which broke these goldens with tiny pixel diffs. PulseHeart
+                // only scales its child and paints a glow, so a circle keeps
+                // the same animation coverage without the font dependency.
                 const PulseHeart(
-                  child: Icon(
-                    Icons.favorite_rounded,
-                    color: AppColors.auroraRose,
-                    size: 24,
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.auroraRose,
+                      ),
+                    ),
                   ),
                 ),
               ],
