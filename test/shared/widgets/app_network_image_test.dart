@@ -142,6 +142,77 @@ void main() {
       expect(second.key, isNot(equals(first.key)));
     });
 
+    testWidgets('web implementation renders Image.network without RepaintBoundary', (
+      tester,
+    ) async {
+      AppNetworkImage.debugUseWebImplementation = true;
+      addTearDown(() => AppNetworkImage.debugUseWebImplementation = null);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AppNetworkImage(
+              imageUrl: 'https://example.com/poster.jpg',
+              width: 120,
+              height: 180,
+              cacheWidth: 400,
+            ),
+          ),
+        ),
+      );
+
+      // On web, Image.network is rendered instead of CachedNetworkImage to avoid
+      // WebGL texImage2D crash after alt-tabbing.
+      expect(find.byType(CachedNetworkImage), findsNothing);
+      expect(find.byType(Image), findsOneWidget);
+
+      final imageWidget = tester.widget<Image>(find.byType(Image));
+      expect(imageWidget.gaplessPlayback, isTrue);
+      expect(imageWidget.excludeFromSemantics, isTrue);
+
+      // On web, RepaintBoundary is avoided on each thumbnail (flutter/flutter#192347).
+      expect(
+        find.descendant(
+          of: find.byType(AppNetworkImage),
+          matching: find.byType(RepaintBoundary),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('onAppResumed immediately retries failed images without waiting for backoff', (
+      tester,
+    ) async {
+      const url = 'https://example.com/failed-then-wake.jpg';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppNetworkImage(
+              imageUrl: url,
+              width: 120,
+              height: 180,
+              cacheManager: _FailingCacheManager(),
+            ),
+          ),
+        ),
+      );
+
+      // Let the failure occur.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+      final first =
+          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+
+      // Without waiting for the 2s/8s timer, simulate returning from alt-tab
+      AppNetworkImage.onAppResumed();
+      await tester.pump();
+
+      final second =
+          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+      expect(second.key, isNot(equals(first.key)));
+    });
+
     testWidgets('AppPosterImage creates 2:3 aspect ratio AppNetworkImage', (
       tester,
     ) async {

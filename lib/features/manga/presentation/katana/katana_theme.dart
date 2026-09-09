@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 
 /// Everglow "MangaCelestia" dark palette used across the
 /// manga/manhwa/manhua section. Keeps the Manga Katana layout and
@@ -233,11 +234,8 @@ class KatanaChip extends StatelessWidget {
   }
 }
 
-/// Network image that prefers rendering through an `<img>` element.
-///
-/// Manga Katana's cover host doesn't send CORS headers, so byte-fetch
-/// decoding fails on the web. Rendering via an HTML image element
-/// sidesteps CORS entirely for cover art.
+/// Network image wrapper for Manga Katana covers using [AppNetworkImage]
+/// with URL validation, auto-retry, and CanvasKit WebGL Alt-Tab safety.
 class KatanaNetworkImage extends StatelessWidget {
   final String url;
   final BoxFit fit;
@@ -258,14 +256,22 @@ class KatanaNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      url,
+    return AppNetworkImage(
+      imageUrl: url,
       fit: fit,
       width: width,
       height: height,
-      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
-      errorBuilder: errorBuilder,
-      loadingBuilder: loadingBuilder,
+      placeholder: loadingBuilder != null
+          ? Builder(
+              builder: (context) =>
+                  loadingBuilder!(context, const SizedBox.shrink(), null),
+            )
+          : null,
+      errorWidget: errorBuilder != null
+          ? Builder(
+              builder: (context) => errorBuilder!(context, 'load failed', null),
+            )
+          : null,
     );
   }
 }
