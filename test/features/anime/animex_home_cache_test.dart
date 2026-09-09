@@ -25,6 +25,7 @@ MediaItem _sampleItem() {
     studio: 'Madhouse',
     genres: const ['Mystery', 'Supernatural', 'Psychological', 'Thriller'],
     score: 8.6,
+    trailerYoutubeId: 'dQw4w9WgXcQ',
   );
 }
 
@@ -51,6 +52,7 @@ void main() {
       expect(restored.studio, original.studio);
       expect(restored.genres, original.genres);
       expect(restored.score, original.score);
+      expect(restored.trailerYoutubeId, original.trailerYoutubeId);
     });
   });
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'embed_webview.dart';
@@ -12,6 +13,7 @@ class TrailerPlayer extends StatefulWidget {
   final bool muted;
   final bool autoplay;
   final bool loop;
+  final bool playing;
   final VoidCallback? onLoaded;
 
   const TrailerPlayer({
@@ -20,6 +22,7 @@ class TrailerPlayer extends StatefulWidget {
     this.muted = true,
     this.autoplay = true,
     this.loop = true,
+    this.playing = true,
     this.onLoaded,
   });
 
@@ -30,7 +33,7 @@ class TrailerPlayer extends StatefulWidget {
 class _TrailerPlayerState extends State<TrailerPlayer> {
   String get _embedUrl {
     final query = [
-      'autoplay=${widget.autoplay ? 1 : 0}',
+      'autoplay=${widget.autoplay && widget.playing ? 1 : 0}',
       'mute=${widget.muted ? 1 : 0}',
       'controls=1',
       'rel=0',
@@ -44,6 +47,11 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (!kIsWeb &&
+        defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return const SizedBox.shrink();
+    }
     return EmbedWebView(
       key: ValueKey(_embedUrl),
       url: _embedUrl,
