@@ -1,6 +1,9 @@
+import "dart:async";
+
 import "package:cached_network_image/cached_network_image.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:flutter_cache_manager/flutter_cache_manager.dart";
 
 /// Shared network image with web-performance defaults.
 ///
@@ -31,7 +34,12 @@ import "package:flutter/material.dart";
 /// An upstream CanvasKit bug (flutter/flutter#158093, #160199) turns any
 /// downscaled decode into `WebGL: INVALID_VALUE: texImage2D: no image`
 /// + black rectangles, so web always decodes at natural size.
-class AppNetworkImage extends StatelessWidget {
+///
+/// Failed loads retry on their own with backoff (2s, 8s, 32s, 128s, 512s).
+/// A brief network blip no longer leaves every rail stuck on its fallback
+/// tile: each image re-attempts for ~11 minutes, so leaving the dashboard
+/// on another screen for a few minutes heals by the time you come back.
+class AppNetworkImage extends StatefulWidget {
   final String imageUrl;
 
   /// Display size. When only [width] is given and [aspectRatio] is set, height
@@ -52,6 +60,11 @@ class AppNetworkImage extends StatelessWidget {
   /// can pass [FilterQuality.medium] or [FilterQuality.high].
   final FilterQuality filterQuality;
 
+  /// Optional cache backend, passed straight to [CachedNetworkImage].
+  /// Production callers leave this null (shared disk cache); tests inject
+  /// a fake to drive the failure path without real network or disk I/O.
+  final BaseCacheManager? cacheManager;
+
   const AppNetworkImage({
     super.key,
     required this.imageUrl,
@@ -66,7 +79,11 @@ class AppNetworkImage extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.filterQuality = FilterQuality.low,
+    this.cacheManager,
   });
+
+  @override
+  State<AppNetworkImage> createState() => _AppNetworkImageState();
 
   /// Validates that a string is a fetchable web URL. Protects WebGL/CanvasKit
   /// from trying to decode 404/SPA-rewritten HTML or dummy 'null' strings as textures.
@@ -87,37 +104,90 @@ class AppNetworkImage extends StatelessWidget {
             uri.scheme == 'blob' ||
             uri.scheme == 'data');
   }
+}
+
+class _AppNetworkImageState extends State<AppNetworkImage> {
+  /// Backoff between automatic reloads after a failed fetch.
+  static const _maxRetries = 5;
+  static Duration _backoffFor(int attempt) =>
+      Duration(seconds: 2 * (1 << (attempt * 2)));
+
+  /// Bumped on every retry so the inner image gets a fresh [Key] and
+  /// re-resolves instead of reusing its failed stream.
+  int _generation = 0;
+  int _attempt = 0;
+  int _scheduledForGeneration = -1;
+  Timer? _retryTimer;
+
+  @override
+  void didUpdateWidget(covariant AppNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
+      _attempt = 0;
+      _scheduledForGeneration = -1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Schedules one reload for the current [_generation]. Called from the
+  /// error builder, which can run on every parent rebuild while failed —
+  /// the generation guard keeps it to a single timer per attempt.
+  void _scheduleRetry() {
+    if (_attempt >= _maxRetries) return;
+    if (_scheduledForGeneration == _generation) return;
+    _scheduledForGeneration = _generation;
+    final delay = _backoffFor(_attempt);
+    _attempt++;
+    _retryTimer?.cancel();
+    _retryTimer = Timer(delay, () {
+      if (!mounted) return;
+      setState(() => _generation++);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (!isValidUrl(imageUrl)) return _fallback(context);
+    if (!AppNetworkImage.isValidUrl(widget.imageUrl)) return _fallback();
     // Flutter Web CanvasKit (flutter/flutter#158093, #160199) has an upstream
     // engine bug where setting cacheWidth/memCacheWidth smaller than the intrinsic
     // image dimensions causes ResizeImage/createImageBitmap to detach the source
     // buffer before Skia uploads it, logging "WebGL: INVALID_VALUE: texImage2D: no image"
     // and rendering pure black rectangles. On web, allow native browser decode.
     final safeCacheWidth =
-        (!kIsWeb && cacheWidth != null && cacheWidth! > 0) ? cacheWidth : null;
+        (!kIsWeb && widget.cacheWidth != null && widget.cacheWidth! > 0)
+        ? widget.cacheWidth
+        : null;
     final safeCacheHeight =
-        (!kIsWeb && cacheHeight != null && cacheHeight! > 0) ? cacheHeight : null;
+        (!kIsWeb && widget.cacheHeight != null && widget.cacheHeight! > 0)
+        ? widget.cacheHeight
+        : null;
     Widget image = CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: width,
-      height: height,
-      fit: fit,
+      key: ValueKey('${widget.imageUrl}#$_generation'),
+      imageUrl: widget.imageUrl,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
       memCacheWidth: safeCacheWidth,
       memCacheHeight: safeCacheHeight,
-      filterQuality: filterQuality,
+      filterQuality: widget.filterQuality,
+      cacheManager: widget.cacheManager,
       fadeInDuration: Duration.zero,
       fadeOutDuration: Duration.zero,
       placeholderFadeInDuration: Duration.zero,
       useOldImageOnUrlChange: true,
       placeholder: (context, _) {
-        if (placeholder != null) return placeholder!;
+        if (widget.placeholder != null) return widget.placeholder!;
         return Container(
-          width: width,
-          height: height,
-          color: placeholderColor,
+          width: widget.width,
+          height: widget.height,
+          color: widget.placeholderColor,
           alignment: Alignment.center,
           child: const SizedBox(
             width: 18,
@@ -129,30 +199,38 @@ class AppNetworkImage extends StatelessWidget {
           ),
         );
       },
-      errorWidget: (context, _, _) => _fallback(context),
+      errorWidget: (context, _, _) {
+        _scheduleRetry();
+        return _fallback();
+      },
     );
 
     // Reserve space before decode so rows/grids never jump.
-    if (aspectRatio != null && (width != null || height != null)) {
-      image = AspectRatio(aspectRatio: aspectRatio!, child: image);
-    } else if (width != null && height != null) {
-      image = SizedBox(width: width, height: height, child: image);
+    if (widget.aspectRatio != null &&
+        (widget.width != null || widget.height != null)) {
+      image = AspectRatio(aspectRatio: widget.aspectRatio!, child: image);
+    } else if (widget.width != null && widget.height != null) {
+      image = SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: image,
+      );
     }
 
-    if (borderRadius != null) {
-      image = ClipRRect(borderRadius: borderRadius!, child: image);
+    if (widget.borderRadius != null) {
+      image = ClipRRect(borderRadius: widget.borderRadius!, child: image);
     }
 
     // Isolate repaints: image decode/upload never repaints the parent row.
     return RepaintBoundary(child: image);
   }
 
-  Widget _fallback(BuildContext context) {
-    if (errorWidget != null) return errorWidget!;
+  Widget _fallback() {
+    if (widget.errorWidget != null) return widget.errorWidget!;
     Widget box = Container(
-      width: width,
-      height: height,
-      color: placeholderColor,
+      width: widget.width,
+      height: widget.height,
+      color: widget.placeholderColor,
       alignment: Alignment.center,
       child: const Icon(
         Icons.broken_image_outlined,
@@ -160,11 +238,12 @@ class AppNetworkImage extends StatelessWidget {
         size: 26,
       ),
     );
-    if (aspectRatio != null && (width != null || height != null)) {
-      box = AspectRatio(aspectRatio: aspectRatio!, child: box);
+    if (widget.aspectRatio != null &&
+        (widget.width != null || widget.height != null)) {
+      box = AspectRatio(aspectRatio: widget.aspectRatio!, child: box);
     }
-    if (borderRadius != null) {
-      box = ClipRRect(borderRadius: borderRadius!, child: box);
+    if (widget.borderRadius != null) {
+      box = ClipRRect(borderRadius: widget.borderRadius!, child: box);
     }
     return box;
   }
