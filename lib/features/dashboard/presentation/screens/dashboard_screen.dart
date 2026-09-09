@@ -297,6 +297,44 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+  /// Tablet+ pair sliver: [left] and [right] sit side by side, each
+  /// keeping its own [DeferredSection] stagger so heavy cards never
+  /// build in the same frame. Phone keeps the stacked slivers instead.
+  Widget _animatedSliverPair({
+    required Widget left,
+    required Widget right,
+    double leftPlaceholderHeight = 220,
+    double rightPlaceholderHeight = 220,
+    int leftDeferMs = 0,
+    int rightDeferMs = 0,
+  }) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: DeferredSection(
+                placeholderHeight: leftPlaceholderHeight,
+                deferMs: leftDeferMs,
+                child: left,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DeferredSection(
+                placeholderHeight: rightPlaceholderHeight,
+                deferMs: rightDeferMs,
+                child: right,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isReady = context.select<AuthService, bool>((a) => a.isReady);
@@ -485,19 +523,31 @@ class _DashboardScreenState extends State<DashboardScreen>
                           delayMs: 480,
                           placeholderHeight: 68,
                         ),
-                        _animatedSliver(
-                          const StarlightJarWidget(),
-                          delayMs: 500,
-                          placeholderHeight: 520,
-                          deferMs: 160,
-                        ),
-                        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                        _animatedSliver(
-                          const TimelineView(),
-                          delayMs: 520,
-                          placeholderHeight: 620,
-                          deferMs: 260,
-                        ),
+                        // Together goes two-column on tablet+: jar + timeline
+                        // side by side, each keeping its own defer stagger.
+                        if (AppBreakpoint.isMobile(context)) ...[
+                          _animatedSliver(
+                            const StarlightJarWidget(),
+                            delayMs: 500,
+                            placeholderHeight: 520,
+                            deferMs: 160,
+                          ),
+                          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                          _animatedSliver(
+                            const TimelineView(),
+                            delayMs: 520,
+                            placeholderHeight: 620,
+                            deferMs: 260,
+                          ),
+                        ] else
+                          _animatedSliverPair(
+                            left: const StarlightJarWidget(),
+                            right: const TimelineView(),
+                            leftPlaceholderHeight: 520,
+                            rightPlaceholderHeight: 620,
+                            leftDeferMs: 160,
+                            rightDeferMs: 260,
+                          ),
 
                         // ── ZONE: OUR WORLD — places & keepsakes ──
                         SliverToBoxAdapter(
