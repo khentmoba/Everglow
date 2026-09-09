@@ -6,7 +6,8 @@ import '../models/game_match.dart';
 import '../../../core/utils/logger.dart';
 
 class AcademyService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Lazy so widget tests can construct the service without Firebase.
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   CollectionReference get _questionsRef =>
       _firestore.collection('academy_questions');
