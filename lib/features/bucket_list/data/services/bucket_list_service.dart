@@ -27,13 +27,16 @@ class BucketListService {
           );
     }
 
-    // Re-attach once when the first snapshot is slow: the dreams preview
-    // was flipping to "could not load" on cold dashboard loads.
+    // Re-attach when the first snapshot is slow: the dreams preview
+    // was flipping to "could not load" on cold dashboard loads while
+    // the WebChannel and auth token warm up. 12s x 3 attempts mirrors
+    // calendar-upcoming and garden-stats.
     return withFirestoreTimeout(
       subscribe(),
       resubscribe: subscribe,
       label: 'bucket-list-all',
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
     );
   }
 
@@ -59,7 +62,8 @@ class BucketListService {
       subscribe(),
       resubscribe: subscribe,
       label: 'bucket-list-preview',
-      duration: const Duration(seconds: 8),
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
     );
   }
 

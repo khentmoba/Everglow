@@ -113,7 +113,7 @@ class _FirstEventGuard<T> {
       // it can't deliver a stale first event later.
       _cancelSubscription();
       if (factory != null && _attempt < maxAttempts) {
-        Logger.e(
+        Logger.w(
           '[Firestore] $name no first event after ${duration.inSeconds}s '
           '(attempt $_attempt/$maxAttempts) — re-attaching…',
         );
@@ -122,7 +122,7 @@ class _FirstEventGuard<T> {
         _finishError(
           TimeoutException(
             'No data from $name after $maxAttempts attempts',
-            retryDelay,
+            duration * maxAttempts,
           ),
           StackTrace.current,
         );
@@ -190,7 +190,7 @@ class _FirstEventGuard<T> {
             return;
           }
           if (factory != null && _attempt < maxAttempts) {
-            Logger.e(
+            Logger.w(
               '[Firestore] $name attempt $_attempt/$maxAttempts failed '
               'before first event (${_shortError(error)}) — re-attaching…',
             );
