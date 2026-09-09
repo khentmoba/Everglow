@@ -13,6 +13,7 @@ import '../../../../cinema/data/models/media_item.dart';
 import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/animex_stores.dart';
+import '../../../data/services/aniskip_service.dart';
 
 import 'animex_badges.dart';
 import 'animex_buttons.dart';
@@ -53,7 +54,15 @@ class AnimeXWatchPage extends StatefulWidget {
 class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final AniListService _aniList = AniListService();
   final AniZipService _aniZip = AniZipService();
+  final AniSkipService _aniSkip = AniSkipService();
   final ScrollController _scrollCtrl = ScrollController();
+
+  /// Community OP/ED timestamps for the current episode, if anyone marked it.
+  AniSkipTimes? _skipTimes;
+
+  /// One-shot jump target (seconds) appended as Videasy `progress=`.
+  /// Cleared on episode/server change so it never leaks across videos.
+  int? _skipJumpSeconds;
 
   AniListDetail? _detail;
   List<AniListEpisode> _episodes = [];
@@ -80,6 +89,39 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
     _load();
+    _fetchSkipTimes();
+  }
+
+  /// Loads AniSkip OP/ED times for the selected episode. Stale responses
+  /// (user zapped to another episode mid-flight) are dropped.
+  Future<void> _fetchSkipTimes() async {
+    final malId = _malId;
+    final episode = _selectedEpisode;
+    if (malId <= 0) return;
+    final times = await _aniSkip.fetchSkipTimes(malId, episode);
+    if (!mounted || _selectedEpisode != episode) return;
+    setState(() => _skipTimes = times);
+  }
+
+  /// Jumps past the opening/ending. Videasy honors `progress=` so the
+  /// player reloads at the destination; other servers have no known seek
+  /// param, so Clair gets the exact time to drag to instead.
+  void _skipTo(AniSkipTime time, String label) {
+    if (_playerUrl.contains('videasy')) {
+      setState(() => _skipJumpSeconds = time.end.round());
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            "This server can't auto-jump — drag the bar to ${time.endLabel} to skip the $label.",
+          ),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 
   Future<void> _load() async {
@@ -170,6 +212,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _selectedEpisode = episode);
     _resetForNewEpisode();
     _recordHistory(episode);
+    _fetchSkipTimes();
   }
 
   void _stepEpisode(int delta) {
@@ -194,7 +237,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     final servers = _servers.where((s) => s.available).toList();
     if (servers.isEmpty) return '';
     final index = _serverIndex.clamp(0, servers.length - 1);
-    return servers[index].urlBuilder(_selectedEpisode, _audio);
+    final url = servers[index].urlBuilder(_selectedEpisode, _audio);
+    // Skip-button jump: Videasy honors ?progress=<seconds>; other anime
+    // servers have no known seek param, so the override only applies here.
+    final jump = _skipJumpSeconds;
+    if (jump != null && jump > 0 && url.contains('videasy')) {
+      return url.contains('?') ? '$url&progress=$jump' : '$url?progress=$jump';
+    }
+    return url;
   }
 
   void _handleContentError() {
@@ -224,6 +274,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _serverIndex = index;
       _failedServerIndices.remove(index);
       _showErrorCard = false;
+      _skipJumpSeconds = null;
     });
     _probeCurrentServer();
   }
@@ -263,6 +314,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   void _resetForNewEpisode() {
     _failedServerIndices.clear();
     _showErrorCard = false;
+    _skipTimes = null;
+    _skipJumpSeconds = null;
   }
 
   String get _displayTitle {
@@ -518,6 +571,34 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 scrollController: _scrollCtrl,
               ),
             const SizedBox(height: 16),
+            if (_showErrorCard == false &&
+                _playerUrl.isNotEmpty &&
+                _skipTimes != null &&
+                !_skipTimes!.isEmpty) ...[
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  if (_skipTimes!.opening != null)
+                    AnimeXGhostButton(
+                      label:
+                          'Skip Opening \u2192 ${_skipTimes!.opening!.endLabel}',
+                      icon: Icons.skip_next_rounded,
+                      color: AnimeXTokens.accentWarm,
+                      onTap: () => _skipTo(_skipTimes!.opening!, 'opening'),
+                    ),
+                  if (_skipTimes!.ending != null)
+                    AnimeXGhostButton(
+                      label:
+                          'Skip Ending \u2192 ${_skipTimes!.ending!.endLabel}',
+                      icon: Icons.skip_next_rounded,
+                      color: AnimeXTokens.accentWarm,
+                      onTap: () => _skipTo(_skipTimes!.ending!, 'ending'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             Wrap(
               spacing: 10,
               runSpacing: 10,
