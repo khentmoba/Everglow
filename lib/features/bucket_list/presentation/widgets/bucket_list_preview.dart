@@ -10,10 +10,11 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 
-/// Dashboard preview — hero Dreams card with progress ring & wishes.
-/// Premium glass styling matching `FeatureSection` without cross-feature import.
+/// Dashboard preview — hero Dreams card with starlight progress & wishes.
+/// Atelier glass styling matching keepsakes cluster.
 class BucketListPreview extends StatefulWidget {
-  const BucketListPreview({super.key});
+  final Stream<List<BucketItem>>? itemsStream;
+  const BucketListPreview({super.key, this.itemsStream});
 
   @override
   State<BucketListPreview> createState() => _BucketListPreviewState();
@@ -21,7 +22,7 @@ class BucketListPreview extends StatefulWidget {
 
 class _BucketListPreviewState extends State<BucketListPreview> {
   bool _hovered = false;
-  late final BucketListService _service;
+  BucketListService? _service;
   StreamSubscription<List<BucketItem>>? _sub;
   Timer? _retryTimer;
   List<BucketItem>? _items;
@@ -35,9 +36,10 @@ class _BucketListPreviewState extends State<BucketListPreview> {
     super.initState();
     // One subscription for the widget lifetime so dashboard rebuilds don't
     // resubscribe and restart the Firestore listener on every frame.
-    // Preview cap (12) is plenty: the card renders a progress ring plus
-    // 3 wishes.
-    _service = BucketListService();
+    // Preview cap (12) is plenty: the card renders progress plus 3 wishes.
+    if (widget.itemsStream == null) {
+      _service = BucketListService();
+    }
     _subscribe();
   }
 
@@ -51,7 +53,8 @@ class _BucketListPreviewState extends State<BucketListPreview> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _service.watchPreview(limit: 12).listen(
+    final stream = widget.itemsStream ?? _service!.watchPreview(limit: 12);
+    _sub = stream.listen(
       (data) {
         if (!mounted) return;
         _retryCount = 0;
@@ -66,11 +69,6 @@ class _BucketListPreviewState extends State<BucketListPreview> {
         _scheduleSilentRetry(error);
       },
       onDone: () {
-        // withFirestoreTimeout closes the stream without an error when the
-        // first snapshot never arrives (cold Firestore WebChannel on first
-        // load). Retry silently — the loading shimmer stays up, so Clair
-        // never sees a spurious "could not load" that needs a manual tap.
-        // The error row only appears after the retries are exhausted.
         if (!mounted) return;
         if (_isLoading && _items == null) _scheduleSilentRetry(_error);
       },
@@ -105,425 +103,539 @@ class _BucketListPreviewState extends State<BucketListPreview> {
   @override
   Widget build(BuildContext context) {
     const hue = AppColors.blushGold;
-
     final items = _items;
-    // While loading — including silent background retries after a slow
-    // first snapshot — keep the loading state up so first load never
-    // flashes "could not load". The error row only appears after all
-    // retries are exhausted, and the manual tap stays as a last resort.
-    // Error (or timeout-closed with no data) must never masquerade as
-    // "empty" — the bucket-list screen would still show dreams on tap.
+
+    // Error state
     if (!_isLoading && (_error != null || items == null)) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: GestureDetector(
-              onTap: () => context.push('/bucket-list'),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.petalWhite.withValues(alpha: 0.04),
-                  borderRadius: AppRadius.radiusX2,
-                  border: Border.all(
-                    color: AppColors.petalWhite.withValues(alpha: 0.07),
-                  ),
-                ),
-                child: GestureDetector(
-                  onTap: _retry,
-                  child: _EmptyAddRow(
-                    hue: hue,
-                    text:
-                        '${firestoreErrorHint(_error)} — tap here to retry.',
-                  ),
-                ),
-              ),
+      return _buildCardShell(
+        hue: hue,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCardHeader(
+              hue: hue,
+              title: 'Our Bucket List',
+              subtitle: 'Could not load dreams',
             ),
-          );
-        }
-
-        // Waiting for the first snapshot is loading, not empty.
-        if (items == null) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: GestureDetector(
-              onTap: () => context.push('/bucket-list'),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _retry,
               child: Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.petalWhite.withValues(alpha: 0.04),
-                  borderRadius: AppRadius.radiusX2,
-                  border: Border.all(
-                    color: AppColors.petalWhite.withValues(alpha: 0.07),
-                  ),
+                  color: hue.withValues(alpha: 0.08),
+                  borderRadius: AppRadius.radiusMd,
+                  border: Border.all(color: hue.withValues(alpha: 0.18)),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        minHeight: 6,
-                        backgroundColor: hue.withValues(alpha: 0.12),
-                        valueColor: const AlwaysStoppedAnimation(hue),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Loading dreams…',
-                      style: AppTypography.outfitWhite.copyWith(
-                        fontSize: 11,
-                        color: AppColors.petalWhite.withValues(alpha: 0.50),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }
-
-        final all = items;
-        final completed = all
-            .where((i) => i.status == BucketStatus.completed)
-            .length;
-        final total = all.length;
-        final progress = total > 0 ? completed / total : 0.0;
-        final wishes = all
-            .where((i) => i.status == BucketStatus.wish)
-            .take(3)
-            .toList();
-
-        final subtitle = total == 0
-            ? '0 dreams — plant your first star'
-            : '$completed of $total dreams fulfilled • ${(progress * 100).round()}%';
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _hovered = true),
-            onExit: (_) => setState(() => _hovered = false),
-            child: GestureDetector(
-              onTap: () => context.push('/bucket-list'),
-              child: AnimatedContainer(
-                duration: AppMotion.orZero(AppMotion.medium),
-                curve: AppMotion.easeOutStrong,
-                transform: Matrix4.identity()
-                  ..translateByDouble(0.0, _hovered ? -3.0 : 0.0, 0.0, 1.0),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppColors.petalWhite.withValues(alpha: 0.06),
-                      AppColors.velvet.withValues(alpha: 0.68),
-                      AppColors.inkDeep.withValues(alpha: 0.74),
-                    ],
-                    stops: const [0.0, 0.42, 1.0],
-                  ),
-                  borderRadius: AppRadius.radiusX2,
-                  border: Border.all(
-                    color: _hovered
-                        ? hue.withValues(alpha: 0.48)
-                        : AppColors.petalWhite.withValues(alpha: 0.07),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.scrimStrong.withValues(alpha: 0.42),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                    BoxShadow(
-                      color: hue.withValues(alpha: _hovered ? 0.14 : 0.06),
-                      blurRadius: 22,
-                      spreadRadius: -4,
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 0,
-                      left: 22,
-                      right: 22,
-                      child: Container(
-                        height: 1.4,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.transparent,
-                              hue.withValues(alpha: 0.55),
-                              Colors.transparent,
-                            ],
-                          ),
+                    const Icon(Icons.refresh_rounded, size: 16, color: hue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${firestoreErrorHint(_error)} — tap to retry.',
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: AppColors.petalWhite.withValues(alpha: 0.70),
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const _IconChip(
-                                icon: Icons.auto_awesome_rounded,
-                                hue: hue,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Our Bucket List',
-                                      style: AppTypography.cormorantBold
-                                          .copyWith(fontSize: 21, height: 1.0),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      subtitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTypography.outfitWhite.copyWith(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.petalWhite.withValues(
-                                          alpha: 0.55,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const _Chevron(hue: hue),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              _ProgressRing(progress: progress, hue: hue),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(999),
-                                      child: LinearProgressIndicator(
-                                        value: progress,
-                                        minHeight: 6,
-                                        backgroundColor: hue.withValues(
-                                          alpha: 0.12,
-                                        ),
-                                        valueColor:
-                                            const AlwaysStoppedAnimation(hue),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      total == 0
-                                          ? 'Your story is waiting for its first dream.'
-                                          : wishes.isEmpty
-                                          ? 'All wishes are becoming memories ✨'
-                                          : '${wishes.length} wishing  •  $completed completed',
-                                      style: AppTypography.outfitWhite.copyWith(
-                                        fontSize: 11,
-                                        color: AppColors.petalWhite.withValues(
-                                          alpha: 0.50,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (total == 0) ...[
-                            const SizedBox(height: 14),
-                            const _EmptyAddRow(
-                              hue: hue,
-                              text:
-                                  'Add your first dream — “Persian cat”, “Japan together”…',
-                            ),
-                          ] else if (wishes.isNotEmpty) ...[
-                            const SizedBox(height: 14),
-                            Container(
-                              height: 1,
-                              color: AppColors.petalWhite.withValues(alpha: 0.06),
-                            ),
-                            const SizedBox(height: 12),
-                            ...wishes.map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 30,
-                                      height: 30,
-                                      decoration: BoxDecoration(
-                                        color: hue.withValues(alpha: 0.12),
-                                        borderRadius: AppRadius.radiusSm,
-                                        border: Border.all(
-                                          color: hue.withValues(alpha: 0.22),
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          item.category.emoji,
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        item.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.outfitWhite
-                                            .copyWith(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.petalWhite
-                                                  .withValues(alpha: 0.88),
-                                            ),
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 7,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: hue.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        'wish',
-                                        style: AppTypography.outfitWhite
-                                            .copyWith(
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.6,
-                                              color: hue.withValues(
-                                                alpha: 0.95,
-                                              ),
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
                   ],
                 ),
               ),
             ),
-          ),
-        );
-  }
-}
-
-class _IconChip extends StatelessWidget {
-  final IconData icon;
-  final Color hue;
-  const _IconChip({required this.icon, required this.hue});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [hue.withValues(alpha: 0.26), hue.withValues(alpha: 0.08)],
+          ],
         ),
-        borderRadius: AppRadius.radiusMd,
-        border: Border.all(color: hue.withValues(alpha: 0.45), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: hue.withValues(alpha: 0.22),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Icon(icon, color: hue, size: 20),
-    );
-  }
-}
+      );
+    }
 
-class _Chevron extends StatelessWidget {
-  final Color hue;
-  const _Chevron({required this.hue});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: hue.withValues(alpha: 0.10),
-        border: Border.all(color: hue.withValues(alpha: 0.35)),
-      ),
-      child: Icon(Icons.chevron_right_rounded, color: hue, size: 18),
-    );
-  }
-}
-
-class _ProgressRing extends StatelessWidget {
-  final double progress;
-  final Color hue;
-  const _ProgressRing({required this.progress, required this.hue});
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: CircularProgressIndicator(
-              value: progress == 0 ? 0.06 : progress,
-              strokeWidth: 3.2,
-              backgroundColor: AppColors.petalWhite.withValues(alpha: 0.07),
-              valueColor: AlwaysStoppedAnimation(hue),
-              strokeCap: StrokeCap.round,
+    // Loading state
+    if (items == null) {
+      return _buildCardShell(
+        hue: hue,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCardHeader(
+              hue: hue,
+              title: 'Our Bucket List',
+              subtitle: 'Loading our dreams…',
             ),
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: AppRadius.radiusFull,
+              child: LinearProgressIndicator(
+                minHeight: 4,
+                backgroundColor: hue.withValues(alpha: 0.12),
+                valueColor: const AlwaysStoppedAnimation(hue),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildSkeletonTile(hue),
+            const SizedBox(height: 7),
+            _buildSkeletonTile(hue),
+          ],
+        ),
+      );
+    }
+
+    final all = items;
+    final completed = all.where((i) => i.status == BucketStatus.completed).length;
+    final total = all.length;
+    final progress = total > 0 ? completed / total : 0.0;
+    final wishes = all.where((i) => i.status == BucketStatus.wish).take(3).toList();
+
+    final subtitle = total == 0
+        ? 'Plant your first star together'
+        : completed > 0
+            ? '$completed of $total fulfilled • ${(progress * 100).round()}%'
+            : '$total ${total == 1 ? 'dream' : 'dreams'} wishing to come true';
+
+    return _buildCardShell(
+      hue: hue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCardHeader(
+            hue: hue,
+            title: 'Our Bucket List',
+            subtitle: subtitle,
           ),
+          const SizedBox(height: 12),
+          _buildProgressTracker(
+            hue: hue,
+            progress: progress,
+            total: total,
+            wishesCount: wishes.length,
+            completedCount: completed,
+          ),
+          const SizedBox(height: 12),
           Container(
-            width: 32,
-            height: 32,
+            height: 1,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
               gradient: LinearGradient(
                 colors: [
-                  hue.withValues(alpha: 0.22),
-                  hue.withValues(alpha: 0.06),
+                  Colors.transparent,
+                  AppColors.petalWhite.withValues(alpha: 0.07),
+                  Colors.transparent,
                 ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
               ),
-              border: Border.all(color: hue.withValues(alpha: 0.22)),
             ),
-            child: Center(
-              child: Text(
+          ),
+          const SizedBox(height: 10),
+          if (total == 0)
+            const _EmptyBucketState(hue: hue)
+          else if (wishes.isNotEmpty)
+            ...wishes.map((item) => _BucketItemRow(item: item, hue: hue))
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: Text(
+                  'All wishes are becoming memories ✨',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 11.5,
+                    color: AppColors.petalWhite.withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+          _buildFooterAffordance(hue),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardShell({required Color hue, required Widget child}) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => context.push('/bucket-list'),
+        child: AnimatedContainer(
+          duration: AppMotion.orZero(AppMotion.medium),
+          curve: AppMotion.easeOutStrong,
+          transform: Matrix4.identity()
+            ..translateByDouble(0.0, _hovered ? -2.0 : 0.0, 0.0, 1.0),
+          decoration: BoxDecoration(
+            color: AppColors.inkDeep.withValues(alpha: 0.42),
+            borderRadius: AppRadius.radiusXl,
+            border: Border.all(
+              color: _hovered
+                  ? hue.withValues(alpha: 0.38)
+                  : AppColors.petalWhite.withValues(alpha: 0.08),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.inkDeep.withValues(alpha: 0.28),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: hue.withValues(alpha: _hovered ? 0.12 : 0.03),
+                blurRadius: 18,
+                spreadRadius: -4,
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 20,
+                right: 20,
+                child: Container(
+                  height: 1.2,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        hue.withValues(alpha: _hovered ? 0.55 : 0.30),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: child,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardHeader({
+    required Color hue,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      children: [
+        _IconChip(icon: Icons.auto_awesome_rounded, hue: hue),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTypography.cormorantBold.copyWith(
+                  fontSize: 20,
+                  height: 1.1,
+                  color: AppColors.petalWhite,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.petalWhite.withValues(alpha: 0.50),
+                ),
+              ),
+            ],
+          ),
+        ),
+        _ActionChevron(hue: hue, hovered: _hovered),
+      ],
+    );
+  }
+
+  Widget _buildProgressTracker({
+    required Color hue,
+    required double progress,
+    required int total,
+    required int wishesCount,
+    required int completedCount,
+  }) {
+    return Row(
+      children: [
+        // Mini circular percentage ring
+        SizedBox(
+          width: 34,
+          height: 34,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CircularProgressIndicator(
+                value: progress == 0 ? 0.06 : progress,
+                strokeWidth: 2.8,
+                backgroundColor: AppColors.petalWhite.withValues(alpha: 0.06),
+                valueColor: AlwaysStoppedAnimation(hue),
+                strokeCap: StrokeCap.round,
+              ),
+              Text(
                 '${(progress * 100).round()}%',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 9,
                   color: hue,
                 ),
               ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Linear bar with status labels
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: AppRadius.radiusFull,
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 4,
+                  backgroundColor: hue.withValues(alpha: 0.12),
+                  valueColor: AlwaysStoppedAnimation(hue),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      total == 0
+                          ? 'Waiting for our first dream ✨'
+                          : wishesCount == 0
+                              ? 'All wishes lived together ✨'
+                              : '$wishesCount wishing',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.petalWhite.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                  if (completedCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '$completedCount completed ✓',
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: hue.withValues(alpha: 0.90),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFooterAffordance(Color hue) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          'Explore bucket list',
+          style: AppTypography.outfitWhite.copyWith(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: hue.withValues(alpha: _hovered ? 0.95 : 0.70),
+          ),
+        ),
+        const SizedBox(width: 4),
+        AnimatedContainer(
+          duration: AppMotion.orZero(AppMotion.fast),
+          transform: Matrix4.identity()
+            ..translateByDouble(_hovered ? 2.0 : 0.0, 0.0, 0.0, 1.0),
+          child: Icon(
+            Icons.arrow_forward_rounded,
+            size: 12,
+            color: hue.withValues(alpha: _hovered ? 0.95 : 0.70),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonTile(Color hue) {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        color: AppColors.petalWhite.withValues(alpha: 0.03),
+        borderRadius: AppRadius.radiusSm,
+        border: Border.all(color: AppColors.petalWhite.withValues(alpha: 0.05)),
+      ),
+    );
+  }
+}
+
+class _BucketItemRow extends StatefulWidget {
+  final BucketItem item;
+  final Color hue;
+
+  const _BucketItemRow({required this.item, required this.hue});
+
+  @override
+  State<_BucketItemRow> createState() => _BucketItemRowState();
+}
+
+class _BucketItemRowState extends State<_BucketItemRow> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final isPlanned = item.status == BucketStatus.planned;
+    final isCompleted = item.status == BucketStatus.completed;
+
+    final statusColor = isCompleted
+        ? AppColors.auroraTeal
+        : isPlanned
+            ? AppColors.softLavender
+            : AppColors.blushGold;
+
+    final statusLabel = isCompleted
+        ? '✓ done'
+        : isPlanned
+            ? '🗓 plan'
+            : '✦ wish';
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: AppMotion.orZero(AppMotion.fast),
+        margin: const EdgeInsets.only(bottom: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: _hovered
+              ? widget.hue.withValues(alpha: 0.08)
+              : AppColors.petalWhite.withValues(alpha: 0.025),
+          borderRadius: AppRadius.radiusSm,
+          border: Border.all(
+            color: _hovered
+                ? widget.hue.withValues(alpha: 0.28)
+                : AppColors.petalWhite.withValues(alpha: 0.05),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: widget.hue.withValues(alpha: 0.12),
+                borderRadius: AppRadius.radiusXs,
+                border: Border.all(
+                  color: widget.hue.withValues(alpha: 0.22),
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  item.category.emoji,
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.petalWhite.withValues(alpha: 0.92),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    item.category.displayName,
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 10,
+                      color: AppColors.petalWhite.withValues(alpha: 0.45),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: AppRadius.radiusFull,
+                border: Border.all(color: statusColor.withValues(alpha: 0.25)),
+              ),
+              child: Text(
+                statusLabel,
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: statusColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyBucketState extends StatelessWidget {
+  final Color hue;
+  const _EmptyBucketState({required this.hue});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: hue.withValues(alpha: 0.05),
+        borderRadius: AppRadius.radiusMd,
+        border: Border.all(color: hue.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.add_circle_outline_rounded, size: 18, color: hue),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Plant our first dream together',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.petalWhite.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '“Persian cat”, “Japan together”, “Sunset picnic”…',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 10.5,
+                    color: AppColors.petalWhite.withValues(alpha: 0.50),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -532,33 +644,68 @@ class _ProgressRing extends StatelessWidget {
   }
 }
 
-class _EmptyAddRow extends StatelessWidget {
+class _IconChip extends StatelessWidget {
+  final IconData icon;
   final Color hue;
-  final String text;
-  const _EmptyAddRow({required this.hue, required this.text});
+
+  const _IconChip({required this.icon, required this.hue});
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      width: 38,
+      height: 38,
       decoration: BoxDecoration(
-        color: hue.withValues(alpha: 0.08),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            hue.withValues(alpha: 0.22),
+            hue.withValues(alpha: 0.06),
+          ],
+        ),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(color: hue.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.add_circle_outline_rounded, size: 16, color: hue),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 11,
-                color: AppColors.petalWhite.withValues(alpha: 0.6),
-              ),
-            ),
+        border: Border.all(color: hue.withValues(alpha: 0.35), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: hue.withValues(alpha: 0.16),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
+      ),
+      child: Center(
+        child: Icon(icon, color: hue, size: 19),
+      ),
+    );
+  }
+}
+
+class _ActionChevron extends StatelessWidget {
+  final Color hue;
+  final bool hovered;
+
+  const _ActionChevron({required this.hue, this.hovered = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: AppMotion.orZero(AppMotion.fast),
+      width: 28,
+      height: 28,
+      transform: Matrix4.identity()
+        ..translateByDouble(hovered ? 2.0 : 0.0, 0.0, 0.0, 1.0),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: hue.withValues(alpha: hovered ? 0.18 : 0.08),
+        border: Border.all(color: hue.withValues(alpha: hovered ? 0.45 : 0.25)),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.arrow_forward_rounded,
+          color: hue.withValues(alpha: hovered ? 1.0 : 0.85),
+          size: 14,
+        ),
       ),
     );
   }
