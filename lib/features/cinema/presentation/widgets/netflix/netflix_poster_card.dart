@@ -6,6 +6,7 @@ import '../../../../../core/theme/app_motion.dart';
 import '../../../data/models/media_item.dart';
 import 'netflix_colors.dart';
 import 'netflix_hover_preview.dart';
+import 'netflix_touch_preview.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 /// Tells the owning row where this card sits on screen so a floating
@@ -163,6 +164,21 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     _pointerInPreview = false;
   }
 
+  void _showTouchPreview() {
+    final play = widget.onPlay;
+    final toggle = widget.onToggleList;
+    final rate = widget.onRate;
+    showTouchPreview(
+      context: context,
+      item: widget.item,
+      inList: widget.isInList?.call(widget.item) ?? false,
+      onTap: widget.onTap,
+      onPlay: play == null ? null : () => play(widget.item),
+      onToggleList: toggle == null ? null : (add) => toggle(widget.item, add),
+      onRate: rate == null ? null : (rating) => rate(widget.item, rating),
+    );
+  }
+
   @override
   void dispose() {
     _previewTimer?.cancel();
@@ -254,6 +270,7 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
           widget.onTap?.call();
         },
         onTapCancel: () => setState(() => _pressed = false),
+        onLongPress: _showTouchPreview,
         child: _buildPoster(width, height),
       ),
     );
@@ -316,6 +333,10 @@ class NetflixContinueCard extends StatefulWidget {
   final double? progress;
   final VoidCallback? onTap;
   final NetflixHoverCallback? onHover;
+  final void Function(MediaItem)? onPlay;
+  final void Function(MediaItem, bool add)? onToggleList;
+  final void Function(MediaItem, double? rating)? onRate;
+  final bool Function(MediaItem)? isInList;
 
   const NetflixContinueCard({
     super.key,
@@ -324,6 +345,10 @@ class NetflixContinueCard extends StatefulWidget {
     this.progress,
     this.onTap,
     this.onHover,
+    this.onPlay,
+    this.onToggleList,
+    this.onRate,
+    this.isInList,
   });
 
   @override
@@ -361,6 +386,21 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
     }
   }
 
+  void _showTouchPreview() {
+    final play = widget.onPlay;
+    final toggle = widget.onToggleList;
+    final rate = widget.onRate;
+    showTouchPreview(
+      context: context,
+      item: widget.item,
+      inList: widget.isInList?.call(widget.item) ?? false,
+      onTap: widget.onTap,
+      onPlay: play == null ? null : () => play(widget.item),
+      onToggleList: toggle == null ? null : (add) => toggle(widget.item, add),
+      onRate: rate == null ? null : (rating) => rate(widget.item, rating),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
@@ -374,6 +414,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
+          onLongPress: _showTouchPreview,
           child: AnimatedContainer(
             duration: AppMotion.orZero(const Duration(milliseconds: 220)),
             curve: AppMotion.easeOutStrong,
