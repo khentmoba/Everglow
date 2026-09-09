@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../shared/widgets/glass_container.dart';
-import '../../../../shared/widgets/animated_emblem.dart';
-import '../../../../shared/widgets/bouncy_button.dart';
-import '../../../../shared/widgets/everglow/everglow_background.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
-import '../../../../core/theme/app_typography.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../shared/widgets/everglow/everglow_button.dart';
+import '../../../../shared/widgets/everglow/everglow_card.dart';
+import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/everglow/everglow_section_header.dart';
+
+/// Warm, inviting hub for couples arcade and mini-games.
+///
+/// Designed with responsive layout, ambient glows, and distinct visual
+/// identities for Table Tennis, Scribble Together, and Couple Chess.
 class PlayZoneHubScreen extends StatefulWidget {
   const PlayZoneHubScreen({super.key});
 
@@ -46,31 +53,144 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
       body: Stack(
         children: [
           const Positioned.fill(
-            child: EverglowBackground(baseColor: AppColors.inkDeep),
+            child: EverglowBackground(
+              baseColor: AppColors.inkDeep,
+              glows: [
+                RadialGlow(
+                  color: AppColors.auroraGold,
+                  alignment: Alignment(0.8, -0.85),
+                  size: 0.85,
+                  opacity: 0.12,
+                ),
+                RadialGlow(
+                  color: AppColors.deepRose,
+                  alignment: Alignment(-0.85, 0.2),
+                  size: 0.75,
+                  opacity: 0.12,
+                ),
+                RadialGlow(
+                  color: AppColors.auroraTeal,
+                  alignment: Alignment(0.85, 0.9),
+                  size: 0.7,
+                  opacity: 0.10,
+                ),
+              ],
+            ),
           ),
           SafeArea(
             child: Column(
               children: [
                 const EverglowFeatureHeader(
                   title: 'Play Zone',
-                  subtitle: 'games for two',
+                  subtitle: 'arcade \u00b7 co-op \u00b7 games for two',
                   icon: Icons.sports_esports_rounded,
                   hue: AppColors.auroraGold,
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.pageH(context),
+                      AppSpacing.md,
+                      AppSpacing.pageH(context),
+                      AppSpacing.x3,
                     ),
-                    child: Column(
-                      children: [
-                        _buildTableTennisCard(),
-                        const SizedBox(height: 16),
-                        _buildScribbleCard(),
-                        const SizedBox(height: 16),
-                        _buildChessCard(),
-                      ],
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 620),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildWelcomeHero(context),
+                            const SizedBox(height: AppSpacing.xl),
+                            const EverglowSectionHeader(
+                              label: 'Choose your arena',
+                              icon: Icons.videogame_asset_rounded,
+                              hue: AppColors.auroraRose,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            PlayZoneGameCard(
+                              title: 'Table Tennis World Tour',
+                              subtitle:
+                                  'Smash through the international tournament bracket solo, or rally face-to-face against Clair in a fast real-time 1v1 showdown!',
+                              badge: 'ARCADE \u00b7 FAST 60 FPS',
+                              icon: Icons.sports_tennis_rounded,
+                              accent: AppColors.warmAmber,
+                              tags: const [
+                                '1v1 Matchmaking',
+                                'Solo Tournament',
+                                'Smooth Physics',
+                              ],
+                              actions: [
+                                EverglowButton(
+                                  label: 'Solo Tournament',
+                                  icon: Icons.sports_tennis_rounded,
+                                  backgroundColor: AppColors.warmAmber,
+                                  foregroundColor: AppColors.inkDeep,
+                                  onPressed: () => _startTableTennis(),
+                                ),
+                                EverglowButton.glass(
+                                  label: '1v1 Match',
+                                  icon: Icons.people_rounded,
+                                  foregroundColor: AppColors.blushGold,
+                                  onPressed: () => _startTableTennis1v1(),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            PlayZoneGameCard(
+                              title: 'Scribble Together',
+                              subtitle:
+                                  'One draws, one guesses! Real-time synchronized canvas with live strokes, instant word reveals, and playful inside jokes.',
+                              badge: 'CO-OP \u00b7 DRAW & GUESS',
+                              icon: Icons.brush_rounded,
+                              accent: AppColors.auroraTeal,
+                              tags: const [
+                                'Live Canvas',
+                                'Couple Guessing',
+                                'Instant Sync',
+                              ],
+                              actions: [
+                                EverglowButton(
+                                  label: 'Start Drawing',
+                                  icon: Icons.brush_rounded,
+                                  backgroundColor: AppColors.auroraTeal,
+                                  foregroundColor: AppColors.inkDeep,
+                                  onPressed: () =>
+                                      context.push('/play-zone/scribble'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            PlayZoneGameCard(
+                              title: 'Couple Chess',
+                              subtitle:
+                                  'Our private board with full chess rules, checkmate detection, move history, and quiet cozy turns together.',
+                              badge: 'CLASSIC \u00b7 PASS & PLAY',
+                              icon: Icons.grid_4x4_rounded,
+                              accent: AppColors.auroraRose,
+                              tags: const [
+                                '2-Player Board',
+                                'Move History',
+                                'No Rush',
+                              ],
+                              actions: [
+                                EverglowButton(
+                                  label: 'Play Chess',
+                                  icon: Icons.grid_view_rounded,
+                                  backgroundColor: AppColors.deepRose,
+                                  foregroundColor: AppColors.petalWhite,
+                                  onPressed: () =>
+                                      context.push('/play-zone/chess'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
+                            _buildFooterNote(),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -82,315 +202,119 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
     );
   }
 
-  Widget _buildTableTennisCard() {
-    return GlassContainer(
-      borderRadius: BorderRadius.circular(24.0),
-      border: Border.all(
-        color: AppColors.blushGold.withValues(alpha: 0.25),
-        width: 1.5,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 36),
-        child: Column(
-          children: [
-            const AnimatedEmblem(
-              icon: Icons.sports_tennis_rounded,
-              size: 56,
-              color: AppColors.warmAmber,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Table Tennis World Tour',
-              style: AppTypography.cormorantBold.copyWith(
-                fontSize: 28,
-                letterSpacing: 0.5,
-                shadows: [
-                  BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.4),
-                    blurRadius: 15,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Smash your way through the world tournament bracket',
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 14,
-                color: AppColors.petalWhite.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                BouncyButton(
-                  onTap: () => _startTableTennis(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.warmAmber, AppColors.deepRose],
-                      ),
-                      borderRadius: BorderRadius.circular(24.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.warmAmber.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      'SOLO',
-                      style: AppTypography.outfitWhite.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.petalWhite,
-                        letterSpacing: 2.0,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                BouncyButton(
-                  onTap: () => _startTableTennis1v1(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.softLavender, AppColors.deepRose],
-                      ),
-                      borderRadius: BorderRadius.circular(24.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.softLavender.withValues(alpha: 0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.people_rounded,
-                          color: AppColors.petalWhite,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '1v1',
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: AppColors.petalWhite,
-                            letterSpacing: 2.0,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  Widget _buildWelcomeHero(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.velvet.withValues(alpha: 0.90),
+            AppColors.inkDeep.withValues(alpha: 0.95),
           ],
         ),
+        borderRadius: BorderRadius.circular(AppRadius.x2),
+        border: Border.all(
+          color: AppColors.blushGold.withValues(alpha: 0.22),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.auroraGold.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildScribbleCard() {
-    return GlassContainer(
-      borderRadius: BorderRadius.circular(24.0),
-      border: Border.all(
-        color: AppColors.auroraTeal.withValues(alpha: 0.25),
-        width: 1.5,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        child: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [AppColors.auroraTeal, AppColors.deepRose],
-                ),
-              ),
-              child: const Icon(
-                Icons.brush_rounded,
-                color: AppColors.petalWhite,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Scribble Together',
-              style: AppTypography.cormorantBold.copyWith(
-                fontSize: 24,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Draw & guess — one draws, one guesses. Firestore-synced canvas (Scribble.rs)',
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 13,
-                color: AppColors.petalWhite.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 18),
-            BouncyButton(
-              onTap: () => context.push('/play-zone/scribble'),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 12,
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.auroraTeal, AppColors.deepRose],
+                  color: AppColors.auroraGold.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(
+                    color: AppColors.auroraGold.withValues(alpha: 0.35),
                   ),
-                  borderRadius: BorderRadius.circular(24.0),
                 ),
+                child: const Icon(
+                  Icons.sports_esports_rounded,
+                  size: 20,
+                  color: AppColors.auroraGold,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
                 child: Text(
-                  'DRAW',
-                  style: AppTypography.outfitWhite.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.petalWhite,
-                    letterSpacing: 2.0,
-                    fontSize: 14,
+                  'Ready for Game Night?',
+                  style: AppTypography.cormorantBold.copyWith(
+                    fontSize: 24,
+                    height: 1.15,
+                    color: AppColors.roseQuartz,
                   ),
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Playful showdowns, shared live drawings, and cozy board games made just for Khent & Clair.',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 13.5,
+              height: 1.45,
+              color: AppColors.petalWhite.withValues(alpha: 0.82),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            children: [
+              _HeroPill(
+                icon: Icons.people_outline_rounded,
+                label: 'Couples Only',
+                hue: AppColors.roseQuartz,
+              ),
+              _HeroPill(
+                icon: Icons.bolt_rounded,
+                label: 'Instant Sync',
+                hue: AppColors.auroraGold,
+              ),
+              _HeroPill(
+                icon: Icons.favorite_border_rounded,
+                label: 'No Ads \u00b7 Pure Us',
+                hue: AppColors.auroraRose,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildChessCard() {
-    return GlassContainer(
-      borderRadius: BorderRadius.circular(24.0),
-      border: Border.all(
-        color: AppColors.blushGold.withValues(alpha: 0.25),
-        width: 1.5,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-        child: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [AppColors.blushGold, AppColors.auroraRose],
-                ),
-              ),
-              child: const Icon(
-                Icons.grid_on_rounded,
-                color: AppColors.petalWhite,
-                size: 28,
-              ),
+  Widget _buildFooterNote() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.favorite_rounded,
+            size: 14,
+            color: AppColors.auroraRose.withValues(alpha: 0.85),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            'More mini-games coming soon \u2014 made with love for Clair',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 12,
+              color: AppColors.roseQuartz.withValues(alpha: 0.72),
             ),
-            const SizedBox(height: 14),
-            Text(
-              'Couple Chess',
-              style: AppTypography.cormorantBold.copyWith(
-                fontSize: 24,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Classic 2-player chess — synced via Firestore (Lila)',
-              style: AppTypography.outfitWhite.copyWith(
-                fontSize: 13,
-                color: AppColors.petalWhite.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                BouncyButton(
-                  onTap: () => context.push('/play-zone/chess'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.blushGold, AppColors.deepRose],
-                      ),
-                      borderRadius: BorderRadius.circular(24.0),
-                    ),
-                    child: Text(
-                      'PLAY',
-                      style: AppTypography.outfitWhite.copyWith(
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.petalWhite,
-                        letterSpacing: 2.0,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                BouncyButton(
-                  onTap: () => context.push('/play-zone/chess'),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.moonlight.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(24.0),
-                      border: Border.all(
-                        color: AppColors.blushGold.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.people_rounded,
-                          size: 16,
-                          color: AppColors.blushGold,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '1v1',
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.blushGold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -401,5 +325,216 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
 
   void _startTableTennis1v1() {
     context.push('/play-zone/tt/lobby');
+  }
+}
+
+/// Feature badge pill used inside the hero section.
+class _HeroPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color hue;
+
+  const _HeroPill({
+    required this.icon,
+    required this.label,
+    required this.hue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: hue.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        border: Border.all(
+          color: hue.withValues(alpha: 0.28),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: hue),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            label,
+            style: AppTypography.outfitHeading.copyWith(
+              fontSize: 10,
+              letterSpacing: 0.5,
+              fontWeight: FontWeight.w600,
+              color: hue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Rich, tactile game card for the Play Zone hub.
+///
+/// Extracted so layout tests can easily verify rendering across screen sizes.
+class PlayZoneGameCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String badge;
+  final IconData icon;
+  final Color accent;
+  final List<String> tags;
+  final List<Widget> actions;
+
+  const PlayZoneGameCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    required this.icon,
+    required this.accent,
+    required this.tags,
+    required this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return EverglowCard(
+      semanticLabel: title,
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      radius: AppRadius.x2,
+      fillColor: AppColors.velvet.withValues(alpha: 0.72),
+      boxShadow: [
+        BoxShadow(
+          color: accent.withValues(alpha: 0.08),
+          blurRadius: 20,
+          offset: const Offset(0, 4),
+        ),
+      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  border: Border.all(
+                    color: accent.withValues(alpha: 0.38),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.22),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, size: 26, color: accent),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        border: Border.all(
+                          color: accent.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        badge,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitHeading.copyWith(
+                          fontSize: 9.5,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w700,
+                          color: accent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.cormorantBold.copyWith(
+                        fontSize: 22,
+                        height: 1.15,
+                        color: AppColors.petalWhite,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            subtitle,
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 13,
+              height: 1.45,
+              color: AppColors.petalWhite.withValues(alpha: 0.80),
+            ),
+          ),
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: tags
+                  .map(
+                    (tag) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.moonlight.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                        border: Border.all(
+                          color: AppColors.moonlight.withValues(alpha: 0.10),
+                        ),
+                      ),
+                      child: Text(
+                        tag,
+                        style: AppTypography.outfitWhite.copyWith(
+                          fontSize: 11,
+                          color: AppColors.roseQuartz.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+          if (actions.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Wrap(
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.sm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: actions,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
