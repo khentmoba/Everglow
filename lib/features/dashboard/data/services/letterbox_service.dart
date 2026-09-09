@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../../core/utils/logger.dart';
@@ -6,7 +10,11 @@ import '../../../../core/utils/logger.dart';
 class LetterboxService {
   static final LetterboxService _instance = LetterboxService._internal();
   factory LetterboxService() => _instance;
-  LetterboxService._internal();
+  LetterboxService._internal() {
+    unawaited(loadDiskCache());
+  }
+
+  static const _storageKey = 'letterbox_notes_cache_v1';
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -15,6 +23,41 @@ class LetterboxService {
   // stream revalidates in the background (stale-while-revalidate).
   List<HiddenNote> _cachedNotes = const [];
   List<HiddenNote> get cachedNotes => _cachedNotes;
+
+  /// Loads cached notes from persistent local storage so the dashboard rail
+  /// and archive screen paint instantly on cold launch without showing a skeleton.
+  Future<List<HiddenNote>> loadDiskCache() async {
+    if (_cachedNotes.isNotEmpty) return _cachedNotes;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          final notes = decoded
+              .whereType<Map<String, dynamic>>()
+              .map(HiddenNote.fromJson)
+              .toList();
+          if (notes.isNotEmpty && _cachedNotes.isEmpty) {
+            _cachedNotes = List.unmodifiable(notes);
+          }
+        }
+      }
+    } catch (e) {
+      Logger.w('Letterbox: failed to load disk cache: $e');
+    }
+    return _cachedNotes;
+  }
+
+  Future<void> _saveDiskCache(List<HiddenNote> notes) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonList = notes.map((n) => n.toJson()).toList();
+      await prefs.setString(_storageKey, jsonEncode(jsonList));
+    } catch (e) {
+      Logger.w('Letterbox: failed to save disk cache: $e');
+    }
+  }
 
   List<HiddenNote> _mapSnapshot(QuerySnapshot snapshot) {
     final out = <HiddenNote>[];
@@ -26,6 +69,7 @@ class LetterboxService {
       }
     }
     _cachedNotes = List.unmodifiable(out);
+    unawaited(_saveDiskCache(_cachedNotes));
     return _cachedNotes;
   }
 
@@ -36,14 +80,21 @@ class LetterboxService {
   // does not kill the entire rail (the bug that left Letterbox empty
   // after a bad write).
   Stream<List<HiddenNote>> get notes {
-    return withFirestoreTimeout(
-      _db
+    Stream<List<HiddenNote>> subscribe() {
+      return _db
           .collection('notes')
           .orderBy('unlockDate', descending: false)
           .limit(200)
           .snapshots()
-          .map(_mapSnapshot),
+          .map(_mapSnapshot);
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'letterbox-notes',
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
     );
   }
 
@@ -52,8 +103,8 @@ class LetterboxService {
   // `get(/users/{uid})` evaluation per letter plus bandwidth on every
   // dashboard open — the main reason the rail felt slow on cold start.
   Stream<List<HiddenNote>> notesPreview({int limit = 10}) {
-    return withFirestoreTimeout(
-      _db
+    Stream<List<HiddenNote>> subscribe() {
+      return _db
           .collection('notes')
           .orderBy('unlockDate', descending: false)
           .limit(limit)
@@ -74,15 +125,41 @@ class LetterboxService {
             }
             if (out.length >= _cachedNotes.length) {
               _cachedNotes = List.unmodifiable(out);
+              unawaited(_saveDiskCache(_cachedNotes));
             }
             return out;
-          }),
+          });
+    }
+
+    return withFirestoreTimeout(
+      subscribe(),
+      resubscribe: subscribe,
       label: 'letterbox-notes-preview',
+      duration: const Duration(seconds: 12),
+      maxAttempts: 3,
     );
   }
 
   // Persist read state to Firestore
   Future<void> markAsRead(String noteId) async {
+    // Optimistically update memory and disk cache so state is instant
+    if (_cachedNotes.isNotEmpty) {
+      final updated = _cachedNotes.map((n) {
+        if (n.id == noteId) {
+          return HiddenNote(
+            id: n.id,
+            title: n.title,
+            content: n.content,
+            unlockDate: n.unlockDate,
+            isRead: true,
+          );
+        }
+        return n;
+      }).toList();
+      _cachedNotes = List.unmodifiable(updated);
+      unawaited(_saveDiskCache(_cachedNotes));
+    }
+
     try {
       await _db.collection('notes').doc(noteId).update({'isRead': true});
       Logger.i("Marked note $noteId as read");
@@ -105,6 +182,18 @@ class LetterboxService {
   // Unlike seedInitialNotes() this does NOT clear existing data.
   Future<void> ensureSeeded() async {
     try {
+      // 1. Fast path: if cache already holds notes, the collection is
+      // guaranteed to be non-empty — skip network get() completely.
+      if (_cachedNotes.isNotEmpty) return;
+
+      // 2. Yield so initial critical dashboard streams get the WebChannel first.
+      await Future.delayed(const Duration(seconds: 4));
+      if (_cachedNotes.isNotEmpty) return;
+
+      // Check if disk cache has notes before making a database call
+      final diskNotes = await loadDiskCache();
+      if (diskNotes.isNotEmpty) return;
+
       final existing = await _db.collection('notes').limit(1).get();
       if (existing.docs.isNotEmpty) return;
       final data = {
@@ -130,6 +219,9 @@ class LetterboxService {
       deleteBatch.delete(doc.reference);
     }
     await deleteBatch.commit();
+
+    _cachedNotes = const [];
+    unawaited(_saveDiskCache(const []));
 
     // 2. Add the new note
     final data = {
