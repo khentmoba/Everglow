@@ -38,6 +38,24 @@ class JournalService {
     );
   }
 
+  /// Older entries before [date] — seeds "load more" so the first older
+  /// page starts after the live first page instead of re-fetching the
+  /// newest entries. Continue with [fetchPage] + the returned cursor.
+  Future<FirestorePage<JournalEntry>> fetchOlderThan(
+    DateTime date, {
+    int limit = 20,
+  }) async {
+    final snap = await _db
+        .collection(_collection)
+        .orderBy('createdAt', descending: true)
+        .startAfter([Timestamp.fromDate(date)])
+        .limit(limit)
+        .get();
+    final items = snap.docs.map(JournalEntry.fromFirestore).toList();
+    final next = snap.docs.length < limit ? null : snap.docs.last;
+    return FirestorePage(items: items, nextCursor: next);
+  }
+
   /// Cursor-paginated older entries. The live first page stays on
   /// [watchAll]; call this with the previous page's [nextCursor] to
   /// scroll past entry 100 instead of hard-truncating the journal.
