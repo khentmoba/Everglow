@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:web/web.dart' as web;
 
 import '../../../core/system/app_update_service.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,11 +8,11 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 
 /// Wraps the whole app and shows a warm "fresh version" banner when
-/// [AppUpdateService] spots a newer build on the server.
+/// [AppUpdateService] has a new build downloaded and ready.
 ///
-/// Long-lived tabs would otherwise run yesterday's app forever: entry points
-/// are `no-cache` but an already-loaded tab never re-fetches them. The banner
-/// nudges a one-tap reload instead.
+/// The switch itself is automatic: background tabs reload silently, tabs in
+/// use count down a few seconds first. The banner is just the visible face
+/// of that — "Switch now" hurries it, "Later" snoozes it for 30 minutes.
 class AppUpdatePrompt extends StatelessWidget {
   final Widget child;
 
@@ -42,14 +40,14 @@ class AppUpdatePrompt extends StatelessWidget {
 class _UpdateBanner extends StatelessWidget {
   const _UpdateBanner();
 
-  void _reload() {
-    if (kIsWeb) web.window.location.reload();
-  }
-
   @override
   Widget build(BuildContext context) {
     final service = context.watch<AppUpdateService>();
     if (!service.updateAvailable) return const SizedBox.shrink();
+    final countdown = service.countdownSeconds;
+    final message = countdown != null
+        ? 'A fresh Everglow just landed — switching in ${countdown}s…'
+        : 'A fresh Everglow is ready — it’ll switch when you step away.';
     return SafeArea(
       top: false,
       child: Material(
@@ -67,16 +65,16 @@ class _UpdateBanner extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  'A fresh Everglow just landed — reload to see it.',
+                  message,
                   style: AppTypography.bodyMedium().copyWith(
                     color: AppColors.petalWhite,
                   ),
                 ),
               ),
               TextButton(
-                onPressed: _reload,
+                onPressed: service.applyNow,
                 child: Text(
-                  'Reload',
+                  'Switch now',
                   style: AppTypography.bodyMedium().copyWith(
                     color: AppColors.blushGold,
                     fontWeight: FontWeight.w700,
@@ -84,7 +82,7 @@ class _UpdateBanner extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: service.dismiss,
+                onPressed: service.snooze,
                 icon: const Icon(
                   Icons.close_rounded,
                   size: 18,
