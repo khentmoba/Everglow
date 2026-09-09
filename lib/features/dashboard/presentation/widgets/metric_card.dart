@@ -40,8 +40,8 @@ class MetricCard extends StatelessWidget {
       );
     }
     final borderColor = isLive
-        ? AppColors.auroraRose.withValues(alpha: 0.26)
-        : AppColors.moonlight.withValues(alpha: 0.12);
+        ? AppColors.auroraRose.withValues(alpha: 0.35)
+        : AppColors.moonlight.withValues(alpha: 0.16);
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -49,29 +49,30 @@ class MetricCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.silk.withValues(alpha: 0.92),
-            AppColors.velvet.withValues(alpha: 0.94),
+            AppColors.moonlight.withValues(alpha: 0.12),
+            AppColors.velvet.withValues(alpha: 0.32),
+            AppColors.inkDeep.withValues(alpha: 0.45),
           ],
         ),
         borderRadius: AppRadius.radiusXl,
         border: Border.all(color: borderColor, width: 1),
         boxShadow: [
           BoxShadow(
-            color: AppColors.inkDeep.withValues(alpha: 0.36),
-            blurRadius: 16,
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 18,
             offset: const Offset(0, 8),
           ),
           if (isLive)
             BoxShadow(
-              color: AppColors.auroraRose.withValues(alpha: 0.10),
-              blurRadius: 18,
+              color: AppColors.auroraRose.withValues(alpha: 0.16),
+              blurRadius: 20,
               offset: const Offset(0, 4),
             ),
         ],
       ),
       child: Stack(
         children: [
-          // Hairline — single, warm, no glow even for seconds
+          // Specular hairline highlight
           Positioned(
             top: 0,
             left: 20,
@@ -83,7 +84,7 @@ class MetricCard extends StatelessWidget {
                   colors: [
                     Colors.transparent,
                     AppColors.blushGold.withValues(
-                      alpha: isLive ? 0.45 : 0.34,
+                      alpha: isLive ? 0.50 : 0.38,
                     ),
                     Colors.transparent,
                   ],
@@ -140,14 +141,19 @@ class _MetricContent extends StatelessWidget {
             value.toString().padLeft(2, '0'),
             key: ValueKey<int>(value),
             style: AppTypography.cormorantExtraBold.copyWith(
-              color: AppColors.auroraGold.withValues(alpha: 0.98),
-              fontSize: 37,
+              color: AppColors.auroraGold,
+              fontSize: 38,
               height: 1.0,
               letterSpacing: -0.5,
               shadows: [
                 Shadow(
-                  color: AppColors.goldShadow.withValues(alpha: 0.38),
-                  blurRadius: 12,
+                  color: AppColors.auroraGold.withValues(alpha: 0.42),
+                  blurRadius: 14,
+                  offset: const Offset(0, 1),
+                ),
+                Shadow(
+                  color: AppColors.goldShadow.withValues(alpha: 0.30),
+                  blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -156,13 +162,13 @@ class _MetricContent extends StatelessWidget {
         ),
         const SizedBox(height: 9),
         Container(
-          width: 20,
+          width: 22,
           height: 1,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
                 Colors.transparent,
-                AppColors.blushGold.withValues(alpha: 0.42),
+                AppColors.blushGold.withValues(alpha: 0.48),
                 Colors.transparent,
               ],
             ),
@@ -177,9 +183,16 @@ class _MetricContent extends StatelessWidget {
               Container(
                 width: 5,
                 height: 5,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.auroraRose,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.auroraRose.withValues(alpha: 0.70),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 6),
@@ -189,7 +202,7 @@ class _MetricContent extends StatelessWidget {
                 label.toUpperCase(),
                 textAlign: TextAlign.center,
                 style: AppTypography.outfitHeading.copyWith(
-                  color: AppColors.roseQuartz.withValues(alpha: 0.74),
+                  color: AppColors.roseQuartz.withValues(alpha: 0.85),
                   fontSize: 9.5,
                   letterSpacing: 2.0,
                   fontWeight: FontWeight.w700,
