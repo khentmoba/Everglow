@@ -272,6 +272,12 @@ class JikanService with ConnectivityAware, ErrorAware {
         .where((n) => n.isNotEmpty)
         .toList();
 
+    final trailer = j['trailer'] as Map<String, dynamic>?;
+    final ytId =
+        (trailer?['youtube_id'] as String?) ??
+        ((trailer?['url'] as String?)?.split('v=').last ?? '');
+    final trailerId = (ytId.isNotEmpty && ytId != 'null') ? ytId : null;
+
     return MediaItem(
       id: '',
       tmdbId: malId,
@@ -291,6 +297,7 @@ class JikanService with ConnectivityAware, ErrorAware {
       studio: studioName,
       genres: genres,
       score: (j['score'] is num) ? (j['score'] as num).toDouble() : null,
+      trailerYoutubeId: trailerId,
     );
   }
 

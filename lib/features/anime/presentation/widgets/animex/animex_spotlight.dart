@@ -1,15 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_colors.dart';
 import '../../../../../shared/utils/responsive_image.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
+import '../../../../cinema/presentation/widgets/trailer_player.dart';
+import '../../../data/services/anilist_service.dart';
 
 import 'animex_buttons.dart';
 import 'animex_skeleton.dart';
 import 'animex_tokens.dart';
-import '../../../../../core/theme/app_colors.dart';
 
 /// Full-bleed hero carousel with crossfading slides, slow Ken Burns zoom,
 /// title/synopsis/buttons and dot navigation, matching the reference
@@ -37,36 +39,147 @@ class AnimeXSpotlight extends StatefulWidget {
 class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   int _index = 0;
   Timer? _timer;
+  Timer? _armTimer;
+
+  bool _muted = true;
+  bool _playing = true;
+  bool _trailerArmed = false;
+  bool _trailerReady = false;
+
+  final Map<String, String?> _trailerCache = {};
+
+  static bool get _inTest =>
+      WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
+  String _cacheKey(MediaItem item) => '${item.anilistId ?? item.tmdbId}';
+
+  String? _resolveTrailerKey(MediaItem item) {
+    if (item.trailerYoutubeId != null && item.trailerYoutubeId!.isNotEmpty) {
+      return item.trailerYoutubeId;
+    }
+    return _trailerCache[_cacheKey(item)];
+  }
+
+  void _armTrailerForCurrent() {
+    _armTimer?.cancel();
+    if (widget.items.isEmpty) return;
+    final item = widget.items[_index % widget.items.length];
+    final key = _cacheKey(item);
+
+    if (!_inTest &&
+        (item.trailerYoutubeId == null || item.trailerYoutubeId!.isEmpty) &&
+        !_trailerCache.containsKey(key)) {
+      _resolveTrailer(item);
+    }
+
+    // Arm after 800ms dwell so fast carousel flicking doesn't spam iframes.
+    _armTimer = Timer(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      setState(() => _trailerArmed = true);
+    });
+  }
+
+  Future<void> _resolveTrailer(MediaItem item) async {
+    final key = _cacheKey(item);
+    if (_trailerCache.containsKey(key)) return;
+    try {
+      final detail = await AniListService().fetchDetailsWithFallback(
+        anilistId: item.anilistId,
+        malId: item.tmdbId,
+      );
+      final ytId = detail?.trailerYoutubeId;
+      if (mounted) {
+        setState(() {
+          _trailerCache[key] = ytId;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _trailerCache[key] = null;
+        });
+      }
+    }
+  }
+
+  void _select(int i) {
+    if (widget.items.isEmpty) return;
+    setState(() {
+      _index = i % widget.items.length;
+      _trailerArmed = false;
+      _trailerReady = false;
+      _playing = true;
+    });
+    _startTimer();
+    _armTrailerForCurrent();
+  }
+
+  void _toggleMute() {
+    setState(() => _muted = !_muted);
+    _startTimer();
+  }
+
+  void _togglePlay() {
+    setState(() => _playing = !_playing);
+    _startTimer();
+  }
+
+  void _pauseTrailer() {
+    if (_playing || !_muted) {
+      setState(() {
+        _playing = false;
+        _muted = true;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+    _armTrailerForCurrent();
   }
 
   void _startTimer() {
     _timer?.cancel();
+    // Do not auto-advance when Clair unmuted to listen or paused playback.
+    if (!_muted || !_playing) return;
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (!mounted || widget.items.length < 2) return;
-      setState(() => _index = (_index + 1) % widget.items.length);
+      _select((_index + 1) % widget.items.length);
     });
   }
+
   @override
   void didUpdateWidget(covariant AnimeXSpotlight oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.items.length != oldWidget.items.length) {
+    if (widget.items.length != oldWidget.items.length ||
+        !_sameItems(widget.items, oldWidget.items)) {
       if (widget.items.isEmpty) {
         _index = 0;
       } else {
         _index = _index % widget.items.length;
       }
+      _trailerArmed = false;
+      _trailerReady = false;
       _startTimer();
+      _armTrailerForCurrent();
     }
+  }
+
+  bool _sameItems(List<MediaItem> a, List<MediaItem> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].tmdbId != b[i].tmdbId) return false;
+    }
+    return true;
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _armTimer?.cancel();
     super.dispose();
   }
 
@@ -79,6 +192,9 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
     final activeIndex = items.isEmpty ? 0 : _index % items.length;
     final active = items[activeIndex];
+    final trailerKey = _resolveTrailerKey(active);
+    final hasTrailer = trailerKey != null && trailerKey.isNotEmpty;
+
     return Container(
       height: _heroHeight(context),
       clipBehavior: Clip.hardEdge,
@@ -86,8 +202,33 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       child: Stack(
         fit: StackFit.expand,
         children: [
+          // 1. High-resolution backdrop image (always ready as base layer).
           for (var i = 0; i < items.length; i++)
             _SlideLayer(item: items[i], visible: i == activeIndex),
+
+          // 2. Active trailer player, smoothly cross-faded in when loaded.
+          if (hasTrailer && _trailerArmed)
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              child: _trailerReady && _playing
+                  ? KeyedSubtree(
+                      key: ValueKey('hero-trailer-$trailerKey'),
+                      child: TrailerPlayer(
+                        videoKey: trailerKey,
+                        muted: _muted,
+                        playing: _playing,
+                        autoplay: true,
+                        loop: true,
+                        onLoaded: () {
+                          if (mounted) setState(() => _trailerReady = true);
+                        },
+                      ),
+                    )
+                  : const SizedBox.expand(
+                      key: ValueKey('hero-trailer-loading'),
+                    ),
+            ),
+
           // Top shade for header legibility, fading into the page bg at the
           // bottom so the hero melts into the ticker below.
           const DecoratedBox(
@@ -131,9 +272,25 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
                     item: active,
                     key: ValueKey(active.tmdbId),
                     index: activeIndex,
-                    onWatch: widget.onWatch,
-                    onMoreInfo: widget.onMoreInfo,
-                    onTrailer: widget.onTrailer,
+                    hasTrailer: hasTrailer,
+                    trailerReady: _trailerReady,
+                    muted: _muted,
+                    onWatch: (item) {
+                      _pauseTrailer();
+                      widget.onWatch?.call(item);
+                    },
+                    onMoreInfo: (item) {
+                      _pauseTrailer();
+                      widget.onMoreInfo?.call(item);
+                    },
+                    onTrailer: (item) {
+                      if (hasTrailer && _muted) {
+                        _toggleMute();
+                      } else {
+                        _pauseTrailer();
+                        widget.onTrailer?.call(item);
+                      }
+                    },
                   ),
                 ),
               ),
@@ -165,15 +322,23 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
                         for (var i = 0; i < items.length; i++)
                           _HeroDot(
                             active: i == activeIndex,
-                            onTap: () {
-                              setState(() => _index = i);
-                              _startTimer();
-                            },
+                            onTap: () => _select(i),
                           ),
                       ],
                     ),
                   ),
                 ],
+              ),
+            ),
+          if (hasTrailer)
+            Positioned(
+              right: 20,
+              bottom: 22,
+              child: _HeroMediaControls(
+                playing: _playing,
+                muted: _muted,
+                onTogglePlay: _togglePlay,
+                onToggleMute: _toggleMute,
               ),
             ),
         ],
@@ -259,6 +424,9 @@ class _SlideLayer extends StatelessWidget {
 class _SlideContent extends StatelessWidget {
   final MediaItem item;
   final int index;
+  final bool hasTrailer;
+  final bool trailerReady;
+  final bool muted;
   final void Function(MediaItem)? onWatch;
   final void Function(MediaItem)? onMoreInfo;
   final void Function(MediaItem)? onTrailer;
@@ -267,6 +435,9 @@ class _SlideContent extends StatelessWidget {
     super.key,
     required this.item,
     required this.index,
+    this.hasTrailer = false,
+    this.trailerReady = false,
+    this.muted = true,
     this.onWatch,
     this.onMoreInfo,
     this.onTrailer,
@@ -396,8 +567,12 @@ class _SlideContent extends StatelessWidget {
                 onTap: () => onMoreInfo?.call(item),
               ),
               AnimeXGhostButton(
-                label: 'Trailer',
-                icon: Icons.play_circle_outline_rounded,
+                label: hasTrailer && !muted ? 'Full Trailer' : 'Trailer',
+                icon: hasTrailer
+                    ? (muted
+                        ? Icons.volume_off_rounded
+                        : Icons.volume_up_rounded)
+                    : Icons.play_circle_outline_rounded,
                 onTap: () => onTrailer?.call(item),
               ),
             ],
@@ -513,6 +688,112 @@ class _HeroDot extends StatelessWidget {
                     ),
                   ]
                 : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Floating glass controls (play/pause and mute/unmute) anchored at the
+/// bottom-right corner of the hero banner.
+class _HeroMediaControls extends StatelessWidget {
+  final bool playing;
+  final bool muted;
+  final VoidCallback onTogglePlay;
+  final VoidCallback onToggleMute;
+
+  const _HeroMediaControls({
+    required this.playing,
+    required this.muted,
+    required this.onTogglePlay,
+    required this.onToggleMute,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.14),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _HeroControlButton(
+            icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            tooltip: playing ? 'Pause trailer' : 'Play trailer',
+            onTap: onTogglePlay,
+          ),
+          const SizedBox(width: 4),
+          _HeroControlButton(
+            icon: muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+            tooltip: muted ? 'Unmute trailer' : 'Mute trailer',
+            highlighted: !muted,
+            onTap: onToggleMute,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroControlButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool highlighted;
+
+  const _HeroControlButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.highlighted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 300),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? AnimeXTokens.accent.withValues(alpha: 0.3)
+                  : Colors.white.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: highlighted
+                    ? AnimeXTokens.accent.withValues(alpha: 0.75)
+                    : Colors.white.withValues(alpha: 0.2),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 17,
+              color: highlighted
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.9),
+            ),
           ),
         ),
       ),

@@ -251,4 +251,119 @@ void main() {
     final visibleCount = opacities.where((op) => op.opacity > 0).length;
     expect(visibleCount, 1, reason: 'Active slide must stay visible after repeated toggles');
   });
+
+  testWidgets('AnimeXSpotlight renders trailer controls and toggles mute and play/pause', (
+    WidgetTester tester,
+  ) async {
+    final itemWithTrailer = MediaItem(
+      id: 't1',
+      tmdbId: 101,
+      title: 'Mushoku Tensei Season 3',
+      mediaType: 'tv',
+      posterPath: '',
+      backdropPath: '',
+      year: '2026',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime(2026, 1, 1),
+      source: 'jikan',
+      synopsis: 'The third season of Mushoku Tensei.',
+      episodeCount: 14,
+      airingStatus: 'RELEASING',
+      format: 'TV',
+      trailerYoutubeId: 'dQw4w9WgXcQ',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: [itemWithTrailer],
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Dwell for 900ms to allow trailer arming
+    await tester.pump(const Duration(milliseconds: 900));
+
+    // Initially muted: unmute tooltip should be visible on the mute control
+    expect(find.byTooltip('Unmute trailer'), findsOneWidget);
+    expect(find.byTooltip('Pause trailer'), findsOneWidget);
+
+    // Tap mute button to unmute
+    await tester.tap(find.byTooltip('Unmute trailer'));
+    await tester.pump();
+
+    // Now unmuted: mute tooltip should be visible
+    expect(find.byTooltip('Mute trailer'), findsOneWidget);
+    expect(find.byTooltip('Unmute trailer'), findsNothing);
+
+    // Tap volume button to mute again
+    await tester.tap(find.byTooltip('Mute trailer'));
+    await tester.pump();
+    expect(find.byTooltip('Unmute trailer'), findsOneWidget);
+
+    // Tap pause button to pause
+    await tester.tap(find.byTooltip('Pause trailer'));
+    await tester.pump();
+    expect(find.byTooltip('Play trailer'), findsOneWidget);
+
+    // Tap play button to resume
+    await tester.tap(find.byTooltip('Play trailer'));
+    await tester.pump();
+    expect(find.byTooltip('Pause trailer'), findsOneWidget);
+  });
+
+  testWidgets('AnimeXSpotlight Trailer action button unmutes hero trailer when muted', (
+    WidgetTester tester,
+  ) async {
+    final itemWithTrailer = MediaItem(
+      id: 't2',
+      tmdbId: 102,
+      title: 'Solo Leveling Season 2',
+      mediaType: 'tv',
+      posterPath: '',
+      backdropPath: '',
+      year: '2025',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime(2026, 1, 1),
+      source: 'jikan',
+      synopsis: 'Arise.',
+      episodeCount: 12,
+      airingStatus: 'FINISHED',
+      format: 'TV',
+      trailerYoutubeId: 'abc123xyz',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: [itemWithTrailer],
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 900));
+
+    // Initially muted
+    expect(find.byTooltip('Unmute trailer'), findsOneWidget);
+
+    // Tap the Trailer button in the hero content
+    final trailerButton = find.text('Trailer');
+    expect(trailerButton, findsOneWidget);
+    await tester.tap(trailerButton);
+    await tester.pump();
+
+    // Should now be unmuted
+    expect(find.byTooltip('Mute trailer'), findsOneWidget);
+  });
 }
