@@ -18,7 +18,8 @@
       "**/node_modules/**",
       "**/*.symbols",
       "**/*.map",
-      "table_tennis/src/**"
+      "table_tennis/src/**",
+      "ac_wasm/**"
     ],
     "headers": [
       {
