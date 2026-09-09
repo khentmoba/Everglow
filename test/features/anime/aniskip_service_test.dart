@@ -61,6 +61,18 @@ void main() {
     });
   });
 
+  group('skipVisibleAt', () {
+    const op = AniSkipTime(start: 58.0, end: 149.0);
+    test('hides before, shows inside, hides after', () {
+      expect(skipVisibleAt(op, 0), isFalse);
+      expect(skipVisibleAt(op, 57.9), isFalse);
+      expect(skipVisibleAt(op, 58), isTrue);
+      expect(skipVisibleAt(op, 100), isTrue);
+      expect(skipVisibleAt(op, 149), isTrue);
+      expect(skipVisibleAt(op, 149.1), isFalse);
+    });
+  });
+
   group('AniSkipService', () {
     test('fetches through proxyCatalog and caches', () async {
       var hits = 0;

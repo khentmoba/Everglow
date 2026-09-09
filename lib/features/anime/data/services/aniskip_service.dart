@@ -65,6 +65,11 @@ AniSkipTimes parseAniSkipTimes(Map<String, dynamic> json) {
   return AniSkipTimes(opening: opening, ending: ending);
 }
 
+/// True while [position] (seconds) sits inside the skippable stretch —
+/// drives the auto-appearing skip buttons once Videasy reports position.
+bool skipVisibleAt(AniSkipTime time, double position) =>
+    position >= time.start && position <= time.end;
+
 /// Community opening/ending timestamps for anime episodes (AniSkip).
 ///
 /// Keyed by MAL id + episode number — exactly what the anime watch page
