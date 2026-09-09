@@ -124,19 +124,10 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
               hue: AppColors.warmAmber,
               title: 'Coming Up',
               subtitle: 'could not load dates',
-              trailing: TextButton(
-                onPressed: () => context.push('/calendar'),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  foregroundColor: AppColors.blushGold,
-                ),
-                child: Text(
-                  'Calendar',
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 11,
-                    color: AppColors.blushGold,
-                  ),
-                ),
+              trailing: SectionPillLink(
+                label: 'Calendar',
+                hue: AppColors.warmAmber,
+                onTap: () => context.push('/calendar'),
               ),
               onTap: () => context.push('/calendar'),
               child: GestureDetector(
@@ -176,19 +167,10 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
               hue: AppColors.warmAmber,
               title: 'Coming Up',
               subtitle: 'loading dates…',
-              trailing: TextButton(
-                onPressed: () => context.push('/calendar'),
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  foregroundColor: AppColors.blushGold,
-                ),
-                child: Text(
-                  'Calendar',
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 11,
-                    color: AppColors.blushGold,
-                  ),
-                ),
+              trailing: SectionPillLink(
+                label: 'Calendar',
+                hue: AppColors.warmAmber,
+                onTap: () => context.push('/calendar'),
               ),
               onTap: () => context.push('/calendar'),
               child: Row(
@@ -226,42 +208,14 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
                 ? 'no dates planned yet'
                 : '${displayEvents.length} upcoming '
                       '${displayEvents.length == 1 ? 'date' : 'dates'}',
-            trailing: TextButton(
-              onPressed: () => context.push('/calendar'),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                foregroundColor: AppColors.blushGold,
-              ),
-              child: Text(
-                'Calendar',
-                style: AppTypography.outfitBold.copyWith(
-                  fontSize: 11,
-                  color: AppColors.blushGold,
-                ),
-              ),
+            trailing: SectionPillLink(
+              label: 'Calendar',
+              hue: AppColors.warmAmber,
+              onTap: () => context.push('/calendar'),
             ),
             onTap: () => context.push('/calendar'),
             child: displayEvents.isEmpty
-                ? Row(
-                    children: [
-                      const Icon(
-                        Icons.add_circle_outline_rounded,
-                        color: AppColors.warmAmber,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Tap to add the next special date',
-                          style: AppTypography.outfitWhite.copyWith(
-                            fontSize: 12,
-                            color: AppColors.petalWhite.withValues(alpha: 0.6),
-                          ),
-                        ),
-                      ),
-                      const SectionChevron(hue: AppColors.warmAmber),
-                    ],
-                  )
+                ? const _EmptyDatesCta()
                 : SizedBox(
                     height: 182,
                     child: ListView.separated(
@@ -280,6 +234,83 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
                   ),
           ),
         );
+  }
+}
+
+/// Warm invite shown when no dates are planned yet — a golden calendar
+/// tile plus the reason to tap, instead of a bare text row.
+class _EmptyDatesCta extends StatelessWidget {
+  const _EmptyDatesCta();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.warmAmber.withValues(alpha: 0.14),
+            AppColors.warmAmber.withValues(alpha: 0.04),
+            Colors.transparent,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.warmAmber.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.auroraGold, AppColors.warmAmber],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.warmAmber.withValues(alpha: 0.35),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.calendar_month_rounded,
+              size: 26,
+              color: AppColors.inkDeep,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nothing on the horizon',
+                  style: AppTypography.cormorantBold.copyWith(fontSize: 17),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Plan the next date together ♥',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SectionChevron(hue: AppColors.warmAmber),
+        ],
+      ),
+    );
   }
 }
 

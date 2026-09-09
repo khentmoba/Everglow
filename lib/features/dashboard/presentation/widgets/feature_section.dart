@@ -162,6 +162,54 @@ class _IconChip extends StatelessWidget {
   }
 }
 
+/// Pill link used in panel headers ("View all", "Calendar", ...).
+/// Same shape everywhere so the dashboard reads as one family.
+class SectionPillLink extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final Color hue;
+
+  const SectionPillLink({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.hue = AppColors.blushGold,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Semantics(
+        button: true,
+        label: label,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: hue.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: hue.withValues(alpha: 0.28)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 11,
+                  color: hue,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(Icons.chevron_right_rounded, size: 14, color: hue),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Small chevron affordance used by tappable sections.
 class SectionChevron extends StatelessWidget {
   final Color hue;
