@@ -125,11 +125,9 @@ self.addEventListener("fetch", (e) => {
   // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
-  const offlineResponse = () => new Response("Offline", {
-    status: 503,
-    statusText: "Service Unavailable",
-    headers: { "Content-Type": "text/plain" },
-  });
+  // Offline means a true network error (Response.error()), never a fake
+  // HTTP status: a synthesized error status made Chrome log
+  // "Failed to load resource" for ordinary offline/aborted fetches.
   const fallbackNavigate = async () => {
     const cached = await caches.match(e.request);
     if (cached) return cached;
@@ -146,7 +144,7 @@ self.addEventListener("fetch", (e) => {
         return net;
       }
     } catch (_) {}
-    return offlineResponse();
+    return Response.error();
   };
   if (isNoStore(path)) {
     e.respondWith(
@@ -170,7 +168,7 @@ self.addEventListener("fetch", (e) => {
             });
           }
           const cached = await caches.match(e.request);
-          return cached || offlineResponse();
+          return cached || Response.error();
         }),
     );
     return;
@@ -187,7 +185,7 @@ self.addEventListener("fetch", (e) => {
         return res;
       })).catch(async () => {
         const cached = await caches.match(e.request);
-        return cached || offlineResponse();
+        return cached || Response.error();
       }),
     );
     return;
@@ -212,7 +210,7 @@ self.addEventListener("fetch", (e) => {
           const res = await caches.match(fallback, { cacheName: CORE });
           if (res) return res;
         }
-        return offlineResponse();
+        return Response.error();
       }),
     );
     return;
@@ -231,9 +229,7 @@ self.addEventListener("fetch", (e) => {
       })
       .catch(async () => {
         const cached = await caches.match(e.request);
-        if (cached) return cached;
-        if (e.request.mode === "navigate") return fallbackNavigate();
-        return offlineResponse();
+        return cached || (e.request.mode === "navigate" ? fallbackNavigate() : Response.error());
       }),
   );
 });

@@ -1,4 +1,4 @@
-// BUILD=6.1.0+1-bb0bfd2
+// BUILD=6.1.0+1-db015bb
 // Everglow service worker: app-shell + asset caching + push.
 //
 // Pairing with firebase.json (last matching header rule wins there):
@@ -20,7 +20,7 @@
 // (firebase-messaging-sw.js) would replace this one and kill offline
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
-const SHELL="6.1.0+1-bb0bfd2-SHELL-v1";
+const SHELL="6.1.0+1-db015bb-SHELL-v1";
 // Stable across builds on purpose: entries rotate by `?v=` query, so a new
 // build misses (fetches fresh) while the previous shell stays cached for
 // offline boots. Only the newest two shells are kept (see trimCore).
@@ -109,11 +109,9 @@ self.addEventListener("fetch", (e) => {
   // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
   if (url.origin !== self.location.origin) return;
   const path = url.pathname;
-  const offlineResponse = () => new Response("Offline", {
-    status: 503,
-    statusText: "Service Unavailable",
-    headers: { "Content-Type": "text/plain" },
-  });
+  // Offline means a true network error (Response.error()), never a fake
+  // HTTP status: a synthesized error status made Chrome log
+  // "Failed to load resource" for ordinary offline/aborted fetches.
   const fallbackNavigate = async () => {
     const cached = await caches.match(e.request);
     if (cached) return cached;
@@ -130,7 +128,7 @@ self.addEventListener("fetch", (e) => {
         return net;
       }
     } catch (_) {}
-    return offlineResponse();
+    return Response.error();
   };
   if (isNoStore(path)) {
     e.respondWith(
@@ -154,7 +152,7 @@ self.addEventListener("fetch", (e) => {
             });
           }
           const cached = await caches.match(e.request);
-          return cached || offlineResponse();
+          return cached || Response.error();
         }),
     );
     return;
@@ -171,7 +169,7 @@ self.addEventListener("fetch", (e) => {
         return res;
       })).catch(async () => {
         const cached = await caches.match(e.request);
-        return cached || offlineResponse();
+        return cached || Response.error();
       }),
     );
     return;
@@ -196,7 +194,7 @@ self.addEventListener("fetch", (e) => {
           const res = await caches.match(fallback, { cacheName: CORE });
           if (res) return res;
         }
-        return offlineResponse();
+        return Response.error();
       }),
     );
     return;
@@ -215,9 +213,7 @@ self.addEventListener("fetch", (e) => {
       })
       .catch(async () => {
         const cached = await caches.match(e.request);
-        if (cached) return cached;
-        if (e.request.mode === "navigate") return fallbackNavigate();
-        return offlineResponse();
+        return cached || (e.request.mode === "navigate" ? fallbackNavigate() : Response.error());
       }),
   );
 });
