@@ -38,6 +38,7 @@ abstract final class AnimeXTokens {
   static const double pageMaxWidth = 1536; // max-w-screen-2xl
   static const double rowPosterWidthMobile = 155;
   static const double rowPosterWidthDesktop = 175;
+  static const double posterDetailsHeight = 72;
   static const double popoverWidth = 256;
   static const double popoverMaxHeight = 320;
 
