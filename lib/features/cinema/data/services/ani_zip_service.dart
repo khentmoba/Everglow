@@ -62,6 +62,7 @@ class AniZipService with ConnectivityAware {
   /// }
   /// ```
   Future<Map<String, dynamic>?> fetchMappings(int malId) async {
+    if (malId <= 0) return null;
     final cached = _cache[malId];
     if (cached != null) {
       final at = _cacheAt[malId];
@@ -89,6 +90,43 @@ class AniZipService with ConnectivityAware {
       }
       _cache[malId] = body;
       _cacheAt[malId] = DateTime.now();
+      return body;
+    } catch (e) {
+      Logger.e('ani.zip GET $uri error', error: e);
+      return null;
+    }
+  }
+
+  /// ani.zip lookup by AniList id. Used when the MAL id is missing
+  /// (AniList entries without an `idMal`) or when the MAL lookup
+  /// returns no payload — the same record is reachable either way.
+  /// Cached under the resolved MAL id so later MAL-keyed reads hit.
+  Future<Map<String, dynamic>?> fetchMappingsByAnilist(int anilistId) async {
+    if (anilistId <= 0) return null;
+    final uri = Uri.parse('$_baseUrl/mappings?anilist_id=$anilistId');
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        Logger.e('ani.zip GET $uri failed (${response.statusCode})');
+        return null;
+      }
+      final body = json.decode(response.body) as Map<String, dynamic>;
+      final mappings = body['mappings'] as Map<String, dynamic>?;
+      final rawMal = mappings?['mal_id'];
+      final malId = rawMal is num
+          ? rawMal.toInt()
+          : int.tryParse('${rawMal ?? ''}');
+      if (malId != null && malId > 0) {
+        if (_cache.length >= _cacheMax) {
+          final oldestKey = _cacheAt.entries
+              .reduce((a, b) => a.value.isBefore(b.value) ? a : b)
+              .key;
+          _cache.remove(oldestKey);
+          _cacheAt.remove(oldestKey);
+        }
+        _cache[malId] = body;
+        _cacheAt[malId] = DateTime.now();
+      }
       return body;
     } catch (e) {
       Logger.e('ani.zip GET $uri error', error: e);

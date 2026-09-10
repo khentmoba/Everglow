@@ -84,15 +84,14 @@ class AnimeXWatchPage extends StatefulWidget {
   /// caged inside the sandboxed player frame, which traps the popunders
   /// / top-frame hijacks third-party anime embeds are famous for — the
   /// cage is what keeps the web app from being thrown into TikTok /
-  /// YouTube, not the providers behaving themselves. The old embed
-  /// farms (Mega Play, Anixo) shipped popunder ad engines, so they were
-  /// dropped.
+  /// YouTube, not the providers behaving themselves.
   ///
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
   ///   ani.zip supplies a `themoviedb_id`.
-  /// - Megavid: AniList/MAL-keyed HLS with sub/dub. The only server
-  ///   that needs no TMDB mapping, so TMDB-less titles still play.
+  /// - Megavid / Anixo / Mega Play: AniList/MAL-keyed HLS with sub/dub.
+  ///   These need no TMDB mapping, so titles without one still get a
+  ///   real server selector instead of a single stuck chip.
   /// - Movish / VidBolt: TMDB-keyed fallbacks — the same sandbox-safe
   ///   pair the cinema player already trusts.
   ///
@@ -117,6 +116,12 @@ class AnimeXWatchPage extends StatefulWidget {
       return '$base$effectiveTmdb/$season/$episode';
     }
 
+    final hasSource = hasAni || hasMal;
+    String aniUrl(String host, String path, int ep, String audio) {
+      if (hasAni) return '$host$path/ani/$anilistId/$ep/$audio';
+      return '$host$path/mal/$effectiveMal/$ep/$audio';
+    }
+
     return [
       AnimeServerOption(
         name: 'Everglow',
@@ -137,7 +142,23 @@ class AnimeXWatchPage extends StatefulWidget {
           }
           return 'https://megavid.buzz/mal/$effectiveMal/$ep/$audio';
         },
-        available: hasAni || hasMal,
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'Anixo',
+        urlBuilder: (ep, audio) {
+          final base = hasAni
+              ? 'https://anixo.buzz/embed/ani/$anilistId/$ep'
+              : 'https://anixo.buzz/embed/mal/$effectiveMal/$ep';
+          return '$base?track=$audio';
+        },
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'Mega Play',
+        urlBuilder: (ep, audio) =>
+            aniUrl('https://megaplay.buzz', '/stream', ep, audio),
+        available: hasSource,
       ),
       AnimeServerOption(
         name: 'Movish',
@@ -243,6 +264,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
     _servers = _buildServers();
+    _serverIndex = _firstAvailableServer(_servers);
     _episodes = _buildEpisodeList(null);
     _load();
     _fetchSkipTimes();
@@ -373,9 +395,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     // same payload here costs no extra round-trip.
     Map<int, Map<String, dynamic>> aniZipEpisodes = const {};
     try {
-      final mappings = mappingsMalId > 0
+      var mappings = mappingsMalId > 0
           ? await _aniZip.fetchMappings(mappingsMalId)
           : null;
+      // MAL-less titles still resolve through the AniList id — without
+      // this the TMDB-keyed servers never appear for them.
+      mappings ??= await _aniZip.fetchMappingsByAnilist(
+        anilistId ?? detail?.id ?? 0,
+      );
       final mapped = mappings?['mappings'] as Map<String, dynamic>?;
       final rawAni = mapped?['anilist_id'];
       if (rawAni is num && rawAni > 0) {
@@ -696,11 +723,30 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     });
   }
 
+  /// Index of the first available server, or 0 when none is available
+  /// yet (the player then shows an empty URL until [_load] resolves).
+  static int _firstAvailableServer(List<AnimeServerOption> servers) {
+    final index = servers.indexWhere((s) => s.available);
+    return index == -1 ? 0 : index;
+  }
+
   String get _playerUrl {
-    final servers = _servers.where((s) => s.available).toList();
-    if (servers.isEmpty) return '';
-    final index = _serverIndex.clamp(0, servers.length - 1);
-    final url = servers[index].urlBuilder(_selectedEpisode, _audio);
+    if (_servers.isEmpty) return '';
+    AnimeServerOption? current;
+    if (_serverIndex >= 0 &&
+        _serverIndex < _servers.length &&
+        _servers[_serverIndex].available) {
+      current = _servers[_serverIndex];
+    } else {
+      for (final s in _servers) {
+        if (s.available) {
+          current = s;
+          break;
+        }
+      }
+    }
+    if (current == null) return '';
+    final url = current.urlBuilder(_selectedEpisode, _audio);
     // Skip-button jump: Videasy honors ?progress=<seconds>; other anime
     // servers have no known seek param, so the override only applies here.
     final jump = _skipJumpSeconds;
