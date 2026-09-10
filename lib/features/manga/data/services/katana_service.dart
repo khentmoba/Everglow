@@ -60,10 +60,24 @@ class KatanaService {
   /// MangaKatana image Cloud Function. All covers now go through the
   /// image proxy (which allows anonymous <img> loads via host allowlist)
   /// so they work from Image.network without Authorization headers.
-  String proxiedImageUrl(String url) {
+  static String proxyImageUrl(String url) {
     if (url.isEmpty) return '';
+    if (url.contains('proxyMangaKatana')) return url;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) return url;
+    final host = uri.host.toLowerCase();
+    final isAllowed = host == 'mangakatana.com' ||
+        host.endsWith('.mangakatana.com') ||
+        host == 'mangakatana.net' ||
+        host.endsWith('.mangakatana.net') ||
+        host.endsWith('.mangakakalot.com') ||
+        host.endsWith('.mkklcdnv6temp.com') ||
+        host.endsWith('.catmanga.org');
+    if (!isAllowed) return url;
     return '$_proxyImageUrl?url=${Uri.encodeComponent(url)}';
   }
+
+  String proxiedImageUrl(String url) => proxyImageUrl(url);
 
   Future<String?> _fetchHtml(Uri uri) async {
     try {
@@ -826,17 +840,32 @@ class KatanaService {
   }
 
   String _coverFrom(String block) {
+    String? raw;
     final webp = RegExp(
-      r'<source srcset="(https://[^"]+\.webp)"',
+      r'<source [^>]*srcset="((?:https?:)?//[^"\s]+)"',
     ).firstMatch(block);
-    if (webp != null) return webp.group(1)!;
-    final img = RegExp(r'<img src="(https://[^"]+)"').firstMatch(block);
-    if (img != null) return img.group(1)!;
-    final dataSrc = RegExp(
-      r'<img data-src="(https://[^"]+)"',
-    ).firstMatch(block);
-    if (dataSrc != null) return dataSrc.group(1)!;
-    return '';
+    if (webp != null) {
+      raw = webp.group(1);
+    } else {
+      final img = RegExp(
+        r'<img [^>]*src="((?:https?:)?//[^"]+)"',
+      ).firstMatch(block);
+      if (img != null) {
+        raw = img.group(1);
+      } else {
+        final dataSrc = RegExp(
+          r'<img [^>]*data-src="((?:https?:)?//[^"]+)"',
+        ).firstMatch(block);
+        if (dataSrc != null) {
+          raw = dataSrc.group(1);
+        }
+      }
+    }
+    if (raw == null || raw.isEmpty) return '';
+    if (raw.startsWith('//')) {
+      raw = 'https:$raw';
+    }
+    return proxyImageUrl(raw);
   }
 
   KatanaManga? _parseDetail(String html, String slug) {
