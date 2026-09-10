@@ -193,4 +193,87 @@ void main() {
       expect(items.reminded.length, 1);
     });
   });
+
+  group('MediaItem.resolveCoupleStatus (owner is ground truth)', () {
+    MediaItem owned(String status, String userName) => _item(
+      mediaType: 'movie',
+      status: status,
+    ).copyWith(userName: userName);
+
+    test('Clair watching-self resolves to watching-clair (Odyssey case)', () {
+      final item = owned('watching-self', 'clairjassen');
+      expect(item.resolveCoupleStatus(), 'watching-clair');
+    });
+
+    test('Khent watching-self resolves to watching-khent', () {
+      final item = owned('watching-self', 'khentsgdz');
+      expect(item.resolveCoupleStatus(), 'watching-khent');
+    });
+
+    test('generic watching on Clair doc resolves to watching-clair', () {
+      final item = owned('watching', 'clairjassen');
+      expect(item.resolveCoupleStatus(), 'watching-clair');
+    });
+
+    test('legacy mismatched watching-khent on Clair doc resolves to clair', () {
+      // Pre-routing docs could store the other partner's suffix on the
+      // wrong owner's doc. userName wins so Clair's row never highlights
+      // Khent Watching.
+      final item = owned('watching-khent', 'clairjassen');
+      expect(item.resolveCoupleStatus(), 'watching-clair');
+    });
+
+    test('legacy mismatched watching-clair on Khent doc resolves to khent', () {
+      final item = owned('watching-clair', 'khentsgdz');
+      expect(item.resolveCoupleStatus(), 'watching-khent');
+    });
+
+    test('watched variants resolve by owner too', () {
+      expect(
+        owned('watched-self', 'clairjassen').resolveCoupleStatus(),
+        'watched-clair',
+      );
+      expect(
+        owned('watched', 'khentsgdz').resolveCoupleStatus(),
+        'watched-khent',
+      );
+      expect(
+        owned('watched-khent', 'clairjassen').resolveCoupleStatus(),
+        'watched-clair',
+      );
+    });
+
+    test('merged both-owner items keep merged status', () {
+      final both = owned(
+        'watching-khent',
+        'khentsgdz,clairjassen',
+      );
+      expect(both.resolveCoupleStatus(), 'watching-khent');
+      // Legacy self on a merged doc maps to Both (pre-merge behavior).
+      final bothSelf = owned(
+        'watching-self',
+        'khentsgdz,clairjassen',
+      );
+      expect(bothSelf.resolveCoupleStatus(), 'watching-both');
+    });
+
+    test('non-couple and empty owners keep original status', () {
+      expect(
+        owned('watching-self', 'breyan').resolveCoupleStatus(),
+        'watching-self',
+      );
+      expect(
+        owned('watching-self', '').resolveCoupleStatus(),
+        'watching-self',
+      );
+      expect(
+        owned('to-watch', 'clairjassen').resolveCoupleStatus(),
+        'to-watch',
+      );
+      expect(
+        owned('watching-both', 'khentsgdz').resolveCoupleStatus(),
+        'watching-both',
+      );
+    });
+  });
 }
