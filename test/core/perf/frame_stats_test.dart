@@ -67,4 +67,30 @@ void main() {
       expect(framesPerSecond(0, const Duration(seconds: 1)), 0);
     });
   });
+
+  group('PerfSnapshot', () {
+    test('mirrors the stats window, rounded', () {
+      final stats = FrameStats(capacity: 10)
+        ..add(4, 6)
+        ..add(9.1234, 18.9876);
+      final snapshot = PerfSnapshot.of(
+        fps: 59.876,
+        stats: stats,
+        devicePixelRatio: 3,
+      );
+
+      expect(snapshot.toMap(), {
+        'fps': 59.88,
+        'buildAvgMs': 6.56,
+        'buildWorstMs': 9.12,
+        'rasterAvgMs': 12.49,
+        'rasterWorstMs': 18.99,
+        'worstFrameMs': 28.11,
+        'jankPercent': 50.0,
+        'droppedPercent': 0.0,
+        'frames': 2.0,
+        'devicePixelRatio': 3.0,
+      });
+    });
+  });
 }

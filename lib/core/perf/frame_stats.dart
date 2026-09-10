@@ -114,6 +114,72 @@ double framesPerSecond(int frames, Duration elapsed) {
   return frames * Duration.microsecondsPerSecond / micros;
 }
 
+/// One reading of the meter.
+///
+/// Exists so the same numbers can go to the on-screen overlay *and*, on web, to
+/// `window.__everglowPerf` — the overlay paints into a canvas, which leaves a
+/// screenshot or nothing; the JS global makes the numbers readable by tooling
+/// and automation.
+class PerfSnapshot {
+  const PerfSnapshot({
+    required this.fps,
+    required this.buildAvgMs,
+    required this.buildWorstMs,
+    required this.rasterAvgMs,
+    required this.rasterWorstMs,
+    required this.worstFrameMs,
+    required this.jankPercent,
+    required this.droppedPercent,
+    required this.frames,
+    required this.devicePixelRatio,
+  });
+
+  factory PerfSnapshot.of({
+    required double fps,
+    required FrameStats stats,
+    required double devicePixelRatio,
+  }) => PerfSnapshot(
+    fps: fps,
+    buildAvgMs: stats.avgBuildMs,
+    buildWorstMs: stats.worstBuildMs,
+    rasterAvgMs: stats.avgRasterMs,
+    rasterWorstMs: stats.worstRasterMs,
+    worstFrameMs: stats.worstTotalMs,
+    jankPercent: stats.jankPercent,
+    droppedPercent: stats.droppedPercent,
+    frames: stats.frameCount,
+    devicePixelRatio: devicePixelRatio,
+  );
+
+  final double fps;
+  final double buildAvgMs;
+  final double buildWorstMs;
+  final double rasterAvgMs;
+  final double rasterWorstMs;
+  final double worstFrameMs;
+  final double jankPercent;
+  final double droppedPercent;
+  final int frames;
+  final double devicePixelRatio;
+
+  /// Rounded to 2 decimals: these get read by a human or a script, they are not
+  /// fed back into further maths, and full doubles are unreadable.
+  Map<String, double> toMap() => <String, double>{
+    'fps': _round(fps),
+    'buildAvgMs': _round(buildAvgMs),
+    'buildWorstMs': _round(buildWorstMs),
+    'rasterAvgMs': _round(rasterAvgMs),
+    'rasterWorstMs': _round(rasterWorstMs),
+    'worstFrameMs': _round(worstFrameMs),
+    'jankPercent': _round(jankPercent),
+    'droppedPercent': _round(droppedPercent),
+    'frames': frames.toDouble(),
+    'devicePixelRatio': _round(devicePixelRatio),
+  };
+
+  static double _round(double value) => (value * 100).roundToDouble() / 100;
+}
+
 class _FrameSample {
   const _FrameSample(this.buildMs, this.rasterMs);
 
