@@ -71,6 +71,11 @@
       height: 100%;
       height: 100dvh;
       min-height: 100vh;
+      min-height: 100dvh;
+      /* iOS Home Screen apps can mis-measure %/vh around the status bar,
+         leaving an empty band below the app. fill-available tracks the real
+         window instead; ignored where unsupported, so browsers are unchanged. */
+      min-height: -webkit-fill-available;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -210,13 +215,28 @@
     // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
     // user-scalable=no & viewport-fit=cover, which causes accidental zoom & layout
     // stretching on mobile devices. This observer guarantees the tag stays locked.
+    // If the engine ever measures a viewport WITHOUT cover (e.g. it boots in the
+    // gap between Flutter's replacement and our restore), its canvas stays short
+    // and the Home Screen app shows an empty dark band at the bottom. The resize
+    // nudge below makes the engine re-measure the true full window in that case.
     (function () {
       var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+      var resizeQueued = false;
+      function nudgeEngine() {
+        if (resizeQueued) return;
+        resizeQueued = true;
+        setTimeout(function () {
+          resizeQueued = false;
+          try { window.dispatchEvent(new Event('resize')); } catch (_) {}
+        }, 100);
+      }
       function lockMeta() {
+        var fixed = false;
         var metas = document.querySelectorAll('meta[name="viewport"]');
         for (var i = 0; i < metas.length; i++) {
           if (metas[i].getAttribute('content') !== expected) {
             metas[i].setAttribute('content', expected);
+            fixed = true;
           }
         }
         if (metas.length === 0 && document.head) {
@@ -224,8 +244,11 @@
           m.name = 'viewport';
           m.content = expected;
           document.head.appendChild(m);
+          fixed = true;
         }
+        if (fixed) nudgeEngine();
       }
+      lockMeta();
       if (typeof MutationObserver !== 'undefined') {
         new MutationObserver(lockMeta).observe(document.head || document.documentElement, {
           childList: true,
@@ -233,6 +256,12 @@
           attributeFilter: ['content']
         });
       }
+      // Re-assert once the engine is up: heals an early measurement taken
+      // before cover was restored. One extra layout during splash fade.
+      window.addEventListener('flutter-first-frame', function () {
+        lockMeta();
+        nudgeEngine();
+      }, { once: true });
     })();
 
     // Active scroll guardian: keeps document window at (0, 0) scroll offset
