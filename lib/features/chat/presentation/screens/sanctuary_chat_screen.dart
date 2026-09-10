@@ -88,15 +88,15 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       return;
     }
 
-    try {
-      final db = FirebaseFirestore.instance;
-      await db.collection('users').doc(uid).set({
+    // Ensure user doc in background — do not block chat connection on write ACK.
+    unawaited(
+      FirebaseFirestore.instance.collection('users').doc(uid).set({
         'username': authService.currentUser,
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (e) {
-      Logger.e("Sanctuary: failed to ensure user doc", error: e);
-    }
+      }, SetOptions(merge: true)).catchError((Object e) {
+        Logger.e("Sanctuary: failed to ensure user doc", error: e);
+      }),
+    );
 
     // Self-heal a stuck partner link: if the one-shot background resolve in
     // AuthService failed earlier (offline, rules), retry it now so the

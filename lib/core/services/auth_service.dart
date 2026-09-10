@@ -31,6 +31,7 @@ class AuthService extends ChangeNotifier {
   String? _partnerNameResolved;
   bool _hasSyncedUserDoc = false;
   bool _isResolvingPartner = false;
+  bool _isSessionLoaded = false;
   String? _lastAuthError;
 
   AuthService() {
@@ -62,30 +63,37 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> _loadSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    _currentUser = prefs.getString('current_user_name');
-    if (_currentUser != null) {
-      Logger.i("Restored session for: $_currentUser");
-      // Same heal as the auth-state listener: a persisted anonymous user
-      // with a couple username can never read couple data. Sign out so the
-      // gateway asks for a real login instead of showing empty shelves.
-      if (isCoupleUser && _auth.currentUser?.isAnonymous == true) {
-        Logger.e(
-          '[AuthService] clearing persisted anonymous session for $_currentUser — real login required',
-        );
-        try {
-          await _auth.signOut();
-        } catch (e) {
-          Logger.e('Failed to clear anonymous session', error: e);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _currentUser = prefs.getString('current_user_name');
+      if (_currentUser != null) {
+        Logger.i("Restored session for: $_currentUser");
+        // Same heal as the auth-state listener: a persisted anonymous user
+        // with a couple username can never read couple data. Sign out so the
+        // gateway asks for a real login instead of showing empty shelves.
+        if (isCoupleUser && _auth.currentUser?.isAnonymous == true) {
+          Logger.e(
+            '[AuthService] clearing persisted anonymous session for $_currentUser — real login required',
+          );
+          try {
+            await _auth.signOut();
+          } catch (e) {
+            Logger.e('Failed to clear anonymous session', error: e);
+          }
+          _user = null;
         }
-        _user = null;
+        notifyListeners();
+        // If auth state already fired before we loaded the session,
+        // sync the user doc now that _currentUser is available.
+        if (_auth.currentUser != null && !_hasSyncedUserDoc) {
+          unawaited(_syncUserDoc());
+        }
       }
+    } catch (e) {
+      Logger.e('Failed to load session from disk', error: e);
+    } finally {
+      _isSessionLoaded = true;
       notifyListeners();
-      // If auth state already fired before we loaded the session,
-      // sync the user doc now that _currentUser is available.
-      if (_auth.currentUser != null && !_hasSyncedUserDoc) {
-        unawaited(_syncUserDoc());
-      }
     }
   }
 
@@ -102,6 +110,7 @@ class AuthService extends ChangeNotifier {
   bool get isAuthenticated => _user != null;
   String? get currentUser => _currentUser;
   String? get uid => _auth.currentUser?.uid;
+  bool get isSessionLoaded => _isSessionLoaded;
 
   /// True when the Firebase session is anonymous. Anonymous sessions are
   /// blocked by firestore.rules on every app read, so one paired with a
@@ -389,9 +398,14 @@ class AuthService extends ChangeNotifier {
   /// definitive answer (offline, timeout, 5xx) so the gateway can tell
   /// "wrong code" apart from "couldn't connect".
   Future<String?> verifyCouplePasscode(String passcode) async {
+    final isLocalWeb = kIsWeb &&
+        (Uri.base.host == 'localhost' ||
+            Uri.base.host == '127.0.0.1' ||
+            Uri.base.host == '0.0.0.0');
     // Try hosting rewrite first (same-origin, no CORS), then direct CF URL.
+    // On local dev web, skip relative /api/ because the local dev server serves index.html.
     final urls = <Uri>[
-      if (kIsWeb) Uri.parse('/api/verifyPasscode'),
+      if (kIsWeb && !isLocalWeb) Uri.parse('/api/verifyPasscode'),
       Uri.parse(
         'https://us-central1-everglow-1c6db.cloudfunctions.net/verifyPasscode',
       ),

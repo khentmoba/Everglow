@@ -33,12 +33,24 @@ Stream<T> withFirestoreTimeout<T>(
   int maxAttempts = 2,
   Duration retryDelay = const Duration(seconds: 2),
 }) {
+  // On web (especially during cold launch or when running locally on
+  // localhost where multiple collection streams attach simultaneously),
+  // the initial WebChannel connection and target allocation can take 15-20s.
+  // A tight 5-10s timer kills the subscription while Firestore is still
+  // connecting, creating an aggressive retry loop that exhausts and drops
+  // the stream. Ensure at least a 25s initial budget on web so first paint
+  // actually succeeds.
+  final effectiveDuration = kIsWeb && duration < const Duration(seconds: 25)
+      ? const Duration(seconds: 25)
+      : duration;
+  final effectiveAttempts = kIsWeb && maxAttempts < 3 ? 3 : maxAttempts;
+
   final guard = _FirstEventGuard<T>(
     firstStream: stream,
-    duration: duration,
+    duration: effectiveDuration,
     name: label ?? 'stream',
     factory: resubscribe,
-    maxAttempts: maxAttempts,
+    maxAttempts: effectiveAttempts,
     retryDelay: retryDelay,
   );
   return guard.output;
