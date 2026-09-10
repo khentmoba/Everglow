@@ -140,8 +140,23 @@ class MediaItem {
   /// True when this title is a film rather than an episodic series.
   /// Anything that is not a TV series (`mediaType != 'tv'`, e.g. movies
   /// and anime films) is treated as a movie so episode progress labels
-  /// are never rendered for it.
-  bool get isMovie => mediaType.trim().toLowerCase() != 'tv';
+  /// are never rendered for it. Anime films sometimes persist with
+  /// `mediaType == 'tv'` (legacy docs, relations), so `format`
+  /// (`'Movie'` from Jikan / `'MOVIE'` from AniList) is honored too.
+  bool get isMovie {
+    if (mediaType.trim().toLowerCase() != 'tv') return true;
+    return format.trim().toLowerCase() == 'movie';
+  }
+
+  /// True when season/episode labels are meaningful for this title.
+  /// Films never show them. Single-episode anime neither: ONA/OVA-listed
+  /// films (e.g. Drifting Home: tv + episodeCount 1) save with stale S1E1
+  /// progress, and S1E1 is noise for a single sitting.
+  bool get hasEpisodeProgress {
+    if (isMovie) return false;
+    if (isAnime && episodeCount == 1) return false;
+    return true;
+  }
 
   /// True for anime series (TV) — the only anime that lives exclusively
   /// in the Anime rail. Anime *movies* belong in the cinema shelves too

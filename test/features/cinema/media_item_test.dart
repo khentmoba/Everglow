@@ -7,6 +7,8 @@ MediaItem _item({
   int? currentEpisode,
   String status = 'watching',
   bool isAnime = false,
+  String format = '',
+  int? episodeCount,
 }) {
   return MediaItem(
     id: 'm1',
@@ -17,6 +19,8 @@ MediaItem _item({
     status: status,
     isAnime: isAnime,
     addedAt: DateTime(2026, 1, 1),
+    format: format,
+    episodeCount: episodeCount,
     currentSeason: 1,
     currentEpisode: currentEpisode,
   );
@@ -37,6 +41,57 @@ void main() {
     test('anime movies are movies', () {
       final animeMovie = _item(mediaType: 'movie', currentEpisode: 1);
       expect(animeMovie.isMovie, isTrue);
+    });
+
+    test('anime film saved as tv with format Movie is still a movie', () {
+      // Regression: Drifting Home showed S1E1 on the dashboard because
+      // its doc carried mediaType tv with stale season/episode progress.
+      // format ('Movie'/Jikan, 'MOVIE'/AniList) is the backstop.
+      for (final format in ['Movie', 'MOVIE', ' movie ']) {
+        final film = _item(
+          mediaType: 'tv',
+          currentEpisode: 1,
+          isAnime: true,
+          format: format,
+        );
+        expect(film.isMovie, isTrue, reason: 'format=$format');
+        expect(film.isAnimeSeries, isFalse, reason: 'format=$format');
+        expect(film.isCinemaItem, isTrue, reason: 'format=$format');
+      }
+    });
+
+    test('anime series with TV format stays a series', () {
+      final series = _item(
+        mediaType: 'tv',
+        currentEpisode: 4,
+        isAnime: true,
+        format: 'TV',
+      );
+      expect(series.isMovie, isFalse);
+      expect(series.isAnimeSeries, isTrue);
+    });
+
+    test('single-episode anime has no episode progress (ONA-listed film)', () {
+      // Drifting Home saves as tv + episodeCount 1 with stale S1E1
+      // progress: shelves must hide the badge instead of showing S1E1.
+      final film = _item(
+        mediaType: 'tv',
+        currentEpisode: 1,
+        isAnime: true,
+        format: 'ONA',
+        episodeCount: 1,
+      );
+      expect(film.hasEpisodeProgress, isFalse);
+      final series = _item(
+        mediaType: 'tv',
+        currentEpisode: 1,
+        isAnime: true,
+        format: 'TV',
+        episodeCount: 12,
+      );
+      expect(series.hasEpisodeProgress, isTrue);
+      final movie = _item(mediaType: 'movie', currentEpisode: 1);
+      expect(movie.hasEpisodeProgress, isFalse);
     });
 
     test('fromFirestore defaults to movie when mediaType is missing', () {
