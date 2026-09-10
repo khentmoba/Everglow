@@ -38,8 +38,6 @@ class _AnimeXTickerState extends State<AnimeXTicker>
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) return const SizedBox.shrink();
     final narrow = MediaQuery.sizeOf(context).width < 600;
-    final labelWidth = narrow ? 108.0 : 168.0;
-
     return MouseRegion(
       onEnter: (_) => _ctrl.stop(),
       onExit: (_) => _ctrl.repeat(),
@@ -59,39 +57,13 @@ class _AnimeXTickerState extends State<AnimeXTicker>
           ),
         ),
         clipBehavior: Clip.hardEdge,
-        child: Stack(
+        child: Row(
           children: [
-            Positioned.fill(
-              child: Padding(
-                padding: EdgeInsets.only(left: labelWidth),
-                child: OverflowBox(
-                  maxWidth: double.infinity,
-                  alignment: Alignment.centerLeft,
-                  child: AnimatedBuilder(
-                    animation: _ctrl,
-                    builder: (context, _) {
-                      return Transform.translate(
-                        offset: Offset(
-                          -_ctrl.value * _trackWidth(context),
-                          0,
-                        ),
-                        child: _track(context),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
             // Fixed "Airing Today" label pinned to the left edge.
-            Container(
-              width: labelWidth,
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AnimeXTokens.bg, AnimeXTokens.bg],
-                ),
-              ),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     width: 7,
@@ -108,53 +80,58 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      narrow ? 'AIRING' : 'AIRING TODAY',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: dmSansStyle(
-                        size: 11,
-                        color: AnimeXTokens.textPrimary,
-                        weight: FontWeight.w800,
-                        letterSpacing: 0.1,
-                      ),
+                  Text(
+                    narrow ? 'AIRING' : 'AIRING TODAY',
+                    style: dmSansStyle(
+                      size: 11,
+                      color: AnimeXTokens.textPrimary,
+                      weight: FontWeight.w800,
+                      letterSpacing: 0.1,
                     ),
                   ),
                 ],
               ),
             ),
-            Positioned(
-              left: labelWidth,
-              top: 0,
-              bottom: 0,
-              child: IgnorePointer(
-                child: Container(
-                  width: 40,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AnimeXTokens.bg,
-                        AnimeXTokens.bg.withValues(alpha: 0),
+            // Scrolling marquee track with edge fades via ShaderMask.
+            Expanded(
+              child: ClipRect(
+                child: ShaderMask(
+                  shaderCallback: (Rect bounds) {
+                    if (bounds.width <= 48) {
+                      return const LinearGradient(
+                        colors: [Colors.white, Colors.white],
+                      ).createShader(bounds);
+                    }
+                    final leftStop = (24.0 / bounds.width).clamp(0.0, 0.2);
+                    final rightStop =
+                        ((bounds.width - 32.0) / bounds.width).clamp(0.8, 1.0);
+                    return LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: const [
+                        Colors.transparent,
+                        Colors.white,
+                        Colors.white,
+                        Colors.transparent,
                       ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              child: IgnorePointer(
-                child: Container(
-                  width: 64,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AnimeXTokens.bg.withValues(alpha: 0),
-                        AnimeXTokens.bg,
-                      ],
+                      stops: [0.0, leftStop, rightStop, 1.0],
+                    ).createShader(bounds);
+                  },
+                  blendMode: BlendMode.dstIn,
+                  child: OverflowBox(
+                    maxWidth: double.infinity,
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedBuilder(
+                      animation: _ctrl,
+                      builder: (context, _) {
+                        return Transform.translate(
+                          offset: Offset(
+                            -_ctrl.value * _trackWidth(context),
+                            0,
+                          ),
+                          child: _track(context),
+                        );
+                      },
                     ),
                   ),
                 ),
