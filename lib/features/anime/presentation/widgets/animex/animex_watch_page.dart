@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:http/http.dart' as http;
@@ -89,37 +90,53 @@ class AnimeXWatchPage extends StatefulWidget {
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
   ///   ani.zip supplies a `themoviedb_id`.
-  /// - Megavid / Anixo / Mega Play: AniList/MAL-keyed HLS with sub/dub.
-  ///   These need no TMDB mapping, so titles without one still get a
-  ///   real server selector instead of a single stuck chip.
-  /// - Movish / VidBolt: TMDB-keyed fallbacks — the same sandbox-safe
-  ///   pair the cinema player already trusts.
+  /// - HiAnime / AnimePahe: our own `proxyAnime` player page, which
+  ///   resolves the episode on our server (through our self-hosted
+  ///   HiAnime / AnimePahe API) and serves a clean player from our own
+  ///   domain — no third-party ad script ever reaches Clair's phone.
+  ///   AniList/MAL-keyed, so they work without a TMDB mapping.
+  /// - Megavid / Anixo / Mega Play: AniList/MAL-keyed third-party
+  ///   embeds. Fallbacks only — Megavid is deliberately NOT the
+  ///   default. These need no TMDB mapping, so titles without one
+  ///   still get a real server selector instead of a single stuck chip.
   ///
   /// [episodeSlots] maps a MAL episode number to the season/episode
   /// pair TMDB expects — shows whose MAL entry starts mid-series (e.g.
   /// Attack on Titan season 2) would otherwise open the wrong episode.
+  /// [idToken] is Clair's Firebase login token for the `proxyAnime`
+  /// servers (player iframes cannot send headers, so it travels as
+  /// `?token=`). Empty until the async sign-in resolves — the servers
+  /// stay listed and simply fail over to the next one until then.
   static List<AnimeServerOption> buildServers({
     int? anilistId,
     int? malId,
     int? tmdbId,
     Map<int, ({int season, int episode})> episodeSlots = const {},
+    String idToken = '',
   }) {
     final hasAni = anilistId != null && anilistId > 0;
     final effectiveMal = malId ?? 0;
     final hasMal = effectiveMal > 0;
     final effectiveTmdb = tmdbId ?? 0;
-
-    String tmdbTvUrl(String base, int ep) {
-      final slot = episodeSlots[ep];
-      final season = slot?.season ?? 1;
-      final episode = slot?.episode ?? ep;
-      return '$base$effectiveTmdb/$season/$episode';
-    }
+    final aniId = hasAni ? anilistId : 0;
 
     final hasSource = hasAni || hasMal;
     String aniUrl(String host, String path, int ep, String audio) {
       if (hasAni) return '$host$path/ani/$anilistId/$ep/$audio';
       return '$host$path/mal/$effectiveMal/$ep/$audio';
+    }
+
+    String proxyAnimeUrl(String source, int ep, String audio) {
+      final params = <String>[
+        'source=$source',
+        'anilistId=$aniId',
+        'malId=$effectiveMal',
+        'ep=$ep',
+        'audio=$audio',
+        if (idToken.isNotEmpty) 'token=${Uri.encodeComponent(idToken)}',
+      ];
+      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/'
+          'proxyAnime?${params.join('&')}';
     }
 
     return [
@@ -133,6 +150,16 @@ class AnimeXWatchPage extends StatefulWidget {
               '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
         },
         available: effectiveTmdb > 0,
+      ),
+      AnimeServerOption(
+        name: 'HiAnime',
+        urlBuilder: (ep, audio) => proxyAnimeUrl('hianime', ep, audio),
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'AnimePahe',
+        urlBuilder: (ep, audio) => proxyAnimeUrl('animepahe', ep, audio),
+        available: hasSource,
       ),
       AnimeServerOption(
         name: 'Megavid',
@@ -159,17 +186,6 @@ class AnimeXWatchPage extends StatefulWidget {
         urlBuilder: (ep, audio) =>
             aniUrl('https://megaplay.buzz', '/stream', ep, audio),
         available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'Movish',
-        urlBuilder: (ep, audio) =>
-            tmdbTvUrl('https://movish.to/moviebox-embed/tv/', ep),
-        available: effectiveTmdb > 0,
-      ),
-      AnimeServerOption(
-        name: 'VidBolt',
-        urlBuilder: (ep, audio) => tmdbTvUrl('https://vidbolt.xyz/tv/', ep),
-        available: effectiveTmdb > 0,
       ),
     ];
   }
@@ -217,6 +233,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// mid-series (e.g. Attack on Titan season 2) don't open the wrong
   /// episode.
   Map<int, ({int season, int episode})> _episodeSlots = const {};
+
+  /// Firebase login token for the `proxyAnime` (HiAnime / AnimePahe)
+  /// servers — player iframes cannot send headers, so it travels as
+  /// `?token=`. Empty until sign-in resolves; the servers stay listed
+  /// and simply fail over until then.
+  String _idToken = '';
 
   String get _memoryKey =>
       PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
@@ -266,6 +288,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _servers = _buildServers();
     _serverIndex = _firstAvailableServer(_servers);
     _episodes = _buildEpisodeList(null);
+    _refreshIdToken();
     _load();
     _fetchSkipTimes();
     _restoreMemory();
@@ -579,7 +602,34 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       malId: mappedMalId ?? _malId,
       tmdbId: _mappedTmdbId,
       episodeSlots: _episodeSlots,
+      idToken: _idToken,
     );
+  }
+
+  /// Fetches the login token once so the `proxyAnime` servers can
+  /// authenticate. Rebuilds the server list in place so the current
+  /// selection survives — only the HiAnime / AnimePahe URLs change.
+  Future<void> _refreshIdToken() async {
+    try {
+      final token =
+          await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
+      if (!mounted || token.isEmpty || token == _idToken) return;
+      final currentName = _servers.isNotEmpty &&
+              _serverIndex >= 0 &&
+              _serverIndex < _servers.length
+          ? _servers[_serverIndex].name
+          : null;
+      setState(() {
+        _idToken = token;
+        _servers = _buildServers();
+        if (currentName != null) {
+          final again = _servers.indexWhere(
+            (s) => s.available && s.name == currentName,
+          );
+          if (again != -1) _serverIndex = again;
+        }
+      });
+    } catch (_) {}
   }
 
   void _selectEpisode(int episode) {
