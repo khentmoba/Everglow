@@ -11,7 +11,13 @@ const {
   generateTrivia,
   computeInsights,
   composeTodayRecap,
+  shouldExtractMemory,
 } = require('../mochi_core.js');
+
+const {
+  buildContextForFeature,
+  invalidateContextBlock,
+} = require('../mochi_context.js');
 
 const facts = [
   {
@@ -135,4 +141,25 @@ test('composeTodayRecap grounds the recap in real data', () => {
   assert.ok(recap.includes('khentsgdz feels happy'));
   assert.ok(recap.includes('"I love our mornings"'));
   assert.ok(recap.includes('On this day'));
+});
+
+test('buildContextForFeature resolves safely without crashing', async () => {
+  const ctx = await buildContextForFeature('assistant', 'khentsgdz', 'tell me about our movies');
+  assert.equal(typeof ctx, 'string');
+  assert.doesNotThrow(() => invalidateContextBlock('watchlist'));
+  assert.doesNotThrow(() => invalidateContextBlock());
+});
+
+test('shouldExtractMemory gates casual chatter and passes durable personal facts', () => {
+  assert.equal(shouldExtractMemory('hi mochi', 'Mew! Hello there!'), false);
+  assert.equal(shouldExtractMemory('good morning', 'Good morning Dada! Hope you have a lovely day.'), false);
+  assert.equal(shouldExtractMemory('ok thanks', 'Anytime! Mew!'), false);
+  assert.equal(shouldExtractMemory('what is the weather in cabadbaran', 'It is 29 degrees and sunny in Cabadbaran.'), false);
+  assert.equal(shouldExtractMemory('search movies for Dune', 'Found Dune on TMDB.'), false);
+
+  assert.equal(shouldExtractMemory('remember that Khent prefers black coffee', 'Got it! Saved to memory.'), true);
+  assert.equal(shouldExtractMemory('I love Ethel Cain music so much', 'Her voice is truly ethereal!'), true);
+  assert.equal(shouldExtractMemory('Clair dislikes spicy food', 'Noted! Mama prefers mild food.'), true);
+  assert.equal(shouldExtractMemory('My birthday is October 26', 'Dada\'s birthday is marked!'), true);
+  assert.equal(shouldExtractMemory('I bought a new helmet for my Winner X bike today', 'Stay safe on the road!'), true);
 });

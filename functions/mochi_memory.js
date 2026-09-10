@@ -16,6 +16,7 @@ const {
   rankMemories,
   simpleEmbedding,
   isNearDuplicate,
+  shouldExtractMemory,
 } = require('./mochi_core.js');
 const { getTmdbKey } = require('./mochi_context.js');
 
@@ -52,6 +53,7 @@ async function getEmbedding(text) {
 async function serverExtractAndSaveMemory(userMessage, mochiReply, callerUsername) {
   try {
     if (!userMessage || !mochiReply) return;
+    if (!shouldExtractMemory(userMessage, mochiReply)) return;
     const trimmedUser = String(userMessage).slice(0, 800).trim();
     const trimmedReply = String(mochiReply).slice(0, 1200).trim();
     if (trimmedUser.length < 10 && trimmedReply.length < 20) return;
