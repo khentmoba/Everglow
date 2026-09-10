@@ -213,7 +213,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 6);
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -234,17 +234,31 @@ void main() {
         'https://megavid.buzz/ani/21/1/dub',
       );
 
-      expect(servers[2].name, 'Movish');
+      expect(servers[2].name, 'Anixo');
       expect(servers[2].available, isTrue);
       expect(
         servers[2].urlBuilder(1, 'sub'),
-        'https://movish.to/moviebox-embed/tv/37854/1/1',
+        'https://anixo.buzz/embed/ani/21/1?track=sub',
       );
 
-      expect(servers[3].name, 'VidBolt');
+      expect(servers[3].name, 'Mega Play');
       expect(servers[3].available, isTrue);
       expect(
         servers[3].urlBuilder(1, 'sub'),
+        'https://megaplay.buzz/stream/ani/21/1/sub',
+      );
+
+      expect(servers[4].name, 'Movish');
+      expect(servers[4].available, isTrue);
+      expect(
+        servers[4].urlBuilder(1, 'sub'),
+        'https://movish.to/moviebox-embed/tv/37854/1/1',
+      );
+
+      expect(servers[5].name, 'VidBolt');
+      expect(servers[5].available, isTrue);
+      expect(
+        servers[5].urlBuilder(1, 'sub'),
         'https://vidbolt.xyz/tv/37854/1/1',
       );
     });
@@ -255,7 +269,7 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 6);
 
       expect(servers[1].name, 'Megavid');
       expect(
@@ -305,10 +319,18 @@ void main() {
       );
       expect(
         servers[2].urlBuilder(1, 'sub'),
+        'https://anixo.buzz/embed/ani/25777/1?track=sub',
+      );
+      expect(
+        servers[3].urlBuilder(1, 'dub'),
+        'https://megaplay.buzz/stream/ani/25777/1/dub',
+      );
+      expect(
+        servers[4].urlBuilder(1, 'sub'),
         'https://movish.to/moviebox-embed/tv/1429/2/1',
       );
       expect(
-        servers[3].urlBuilder(2, 'sub'),
+        servers[5].urlBuilder(2, 'sub'),
         'https://vidbolt.xyz/tv/1429/2/2',
       );
     });
@@ -323,10 +345,14 @@ void main() {
       expect(servers[0].available, isFalse);
       expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'Movish');
-      expect(servers[2].available, isFalse);
-      expect(servers[3].name, 'VidBolt');
-      expect(servers[3].available, isFalse);
+      expect(servers[2].name, 'Anixo');
+      expect(servers[2].available, isTrue);
+      expect(servers[3].name, 'Mega Play');
+      expect(servers[3].available, isTrue);
+      expect(servers[4].name, 'Movish');
+      expect(servers[4].available, isFalse);
+      expect(servers[5].name, 'VidBolt');
+      expect(servers[5].available, isFalse);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -409,6 +435,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('Megavid'), findsOneWidget);
+      // AniList-keyed fallbacks need no TMDB mapping, so the selector
+      // always shows a real choice even before ani.zip resolves.
+      expect(find.text('Anixo'), findsOneWidget);
+      expect(find.text('Mega Play'), findsOneWidget);
       // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.
       expect(find.text('Everglow'), findsNothing);
