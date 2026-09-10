@@ -20,6 +20,7 @@ import '../../../daily_bloom/presentation/widgets/daily_bloom.dart';
 import '../../../daily_bloom/presentation/providers/garden_provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/presence_service.dart';
+import '../../../../core/system/web_standalone.dart';
 import '../widgets/cinema_preview.dart';
 import '../widgets/anime_preview.dart';
 import '../widgets/books_preview.dart';
@@ -399,7 +400,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           // Ambient dusk-bloom layer (dashboard only).
           const Positioned.fill(child: DashboardAmbience()),
           SafeArea(
-            child: Stack(
+            child: WebAppTopInset(
+              child: Stack(
               children: [
                 Center(
                   child: ConstrainedBox(
@@ -689,6 +691,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 // Floating overlays
                 const DashboardOverlays(),
               ],
+              ),
             ),
           ),
         ],

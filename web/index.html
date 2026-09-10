@@ -26,7 +26,7 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Everglow">
   <meta name="format-detection" content="telephone=no">
   <meta name="google" content="notranslate">
@@ -150,6 +150,15 @@
     @media (prefers-reduced-motion: reduce) {
       #eg-splash .eg-heart, #eg-splash .eg-bar > div { animation: none; }
     }
+    /* Installed-web-app only (Add to Home Screen): keep the splash copy
+       clear of the iPhone status bar and home indicator. Plain Safari tabs
+       never match this query, so browser rendering is untouched. */
+    @media (display-mode: standalone) {
+      #eg-splash {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+    }
   </style>
   <script>
     // Chrome deprecated the non-standard Intl.v8BreakIterator in favor of Intl.Segmenter.
@@ -266,6 +275,56 @@
       document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
       document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
       document.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
+    })();
+  </script>
+
+  <script>
+    // Installed-web-app inset bridge (Add to Home Screen, standalone only).
+    // With viewport-fit=cover the standalone view stretches under the iPhone
+    // status bar, while Flutter's SafeArea reports zero padding on web — so
+    // Dart measures env(safe-area-inset-top) and pads content below the bar.
+    // Plain Safari tabs return 0/false here, leaving browser layout alone.
+    (function () {
+      function isStandalone() {
+        try {
+          if (window.matchMedia('(display-mode: standalone)').matches) return true;
+          if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+        } catch (_) {}
+        try { if (window.navigator.standalone === true) return true; } catch (_) {}
+        return false;
+      }
+      function readTopInset() {
+        try {
+          var probe = document.createElement('div');
+          probe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;' +
+            'padding-top:env(safe-area-inset-top);visibility:hidden;pointer-events:none;';
+          document.documentElement.appendChild(probe);
+          var raw = window.getComputedStyle(probe).paddingTop || '0px';
+          probe.remove();
+          var v = parseFloat(raw);
+          if (isFinite(v) && v >= 0 && v < 200) return v;
+        } catch (_) {}
+        return 0;
+      }
+      function publish() {
+        try {
+          var top = isStandalone() ? readTopInset() : 0;
+          document.documentElement.style.setProperty('--eg-sat', top + 'px');
+          document.documentElement.classList.toggle('eg-standalone', isStandalone());
+        } catch (_) {}
+      }
+      window.__everglowIsStandalone = isStandalone;
+      window.__everglowSafeAreaTop = function () {
+        try { return isStandalone() ? readTopInset() : 0; } catch (_) { return 0; }
+      };
+      window.addEventListener('resize', publish, { passive: true });
+      window.addEventListener('orientationchange', publish, { passive: true });
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', publish);
+      } else {
+        publish();
+      }
+      setTimeout(publish, 500);
     })();
   </script>
 
