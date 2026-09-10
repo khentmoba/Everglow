@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../dashboard/domain/models/milestone.dart';
@@ -28,6 +29,7 @@ class GatewayPage extends StatefulWidget {
 class _GatewayPageState extends State<GatewayPage> {
   final GatewayNotifier _notifier = GatewayNotifier();
   bool _hasNavigated = false;
+  bool _didCheckLocalDev = false;
   GatewayState? _lastProcessedState;
 
   @override
@@ -41,6 +43,48 @@ class _GatewayPageState extends State<GatewayPage> {
     super.didChangeDependencies();
     _notifier.verifyCouplePasscode = (code) =>
         context.read<AuthService>().verifyCouplePasscode(code);
+    _checkLocalDevAutoLogin();
+  }
+
+  bool get _isLocalDev =>
+      kDebugMode ||
+      (kIsWeb &&
+          (Uri.base.host == 'localhost' ||
+              Uri.base.host == '127.0.0.1' ||
+              Uri.base.host == '0.0.0.0'));
+
+  void _checkLocalDevAutoLogin() {
+    if (_didCheckLocalDev || !_isLocalDev) return;
+    _didCheckLocalDev = true;
+
+    if (kIsWeb) {
+      final devParam = Uri.base.queryParameters['dev']?.toLowerCase() ??
+          Uri.base.queryParameters['user']?.toLowerCase();
+      if (devParam == 'khent' || devParam == 'khentsgdz') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _quickLogin(EnvConfig.khentPasscode);
+        });
+        return;
+      }
+      if (devParam == 'clair' || devParam == 'clairjassen') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _quickLogin(EnvConfig.clairPasscode);
+        });
+        return;
+      }
+    }
+  }
+
+  void _quickLogin(String passcode) {
+    if (_notifier.currentState != GatewayState.awaitingInput &&
+        _notifier.currentState != GatewayState.initialLoad &&
+        _notifier.currentState != GatewayState.error) {
+      return;
+    }
+    _notifier.clearInput();
+    for (final char in passcode.split('')) {
+      _notifier.appendDigit(char);
+    }
   }
 
   Future<void> _seedDataOnce() async {
@@ -446,9 +490,90 @@ class _GatewayPageState extends State<GatewayPage> {
                   ),
                 ),
               ),
+              if (_isLocalDev &&
+                  (state == GatewayState.initialLoad ||
+                      state == GatewayState.awaitingInput ||
+                      state == GatewayState.error))
+                Positioned(
+                  bottom: 24,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: _buildDevLoginBar()),
+                ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildDevLoginBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.velvet.withValues(alpha: 0.90),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: AppColors.auroraGold.withValues(alpha: 0.35),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.bolt_rounded,
+            color: AppColors.auroraGold,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            'Dev Login:',
+            style: TextStyle(
+              color: AppColors.petalWhite.withValues(alpha: 0.85),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _devUserChip('Khent', () => _quickLogin(EnvConfig.khentPasscode)),
+          const SizedBox(width: 6),
+          _devUserChip('Clair', () => _quickLogin(EnvConfig.clairPasscode)),
+          const SizedBox(width: 6),
+          _devUserChip('Cinema', () => _quickLogin(EnvConfig.breyanPasscode)),
+        ],
+      ),
+    );
+  }
+
+  Widget _devUserChip(String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.inkDeep.withValues(alpha: 0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.blushGold.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.petalWhite,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }

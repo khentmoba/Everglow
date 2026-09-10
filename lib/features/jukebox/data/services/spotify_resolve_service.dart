@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/logger.dart';
 import '../models/music_status.dart';
@@ -42,6 +43,11 @@ class SpotifyResolveService {
           .get(uri, headers: {'Authorization': 'Bearer $token'})
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) {
+        final isLocalWeb = kIsWeb &&
+            (Uri.base.host == 'localhost' ||
+                Uri.base.host == '127.0.0.1' ||
+                Uri.base.host == '0.0.0.0');
+        if (isLocalWeb) return status;
         // Try hosting rewrite path
         final alt = Uri.parse('/api/proxySpotifySearch').replace(
           queryParameters: {
