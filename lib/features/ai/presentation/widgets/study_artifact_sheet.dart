@@ -12,7 +12,7 @@ import 'canvas_preview_sheet.dart';
 
 /// Study canvas — the Artifacts-style interactive layer for Study replies.
 ///
-/// When Mochi's answer carries a quiz or flashcards, the bubble shows one
+/// When Motchi's answer carries a quiz or flashcards, the bubble shows one
 /// big obvious button ("Try the quiz ✍️" / "Flip the cards 🃏") instead of
 /// raw text. Tapping opens this sheet:
 ///
@@ -168,7 +168,7 @@ class _LaunchButtonState extends State<_LaunchButton> {
       accentColor = AppColors.auroraRose;
       mainIcon = Icons.sports_esports_rounded;
     } else if (isQuiz) {
-      tag = '🐾 MOCHI QUIZ · TEST YOUR KNOWLEDGE';
+      tag = '🐾 MOTCHI QUIZ · TEST YOUR KNOWLEDGE';
       actionText = 'Quiz';
       badgeGradient = const [AppColors.blushGold, AppColors.warmAmber];
       actionGradient = const [AppColors.blushGold, AppColors.deepRose];
@@ -451,7 +451,7 @@ class _StudyArtifactSheetState extends State<StudyArtifactSheet> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      '🐾 MOCHI STUDY',
+                      '🐾 MOTCHI STUDY',
                       style: AppTypography.labelSmall().copyWith(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -760,7 +760,7 @@ class _QuizPlayViewState extends State<QuizPlayView> {
           const SizedBox(height: 6),
           Text(
             perfect
-                ? 'Perfect — Mochi is doing happy spins!'
+                ? 'Perfect — Motchi is doing happy spins!'
                 : _score * 2 >= total
                     ? 'So close — one more round?'
                     : 'Good start — every try makes it stick.',
@@ -943,7 +943,7 @@ class _FeedbackCard extends StatelessWidget {
         children: [
           Text(
             correct
-                ? 'Correct! Mochi is proud 🍡'
+                ? 'Correct! Motchi is proud 🍡'
                 : 'Not quite — here\'s the gentle fix 💡',
             style: AppTypography.bodyMedium().copyWith(
               fontWeight: FontWeight.w700,

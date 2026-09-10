@@ -310,7 +310,7 @@ class AIConversationRepository implements IAIConversationRepository {
 
   /// Build a concise topic-based summary from session messages.
   /// Extracts what the user asked/talked about, deduplicates, and
-  /// produces a readable summary Mochi can actually use later.
+  /// produces a readable summary Motchi can actually use later.
   String _buildLocalSummary(List messages) {
     if (messages.isEmpty) return 'Empty session';
     final seen = <String>{};

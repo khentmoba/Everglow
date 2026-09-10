@@ -10,7 +10,7 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/services/ai_memory_repo.dart';
 import '../../domain/memory/memory_fact.dart';
 
-/// Mochi's Memory Book — a co-owned review surface for everything she
+/// Motchi's Memory Book — a co-owned review surface for everything she
 /// remembers. Search, pin, delete, and add facts; on-this-day memories
 /// get their own shelf so anniversaries surface naturally.
 class MemoryBookScreen extends StatefulWidget {
@@ -115,7 +115,7 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
           style: TextStyle(color: AppColors.petalWhite),
         ),
         content: Text(
-          'Mochi will no longer remember: ${fact.fact}',
+          'Motchi will no longer remember: ${fact.fact}',
           style: AppTypography.outfitMedium,
         ),
         actions: [
@@ -168,8 +168,8 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
             child: Column(
               children: [
                 EverglowFeatureHeader(
-                  title: "Mochi's Memory Book",
-                  subtitle: 'what Mochi remembers about you',
+                  title: "Motchi's Memory Book",
+                  subtitle: 'what Motchi remembers about you',
                   icon: Icons.menu_book_rounded,
                   hue: AppColors.softLavender,
                   actions: [
@@ -340,7 +340,7 @@ class _MemoryBookScreenState extends State<MemoryBookScreen> {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.x2),
           child: Text(
-            'No memories here yet. Tell Mochi something worth keeping.',
+            'No memories here yet. Tell Motchi something worth keeping.',
             textAlign: TextAlign.center,
             style: AppTypography.outfitMedium,
           ),

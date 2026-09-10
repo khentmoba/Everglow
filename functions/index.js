@@ -50,36 +50,36 @@ const { notifyDiscordWatch, discordInteractions, sweepStaleDiscordWatch } = requ
 exports.notifyDiscordWatch = notifyDiscordWatch;
 exports.discordInteractions = discordInteractions;
 exports.sweepStaleDiscordWatch = sweepStaleDiscordWatch;
-const { agnesImage, mochiStats } = require('./mochi_image_stats.js');
+const { agnesImage, motchiStats } = require('./motchi_image_stats.js');
 exports.agnesImage = agnesImage;
-exports.mochiStats = mochiStats;
+exports.motchiStats = motchiStats;
 const {
-  mochiDailyDigest,
-  mochiNightRecap,
-  mochiMoodCheckIn,
-  mochiSmartNudge,
-  mochiWeeklyRecap,
-  mochiSpecialDayNudge,
-  mochiReminderChecker,
-  mochiMemorySweep,
-} = require('./mochi_schedules.js');
-exports.mochiDailyDigest = mochiDailyDigest;
-exports.mochiNightRecap = mochiNightRecap;
-exports.mochiMoodCheckIn = mochiMoodCheckIn;
-exports.mochiSmartNudge = mochiSmartNudge;
-exports.mochiWeeklyRecap = mochiWeeklyRecap;
-exports.mochiSpecialDayNudge = mochiSpecialDayNudge;
-exports.mochiReminderChecker = mochiReminderChecker;
-exports.mochiMemorySweep = mochiMemorySweep;
-const { handleProxyAI } = require('./mochi_chat.js');
+  motchiDailyDigest,
+  motchiNightRecap,
+  motchiMoodCheckIn,
+  motchiSmartNudge,
+  motchiWeeklyRecap,
+  motchiSpecialDayNudge,
+  motchiReminderChecker,
+  motchiMemorySweep,
+} = require('./motchi_schedules.js');
+exports.motchiDailyDigest = motchiDailyDigest;
+exports.motchiNightRecap = motchiNightRecap;
+exports.motchiMoodCheckIn = motchiMoodCheckIn;
+exports.motchiSmartNudge = motchiSmartNudge;
+exports.motchiWeeklyRecap = motchiWeeklyRecap;
+exports.motchiSpecialDayNudge = motchiSpecialDayNudge;
+exports.motchiReminderChecker = motchiReminderChecker;
+exports.motchiMemorySweep = motchiMemorySweep;
+const { handleProxyAI } = require('./motchi_chat.js');
 exports.proxyAI = functions.https.onRequest(handleProxyAI);
 // V2 function on Cloud Run — natively supports SSE streaming.
 exports.proxyAIv2 = onRequest({ invoker: 'public' }, handleProxyAI);
 
-// Mochi schedules live in mochi_schedules.js.
+// Motchi schedules live in motchi_schedules.js.
 // Re-exported at the top of this file to keep the deploy surface identical.
 
-// Mochi stats lives in mochi_image_stats.js (see top re-exports).
+// Motchi stats lives in motchi_image_stats.js (see top re-exports).
 
 // Re-exports: keep the deploy surface identical.
 module.exports = Object.assign({}, module.exports, {

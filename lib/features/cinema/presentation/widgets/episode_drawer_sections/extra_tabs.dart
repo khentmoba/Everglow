@@ -26,7 +26,7 @@ class DrawerExtraTabs extends StatelessWidget {
     final labels = <String>[
       isAnimeSourced ? 'Voice Cast' : 'Cast',
       'Reviews',
-      'Mochi says… 🐱',
+      'Motchi says… 🐱',
     ];
     return Padding(
       padding: EdgeInsets.fromLTRB(20, cinemaStyle ? 30 : 26, 20, 12),

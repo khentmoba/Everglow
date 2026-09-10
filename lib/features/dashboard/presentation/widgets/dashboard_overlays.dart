@@ -16,7 +16,7 @@ import '../widgets/dashboard_actions.dart';
 
 /// Floating overlay buttons and indicators on top of the dashboard.
 ///
-/// Includes: Mochi AI button, Guardian mascot, Creator mode (admin),
+/// Includes: Motchi AI button, Guardian mascot, Creator mode (admin),
 /// Canvas, Chat, and the mood picker prompt.
 class DashboardOverlays extends StatelessWidget {
   const DashboardOverlays({super.key});
@@ -37,11 +37,11 @@ class DashboardOverlays extends StatelessWidget {
               Consumer<AIService>(
                 builder: (context, ai, _) {
                   return _FloatingAction(
-                    tooltip: 'Open Mochi AI assistant',
-                    onTap: () => context.push('/mochi'),
+                    tooltip: 'Open Motchi AI assistant',
+                    onTap: () => context.push('/motchi'),
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/images/mochi_avatar.png',
+                        'assets/images/motchi_avatar.png',
                         width: 48,
                         height: 48,
                         cacheWidth: kIsWeb ? null : 144,
