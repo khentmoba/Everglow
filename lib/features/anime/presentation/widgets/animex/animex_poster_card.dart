@@ -465,6 +465,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                     size: 11.5,
                     color: AnimeXTokens.textSecondary,
                     weight: FontWeight.w500,
+                    height: 1.3,
                   ),
                 ),
               ],

@@ -58,7 +58,7 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: SizedBox(
-        height: widget.cardWidth * 1.5 + 56,
+        height: widget.cardWidth * 1.5 + AnimeXTokens.posterDetailsHeight,
         child: Stack(
           children: [
             ListView.separated(
@@ -95,7 +95,7 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
             Positioned(
               left: 8,
               top: 0,
-              bottom: 56,
+              bottom: AnimeXTokens.posterDetailsHeight,
               child: Center(
                 child: _RowArrow(
                   visible: _hover,
@@ -107,7 +107,7 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
             Positioned(
               right: 8,
               top: 0,
-              bottom: 56,
+              bottom: AnimeXTokens.posterDetailsHeight,
               child: Center(
                 child: _RowArrow(
                   visible: _hover,
