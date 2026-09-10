@@ -14,7 +14,7 @@ void main() {
     expect(WebStandalone.probeSafeAreaTop(), 0);
   });
 
-  testWidgets('WebAppTopInset returns its child untouched off-web', (
+  testWidgets('WebStandaloneInsets returns its child untouched off-web', (
     tester,
   ) async {
     const key = Key('inner');
@@ -22,7 +22,7 @@ void main() {
       const Directionality(
         textDirection: TextDirection.ltr,
         child: Center(
-          child: WebAppTopInset(
+          child: WebStandaloneInsets(
             child: SizedBox(key: key, width: 10, height: 10),
           ),
         ),

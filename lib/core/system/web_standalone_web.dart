@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -114,24 +115,26 @@ class WebStandalone {
   }
 }
 
-/// Pushes [child] below the iPhone status bar, standalone-web only.
-///
-/// The page background stays full-bleed (it lives outside this widget);
-/// only the wrapped content moves down. Everywhere else — Safari tabs,
-/// native, tests — the measured inset is 0 and the child is returned
-/// untouched, so those paths cannot shift by even a pixel. Bottom is
-/// deliberately left alone: scrolling stays edge-to-edge down to the
-/// home indicator, exactly as Clair sees it today.
-class WebAppTopInset extends StatefulWidget {
+/// Teaches the widget tree the iPhone status-bar overlap, standalone-web
+/// only. Applied once at the app root: the measured inset is injected
+/// into [MediaQuery] padding, so every [SafeArea], [AppBar], and
+/// `MediaQuery.paddingOf` reader in the app clears the status bar
+/// automatically — including screens added in the future. Page backgrounds
+/// stay full-bleed (they live below the padding, outside any SafeArea).
+/// Everywhere else — Safari tabs, native, tests — the measured inset is 0
+/// and the tree is returned untouched, so those paths cannot shift by even
+/// a pixel. Bottom is deliberately left alone: scrolling stays
+/// edge-to-edge down to the home indicator, exactly as Clair sees it today.
+class WebStandaloneInsets extends StatefulWidget {
   final Widget child;
 
-  const WebAppTopInset({super.key, required this.child});
+  const WebStandaloneInsets({super.key, required this.child});
 
   @override
-  State<WebAppTopInset> createState() => _WebAppTopInsetState();
+  State<WebStandaloneInsets> createState() => _WebStandaloneInsetsState();
 }
 
-class _WebAppTopInsetState extends State<WebAppTopInset> {
+class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
   double _top = 0;
   web.EventListener? _resizeListener;
 
@@ -185,8 +188,17 @@ class _WebAppTopInsetState extends State<WebAppTopInset> {
   @override
   Widget build(BuildContext context) {
     if (_top <= 0) return widget.child;
-    return Padding(
-      padding: EdgeInsets.only(top: _top),
+    final mq = MediaQuery.of(context);
+    final top = math.max(mq.padding.top, _top);
+    final viewTop = math.max(mq.viewPadding.top, _top);
+    if (top <= mq.padding.top && viewTop <= mq.viewPadding.top) {
+      return widget.child;
+    }
+    return MediaQuery(
+      data: mq.copyWith(
+        padding: mq.padding.copyWith(top: top),
+        viewPadding: mq.viewPadding.copyWith(top: viewTop),
+      ),
       child: widget.child,
     );
   }

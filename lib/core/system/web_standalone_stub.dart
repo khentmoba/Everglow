@@ -14,10 +14,10 @@ class WebStandalone {
 }
 
 /// Pass-through on non-web platforms: returns [child] untouched.
-class WebAppTopInset extends StatelessWidget {
+class WebStandaloneInsets extends StatelessWidget {
   final Widget child;
 
-  const WebAppTopInset({super.key, required this.child});
+  const WebStandaloneInsets({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) => child;

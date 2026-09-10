@@ -55,6 +55,9 @@ jobs:
       # #54/#56/#58 overflow audits).
       - run: dart tool/ci/check_model_guards.dart
       - run: dart tool/ci/check_layout_tests.dart
+      # Global Home Screen status-bar inset must stay wired at AppRoot
+      # (cinema-player status-bar overlap audit).
+      - run: dart tool/ci/check_standalone_insets.dart
       # Hosting config shape (PR #112/#114 web-lite flip-flop).
       - run: dart tool/ci/check_firebase_hosting.dart
       # Release paperwork must match the shipped version: pubspec <->
