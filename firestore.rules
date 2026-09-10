@@ -142,7 +142,8 @@ service cloud.firestore {
     }
 
     match /users/{userId}/garden_stats/{docId} {
-      allow read, write: if ownerOf(userId);
+      allow read: if isCouple();
+      allow write: if isCouple() && ownerOf(userId);
     }
 
     // ---------- Couple-only shared data ----------

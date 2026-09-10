@@ -22,7 +22,10 @@ class GardenProvider extends ChangeNotifier {
   static const int _maxRetries = 5;
   Timer? _retryTimer;
   int _retryCount = 0;
+  Timer? _partnerRetryTimer;
+  int _partnerRetryCount = 0;
   Object? _lastError;
+  Object? _lastPartnerError;
   bool _disposed = false;
 
   GardenProvider({GardenStatsSource? service})
@@ -30,10 +33,14 @@ class GardenProvider extends ChangeNotifier {
 
   GardenStats? get stats => _stats;
   GardenStats? get partnerStats => _partnerStats;
+  String? get partnerUid => _partnerUid;
 
   /// True when the own-garden stream failed and no stats have arrived yet.
   /// The UI uses this to offer a manual retry instead of a blank section.
   bool get hasError => _lastError != null && _stats == null;
+
+  /// True when the partner-garden stream failed and no partner stats arrived yet.
+  bool get hasPartnerError => _lastPartnerError != null && _partnerStats == null;
 
   void updateUserId(String? userId) {
     if (_userId == userId) return;
@@ -111,31 +118,83 @@ class GardenProvider extends ChangeNotifier {
 
   /// Start watching partner's garden stats for the shared view.
   void watchPartner(String? partnerUid) {
-    if (_partnerUid == partnerUid) return;
+    if (_partnerUid == partnerUid && _partnerSubscription != null) return;
 
+    _partnerRetryTimer?.cancel();
+    _partnerRetryCount = 0;
+    _lastPartnerError = null;
     _partnerSubscription?.cancel();
     _partnerSubscription = null;
     _partnerUid = partnerUid;
 
     if (_partnerUid != null && _partnerUid!.isNotEmpty) {
-      _partnerSubscription = _service.watchPartnerStats(_partnerUid!).listen((
-        newStats,
-      ) {
-        _partnerStats = newStats;
-        if (!_disposed) notifyListeners();
-      }, onError: (Object error) {
-        // Keep the last known partner stats; a transient partner failure
-        // must not surface as an unhandled async error.
-        Logger.e('Partner garden stats stream failed', error: error);
-      });
+      _subscribePartner();
     } else {
       _partnerStats = null;
       notifyListeners();
     }
   }
 
+  void _subscribePartner() {
+    final uid = _partnerUid;
+    if (uid == null || uid.isEmpty || _disposed) return;
+    _partnerSubscription?.cancel();
+    _partnerSubscription = _service.watchPartnerStats(uid).listen(
+      (newStats) {
+        _partnerStats = newStats;
+        _lastPartnerError = null;
+        _partnerRetryCount = 0;
+        _partnerRetryTimer?.cancel();
+        if (!_disposed) notifyListeners();
+      },
+      onError: (Object error) {
+        // Keep the last known partner stats; a transient partner failure
+        // must not surface as an unhandled async error.
+        Logger.e('Partner garden stats stream failed', error: error);
+        _schedulePartnerRetry(error);
+      },
+      onDone: () {
+        if (_partnerStats == null) {
+          Logger.e('Partner garden stats stream closed before first snapshot');
+          _schedulePartnerRetry(
+            StateError('garden-partner-stats closed without data'),
+          );
+        }
+      },
+    );
+  }
+
+  void _schedulePartnerRetry(Object error) {
+    _partnerSubscription?.cancel();
+    _lastPartnerError = error;
+    if (_partnerRetryCount >= _maxRetries) {
+      Logger.e('Partner garden stats retries exhausted ($_maxRetries)');
+      if (!_disposed) notifyListeners();
+      return;
+    }
+    _partnerRetryCount++;
+    if (!_disposed) notifyListeners();
+    _partnerRetryTimer?.cancel();
+    _partnerRetryTimer = Timer(Duration(seconds: 1 + _partnerRetryCount), () {
+      if (_disposed || _partnerUid == null || _partnerUid!.isEmpty) return;
+      _subscribePartner();
+    });
+  }
+
+  /// Manual retry for partner garden stream.
+  void retryPartner() {
+    if (_partnerUid == null || _partnerUid!.isEmpty || _disposed) return;
+    _partnerRetryTimer?.cancel();
+    _partnerRetryCount = 0;
+    _lastPartnerError = null;
+    _subscribePartner();
+  }
+
   /// Stop watching partner stats (when leaving shared view).
   void stopWatchingPartner() {
+    _partnerRetryTimer?.cancel();
+    _partnerRetryCount = 0;
+    _lastPartnerError = null;
     _partnerSubscription?.cancel();
     _partnerSubscription = null;
     _partnerUid = null;
@@ -172,6 +231,7 @@ class GardenProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _retryTimer?.cancel();
+    _partnerRetryTimer?.cancel();
     _subscription?.cancel();
     _partnerSubscription?.cancel();
     super.dispose();
