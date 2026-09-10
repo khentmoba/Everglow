@@ -409,14 +409,7 @@ void main() {
     );
     await tester.pump();
 
-    // Before dwell, trailer is not yet armed
-    expect(
-      find.byKey(const ValueKey('hero-trailer-layer-frieren_trailer')),
-      findsNothing,
-    );
-
-    // After 900ms, trailer arms and is ready
-    await tester.pump(const Duration(milliseconds: 900));
+    // Initial mount arms immediately so trailer starts loading without dead delay
     final trailerLayerFinder = find.byKey(
       const ValueKey('hero-trailer-layer-frieren_trailer'),
     );
@@ -436,5 +429,70 @@ void main() {
     await tester.pump();
     final resumedOpacity = tester.widget<AnimatedOpacity>(trailerLayerFinder);
     expect(resumedOpacity.opacity, 1.0);
+  });
+
+  testWidgets('AnimeXSpotlight holds trailer slides for full 25s watch duration', (
+    WidgetTester tester,
+  ) async {
+    final item1WithTrailer = MediaItem(
+      id: 'h1',
+      tmdbId: 201,
+      title: 'Trailer Anime 1',
+      mediaType: 'tv',
+      posterPath: '',
+      backdropPath: '',
+      year: '2025',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime(2026, 1, 1),
+      source: 'jikan',
+      synopsis: 'Trailer anime 1.',
+      episodeCount: 12,
+      airingStatus: 'FINISHED',
+      format: 'TV',
+      trailerYoutubeId: 'trailer_key_1',
+    );
+    final item2 = MediaItem(
+      id: 'h2',
+      tmdbId: 202,
+      title: 'Still Anime 2',
+      mediaType: 'tv',
+      posterPath: '',
+      backdropPath: '',
+      year: '2025',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime(2026, 1, 1),
+      source: 'jikan',
+      synopsis: 'Still anime 2.',
+      episodeCount: 12,
+      airingStatus: 'FINISHED',
+      format: 'TV',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: [item1WithTrailer, item2],
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Initially at item 1
+    expect(find.text('Trailer Anime 1'), findsOneWidget);
+
+    // After 10 seconds (standard still hold), trailer slide is still playing and has NOT switched
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.text('Trailer Anime 1'), findsOneWidget);
+    expect(find.text('Still Anime 2'), findsNothing);
+
+    // After remaining 15 seconds (total 25s), auto-advance transitions to item 2
+    await tester.pump(const Duration(seconds: 15));
+    expect(find.text('Still Anime 2'), findsOneWidget);
   });
 }

@@ -75,7 +75,7 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
     _iframe = web.HTMLIFrameElement()
       ..src = embedUrl
-      ..allow = 'autoplay; encrypted-media; picture-in-picture'
+      ..allow = 'autoplay; encrypted-media'
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no')
       // YouTube's embedded player requires a real referrer; explicit
