@@ -197,4 +197,138 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     },
   );
+
+  group('AnimeXWatchPage servers', () {
+    test('buildServers creates Mega Play, Anixo, and Megavid with AniList routes', () {
+      final servers = AnimeXWatchPage.buildServers(anilistId: 21, malId: 21);
+      expect(servers.length, 3);
+
+      expect(servers[0].name, 'Mega Play');
+      expect(servers[0].available, isTrue);
+      expect(
+        servers[0].urlBuilder(1, 'sub'),
+        'https://megaplay.buzz/stream/ani/21/1/sub',
+      );
+      expect(
+        servers[0].urlBuilder(1, 'dub'),
+        'https://megaplay.buzz/stream/ani/21/1/dub',
+      );
+
+      expect(servers[1].name, 'Anixo');
+      expect(servers[1].available, isTrue);
+      expect(
+        servers[1].urlBuilder(1, 'sub'),
+        'https://anixo.buzz/embed/ani/21/1?track=sub',
+      );
+      expect(
+        servers[1].urlBuilder(1, 'dub'),
+        'https://anixo.buzz/embed/ani/21/1?track=dub',
+      );
+
+      expect(servers[2].name, 'Megavid');
+      expect(servers[2].available, isTrue);
+      expect(
+        servers[2].urlBuilder(1, 'sub'),
+        'https://megavid.buzz/ani/21/1/sub',
+      );
+      expect(
+        servers[2].urlBuilder(1, 'dub'),
+        'https://megavid.buzz/ani/21/1/dub',
+      );
+    });
+
+    test('buildServers falls back to MAL routes when AniList ID is absent', () {
+      final servers = AnimeXWatchPage.buildServers(anilistId: null, malId: 52991);
+      expect(servers.length, 3);
+
+      expect(servers[0].name, 'Mega Play');
+      expect(
+        servers[0].urlBuilder(3, 'sub'),
+        'https://megaplay.buzz/stream/mal/52991/3/sub',
+      );
+      expect(
+        servers[0].urlBuilder(3, 'dub'),
+        'https://megaplay.buzz/stream/mal/52991/3/dub',
+      );
+
+      expect(servers[1].name, 'Anixo');
+      expect(
+        servers[1].urlBuilder(3, 'sub'),
+        'https://anixo.buzz/embed/mal/52991/3?track=sub',
+      );
+      expect(
+        servers[1].urlBuilder(3, 'dub'),
+        'https://anixo.buzz/embed/mal/52991/3?track=dub',
+      );
+
+      expect(servers[2].name, 'Megavid');
+      expect(
+        servers[2].urlBuilder(3, 'sub'),
+        'https://megavid.buzz/mal/52991/3/sub',
+      );
+      expect(
+        servers[2].urlBuilder(3, 'dub'),
+        'https://megavid.buzz/mal/52991/3/dub',
+      );
+    });
+
+    test('buildServers marks all unavailable when no ID is present', () {
+      final servers = AnimeXWatchPage.buildServers(anilistId: null, malId: 0);
+      for (final s in servers) {
+        expect(s.available, isFalse);
+      }
+    });
+
+    test('normalizeServerName converts legacy names to provider names', () {
+      expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Mega Play');
+      expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'Anixo');
+      expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
+      expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Mega Play');
+      expect(AnimeXWatchPage.normalizeServerName(''), '');
+      expect(AnimeXWatchPage.normalizeServerName(null), '');
+    });
+
+    testWidgets('renders Mega Play, Anixo, Megavid buttons and sub/dub toggle',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = MediaItem(
+        id: 'animex-test-providers',
+        tmdbId: 21,
+        anilistId: 21,
+        title: 'One Piece',
+        mediaType: 'tv',
+        posterPath: '',
+        backdropPath: '',
+        year: '1999',
+        status: 'to-watch',
+        isAnime: true,
+        addedAt: DateTime(2026, 1, 1),
+        source: 'jikan',
+        currentEpisode: 1,
+      );
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      expect(find.text('Mega Play'), findsOneWidget);
+      expect(find.text('Anixo'), findsOneWidget);
+      expect(find.text('Megavid'), findsOneWidget);
+      expect(find.text('SUB'), findsOneWidget);
+      expect(find.text('DUB'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Anixo'));
+      await tester.tap(find.text('Anixo'));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('DUB'));
+      await tester.tap(find.text('DUB'));
+      await tester.pump();
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+  });
 }

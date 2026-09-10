@@ -32,17 +32,19 @@ import '../../../../../core/theme/app_colors.dart';
 part 'animex_watch_page_widgets.dart';
 part 'animex_watch_page_sheets.dart';
 
-class _ServerOption {
+class AnimeServerOption {
   final String name;
   final String Function(int episode, String audio) urlBuilder;
   final bool available;
 
-  const _ServerOption({
+  const AnimeServerOption({
     required this.name,
     required this.urlBuilder,
     this.available = true,
   });
 }
+
+typedef _ServerOption = AnimeServerOption;
 
 /// Anime detail / watch page: hero with info, video player with server
 /// tabs + sub/dub toggle, episode grid, share, playlists and
@@ -51,6 +53,67 @@ class AnimeXWatchPage extends StatefulWidget {
   final AnimeXController controller;
 
   const AnimeXWatchPage({super.key, required this.controller});
+
+  /// Normalizes legacy server names ('Server 1', etc.) to provider names.
+  static String normalizeServerName(String? name) {
+    if (name == null) return '';
+    switch (name) {
+      case 'Server 1':
+        return 'Mega Play';
+      case 'Server 2':
+        return 'Anixo';
+      case 'Server 3':
+        return 'Megavid';
+      default:
+        return name;
+    }
+  }
+
+  /// Builds the 3 anime embed servers: Mega Play, Anixo, and Megavid.
+  /// Each server supports sub and dub tracks and handles both AniList and
+  /// MyAnimeList IDs with seamless fallback.
+  static List<AnimeServerOption> buildServers({
+    int? anilistId,
+    int? malId,
+  }) {
+    final hasAni = anilistId != null && anilistId > 0;
+    final effectiveMal = malId ?? 0;
+    final hasMal = effectiveMal > 0;
+    final hasSource = hasAni || hasMal;
+
+    return [
+      AnimeServerOption(
+        name: 'Mega Play',
+        urlBuilder: (ep, audio) {
+          if (hasAni) {
+            return 'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio';
+          }
+          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
+        },
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'Anixo',
+        urlBuilder: (ep, audio) {
+          if (hasAni) {
+            return 'https://anixo.buzz/embed/ani/$anilistId/$ep?track=$audio';
+          }
+          return 'https://anixo.buzz/embed/mal/$effectiveMal/$ep?track=$audio';
+        },
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'Megavid',
+        urlBuilder: (ep, audio) {
+          if (hasAni) {
+            return 'https://megavid.buzz/ani/$anilistId/$ep/$audio';
+          }
+          return 'https://megavid.buzz/mal/$effectiveMal/$ep/$audio';
+        },
+        available: hasSource,
+      ),
+    ];
+  }
 
   @override
   State<AnimeXWatchPage> createState() => _AnimeXWatchPageState();
@@ -88,6 +151,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// Server name remembered from the last visit; applied once the
   /// server list resolves in [_load].
   String? _rememberedServer;
+  int? _mappedAnilistId;
 
   String get _memoryKey =>
       PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
@@ -109,6 +173,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       'animex-${_anilistId ?? _malId}',
     );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
+    _servers = _buildServers();
     _load();
     _fetchSkipTimes();
     _restoreMemory();
@@ -128,9 +193,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       setState(() => _audio = audio);
     }
     if (server != null && server.isNotEmpty) {
-      _rememberedServer = server;
+      final normalized = AnimeXWatchPage.normalizeServerName(server);
+      _rememberedServer = normalized;
       final index = _servers.indexWhere(
-        (s) => s.available && s.name == server,
+        (s) => s.available && s.name == normalized,
       );
       if (index != -1 && index != _serverIndex && mounted) {
         setState(() => _serverIndex = index);
@@ -219,21 +285,21 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       anilistId: anilistId,
       malId: malId,
     );
-    int? tmdbId;
+    int? mappedAnilistId;
     try {
       final mappings = await _aniZip.fetchMappings(_malId);
       final mapped = mappings?['mappings'] as Map<String, dynamic>?;
-      final raw = mapped?['themoviedb_id'];
-      if (raw is num && raw > 0) {
-        tmdbId = raw.toInt();
-      } else if (raw is String && raw.isNotEmpty) {
-        final parsed = int.tryParse(raw);
-        if (parsed != null && parsed > 0) tmdbId = parsed;
+      final rawAni = mapped?['anilist_id'];
+      if (rawAni is num && rawAni > 0) {
+        mappedAnilistId = rawAni.toInt();
+      } else if (rawAni is String && rawAni.isNotEmpty) {
+        final parsed = int.tryParse(rawAni);
+        if (parsed != null && parsed > 0) mappedAnilistId = parsed;
       }
     } catch (_) {}
-    final resolvedTmdbId = tmdbId ?? 0;
+    _mappedAnilistId = mappedAnilistId;
     if (!mounted) return;
-    final nextServers = _buildServers(resolvedTmdbId);
+    final nextServers = _buildServers(mappedAnilistId: mappedAnilistId);
     final firstAvailable = nextServers.indexWhere((s) => s.available);
     setState(() {
       _detail = detail;
@@ -242,10 +308,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
       }
       _servers = nextServers;
-      final rememberedIndex = _rememberedServer == null
+      final normalizedRemembered =
+          AnimeXWatchPage.normalizeServerName(_rememberedServer);
+      final rememberedIndex = normalizedRemembered.isEmpty
           ? -1
           : nextServers.indexWhere(
-              (s) => s.available && s.name == _rememberedServer,
+              (s) => s.available && s.name == normalizedRemembered,
             );
       if (rememberedIndex != -1) {
         _serverIndex = rememberedIndex;
@@ -278,35 +346,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return List.generate(count, (i) => AniListEpisode(number: i + 1));
   }
 
-  List<_ServerOption> _buildServers(int tmdbId) {
-    final anilistId = _anilistId;
-    return [
-      _ServerOption(
-        name: 'Server 3',
-        urlBuilder: (ep, audio) =>
-            'https://vidnest.fun/anime/$anilistId/$ep/$audio',
-        available: anilistId != null,
-      ),
-      _ServerOption(
-        name: 'Server 1',
-        urlBuilder: (ep, audio) =>
-            'https://player.videasy.net/tv/$tmdbId?season=1&episode=$ep',
-        available: tmdbId > 0,
-      ),
-      _ServerOption(
-        name: 'Server 4',
-        urlBuilder: (ep, audio) =>
-            'https://tryembed.us.cc/embed/anime/$anilistId/$ep/'
-            '${audio == 'sub' ? '1' : '2'}',
-        available: anilistId != null,
-      ),
-      _ServerOption(
-        name: 'Server 2',
-        urlBuilder: (ep, audio) =>
-            'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio',
-        available: false,
-      ),
-    ];
+  List<AnimeServerOption> _buildServers({int? mappedAnilistId}) {
+    return AnimeXWatchPage.buildServers(
+      anilistId: _anilistId ?? mappedAnilistId ?? _mappedAnilistId,
+      malId: _malId,
+    );
   }
 
   void _selectEpisode(int episode) {
@@ -532,6 +576,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return lower.contains("we're sorry") ||
         lower.contains('error code: <span>410</span>') ||
         lower.contains('error - megaplay') ||
+        lower.contains('all stream servers failed') ||
+        lower.contains('no playable stream sources') ||
         (lower.contains('410') && lower.contains('copyright violation'));
   }
 
