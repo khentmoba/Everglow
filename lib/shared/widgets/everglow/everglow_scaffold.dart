@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_breakpoints.dart';
-import '../../../core/system/web_standalone.dart';
 import 'everglow_background.dart';
 import 'everglow_app_bar.dart';
 import 'everglow_pill_nav.dart';
@@ -92,29 +91,28 @@ class EverglowScaffold extends StatelessWidget {
               showPetals: showPetals,
             ),
 
-          // Content. WebAppTopInset only pads installed-web-app shells
-          // (Add to Home Screen) below the iPhone status bar; everywhere
-          // else it returns its child untouched. The background above stays
-          // full-bleed and the bottom stays edge-to-edge by design.
+          // Content. The iPhone Home Screen status-bar inset arrives via
+          // MediaQuery (see WebStandaloneInsets at the app root), so this
+          // SafeArea clears it on every screen with no per-screen work.
+          // The background above stays full-bleed and the bottom stays
+          // edge-to-edge by design.
           SafeArea(
             bottom: !hasNav,
-            child: WebAppTopInset(
-              child: Column(
-                children: [
-                  // AppBar
-                  ?appBar,
+            child: Column(
+              children: [
+                // AppBar
+                ?appBar,
 
-                  // Body
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: maxWidth),
-                        child: body,
-                      ),
+                // Body
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxWidth),
+                      child: body,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
@@ -139,4 +137,3 @@ class EverglowScaffold extends StatelessWidget {
     };
   }
 }
-

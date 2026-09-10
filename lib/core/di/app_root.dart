@@ -90,23 +90,36 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     return Selector<AuthService, bool>(
       selector: (_, auth) => auth.isCoupleUser,
       builder: (context, isCoupleUser, child) {
-        if (!isCoupleUser) return widget.child;
-        return Stack(
-          children: [
-            widget.child,
-            const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                ignoring: false,
-                // Standalone-web only: sits the ringing banner below the
-                // iPhone status bar. No-op everywhere else.
-                child: WebAppTopInset(child: IncomingWatchPartyBanner()),
-              ),
-            ),
-          ],
-        );
+        // Global Home Screen inset: the measured iPhone status-bar overlap
+        // is injected into MediaQuery here, so every SafeArea/AppBar below
+        // clears it. Kept outside the Stack so banners, dialogs, and every
+        // future route inherit it with no per-screen work.
+        final app = (!isCoupleUser)
+            ? widget.child
+            : Stack(
+                children: [
+                  widget.child,
+                  const Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: IgnorePointer(
+                      ignoring: false,
+                      // Top-only SafeArea: sits the ringing banner below
+                      // the iPhone status bar via the MediaQuery inset
+                      // above. No-op everywhere else.
+                      child: SafeArea(
+                        top: true,
+                        bottom: false,
+                        left: false,
+                        right: false,
+                        child: IncomingWatchPartyBanner(),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+        return WebStandaloneInsets(child: app);
       },
     );
   }

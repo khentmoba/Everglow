@@ -94,104 +94,113 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: KatanaColors.border)),
       ),
-      child: Column(
-        children: [
-          // Top row: back (couple users) + logo + centered search +
-          // bookmarks + user. Left and right clusters mirror each
-          // other so the search stays visually centered.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                if (showBack) ...[
-                  Tooltip(
-                    message: 'Back to Everglow',
-                    child: IconButton(
-                      onPressed: _handleBack,
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 18,
-                        color: KatanaColors.textMuted,
+      // Top-only SafeArea: the surface color stays full-bleed behind the
+      // iPhone status bar (Home Screen app and native notch alike) while
+      // the back button, search, and chips sit below it and stay tappable.
+      child: SafeArea(
+        top: true,
+        bottom: false,
+        left: false,
+        right: false,
+        child: Column(
+          children: [
+            // Top row: back (couple users) + logo + centered search +
+            // bookmarks + user. Left and right clusters mirror each
+            // other so the search stays visually centered.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  if (showBack) ...[
+                    Tooltip(
+                      message: 'Back to Everglow',
+                      child: IconButton(
+                        onPressed: _handleBack,
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 18,
+                          color: KatanaColors.textMuted,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  _buildLogo(),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 620),
+                        child: _buildSearchField(),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                ],
-                _buildLogo(),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 620),
-                      child: _buildSearchField(),
+                  if (desktop) ...[
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 210,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          _buildBookmarksButton(),
+                          const SizedBox(width: 8),
+                          _buildUserChip(user),
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                if (desktop) ...[
-                  const SizedBox(width: 16),
-                  SizedBox(
-                    width: 210,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        _buildBookmarksButton(),
-                        const SizedBox(width: 8),
-                        _buildUserChip(user),
-                      ],
-                    ),
-                  ),
-                ] else if (showBack) ...[
-                  // Mirror the back button's width on mobile so the
-                  // search field stays centered.
-                  const SizedBox(width: 54),
-                ] else ...[
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
-          ),
-          // Suggestions dropdown
-          if (_suggestions.isNotEmpty || _searching)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-              child: _buildSuggestions(),
-            ),
-          // Nav row
-          Container(
-            width: double.infinity,
-            color: KatanaColors.surface,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  _navItem(KatanaNav.home, 'Home', () => pushHome(context)),
-                  _navItem(
-                    KatanaNav.latest,
-                    'Latest update',
-                    () => pushDirectory(context, mode: 'latest'),
-                  ),
-                  _navItem(
-                    KatanaNav.directory,
-                    'Manga Directory',
-                    () => pushDirectory(context),
-                  ),
-                  _navItem(
-                    KatanaNav.newManga,
-                    'New Manga',
-                    () => pushDirectory(context, mode: 'new'),
-                  ),
-                  _buildGenresNav(),
-                  if (!desktop) ...[
+                  ] else if (showBack) ...[
+                    // Mirror the back button's width on mobile so the
+                    // search field stays centered.
+                    const SizedBox(width: 54),
+                  ] else ...[
                     const SizedBox(width: 8),
-                    _navItem(null, 'Bookmarks', () => pushBookmarks(context)),
                   ],
                 ],
               ),
             ),
-          ),
-        ],
+            // Suggestions dropdown
+            if (_suggestions.isNotEmpty || _searching)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                child: _buildSuggestions(),
+              ),
+            // Nav row
+            Container(
+              width: double.infinity,
+              color: KatanaColors.surface,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    _navItem(KatanaNav.home, 'Home', () => pushHome(context)),
+                    _navItem(
+                      KatanaNav.latest,
+                      'Latest update',
+                      () => pushDirectory(context, mode: 'latest'),
+                    ),
+                    _navItem(
+                      KatanaNav.directory,
+                      'Manga Directory',
+                      () => pushDirectory(context),
+                    ),
+                    _navItem(
+                      KatanaNav.newManga,
+                      'New Manga',
+                      () => pushDirectory(context, mode: 'new'),
+                    ),
+                    _buildGenresNav(),
+                    if (!desktop) ...[
+                      const SizedBox(width: 8),
+                      _navItem(null, 'Bookmarks', () => pushBookmarks(context)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
