@@ -22,6 +22,7 @@ import '../../data/models/media_item.dart';
 import '../../data/models/next_episode.dart';
 import '../../data/services/next_episode_service.dart';
 import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart';
+import '../../../../core/system/web_standalone.dart';
 import '../widgets/episode_navigator.dart';
 import '../widgets/up_next_overlay.dart';
 import '../../../../core/services/auth_service.dart';
@@ -72,113 +73,118 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     _maybeAutoFullscreen(context);
     return Scaffold(
       backgroundColor: Colors.black,
+      // Standalone-web only (Add to Home Screen): Flutter's SafeArea
+      // reports zero on web, so without this the top bar slides under
+      // the iPhone status bar and its buttons can't be tapped.
+      // Everywhere else WebAppTopInset is a pass-through.
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildTopBar(),
-            // Scrollable body: video + metadata + server selector
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Player iframe area: 16:9, but capped so a strip of
-                    // page content stays visible below it. In browser
-                    // fullscreen the full-width player is taller than the
-                    // viewport, and because embeds swallow wheel events the
-                    // page can't be scrolled down to the server selector.
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final maxPlayerHeight =
-                            (MediaQuery.sizeOf(context).height - 296)
-                                .clamp(240.0, double.infinity)
-                                .toDouble();
-                        if (_iframeFailed) {
+        child: WebAppTopInset(
+          child: Column(
+            children: [
+              _buildTopBar(),
+              // Scrollable body: video + metadata + server selector
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Player iframe area: 16:9, but capped so a strip of
+                      // page content stays visible below it. In browser
+                      // fullscreen the full-width player is taller than the
+                      // viewport, and because embeds swallow wheel events the
+                      // page can't be scrolled down to the server selector.
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final maxPlayerHeight =
+                              (MediaQuery.sizeOf(context).height - 296)
+                                  .clamp(240.0, double.infinity)
+                                  .toDouble();
+                          if (_iframeFailed) {
+                            return ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: maxPlayerHeight,
+                              ),
+                              child: _buildErrorCard(context),
+                            );
+                          }
                           return ConstrainedBox(
                             constraints: BoxConstraints(
                               maxHeight: maxPlayerHeight,
                             ),
-                            child: _buildErrorCard(context),
-                          );
-                        }
-                        return ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: maxPlayerHeight,
-                          ),
-                          child: RepaintBoundary(
-                            child: Center(
-                              child: AspectRatio(
-                                aspectRatio: 16 / 9,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    const ColoredBox(color: Colors.black),
-                                    RepaintBoundary(
-                                      child: HtmlElementView(
-                                        viewType: _viewType,
+                            child: RepaintBoundary(
+                              child: Center(
+                                child: AspectRatio(
+                                  aspectRatio: 16 / 9,
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      const ColoredBox(color: Colors.black),
+                                      RepaintBoundary(
+                                        child: HtmlElementView(
+                                          viewType: _viewType,
+                                        ),
                                       ),
-                                    ),
-                                    if (_isLoading)
-                                      _CinematicLoader(
-                                        providerName:
-                                            _selectedProvider.shortName,
-                                      ),
-                                    // Up Next countdown (auto near the end)
-                                    // or the persistent Next pill (any time).
-                                    if (!_isLoading &&
-                                        !_iframeFailed &&
-                                        widget.mediaType == 'tv' &&
-                                        _nextEpisode != null)
-                                      Positioned(
-                                        right: 12,
-                                        bottom: 12,
-                                        child: _upNextVisible
-                                            ? UpNextOverlay(
-                                                next: _nextEpisode!,
-                                                secondsLeft: _upNextLeft,
-                                                totalSeconds:
-                                                    _VideoPlayerScreenStateBase
-                                                        ._upNextCountdownSeconds,
-                                                onPlayNow:
-                                                    _playNextEpisode,
-                                                onCancel: _cancelUpNext,
-                                              )
-                                            : NextEpisodeButton(
-                                                next: _nextEpisode!,
-                                                onTap: _playNextEpisode,
-                                              ),
-                                      ),
-                                  ],
+                                      if (_isLoading)
+                                        _CinematicLoader(
+                                          providerName:
+                                              _selectedProvider.shortName,
+                                        ),
+                                      // Up Next countdown (auto near the end)
+                                      // or the persistent Next pill (any time).
+                                      if (!_isLoading &&
+                                          !_iframeFailed &&
+                                          widget.mediaType == 'tv' &&
+                                          _nextEpisode != null)
+                                        Positioned(
+                                          right: 12,
+                                          bottom: 12,
+                                          child: _upNextVisible
+                                              ? UpNextOverlay(
+                                                  next: _nextEpisode!,
+                                                  secondsLeft: _upNextLeft,
+                                                  totalSeconds:
+                                                      _VideoPlayerScreenStateBase
+                                                          ._upNextCountdownSeconds,
+                                                  onPlayNow: _playNextEpisode,
+                                                  onCancel: _cancelUpNext,
+                                                )
+                                              : NextEpisodeButton(
+                                                  next: _nextEpisode!,
+                                                  onTap: _playNextEpisode,
+                                                ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                    // Episode Navigator for TV content
-                    if (widget.mediaType == 'tv' && !widget.isAnime)
-                      EpisodeNavigator(
-                        // Rebuild on auto-advance so the playing episode
-                        // highlight follows the Up Next flow.
-                        key: ValueKey(
-                          'ep-nav-$_currentSeason-$_currentEpisode',
-                        ),
-                        tmdbId: widget.tmdbId,
-                        initialSeason: _currentSeason,
-                        initialEpisode: _currentEpisode,
-                        onSeasonChanged: _onSeasonChanged,
-                        onEpisodeChanged: _onEpisodeChanged,
+                          );
+                        },
                       ),
-                    RepaintBoundary(child: _buildMetadataSection()),
-                    RepaintBoundary(child: _buildServerSelectorSection()),
-                    const SizedBox(height: 40),
-                  ],
+                      // Episode Navigator for TV content
+                      if (widget.mediaType == 'tv' && !widget.isAnime)
+                        EpisodeNavigator(
+                          // Rebuild on auto-advance so the playing episode
+                          // highlight follows the Up Next flow.
+                          key: ValueKey(
+                            'ep-nav-$_currentSeason-$_currentEpisode',
+                          ),
+                          tmdbId: widget.tmdbId,
+                          initialSeason: _currentSeason,
+                          initialEpisode: _currentEpisode,
+                          onSeasonChanged: _onSeasonChanged,
+                          onEpisodeChanged: _onEpisodeChanged,
+                        ),
+                      RepaintBoundary(child: _buildMetadataSection()),
+                      RepaintBoundary(child: _buildServerSelectorSection()),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

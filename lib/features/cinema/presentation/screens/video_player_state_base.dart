@@ -909,9 +909,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   void _showFullscreenExitButton() {
     if (_fullscreenExitButton != null) return;
     final button = web.HTMLDivElement()..textContent = 'Exit theater';
+    // Standalone-web only: keep the chip below the iPhone status bar
+    // so it stays tappable. Everywhere else the inset is 0.
+    final topInset = WebStandalone.safeAreaTop();
     button.style
       ..position = 'fixed'
-      ..top = '16px'
+      ..top = '${16 + topInset}px'
       ..right = '16px'
       ..zIndex = '10000'
       ..padding = '10px 14px'
