@@ -116,10 +116,27 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     final c = _controller;
     if (c == null) return;
     if (state == AppLifecycleState.resumed) {
-      if (!c.isAnimating && !_hovered) c.repeat();
+      _syncTicker();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.hidden) {
+      c.stop();
+    }
+  }
+
+  /// Runs the metronome only while the row can actually drift.
+  ///
+  /// A row that fits on screen shows a static [Row], and a hovered row holds
+  /// its offset — in both cases the old code kept the controller repeating, so
+  /// the app scheduled a frame 60 times a second to do nothing. Same pixels,
+  /// no frames.
+  void _syncTicker() {
+    final c = _controller;
+    if (c == null) return;
+    final shouldRun = _canScroll && !_hovered;
+    if (shouldRun && !c.isAnimating) {
+      c.repeat();
+    } else if (!shouldRun && c.isAnimating) {
       c.stop();
     }
   }
@@ -171,6 +188,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         viewportWidth.isFinite && singleSetWidth > viewportWidth;
     // Plain field write — no setState — consumed by the ticker only.
     _canScroll = overflows;
+    // ...and the ticker only runs when there is somewhere to scroll to.
+    _syncTicker();
     if (!overflows) {
       return SizedBox(
         height: widget.height,

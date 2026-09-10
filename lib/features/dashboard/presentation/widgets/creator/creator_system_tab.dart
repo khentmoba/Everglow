@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/models/presence_status.dart';
+import '../../../../../core/perf/perf_settings.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../core/services/presence_service.dart';
+import '../../../../../core/system/app_update_browser.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_radius.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -340,7 +342,141 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // ── Performance (dev tooling) ──
+          _buildPerformanceCard(),
         ],
+      ),
+    );
+  }
+
+  /// Frame meter + render scale.
+  ///
+  /// These two switches are how we measure Everglow on the only device where
+  /// "the dashboard feels heavy" is true: Khent's phone, in the installed PWA,
+  /// where a query string can't be edited and Safari's remote inspector isn't
+  /// reachable.
+  Widget _buildPerformanceCard() {
+    final deviceDpr = MediaQuery.devicePixelRatioOf(context);
+    return _buildSectionCard(
+      emoji: '📈',
+      title: 'Performance',
+      subtitle:
+          'Measure real frames on the phone, and trade pixels for smoothness.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: PerfSettings.frameMeter,
+            builder: (context, on, _) => _buildToolRow(
+              icon: on ? Icons.speed_rounded : Icons.speed_outlined,
+              title: on ? 'Frame meter: on' : 'Frame meter: off',
+              subtitle: 'FPS, jank % and build/raster ms — top-left corner',
+              isLoading: false,
+              onTap: () => PerfSettings.setFrameMeter(!on),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Render scale',
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: 13,
+              color: AppColors.petalWhite,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'How many device pixels each logical pixel gets. Lower means fewer '
+            'pixels to draw every frame. Now ${deviceDpr.toStringAsFixed(2)}x '
+            '— reload to apply.',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 11,
+              color: AppColors.textMuted,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<double?>(
+            valueListenable: PerfSettings.renderScale,
+            builder: (context, scale, _) => Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildScaleChip(
+                  'Device',
+                  scale == null,
+                  () => PerfSettings.setRenderScale(null),
+                ),
+                _buildScaleChip(
+                  '2.0x',
+                  scale == 2.0,
+                  () => PerfSettings.setRenderScale(2.0),
+                ),
+                _buildScaleChip(
+                  '1.5x',
+                  scale == 1.5,
+                  () => PerfSettings.setRenderScale(1.5),
+                ),
+              ],
+            ),
+          ),
+          if (AppUpdateBrowser.instance.supported) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => AppUpdateBrowser.instance.reload(),
+              icon: const Icon(
+                Icons.refresh_rounded,
+                size: 16,
+                color: AppColors.blushGold,
+              ),
+              label: Text(
+                'Reload to apply',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 13,
+                  color: AppColors.petalWhite,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(
+                  color: AppColors.blushGold.withValues(alpha: 0.4),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppRadius.radiusLg,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScaleChip(String label, bool selected, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.radiusFull,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.blushGold.withValues(alpha: 0.18)
+              : AppColors.velvet.withValues(alpha: 0.55),
+          borderRadius: AppRadius.radiusFull,
+          border: Border.all(
+            color: selected
+                ? AppColors.blushGold.withValues(alpha: 0.55)
+                : AppColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.outfitBold.copyWith(
+            fontSize: 12,
+            color: selected ? AppColors.petalWhite : AppColors.textMuted,
+          ),
+        ),
       ),
     );
   }
