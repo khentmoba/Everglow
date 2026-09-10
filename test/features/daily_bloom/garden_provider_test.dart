@@ -8,12 +8,14 @@ import 'package:everglow/features/daily_bloom/presentation/providers/garden_prov
 
 class FakeGardenSource implements GardenStatsSource {
   final List<Stream<GardenStats>> scripted;
+  final List<Stream<GardenStats>> partnerScripted;
   int watchCalls = 0;
+  int partnerWatchCalls = 0;
   int interactions = 0;
   Object? interactionError;
   Object? plantTypeError;
 
-  FakeGardenSource(this.scripted);
+  FakeGardenSource(this.scripted, {this.partnerScripted = const []});
 
   @override
   Stream<GardenStats> watchStats(String userId) {
@@ -23,7 +25,14 @@ class FakeGardenSource implements GardenStatsSource {
   }
 
   @override
-  Stream<GardenStats> watchPartnerStats(String partnerUid) => const Stream.empty();
+  Stream<GardenStats> watchPartnerStats(String partnerUid) {
+    if (partnerScripted.isEmpty) return const Stream.empty();
+    final index = partnerWatchCalls < partnerScripted.length
+        ? partnerWatchCalls
+        : partnerScripted.length - 1;
+    partnerWatchCalls++;
+    return partnerScripted[index];
+  }
 
   @override
   Future<void> recordInteraction(String userId) async {
@@ -128,6 +137,85 @@ void main() {
 
       await expectLater(provider.recordInteraction(), completes);
       await expectLater(provider.setPlantType('rose'), completes);
+      provider.dispose();
+    });
+
+    test('watchPartner updates partner stats and stopWatchingPartner clears', () async {
+      final partnerStats = GardenStats(
+        currentStage: 4,
+        lastVisit: DateTime.utc(2026, 9, 8),
+        streakCount: 5,
+        totalInteractions: 50,
+        plantType: 'tulip',
+      );
+      final provider = GardenProvider(
+        service: FakeGardenSource(
+          [Stream.value(_stats())],
+          partnerScripted: [Stream.value(partnerStats)],
+        ),
+      );
+
+      provider.watchPartner('partner-uid-1');
+      await _settle();
+
+      expect(provider.partnerUid, 'partner-uid-1');
+      expect(provider.partnerStats?.currentStage, 4);
+      expect(provider.partnerStats?.plantType, 'tulip');
+
+      provider.stopWatchingPartner();
+      expect(provider.partnerUid, isNull);
+      expect(provider.partnerStats, isNull);
+      provider.dispose();
+    });
+
+    test('watchPartner retries on stream error and preserves last known stats', () async {
+      final partnerStats = GardenStats(
+        currentStage: 2,
+        lastVisit: DateTime.utc(2026, 9, 8),
+        streakCount: 3,
+        totalInteractions: 20,
+        plantType: 'sunflower',
+      );
+      final partnerStats2 = GardenStats(
+        currentStage: 3,
+        lastVisit: DateTime.utc(2026, 9, 9),
+        streakCount: 4,
+        totalInteractions: 25,
+        plantType: 'sunflower',
+      );
+      final controller = StreamController<GardenStats>.broadcast();
+      final source = FakeGardenSource(
+        [Stream.value(_stats())],
+        partnerScripted: [
+          controller.stream,
+          Stream.value(partnerStats2),
+        ],
+      );
+      final provider = GardenProvider(service: source);
+
+      provider.watchPartner('partner-uid-1');
+      controller.add(partnerStats);
+      await _settle();
+
+      expect(provider.partnerStats?.currentStage, 2);
+      expect(provider.partnerStats?.plantType, 'sunflower');
+      expect(provider.hasPartnerError, isFalse);
+
+      // Inject error into active partner stream
+      controller.addError(StateError('transient-error'));
+      await _settle();
+
+      // Last known stats are preserved across errors
+      expect(provider.partnerStats?.currentStage, 2);
+
+      // Manual retry reconnects and gets new stream
+      provider.retryPartner();
+      await _settle();
+      expect(source.partnerWatchCalls, 2);
+      expect(provider.partnerStats?.currentStage, 3);
+      expect(provider.hasPartnerError, isFalse);
+
+      await controller.close();
       provider.dispose();
     });
   });
