@@ -15,6 +15,7 @@ const {
   composeTodayRecap,
   getMessageText,
   estimateTokens,
+  shouldExtractMemory,
   AGNES_INPUT_TOKEN_BUDGET,
 } = require('./mochi_core.js');
 const {
@@ -32,7 +33,24 @@ const {
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
 const { sendFCMToUser, logToolCall } = require('./triggers.js');
-const { buildContextForFeature, getTmdbKey } = require('./mochi_context.js');
+const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./mochi_context.js');
+
+const TOOL_INVALIDATIONS = {
+  add_to_watchlist: 'watchlist',
+  mark_watchlist_item_watched: 'watchlist',
+  remove_from_watchlist: 'watchlist',
+  set_mood: 'mood',
+  save_to_starlight_jar: 'starlight',
+  create_journal_entry: 'journal',
+  add_calendar_event: 'calendar',
+  add_bucket_item: 'bucket',
+  add_trip: 'travel',
+  add_trip_pin: 'travel',
+  log_habit: 'wellness',
+  complete_habit: 'wellness',
+  add_book_to_our_books: 'books',
+  update_book_progress: 'books',
+};
 
 /** In-memory cache for Mochi's persona document. */
 let _personaCache = null;
@@ -136,8 +154,10 @@ async function handleProxyAI(req, res) {
   // Build context server-side if feature is provided (avoids browser->Firestore latency)
   const isKhent = caller === 'khentsgdz';
   const callerLabel = isKhent ? 'Dada' : 'Mama';
+  const partnerLabel = isKhent ? 'Mama (Clair)' : 'Dada (Khent)';
+  const partnerUsername = isKhent ? 'clairjassen' : 'khentsgdz';
   const identityContext = caller
-    ? `The one talking to you now is **${callerLabel}** (${caller}). ${isKhent ? 'You belong to Dada (Khent).' : 'You belong to Mama (Clair).'}`
+    ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
   const serverContext = (feature && !context)
@@ -1209,10 +1229,33 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     },
   ];
 
-  // Tools: custom Mochi tools only (Agnes uses standard OpenAI function calling format)
-  const tools = [
-    ...MOCHI_TOOLS,
-  ];
+  function selectToolsForRequest(reqFeature, userMsg) {
+    if (reqFeature === 'guardian') {
+      const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
+      return MOCHI_TOOLS.filter(t => allowed.has(t.function.name));
+    }
+    if (reqFeature === 'study') {
+      const allowed = new Set(['web_search', 'read_web_page', 'remember_fact', 'read_memories', 'search_books']);
+      return MOCHI_TOOLS.filter(t => allowed.has(t.function.name));
+    }
+    const trimmed = String(userMsg || '').trim().toLowerCase();
+    const isPureGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i.test(trimmed);
+    if (isPureGreeting) {
+      const coreAllowed = new Set([
+        'set_mood',
+        'save_to_starlight_jar',
+        'remember_fact',
+        'read_memories',
+        'get_today_recap',
+        'get_relationship_insights',
+      ]);
+      return MOCHI_TOOLS.filter(t => coreAllowed.has(t.function.name));
+    }
+    return MOCHI_TOOLS;
+  }
+
+  // Tools: custom Mochi tools (dynamically pruned for feature and greetings)
+  const tools = selectToolsForRequest(feature, lastUserMessage);
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
   // Agnes uses chat_template_kwargs.enable_thinking instead of reasoning_effort.
@@ -2806,21 +2849,33 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           })),
         });
 
-        // Execute each tool
-        for (const tc of collectedToolCalls) {
+        // Execute collected tools concurrently to minimize latency
+        const toolPromises = collectedToolCalls.map(async (tc) => {
           const fnName = tc.function.name;
           let fnArgs;
           try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
 
           sendEvent({ tool_status: fnName });
           const toolStartedAt = Date.now();
-          const result = await executeTool(fnName, fnArgs, caller);
+          let result;
+          try {
+            result = await executeTool(fnName, fnArgs, caller);
+          } catch (err) {
+            result = JSON.stringify({ error: err.message || 'Tool execution failed' });
+          }
+
+          // Invalidate feature context block if this tool mutated persisted data
+          if (TOOL_INVALIDATIONS[fnName]) {
+            try { invalidateContextBlock(TOOL_INVALIDATIONS[fnName]); } catch (_) {}
+          }
+
           try {
             if (typeof logToolCall === 'function') {
               // fire-and-forget: don't block tool loop on observability write
               logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
             }
           } catch (_) {}
+
           // Send rich tool result to client for inline cards
           try {
             const parsed = JSON.parse(result);
@@ -2833,12 +2888,17 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             sendEvent({ tool_result: { tool: fnName, raw: result } });
           }
 
-          currentMessages.push({
+          return {
             role: 'tool',
             tool_call_id: tc.id,
             name: fnName,
             content: result,
-          });
+          };
+        });
+
+        const executedResults = await Promise.all(toolPromises);
+        for (const tr of executedResults) {
+          currentMessages.push(tr);
         }
 
         sendEvent({ tool_status: `round_${toolRound}_done` });
@@ -2850,9 +2910,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       stopHeartbeat();
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
-      // W1-C10 + W2-A4: fire-and-forget memory extraction & hallucination check
+      // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
       if (_streamedFinalReply.trim()) {
-        serverExtractAndSaveMemory(lastUserMessage, _streamedFinalReply, caller).catch(() => {});
+        if (shouldExtractMemory(lastUserMessage, _streamedFinalReply)) {
+          serverExtractAndSaveMemory(lastUserMessage, _streamedFinalReply, caller).catch(() => {});
+        }
         checkHallucinations(_streamedFinalReply).catch(() => {});
       }
     } catch (e) {
@@ -2923,9 +2985,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   const reply = (message.content || '').trim();
   const reasoning = message.reasoning || '';
   res.json({ reply, reasoning, model: data.model || model });
-  // W1-C10 + W2-A4: fire-and-forget memory extraction & hallucination check
+  // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
-    serverExtractAndSaveMemory(lastUserMessage, reply, caller).catch(() => {});
+    if (shouldExtractMemory(lastUserMessage, reply)) {
+      serverExtractAndSaveMemory(lastUserMessage, reply, caller).catch(() => {});
+    }
     checkHallucinations(reply).catch(() => {});
   }
 }
