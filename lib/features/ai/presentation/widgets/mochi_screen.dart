@@ -22,12 +22,15 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_chat_bubble.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../domain/mochi_quality.dart';
+import '../../../books/data/services/web_tts_service.dart';
 import 'mochi_web_bridge.dart';
 import 'mochi_sidebar.dart';
 import 'study_artifact_sheet.dart';
 part 'mochi_widgets.dart';
 part 'mochi_widgets_streaming.dart';
 part 'mochi_widgets_extra.dart';
+
+enum DeepThinkMode { auto, on, off }
 
 class MochiScreen extends StatefulWidget {
   const MochiScreen({super.key});
@@ -44,8 +47,7 @@ class _MochiScreenState extends State<MochiScreen> {
   bool _showScrollButton = false;
   bool _isSending = false;
   bool _userScrolledUp = false;
-  bool _deepThink = true;
-  bool _deepThinkTouched = false;
+  DeepThinkMode _deepThinkMode = DeepThinkMode.auto;
   // Canvas toggle — when off, Mochi just chats normally (no interactive
   // quiz / flashcards / game buttons). Defaults OFF so quick questions
   // stay plain chat; toggle it on when a quiz, cards, or game is wanted.
@@ -208,15 +210,25 @@ class _MochiScreenState extends State<MochiScreen> {
         _attachedImages.clear();
         _attachedImageUrls.clear();
       });
+      final bool enableThinking;
+      switch (_deepThinkMode) {
+        case DeepThinkMode.auto:
+          enableThinking = const MochiQuality().shouldAutoThink(text);
+          break;
+        case DeepThinkMode.on:
+          enableThinking = true;
+          break;
+        case DeepThinkMode.off:
+          enableThinking = false;
+          break;
+      }
       await aiService.sendMessage(
         feature: 'assistant',
         message: text,
         callerName: authService.currentUser,
         stream: true,
         canvasEnabled: _canvasEnabled,
-        enableThinking: _deepThinkTouched
-            ? _deepThink
-            : _deepThink || const MochiQuality().shouldAutoThink(text),
+        enableThinking: enableThinking,
         imageUrls: imagesToSend,
       );
       _scrollToBottom();
@@ -227,6 +239,23 @@ class _MochiScreenState extends State<MochiScreen> {
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
+  }
+
+  void _cycleDeepThink() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      switch (_deepThinkMode) {
+        case DeepThinkMode.auto:
+          _deepThinkMode = DeepThinkMode.on;
+          break;
+        case DeepThinkMode.on:
+          _deepThinkMode = DeepThinkMode.off;
+          break;
+        case DeepThinkMode.off:
+          _deepThinkMode = DeepThinkMode.auto;
+          break;
+      }
+    });
   }
 
   void _sendQuick(String text) {
@@ -374,13 +403,10 @@ class _MochiScreenState extends State<MochiScreen> {
                         onSidebarToggle: () =>
                             setState(() => _isSidebarOpen = !_isSidebarOpen),
                         onNewChat: _newChat,
-                        deepThink: _deepThink,
+                        deepThinkMode: _deepThinkMode,
                         isDesktop: true,
                         sidebarOpen: _isSidebarOpen,
-                        onToggleDeepThink: () => setState(() {
-                          _deepThinkTouched = true;
-                          _deepThink = !_deepThink;
-                        }),
+                        onToggleDeepThink: _cycleDeepThink,
                       ),
                       Divider(
                         height: 1,
@@ -459,13 +485,10 @@ class _MochiScreenState extends State<MochiScreen> {
                   onSidebarToggle: () =>
                       setState(() => _isSidebarOpen = !_isSidebarOpen),
                   onNewChat: _newChat,
-                  deepThink: _deepThink,
+                  deepThinkMode: _deepThinkMode,
                   isDesktop: false,
                   sidebarOpen: _isSidebarOpen,
-                  onToggleDeepThink: () => setState(() {
-                    _deepThinkTouched = true;
-                    _deepThink = !_deepThink;
-                  }),
+                  onToggleDeepThink: _cycleDeepThink,
                 ),
                 Divider(
                   height: 1,

@@ -9,42 +9,65 @@ const {
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
+const { selectContextBlocks } = require('./mochi_core.js');
+
+/**
+ * In-memory cache for individual feature context blocks.
+ * Caches blocks individually (with domain-appropriate TTLs) so subsequent
+ * chat turns avoid repeated 20-query Firestore sweeps, and tool writes can
+ * invalidate only their specific mutated blocks.
+ */
+const _blockCache = new Map();
+
+function invalidateContextBlock(key) {
+  if (!key) {
+    _blockCache.clear();
+    return;
+  }
+  _blockCache.delete(key);
+}
+
+async function getCachedBlock(key, ttlMs, fetcher) {
+  const cached = _blockCache.get(key);
+  if (cached && (Date.now() - cached.ts) < ttlMs) {
+    return cached.value;
+  }
+  try {
+    const value = await fetcher();
+    _blockCache.set(key, { ts: Date.now(), value: value || '' });
+    return value || '';
+  } catch (err) {
+    if (cached) return cached.value;
+    return '';
+  }
+}
 
 async function buildContextForFeature(feature, callerUid, userMessage = '') {
   try {
-    const queryHint = feature === 'assistant'
-      ? `:${Buffer.from(userMessage || '').toString('base64').slice(0, 48)}`
-      : '';
-    const cacheKey = `${feature}:${callerUid || 'anon'}${queryHint}`;
-    const cached = _contextCache.get(cacheKey);
-    if (cached && (Date.now() - cached.ts) < 300000) {
-      return cached.value;
-    }
-
     let result;
     switch (feature) {
       case 'assistant': {
         const ctxPromises = [
-          ['proactive', getProactiveContext()],
-          ['daily', getDailyDigest()],
-          ['mood', getMoodContext()],
-          ['watchlist', getWatchContext()],
-          ['books', getBooksContext()],
-          ['starlight', getStarlightContext()],
-          ['chat', getRecentChatContext()],
-          ['music', getMusicContext()],
-          ['garden', getGardenContext()],
-          ['canvas', getCanvasContext()],
-          ['play_zone', getPlayZoneContext()],
-          ['relationship', getRelationshipStats()],
-          ['activity', getRecentActivity()],
-          ['sessions', getSessionHistoryContext()],
-          ['calendar', getCalendarContext()],
-          ['journal', getJournalContext()],
-          ['bucket', getBucketContext()],
-          ['travel', getTravelContext()],
-          ['wellness', getWellnessContext()],
-          ['budget', getBudgetContext()],
+          ['proactive', Promise.resolve(getProactiveContext())],
+          ['daily', getCachedBlock('daily', 600000, getDailyDigest)],
+          ['mood', getCachedBlock('mood', 120000, getMoodContext)],
+          ['watchlist', getCachedBlock('watchlist', 120000, getWatchContext)],
+          ['books', getCachedBlock('books', 300000, getBooksContext)],
+          ['starlight', getCachedBlock('starlight', 180000, getStarlightContext)],
+          ['chat', getCachedBlock('chat', 60000, getRecentChatContext)],
+          ['music', getCachedBlock('music', 120000, getMusicContext)],
+          ['garden', getCachedBlock('garden', 300000, getGardenContext)],
+          ['canvas', getCachedBlock('canvas', 300000, getCanvasContext)],
+          ['play_zone', getCachedBlock('play_zone', 300000, getPlayZoneContext)],
+          ['relationship', getCachedBlock('relationship', 600000, getRelationshipStats)],
+          ['activity', getCachedBlock('activity', 60000, getRecentActivity)],
+          ['sessions', getCachedBlock('sessions', 120000, getSessionHistoryContext)],
+          ['calendar', getCachedBlock('calendar', 300000, getCalendarContext)],
+          ['journal', getCachedBlock('journal', 180000, getJournalContext)],
+          ['bucket', getCachedBlock('bucket', 300000, getBucketContext)],
+          ['travel', getCachedBlock('travel', 300000, getTravelContext)],
+          ['wellness', getCachedBlock('wellness', 180000, getWellnessContext)],
+          ['budget', typeof getBudgetContext === 'function' ? getCachedBlock('budget', 300000, getBudgetContext) : Promise.resolve('')],
         ];
         const resolved = await Promise.all(
           ctxPromises.map(async ([key, promise]) => ({
@@ -57,26 +80,25 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
         break;
       }
       case 'guardian':
-        const mood = await getMoodContext();
-        result = mood;
+        result = await getCachedBlock('mood', 120000, getMoodContext);
         break;
       case 'recommendations': {
         const [watch, books, trending, nowPlaying, upcoming] = await Promise.all([
-          getWatchContext(),
-          getBooksContext(),
+          getCachedBlock('watchlist', 120000, getWatchContext),
+          getCachedBlock('books', 300000, getBooksContext),
           getTrendingMovies(),
           getNowPlayingMovies(),
           getUpcomingMovies(),
         ]);
-        result = [watch, books, trending, nowPlaying, upcoming].filter(p => p).join('\n\n');
+        result = [watch, books, trending, nowPlaying, upcoming].filter(Boolean).join('\n\n');
         break;
       }
       case 'date_ideas': {
         const [mood2, starlight] = await Promise.all([
-          getMoodContext(),
-          getStarlightContext(),
+          getCachedBlock('mood', 120000, getMoodContext),
+          getCachedBlock('starlight', 180000, getStarlightContext),
         ]);
-        result = [mood2, starlight].filter(p => p).join('\n\n');
+        result = [mood2, starlight].filter(Boolean).join('\n\n');
         break;
       }
       default:
@@ -84,7 +106,6 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
         break;
     }
 
-    _contextCache.set(cacheKey, { ts: Date.now(), value: result });
     return result;
   } catch (e) {
     console.warn('buildContextForFeature error:', e.message);
@@ -543,4 +564,5 @@ async function getBudgetContext() {
 module.exports = {
   buildContextForFeature,
   getTmdbKey,
+  invalidateContextBlock,
 };

@@ -343,6 +343,46 @@ function estimateTokens(text) {
   return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
 }
 
+/**
+ * Heuristic gate to avoid calling the memory extraction LLM on casual
+ * chatter, greetings, search commands, or questions that contain no
+ * personal facts about Khent or Clair.
+ */
+function shouldExtractMemory(userMessage, mochiReply) {
+  const user = String(userMessage || '').trim();
+  const reply = String(mochiReply || '').trim();
+  if (user.length < 8 || reply.length < 10) return false;
+
+  const lower = user.toLowerCase();
+
+  // Explicit memory cues always pass
+  if (/remember\b|don't forget|keep in mind|note that|our anniversary|my birthday|her birthday|his birthday/i.test(lower)) {
+    return true;
+  }
+
+  // Pure commands / lookups without personal signals should not trigger extraction
+  if (/^(search|find|play|what is the weather|what's the weather|how's the weather|show me|list|give me)\b/i.test(lower)) {
+    return false;
+  }
+
+  // Casual greetings and acknowledgments without substantive info
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening|good night|bye|thanks|thank you|ok|okay|got it|cool|nice|yes|no|yep|nope)[!.,\s]*$/i.test(lower)) {
+    return false;
+  }
+
+  // Must have a personal subject marker (Khent, Clair, I, my, we, our)
+  const hasSubject = /\b(i|my|i'm|im|i've|ive|i'd|we|our|khent|clair|dada|mama)\b/i.test(lower);
+  if (!hasSubject) return false;
+
+  // Must have a durable fact/preference/habit/milestone indicator
+  const hasSignal = /\b(prefer|prefers|preference|love|loves|like|likes|hate|hates|dislike|dislikes|favorite|favourite|always|never|started|finished|bought|studies|study|school|college|csucc|ustp|works?|job|dream|dreams|hope|goals?|habit|habits|gym|bike|rides?|rode|winner x|fuji|camera|coffee|food|allergic|allergy|fears?|scared of)\b/i.test(lower);
+
+  if (hasSignal) return true;
+
+  // Longer multi-sentence reflective exchanges (> 120 chars) with personal subject
+  return user.length >= 120;
+}
+
 // Agnes 2.5 Flash: 512K context window, generous token budget.
 // Use ~25% of context for input safety; reserve rest for output + tool loops.
 const AGNES_INPUT_TOKEN_BUDGET = 120000;
@@ -353,6 +393,7 @@ module.exports = {
   scoreMemory,
   rankMemories,
   selectContextBlocks,
+  shouldExtractMemory,
   generateTrivia,
   computeInsights,
   composeTodayRecap,

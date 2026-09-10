@@ -437,28 +437,37 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(
-                              Icons.auto_awesome_rounded,
-                              size: 11,
-                              color: AppColors.blushGold.withValues(
-                                alpha: 0.75,
-                              ),
-                            ),
-                            const SizedBox(width: 5),
                             Flexible(
-                              child: Text(
-                                widget.timestamp != null
-                                    ? 'Private to you two · ${isToday ? timeStr : fullDateStr}'
-                                    : 'Private to you two · Everglow context',
-                                style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.textMuted,
-                                ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 11,
+                                    color: AppColors.blushGold.withValues(
+                                      alpha: 0.75,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text(
+                                      widget.timestamp != null
+                                          ? 'Private to you two · ${isToday ? timeStr : fullDateStr}'
+                                          : 'Private to you two · Everglow context',
+                                      style: AppTypography.bodySmall().copyWith(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            if (displayText.trim().isNotEmpty)
+                              _ListenButton(text: displayText),
                           ],
                         ),
                       ),
@@ -527,6 +536,76 @@ class _MessageBubbleState extends State<_MessageBubble> {
             _UserAvatar(name: widget.senderName),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _ListenButton extends StatefulWidget {
+  final String text;
+  const _ListenButton({required this.text});
+
+  @override
+  State<_ListenButton> createState() => _ListenButtonState();
+}
+
+class _ListenButtonState extends State<_ListenButton> {
+  bool _speaking = false;
+
+  void _toggle() {
+    HapticFeedback.lightImpact();
+    if (_speaking) {
+      WebTtsService.instance.stop();
+      if (mounted) setState(() => _speaking = false);
+    } else {
+      setState(() => _speaking = true);
+      WebTtsService.instance.speak(
+        widget.text,
+        onComplete: () {
+          if (mounted) setState(() => _speaking = false);
+        },
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_speaking) {
+      WebTtsService.instance.stop();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!WebTtsService.instance.isSupported) return const SizedBox.shrink();
+    return Tooltip(
+      message: _speaking ? 'Stop speaking' : 'Listen to Mochi',
+      child: InkWell(
+        onTap: _toggle,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _speaking ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
+                size: 13,
+                color: _speaking ? AppColors.auroraRose : AppColors.blushGold,
+              ),
+              const SizedBox(width: 3.5),
+              Text(
+                _speaking ? 'Stop' : 'Listen',
+                style: AppTypography.labelSmall().copyWith(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: _speaking ? AppColors.auroraRose : AppColors.blushGold,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -904,22 +983,47 @@ class _QuickReplyChips extends StatelessWidget {
     this.enabled = true,
   });
 
-  static const _chips = [
-    ('What should we watch? 🎬', 'What should we watch tonight?'),
-    ('Quiz us ✍️', 'Quiz us! Make a fun 5-question quiz for us with A-D options.'),
-    ('Flashcards 🃏', 'Make us flashcards — 8 cards on something fun for us to learn together.'),
-    ('Build a game 🎮', 'Make us a little game we can play right here — like tic-tac-toe!'),
-    ('Save to Starlight ✨', 'Save this to our Starlight Jar'),
-    ('Log my mood 💭', 'I want to log my mood'),
-    ('Plan a date 🌙', 'Plan a cozy date night for us'),
-    ('Add calendar 📅', 'Add a calendar event for tomorrow at 7pm'),
-    ('Bucket dream ✨', 'Add something to our bucket list'),
-    ('Journal ✍️', 'Create a journal entry about today'),
-    ('Our trips ✈️', 'Show our upcoming trips'),
-  ];
+  static List<(String, String)> _getContextualChips() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      // Morning (5am - 12pm)
+      return const [
+        ('Morning recap ☀️', 'Good morning Mochi! Give us our morning digest and what is on for today.'),
+        ('Log my mood 💭', 'I want to log my mood for today'),
+        ('Couple question 💖', 'Ask us a sweet couple question to start our day together!'),
+        ('What to watch tonight? 🎬', 'What should we watch tonight from our watchlist?'),
+        ('Quiz us ✍️', 'Quiz us! Make a fun 5-question quiz for us with A-D options.'),
+        ('Save to Starlight ✨', 'Save this note to our Starlight Jar: '),
+        ('Add calendar 📅', 'Add a calendar event for tomorrow at 7pm'),
+      ];
+    } else if (hour >= 12 && hour < 17) {
+      // Afternoon (12pm - 5pm)
+      return const [
+        ('Check in on us 💌', 'How are we doing today? Any sweet updates or notes?'),
+        ('Quiz us ✍️', 'Quiz us! Make a fun 5-question quiz for us with A-D options.'),
+        ('Flashcards 💡', 'Make us flashcards — 8 cards on something fun for us to learn together.'),
+        ('Build a game 🎮', 'Make us a little game we can play right here — like tic-tac-toe!'),
+        ('Log my mood 💭', 'I want to log my mood'),
+        ('Plan a date 🥂', 'Plan a cozy date night for us'),
+        ('What should we watch? 🎬', 'What should we watch tonight?'),
+      ];
+    } else {
+      // Evening / Night (5pm - 5am)
+      return const [
+        ('What to watch tonight? 🎬', 'What should we watch tonight from our watchlist?'),
+        ('Today\'s recap 🌙', 'Give us today\'s recap of what happened in Everglow today.'),
+        ('Save to Starlight ✨', 'Save this note to our Starlight Jar: '),
+        ('Plan a date 🥂', 'Plan a cozy date night for us'),
+        ('Quiz us ✍️', 'Quiz us! Make a fun 5-question quiz for us with A-D options.'),
+        ('Journal ✍️', 'Create a journal entry about our day together'),
+        ('Bucket dream ✨', 'Add something to our bucket list'),
+      ];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final chips = _getContextualChips();
     final inner = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: EdgeInsets.symmetric(
@@ -927,7 +1031,7 @@ class _QuickReplyChips extends StatelessWidget {
         vertical: 8,
       ),
       child: Row(
-        children: _chips.map((e) {
+        children: chips.map((e) {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: _QuickPill(
@@ -969,7 +1073,12 @@ class _QuickPillState extends State<_QuickPill> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: enabled
+                ? () {
+                    HapticFeedback.lightImpact();
+                    widget.onTap!();
+                  }
+                : null,
             borderRadius: BorderRadius.circular(20),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),

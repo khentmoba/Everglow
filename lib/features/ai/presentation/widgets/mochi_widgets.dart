@@ -4,7 +4,7 @@ class _MochiHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onSidebarToggle;
   final VoidCallback onNewChat;
-  final bool deepThink;
+  final DeepThinkMode deepThinkMode;
   final VoidCallback onToggleDeepThink;
   final bool isDesktop;
   final bool sidebarOpen;
@@ -13,7 +13,7 @@ class _MochiHeader extends StatelessWidget {
     required this.onBack,
     required this.onSidebarToggle,
     required this.onNewChat,
-    required this.deepThink,
+    required this.deepThinkMode,
     required this.onToggleDeepThink,
     this.isDesktop = false,
     this.sidebarOpen = false,
@@ -186,7 +186,7 @@ class _MochiHeader extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           _DeepThinkPill(
-            deepThink: deepThink,
+            mode: deepThinkMode,
             onTap: onToggleDeepThink,
           ),
         ],
@@ -234,18 +234,45 @@ class _HeaderActionButton extends StatelessWidget {
 }
 
 class _DeepThinkPill extends StatelessWidget {
-  final bool deepThink;
+  final DeepThinkMode mode;
   final VoidCallback onTap;
 
   const _DeepThinkPill({
-    required this.deepThink,
+    required this.mode,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final (tooltip, label, icon, activeColor, bgColor, hasGlow) = switch (mode) {
+      DeepThinkMode.auto => (
+        'Thinking: Auto (fast replies, deep reasoning when needed)',
+        'Auto',
+        Icons.auto_awesome_rounded,
+        AppColors.blushGold,
+        AppColors.blushGold.withValues(alpha: 0.12),
+        false,
+      ),
+      DeepThinkMode.on => (
+        'Thinking: Always on (deep reasoning)',
+        'Deep',
+        Icons.psychology_rounded,
+        AppColors.blushGold,
+        AppColors.blushGold.withValues(alpha: 0.22),
+        true,
+      ),
+      DeepThinkMode.off => (
+        'Thinking: Off (fastest replies)',
+        'Fast',
+        Icons.bolt_rounded,
+        AppColors.textMuted,
+        AppColors.surfaceGlass,
+        false,
+      ),
+    };
+
     return Tooltip(
-      message: deepThink ? 'Deep thinking: on' : 'Deep thinking: off',
+      message: tooltip,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
@@ -253,17 +280,15 @@ class _DeepThinkPill extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6.5),
           decoration: BoxDecoration(
-            color: deepThink
-                ? AppColors.blushGold.withValues(alpha: 0.16)
-                : AppColors.surfaceGlass,
+            color: bgColor,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: deepThink
-                  ? AppColors.blushGold.withValues(alpha: 0.35)
-                  : AppColors.blushGold.withValues(alpha: 0.12),
+              color: mode == DeepThinkMode.off
+                  ? AppColors.blushGold.withValues(alpha: 0.12)
+                  : AppColors.blushGold.withValues(alpha: 0.35),
               width: 0.8,
             ),
-            boxShadow: deepThink
+            boxShadow: hasGlow
                 ? [
                     BoxShadow(
                       color: AppColors.blushGold.withValues(alpha: 0.16),
@@ -277,19 +302,17 @@ class _DeepThinkPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                deepThink
-                    ? Icons.psychology_rounded
-                    : Icons.psychology_outlined,
-                color: deepThink ? AppColors.blushGold : AppColors.textMuted,
-                size: 18,
+                icon,
+                color: activeColor,
+                size: 16,
               ),
               const SizedBox(width: 4.5),
               Text(
-                'Deep',
+                label,
                 style: AppTypography.labelSmall().copyWith(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: deepThink ? AppColors.blushGold : AppColors.textMuted,
+                  color: activeColor,
                 ),
               ),
             ],
