@@ -105,7 +105,8 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..position = 'relative'
       ..width = '100%'
       ..height = '100%'
-      ..overflow = 'hidden';
+      ..overflow = 'hidden'
+      ..pointerEvents = 'none';
 
     wrapper.appendChild(_iframe);
 
@@ -123,7 +124,8 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..touchAction = 'none'
       ..setProperty('-webkit-touch-callout', 'none')
       ..setProperty('-webkit-user-select', 'none')
-      ..setProperty('user-select', 'none');
+      ..setProperty('user-select', 'none')
+      ..pointerEvents = 'none';
 
     wrapper.appendChild(overlay);
 
@@ -133,9 +135,13 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
         if (!widget.muted) {
           _postCommand('unMute');
           _postCommand('setVolume', 100);
+        } else {
+          _postCommand('mute');
         }
         if (!widget.playing) {
           _postCommand('pauseVideo');
+        } else if (widget.autoplay) {
+          _postCommand('playVideo');
         }
         widget.onLoaded?.call();
       }

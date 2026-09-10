@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_spotlight.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_tokens.dart';
 import 'package:everglow/shared/widgets/shelf/anime_hero_banner.dart';
@@ -290,6 +291,9 @@ void main() {
     // Dwell for 900ms to allow trailer arming
     await tester.pump(const Duration(milliseconds: 900));
 
+    // Trailer player should be mounted and ready
+    expect(find.byType(TrailerPlayer), findsOneWidget);
+
     // Initially muted: unmute tooltip should be visible on the mute control
     expect(find.byTooltip('Unmute trailer'), findsOneWidget);
     expect(find.byTooltip('Pause trailer'), findsOneWidget);
@@ -354,6 +358,9 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 900));
 
+    // Trailer player should be mounted
+    expect(find.byType(TrailerPlayer), findsOneWidget);
+
     // Initially muted
     expect(find.byTooltip('Unmute trailer'), findsOneWidget);
 
@@ -365,5 +372,69 @@ void main() {
 
     // Should now be unmuted
     expect(find.byTooltip('Mute trailer'), findsOneWidget);
+  });
+
+  testWidgets('AnimeXSpotlight fades trailer layer in when ready and out when paused', (
+    WidgetTester tester,
+  ) async {
+    final itemWithTrailer = MediaItem(
+      id: 't3',
+      tmdbId: 103,
+      title: 'Frieren Beyond Journeys End',
+      mediaType: 'tv',
+      posterPath: '',
+      backdropPath: '',
+      year: '2024',
+      status: 'to-watch',
+      isAnime: true,
+      addedAt: DateTime(2026, 1, 1),
+      source: 'jikan',
+      synopsis: 'The journey continues.',
+      episodeCount: 28,
+      airingStatus: 'FINISHED',
+      format: 'TV',
+      trailerYoutubeId: 'frieren_trailer',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          backgroundColor: AnimeXTokens.bg,
+          body: AnimeXSpotlight(
+            items: [itemWithTrailer],
+            loading: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Before dwell, trailer is not yet armed
+    expect(
+      find.byKey(const ValueKey('hero-trailer-layer-frieren_trailer')),
+      findsNothing,
+    );
+
+    // After 900ms, trailer arms and is ready
+    await tester.pump(const Duration(milliseconds: 900));
+    final trailerLayerFinder = find.byKey(
+      const ValueKey('hero-trailer-layer-frieren_trailer'),
+    );
+    expect(trailerLayerFinder, findsOneWidget);
+
+    final opacityWidget = tester.widget<AnimatedOpacity>(trailerLayerFinder);
+    expect(opacityWidget.opacity, 1.0);
+
+    // Tap pause
+    await tester.tap(find.byTooltip('Pause trailer'));
+    await tester.pump();
+    final pausedOpacity = tester.widget<AnimatedOpacity>(trailerLayerFinder);
+    expect(pausedOpacity.opacity, 0.0);
+
+    // Tap play
+    await tester.tap(find.byTooltip('Play trailer'));
+    await tester.pump();
+    final resumedOpacity = tester.widget<AnimatedOpacity>(trailerLayerFinder);
+    expect(resumedOpacity.opacity, 1.0);
   });
 }
