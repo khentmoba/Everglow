@@ -199,38 +199,66 @@ class MediaItem {
       _normalizedStatus == 'watching-both' ||
       _normalizedStatus == 'watching-self';
 
-  /// Maps `watched-self` / `watching-self` to the partner-specific variant
-  /// based on the item's [userName]. Per-user Firestore docs store "self"
-  /// variants, but the couple drawer chips expect `watched-khent`,
-  /// `watched-clair`, `watched-both`, etc. This resolves the mismatch so
-  /// the correct chip is highlighted when the drawer opens.
+  /// Maps stored statuses to the partner-specific variant based on the
+  /// item's [userName], which is the ground truth for single-owner docs.
+  /// Per-user Firestore docs store "self" variants, but the couple drawer
+  /// chips expect `watched-khent`, `watched-clair`, `watched-both`, etc.
+  /// This resolves the mismatch so the correct chip is highlighted when
+  /// the drawer opens.
   ///
-  /// Returns the original [status] unchanged for non-"self" values,
-  /// for non-couple usernames (e.g. Breyan, Octagram), and for the
-  /// shared "watched-both" / "watching-both" values that now live on
-  /// a single per-user doc.
+  /// Single-owner couple docs (e.g. `userName == 'clairjassen'`) always
+  /// resolve to that owner's chip — even for legacy docs that still carry
+  /// a generic (`watching` / `watched`) or mismatched partner status
+  /// (`watching-khent` on Clair's doc from before statuses were routed
+  /// to the owner's doc). Without this, opening Clair's Currently Watching
+  /// item (e.g. Odyssey) highlights "Khent Watching" instead of
+  /// "Clair Watching".
+  ///
+  /// Merged couple items (`userName` contains both partners) already carry
+  /// the merged status — returned unchanged so a Khent-only title is never
+  /// upgraded to Both. The one exception is legacy `*-self` on a merged doc
+  /// (pre-merge code mapped those to Both), preserved here so the Both chip
+  /// still highlights. Non-couple usernames (Breyan, Octagram) and empty
+  /// owners (search results) keep the original status so generic chips
+  /// (`watching-self`) keep working.
   String resolveCoupleStatus() {
     switch (status) {
       case 'watched-both':
       case 'watching-both':
+      case 'to-watch':
         return status;
       case 'watched-self':
-        return _resolveByUserName('watched');
+        if (partnerUsernames.length > 1) return 'watched-both';
+        break;
       case 'watching-self':
-        return _resolveByUserName('watching');
+        if (partnerUsernames.length > 1) return 'watching-both';
+        break;
       default:
-        return status;
+        break;
     }
-  }
-
-  String _resolveByUserName(String prefix) {
     final partners = partnerUsernames;
-    final hasKhent = partners.contains('khentsgdz');
-    final hasClair = partners.contains('clairjassen');
-    if (hasKhent && hasClair) return '$prefix-both';
-    if (hasKhent) return '$prefix-khent';
-    if (hasClair) return '$prefix-clair';
-    return '$prefix-self';
+    // Merged item with both owners: status is already merged, keep it.
+    if (partners.length > 1) return status;
+    if (partners.length == 1) {
+      final owner = partners.first;
+      if (owner == 'khentsgdz') {
+        if (isWatched) return 'watched-khent';
+        if (isCurrentlyWatching) return 'watching-khent';
+        return status;
+      }
+      if (owner == 'clairjassen') {
+        if (isWatched) return 'watched-clair';
+        if (isCurrentlyWatching) return 'watching-clair';
+        return status;
+      }
+      // Non-couple single owner (Breyan, Octagram, guests): keep as-is
+      // so generic `watching-self` / `watched-self` chips still match.
+      return status;
+    }
+    // No owner (e.g. search/discover results): keep as-is. Old code mapped
+    // self-variants via _resolveByUserName which returned self again, so
+    // this is behavior-preserving.
+    return status;
   }
 
   String get watchedDisplay {

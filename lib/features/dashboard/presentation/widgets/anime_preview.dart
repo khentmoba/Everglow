@@ -403,56 +403,61 @@ class _AnimeShelfState extends State<_AnimeShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  Future<List<MediaItem>>? _future;
+  StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _subscribe();
   }
 
   @override
   void didUpdateWidget(covariant _AnimeShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
       _loadError = false;
-      _load();
+      _subscribe();
     }
   }
 
-  void _load() {
+  void _subscribe() {
     if (widget.userName.isEmpty) {
-      _future = null;
       if (mounted) {
         setState(() => _hasLoaded = true);
       }
       return;
     }
-    final future = _service.getPreviewItems(
-      widget.userName,
-      limit: TMDBWatchlistService.previewLimit,
-      isAnime: true,
+    // Realtime (bounded by previewLimit via limit) so undo updates
+    // immediately, mirroring the Watching Now shelf.
+    _streamSub?.cancel();
+    _streamSub = _service
+        .getAnimeWatchListStream(
+          widget.userName,
+          limit: TMDBWatchlistService.previewLimit,
+        )
+        .listen(
+      (items) {
+        if (!mounted) return;
+        final watched = items.where((i) => i.isWatched).toList();
+        watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+        setState(() {
+          _items = watched;
+          _hasLoaded = true;
+          _loadError = false;
+        });
+        if (watched.isNotEmpty) _backfillPosters(watched);
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        setState(() {
+          _hasLoaded = true;
+          _loadError = true;
+        });
+      },
     );
-    _future = future;
-    future.then((items) {
-      if (!mounted || _future != future) return;
-      final watched = items.where((i) => i.isAnime && i.isWatched).toList();
-      watched.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-      setState(() {
-        _items = watched;
-        _hasLoaded = true;
-        _loadError = false;
-      });
-      if (watched.isNotEmpty) _backfillPosters(watched);
-    }).catchError((Object e) {
-      if (!mounted || _future != future) return;
-      setState(() {
-        _hasLoaded = true;
-        _loadError = true;
-      });
-    });
   }
 
   /// Resolves posters for finished entries saved without one, mirroring
@@ -468,7 +473,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
 
   @override
   void dispose() {
-    _future = null;
+    _streamSub?.cancel();
     super.dispose();
   }
 
