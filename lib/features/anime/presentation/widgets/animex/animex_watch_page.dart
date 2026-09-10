@@ -64,14 +64,17 @@ class AnimeXWatchPage extends StatefulWidget {
         return 'Anixo';
       case 'Server 3':
         return 'Megavid';
+      case 'Server 4':
+        return 'TryEmbed';
       default:
         return name;
     }
   }
 
-  /// Builds the 3 anime embed servers: Mega Play, Anixo, and Megavid.
-  /// Each server supports sub and dub tracks and handles both AniList and
-  /// MyAnimeList IDs with seamless fallback.
+  /// Builds the 4 anime embed servers: Mega Play, Anixo, Megavid, and
+  /// TryEmbed. Each server supports sub and dub tracks. The first three
+  /// handle both AniList and MyAnimeList IDs with seamless fallback;
+  /// TryEmbed is AniList-only (its embed API takes an AniList ID).
   static List<AnimeServerOption> buildServers({
     int? anilistId,
     int? malId,
@@ -111,6 +114,13 @@ class AnimeXWatchPage extends StatefulWidget {
           return 'https://megavid.buzz/mal/$effectiveMal/$ep/$audio';
         },
         available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'TryEmbed',
+        urlBuilder: (ep, audio) =>
+            'https://tryembed.us.cc/embed/anime/$anilistId/$ep/'
+            '${audio == 'sub' ? '1' : '2'}',
+        available: hasAni,
       ),
     ];
   }
@@ -578,6 +588,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         lower.contains('error - megaplay') ||
         lower.contains('all stream servers failed') ||
         lower.contains('no playable stream sources') ||
+        lower.contains('stream failed to load') ||
         (lower.contains('410') && lower.contains('copyright violation'));
   }
 

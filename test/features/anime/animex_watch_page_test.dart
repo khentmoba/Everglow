@@ -199,9 +199,10 @@ void main() {
   );
 
   group('AnimeXWatchPage servers', () {
-    test('buildServers creates Mega Play, Anixo, and Megavid with AniList routes', () {
+    test('buildServers creates Mega Play, Anixo, Megavid, and TryEmbed with AniList routes',
+        () {
       final servers = AnimeXWatchPage.buildServers(anilistId: 21, malId: 21);
-      expect(servers.length, 3);
+      expect(servers.length, 4);
 
       expect(servers[0].name, 'Mega Play');
       expect(servers[0].available, isTrue);
@@ -235,11 +236,22 @@ void main() {
         servers[2].urlBuilder(1, 'dub'),
         'https://megavid.buzz/ani/21/1/dub',
       );
+
+      expect(servers[3].name, 'TryEmbed');
+      expect(servers[3].available, isTrue);
+      expect(
+        servers[3].urlBuilder(1, 'sub'),
+        'https://tryembed.us.cc/embed/anime/21/1/1',
+      );
+      expect(
+        servers[3].urlBuilder(2, 'dub'),
+        'https://tryembed.us.cc/embed/anime/21/2/2',
+      );
     });
 
     test('buildServers falls back to MAL routes when AniList ID is absent', () {
       final servers = AnimeXWatchPage.buildServers(anilistId: null, malId: 52991);
-      expect(servers.length, 3);
+      expect(servers.length, 4);
 
       expect(servers[0].name, 'Mega Play');
       expect(
@@ -270,6 +282,10 @@ void main() {
         servers[2].urlBuilder(3, 'dub'),
         'https://megavid.buzz/mal/52991/3/dub',
       );
+
+      // TryEmbed is AniList-only, so it stays unavailable on MAL-only titles.
+      expect(servers[3].name, 'TryEmbed');
+      expect(servers[3].available, isFalse);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -283,12 +299,14 @@ void main() {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Mega Play');
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'Anixo');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
+      expect(AnimeXWatchPage.normalizeServerName('Server 4'), 'TryEmbed');
       expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Mega Play');
       expect(AnimeXWatchPage.normalizeServerName(''), '');
       expect(AnimeXWatchPage.normalizeServerName(null), '');
     });
 
-    testWidgets('renders Mega Play, Anixo, Megavid buttons and sub/dub toggle',
+    testWidgets(
+        'renders Mega Play, Anixo, Megavid, TryEmbed buttons and sub/dub toggle',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
@@ -317,6 +335,7 @@ void main() {
       expect(find.text('Mega Play'), findsOneWidget);
       expect(find.text('Anixo'), findsOneWidget);
       expect(find.text('Megavid'), findsOneWidget);
+      expect(find.text('TryEmbed'), findsOneWidget);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
 
