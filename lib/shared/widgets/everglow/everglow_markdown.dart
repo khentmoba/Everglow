@@ -6,7 +6,7 @@ import '../../../core/theme/app_elevation.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Shared markdown renderer for every chat surface (Mochi, Study, Sanctuary).
+/// Shared markdown renderer for every chat surface (Motchi, Study, Sanctuary).
 ///
 /// AI replies arrive as lightweight markdown — headings, **bold**, *italic*,
 /// `code`, bullet/numbered lists, tables, dividers. This renders them as
@@ -1074,7 +1074,7 @@ bool _startsWithEmoji(String text) {
   final t = text.trimLeft();
   if (t.isEmpty) return false;
   final first = t.runes.first;
-  // Fast path: the markers Mochi actually emits.
+  // Fast path: the markers Motchi actually emits.
   const markers = '💡🧠✨📌🔑⭐🌙💭🎯📝📚❤️💖🔥✅❌⚠️👉🏷️📦🔹🔸🟣🟢🔵🟡🟠🔴💬🗺️🧭🎓📖📎';
   if (markers.contains(String.fromCharCode(first))) return true;
   // General ranges: emoticons, pictographs, dingbats, enclosed chars.

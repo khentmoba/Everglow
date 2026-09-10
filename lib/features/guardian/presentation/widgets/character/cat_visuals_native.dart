@@ -8,7 +8,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 /// the same chibi cat used on web is visible on Android/iOS.
 ///
 /// Mirrors the web view: the 3D viewer mounts [initDelay] after first
-/// build (see `cat_visuals_web.dart`), with the Mochi avatar covering
+/// build (see `cat_visuals_web.dart`), with the Motchi avatar covering
 /// the gap so cold start never shows an empty box.
 class CatVisuals extends StatefulWidget {
   final double size;
@@ -65,7 +65,7 @@ class CatVisualsState extends State<CatVisuals> {
             width: widget.size,
             height: widget.size,
             child: Image.asset(
-              'assets/images/mochi_avatar.png',
+              'assets/images/motchi_avatar.png',
               fit: BoxFit.cover,
             ),
           ),

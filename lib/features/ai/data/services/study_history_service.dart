@@ -27,7 +27,7 @@ class StudyHistoryTurn {
 /// A persisted Study session: attached PDF sources + Q&A turns.
 ///
 /// Lives in `ai_memories/shared/study_sessions` — separate from the generic
-/// `sessions` collection so Mochi's auto-archive/trim logic never touches
+/// `sessions` collection so Motchi's auto-archive/trim logic never touches
 /// study history.
 class StudySession {
   final String id;

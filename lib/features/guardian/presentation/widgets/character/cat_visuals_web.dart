@@ -8,7 +8,7 @@ import 'package:web/web.dart' as web;
 /// Load behavior (dashboard performance): the platform view is created
 /// [initDelay] after mount so the GLB fetch + WebGL boot never contend with
 /// the dashboard's Firestore stream burst on cold start. Until then — and
-/// while the model downloads — the Mochi avatar shows (already bundled, and
+/// while the model downloads — the Motchi avatar shows (already bundled, and
 /// already on-screen via the AI button, so it costs zero new bytes).
 class CatVisuals extends StatefulWidget {
   final double size;
@@ -58,7 +58,7 @@ class CatVisualsState extends State<CatVisuals> {
         // Web-relative path (the pubspec asset key gains an extra
         // `assets/` prefix in the compiled web bundle).
         ..setAttribute('src', 'assets/assets/models/chibi_cat.glb')
-        ..setAttribute('poster', 'assets/assets/images/mochi_avatar.png')
+        ..setAttribute('poster', 'assets/assets/images/motchi_avatar.png')
         ..setAttribute('alt', 'Everglow Guardian Cat')
         ..setAttribute('camera-controls', 'false')
         ..setAttribute('disable-zoom', '')
@@ -138,7 +138,7 @@ class CatVisualsState extends State<CatVisuals> {
     final Widget inner = _ready
         ? HtmlElementView(viewType: _viewType)
         : Image.asset(
-            'assets/images/mochi_avatar.png',
+            'assets/images/motchi_avatar.png',
             fit: BoxFit.cover,
           );
     final viewer = SizedBox(

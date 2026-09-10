@@ -36,7 +36,7 @@ class GuardianController extends ChangeNotifier {
   static const _localGreetings = [
     '✨ Purring with love for you two!',
     '🐱 Meow! Hope today feels soft and sweet!',
-    '🍡 Mochi is watching over you both!',
+    '🍡 Motchi is watching over you both!',
     '💕 You two make everything brighter!',
     '🌙 Rest a little — I saved you a warm spot!',
   ];

@@ -6,7 +6,7 @@ const files = [
   "lib/features/watch_party/presentation/screens/watch_party_screen.dart",
   "lib/features/cinema/presentation/screens/anime_screen.dart",
   "lib/features/academy/screens/academy_hub_screen.dart",
-  "lib/features/ai/presentation/widgets/mochi_screen.dart",
+  "lib/features/ai/presentation/widgets/motchi_screen.dart",
   "lib/features/manga/presentation/screens/manga_library_screen.dart",
   "lib/features/cinema/presentation/screens/video_player_screen.dart",
   "lib/features/dashboard/presentation/widgets/shelf_widgets.dart",

@@ -7,16 +7,16 @@ Releases are manual and curated — see "Releases" in `AGENTS.md`.
 
 ## [6.1.0] - 2026-09-09 - The Glow-Up Update
 
-Two months of polish since v6.0.0: Mochi grew from a dozen tools to 50+,
+Two months of polish since v6.0.0: Motchi grew from a dozen tools to 50+,
 Cinema moved closer to Netflix, XP now rewards everyday moments, and the
 whole app got faster on phones.
 
 ### New: Journal
 
 - Shared couple journal with locked/private entries and tags.
-- Mochi can search entries in two stages and read them back unabridged.
+- Motchi can search entries in two stages and read them back unabridged.
 
-### Mochi AI grows up (12 → 50+ tools)
+### Motchi AI grows up (12 → 50+ tools)
 
 - New tools: web search and page reading, gallery / garden / canvas
   awareness, memory pin / edit / delete, relationship insights, today
@@ -34,7 +34,7 @@ whole app got faster on phones.
   entries are now removable.
 - Player overhaul: no-ads providers first, safer sandboxed iframe,
   share-to-Discord watch-party button.
-- Removed Mochi's Picks row so home screens stay focused.
+- Removed Motchi's Picks row so home screens stay focused.
 
 ### Anime
 
@@ -49,7 +49,7 @@ whole app got faster on phones.
 
 ### Fresh coats of paint
 
-- Redesigned Play Zone and Academy hubs; Mochi sidebar and chat overhaul.
+- Redesigned Play Zone and Academy hubs; Motchi sidebar and chat overhaul.
 - Dashboard marquee edges fade softly; passcode screen copy simplified.
 
 ### Faster on phones
@@ -71,7 +71,7 @@ whole app got faster on phones.
 
 ### Under the hood
 
-- Cloud Functions split into focused modules; Mochi eval gate runs on PRs.
+- Cloud Functions split into focused modules; Motchi eval gate runs on PRs.
 - Web-lite experiment reverted — the Flutter build serves again.
 - Service worker stamped with the Flutter engine revision; dead
   AssaultCube game and retired ac-relay voice server deleted (watch-party
@@ -90,7 +90,7 @@ notifications, AI function calling, and a dashboard redesign.
 - **Daily Bloom overhaul** — 5 plant types with unique painters, seasonal
   bonuses, shared garden view, and weather overlay.
 - **Push notifications** — FCM with topic subscriptions and in-app toasts.
-- **Mochi function calling** — first 12 tools (watchlist, starlight jar,
+- **Motchi function calling** — first 12 tools (watchlist, starlight jar,
   moods, movie / book / anime search, weather, reminders, and more).
 - **Dashboard overhaul** — calendar and gallery previews, relationship
   timeline, countdowns, and creator modal.

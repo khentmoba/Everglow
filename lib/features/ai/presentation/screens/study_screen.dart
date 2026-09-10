@@ -252,14 +252,14 @@ class _StudyScreenState extends State<StudyScreen> {
       );
       if (!mounted) return;
       if (reply.trim().isEmpty) {
-        _snack('Mochi came back empty-handed — try asking another way.');
+        _snack('Motchi came back empty-handed — try asking another way.');
         return;
       }
       setState(() => _turns.add(_StudyTurn.assistant(reply.trim())));
       _scrollToBottom();
       _persistSession();
     } catch (_) {
-      if (mounted) _snack('Mochi had trouble — check connection and retry.', isError: true);
+      if (mounted) _snack('Motchi had trouble — check connection and retry.', isError: true);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -344,7 +344,7 @@ class _StudyScreenState extends State<StudyScreen> {
       children: [
         EverglowFeatureHeader(
           title: 'Study',
-          subtitle: 'your PDFs, Mochi on top',
+          subtitle: 'your PDFs, Motchi on top',
           icon: Icons.school_rounded,
           hue: AppColors.softLavender,
           onBack: () => context.pop(),
@@ -468,7 +468,7 @@ class _StudyScreenState extends State<StudyScreen> {
                 ),
               ),
               Text(
-                'Mochi reads it',
+                'Motchi reads it',
                 style: AppTypography.bodySmall().copyWith(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -628,7 +628,7 @@ class _StudyScreenState extends State<StudyScreen> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(22),
                   child: Image.asset(
-                    'assets/images/mochi_avatar.png',
+                    'assets/images/motchi_avatar.png',
                     width: 76,
                     height: 76,
                     cacheWidth: kIsWeb ? null : 228,
@@ -672,7 +672,7 @@ class _StudyScreenState extends State<StudyScreen> {
               const SizedBox(height: 6),
               Text(
                 _sources.isEmpty
-                    ? 'Mochi will read it with you, then answer\nonly from your pages.'
+                    ? 'Motchi will read it with you, then answer\nonly from your pages.'
                     : 'Ask anything, or tap Summarize, Quiz,\nFlashcards below to start.',
                 style: AppTypography.bodyMedium().copyWith(
                   color: AppColors.textMuted,
@@ -1061,7 +1061,7 @@ class _HeaderIconButton extends StatelessWidget {
   }
 }
 
-/// User question — global rose bubble shared with Mochi chat.
+/// User question — global rose bubble shared with Motchi chat.
 class _UserBubble extends StatelessWidget {
   final String text;
   const _UserBubble({required this.text});
@@ -1075,7 +1075,7 @@ class _UserBubble extends StatelessWidget {
   }
 }
 
-/// Mochi answer — the same global assistant bubble Mochi chat uses,
+/// Motchi answer — the same global assistant bubble Motchi chat uses,
 /// so a fix here upgrades both surfaces at once. When the reply carries
 /// a quiz or flashcards, one big button opens the interactive canvas
 /// (tappable answers, flippable cards); the hidden data block is stripped
@@ -1104,9 +1104,9 @@ class _AnswerBubble extends StatelessWidget {
       padding: const EdgeInsets.only(right: 8, bottom: 12),
       child: EverglowAssistantBubble(
         text: displayText,
-        title: 'Mochi',
+        title: 'Motchi',
         subtitle: 'from your PDFs',
-        timeLabel: 'Mochi • grounded only on your pages',
+        timeLabel: 'Motchi • grounded only on your pages',
         leadingReasoning: !showArtifacts || artifacts.isEmpty
             ? null
             : StudyArtifactEntry(artifacts: artifacts),
@@ -1146,7 +1146,7 @@ class _StreamingBubble extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: Image.asset(
-                'assets/images/mochi_avatar.png',
+                'assets/images/motchi_avatar.png',
                 width: 36,
                 height: 36,
                 cacheWidth: kIsWeb ? null : 108,
@@ -1200,7 +1200,7 @@ class _StreamingBubble extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Mochi is reading',
+                          'Motchi is reading',
                           style: AppTypography.bodyMedium().copyWith(
                             color: AppColors.textMuted,
                             height: 1.5,

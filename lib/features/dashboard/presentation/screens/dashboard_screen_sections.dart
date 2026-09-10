@@ -244,9 +244,9 @@ extension _DashboardScreenSections on _DashboardScreenState {
         caption: 'Draw',
       ),
       const QuickAction(
-        label: 'Mochi',
+        label: 'Motchi',
         icon: Icons.auto_awesome_rounded,
-        route: '/mochi',
+        route: '/motchi',
         hue: AppColors.auroraGold,
         caption: 'AI companion',
       ),

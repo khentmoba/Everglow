@@ -8,10 +8,10 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/services/study_history_service.dart';
 
-/// Slide-in history panel for Mochi Study.
+/// Slide-in history panel for Motchi Study.
 ///
 /// Mobile: backdrop + drawer. Desktop (≥ 1024): persistent rail.
-/// Mirrors [MochiSidebar] grouping/search so the two histories feel like one.
+/// Mirrors [MotchiSidebar] grouping/search so the two histories feel like one.
 class StudyHistoryPanel extends StatefulWidget {
   final bool isOpen;
   final String? activeSessionId;
@@ -540,7 +540,7 @@ class _Panel extends StatelessWidget {
             Text(
               searching
                   ? 'No matches for “$query”.'
-                  : 'No study sessions yet.\nAsk Mochi about a PDF to start one.',
+                  : 'No study sessions yet.\nAsk Motchi about a PDF to start one.',
               textAlign: TextAlign.center,
               style: AppTypography.bodySmall().copyWith(
                 color: AppColors.textMuted,

@@ -31,7 +31,7 @@ void main() {
     // Question 1 — pick the right answer.
     await tester.tap(find.text('4'));
     await tester.pump();
-    expect(find.textContaining('Mochi is proud'), findsOneWidget);
+    expect(find.textContaining('Motchi is proud'), findsOneWidget);
     expect(find.text('2+2 is 4.'), findsOneWidget);
 
     // Next — pick the wrong answer.

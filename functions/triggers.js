@@ -30,8 +30,8 @@ async function sendFCMToBoth(payload) {
 }
 
 /**
- * Fire-and-forget observability: every Mochi tool call lands in
- * mochi_stats/tool_calls so failures and latency are reviewable.
+ * Fire-and-forget observability: every Motchi tool call lands in
+ * motchi_stats/tool_calls so failures and latency are reviewable.
  */
 async function logToolCall(toolName, caller, result, elapsedMs) {
   try {
@@ -46,7 +46,7 @@ async function logToolCall(toolName, caller, result, elapsedMs) {
     } catch (_) {
       // Result is not JSON or was empty; leave ok as true.
     }
-    await getDb().collection('mochi_stats').doc('tool_calls').collection('calls').add({
+    await getDb().collection('motchi_stats').doc('tool_calls').collection('calls').add({
       tool: toolName,
       caller: caller || 'unknown',
       ok,

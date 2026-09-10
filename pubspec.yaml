@@ -58,7 +58,7 @@ flutter:
 
   assets:
     - assets/images/logo.png
-    - assets/images/mochi_avatar.png
+    - assets/images/motchi_avatar.png
     - assets/images/milestones/
     - assets/data/
     - assets/google_fonts/

@@ -5,7 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Native preview: runs Mochi's self-contained HTML mini-app (e.g. chess)
+/// Native preview: runs Motchi's self-contained HTML mini-app (e.g. chess)
 /// inside an on-device WebView so the canvas works on Clair's phone and
 /// tablet — not just the web app.
 ///

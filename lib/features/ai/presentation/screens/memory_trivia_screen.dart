@@ -13,7 +13,7 @@ import '../../data/services/ai_memory_repo.dart';
 import '../../domain/memory/memory_retrieval.dart';
 
 /// Memory Trivia — a couple game where every question is generated from
-/// a real fact Mochi remembers. Wrong answers teach the correct memory,
+/// a real fact Motchi remembers. Wrong answers teach the correct memory,
 /// so losing still makes the relationship smarter.
 class MemoryTriviaScreen extends StatefulWidget {
   const MemoryTriviaScreen({super.key});
@@ -136,7 +136,7 @@ class _MemoryTriviaScreenState extends State<MemoryTriviaScreen> {
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.x2),
           child: Text(
-            'Not enough memories yet. Ask Mochi to remember something first!',
+            'Not enough memories yet. Ask Motchi to remember something first!',
             textAlign: TextAlign.center,
             style: AppTypography.outfitMedium,
           ),
@@ -239,7 +239,7 @@ class _MemoryTriviaScreenState extends State<MemoryTriviaScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              perfect ? '🐱 Perfect! Mochi is proud' : '🌙 Nice try',
+              perfect ? '🐱 Perfect! Motchi is proud' : '🌙 Nice try',
               style: AppTypography.cormorantHeading.copyWith(fontSize: 30),
             ),
             const SizedBox(height: AppSpacing.lg),
