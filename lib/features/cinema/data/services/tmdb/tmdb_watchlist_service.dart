@@ -31,13 +31,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   Future<List<MediaItem>> getPreviewItems(
     String userName, {
     int limit = 30,
+    bool? isAnime,
   }) async {
     if (userName.isEmpty) return const [];
-    final snapshot = await firestore
+    Query<Map<String, dynamic>> query = firestore
         .collection('watch_list')
-        .where('userName', isEqualTo: userName)
-        .limit(limit)
-        .get();
+        .where('userName', isEqualTo: userName);
+    if (isAnime != null) {
+      query = query.where('isAnime', isEqualTo: isAnime);
+    }
+    final snapshot = await query.limit(limit).get();
     final items = snapshot.docs
         .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
         .toList()
@@ -238,11 +241,25 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      final existing = await collection
-          .where('tmdbId', isEqualTo: item.tmdbId)
+      final effectiveTmdbId =
+          item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
+      if (effectiveTmdbId <= 0) return;
+
+      var existing = await collection
+          .where('tmdbId', isEqualTo: effectiveTmdbId)
           .where('userName', isEqualTo: userName)
           .limit(1)
           .get();
+
+      if (existing.docs.isEmpty &&
+          item.anilistId != null &&
+          item.anilistId! > 0) {
+        existing = await collection
+            .where('anilistId', isEqualTo: item.anilistId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get();
+      }
 
       // NOTE: no partner fallback (see saveToWatchList). Progress and
       // removals only ever touch the caller's own document; when none
@@ -263,15 +280,31 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       if (status != null) data['status'] = _toSelfStatus(status);
 
       if (existing.docs.isNotEmpty) {
+        final existingData = existing.docs.first.data();
+        if (item.isAnime && existingData['isAnime'] != true) {
+          data['isAnime'] = true;
+        }
+        final existingPoster = existingData['posterPath'] as String?;
+        if (item.posterPath.isNotEmpty &&
+            (existingPoster == null || existingPoster.isEmpty)) {
+          data['posterPath'] = item.posterPath;
+        }
+        final existingTitle = existingData['title'] as String?;
+        if (item.title.isNotEmpty &&
+            (existingTitle == null || existingTitle.isEmpty)) {
+          data['title'] = item.title;
+        }
         await collection.doc(existing.docs.first.id).update(data);
       } else {
         await collection.add(
           item
               .copyWith(
+                tmdbId: effectiveTmdbId,
                 status: status == null
                     ? 'watching-self'
                     : _toSelfStatus(status),
                 userName: userName,
+                isAnime: item.isAnime,
                 addedAt: DateTime.now(),
                 currentSeason: season,
                 currentEpisode: episode,
@@ -697,6 +730,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     return firestore
         .collection('watch_list')
         .where('userName', isEqualTo: userName)
+        .where('isAnime', isEqualTo: true)
         .limit(limit ?? streamLimit)
         .snapshots()
         .map((snapshot) {
@@ -735,6 +769,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subA = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userA)
+          .where('isAnime', isEqualTo: true)
           .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
@@ -746,6 +781,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       subB = firestore
           .collection('watch_list')
           .where('userName', isEqualTo: userB)
+          .where('isAnime', isEqualTo: true)
           .limit(streamLimit)
           .snapshots()
           .listen((snapshot) {
