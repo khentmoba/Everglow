@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -55,6 +57,41 @@ class EverglowBackground extends StatefulWidget {
     this.showPetals = false,
   });
 
+  /// The bounding box of a glow's visible circle.
+  ///
+  /// [RadialGradient.radius] is a fraction of the box's *shortest side*, so the
+  /// circle's radius in pixels is `glow.size * shortestSide`. A square of
+  /// `2 * radius` with the radius fraction set to 0.5 keeps that exact centre
+  /// and radius while painting only the pixels the circle can reach. Everything
+  /// outside the circle used to be shaded with a fully-transparent gradient:
+  /// invisible, and paid for on every frame, since Flutter Web re-draws the
+  /// whole visible canvas each frame. The surrounding [Stack] clips whatever
+  /// falls off screen, so what actually gets filled is the circle's box
+  /// intersected with the viewport.
+  static Rect glowRect(RadialGlow glow, Size size) {
+    final radius = glow.size * math.min(size.width, size.height);
+    final center = glow.alignment.withinRect(Offset.zero & size);
+    return Rect.fromCenter(
+      center: center,
+      width: radius * 2,
+      height: radius * 2,
+    );
+  }
+
+  /// The glow's gradient, drawn inside a box that is exactly its own circle.
+  static Decoration glowDecoration(RadialGlow glow) => BoxDecoration(
+    gradient: RadialGradient(
+      center: Alignment.center,
+      // Half of the box, i.e. the real radius.
+      radius: 0.5,
+      colors: [
+        glow.color.withValues(alpha: glow.opacity),
+        glow.color.withValues(alpha: 0),
+      ],
+      stops: const [0.0, 1.0],
+    ),
+  );
+
   @override
   State<EverglowBackground> createState() => _EverglowBackgroundState();
 }
@@ -91,36 +128,33 @@ class _EverglowBackgroundState extends State<EverglowBackground>
                 color: widget.baseColor,
                 backgroundBlendMode: BlendMode.srcOver,
               ),
-              child: Stack(
-                children: [
-                  // Radial glows
-                  for (final g in widget.glows)
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: RadialGradient(
-                            center: g.alignment,
-                            radius: g.size,
-                            colors: [
-                              g.color.withValues(alpha: g.opacity),
-                              g.color.withValues(alpha: 0),
-                            ],
-                            stops: const [0.0, 1.0],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size = constraints.biggest;
+                  return Stack(
+                    children: [
+                      // Radial glows, each painted inside its own circle's
+                      // bounding box instead of the whole screen.
+                      for (final g in widget.glows)
+                        Positioned.fromRect(
+                          rect: EverglowBackground.glowRect(g, size),
+                          child: DecoratedBox(
+                            decoration: EverglowBackground.glowDecoration(g),
                           ),
                         ),
-                      ),
-                    ),
-                  // Optional animated petal overlay (only when not reduced)
-                  if (widget.showPetals && _controller != null)
-                    Positioned.fill(
-                      child: AnimatedBuilder(
-                        animation: _controller!,
-                        builder: (_, _) => CustomPaint(
-                          painter: _PetalPainter(_controller!.value),
+                      // Optional animated petal overlay (only when not reduced)
+                      if (widget.showPetals && _controller != null)
+                        Positioned.fill(
+                          child: AnimatedBuilder(
+                            animation: _controller!,
+                            builder: (_, _) => CustomPaint(
+                              painter: _PetalPainter(_controller!.value),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
