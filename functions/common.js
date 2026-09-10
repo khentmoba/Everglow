@@ -130,7 +130,7 @@ async function getVerifiedUsername(decoded) {
 // Deduplicates repeat searches within tool-loop rounds and across rapid
 // user messages. TTLs: TMDB 10m, weather 15m, books 30m, anime 10m.
 // Size-capped at 200 entries to bound memory. Lives here (not index.js)
-// so both index.js and mochi_context.js share one Map.
+// so both index.js and motchi_context.js share one Map.
 const _externalCache = new Map();
 const _EXTERNAL_CACHE_TTLS = {
   tmdb: 10 * 60 * 1000,

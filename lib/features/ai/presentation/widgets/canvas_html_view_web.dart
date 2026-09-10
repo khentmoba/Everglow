@@ -7,7 +7,7 @@ import 'package:web/web.dart' as web;
 ///
 /// `sandbox="allow-scripts"` lets the game run its own JavaScript while the
 /// frame stays opaque-origin: no access to the app, no storage, no top
-/// navigation. Mochi is prompted to keep apps dependency-free (no CDN,
+/// navigation. Motchi is prompted to keep apps dependency-free (no CDN,
 /// no network calls), so they run happily inside the sandbox.
 class CanvasHtmlView extends StatefulWidget {
   final String html;
@@ -36,7 +36,7 @@ class _CanvasHtmlViewState extends State<CanvasHtmlView> {
         iframe.setAttribute('srcdoc', source);
         iframe.setAttribute('sandbox', 'allow-scripts');
         iframe.setAttribute('referrerpolicy', 'no-referrer');
-        iframe.setAttribute('title', 'Mochi canvas preview');
+        iframe.setAttribute('title', 'Motchi canvas preview');
         iframe.style.width = '100%';
         iframe.style.height = '100%';
         iframe.style.border = '0';

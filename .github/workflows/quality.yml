@@ -97,7 +97,7 @@ jobs:
       - working-directory: functions
         run: npm test
       # Syntax-check every top-level function module, not just index.js:
-      # the #99-#105 split moved the tool loop to mochi_chat.js while
+      # the #99-#105 split moved the tool loop to motchi_chat.js while
       # the gate still pointed at index.js (fixed in PR #106).
       - working-directory: functions
         run: |

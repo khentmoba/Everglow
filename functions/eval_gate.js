@@ -1,11 +1,11 @@
 'use strict';
 
-/* Mochi regression gate — offline, zero LLM cost.
+/* Motchi regression gate — offline, zero LLM cost.
  *
- * Fails closed (exit 1) when the live contract in `mochi_chat.js` drifts from
+ * Fails closed (exit 1) when the live contract in `motchi_chat.js` drifts from
  * the pinned helpers, prompt snapshot, or eval cases:
- *   1. TOOL_TIMEOUT_MS / MAX_TOOL_ROUNDS match `mochi_tools.js`
- *   2. MOCHI_TOOLS declarations match TOOL_NAMES (both directions)
+ *   1. TOOL_TIMEOUT_MS / MAX_TOOL_ROUNDS match `motchi_tools.js`
+ *   2. MOTCHI_TOOLS declarations match TOOL_NAMES (both directions)
  *   3. every `executeTool` case names a known tool
  *   4. every eval case references known tools only
  *   5. prompt snapshot version + tool inventory match TOOL_NAMES
@@ -22,11 +22,11 @@ const EXPECTED_PROMPT_VERSION = 1;
 const MIN_EVAL_CASES = 20;
 
 const root = __dirname;
-// Tool loop moved from index.js to mochi_chat.js during the functions split.
-const chatSrc = fs.readFileSync(path.join(root, 'mochi_chat.js'), 'utf8');
-const tools = require('./mochi_tools.js');
-const evalCases = require('./test/mochi_eval_cases.json');
-const promptSnap = fs.readFileSync(path.join(root, 'mochi_prompt_v1.md'), 'utf8');
+// Tool loop moved from index.js to motchi_chat.js during the functions split.
+const chatSrc = fs.readFileSync(path.join(root, 'motchi_chat.js'), 'utf8');
+const tools = require('./motchi_tools.js');
+const evalCases = require('./test/motchi_eval_cases.json');
+const promptSnap = fs.readFileSync(path.join(root, 'motchi_prompt_v1.md'), 'utf8');
 
 const failures = [];
 const checks = {};
@@ -44,11 +44,11 @@ check('constants.rounds', rounds !== null && Number(rounds[1]) === tools.MAX_TOO
 const declared = [...chatSrc.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
 const declaredSet = new Set(declared);
 // Self-check against path drift (PR #106 class): the tool loop moved from
-// index.js to mochi_chat.js during the functions split while the gate
+// index.js to motchi_chat.js during the functions split while the gate
 // still scanned index.js. A scan that finds zero tools means the gate is
 // looking at the wrong file, not that the contract is empty.
 check('tools.scanned-file-live', declared.length > 0,
-  'mochi_chat.js yielded 0 tools; gate path drifted?');
+  'motchi_chat.js yielded 0 tools; gate path drifted?');
 check('tools.count', declared.length === tools.TOOL_NAMES.length,
   `index=${declared.length} pinned=${tools.TOOL_NAMES.length}`);
 check('tools.declared-in-pinned', declared.every((n) => tools.TOOL_NAMES.includes(n)));

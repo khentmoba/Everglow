@@ -6,7 +6,7 @@ import '../../../../core/theme/app_elevation.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Sanctuary couple-chat bubble — same premium language as Mochi/Study.
+/// Sanctuary couple-chat bubble — same premium language as Motchi/Study.
 ///
 /// - Mine: warm rose gradient, right-aligned, soft glow.
 /// - Theirs: frosted glass with lilac glow, sender label with gold dot.

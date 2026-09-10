@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'memory_fact.dart';
 
-/// Scores facts against a free-text query so Mochi can pull the most
+/// Scores facts against a free-text query so Motchi can pull the most
 /// relevant handful from long-term memory instead of dumping the whole
 /// book into every prompt.
 class MemoryRetriever {
@@ -96,7 +96,7 @@ class MemoryTriviaQuestion {
   bool isCorrect(int index) => index == answerIndex;
 }
 
-/// Turns Mochi's memory into a couple game. Questions blank out the
+/// Turns Motchi's memory into a couple game. Questions blank out the
 /// object of a structured memory and use other objects as distractors,
 /// so every answer is grounded in a real fact.
 class MemoryTriviaGenerator {

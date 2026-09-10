@@ -3,14 +3,14 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 
-/// Max PDF file size Mochi will open (10 MB keeps memory and payloads sane).
+/// Max PDF file size Motchi will open (10 MB keeps memory and payloads sane).
 const int kMaxStudyPdfBytes = 10 * 1024 * 1024;
 
 /// Max sources per study session. Source text itself is uncapped — the
-/// whole PDF goes to Mochi every turn.
+/// whole PDF goes to Motchi every turn.
 const int kMaxStudyDocs = 3;
 
-/// A PDF study doc attached to the current Mochi study session.
+/// A PDF study doc attached to the current Motchi study session.
 /// The live session keeps the full text; history stores a snapshot
 /// (see trimSourcesForStorage) so giant PDFs still fit Firestore.
 class StudyDoc {
@@ -90,7 +90,7 @@ abstract final class StudyPrompts {
   ];
 
   /// Plain-text Quiz ask for when the Canvas toggle is OFF — no hidden
-  /// block instruction, so Mochi creates no interactive data at all.
+  /// block instruction, so Motchi creates no interactive data at all.
   static const quizPlain =
       'Quiz us on this! Ask 5 multiple-choice questions based ONLY on the material above. '
       'Ask them all now with A–D options, wait for our answers, then correct us gently. '
@@ -102,7 +102,7 @@ abstract final class StudyPrompts {
       'Plain text only — no hidden blocks.';
 
   /// Chips honoring the Canvas toggle: when OFF, Quiz/Flashcards ask in
-  /// plain text so Mochi creates no interactive quiz data at all.
+  /// plain text so Motchi creates no interactive quiz data at all.
   static List<(String, String)> chipsFor({required bool canvasOn}) {
     if (canvasOn) return chips;
     return [
@@ -145,7 +145,7 @@ class StudyDocService {
     final text = extractPdfText(bytes);
     if (text.trim().isEmpty) {
       throw StudyDocException(
-        'Mochi could not find any text in there — it may be scanned photos. Try a text-based PDF.',
+        'Motchi could not find any text in there — it may be scanned photos. Try a text-based PDF.',
       );
     }
     return StudyDoc(fileName: file.name, text: text.trim(), truncated: false);

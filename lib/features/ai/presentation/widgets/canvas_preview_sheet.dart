@@ -6,7 +6,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../data/services/study_artifact.dart';
 import 'canvas_html_view.dart';
 
-/// Preview canvas — the Google-Canvas moment for Mochi's mini-apps.
+/// Preview canvas — the Google-Canvas moment for Motchi's mini-apps.
 ///
 /// When her reply carries an `html-artifact` block (a game, a page, a tool),
 /// the bubble shows one big "Preview 🔍" button instead of raw code.
@@ -124,7 +124,7 @@ class CanvasPreviewSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Made by Mochi · runs safely in a sandbox',
+                      'Made by Motchi · runs safely in a sandbox',
                       style: AppTypography.bodySmall().copyWith(
                         color: AppColors.textMuted,
                         fontSize: 12,

@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/ai_conversation.dart';
-import '../../domain/mochi_quality.dart';
+import '../../domain/motchi_quality.dart';
 import 'ai_memory_repo.dart';
 import 'ai_conversation_repo.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
@@ -143,7 +143,7 @@ class AIService extends ChangeNotifier {
           : allPayloads;
 
       final shouldThink =
-          enableThinking ?? const MochiQuality().shouldAutoThink(message);
+          enableThinking ?? const MotchiQuality().shouldAutoThink(message);
 
       String reply;
 
@@ -361,7 +361,7 @@ class AIService extends ChangeNotifier {
   /// display-only turns (question + answer text, never source material);
   /// [sourcesBlock] is prepended to [question] so the model answers from
   /// the attached PDFs only. Reuses the draft notifiers so the Study
-  /// screen streams exactly like Mochi chat.
+  /// screen streams exactly like Motchi chat.
   Future<String> streamStudyReply({
     required List<Map<String, String>> history,
     required String sourcesBlock,
@@ -464,7 +464,7 @@ class AIService extends ChangeNotifier {
       // Thinking mode off: mascot replies should be instant, not deep reasoned.
       enableThinking: false,
       contextOverride:
-          'You are Mochi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
+          'You are Motchi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
     );
   }
 
@@ -497,21 +497,21 @@ class AIService extends ChangeNotifier {
 
   // ─── Starlight Jar Write Access ────────────────────────────────
 
-  /// Mochi writes a note to the Starlight Jar.
+  /// Motchi writes a note to the Starlight Jar.
   Future<void> writeStarlightNote(String content, {String? author}) async {
     try {
       final db = FirebaseFirestore.instance;
-      final uid = author ?? _auth.currentUser?.uid ?? 'mochi';
+      final uid = author ?? _auth.currentUser?.uid ?? 'motchi';
       final username = uid == 'khentsgdz'
           ? 'khentsgdz'
           : uid == 'clairjassen'
           ? 'clairjassen'
-          : 'mochi';
+          : 'motchi';
       await db.collection('starlight_jar').add({
         'content': content,
         'author': username,
         'timestamp': FieldValue.serverTimestamp(),
-        'writtenBy': 'Mochi 🍡',
+        'writtenBy': 'Motchi 🍡',
       });
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to write starlight note: $e');

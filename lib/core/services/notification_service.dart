@@ -31,11 +31,11 @@ String? routeFromNotification(Map<String, dynamic> data) {
       return '/dashboard';
     case 'mood_checkin':
       return '/dashboard';
-    case 'mochi_note':
-      return '/mochi';
+    case 'motchi_note':
+      return '/motchi';
     case 'daily_digest':
     case 'night_recap':
-      return '/mochi-today';
+      return '/motchi-today';
     case 'gallery_photo':
       return '/gallery';
     case 'watch_party_invite':
