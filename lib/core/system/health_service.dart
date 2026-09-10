@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'system_status.dart';
@@ -18,8 +19,18 @@ class HealthService {
     Uri? endpoint,
     ConnectivityCheck? isOnline,
   }) : _client = client ?? http.Client(),
-       _endpoint = endpoint ?? Uri.base.resolve('/api/health'),
+       _endpoint = endpoint ?? _defaultEndpoint(),
        _isOnline = isOnline ?? _alwaysOnline;
+
+  static Uri _defaultEndpoint() {
+    if (kIsWeb &&
+        (Uri.base.host == 'localhost' ||
+            Uri.base.host == '127.0.0.1' ||
+            Uri.base.host == '0.0.0.0')) {
+      return Uri.parse('https://everglow-1c6db.web.app/api/health');
+    }
+    return Uri.base.resolve('/api/health');
+  }
 
   final http.Client _client;
   final Uri _endpoint;

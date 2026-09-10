@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 
@@ -132,8 +133,18 @@ class AppBootstrap {
   }
 
   Future<void> _defaultFirestoreSettings() {
+    // On web in debug / local dev mode, IndexedDB persistence with 25+
+    // simultaneous stream listeners on cold launch causes severe transaction
+    // lock contention. Using memory cache in local dev keeps startup fast
+    // and listeners immediately responsive without deadlocks.
+    final bool isLocal = kDebugMode ||
+        (kIsWeb &&
+            (Uri.base.host == 'localhost' ||
+                Uri.base.host == '127.0.0.1' ||
+                Uri.base.host == '0.0.0.0'));
+    final bool enablePersistence = !isLocal;
     FirebaseFirestore.instance.settings = Settings(
-      persistenceEnabled: true,
+      persistenceEnabled: enablePersistence,
       cacheSizeBytes: firestoreCacheSizeBytes,
     );
     return Future.value();

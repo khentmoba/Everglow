@@ -22,10 +22,17 @@ class JournalService {
           .orderBy('createdAt', descending: true)
           .limit(100)
           .snapshots()
-          .map(
-            (snap) =>
-                snap.docs.map((d) => JournalEntry.fromFirestore(d)).toList(),
-          );
+          .map((snap) {
+            final out = <JournalEntry>[];
+            for (final d in snap.docs) {
+              try {
+                out.add(JournalEntry.fromFirestore(d));
+              } catch (e) {
+                Logger.e('Journal: skipping malformed entry ${d.id}', error: e);
+              }
+            }
+            return out;
+          });
     }
 
     // Re-attach when the first snapshot is slow: the journal preview

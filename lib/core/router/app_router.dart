@@ -37,6 +37,11 @@ GoRouter createAppRouter() => GoRouter(
     final loc = state.matchedLocation;
     const publicPaths = {'/'};
     final isPublic = publicPaths.contains(loc);
+
+    // If the persisted session is still loading from disk, do NOT bounce
+    // away from the requested location yet; wait for AuthService to notify.
+    if (!di.authService.isSessionLoaded) return null;
+
     // Allow offline fallback (SharedPreferences currentUser) to reach dashboard
     // even when Firebase Auth is still pending; Firestore rules still enforce
     // server-side access, but the UI should not bounce.
