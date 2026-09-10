@@ -109,6 +109,13 @@ test('secure-default deny-all is present', () => {
   );
 });
 
+test('garden_stats allows couple reads and owner-scoped writes', () => {
+  assert.match(
+    rules,
+    /match \/users\/\{userId\}\/garden_stats\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow write: if isCouple\(\) && ownerOf\(userId\);/,
+  );
+});
+
 test('storage gallery/memories/milestones allow couple reads', () => {
   for (const prefix of ['gallery', 'memories', 'milestones']) {
     assert.match(

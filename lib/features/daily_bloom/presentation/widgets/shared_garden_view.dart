@@ -24,10 +24,12 @@ class _SharedGardenViewState extends State<SharedGardenView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_gardenProvider == null) {
-      final auth = context.read<AuthService>();
-      _gardenProvider = context.read<GardenProvider>();
+    _gardenProvider ??= context.read<GardenProvider>();
+    final auth = Provider.of<AuthService>(context);
+    if (auth.partnerUid != null && auth.partnerUid!.isNotEmpty) {
       _gardenProvider?.watchPartner(auth.partnerUid);
+    } else if (!auth.isResolvingPartner) {
+      auth.refreshPartnerLink();
     }
   }
 
