@@ -103,4 +103,118 @@ void main() {
     final offsetAfterResume = getTransform().transform.getTranslation().x;
     expect(offsetAfterResume, lessThan(offsetBeforeHover));
   });
+
+  testWidgets('AnimeXTicker adapts label based on viewport width', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(tester.view.reset);
+    final items = _sampleItems();
+
+    // Wide screen (>= 600px)
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1.0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 40,
+            child: AnimeXTicker(items: items),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('AIRING TODAY'), findsOneWidget);
+    expect(find.text('AIRING'), findsNothing);
+
+    // Narrow screen (< 600px)
+    tester.view.physicalSize = const Size(400, 800);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 40,
+            child: AnimeXTicker(items: items),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('AIRING'), findsOneWidget);
+    expect(find.text('AIRING TODAY'), findsNothing);
+  });
+
+  testWidgets('AnimeXTicker confines scrolling track inside Expanded and ClipRect', (
+    WidgetTester tester,
+  ) async {
+    final items = _sampleItems();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 800,
+            height: 40,
+            child: AnimeXTicker(items: items),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // The ticker must use Row with Expanded and ClipRect to prevent track
+    // overflow from bleeding into or behind the AIRING label.
+    final rowFinder = find.descendant(
+      of: find.byType(AnimeXTicker),
+      matching: find.byType(Row),
+    );
+    expect(rowFinder, findsWidgets);
+
+    final clipRectFinder = find.descendant(
+      of: find.byType(AnimeXTicker),
+      matching: find.byType(ClipRect),
+    );
+    expect(clipRectFinder, findsOneWidget);
+
+    final shaderMaskFinder = find.descendant(
+      of: find.byType(AnimeXTicker),
+      matching: find.byType(ShaderMask),
+    );
+    expect(shaderMaskFinder, findsOneWidget);
+
+    // Verify the label and the clip rect do not overlap horizontally:
+    // The ClipRect starts to the right of the AIRING label.
+    final labelTopLeft = tester.getTopLeft(find.text('AIRING TODAY'));
+    final clipRectTopLeft = tester.getTopLeft(clipRectFinder);
+    expect(clipRectTopLeft.dx, greaterThan(labelTopLeft.dx));
+  });
+
+  testWidgets('AnimeXTicker invokes onTap callback when an item is tapped', (
+    WidgetTester tester,
+  ) async {
+    final items = _sampleItems();
+    MediaItem? tappedItem;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 800,
+            height: 40,
+            child: AnimeXTicker(
+              items: items,
+              onTap: (item) => tappedItem = item,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('Frieren: Beyond Journey\'s End').first);
+    await tester.pump();
+
+    expect(tappedItem, isNotNull);
+    expect(tappedItem!.id, equals('anime-1'));
+  });
 }
