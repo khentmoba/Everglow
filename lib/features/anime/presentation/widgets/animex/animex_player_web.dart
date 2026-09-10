@@ -22,7 +22,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     super.key,
     required this.url,
     this.aspectRatio = 16 / 9,
-    this.referrerPolicy = 'no-referrer',
+    this.referrerPolicy = 'strict-origin-when-cross-origin',
     this.onContentError,
     this.onProgress,
     this.scrollController,
