@@ -89,6 +89,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// server list resolves in [_load].
   String? _rememberedServer;
 
+  /// MAL episode number -> the season/episode pair TMDB expects, used by
+  /// the Everglow player so shows whose MAL entry starts mid-series
+  /// (e.g. Attack on Titan season 2) don't open the wrong episode.
+  Map<int, ({int season, int episode})> _episodeSlots = const {};
+
   String get _memoryKey =>
       PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
   List<_ServerOption> _servers = [];
@@ -220,6 +225,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       malId: malId,
     );
     int? tmdbId;
+    Map<int, ({int season, int episode})> episodeSlots = const {};
     try {
       final mappings = await _aniZip.fetchMappings(_malId);
       final mapped = mappings?['mappings'] as Map<String, dynamic>?;
@@ -230,7 +236,26 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         final parsed = int.tryParse(raw);
         if (parsed != null && parsed > 0) tmdbId = parsed;
       }
+      final rawEpisodes = mappings?['episodes'] as Map<String, dynamic>?;
+      if (rawEpisodes != null && rawEpisodes.isNotEmpty) {
+        final parsedSlots = <int, ({int season, int episode})>{};
+        rawEpisodes.forEach((key, value) {
+          if (value is! Map<String, dynamic>) return;
+          final n = int.tryParse(key.toString());
+          if (n == null) return;
+          final season = (value['seasonNumber'] as num?)?.toInt();
+          final episodeNo = (value['episodeNumber'] as num?)?.toInt();
+          if (season != null &&
+              season > 0 &&
+              episodeNo != null &&
+              episodeNo > 0) {
+            parsedSlots[n] = (season: season, episode: episodeNo);
+          }
+        });
+        episodeSlots = parsedSlots;
+      }
     } catch (_) {}
+    _episodeSlots = episodeSlots;
     final resolvedTmdbId = tmdbId ?? 0;
     if (!mounted) return;
     final nextServers = _buildServers(resolvedTmdbId);
@@ -278,33 +303,34 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return List.generate(count, (i) => AniListEpisode(number: i + 1));
   }
 
+  /// Builds the ad-free anime servers.
+  ///
+  /// Megavid streams its own HLS keyed by AniList/MAL id, and the
+  /// first-party Everglow player wraps CineSrc in the sandboxed
+  /// `embed.html` shell that blocks popups. Vidnest, Videasy, TryEmbed
+  /// and Mega Play all carried popunder ad engines (or, for Mega Play, a
+  /// dead 410 endpoint), so they were dropped.
   List<_ServerOption> _buildServers(int tmdbId) {
     final anilistId = _anilistId;
+    final malId = _malId;
     return [
       _ServerOption(
-        name: 'Server 3',
-        urlBuilder: (ep, audio) =>
-            'https://vidnest.fun/anime/$anilistId/$ep/$audio',
-        available: anilistId != null,
+        name: 'Megavid',
+        urlBuilder: (ep, audio) => anilistId != null
+            ? 'https://megavid.buzz/ani/$anilistId/$ep/$audio'
+            : 'https://megavid.buzz/mal/$malId/$ep/$audio',
+        available: anilistId != null || malId > 0,
       ),
       _ServerOption(
-        name: 'Server 1',
-        urlBuilder: (ep, audio) =>
-            'https://player.videasy.net/tv/$tmdbId?season=1&episode=$ep',
+        name: 'Everglow',
+        urlBuilder: (ep, audio) {
+          final slot = _episodeSlots[ep];
+          final season = slot?.season ?? 1;
+          final episode = slot?.episode ?? ep;
+          return 'https://everglow-1c6db.web.app/embed.html'
+              '?tmdbId=$tmdbId&type=tv&s=$season&e=$episode';
+        },
         available: tmdbId > 0,
-      ),
-      _ServerOption(
-        name: 'Server 4',
-        urlBuilder: (ep, audio) =>
-            'https://tryembed.us.cc/embed/anime/$anilistId/$ep/'
-            '${audio == 'sub' ? '1' : '2'}',
-        available: anilistId != null,
-      ),
-      _ServerOption(
-        name: 'Server 2',
-        urlBuilder: (ep, audio) =>
-            'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio',
-        available: false,
       ),
     ];
   }
