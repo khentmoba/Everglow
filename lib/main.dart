@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 
 import 'core/di/app_providers.dart';
 import 'core/di/app_root.dart';
+import 'core/perf/perf_hud.dart';
+import 'core/perf/perf_settings.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
 import 'core/system/app_bootstrap.dart';
@@ -178,6 +180,10 @@ Future<void> _startEverglow() async {
     'Everglow ${AppVersion.current} ready in '
     '${result.elapsed.inMilliseconds}ms',
   );
+  // Dev tooling flags (`?perf=1`, `?dpr=2`, or the saved Creator Studio
+  // switches). Before runApp on purpose: the engine caches the view's physical
+  // size at the first frame, so a render-scale override has to land first.
+  await PerfSettings.load();
   // Health lands after first frame; log it when it arrives.
   unawaited(
     result.healthFuture.then(
@@ -217,8 +223,9 @@ class EverglowApp extends StatelessWidget {
         theme: custom_theme.AppTheme.gamifiedTheme,
         routerConfig: createAppRouter(),
         scaffoldMessengerKey: _scaffoldMessengerKey,
-        builder: (context, child) =>
-            AppUpdatePrompt(child: AppRoot(child: child!)),
+        builder: (context, child) => PerfMeterOverlay(
+          child: AppUpdatePrompt(child: AppRoot(child: child!)),
+        ),
       ),
     );
   }

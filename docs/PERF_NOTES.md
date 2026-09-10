@@ -3,7 +3,65 @@
 Source of truth for what has been done and what comes next.
 Goal: fast first paint, 60fps scroll, minimal Firestore/listeners cost.
 
-## Shipped (perf pass, v6.0.0)
+## The rule that drives everything
+
+**Flutter Web keeps no rendered layers.** The engine caches draw lists
+(`CkPicture`), but every frame re-plays them into the WebGL surface — there is no
+retained bitmap cache (`engine/.../layer/layer_tree.dart` only *mentions* a
+raster cache; nothing implements it). Build and raster also share one thread.
+
+So on web, frame cost = *what is on screen* + *what rebuilt this frame*, and a
+smooth screen is one where build + raster fit in 16.7ms. Anything full-screen
+(gradients, blurs, glows) is paid again on every single frame.
+
+## Measuring on the phone (dev tooling)
+
+The phone is the only place "the dashboard feels heavy" is true, and an
+installed PWA can't have its start URL edited. So the switches live in the app:
+
+| Switch | Where | What it does |
+| --- | --- | --- |
+| Frame meter | Creator Studio → System, or `?perf=1` | Overlay with FPS, jank %, dropped %, and build/raster avg + worst. Tap it to reset the window — reset, scroll the screen you care about, read the numbers. |
+| Render scale | Creator Studio → System, or `?dpr=2` | Renders at N device pixels per logical pixel instead of the browser DPR. Layout is unchanged (the engine measures the viewport in CSS px and divides by the same DPR); only the backbuffer resolution changes. **Needs a reload.** |
+
+Both persist (`perf_settings.dart`), so `?perf=1` typed once keeps working inside
+the PWA afterwards. `?perf=0` turns the meter back off.
+
+Reading the numbers: **build high** = widgets re-running every frame; **raster
+high** = too many pixels (full-screen gradients, shadows, blurs, glyphs). iPhone
+15 Pro Max reports DPR 3 = a 1290x2796 surface, so raster is the usual suspect
+at that scale.
+
+## Mobile smoothness pass (in progress)
+
+Why: the dashboard is laggy and freezes on first load on an iPhone 15 Pro Max,
+even though the visuals are fine. Measured causes, in order:
+
+1. **Every dashboard section mounts on frame 1.** `SliverToBoxAdapter` mounts
+   all of its children eagerly (verified: 20/20 in a probe test) and the whole
+   dashboard is built from `SliverToBoxAdapter`s, so all ~25 sections — their
+   Firestore streams, tickers, images and painters — exist from the first frame,
+   even 8 screens below the fold. `DeferredSection` was meant to prevent this,
+   but its `kIsWeb` branch only waits 0–700ms and then shows everything.
+2. **Two full-screen painters tick forever on the dashboard**: `DashboardAmbience`
+   (3 aurora ribbons drawn as 6 big gradient strokes, 14 petals × 3 ghost trails,
+   and 6 freshly allocated gradient shaders per frame) and `DashboardCursorGlow`,
+   which starts its 60fps loop at init even though it only draws on mouse hover.
+3. **Blur and shadow are the expensive primitives** on mobile Safari WebGL: the
+   background is 3 full-screen radial gradients, and most cards carry 1–2
+   `BoxShadow(blurRadius: 14–25)`.
+4. **Skeletons each own a ticker**: every `EverglowSkeleton` runs its own
+   controller and rebuilds a `Container` with a new `LinearGradient` every frame,
+   so a cold dashboard mounts dozens at once.
+
+Note for Safari/iOS: the engine can't use the browser's image decoder there
+(`ImageDecoder` is Chromium-only per the engine's own feature detection), so JPEG
+posters decode in wasm on the main thread while scrolling. `canvasKitVariant:
+"full"` is a no-op in this app (the smaller `chromium` variant is unreachable
+because `index.html` deletes `Intl.v8BreakIterator`, and Safari lacks
+`ImageDecoder`), so it is not a lever.
+
+### Shipped (perf pass, v6.0.0)
 
 1. **`web/index.html` — lazy media libs + instant splash**
    - `cat_3d_engine.js`, `model-viewer`, `hls.js` + `hls_bridge.js` no longer
@@ -122,6 +180,9 @@ backdrops with equivalent custom loading/error states.
 ## Verify a perf change
 
 - `flutter analyze <changed files>` (repo rule: always before commit).
+- On the phone: Creator Studio → System → **Frame meter**, then reset it, scroll
+  the screen you changed, and compare against the numbers in the PR. Raster
+  should fall when pixels get cheaper, build when less re-runs per frame.
 - `flutter build web --release --no-source-maps` and compare
   `build/web/main.dart.js` bytes + `build/web/canvaskit/*` before/after.
 - DevTools Network: confirm 3D/HLS scripts absent on cold gateway load,
