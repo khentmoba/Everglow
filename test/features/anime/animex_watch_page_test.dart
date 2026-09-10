@@ -7,7 +7,6 @@ import 'package:webview_flutter_platform_interface/webview_flutter_platform_inte
 
 import 'package:everglow/features/anime/data/services/animex_stores.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_controller.dart';
-import 'package:everglow/features/anime/presentation/widgets/animex/animex_player.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_tokens.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_watch_page.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
