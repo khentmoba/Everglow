@@ -367,14 +367,22 @@ class AuthService extends ChangeNotifier {
 
       try {
         final db = FirebaseFirestore.instance;
+        // Fetch every doc claiming the partner username instead of just the
+        // first. Firestore orders such a query by document id, and stray or
+        // re-created docs sort ahead of the real account, which used to point
+        // the couple at a doc with no garden / presence / chat data.
         final query = await db
             .collection('users')
             .where('username', isEqualTo: partnerUser)
-            .limit(1)
+            .limit(10)
             .get();
 
-        if (query.docs.isNotEmpty) {
-          _partnerUid = query.docs.first.id;
+        final partnerUid = pickPartnerUid([
+          for (final doc in query.docs) (id: doc.id, data: doc.data()),
+        ], myUsername: _currentUser);
+
+        if (partnerUid != null) {
+          _partnerUid = partnerUid;
           _partnerNameResolved = partnerUser == 'khentsgdz' ? 'Khent' : 'Clair';
         } else {
           // Partner has never synced a /users doc on this project yet.
@@ -390,6 +398,54 @@ class AuthService extends ChangeNotifier {
       _isResolvingPartner = false;
       notifyListeners();
     }
+  }
+
+  /// Picks the real partner account when `/users` holds more than one doc
+  /// with the same username. Duplicates come from re-created accounts and
+  /// from stray docs, and Firestore returns them ordered by document id, so
+  /// the first match is not necessarily the account the partner uses.
+  ///
+  /// Ranking:
+  /// 1. docs whose `partnerUsername` links back to [myUsername] — the mutual
+  ///    link written on every login by the current app,
+  /// 2. then the most recently updated doc,
+  /// 3. then the document id, so the result is always deterministic.
+  @visibleForTesting
+  static String? pickPartnerUid(
+    List<({String id, Map<String, dynamic> data})> docs, {
+    required String? myUsername,
+  }) {
+    if (docs.isEmpty) return null;
+    final ranked = List.of(docs)
+      ..sort((a, b) {
+        final aLinksBack = _linksBackTo(a.data, myUsername);
+        final bLinksBack = _linksBackTo(b.data, myUsername);
+        if (aLinksBack != bLinksBack) return aLinksBack ? -1 : 1;
+        final byUpdated = _docUpdatedAt(
+          b.data,
+        ).compareTo(_docUpdatedAt(a.data));
+        if (byUpdated != 0) return byUpdated;
+        return a.id.compareTo(b.id);
+      });
+    return ranked.first.id;
+  }
+
+  static bool _linksBackTo(Map<String, dynamic> data, String? myUsername) {
+    if (myUsername == null || myUsername.isEmpty) return false;
+    return data['partnerUsername'] == myUsername;
+  }
+
+  /// Reads a users-doc `updatedAt` for ranking. Docs without one sort last.
+  static DateTime _docUpdatedAt(Map<String, dynamic> data) {
+    final value = data['updatedAt'];
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is String) {
+      final parsed = DateTime.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   /// Server-verified Khent/Clair passcode -> Firebase custom token.
