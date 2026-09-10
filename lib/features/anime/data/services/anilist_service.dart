@@ -404,34 +404,68 @@ class AniListService with ConnectivityAware {
   /// sparse and the tile falls back to the anime poster or a color
   /// block.
   List<AniListEpisode> _mapEpisodes(List? streaming, {int? episodeCount}) {
-    final out = <AniListEpisode>[];
+    // AniList's `streamingEpisodes` has no `number` field — the episode
+    // number is embedded in the title as "Episode N - <name>". Parse it
+    // out and key entries by number so out-of-order feeds still map to
+    // the right episode slots, and strip the prefix so tiles show only
+    // the real episode name.
+    final byNum = <int, AniListEpisode>{};
     if (streaming is List) {
+      var autoIndex = 1;
       for (final e in streaming.whereType<Map<String, dynamic>>()) {
-        final title = e['title'] as String?;
+        final rawTitle = e['title'] as String?;
         final thumb = e['thumbnail'] as String?;
-        out.add(
-          AniListEpisode(
-            number: (e['number'] as num?)?.toInt() ?? (out.length + 1),
-            title: title,
-            titleRomaji: null,
-            synopsis: null,
-            airedAt: e['airingAt'] is num
-                ? DateTime.fromMillisecondsSinceEpoch(
-                    (e['airingAt'] as num).toInt() * 1000,
-                  )
-                : null,
-            duration: null,
-            thumbnail: (thumb != null && thumb.isNotEmpty) ? thumb : null,
-          ),
+        int epNum = (e['number'] as num?)?.toInt() ?? 0;
+        String? cleanTitle = rawTitle;
+
+        if (rawTitle != null) {
+          final m = RegExp(
+            r'^Episode\s+(\d+)\s*(?:-\s*(.*))?$',
+            caseSensitive: false,
+          ).firstMatch(rawTitle.trim());
+          if (m != null) {
+            if (epNum == 0) {
+              epNum = int.tryParse(m.group(1) ?? '') ?? 0;
+            }
+            final rest = m.group(2)?.trim();
+            if (rest != null && rest.isNotEmpty) {
+              cleanTitle = rest;
+            }
+          }
+        }
+        if (epNum <= 0) {
+          epNum = autoIndex;
+        }
+        autoIndex = epNum + 1;
+
+        byNum[epNum] = AniListEpisode(
+          number: epNum,
+          title: cleanTitle,
+          titleRomaji: null,
+          synopsis: null,
+          airedAt: e['airingAt'] is num
+              ? DateTime.fromMillisecondsSinceEpoch(
+                  (e['airingAt'] as num).toInt() * 1000,
+                )
+              : null,
+          duration: null,
+          thumbnail: (thumb != null && thumb.isNotEmpty) ? thumb : null,
         );
       }
     }
-    // Fill out any missing slots so the drawer has a complete list of
-    // episode numbers even when AniList only ships a partial feed.
-    if (episodeCount != null && episodeCount > out.length) {
-      for (var i = out.length + 1; i <= episodeCount; i++) {
-        out.add(AniListEpisode(number: i));
-      }
+    // Fill out any missing slots so the episode list is complete even
+    // when AniList only ships a partial feed.
+    final maxAnilistEp = byNum.isEmpty
+        ? null
+        : byNum.keys.reduce((a, b) => a > b ? a : b);
+    final maxEp = [
+      ?episodeCount,
+      ?maxAnilistEp,
+    ].fold<int>(0, (a, b) => a > b ? a : b);
+
+    final out = <AniListEpisode>[];
+    for (var i = 1; i <= maxEp; i++) {
+      out.add(byNum[i] ?? AniListEpisode(number: i));
     }
     return out;
   }
