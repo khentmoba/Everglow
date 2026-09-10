@@ -22,7 +22,7 @@ enum AnimexPage {
 /// live in an [IndexedStack] so their scroll/data survive tab switches;
 /// detail pages (watch, playlist detail) stack on top as full overlays.
 class AnimeXController extends ChangeNotifier {
-  final TMDBService _tmdbService = TMDBService();
+  late final TMDBService _tmdbService = TMDBService();
   StreamSubscription<List<MediaItem>>? _watchlistSub;
   bool _postersRefreshed = false;
 

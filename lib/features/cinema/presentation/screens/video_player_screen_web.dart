@@ -47,6 +47,8 @@ class VideoPlayerScreen extends StatefulWidget {
   /// compatibility with callers that haven't been updated.
   final int? malId;
 
+  final String posterPath;
+
   const VideoPlayerScreen({
     super.key,
     required this.tmdbId,
@@ -57,6 +59,7 @@ class VideoPlayerScreen extends StatefulWidget {
     required this.title,
     this.isAnime = false,
     this.malId,
+    this.posterPath = '',
   });
 
   @override

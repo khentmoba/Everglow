@@ -36,6 +36,8 @@ abstract final class AnimeXTokens {
   static const double radiusCard = 14;
 
   static const double pageMaxWidth = 1536; // max-w-screen-2xl
+  static const double watchPageMaxWidth = 1000;
+  static const double playerMaxHeight = 560;
   static const double rowPosterWidthMobile = 155;
   static const double rowPosterWidthDesktop = 175;
   static const double popoverWidth = 256;
