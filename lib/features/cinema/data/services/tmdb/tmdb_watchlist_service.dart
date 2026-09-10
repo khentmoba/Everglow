@@ -1104,7 +1104,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
         );
       }
       final userName = '${a.userName},${b.userName}';
-      final status = _mergeWatchedStatus(a.status, b.status);
+      final status = _mergeWatchedStatusForItems(a, b);
       // Use the most recent addedAt so the merged item is positioned
       // correctly in the sorted list.
       final addedAt = a.addedAt.isAfter(b.addedAt) ? a.addedAt : b.addedAt;
@@ -1124,44 +1124,46 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
   /// Returns the strongest watched/watching status across the two partners.
   /// Priority (highest to lowest):
   ///   watched-both > watched-khent/clair > watching-both > watching-khent/clair > to-watch
-  static String _mergeWatchedStatus(String a, String b) {
-    bool isWatched(String s) =>
-        s == 'watched' ||
-        s == 'watched-self' ||
-        s == 'watched-khent' ||
-        s == 'watched-clair' ||
-        s == 'watched-both';
-    bool isWatching(String s) =>
-        s == 'watching' ||
-        s == 'watching-self' ||
-        s == 'watching-khent' ||
-        s == 'watching-clair' ||
-        s == 'watching-both';
-
-    final aWatched = isWatched(a);
-    final bWatched = isWatched(b);
-    final aWatching = isWatching(a);
-    final bWatching = isWatching(b);
+  ///
+  /// Owner-aware: the doc's `userName` is ground truth, not the embedded
+  /// suffix in `status`. Legacy docs can still carry a mismatched suffix
+  /// (e.g. `watching-khent` on Clair's doc from before statuses were routed
+  /// to the owner's doc). Using the suffix would attribute Clair's Odyssey
+  /// to Khent; using the owner attributes it to Clair. `isWatched` /
+  /// `isCurrentlyWatching` already normalize every variant (self, generic,
+  /// partner-specific), so only the owner decides the khent/clair suffix.
+  static String _mergeWatchedStatusForItems(MediaItem a, MediaItem b) {
+    final aWatched = a.isWatched;
+    final bWatched = b.isWatched;
+    final aWatching = a.isCurrentlyWatching;
+    final bWatching = b.isCurrentlyWatching;
 
     if (aWatched && bWatched) return 'watched-both';
-    if (aWatched) {
-      if (a == 'watched-clair') return 'watched-clair';
-      return 'watched-khent';
-    }
-    if (bWatched) {
-      if (b == 'watched-khent') return 'watched-khent';
-      return 'watched-clair';
-    }
+    if (aWatched) return _ownerStatus(a, 'watched');
+    if (bWatched) return _ownerStatus(b, 'watched');
     if (aWatching && bWatching) return 'watching-both';
-    if (aWatching) {
-      if (a == 'watching-clair') return 'watching-clair';
-      return 'watching-khent';
-    }
-    if (bWatching) {
-      if (b == 'watching-khent') return 'watching-khent';
-      return 'watching-clair';
-    }
+    if (aWatching) return _ownerStatus(a, 'watching');
+    if (bWatching) return _ownerStatus(b, 'watching');
     return 'to-watch';
+  }
+
+  /// Maps a single-owner doc to its partner-specific status. `userName` wins
+  /// over any embedded suffix so legacy mismatches never leak across rows.
+  static String _ownerStatus(MediaItem item, String prefix) {
+    final name = item.userName.trim();
+    if (name == 'khentsgdz') return '$prefix-khent';
+    if (name == 'clairjassen') return '$prefix-clair';
+    // Unknown owner (shouldn't happen for per-user queries): preserve an
+    // explicit embedded suffix when present, else fall back to generic so
+    // shelves (`isWatched` / `isCurrentlyWatching`) still match.
+    if (prefix == 'watched') {
+      if (item.status == 'watched-clair') return 'watched-clair';
+      if (item.status == 'watched-khent') return 'watched-khent';
+      return 'watched';
+    }
+    if (item.status == 'watching-clair') return 'watching-clair';
+    if (item.status == 'watching-khent') return 'watching-khent';
+    return 'watching';
   }
 }
 
