@@ -35,17 +35,9 @@ class AnimeXPlayerFrame extends StatefulWidget {
 class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
-  late final web.HTMLDivElement _wrapper;
-  web.HTMLDivElement? _overlay;
   JSFunction? _onLoad;
   JSFunction? _onMessage;
-  JSFunction? _onWheel;
   JSFunction? _onIframeWheel;
-  JSFunction? _onOverlayMove;
-  JSFunction? _onOverlayDown;
-  int _overlayTimer = 0;
-  double _lastMoveX = -1;
-  double _lastMoveY = -1;
   bool _loaded = false;
   bool _contentError = false;
 
@@ -70,19 +62,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     if (target != pos.pixels) pos.jumpTo(target);
   }
 
-  void _punchOverlay(int ms) {
-    final o = _overlay;
-    if (o == null) return;
-    o.style.pointerEvents = 'none';
-    web.window.clearTimeout(_overlayTimer);
-    _overlayTimer = web.window.setTimeout(
-      (() {
-        o.style.pointerEvents = 'auto';
-      }).toJS,
-      ms.toJS,
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -105,70 +84,16 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
-    _wrapper = web.document.createElement('div') as web.HTMLDivElement
-      ..style.position = 'relative'
-      ..style.width = '100%'
-      ..style.height = '100%'
-      ..style.overflow = 'hidden';
-    _wrapper.appendChild(_iframe);
-
     final scrollController = widget.scrollController;
     if (scrollController != null) {
-      // Fallback: wheel on the iframe element itself. When the transparent
-      // overlay is briefly punched (pointerEvents='none') so clicks/hover
-      // can reach the player controls, wheel would otherwise fall into the
-      // cross-origin iframe and be lost. This listener keeps page scroll
-      // alive even during the punch window.
       _onIframeWheel = ((web.Event e) {
         _forwardWheel(e as web.WheelEvent, scrollController);
       }).toJS;
       _iframe.addEventListener(
         'wheel',
         _onIframeWheel,
-        web.AddEventListenerOptions(passive: false),
+        web.AddEventListenerOptions(capture: true, passive: false),
       );
-
-      final overlay = web.document.createElement('div') as web.HTMLDivElement
-        ..style.position = 'absolute'
-        ..style.top = '0'
-        ..style.left = '0'
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.backgroundColor = 'transparent'
-        ..style.zIndex = '2'
-        ..style.pointerEvents = 'auto';
-      _overlay = overlay;
-      _wrapper.appendChild(overlay);
-
-      _onWheel = ((web.Event e) {
-        _forwardWheel(e as web.WheelEvent, scrollController);
-      }).toJS;
-      overlay.addEventListener(
-        'wheel',
-        _onWheel,
-        web.AddEventListenerOptions(passive: false),
-      );
-
-      // Let hover/click events reach the iframe's controls (play, volume,
-      // quality, seek) by briefly disabling the overlay whenever the cursor
-      // actually moves. Durations are kept short so wheel scroll is not
-      // perceptibly broken: hover punch 90ms, click punch 400ms. The iframe
-      // wheel fallback above covers scroll during the punched window.
-      _onOverlayMove = ((web.Event e) {
-        final m = e as web.MouseEvent;
-        final x = m.clientX.toDouble();
-        final y = m.clientY.toDouble();
-        final moved = (x - _lastMoveX).abs() > 1 || (y - _lastMoveY).abs() > 1;
-        if (!moved) return;
-        _lastMoveX = x;
-        _lastMoveY = y;
-        _punchOverlay(90);
-      }).toJS;
-      _onOverlayDown = ((web.Event _) {
-        _punchOverlay(400);
-      }).toJS;
-      overlay.addEventListener('mousemove', _onOverlayMove);
-      overlay.addEventListener('mousedown', _onOverlayDown);
     }
 
     _onMessage = ((web.MessageEvent event) {
@@ -188,13 +113,12 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
 
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,
-      (int viewId) => _wrapper,
+      (int viewId) => _iframe,
     );
   }
 
   @override
   void dispose() {
-    web.window.clearTimeout(_overlayTimer);
     if (_onLoad != null) {
       _iframe.removeEventListener('load', _onLoad!);
     }
@@ -203,15 +127,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
     if (_onIframeWheel != null) {
       _iframe.removeEventListener('wheel', _onIframeWheel!);
-    }
-    if (_onWheel != null && _overlay != null) {
-      _overlay!.removeEventListener('wheel', _onWheel!);
-    }
-    if (_onOverlayMove != null && _overlay != null) {
-      _overlay!.removeEventListener('mousemove', _onOverlayMove!);
-    }
-    if (_onOverlayDown != null && _overlay != null) {
-      _overlay!.removeEventListener('mousedown', _onOverlayDown!);
     }
     super.dispose();
   }

@@ -5,6 +5,7 @@ import '../../../data/services/anilist_service.dart';
 import '../../../../cinema/presentation/widgets/embed_webview.dart';
 import 'animex_buttons.dart';
 import 'animex_tokens.dart';
+import 'animex_videasy_progress.dart';
 
 /// Opens the reference-style trailer for an anime inside the app.
 ///
@@ -111,14 +112,18 @@ class AnimeXTrailerModal extends StatelessWidget {
 class AnimeXPlayerFrame extends StatefulWidget {
   final String url;
   final double aspectRatio;
+  final String referrerPolicy;
   final VoidCallback? onContentError;
+  final void Function(VideasyProgress progress)? onProgress;
   final ScrollController? scrollController;
 
   const AnimeXPlayerFrame({
     super.key,
     required this.url,
     this.aspectRatio = 16 / 9,
+    this.referrerPolicy = 'no-referrer',
     this.onContentError,
+    this.onProgress,
     this.scrollController,
   });
 

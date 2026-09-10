@@ -2,16 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/models/media_item.dart';
 import '../../data/models/next_episode.dart';
 import '../../data/models/video_source_config.dart';
 import '../../data/services/cinema_video_sources.dart';
 import '../../data/services/next_episode_service.dart';
 import '../../data/services/player_memory_service.dart';
+import '../../data/services/tmdb_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../widgets/embed_webview.dart';
@@ -36,6 +40,7 @@ class VideoPlayerScreen extends StatefulWidget {
   final String title;
   final bool isAnime;
   final int? malId;
+  final String posterPath;
 
   const VideoPlayerScreen({
     super.key,
@@ -47,6 +52,7 @@ class VideoPlayerScreen extends StatefulWidget {
     required this.title,
     this.isAnime = false,
     this.malId,
+    this.posterPath = '',
   });
 
   @override
@@ -68,6 +74,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   NextEpisode? _nextEpisode;
   bool _upNextVisible = false;
   int _upNextLeft = 10;
+  bool _hasSavedWatchProgress = false;
   Timer? _upNextTimer;
   Timer? _upNextFallbackTimer;
   bool _upNextDismissed = false;
@@ -96,6 +103,54 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _restoreDefaultSource();
     _resolveNextEpisode();
     _scheduleUpNextFallback();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _saveWatchProgress());
+  }
+
+  void _saveWatchProgress() {
+    if (_hasSavedWatchProgress) return;
+    _hasSavedWatchProgress = true;
+
+    String userName = '';
+    try {
+      userName = context.read<AuthService>().currentUser ?? '';
+    } catch (e) {
+      debugPrint('[VideoPlayerScreenNative] Failed to read AuthService: $e');
+    }
+    if (userName.isEmpty) return;
+
+    final tmdb = TMDBService();
+    final status = _watchingStatusFor(userName);
+
+    tmdb.updateProgress(
+      MediaItem(
+        id: '',
+        tmdbId: widget.tmdbId,
+        title: widget.title,
+        mediaType: widget.mediaType,
+        posterPath: widget.posterPath,
+        status: status,
+        isAnime: widget.isAnime,
+        userName: userName,
+        addedAt: DateTime.now(),
+        source: widget.isAnime ? 'jikan' : 'tmdb',
+      ),
+      userName,
+      season: widget.mediaType == 'tv' ? _currentSeason : null,
+      episode: widget.mediaType == 'tv' ? _currentEpisode : null,
+      timestamp: widget.startSeconds,
+      status: status,
+    );
+  }
+
+  String _watchingStatusFor(String userName) {
+    switch (userName) {
+      case 'khentsgdz':
+        return 'watching-khent';
+      case 'clairjassen':
+        return 'watching-clair';
+      default:
+        return 'watching-self';
+    }
   }
 
   @override
