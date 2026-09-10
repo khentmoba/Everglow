@@ -42,6 +42,9 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   Timer? _armTimer;
   Timer? _fallbackTimer;
 
+  static const Duration _stillHoldDuration = Duration(seconds: 10);
+  static const Duration _trailerHoldDuration = Duration(seconds: 25);
+
   bool _muted = true;
   bool _playing = true;
   bool _trailerArmed = false;
@@ -61,7 +64,14 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     return _trailerCache[_cacheKey(item)];
   }
 
-  void _armTrailerForCurrent() {
+  bool get _hasTrailerForCurrent {
+    if (widget.items.isEmpty) return false;
+    final item = widget.items[_index % widget.items.length];
+    final key = _resolveTrailerKey(item);
+    return key != null && key.isNotEmpty;
+  }
+
+  void _armTrailerForCurrent({bool immediate = false}) {
     _armTimer?.cancel();
     _fallbackTimer?.cancel();
     if (widget.items.isEmpty) return;
@@ -74,21 +84,46 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       _resolveTrailer(item);
     }
 
-    // Arm after 800ms dwell so fast carousel flicking doesn't spam iframes.
-    _armTimer = Timer(const Duration(milliseconds: 800), () {
+    void arm() {
       if (!mounted) return;
       setState(() {
         _trailerArmed = true;
-        if (_inTest) _trailerReady = true;
+        if (_inTest) {
+          _trailerReady = true;
+          if (_hasTrailerForCurrent) {
+            _startTimer(duration: _trailerHoldDuration);
+          }
+        }
       });
       if (!_inTest) {
         _fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
           if (mounted && !_trailerReady) {
-            setState(() => _trailerReady = true);
+            _onTrailerLoaded();
           }
         });
       }
-    });
+    }
+
+    // On initial mount or in tests, arm immediately to eliminate dead startup
+    // delay. On carousel navigation, use a short 350ms dwell to absorb rapid
+    // flicking between dots without mounting unnecessary iframes.
+    if (immediate || _inTest) {
+      arm();
+    } else {
+      _armTimer = Timer(const Duration(milliseconds: 350), arm);
+    }
+  }
+
+  void _onTrailerLoaded() {
+    _fallbackTimer?.cancel();
+    if (mounted) {
+      setState(() => _trailerReady = true);
+      // Give Clair 25 full seconds of uninterrupted trailer playback starting
+      // only after the video has actually loaded and began playing.
+      if (_muted && _playing) {
+        _startTimer(duration: _trailerHoldDuration);
+      }
+    }
   }
 
   Future<void> _resolveTrailer(MediaItem item) async {
@@ -109,7 +144,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
               _fallbackTimer?.cancel();
               _fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
                 if (mounted && !_trailerReady) {
-                  setState(() => _trailerReady = true);
+                  _onTrailerLoaded();
                 }
               });
             }
@@ -161,14 +196,18 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   void initState() {
     super.initState();
     _startTimer();
-    _armTrailerForCurrent();
+    _armTrailerForCurrent(immediate: true);
   }
 
-  void _startTimer() {
+  void _startTimer({Duration? duration}) {
     _timer?.cancel();
     // Do not auto-advance when Clair unmuted to listen or paused playback.
     if (!_muted || !_playing) return;
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+    final hold = duration ??
+        (_hasTrailerForCurrent && _trailerReady
+            ? _trailerHoldDuration
+            : _stillHoldDuration);
+    _timer = Timer(hold, () {
       if (!mounted || widget.items.length < 2) return;
       _select((_index + 1) % widget.items.length);
     });
@@ -188,7 +227,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       _trailerReady = false;
       _fallbackTimer?.cancel();
       _startTimer();
-      _armTrailerForCurrent();
+      _armTrailerForCurrent(immediate: true);
     }
   }
 
@@ -248,10 +287,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
                     playing: _playing,
                     autoplay: true,
                     loop: true,
-                    onLoaded: () {
-                      _fallbackTimer?.cancel();
-                      if (mounted) setState(() => _trailerReady = true);
-                    },
+                    onLoaded: _onTrailerLoaded,
                   ),
                 ),
               ),
