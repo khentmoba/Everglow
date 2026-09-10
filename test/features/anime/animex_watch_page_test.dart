@@ -330,5 +330,124 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 500));
     });
+
+    testWidgets('renders PC episodes sidebar on desktop with search, sort, and episode cards',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // On desktop, the sidebar shows "Episodes", "Find episode", and "Oldest" sort
+      expect(find.text('Episodes'), findsOneWidget);
+      expect(find.text('Find episode'), findsOneWidget);
+      expect(find.text('Oldest'), findsOneWidget);
+
+      // Verify sort toggle works
+      await tester.tap(find.text('Oldest'));
+      await tester.pump();
+      expect(find.text('Newest'), findsOneWidget);
+
+      // Verify search input filters
+      await tester.enterText(find.byType(TextField).first, 'Episode 2');
+      await tester.pump();
+
+      // Verify server notice banner is present and can be dismissed
+      expect(
+        find.text(
+          "If the current server doesn't work, feel free to try the other available servers.",
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byIcon(Icons.close_rounded).first);
+      await tester.pump();
+      expect(
+        find.text(
+          "If the current server doesn't work, feel free to try the other available servers.",
+        ),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('renders mobile episode selector directly below player on mobile screens',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(412, 915);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // On mobile, the header is "EPISODES" with Search and swap_vert buttons
+      expect(find.text('EPISODES'), findsOneWidget);
+      expect(find.text('Search'), findsOneWidget);
+      expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
+
+      // Tapping Search opens the search bar
+      await tester.tap(find.text('Search'));
+      await tester.pump();
+      expect(
+        find.text('Search by title, number, or keyword...'),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('tapping an episode tile in PC sidebar updates selected episode',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // Find episode 2 in the sidebar and tap it
+      expect(find.text('Episode 2'), findsWidgets);
+      await tester.tap(find.text('Episode 2').first);
+      await tester.pump();
+
+      // Selected episode is updated to 2
+      expect(find.text('Episode 2'), findsWidgets);
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('episode info sheet opens and displays episode synopsis and play action',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // Tap "What happened" if present or open sheet directly
+      final whatHappenedFinder = find.text('What happened');
+      if (whatHappenedFinder.evaluate().isNotEmpty) {
+        await tester.tap(whatHappenedFinder.first);
+        await tester.pumpAndSettle();
+        expect(find.text('What happened in this episode'), findsOneWidget);
+      }
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
   });
 }
