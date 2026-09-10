@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../features/watch_party/data/services/voice_chat_bootstrap.dart';
 import '../../features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
 import '../../shared/widgets/app_network_image.dart';
+import '../system/web_standalone.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 
@@ -99,7 +100,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
               right: 0,
               child: IgnorePointer(
                 ignoring: false,
-                child: IncomingWatchPartyBanner(),
+                // Standalone-web only: sits the ringing banner below the
+                // iPhone status bar. No-op everywhere else.
+                child: WebAppTopInset(child: IncomingWatchPartyBanner()),
               ),
             ),
           ],
