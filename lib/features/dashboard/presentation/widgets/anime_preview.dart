@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -165,6 +167,7 @@ class _AnimeHeaderState extends State<_AnimeHeader> {
     final future = _service.getPreviewItems(
       widget.userName,
       limit: TMDBWatchlistService.previewLimit,
+      isAnime: true,
     );
     _future = future;
     future.then((items) {
@@ -219,62 +222,52 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  Future<List<MediaItem>>? _future;
+  StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _subscribe();
   }
 
   @override
   void didUpdateWidget(covariant _AnimeWatchingShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
       _items = [];
       _hasLoaded = false;
       _loadError = false;
-      _load();
+      _subscribe();
     }
   }
 
-  void _load() {
+  void _subscribe() {
     if (widget.userName.isEmpty) {
-      _future = null;
-      if (mounted) {
-        setState(() => _hasLoaded = true);
-      }
+      if (mounted) setState(() => _hasLoaded = true);
       return;
     }
-    final future = _service.getPreviewItems(
-      widget.userName,
-      limit: TMDBWatchlistService.previewLimit,
-    );
-    _future = future;
-    future.then((items) {
-      if (!mounted || _future != future) return;
-      // Already anime+watching filtered here; sort by most recent progress.
-      final sorted = items
-          .where((i) => i.isAnime && i.isCurrentlyWatching)
-          .toList()
-        ..sort((a, b) {
-          final aTime = a.progressUpdatedAt ?? a.addedAt;
-          final bTime = b.progressUpdatedAt ?? b.addedAt;
-          return bTime.compareTo(aTime);
+    _streamSub?.cancel();
+    _streamSub = _service
+        .getCurrentlyWatchingAnimeStream(widget.userName)
+        .listen(
+      (items) {
+        if (!mounted) return;
+        setState(() {
+          _items = items;
+          _hasLoaded = true;
+          _loadError = false;
         });
-      setState(() {
-        _items = sorted;
-        _hasLoaded = true;
-        _loadError = false;
-      });
-      _backfillPosters(sorted);
-    }).catchError((Object e) {
-      if (!mounted || _future != future) return;
-      setState(() {
-        _hasLoaded = true;
-        _loadError = true;
-      });
-    });
+        if (items.isNotEmpty) _backfillPosters(items);
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        setState(() {
+          _hasLoaded = true;
+          _loadError = true;
+        });
+      },
+    );
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
@@ -287,7 +280,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
 
   @override
   void dispose() {
-    _future = null;
+    _streamSub?.cancel();
     super.dispose();
   }
 
@@ -440,6 +433,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     final future = _service.getPreviewItems(
       widget.userName,
       limit: TMDBWatchlistService.previewLimit,
+      isAnime: true,
     );
     _future = future;
     future.then((items) {

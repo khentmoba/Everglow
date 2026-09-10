@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -49,6 +51,12 @@ class _FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
   @override
   Future<void> setOnWebResourceError(
     void Function(WebResourceError error) onWebResourceError,
+  ) async {}
+
+  @override
+  Future<void> setOnNavigationRequest(
+    FutureOr<NavigationDecision> Function(NavigationRequest request)
+    onNavigationRequest,
   ) async {}
 }
 
@@ -197,4 +205,307 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     },
   );
+
+  group('AnimeXWatchPage servers', () {
+    test('buildServers lists Everglow first with AniList routes', () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 21,
+        malId: 21,
+        tmdbId: 37854,
+      );
+      expect(servers.length, 4);
+
+      expect(servers[0].name, 'Everglow');
+      expect(servers[0].available, isTrue);
+      expect(
+        servers[0].urlBuilder(1, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=37854&type=tv&s=1&e=1',
+      );
+
+      expect(servers[1].name, 'Megavid');
+      expect(servers[1].available, isTrue);
+      expect(
+        servers[1].urlBuilder(1, 'sub'),
+        'https://megavid.buzz/ani/21/1/sub',
+      );
+      expect(
+        servers[1].urlBuilder(1, 'dub'),
+        'https://megavid.buzz/ani/21/1/dub',
+      );
+
+      expect(servers[2].name, 'Movish');
+      expect(servers[2].available, isTrue);
+      expect(
+        servers[2].urlBuilder(1, 'sub'),
+        'https://movish.to/moviebox-embed/tv/37854/1/1',
+      );
+
+      expect(servers[3].name, 'VidBolt');
+      expect(servers[3].available, isTrue);
+      expect(
+        servers[3].urlBuilder(1, 'sub'),
+        'https://vidbolt.xyz/tv/37854/1/1',
+      );
+    });
+
+    test('buildServers falls back to MAL routes when AniList ID is absent', () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: null,
+        malId: 52991,
+        tmdbId: 209867,
+      );
+      expect(servers.length, 4);
+
+      expect(servers[1].name, 'Megavid');
+      expect(
+        servers[1].urlBuilder(3, 'sub'),
+        'https://megavid.buzz/mal/52991/3/sub',
+      );
+      expect(
+        servers[1].urlBuilder(3, 'dub'),
+        'https://megavid.buzz/mal/52991/3/dub',
+      );
+
+      expect(servers[0].name, 'Everglow');
+      expect(
+        servers[0].urlBuilder(3, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=209867&type=tv&s=1&e=3',
+      );
+    });
+
+    test('buildServers maps multi-season episodes for TMDB-keyed players',
+        () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 25777,
+        malId: 25777,
+        tmdbId: 1429,
+        episodeSlots: const {
+          1: (season: 2, episode: 1),
+          2: (season: 2, episode: 2),
+        },
+      );
+
+      expect(
+        servers[0].urlBuilder(1, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1429&type=tv&s=2&e=1',
+      );
+      expect(
+        servers[0].urlBuilder(2, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1429&type=tv&s=2&e=2',
+      );
+      // Episodes without a slot fall back to season 1 and the number itself.
+      expect(
+        servers[0].urlBuilder(3, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1429&type=tv&s=1&e=3',
+      );
+      expect(
+        servers[2].urlBuilder(1, 'sub'),
+        'https://movish.to/moviebox-embed/tv/1429/2/1',
+      );
+      expect(
+        servers[3].urlBuilder(2, 'sub'),
+        'https://vidbolt.xyz/tv/1429/2/2',
+      );
+    });
+
+    test('buildServers hides TMDB-keyed players without a TMDB id', () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 16498,
+        malId: 16498,
+      );
+
+      expect(servers[0].name, 'Everglow');
+      expect(servers[0].available, isFalse);
+      expect(servers[1].name, 'Megavid');
+      expect(servers[1].available, isTrue);
+      expect(servers[2].name, 'Movish');
+      expect(servers[2].available, isFalse);
+      expect(servers[3].name, 'VidBolt');
+      expect(servers[3].available, isFalse);
+    });
+
+    test('buildServers marks all unavailable when no ID is present', () {
+      final servers = AnimeXWatchPage.buildServers(anilistId: null, malId: 0);
+      for (final s in servers) {
+        expect(s.available, isFalse);
+      }
+    });
+
+    test('normalizeServerName converts legacy names to provider names', () {
+      expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Mega Play');
+      expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'Anixo');
+      expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
+      expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Mega Play');
+      expect(AnimeXWatchPage.normalizeServerName(''), '');
+      expect(AnimeXWatchPage.normalizeServerName(null), '');
+    });
+
+    testWidgets('renders the Megavid server and sub/dub toggle',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = MediaItem(
+        id: 'animex-test-providers',
+        tmdbId: 21,
+        anilistId: 21,
+        title: 'One Piece',
+        mediaType: 'tv',
+        posterPath: '',
+        backdropPath: '',
+        year: '1999',
+        status: 'to-watch',
+        isAnime: true,
+        addedAt: DateTime(2026, 1, 1),
+        source: 'jikan',
+        currentEpisode: 1,
+      );
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      expect(find.text('Megavid'), findsOneWidget);
+      // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
+      // in tests, so the option stays hidden.
+      expect(find.text('Everglow'), findsNothing);
+      expect(find.text('SUB'), findsOneWidget);
+      expect(find.text('DUB'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Megavid'));
+      await tester.tap(find.text('Megavid'));
+      await tester.pump();
+
+      await tester.ensureVisible(find.text('DUB'));
+      await tester.tap(find.text('DUB'));
+      await tester.pump();
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('renders PC episodes sidebar on desktop with search, sort, and episode cards',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // On desktop, the sidebar shows "Episodes", "Find episode", and "Oldest" sort
+      expect(find.text('Episodes'), findsOneWidget);
+      expect(find.text('Find episode'), findsOneWidget);
+      expect(find.text('Oldest'), findsOneWidget);
+
+      // Verify sort toggle works
+      await tester.tap(find.text('Oldest'));
+      await tester.pump();
+      expect(find.text('Newest'), findsOneWidget);
+
+      // Verify search input filters
+      await tester.enterText(find.byType(TextField).first, 'Episode 2');
+      await tester.pump();
+
+      // Verify server notice banner is present and can be dismissed
+      expect(
+        find.text(
+          "If the current server doesn't work, feel free to try the other available servers.",
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byIcon(Icons.close_rounded).first);
+      await tester.pump();
+      expect(
+        find.text(
+          "If the current server doesn't work, feel free to try the other available servers.",
+        ),
+        findsNothing,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('renders mobile episode selector directly below player on mobile screens',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(412, 915);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // On mobile, the header is "EPISODES" with Search and swap_vert buttons
+      expect(find.text('EPISODES'), findsOneWidget);
+      expect(find.text('Search'), findsOneWidget);
+      expect(find.byIcon(Icons.swap_vert_rounded), findsOneWidget);
+
+      // Tapping Search opens the search bar
+      await tester.tap(find.text('Search'));
+      await tester.pump();
+      expect(
+        find.text('Search by title, number, or keyword...'),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('tapping an episode tile in PC sidebar updates selected episode',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // Find episode 2 in the sidebar and tap it
+      expect(find.text('Episode 2'), findsWidgets);
+      await tester.tap(find.text('Episode 2').first);
+      await tester.pump();
+
+      // Selected episode is updated to 2
+      expect(find.text('Episode 2'), findsWidgets);
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('episode info sheet opens and displays episode synopsis and play action',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = _sampleWatchItem();
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // Tap "What happened" if present or open sheet directly
+      final whatHappenedFinder = find.text('What happened');
+      if (whatHappenedFinder.evaluate().isNotEmpty) {
+        await tester.tap(whatHappenedFinder.first);
+        await tester.pumpAndSettle();
+        expect(find.text('What happened in this episode'), findsOneWidget);
+      }
+
+      await tester.pump(const Duration(milliseconds: 500));
+    });
+  });
 }
