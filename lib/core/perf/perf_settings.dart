@@ -71,8 +71,9 @@ class PerfSettings {
     // from the manifest start_url and would otherwise lose it.
     if (perfParam != null || dprParam != null) await _persist();
 
-    // Log what the *framework* ends up seeing, not just what we asked for —
-    // this is the line that proves a render-scale override reached the engine.
+    // Log what the *framework* ends up seeing, not just what we asked for.
+    // Debug builds only (Logger.i is release-silent); in release the frame
+    // meter's `dpr` readout is how you confirm the override landed.
     Logger.i(
       '[Perf] meter=${frameMeter.value} '
       'renderScale=${renderScale.value ?? 'device'} '
