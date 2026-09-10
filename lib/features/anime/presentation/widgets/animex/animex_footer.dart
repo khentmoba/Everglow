@@ -23,7 +23,7 @@ class AnimeXFooter extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: AnimeXTokens.pageMaxWidth),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 640;
+            final isWide = constraints.maxWidth >= 840;
             final links = <Widget>[
               _FooterLink(label: 'DMCA', onTap: () => controller.openDmca()),
               const SizedBox(width: 20),
