@@ -61,10 +61,35 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
 
     if (_currentStatus == newStatus) {
       // Tapping the already-selected chip → remove from watchlist.
+      // Route to the owning doc: partner-specific statuses (e.g.
+      // watching-clair) live on the partner's doc, and items opened from
+      // the partner's Currently Watching row carry the partner's userName.
+      // Removing from the current user instead would delete the wrong doc
+      // (or nothing) and the shelf would appear to never update.
       Logger.d("[Status] Same status tapped — removing from watchlist");
       setState(() => _currentStatus = '');
       try {
-        await _tmdbService.removeFromWatchList(widget.item.tmdbId, userName);
+        String ownerToRemove = userName;
+        final routedOwner = TMDBService.resolveStatusOwner(
+          previousStatus,
+          userName,
+        );
+        if (routedOwner != null) {
+          ownerToRemove = routedOwner;
+        } else if (previousStatus != 'watched-both' &&
+            previousStatus != 'watching-both') {
+          final itemOwner = widget.item.userName.trim();
+          if (itemOwner == 'khentsgdz' || itemOwner == 'clairjassen') {
+            ownerToRemove = itemOwner;
+          }
+        }
+        Logger.d(
+          "[Status] Removing tmdbId=${widget.item.tmdbId} from owner=$ownerToRemove (previous=$previousStatus, viewer=$userName)",
+        );
+        await _tmdbService.removeFromWatchList(
+          widget.item.tmdbId,
+          ownerToRemove,
+        );
         // For "Both" statuses, also remove from the partner's doc.
         if (previousStatus == 'watched-both' ||
             previousStatus == 'watching-both') {
