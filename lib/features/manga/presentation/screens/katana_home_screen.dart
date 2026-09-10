@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
+import '../katana/continue_reading_shelf.dart';
 import '../katana/katana_header.dart';
 import '../katana/katana_item_card.dart';
 import '../katana/katana_nav.dart';
@@ -136,11 +139,18 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     final data = _data ?? const KatanaHomeData();
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 960;
+    final user = context.watch<AuthService>().currentUser ?? '';
 
     final content = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
       children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1240),
+            child: ContinueReadingShelf(userName: user),
+          ),
+        ),
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
