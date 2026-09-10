@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../../domain/models/ai_conversation.dart';
+import '../../domain/mochi_quality.dart';
 import 'ai_memory_repo.dart';
 import 'ai_conversation_repo.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
@@ -88,7 +89,7 @@ class AIService extends ChangeNotifier {
     required String message,
     String? contextOverride,
     bool stream = false,
-    bool enableThinking = true,
+    bool? enableThinking,
     String? callerName, // 'khentsgdz' or 'clairjassen'
     void Function(String toolStatus)? onToolStatus,
     void Function(Map<String, dynamic> result)? onToolResult,
@@ -141,6 +142,9 @@ class AIService extends ChangeNotifier {
           ? allPayloads.sublist(allPayloads.length - 12)
           : allPayloads;
 
+      final shouldThink =
+          enableThinking ?? const MochiQuality().shouldAutoThink(message);
+
       String reply;
 
       if (stream) {
@@ -181,7 +185,7 @@ class AIService extends ChangeNotifier {
             _resetDraftState();
             notifyListeners();
           },
-          enableThinking: enableThinking,
+          enableThinking: shouldThink,
           canvasEnabled: canvasEnabled,
         );
         // Superseded by cancelCurrentReply() or a newer request: that path
@@ -197,6 +201,7 @@ class AIService extends ChangeNotifier {
           feature,
           caller,
           canvasEnabled,
+          shouldThink,
         );
       }
 
@@ -533,6 +538,7 @@ class AIService extends ChangeNotifier {
     String feature = '',
     String caller = '',
     bool canvasEnabled = true,
+    bool enableThinking = true,
   ]) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -544,6 +550,7 @@ class AIService extends ChangeNotifier {
           feature,
           caller,
           canvasEnabled,
+          enableThinking,
         );
       } catch (e) {
         final isTransient =
@@ -570,6 +577,7 @@ class AIService extends ChangeNotifier {
     String feature = '',
     String caller = '',
     bool canvasEnabled = true,
+    bool enableThinking = true,
   ]) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
@@ -586,7 +594,7 @@ class AIService extends ChangeNotifier {
             'memories': memories,
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
-            'enableThinking': true,
+            'enableThinking': enableThinking,
             'canvas': canvasEnabled,
           }),
         )
