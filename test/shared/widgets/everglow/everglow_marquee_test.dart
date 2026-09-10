@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -115,6 +116,37 @@ void main() {
     await tester.pump();
 
     expect(edgeFadeOverlay(), findsNothing);
+  });
+
+  testWidgets('fitting row does not keep the frame loop alive', (tester) async {
+    await tester.pumpWidget(
+      harness(width: 800, children: cards(['Movie A', 'Movie B'])),
+    );
+    await tester.pump();
+
+    // Nothing on screen can move, so no ticker should be scheduled: a fitting
+    // row used to repeat the controller forever, waking the whole app 60x/sec.
+    expect(tester.binding.transientCallbackCount, 0);
+  });
+
+  testWidgets('drifting row ticks, and stops while hovered', (tester) async {
+    final titles = [for (var i = 0; i < 12; i++) 'Item $i'];
+    await tester.pumpWidget(harness(width: 800, children: cards(titles)));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 1);
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: const Offset(5, 5));
+    addTearDown(gesture.removePointer);
+
+    // Hover holds the drift still — so stop paying for frames too.
+    await gesture.moveTo(tester.getCenter(find.byType(EverglowMarquee)));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 0);
+
+    await gesture.moveTo(const Offset(5, 5));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 1);
   });
 
   testWidgets('edgeFade false disables the overlay on overflowing rows', (

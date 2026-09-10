@@ -84,10 +84,15 @@ class _DashboardCursorGlowState extends State<DashboardCursorGlow>
   void initState() {
     super.initState();
     if (!AppMotion.reduced) {
+      // Deliberately NOT started here. This layer exists for mouse hover, and
+      // no hover ever arrives on a phone — starting the ticker at init meant a
+      // full-screen layer scheduling a frame 60 times a second forever, for
+      // nothing. [_handleHover] starts it, [_handleExit] stops it once the
+      // ember has faded.
       _controller = AnimationController(
         vsync: this,
         duration: const Duration(seconds: 24),
-      )..repeat();
+      );
       _painter = _CursorGlowPainter(_controller!, _sample);
     }
   }
@@ -366,6 +371,20 @@ class _AmbiencePainter extends CustomPainter {
   final List<_Petal> _petals = [];
   final List<_Sparkle> _sparkles = [];
 
+  /// Aurora shaders depend only on the layer size, so they are built once per
+  /// size instead of six times per frame. The old version allocated two
+  /// `Paint`s and two `LinearGradient` shaders for every band on every frame —
+  /// allocation churn on the same thread that has to build, lay out and draw
+  /// the whole dashboard.
+  Size? _auroraSize;
+  final List<_AuroraPaints> _auroraPaints = [];
+
+  /// Reused across every petal and vein so a frame allocates no paints.
+  final Paint _petalPaint = Paint();
+  final Paint _petalVeinPaint = Paint()
+    ..strokeWidth = 0.14
+    ..strokeCap = StrokeCap.round;
+
   // Unit petal pointing up, tip at (0, -1), base at (0, 0.6).
   final Path _unitPetal = Path()
     ..moveTo(0, -1)
@@ -431,7 +450,10 @@ class _AmbiencePainter extends CustomPainter {
   }
 
   void _paintAuroras(Canvas canvas, Size size, double t) {
-    for (final band in _bands) {
+    _ensureAuroraPaints(size);
+    for (var b = 0; b < _bands.length; b++) {
+      final band = _bands[b];
+      final paints = _auroraPaints[b];
       final path = Path();
       final step = size.width / _auroraSegments;
       final driftX = t * size.width * band.drift;
@@ -459,41 +481,17 @@ class _AmbiencePainter extends CustomPainter {
         }
       }
 
-      final strokeWidth = band.width * size.height;
-      final bandRect = Rect.fromLTWH(
-        0,
-        band.baseY * size.height - strokeWidth,
-        size.width,
-        strokeWidth * 2,
-      );
-      final outer = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round
-        ..shader = LinearGradient(
-          colors: [
-            band.color.withValues(alpha: 0),
-            band.color.withValues(alpha: band.alpha),
-            band.color.withValues(alpha: 0),
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        ).createShader(bandRect);
-      canvas.drawPath(path, outer);
-
-      final inner = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth * 0.30
-        ..strokeCap = StrokeCap.round
-        ..shader = LinearGradient(
-          colors: [
-            band.color.withValues(alpha: 0),
-            band.color.withValues(alpha: band.alpha * 1.8),
-            band.color.withValues(alpha: 0),
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        ).createShader(bandRect);
-      canvas.drawPath(path, inner);
+      canvas.drawPath(path, paints.outer);
+      canvas.drawPath(path, paints.inner);
     }
+  }
+
+  void _ensureAuroraPaints(Size size) {
+    if (_auroraSize == size && _auroraPaints.length == _bands.length) return;
+    _auroraSize = size;
+    _auroraPaints
+      ..clear()
+      ..addAll(_bands.map((band) => _AuroraPaints.forBand(band, size)));
   }
 
   void _paintBloomPulse(Canvas canvas, Size size, double t) {
@@ -569,18 +567,16 @@ class _AmbiencePainter extends CustomPainter {
         canvas.translate(x, y);
         canvas.rotate(angle);
         canvas.scale(petalScale, petalScale);
-        canvas.drawPath(
-          _unitPetal,
-          Paint()..color = petal.color.withValues(alpha: alpha),
-        );
+        _petalPaint.color = petal.color.withValues(alpha: alpha);
+        canvas.drawPath(_unitPetal, _petalPaint);
         if (g == 0) {
+          _petalVeinPaint.color = AppColors.petalWhite.withValues(
+            alpha: alpha * 0.45,
+          );
           canvas.drawLine(
             const Offset(0, -0.9),
             const Offset(0, 0.3),
-            Paint()
-              ..strokeWidth = 0.14
-              ..strokeCap = StrokeCap.round
-              ..color = AppColors.petalWhite.withValues(alpha: alpha * 0.45),
+            _petalVeinPaint,
           );
         }
         canvas.restore();
@@ -590,6 +586,47 @@ class _AmbiencePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AmbiencePainter oldDelegate) => false;
+}
+
+/// The two stroked paints (soft outer ribbon + bright inner core) for one
+/// aurora band. Built once per layer size: they hold shaders, which are the
+/// expensive part to recreate.
+class _AuroraPaints {
+  const _AuroraPaints({required this.outer, required this.inner});
+
+  factory _AuroraPaints.forBand(_AuroraBand band, Size size) {
+    final strokeWidth = band.width * size.height;
+    final bandRect = Rect.fromLTWH(
+      0,
+      band.baseY * size.height - strokeWidth,
+      size.width,
+      strokeWidth * 2,
+    );
+    Shader ribbon(double alpha) => LinearGradient(
+      colors: [
+        band.color.withValues(alpha: 0),
+        band.color.withValues(alpha: alpha),
+        band.color.withValues(alpha: 0),
+      ],
+      stops: const [0.0, 0.5, 1.0],
+    ).createShader(bandRect);
+
+    return _AuroraPaints(
+      outer: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..shader = ribbon(band.alpha),
+      inner: Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth * 0.30
+        ..strokeCap = StrokeCap.round
+        ..shader = ribbon(band.alpha * 1.8),
+    );
+  }
+
+  final Paint outer;
+  final Paint inner;
 }
 
 class _AuroraBand {

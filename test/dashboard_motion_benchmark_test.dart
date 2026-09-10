@@ -4,30 +4,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/core/theme/app_colors.dart';
 import 'package:everglow/features/dashboard/presentation/widgets/dashboard_motion.dart';
 
-/// Rough CPU frame-cost check: pumps a burst of frames and reports the mean
-/// pump duration. The ambience painter should add only a fraction of a
-/// millisecond per frame compared to a plain background.
+/// Rough per-frame cost check for the dashboard's ambient layers.
+///
+/// Pumps a burst of frames and reports the mean pump duration for each layer on
+/// its own, so the report says *which* layer costs what. This runs against the
+/// software test rasterizer, so the absolute numbers are not phone numbers —
+/// but they are a fair relative measure of recording + draw work, and they are
+/// the same measurement across runs, which is what makes them a regression
+/// guard.
+///
+/// Two things this pins down:
+/// * `DashboardCursorGlow` must be free while no pointer is hovering. It used
+///   to start its ticker at init, which scheduled a frame 60x/sec forever on a
+///   phone where hover never happens.
+/// * `DashboardAmbience` must stay a small fraction of the 16.6ms budget, and
+///   must not allocate its aurora paints/shaders on every frame.
 void main() {
-  testWidgets('ambience frame cost is low', (tester) async {
-    tester.view.physicalSize = const Size(1440, 2560);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  const frameCount = 240;
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: ColoredBox(
-          color: AppColors.inkDeep,
-          child: Stack(
-            children: [
-              Positioned.fill(child: DashboardAmbience()),
-              Positioned.fill(child: DashboardCursorGlow()),
-            ],
-          ),
-        ),
-      ),
-    );
-
+  Future<double> measure(WidgetTester tester, Widget scene) async {
+    await tester.pumpWidget(scene);
     // Warm up so controllers are ticking.
     await tester.pump(const Duration(milliseconds: 100));
     // JIT warmup pass so the first measurement isn't inflated by compilation.
@@ -36,37 +32,59 @@ void main() {
     }
 
     final stopwatch = Stopwatch()..start();
-    const frameCount = 240;
     for (var i = 0; i < frameCount; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
     stopwatch.stop();
 
-    final withAmbienceMs = stopwatch.elapsed.inMicroseconds / frameCount / 1000;
+    return stopwatch.elapsed.inMicroseconds / frameCount / 1000;
+  }
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: ColoredBox(color: AppColors.inkDeep),
+  Widget scene(List<Widget> layers) => MaterialApp(
+    debugShowCheckedModeBanner: false,
+    home: ColoredBox(
+      color: AppColors.inkDeep,
+      child: Stack(
+        children: [
+          for (final layer in layers) Positioned.fill(child: layer),
+        ],
       ),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
+    ),
+  );
 
-    final stopwatch2 = Stopwatch()..start();
-    for (var i = 0; i < frameCount; i++) {
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    stopwatch2.stop();
-    final baselineMs = stopwatch2.elapsed.inMicroseconds / frameCount / 1000;
+  testWidgets('ambient layers stay cheap per frame', (tester) async {
+    tester.view.physicalSize = const Size(1440, 2560);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final baseline = await measure(tester, scene(const []));
+    final ambienceOnly = await measure(
+      tester,
+      scene(const [DashboardAmbience()]),
+    );
+    final cursorGlowOnly = await measure(
+      tester,
+      scene(const [DashboardCursorGlow()]),
+    );
+    final both = await measure(
+      tester,
+      scene(const [DashboardAmbience(), DashboardCursorGlow()]),
+    );
 
     debugPrint(
-      '[bench] ambience=$withAmbienceMs ms/frame baseline=$baselineMs ms/frame',
+      '[bench] baseline=${baseline.toStringAsFixed(3)} '
+      'ambience=${ambienceOnly.toStringAsFixed(3)} '
+      'cursorGlow=${cursorGlowOnly.toStringAsFixed(3)} '
+      'both=${both.toStringAsFixed(3)} ms/frame',
     );
 
-    // The ambience should stay under ~3ms/frame extra even in the software
-    // test rasterizer; that leaves the vast majority of the 16.6ms budget.
-    // Even in the pure-software test rasterizer the layer stays well under
-    // the 16.6ms budget; GPU-backed CanvasKit is far cheaper in practice.
-    expect(withAmbienceMs - baselineMs, lessThan(4.0));
+    // Nothing to draw without a pointer: the glow must not schedule frames.
+    // A little slack covers test-harness noise, not a ticking layer.
+    expect(cursorGlowOnly - baseline, lessThan(0.5));
+
+    // The ambience stays a small slice of the frame budget, and adding the
+    // (idle) glow layer on top must not meaningfully raise it.
+    expect(ambienceOnly - baseline, lessThan(4.0));
+    expect(both - ambienceOnly, lessThan(0.5));
   });
 }
