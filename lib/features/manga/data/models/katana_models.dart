@@ -138,6 +138,8 @@ class KatanaBookmark {
   final int lastReadPage;
   final String lastReadChapterTitle;
   final String latestChapterTitle;
+  final String recommendedBy;
+  final String recommendationNote;
 
   const KatanaBookmark({
     required this.slug,
@@ -149,9 +151,12 @@ class KatanaBookmark {
     this.lastReadPage = 0,
     this.lastReadChapterTitle = '',
     this.latestChapterTitle = '',
+    this.recommendedBy = '',
+    this.recommendationNote = '',
   });
 
   bool get hasProgress => lastReadChapterId.isNotEmpty;
+  bool get isRecommended => recommendedBy.isNotEmpty;
 
   factory KatanaBookmark.fromFirestore(
     Map<String, dynamic> data,
@@ -167,6 +172,8 @@ class KatanaBookmark {
       lastReadPage: (data['lastReadPage'] as num?)?.toInt() ?? 0,
       lastReadChapterTitle: data['lastReadChapterTitle'] ?? '',
       latestChapterTitle: data['latestChapterTitle'] ?? '',
+      recommendedBy: data['recommendedBy'] ?? '',
+      recommendationNote: data['recommendationNote'] ?? '',
     );
   }
 
@@ -181,6 +188,8 @@ class KatanaBookmark {
       'lastReadPage': lastReadPage,
       'lastReadChapterTitle': lastReadChapterTitle,
       'latestChapterTitle': latestChapterTitle,
+      'recommendedBy': recommendedBy,
+      'recommendationNote': recommendationNote,
     };
   }
 
