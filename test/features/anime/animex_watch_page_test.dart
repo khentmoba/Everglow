@@ -336,6 +336,43 @@ void main() {
       }
     });
 
+    test('resolveMappingsMalId prefers the AniList detail MAL id', () {
+      // The reported bug: route carries only an AniList id (slot reads
+      // 0), so mappings must use the MAL id from the AniList detail —
+      // otherwise ani.zip returns nothing and only Megavid shows.
+      expect(
+        AnimeXWatchPage.resolveMappingsMalId(
+          detailMalId: 21,
+          routeMalId: 0,
+        ),
+        21,
+      );
+      // No detail (offline) — fall back to the route slot.
+      expect(
+        AnimeXWatchPage.resolveMappingsMalId(
+          detailMalId: null,
+          routeMalId: 21,
+        ),
+        21,
+      );
+      // Invalid detail id — fall back to the route slot.
+      expect(
+        AnimeXWatchPage.resolveMappingsMalId(
+          detailMalId: 0,
+          routeMalId: 21,
+        ),
+        21,
+      );
+      // Nothing anywhere — 0 means skip the mappings call.
+      expect(
+        AnimeXWatchPage.resolveMappingsMalId(
+          detailMalId: null,
+          routeMalId: 0,
+        ),
+        0,
+      );
+    });
+
     test('normalizeServerName converts legacy names to provider names', () {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Mega Play');
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'Anixo');
