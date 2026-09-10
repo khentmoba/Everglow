@@ -67,39 +67,30 @@ class AnimeXWatchPage extends StatefulWidget {
     }
   }
 
-  /// Builds the 3 anime embed servers: Mega Play, Anixo, and Megavid.
-  /// Each server supports sub and dub tracks and handles both AniList and
-  /// MyAnimeList IDs with seamless fallback.
+  /// Builds the anime embed servers. Both upstreams play clean in
+  /// testing: Megavid streams its own HLS by AniList/MAL id, and the
+  /// first-party Everglow player wraps CineSrc in the sandboxed
+  /// `embed.html` shell that blocks popups. The old embed farms
+  /// (Mega Play, Anixo) shipped popunder ad engines, so they were
+  /// dropped.
+  ///
+  /// The Everglow player is TMDB-keyed, so it only becomes available
+  /// once ani.zip supplies a `themoviedb_id`. [episodeSlots] maps a MAL
+  /// episode number to the season/episode pair TMDB expects — shows
+  /// whose MAL entry starts mid-series (e.g. Attack on Titan season 2)
+  /// would otherwise open the wrong episode.
   static List<AnimeServerOption> buildServers({
     int? anilistId,
     int? malId,
+    int? tmdbId,
+    Map<int, ({int season, int episode})> episodeSlots = const {},
   }) {
     final hasAni = anilistId != null && anilistId > 0;
     final effectiveMal = malId ?? 0;
     final hasMal = effectiveMal > 0;
-    final hasSource = hasAni || hasMal;
+    final effectiveTmdb = tmdbId ?? 0;
 
     return [
-      AnimeServerOption(
-        name: 'Mega Play',
-        urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://megaplay.buzz/stream/ani/$anilistId/$ep/$audio';
-          }
-          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
-        },
-        available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'Anixo',
-        urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://anixo.buzz/embed/ani/$anilistId/$ep?track=$audio';
-          }
-          return 'https://anixo.buzz/embed/mal/$effectiveMal/$ep?track=$audio';
-        },
-        available: hasSource,
-      ),
       AnimeServerOption(
         name: 'Megavid',
         urlBuilder: (ep, audio) {
@@ -108,7 +99,18 @@ class AnimeXWatchPage extends StatefulWidget {
           }
           return 'https://megavid.buzz/mal/$effectiveMal/$ep/$audio';
         },
-        available: hasSource,
+        available: hasAni || hasMal,
+      ),
+      AnimeServerOption(
+        name: 'Everglow',
+        urlBuilder: (ep, audio) {
+          final slot = episodeSlots[ep];
+          final season = slot?.season ?? 1;
+          final episode = slot?.episode ?? ep;
+          return 'https://everglow-1c6db.web.app/embed.html'
+              '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
+        },
+        available: effectiveTmdb > 0,
       ),
     ];
   }
@@ -149,6 +151,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// server list resolves in [_load].
   String? _rememberedServer;
   int? _mappedAnilistId;
+  int? _mappedTmdbId;
+  Map<int, ({int season, int episode})> _episodeSlots = const {};
 
   String get _memoryKey =>
       PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
@@ -309,6 +313,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       malId: malId,
     );
     int? mappedAnilistId;
+    int? mappedTmdbId;
+    Map<int, ({int season, int episode})> episodeSlots = const {};
     // The ani.zip mappings payload also carries per-episode metadata
     // (title variants, overview/summary, still image, runtime, air
     // date) — AniList streaming episodes have clean titles + licensed
@@ -326,18 +332,38 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         final parsed = int.tryParse(rawAni);
         if (parsed != null && parsed > 0) mappedAnilistId = parsed;
       }
+      final rawTmdb = mapped?['themoviedb_id'];
+      if (rawTmdb is num && rawTmdb > 0) {
+        mappedTmdbId = rawTmdb.toInt();
+      } else if (rawTmdb is String && rawTmdb.isNotEmpty) {
+        final parsed = int.tryParse(rawTmdb);
+        if (parsed != null && parsed > 0) mappedTmdbId = parsed;
+      }
       final rawEpisodes = mappings?['episodes'] as Map<String, dynamic>?;
       if (rawEpisodes != null && rawEpisodes.isNotEmpty) {
         final parsedMap = <int, Map<String, dynamic>>{};
+        final parsedSlots = <int, ({int season, int episode})>{};
         rawEpisodes.forEach((key, value) {
           if (value is! Map<String, dynamic>) return;
           final n = int.tryParse(key.toString());
-          if (n != null) parsedMap[n] = value;
+          if (n == null) return;
+          parsedMap[n] = value;
+          final season = (value['seasonNumber'] as num?)?.toInt();
+          final episodeNo = (value['episodeNumber'] as num?)?.toInt();
+          if (season != null &&
+              season > 0 &&
+              episodeNo != null &&
+              episodeNo > 0) {
+            parsedSlots[n] = (season: season, episode: episodeNo);
+          }
         });
         aniZipEpisodes = parsedMap;
+        episodeSlots = parsedSlots;
       }
     } catch (_) {}
     _mappedAnilistId = mappedAnilistId;
+    _mappedTmdbId = mappedTmdbId;
+    _episodeSlots = episodeSlots;
     if (!mounted) return;
     final nextServers = _buildServers(mappedAnilistId: mappedAnilistId);
     final firstAvailable = nextServers.indexWhere((s) => s.available);
@@ -466,6 +492,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return AnimeXWatchPage.buildServers(
       anilistId: _anilistId ?? mappedAnilistId ?? _mappedAnilistId,
       malId: _malId,
+      tmdbId: _mappedTmdbId,
+      episodeSlots: _episodeSlots,
     );
   }
 

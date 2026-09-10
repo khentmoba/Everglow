@@ -199,77 +199,100 @@ void main() {
   );
 
   group('AnimeXWatchPage servers', () {
-    test('buildServers creates Mega Play, Anixo, and Megavid with AniList routes', () {
-      final servers = AnimeXWatchPage.buildServers(anilistId: 21, malId: 21);
-      expect(servers.length, 3);
+    test('buildServers lists Megavid and the Everglow wrapper with AniList routes',
+        () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 21,
+        malId: 21,
+        tmdbId: 37854,
+      );
+      expect(servers.length, 2);
 
-      expect(servers[0].name, 'Mega Play');
+      expect(servers[0].name, 'Megavid');
       expect(servers[0].available, isTrue);
       expect(
         servers[0].urlBuilder(1, 'sub'),
-        'https://megaplay.buzz/stream/ani/21/1/sub',
-      );
-      expect(
-        servers[0].urlBuilder(1, 'dub'),
-        'https://megaplay.buzz/stream/ani/21/1/dub',
-      );
-
-      expect(servers[1].name, 'Anixo');
-      expect(servers[1].available, isTrue);
-      expect(
-        servers[1].urlBuilder(1, 'sub'),
-        'https://anixo.buzz/embed/ani/21/1?track=sub',
-      );
-      expect(
-        servers[1].urlBuilder(1, 'dub'),
-        'https://anixo.buzz/embed/ani/21/1?track=dub',
-      );
-
-      expect(servers[2].name, 'Megavid');
-      expect(servers[2].available, isTrue);
-      expect(
-        servers[2].urlBuilder(1, 'sub'),
         'https://megavid.buzz/ani/21/1/sub',
       );
       expect(
-        servers[2].urlBuilder(1, 'dub'),
+        servers[0].urlBuilder(1, 'dub'),
         'https://megavid.buzz/ani/21/1/dub',
+      );
+
+      expect(servers[1].name, 'Everglow');
+      expect(servers[1].available, isTrue);
+      expect(
+        servers[1].urlBuilder(1, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=37854&type=tv&s=1&e=1',
       );
     });
 
     test('buildServers falls back to MAL routes when AniList ID is absent', () {
-      final servers = AnimeXWatchPage.buildServers(anilistId: null, malId: 52991);
-      expect(servers.length, 3);
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: null,
+        malId: 52991,
+        tmdbId: 209867,
+      );
+      expect(servers.length, 2);
 
-      expect(servers[0].name, 'Mega Play');
+      expect(servers[0].name, 'Megavid');
       expect(
         servers[0].urlBuilder(3, 'sub'),
-        'https://megaplay.buzz/stream/mal/52991/3/sub',
-      );
-      expect(
-        servers[0].urlBuilder(3, 'dub'),
-        'https://megaplay.buzz/stream/mal/52991/3/dub',
-      );
-
-      expect(servers[1].name, 'Anixo');
-      expect(
-        servers[1].urlBuilder(3, 'sub'),
-        'https://anixo.buzz/embed/mal/52991/3?track=sub',
-      );
-      expect(
-        servers[1].urlBuilder(3, 'dub'),
-        'https://anixo.buzz/embed/mal/52991/3?track=dub',
-      );
-
-      expect(servers[2].name, 'Megavid');
-      expect(
-        servers[2].urlBuilder(3, 'sub'),
         'https://megavid.buzz/mal/52991/3/sub',
       );
       expect(
-        servers[2].urlBuilder(3, 'dub'),
+        servers[0].urlBuilder(3, 'dub'),
         'https://megavid.buzz/mal/52991/3/dub',
       );
+
+      expect(servers[1].name, 'Everglow');
+      expect(
+        servers[1].urlBuilder(3, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=209867&type=tv&s=1&e=3',
+      );
+    });
+
+    test('buildServers maps multi-season episodes for the Everglow player', () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 25777,
+        malId: 25777,
+        tmdbId: 1429,
+        episodeSlots: const {
+          1: (season: 2, episode: 1),
+          2: (season: 2, episode: 2),
+        },
+      );
+
+      expect(
+        servers[1].urlBuilder(1, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1429&type=tv&s=2&e=1',
+      );
+      expect(
+        servers[1].urlBuilder(2, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1429&type=tv&s=2&e=2',
+      );
+      // Episodes without a slot fall back to season 1 and the number itself.
+      expect(
+        servers[1].urlBuilder(3, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=1429&type=tv&s=1&e=3',
+      );
+    });
+
+    test('buildServers hides the Everglow player without a TMDB id', () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 16498,
+        malId: 16498,
+      );
+
+      expect(servers[0].name, 'Megavid');
+      expect(servers[0].available, isTrue);
+      expect(servers[1].name, 'Everglow');
+      expect(servers[1].available, isFalse);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -288,7 +311,7 @@ void main() {
       expect(AnimeXWatchPage.normalizeServerName(null), '');
     });
 
-    testWidgets('renders Mega Play, Anixo, Megavid buttons and sub/dub toggle',
+    testWidgets('renders the Megavid server and sub/dub toggle',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
@@ -314,14 +337,15 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      expect(find.text('Mega Play'), findsOneWidget);
-      expect(find.text('Anixo'), findsOneWidget);
       expect(find.text('Megavid'), findsOneWidget);
+      // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
+      // in tests, so the option stays hidden.
+      expect(find.text('Everglow'), findsNothing);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Anixo'));
-      await tester.tap(find.text('Anixo'));
+      await tester.ensureVisible(find.text('Megavid'));
+      await tester.tap(find.text('Megavid'));
       await tester.pump();
 
       await tester.ensureVisible(find.text('DUB'));
