@@ -30,6 +30,13 @@ class EmbedWebView extends StatefulWidget {
   /// Optional corner rounding for framed player surfaces.
   final BorderRadius? borderRadius;
 
+  /// When set, main-frame navigations to any other host are blocked.
+  /// Third-party embeds use top-frame navigation for their worst ads
+  /// (app-store / app-open hijacks); media segments and subframes are
+  /// unaffected since only main-frame navigations are gated. Opt-in so
+  /// trailers and the cinema player keep their current behavior.
+  final Set<String>? allowedHosts;
+
   const EmbedWebView({
     super.key,
     required this.url,
@@ -37,6 +44,7 @@ class EmbedWebView extends StatefulWidget {
     this.onLoaded,
     this.onError,
     this.borderRadius,
+    this.allowedHosts,
   });
 
   @override
@@ -87,6 +95,14 @@ class _EmbedWebViewState extends State<EmbedWebView> {
 
       controller.setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (request) {
+            final allowed = widget.allowedHosts;
+            if (allowed == null) return NavigationDecision.navigate;
+            final host = Uri.tryParse(request.url)?.host ?? '';
+            if (allowed.contains(host)) return NavigationDecision.navigate;
+            debugPrint('[EmbedWebView] Blocked hijack nav to ${request.url}');
+            return NavigationDecision.prevent;
+          },
           onPageFinished: (url) {
             _loadTimer?.cancel();
             if (!mounted) return;
