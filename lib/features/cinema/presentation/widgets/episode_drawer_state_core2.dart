@@ -249,17 +249,23 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
   void _playMovie() {
     final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
     final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
+    final posterParam = widget.item.posterPath.isNotEmpty
+        ? '&poster=${Uri.encodeComponent(widget.item.posterPath)}'
+        : '';
     context.push(
-      '/cinema/video/$id?type=movie&title=${Uri.encodeComponent(widget.item.title)}&anime=$_isAnimeSourced$malIdParam',
+      '/cinema/video/$id?type=movie&title=${Uri.encodeComponent(widget.item.title)}&anime=$_isAnimeSourced$malIdParam$posterParam',
     );
   }
 
   void _playEpisode(int season, int episode, String epTitle) {
     final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
     final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
+    final posterParam = widget.item.posterPath.isNotEmpty
+        ? '&poster=${Uri.encodeComponent(widget.item.posterPath)}'
+        : '';
     final title = '${cleanTitle(widget.item.title)}: $epTitle';
     context.push(
-      '/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$malIdParam',
+      '/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$malIdParam$posterParam',
     );
   }
 

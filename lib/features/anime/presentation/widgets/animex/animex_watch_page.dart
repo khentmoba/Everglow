@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,8 @@ import '../../../data/models/animex_models.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../../cinema/data/services/player_memory_service.dart';
+import '../../../../cinema/data/services/tmdb_service.dart';
+import '../../../../../core/services/auth_service.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/animex_stores.dart';
 import '../../../data/services/aniskip_service.dart';
@@ -78,6 +81,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   String _audio = 'sub';
   int _serverIndex = 0;
   final PlayerMemoryService _memoryService = PlayerMemoryService();
+  late final TMDBService _tmdbService = TMDBService();
+  Timer? _progressThrottler;
+  Timer? _heartbeatTimer;
 
   /// Server name remembered from the last visit; applied once the
   /// server list resolves in [_load].
@@ -106,6 +112,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _load();
     _fetchSkipTimes();
     _restoreMemory();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _saveWatchProgress(episode: _selectedEpisode);
+    });
   }
 
   /// Restores this anime's last-used server and sub/dub choice.
@@ -153,6 +162,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     final before = _skipRowVisible;
     _playbackPosition = progress.positionSeconds;
     if (before != _skipRowVisible) setState(() {});
+    _scheduleProgressHeartbeat(
+      progress.positionSeconds,
+      progress.durationSeconds,
+    );
   }
 
   /// Whether the skip row shows anything right now: without a known
@@ -199,9 +212,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   Future<void> _load() async {
+    final malId = _malId;
+    final anilistId = _anilistId;
+    if (malId <= 0 && anilistId == null) return;
     final detail = await _aniList.fetchDetailsWithFallback(
-      anilistId: _anilistId,
-      malId: _malId,
+      anilistId: anilistId,
+      malId: malId,
     );
     int? tmdbId;
     try {
@@ -240,11 +256,16 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       }
     });
     _recordHistory(_selectedEpisode);
+    _saveWatchProgress(episode: _selectedEpisode);
+    _startPeriodicHeartbeat();
     _probeCurrentServer();
   }
 
   @override
   void dispose() {
+    _progressThrottler?.cancel();
+    _heartbeatTimer?.cancel();
+    _saveWatchProgress();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -293,6 +314,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _selectedEpisode = episode);
     _resetForNewEpisode();
     _recordHistory(episode);
+    _saveWatchProgress(episode: episode, positionSeconds: 0);
     _fetchSkipTimes();
   }
 
@@ -312,6 +334,117 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       episode: episode,
       episodeMinutes: _detail?.duration ?? 24,
     );
+  }
+
+  String _watchingStatusFor(String userName) {
+    switch (userName) {
+      case 'khentsgdz':
+        return 'watching-khent';
+      case 'clairjassen':
+        return 'watching-clair';
+      default:
+        return 'watching-self';
+    }
+  }
+
+  String _currentUserName() {
+    try {
+      return Provider.of<AuthService>(context, listen: false).currentUser ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _saveWatchProgress({int? episode, double? positionSeconds}) {
+    final userName = _currentUserName();
+    if (userName.isEmpty) return;
+
+    final ep = episode ?? _selectedEpisode;
+    final pos = positionSeconds ?? _playbackPosition;
+    final duration = (_detail?.duration != null && _detail!.duration! > 0)
+        ? _detail!.duration! * 60
+        : null;
+
+    final status = _watchingStatusFor(userName);
+    final effectiveTmdbId =
+        _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+    if (effectiveTmdbId <= 0) return;
+
+    final mediaItem = MediaItem(
+      id: '',
+      tmdbId: effectiveTmdbId,
+      title: _item.title,
+      mediaType: _item.mediaType.isNotEmpty ? _item.mediaType : 'tv',
+      posterPath:
+          _item.posterPath.isNotEmpty ? _item.posterPath : _item.posterUrl,
+      backdropPath: _item.backdropPath,
+      year: _item.year,
+      status: status,
+      isAnime: true,
+      userName: userName,
+      addedAt: DateTime.now(),
+      source: _item.source.isNotEmpty ? _item.source : 'jikan',
+      anilistId: _anilistId,
+      synopsis: _item.synopsis,
+      episodeCount: _item.episodeCount ?? _detail?.episodeCount,
+      airingStatus: _item.airingStatus,
+      format: _item.format,
+      studio: _item.studio,
+      genres: _item.genres,
+    );
+
+    _tmdbService.updateProgress(
+      mediaItem,
+      userName,
+      season: 1,
+      episode: ep,
+      timestamp: pos?.round(),
+      durationSeconds: duration,
+      status: status,
+    );
+  }
+
+  void _scheduleProgressHeartbeat(double position, double duration) {
+    if (_progressThrottler?.isActive ?? false) return;
+    _progressThrottler = Timer(const Duration(seconds: 15), () {
+      if (!mounted) return;
+      final userName = _currentUserName();
+      if (userName.isEmpty) return;
+      final effectiveTmdbId =
+          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+      if (effectiveTmdbId <= 0) return;
+      _tmdbService.heartbeatProgress(
+        effectiveTmdbId,
+        userName,
+        season: 1,
+        episode: _selectedEpisode,
+        timestamp: position.round(),
+        durationSeconds: duration.round(),
+      );
+    });
+  }
+
+  void _startPeriodicHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      final userName = _currentUserName();
+      if (userName.isEmpty) return;
+      final effectiveTmdbId =
+          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+      if (effectiveTmdbId <= 0) return;
+      _tmdbService.heartbeatProgress(
+        effectiveTmdbId,
+        userName,
+        season: 1,
+        episode: _selectedEpisode,
+        timestamp: _playbackPosition?.round(),
+        durationSeconds:
+            (_detail?.duration != null && _detail!.duration! > 0)
+                ? _detail!.duration! * 60
+                : null,
+      );
+    });
   }
 
   String get _playerUrl {
@@ -646,24 +779,18 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         .take(_episodesPerPage)
         .toList();
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AnimeXTokens.pageMaxWidth),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_showErrorCard)
-              _buildErrorCard(context)
-            else
-              AnimeXPlayerFrame(
-                key: ValueKey('player-$_playerUrl'),
-                url: _playerUrl,
-                onContentError: _handleContentError,
-                onProgress: _onPlayerProgress,
-                scrollController: _scrollCtrl,
-              ),
-            const SizedBox(height: 16),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: AnimeXTokens.watchPageMaxWidth,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPlayer(context),
+              const SizedBox(height: 16),
             if (!_showErrorCard &&
                 _playerUrl.isNotEmpty &&
                 _skipRowVisible) ...[
@@ -874,14 +1001,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
               ),
             ],
             const SizedBox(height: 16),
-            Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
                 _EpisodeStepButton(
                   label: 'Prev Episode',
                   enabled: _selectedEpisode > 1,
                   onTap: () => _stepEpisode(-1),
                 ),
-                const SizedBox(width: 10),
                 _EpisodeStepButton(
                   label: 'Next Episode',
                   enabled: _selectedEpisode < episodes.length,
@@ -891,6 +1019,34 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             ),
           ],
         ),
+      ),
+    ),
+  );
+}
+
+  Widget _buildPlayer(BuildContext context) {
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    // Cap height so the player never crowds out the server selector and episode
+    // list on shorter screens (such as laptops or landscape tablets).
+    final maxPlayerHeight = (viewportHeight - 280)
+        .clamp(240.0, AnimeXTokens.playerMaxHeight)
+        .toDouble();
+
+    final player = _showErrorCard
+        ? _buildErrorCard(context)
+        : AnimeXPlayerFrame(
+            key: ValueKey('player-$_playerUrl'),
+            url: _playerUrl,
+            onContentError: _handleContentError,
+            onProgress: _onPlayerProgress,
+            scrollController: _scrollCtrl,
+          );
+
+    return Center(
+      child: ConstrainedBox(
+        key: const Key('animex-player-box'),
+        constraints: BoxConstraints(maxHeight: maxPlayerHeight),
+        child: player,
       ),
     );
   }
@@ -950,11 +1106,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         ? (detail.titleNative.isNotEmpty ? detail.titleNative : _item.title)
         : (detail.titleEnglish.isNotEmpty ? detail.titleEnglish : _item.title);
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AnimeXTokens.pageMaxWidth),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: AnimeXTokens.watchPageMaxWidth,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -1001,8 +1160,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildRelations(BuildContext context) {
     final relations = _detail!.relations
@@ -1090,8 +1250,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
   int _gridColumns(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    if (width >= 1280) return 6;
-    if (width >= 640) return 4;
+    if (width >= 840) return 6;
+    if (width >= 540) return 4;
     return 2;
   }
 

@@ -383,7 +383,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         tmdbId: widget.tmdbId,
         title: widget.title,
         mediaType: widget.mediaType,
-        posterPath: '',
+        posterPath: widget.posterPath,
         status: status,
         isAnime: widget.isAnime,
         userName: userName,

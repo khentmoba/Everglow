@@ -68,10 +68,13 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
       ? (_aniListDetail?.airingStatus ?? widget.item.airingStatus)
       : '';
 
-  /// True when the item was sourced from Jikan (i.e. an anime that came
+  /// True when the item was sourced from Jikan or AniList (i.e. an anime that came
   /// in via the Anime feature, not via TMDB discover). Drives which
   /// service we route the detail-page fetches to.
-  bool get _isAnimeSourced => widget.item.source == 'jikan';
+  bool get _isAnimeSourced =>
+      widget.item.isAnime ||
+      widget.item.source == 'jikan' ||
+      widget.item.source == 'anilist';
 
   int get _effectiveMalId => _resolvedMalId ?? widget.item.tmdbId;
 
