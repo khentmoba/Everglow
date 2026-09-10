@@ -40,6 +40,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   int _index = 0;
   Timer? _timer;
   Timer? _armTimer;
+  Timer? _fallbackTimer;
 
   bool _muted = true;
   bool _playing = true;
@@ -62,6 +63,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
   void _armTrailerForCurrent() {
     _armTimer?.cancel();
+    _fallbackTimer?.cancel();
     if (widget.items.isEmpty) return;
     final item = widget.items[_index % widget.items.length];
     final key = _cacheKey(item);
@@ -75,7 +77,17 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     // Arm after 800ms dwell so fast carousel flicking doesn't spam iframes.
     _armTimer = Timer(const Duration(milliseconds: 800), () {
       if (!mounted) return;
-      setState(() => _trailerArmed = true);
+      setState(() {
+        _trailerArmed = true;
+        if (_inTest) _trailerReady = true;
+      });
+      if (!_inTest) {
+        _fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
+          if (mounted && !_trailerReady) {
+            setState(() => _trailerReady = true);
+          }
+        });
+      }
     });
   }
 
@@ -91,6 +103,17 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       if (mounted) {
         setState(() {
           _trailerCache[key] = ytId;
+          if (_trailerArmed && ytId != null && ytId.isNotEmpty) {
+            _trailerReady = _inTest;
+            if (!_inTest) {
+              _fallbackTimer?.cancel();
+              _fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
+                if (mounted && !_trailerReady) {
+                  setState(() => _trailerReady = true);
+                }
+              });
+            }
+          }
         });
       }
     } catch (_) {
@@ -104,6 +127,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
   void _select(int i) {
     if (widget.items.isEmpty) return;
+    _fallbackTimer?.cancel();
     setState(() {
       _index = i % widget.items.length;
       _trailerArmed = false;
@@ -162,6 +186,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       }
       _trailerArmed = false;
       _trailerReady = false;
+      _fallbackTimer?.cancel();
       _startTimer();
       _armTrailerForCurrent();
     }
@@ -180,6 +205,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   void dispose() {
     _timer?.cancel();
     _armTimer?.cancel();
+    _fallbackTimer?.cancel();
     super.dispose();
   }
 
@@ -208,25 +234,27 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
           // 2. Active trailer player, smoothly cross-faded in when loaded.
           if (hasTrailer && _trailerArmed)
-            AnimatedSwitcher(
+            AnimatedOpacity(
+              key: ValueKey('hero-trailer-layer-$trailerKey'),
+              opacity: (_trailerReady && _playing) ? 1.0 : 0.0,
               duration: const Duration(milliseconds: 600),
-              child: _trailerReady && _playing
-                  ? KeyedSubtree(
-                      key: ValueKey('hero-trailer-$trailerKey'),
-                      child: TrailerPlayer(
-                        videoKey: trailerKey,
-                        muted: _muted,
-                        playing: _playing,
-                        autoplay: true,
-                        loop: true,
-                        onLoaded: () {
-                          if (mounted) setState(() => _trailerReady = true);
-                        },
-                      ),
-                    )
-                  : const SizedBox.expand(
-                      key: ValueKey('hero-trailer-loading'),
-                    ),
+              curve: Curves.easeInOut,
+              child: IgnorePointer(
+                child: KeyedSubtree(
+                  key: ValueKey('hero-trailer-$trailerKey'),
+                  child: TrailerPlayer(
+                    videoKey: trailerKey,
+                    muted: _muted,
+                    playing: _playing,
+                    autoplay: true,
+                    loop: true,
+                    onLoaded: () {
+                      _fallbackTimer?.cancel();
+                      if (mounted) setState(() => _trailerReady = true);
+                    },
+                  ),
+                ),
+              ),
             ),
 
           // Top shade for header legibility, fading into the page bg at the

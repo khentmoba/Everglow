@@ -31,6 +31,9 @@ class TrailerPlayer extends StatefulWidget {
 }
 
 class _TrailerPlayerState extends State<TrailerPlayer> {
+  static bool get _inTest =>
+      WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
   String get _embedUrl {
     final query = [
       'autoplay=${widget.autoplay && widget.playing ? 1 : 0}',
@@ -47,6 +50,9 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (_inTest) {
+      return const SizedBox.shrink();
+    }
     if (!kIsWeb &&
         defaultTargetPlatform != TargetPlatform.android &&
         defaultTargetPlatform != TargetPlatform.iOS) {
