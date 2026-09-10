@@ -121,6 +121,17 @@
     }
   </style>
   <script>
+    // Chrome deprecated the non-standard Intl.v8BreakIterator in favor of Intl.Segmenter.
+    // Clean up window.Intl.v8BreakIterator so Flutter Web never attempts to instantiate it,
+    // avoiding DevTools deprecation warnings.
+    try {
+      if (typeof window !== 'undefined' && window.Intl) {
+        delete window.Intl.v8BreakIterator;
+      }
+    } catch (_) {
+      try { window.Intl.v8BreakIterator = undefined; } catch (__) {}
+    }
+
     // Filter known external library/CanvasKit informational console noise:
     (function () {
       var origWarn = console.warn;
