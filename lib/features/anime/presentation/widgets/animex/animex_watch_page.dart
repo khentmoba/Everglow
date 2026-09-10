@@ -303,24 +303,24 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return List.generate(count, (i) => AniListEpisode(number: i + 1));
   }
 
-  /// Builds the ad-free anime servers.
+  /// Anime servers, cleanest first. Every server plays caged inside the
+  /// sandboxed player frame, which traps the popunders / top-frame
+  /// hijacks third-party anime embeds are famous for — the cage is what
+  /// keeps the web app from being thrown into TikTok / YouTube, not the
+  /// providers behaving themselves. Vidnest, Videasy, TryEmbed and Mega
+  /// Play were dropped earlier for ad engines / a dead endpoint.
   ///
-  /// Megavid streams its own HLS keyed by AniList/MAL id, and the
-  /// first-party Everglow player wraps CineSrc in the sandboxed
-  /// `embed.html` shell that blocks popups. Vidnest, Videasy, TryEmbed
-  /// and Mega Play all carried popunder ad engines (or, for Mega Play, a
-  /// dead 410 endpoint), so they were dropped.
+  /// - Everglow: our own embed.html shell around CineSrc, keyed by the
+  ///   TMDB id ani.zip provides. Default for fresh titles.
+  /// - Megavid: AniList/MAL-keyed HLS with sub/dub. The only server that
+  ///   needs no TMDB mapping, so TMDB-less titles still have something.
+  /// - Movish / VidBolt: TMDB-keyed fallbacks — the same sandbox-safe
+  ///   pair the cinema player already trusts, so there is always a
+  ///   switchable list instead of a single stuck server.
   List<_ServerOption> _buildServers(int tmdbId) {
     final anilistId = _anilistId;
     final malId = _malId;
     return [
-      _ServerOption(
-        name: 'Megavid',
-        urlBuilder: (ep, audio) => anilistId != null
-            ? 'https://megavid.buzz/ani/$anilistId/$ep/$audio'
-            : 'https://megavid.buzz/mal/$malId/$ep/$audio',
-        available: anilistId != null || malId > 0,
-      ),
       _ServerOption(
         name: 'Everglow',
         urlBuilder: (ep, audio) {
@@ -332,7 +332,42 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         },
         available: tmdbId > 0,
       ),
+      _ServerOption(
+        name: 'Megavid',
+        urlBuilder: (ep, audio) => anilistId != null
+            ? 'https://megavid.buzz/ani/$anilistId/$ep/$audio'
+            : 'https://megavid.buzz/mal/$malId/$ep/$audio',
+        available: anilistId != null || malId > 0,
+      ),
+      _ServerOption(
+        name: 'Movish',
+        urlBuilder: (ep, audio) => _tmdbTvUrl(
+          'https://movish.to/moviebox-embed/tv/',
+          tmdbId,
+          ep,
+        ),
+        available: tmdbId > 0,
+      ),
+      _ServerOption(
+        name: 'VidBolt',
+        urlBuilder: (ep, audio) => _tmdbTvUrl(
+          'https://vidbolt.xyz/tv/',
+          tmdbId,
+          ep,
+        ),
+        available: tmdbId > 0,
+      ),
     ];
+  }
+
+  /// TMDB-keyed TV embed URL for a MAL episode number. Uses the ani.zip
+  /// season mapping so shows whose MAL entry starts mid-series (e.g.
+  /// Attack on Titan season 2) don't open the wrong episode.
+  String _tmdbTvUrl(String base, int tmdbId, int episode) {
+    final slot = _episodeSlots[episode];
+    final season = slot?.season ?? 1;
+    final slotEpisode = slot?.episode ?? episode;
+    return '$base$tmdbId/$season/$slotEpisode';
   }
 
   void _selectEpisode(int episode) {

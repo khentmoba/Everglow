@@ -18,6 +18,13 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final void Function(VideasyProgress progress)? onProgress;
   final ScrollController? scrollController;
 
+  /// When true the embed runs inside a sandbox that traps popups and
+  /// top-frame navigation (the ad engines behind third-party anime
+  /// servers rely on both). Provider playback only needs scripts +
+  /// same-origin, so video keeps working while popunders die silently.
+  /// Trailers pass false — YouTube owns its embed and needs no cage.
+  final bool sandbox;
+
   const AnimeXPlayerFrame({
     super.key,
     required this.url,
@@ -26,6 +33,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onContentError,
     this.onProgress,
     this.scrollController,
+    this.sandbox = true,
   });
 
   @override
@@ -78,6 +86,17 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%';
+    // No `allow-popups` / `allow-top-navigation`: without them the
+    // sandbox swallows window.open + top-frame hijacks (the TikTok /
+    // YouTube app-open spam) while scripts + same-origin keep the
+    // HLS player itself alive. Mirrors web/embed.html and the cinema
+    // player, which cage their upstreams the same way.
+    if (widget.sandbox) {
+      _iframe.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
+      );
+    }
 
     _onLoad = (() {
       if (mounted) setState(() => _loaded = true);
@@ -241,6 +260,9 @@ class AnimeXTrailerModal extends StatelessWidget {
               child: AnimeXPlayerFrame(
                 url: url,
                 referrerPolicy: 'strict-origin-when-cross-origin',
+                // YouTube owns this embed — caging it could break its
+                // player API / fullscreen, and it serves no popunders.
+                sandbox: false,
               ),
             ),
           ],

@@ -132,6 +132,17 @@ class AnimeXPlayerFrame extends StatefulWidget {
 }
 
 class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
+  /// Hosts the anime servers are allowed to top-navigate to. Anything
+  /// else (app-store pages, tiktok:// / youtube:// app-open intents,
+  /// redirect farms) is the ad engine talking, so the WebView drops it.
+  static const _allowedHosts = {
+    'megavid.buzz',
+    'everglow-1c6db.web.app',
+    'cinesrc.st',
+    'movish.to',
+    'vidbolt.xyz',
+  };
+
   @override
   Widget build(BuildContext context) {
     return EmbedWebView(
@@ -140,6 +151,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       aspectRatio: widget.aspectRatio,
       borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
       onError: widget.onContentError,
+      allowedHosts: _allowedHosts,
     );
   }
 }
