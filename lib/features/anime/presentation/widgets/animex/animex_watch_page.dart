@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import '../../../../../shared/utils/responsive_image.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
@@ -20,7 +19,6 @@ import '../../../data/services/animex_stores.dart';
 import '../../../data/services/aniskip_service.dart';
 import 'animex_videasy_progress.dart';
 
-import 'animex_badges.dart';
 import 'animex_buttons.dart';
 import 'animex_controller.dart';
 import 'animex_footer.dart';
@@ -28,9 +26,9 @@ import 'animex_player.dart';
 import 'animex_poster_row.dart';
 import 'animex_section_header.dart';
 import 'animex_tokens.dart';
-import '../../../../../core/theme/app_colors.dart';
 part 'animex_watch_page_widgets.dart';
 part 'animex_watch_page_sheets.dart';
+part 'animex_watch_page_episodes.dart';
 
 class AnimeServerOption {
   final String name;
@@ -140,7 +138,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   AniListDetail? _detail;
   List<AniListEpisode> _episodes = [];
   late int _selectedEpisode;
-  int _episodePage = 1;
   String _audio = 'sub';
   int _serverIndex = 0;
   final PlayerMemoryService _memoryService = PlayerMemoryService();
@@ -156,11 +153,36 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   String get _memoryKey =>
       PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
   List<_ServerOption> _servers = [];
+
   final Set<int> _failedServerIndices = {};
   bool _showErrorCard = false;
   bool _probingServer = false;
+  bool _hideServerNotice = false;
 
-  static const _episodesPerPage = 24;
+  AniListEpisode? get _activeEpisode {
+    for (final e in _episodes) {
+      if (e.number == _selectedEpisode) return e;
+    }
+    return null;
+  }
+
+  String get _activeEpisodeTitle {
+    final ep = _activeEpisode;
+    final t = ep?.title;
+    if (t != null && t.isNotEmpty) return t;
+    return 'Episode $_selectedEpisode';
+  }
+
+  void _openEpisodeInfo(AniListEpisode ep) {
+    _showEpisodeInfoSheet(
+      context,
+      episode: ep,
+      animeTitle: _displayTitle,
+      fallbackPoster: _item.posterUrl,
+      isPlaying: ep.number == _selectedEpisode,
+      onPlay: () => _selectEpisode(ep.number),
+    );
+  }
 
   MediaItem get _item => widget.controller.watchItem!;
   int get _malId => _item.tmdbId;
@@ -174,6 +196,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
     _servers = _buildServers();
+    _episodes = _buildEpisodeList(null);
     _load();
     _fetchSkipTimes();
     _restoreMemory();
@@ -286,6 +309,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       malId: malId,
     );
     int? mappedAnilistId;
+    // The ani.zip mappings payload also carries per-episode metadata
+    // (title variants, overview/summary, still image, runtime, air
+    // date) — AniList streaming episodes have clean titles + licensed
+    // stills but no synopses, so merge both sources in
+    // [_buildEpisodeList]. The mappings call is cached, so reusing the
+    // same payload here costs no extra round-trip.
+    Map<int, Map<String, dynamic>> aniZipEpisodes = const {};
     try {
       final mappings = await _aniZip.fetchMappings(_malId);
       final mapped = mappings?['mappings'] as Map<String, dynamic>?;
@@ -296,6 +326,16 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         final parsed = int.tryParse(rawAni);
         if (parsed != null && parsed > 0) mappedAnilistId = parsed;
       }
+      final rawEpisodes = mappings?['episodes'] as Map<String, dynamic>?;
+      if (rawEpisodes != null && rawEpisodes.isNotEmpty) {
+        final parsedMap = <int, Map<String, dynamic>>{};
+        rawEpisodes.forEach((key, value) {
+          if (value is! Map<String, dynamic>) return;
+          final n = int.tryParse(key.toString());
+          if (n != null) parsedMap[n] = value;
+        });
+        aniZipEpisodes = parsedMap;
+      }
     } catch (_) {}
     _mappedAnilistId = mappedAnilistId;
     if (!mounted) return;
@@ -303,7 +343,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     final firstAvailable = nextServers.indexWhere((s) => s.available);
     setState(() {
       _detail = detail;
-      _episodes = _buildEpisodeList(detail);
+      _episodes = _buildEpisodeList(detail, aniZipEpisodes: aniZipEpisodes);
       if (_episodes.isNotEmpty) {
         _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
       }
@@ -338,12 +378,88 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     super.dispose();
   }
 
-  List<AniListEpisode> _buildEpisodeList(AniListDetail? detail) {
+  /// Merges AniList streaming-episode data (clean titles, licensed
+  /// stills) with ani.zip per-episode metadata (English/x-jat titles,
+  /// overview/summary synopsis, TVDB stills, runtime, air date).
+  /// AniList wins on title/thumbnail when present; ani.zip fills every
+  /// gap so each episode card has a name, a thumbnail, and a
+  /// "what happened" synopsis.
+  List<AniListEpisode> _buildEpisodeList(
+    AniListDetail? detail, {
+    Map<int, Map<String, dynamic>> aniZipEpisodes = const {},
+  }) {
     final fromDetail = detail?.episodes ?? const <AniListEpisode>[];
-    if (fromDetail.isNotEmpty) return fromDetail;
-    final count = detail?.episodeCount ?? _item.episodeCount ?? 12;
-    if (count <= 0) return const [];
-    return List.generate(count, (i) => AniListEpisode(number: i + 1));
+    final detailMap = <int, AniListEpisode>{
+      for (final e in fromDetail) e.number: e,
+    };
+
+    final countFromDetail = detail?.episodeCount ?? _item.episodeCount ?? 0;
+    final maxNum = [
+      countFromDetail,
+      if (detailMap.isNotEmpty) detailMap.keys.reduce((a, b) => a > b ? a : b),
+      if (aniZipEpisodes.isNotEmpty)
+        aniZipEpisodes.keys.reduce((a, b) => a > b ? a : b),
+    ].fold<int>(0, (a, b) => a > b ? a : b);
+
+    final effectiveCount = maxNum > 0 ? maxNum : 12;
+
+    final out = <AniListEpisode>[];
+    for (var i = 1; i <= effectiveCount; i++) {
+      final base = detailMap[i];
+      final az = aniZipEpisodes[i];
+      final azTitles = az?['title'] as Map<String, dynamic>?;
+
+      final azEnTitle = azTitles?['en'] as String?;
+      final azJatTitle = azTitles?['x-jat'] as String?;
+      final azJaTitle = azTitles?['ja'] as String?;
+
+      final baseTitle = base?.title;
+      final title = (baseTitle != null &&
+              baseTitle.isNotEmpty &&
+              !baseTitle.toLowerCase().startsWith('episode $i'))
+          ? baseTitle
+          : (azEnTitle ?? azJatTitle ?? baseTitle ?? 'Episode $i');
+
+      final titleRomaji = base?.titleRomaji ?? azJatTitle ?? azJaTitle;
+
+      final baseSynopsis = base?.synopsis;
+      final synopsis = (baseSynopsis != null && baseSynopsis.isNotEmpty)
+          ? baseSynopsis
+          : ((az?['overview'] as String?)?.isNotEmpty == true
+              ? (az?['overview'] as String?)
+              : (az?['summary'] as String?));
+
+      final baseThumb = base?.thumbnail;
+      final thumbnail = (baseThumb != null && baseThumb.isNotEmpty)
+          ? baseThumb
+          : (az?['image'] as String?);
+
+      final rawDuration = az?['runtime'] ?? az?['length'];
+      final duration = base?.duration ??
+          (rawDuration is num ? rawDuration.toInt() : null) ??
+          detail?.duration;
+
+      DateTime? airedAt = base?.airedAt;
+      if (airedAt == null) {
+        final rawAir = az?['airDate'] ?? az?['airdate'];
+        if (rawAir is String && rawAir.isNotEmpty) {
+          airedAt = DateTime.tryParse(rawAir);
+        }
+      }
+
+      out.add(
+        AniListEpisode(
+          number: i,
+          title: title,
+          titleRomaji: titleRomaji,
+          synopsis: synopsis,
+          airedAt: airedAt,
+          duration: duration,
+          thumbnail: thumbnail,
+        ),
+      );
+    }
+    return out;
   }
 
   List<AnimeServerOption> _buildServers({int? mappedAnilistId}) {
@@ -614,8 +730,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 64),
       children: [
-        _buildHero(context),
-        const SizedBox(height: 24),
+        _buildTopBar(context),
+        const SizedBox(height: 12),
         _buildPlayerSection(context),
         const SizedBox(height: 32),
         if (_detail != null) _buildInfoSection(context),
@@ -633,176 +749,194 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
   }
 
-  Widget _buildHero(BuildContext context) {
+  Widget _buildTopBar(BuildContext context) {
     final detail = _detail;
-    final banner = detail?.bannerImageUrl.isNotEmpty == true
-        ? detail!.bannerImageUrl
-        : _item.backdropUrl;
     return Container(
-      height: 420,
-      clipBehavior: Clip.hardEdge,
-      decoration: const BoxDecoration(color: AnimeXTokens.bg),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (banner.isNotEmpty)
-            AppNetworkImage(
-              imageUrl: banner,
-              fit: BoxFit.cover,
-              cacheWidth: heroCacheWidth(context),
-              errorWidget: Container(color: AnimeXTokens.surfaceRaised),
-            )
-          else
-            Container(color: AnimeXTokens.surfaceRaised),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xCC0A0A0F),
-                  AppColors.scrimMedium,
-                  Color(0xF20A0A0F),
-                ],
-                stops: [0, 0.5, 1],
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: widget.controller.closeDetail,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0x990A0A0F),
+                    borderRadius: BorderRadius.circular(
+                      AnimeXTokens.radiusLg,
+                    ),
+                    border: Border.all(color: AnimeXTokens.borderStrong),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 17,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
-          ),
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: GestureDetector(
-                  onTap: widget.controller.closeDetail,
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: const Color(0x990A0A0F),
-                        borderRadius: BorderRadius.circular(
-                          AnimeXTokens.radiusLg,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _displayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: dmSansStyle(
+                      size: 15,
+                      color: AnimeXTokens.textPrimary,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    'Episode $_selectedEpisode${_activeEpisodeTitle.isNotEmpty ? ' \u2022 $_activeEpisodeTitle' : ''}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: dmSansStyle(
+                      size: 11.5,
+                      color: AnimeXTokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (detail?.trailerYoutubeId != null)
+              GestureDetector(
+                onTap: () => showAnimexTrailer(
+                  context,
+                  youtubeId: detail?.trailerYoutubeId,
+                  anilistId: _anilistId,
+                  malId: _malId,
+                  title: _displayTitle,
+                ),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                      border: Border.all(color: AnimeXTokens.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.play_circle_outline_rounded,
+                          size: 15,
+                          color: AnimeXTokens.textPrimary,
                         ),
-                        border: Border.all(color: AnimeXTokens.borderStrong),
-                      ),
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 17,
-                        color: Colors.white,
-                      ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Trailer',
+                          style: dmSansStyle(
+                            size: 11.5,
+                            color: AnimeXTokens.textPrimary,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showPlaylistSheet(context),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                    border: Border.all(color: AnimeXTokens.border),
+                  ),
+                  child: const Icon(
+                    Icons.bookmark_add_outlined,
+                    size: 17,
+                    color: AnimeXTokens.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _showShareSheet(context),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                    border: Border.all(color: AnimeXTokens.border),
+                  ),
+                  child: const Icon(
+                    Icons.ios_share_rounded,
+                    size: 17,
+                    color: AnimeXTokens.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServerNotice(BuildContext context) {
+    if (_hideServerNotice) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(top: 10, bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0x33FF2E63),
+        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+        border: Border.all(color: const Color(0x55FF2E63)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: const BoxDecoration(
+              color: Color(0x44FF2E63),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.info_outline_rounded,
+              size: 13,
+              color: AnimeXTokens.accentWarm,
             ),
           ),
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 24,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
-                  child: SizedBox(
-                    width: 110,
-                    height: 160,
-                    child: _item.posterUrl.isEmpty
-                        ? Container(color: AnimeXTokens.surfaceRaised)
-                        : AppNetworkImage(
-                            imageUrl: _item.posterUrl,
-                            fit: BoxFit.cover,
-                            cacheWidth: 250,
-                            errorWidget: Container(
-                              color: AnimeXTokens.surfaceRaised,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _displayTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: bebasStyle(
-                          size: 42,
-                          color: AnimeXTokens.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (detail != null) statusBadge(detail.airingStatus),
-                          if (detail != null && detail.format.isNotEmpty)
-                            AnimeXBadge(
-                              label: detail.format,
-                              kind: AnimeXBadgeKind.episodes,
-                            ),
-                          if (detail?.episodeCount != null)
-                            AnimeXBadge(
-                              label: '${detail!.episodeCount} EP',
-                              kind: AnimeXBadgeKind.episodes,
-                            ),
-                          if (detail?.averageScore != null &&
-                              detail!.averageScore! > 0)
-                            AnimeXBadge(
-                              label:
-                                  '★ ${detail.averageScore!.toStringAsFixed(1)}',
-                              kind: AnimeXBadgeKind.rating,
-                            ),
-                          if (detail?.duration != null)
-                            AnimeXBadge(
-                              label: '${detail!.duration} min',
-                              kind: AnimeXBadgeKind.episodes,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          AnimeXWatchNowButton(
-                            label: 'Watch Now',
-                            onTap: () => _scrollToPlayer(),
-                          ),
-                          AnimeXSecondaryButton(
-                            label: 'Trailer',
-                            icon: Icons.play_circle_outline_rounded,
-                            onTap: () => showAnimexTrailer(
-                              context,
-                              youtubeId: detail?.trailerYoutubeId,
-                              anilistId: _anilistId,
-                              malId: _malId,
-                              title: _displayTitle,
-                            ),
-                          ),
-                          AnimeXSecondaryButton(
-                            label: 'Save to Playlist',
-                            icon: Icons.bookmark_add_outlined,
-                            onTap: () => _showPlaylistSheet(context),
-                          ),
-                          AnimeXGhostButton(
-                            label: 'Share',
-                            icon: Icons.ios_share_rounded,
-                            onTap: () => _showShareSheet(context),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "If the current server doesn't work, feel free to try the other available servers.",
+              style: dmSansStyle(
+                size: 11.5,
+                color: Colors.white,
+                weight: FontWeight.w500,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => setState(() => _hideServerNotice = true),
+            child: const Icon(
+              Icons.close_rounded,
+              size: 15,
+              color: AnimeXTokens.textSecondary,
             ),
           ),
         ],
@@ -810,20 +944,253 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
   }
 
+  Widget _buildCurrentEpisodeHeader(BuildContext context) {
+    final ep = _activeEpisode;
+    final epTitle = _activeEpisodeTitle;
+    final airedAt = ep?.airedAt;
+    final hasSynopsis = ep?.synopsis != null && ep!.synopsis!.trim().isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          epTitle,
+          style: dmSansStyle(
+            size: 18,
+            color: AnimeXTokens.textPrimary,
+            weight: FontWeight.w700,
+            height: 1.25,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Text(
+              'Episode $_selectedEpisode',
+              style: dmSansStyle(
+                size: 12,
+                color: AnimeXTokens.accentWarm,
+                weight: FontWeight.w700,
+              ),
+            ),
+            if (ep?.duration != null && ep!.duration! > 0) ...[
+              Text(
+                '  \u2022  ',
+                style: dmSansStyle(size: 11, color: AnimeXTokens.textMuted),
+              ),
+              Text(
+                '${ep.duration} min',
+                style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+              ),
+            ],
+            if (airedAt != null) ...[
+              Text(
+                '  \u2022  ',
+                style: dmSansStyle(size: 11, color: AnimeXTokens.textMuted),
+              ),
+              Text(
+                '${airedAt.year}-${airedAt.month.toString().padLeft(2, '0')}-${airedAt.day.toString().padLeft(2, '0')}',
+                style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+              ),
+            ],
+            if (hasSynopsis) ...[
+              const Spacer(),
+              GestureDetector(
+                onTap: () => _openEpisodeInfo(ep),
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.auto_stories_outlined,
+                        size: 14,
+                        color: AnimeXTokens.accentWarm,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'What happened',
+                        style: dmSansStyle(
+                          size: 11.5,
+                          color: AnimeXTokens.accentWarm,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkipRow(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        if (_skipButtonVisible(_skipTimes!.opening))
+          AnimeXGhostButton(
+            label: 'Skip Opening \u2192 ${_skipTimes!.opening!.endLabel}',
+            icon: Icons.skip_next_rounded,
+            color: AnimeXTokens.accentWarm,
+            onTap: () => _skipTo(_skipTimes!.opening!, 'opening'),
+          ),
+        if (_skipButtonVisible(_skipTimes!.ending))
+          AnimeXGhostButton(
+            label: 'Skip Ending \u2192 ${_skipTimes!.ending!.endLabel}',
+            icon: Icons.skip_next_rounded,
+            color: AnimeXTokens.accentWarm,
+            onTap: () => _skipTo(_skipTimes!.ending!, 'ending'),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildServerAndAudioRow(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (var i = 0; i < _servers.length; i++)
+          if (_servers[i].available)
+            GestureDetector(
+              onTap: () => _selectServer(i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: _serverIndex == i
+                      ? AnimeXTokens.accent.withValues(alpha: 0.18)
+                      : Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(
+                    AnimeXTokens.radiusSm,
+                  ),
+                  border: Border.all(
+                    color: _serverIndex == i
+                        ? AnimeXTokens.accent.withValues(alpha: 0.45)
+                        : AnimeXTokens.border,
+                  ),
+                ),
+                child: Text(
+                  _servers[i].name,
+                  style: dmSansStyle(
+                    size: 12,
+                    color: _serverIndex == i
+                        ? AnimeXTokens.accentWarm
+                        : AnimeXTokens.textSecondary,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+        const SizedBox(width: 6),
+        _AudioToggle(
+          audio: _audio,
+          onChanged: (a) {
+            setState(() => _audio = a);
+            _memoryService.save(_memoryKey, audio: a);
+            _failedServerIndices.clear();
+            _showErrorCard = false;
+            _probeCurrentServer();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStepButtons(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _EpisodeStepButton(
+          label: 'Prev Episode',
+          enabled: _selectedEpisode > 1,
+          onTap: () => _stepEpisode(-1),
+        ),
+        _EpisodeStepButton(
+          label: 'Next Episode',
+          enabled: _selectedEpisode < _episodes.length,
+          onTap: () => _stepEpisode(1),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlayerSection(BuildContext context) {
     final episodes = _episodes;
-    final resume = context.watch<AnimexStores>().findHistory(
-      'animex-${_anilistId ?? _malId}',
+    final width = MediaQuery.sizeOf(context).width;
+    final isDesktop = width >= 1200;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final maxPlayerHeight = (viewportHeight - 280)
+        .clamp(240.0, AnimeXTokens.playerMaxHeight)
+        .toDouble();
+
+    // The sidebar top-aligns with the player, so its height matches the
+    // player's effective 16:9 height exactly (the player column and the
+    // sidebar share the same row constraints).
+    final contentWidth = (width - 48).clamp(0.0, AnimeXTokens.watchPageMaxWidth);
+    final playerColumnWidth = contentWidth - 20 - 380;
+    final sidebarHeight = (playerColumnWidth * 9 / 16)
+        .clamp(0.0, maxPlayerHeight)
+        .toDouble();
+
+    final playerColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildPlayer(context),
+        const SizedBox(height: 12),
+        _buildCurrentEpisodeHeader(context),
+        _buildServerNotice(context),
+        if (!_showErrorCard && _playerUrl.isNotEmpty && _skipRowVisible) ...[
+          const SizedBox(height: 4),
+          _buildSkipRow(context),
+        ],
+        const SizedBox(height: 10),
+        _buildServerAndAudioRow(context),
+        const SizedBox(height: 12),
+        _buildStepButtons(context),
+      ],
     );
-    final resumeEpisode = resume?.episode;
-    final pageCount = (episodes.length / _episodesPerPage).ceil().clamp(
-      1,
-      1 << 31,
-    );
-    final pageEpisodes = episodes
-        .skip((_episodePage - 1) * _episodesPerPage)
-        .take(_episodesPerPage)
-        .toList();
+
+    if (isDesktop) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AnimeXTokens.watchPageMaxWidth,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: playerColumn),
+                const SizedBox(width: 20),
+                SizedBox(
+                  width: 380,
+                  height: sidebarHeight,
+                  child: _DesktopEpisodesSidebar(
+                    episodes: episodes,
+                    selectedEpisode: _selectedEpisode,
+                    animeTitle: _displayTitle,
+                    fallbackPoster: _item.posterUrl,
+                    onSelectEpisode: _selectEpisode,
+                    onShowInfo: _openEpisodeInfo,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Center(
       child: ConstrainedBox(
@@ -835,240 +1202,22 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPlayer(context),
-              const SizedBox(height: 16),
-            if (!_showErrorCard &&
-                _playerUrl.isNotEmpty &&
-                _skipRowVisible) ...[
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  if (_skipButtonVisible(_skipTimes!.opening))
-                    AnimeXGhostButton(
-                      label:
-                          'Skip Opening \u2192 ${_skipTimes!.opening!.endLabel}',
-                      icon: Icons.skip_next_rounded,
-                      color: AnimeXTokens.accentWarm,
-                      onTap: () => _skipTo(_skipTimes!.opening!, 'opening'),
-                    ),
-                  if (_skipButtonVisible(_skipTimes!.ending))
-                    AnimeXGhostButton(
-                      label:
-                          'Skip Ending \u2192 ${_skipTimes!.ending!.endLabel}',
-                      icon: Icons.skip_next_rounded,
-                      color: AnimeXTokens.accentWarm,
-                      onTap: () => _skipTo(_skipTimes!.ending!, 'ending'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (var i = 0; i < _servers.length; i++)
-                  if (_servers[i].available)
-                    GestureDetector(
-                      onTap: () => _selectServer(i),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 7,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _serverIndex == i
-                              ? AnimeXTokens.accent.withValues(alpha: 0.18)
-                              : Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(
-                            AnimeXTokens.radiusSm,
-                          ),
-                          border: Border.all(
-                            color: _serverIndex == i
-                                ? AnimeXTokens.accent.withValues(alpha: 0.45)
-                                : AnimeXTokens.border,
-                          ),
-                        ),
-                        child: Text(
-                          _servers[i].name,
-                          style: dmSansStyle(
-                            size: 12,
-                            color: _serverIndex == i
-                                ? AnimeXTokens.accentWarm
-                                : AnimeXTokens.textSecondary,
-                            weight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                const SizedBox(width: 6),
-                _AudioToggle(
-                  audio: _audio,
-                  onChanged: (a) {
-                    setState(() => _audio = a);
-                    _memoryService.save(_memoryKey, audio: a);
-                    _failedServerIndices.clear();
-                    _showErrorCard = false;
-                    _probeCurrentServer();
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Text(
-                  'All Episodes',
-                  style: dmSansStyle(
-                    size: 16,
-                    color: AnimeXTokens.textPrimary,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                if (resumeEpisode != null && resumeEpisode != _selectedEpisode)
-                  GestureDetector(
-                    onTap: () => _selectEpisode(resumeEpisode),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AnimeXTokens.accent.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: AnimeXTokens.accent.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        'Resume EP $resumeEpisode',
-                        style: dmSansStyle(
-                          size: 11.5,
-                          color: AnimeXTokens.accent,
-                          weight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (pageCount > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 10),
-                    child: Text(
-                      '$_episodePage / $pageCount',
-                      style: dmSansStyle(
-                        size: 12,
-                        color: AnimeXTokens.textSecondary,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (pageEpisodes.isEmpty)
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 30),
-                alignment: Alignment.center,
-                child: Text(
-                  'Episode List Unavailable',
-                  style: dmSansStyle(
-                    size: 13,
-                    color: AnimeXTokens.textSecondary,
-                  ),
-                ),
-              )
-            else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: _gridColumns(context),
-                  mainAxisSpacing: 6,
-                  crossAxisSpacing: 6,
-                  mainAxisExtent: 38,
-                ),
-                itemCount: pageEpisodes.length,
-                itemBuilder: (context, i) {
-                  final ep = pageEpisodes[i].number;
-                  final active = ep == _selectedEpisode;
-                  return GestureDetector(
-                    onTap: () => _selectEpisode(ep),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 120),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: active
-                            ? AnimeXTokens.accent
-                            : Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(
-                          AnimeXTokens.radiusSm,
-                        ),
-                        border: Border.all(
-                          color: active
-                              ? AnimeXTokens.accent
-                              : AnimeXTokens.border,
-                        ),
-                      ),
-                      child: Text(
-                        ep.toString().padLeft(2, '0'),
-                        style: dmSansStyle(
-                          size: 12,
-                          color: active
-                              ? Colors.white
-                              : AnimeXTokens.textSecondary,
-                          weight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            if (pageCount > 1) ...[
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  AnimeXGhostButton(
-                    label: 'Prev',
-                    onTap: _episodePage > 1
-                        ? () => setState(() => _episodePage--)
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  AnimeXGhostButton(
-                    label: 'Next',
-                    onTap: _episodePage < pageCount
-                        ? () => setState(() => _episodePage++)
-                        : null,
-                  ),
-                ],
+              playerColumn,
+              const SizedBox(height: 24),
+              _MobileEpisodesSection(
+                episodes: episodes,
+                selectedEpisode: _selectedEpisode,
+                animeTitle: _displayTitle,
+                fallbackPoster: _item.posterUrl,
+                onSelectEpisode: _selectEpisode,
+                onShowInfo: _openEpisodeInfo,
               ),
             ],
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _EpisodeStepButton(
-                  label: 'Prev Episode',
-                  enabled: _selectedEpisode > 1,
-                  onTap: () => _stepEpisode(-1),
-                ),
-                _EpisodeStepButton(
-                  label: 'Next Episode',
-                  enabled: _selectedEpisode < episodes.length,
-                  onTap: () => _stepEpisode(1),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildPlayer(BuildContext context) {
     final viewportHeight = MediaQuery.sizeOf(context).height;
@@ -1281,24 +1430,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         ),
       ],
     );
-  }
-
-  void _scrollToPlayer() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollCtrl.hasClients) return;
-      _scrollCtrl.animateTo(
-        460,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOut,
-      );
-    });
-  }
-
-  int _gridColumns(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width >= 840) return 6;
-    if (width >= 540) return 4;
-    return 2;
   }
 
   void _showShareSheet(BuildContext context) {
