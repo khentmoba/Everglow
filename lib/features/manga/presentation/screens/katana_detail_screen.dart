@@ -31,6 +31,8 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   String? _error;
   bool _isReading = false;
   bool _reversed = true; // site shows newest first
+  KatanaBookmark? _partnerProgress;
+  KatanaBookmark? _recommendation;
 
   String get _user => context.read<AuthService>().currentUser ?? '';
 
@@ -40,6 +42,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     _manga = widget.preview;
     _load();
     _loadReading();
+    _loadCoupleData();
   }
 
   Future<void> _load() async {
@@ -54,6 +57,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
           _manga = manga;
           _loading = false;
         });
+        _loadCoupleData();
       }
     } catch (e) {
       if (mounted) {
@@ -63,6 +67,190 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
         });
       }
     }
+  }
+
+  Future<void> _loadCoupleData() async {
+    if (_user != 'khentsgdz' && _user != 'clairjassen') return;
+    final partner = await _service.getPartnerProgress(widget.slug, _user);
+    final rec = await _service.getRecommendationForMe(widget.slug, _user);
+    if (mounted) {
+      setState(() {
+        _partnerProgress = partner;
+        _recommendation = rec;
+      });
+    }
+  }
+
+  String get _partnerName => _user == 'khentsgdz' ? 'Clair' : 'Khent';
+
+  Future<void> _openRecommendDialog() async {
+    final manga = _manga;
+    if (manga == null || _user.isEmpty) return;
+    final controller = TextEditingController();
+    final sent = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: KatanaColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(
+              Icons.favorite_rounded,
+              color: KatanaColors.accent,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Recommend to $_partnerName',
+              style: AppTypography.outfitBold.copyWith(
+                color: KatanaColors.text,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Leave a sweet note for $_partnerName with this series:',
+              style: KatanaType.body.copyWith(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              maxLines: 3,
+              style: KatanaType.body.copyWith(color: KatanaColors.text),
+              decoration: InputDecoration(
+                hintText: 'e.g. You are going to love the romance and art here!',
+                hintStyle: const TextStyle(
+                  color: KatanaColors.textLight,
+                  fontSize: 12.5,
+                ),
+                filled: true,
+                fillColor: KatanaColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: KatanaColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: KatanaColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: KatanaColors.accent),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          KatanaButton(
+            label: 'Send 💕',
+            icon: Icons.send_rounded,
+            onTap: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+    if (sent == true) {
+      await _service.recommendManga(
+        manga: manga,
+        fromUser: _user,
+        note: controller.text,
+      );
+      _showSnack('Recommended "${manga.title}" to $_partnerName 💕');
+      _loadCoupleData();
+    }
+  }
+
+  Widget _buildCoupleBanners() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_recommendation != null) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: KatanaColors.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: KatanaColors.accent.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.favorite_rounded,
+                  color: KatanaColors.accent,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text:
+                              '${_recommendation!.recommendedBy == 'khentsgdz' ? 'Khent' : 'Clair'} recommended this to you 💕',
+                          style: AppTypography.outfitBold.copyWith(
+                            color: KatanaColors.accent,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        if (_recommendation!.recommendationNote.isNotEmpty)
+                          TextSpan(
+                            text: ': "${_recommendation!.recommendationNote}"',
+                            style: KatanaType.body.copyWith(fontSize: 12),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (_partnerProgress != null) ...[
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: KatanaColors.surfaceAlt,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: KatanaColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.auto_stories_rounded,
+                  color: KatanaColors.textMuted,
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '$_partnerName is reading: ${_partnerProgress!.lastReadChapterTitle.isNotEmpty ? _partnerProgress!.lastReadChapterTitle : 'In progress'}${_partnerProgress!.lastReadPage > 0 ? ' (Page ${_partnerProgress!.lastReadPage})' : ''}',
+                    style: KatanaType.small.copyWith(
+                      color: KatanaColors.textMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   Future<void> _loadReading() async {
@@ -327,6 +515,10 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
           _metaRow('Latest chapter(s):', manga.latestChapter!.title),
         if (manga.updateText.isNotEmpty)
           _metaRow('Update at:', manga.updateText),
+        if (_user == 'khentsgdz' || _user == 'clairjassen') ...[
+          const SizedBox(height: 12),
+          _buildCoupleBanners(),
+        ],
         const SizedBox(height: 14),
         Wrap(
           spacing: 8,
@@ -343,7 +535,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
               filled: false,
               onTap: _openDownload,
             ),
-            if (_user == 'khentsgdz' || _user == 'clairjassen')
+            if (_user == 'khentsgdz' || _user == 'clairjassen') ...[
               KatanaButton(
                 label: _isReading ? 'Reading' : _readingButtonLabel!,
                 icon: _isReading
@@ -353,6 +545,14 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 color: _isReading ? KatanaColors.green : KatanaColors.accent,
                 onTap: _toggleReading,
               ),
+              KatanaButton(
+                label: 'Recommend to $_partnerName 💕',
+                icon: Icons.favorite_rounded,
+                filled: false,
+                color: KatanaColors.accent,
+                onTap: _openRecommendDialog,
+              ),
+            ],
           ],
         ),
       ],
@@ -422,6 +622,10 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                     ],
                   ),
                 ],
+                if (_user == 'khentsgdz' || _user == 'clairjassen') ...[
+                  const SizedBox(height: 10),
+                  _buildCoupleBanners(),
+                ],
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
@@ -438,7 +642,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                       filled: false,
                       onTap: _openDownload,
                     ),
-                    if (_user == 'khentsgdz' || _user == 'clairjassen')
+                    if (_user == 'khentsgdz' || _user == 'clairjassen') ...[
                       KatanaButton(
                         label: _isReading ? 'Reading' : _readingButtonLabel!,
                         icon: _isReading
@@ -450,6 +654,14 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                             : KatanaColors.accent,
                         onTap: _toggleReading,
                       ),
+                      KatanaButton(
+                        label: 'Recommend 💕',
+                        icon: Icons.favorite_rounded,
+                        filled: false,
+                        color: KatanaColors.accent,
+                        onTap: _openRecommendDialog,
+                      ),
+                    ],
                   ],
                 ),
               ],
