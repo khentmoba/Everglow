@@ -67,6 +67,19 @@ class AnimeXWatchPage extends StatefulWidget {
     }
   }
 
+  /// Picks the MAL id used for ani.zip mappings lookups. The route often
+  /// carries only an AniList id (the id slot reads 0), so prefer the MAL
+  /// id from the freshly fetched AniList detail and fall back to the
+  /// route's id slot.
+  @visibleForTesting
+  static int resolveMappingsMalId({
+    int? detailMalId,
+    required int routeMalId,
+  }) {
+    if (detailMalId != null && detailMalId > 0) return detailMalId;
+    return routeMalId;
+  }
+
   /// Builds the anime embed servers, cleanest first. Every server plays
   /// caged inside the sandboxed player frame, which traps the popunders
   /// / top-frame hijacks third-party anime embeds are famous for — the
@@ -344,6 +357,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
     int? mappedAnilistId;
     int? mappedTmdbId;
+    // ani.zip mappings are MAL-keyed — querying mal_id=0 returns nothing,
+    // which used to hide every TMDB-keyed server and leave Clair with a
+    // Megavid-only list.
+    final mappingsMalId = AnimeXWatchPage.resolveMappingsMalId(
+      detailMalId: detail?.malId,
+      routeMalId: _malId,
+    );
     Map<int, ({int season, int episode})> episodeSlots = const {};
     // The ani.zip mappings payload also carries per-episode metadata
     // (title variants, overview/summary, still image, runtime, air
@@ -353,7 +373,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     // same payload here costs no extra round-trip.
     Map<int, Map<String, dynamic>> aniZipEpisodes = const {};
     try {
-      final mappings = await _aniZip.fetchMappings(_malId);
+      final mappings = mappingsMalId > 0
+          ? await _aniZip.fetchMappings(mappingsMalId)
+          : null;
       final mapped = mappings?['mappings'] as Map<String, dynamic>?;
       final rawAni = mapped?['anilist_id'];
       if (rawAni is num && rawAni > 0) {
@@ -395,7 +417,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _mappedTmdbId = mappedTmdbId;
     _episodeSlots = episodeSlots;
     if (!mounted) return;
-    final nextServers = _buildServers(mappedAnilistId: mappedAnilistId);
+    final nextServers = _buildServers(
+      mappedAnilistId: mappedAnilistId,
+      mappedMalId: mappingsMalId,
+    );
     final firstAvailable = nextServers.indexWhere((s) => s.available);
     setState(() {
       _detail = detail;
@@ -518,10 +543,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return out;
   }
 
-  List<AnimeServerOption> _buildServers({int? mappedAnilistId}) {
+  List<AnimeServerOption> _buildServers({
+    int? mappedAnilistId,
+    int? mappedMalId,
+  }) {
     return AnimeXWatchPage.buildServers(
       anilistId: _anilistId ?? mappedAnilistId ?? _mappedAnilistId,
-      malId: _malId,
+      malId: mappedMalId ?? _malId,
       tmdbId: _mappedTmdbId,
       episodeSlots: _episodeSlots,
     );
