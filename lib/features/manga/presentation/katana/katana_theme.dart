@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../data/services/katana_service.dart';
 
 /// Everglow "MangaCelestia" dark palette used across the
 /// manga/manhwa/manhua section. Keeps the Manga Katana layout and
@@ -256,8 +257,9 @@ class KatanaNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveUrl = KatanaService.proxyImageUrl(url);
     return AppNetworkImage(
-      imageUrl: url,
+      imageUrl: effectiveUrl,
       fit: fit,
       width: width,
       height: height,

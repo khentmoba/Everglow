@@ -192,6 +192,7 @@ class MangakatanaService with ConnectivityAware {
 
   String proxiedImageUrl(String pageUrl) {
     if (pageUrl.isEmpty) return '';
+    if (pageUrl.contains('proxyMangaKatana')) return pageUrl;
     return '$_proxyImageUrl?url=${Uri.encodeComponent(pageUrl)}';
   }
 }
