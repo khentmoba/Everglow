@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'frame_stats.dart';
+import 'perf_probe.dart';
 import 'perf_settings.dart';
 
 /// Mounts [PerfHud] over the whole app, but only while the meter switch is on,
@@ -86,6 +87,13 @@ class _PerfHudState extends State<PerfHud> {
     _since
       ..reset()
       ..start();
+    publishPerfSnapshot(
+      PerfSnapshot.of(
+        fps: _fps,
+        stats: _stats,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      ).toMap(),
+    );
     setState(() {});
   }
 
