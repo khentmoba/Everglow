@@ -251,7 +251,7 @@ class AnimeLibraryTab extends StatelessWidget {
           itemBuilder: (context, index) {
             final item = items[index];
             final badge = title == 'Currently Watching'
-                ? (!item.isMovie && item.currentEpisode != null
+                ? (item.hasEpisodeProgress && item.currentEpisode != null
                       ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
                       : 'WATCHING')
                 : title == 'Watched'

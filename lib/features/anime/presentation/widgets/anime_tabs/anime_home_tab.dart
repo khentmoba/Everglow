@@ -611,6 +611,10 @@ class AnimeHomeTab extends StatelessWidget {
           String? progressLabel;
           if (item.isMovie) {
             progressLabel = 'Movie';
+          } else if (!item.hasEpisodeProgress) {
+            // Single-episode anime (e.g. an ONA-listed film): no
+            // season/episode label, and no false 'Movie' claim either.
+            progressLabel = null;
           } else if (season != null && episode != null) {
             progressLabel = 'S$season E$episode';
           } else if (episode != null) {

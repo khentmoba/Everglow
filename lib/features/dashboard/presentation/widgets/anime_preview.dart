@@ -314,14 +314,20 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
     if (item.isMovie) {
       if (item.year.isNotEmpty) parts.add(item.year);
       parts.add('Movie');
-    } else {
-      if (item.currentEpisode != null) {
-        parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
-      } else if (item.format.isNotEmpty) {
+    } else if (item.hasEpisodeProgress && item.currentEpisode != null) {
+      parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
+      if (item.year.isNotEmpty) parts.add(item.year);
+    } else if (item.currentEpisode == null) {
+      // No progress yet: show what the title is, not where the viewer is.
+      if (item.format.isNotEmpty) {
         parts.add(item.format);
       } else if (item.studio.isNotEmpty) {
         parts.add(item.studio);
       }
+      if (item.year.isNotEmpty) parts.add(item.year);
+    } else {
+      // Single-episode anime with progress (e.g. an ONA-listed film):
+      // season/episode labels are meaningless, so show just the year.
       if (item.year.isNotEmpty) parts.add(item.year);
     }
     return parts.isNotEmpty ? parts.join(' • ') : null;
@@ -337,7 +343,8 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
               imageUrl: item.posterPath,
               title: _sanitizeTitle(item.title),
               subtitle: _subtitleFor(item),
-              topBadge: !item.isMovie && item.currentEpisode != null
+              topBadge:
+                  item.hasEpisodeProgress && item.currentEpisode != null
                   ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
                   : null,
               onTap: () => _openDetails(item),

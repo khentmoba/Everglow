@@ -419,11 +419,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       genres: _item.genres,
     );
 
+    // Movies have no episode progress — write null so Firestore never
+    // gains stale S1E1 fields that shelves would then display.
+    final isMovie = mediaItem.isMovie;
     _tmdbService.updateProgress(
       mediaItem,
       userName,
-      season: 1,
-      episode: ep,
+      season: isMovie ? null : 1,
+      episode: isMovie ? null : ep,
       timestamp: pos?.round(),
       durationSeconds: duration,
       status: status,
@@ -442,8 +445,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
         userName,
-        season: 1,
-        episode: _selectedEpisode,
+        season: _item.isMovie ? null : 1,
+        episode: _item.isMovie ? null : _selectedEpisode,
         timestamp: position.round(),
         durationSeconds: duration.round(),
       );
@@ -462,8 +465,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
         userName,
-        season: 1,
-        episode: _selectedEpisode,
+        season: _item.isMovie ? null : 1,
+        episode: _item.isMovie ? null : _selectedEpisode,
         timestamp: _playbackPosition?.round(),
         durationSeconds:
             (_detail?.duration != null && _detail!.duration! > 0)
@@ -1197,7 +1200,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             id: '',
             tmdbId: r.malId ?? 0,
             title: r.title,
-            mediaType: 'tv',
+            mediaType: r.format.trim().toLowerCase() == 'movie'
+                ? 'movie'
+                : 'tv',
             posterPath: r.coverImageUrl,
             year: '',
             status: '',

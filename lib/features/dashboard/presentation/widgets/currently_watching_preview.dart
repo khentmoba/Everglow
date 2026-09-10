@@ -251,7 +251,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
       if (item.year.isNotEmpty) parts.add(item.year);
       parts.add('Movie');
     } else {
-      if (item.currentEpisode != null) {
+      if (item.hasEpisodeProgress && item.currentEpisode != null) {
         parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
       }
       if (item.year.isNotEmpty) parts.add(item.year);
@@ -269,7 +269,8 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
               imageUrl: item.posterPath,
               title: _sanitizeTitle(item.title),
               subtitle: _subtitleFor(item),
-              topBadge: !item.isMovie && item.currentEpisode != null
+              topBadge:
+                  item.hasEpisodeProgress && item.currentEpisode != null
                   ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
                   : null,
               onTap: () => _openDetails(item),

@@ -85,7 +85,7 @@ class CinemaHomeTab extends StatelessWidget {
   }
 
   String _continueSubtitle(MediaItem item) {
-    if (item.mediaType == 'tv' && item.currentSeason != null) {
+    if (item.hasEpisodeProgress && item.currentSeason != null) {
       return 'S${item.currentSeason} · E${item.currentEpisode ?? 1}';
     }
     if ((item.currentTimestamp ?? 0) > 0) {
@@ -97,7 +97,7 @@ class CinemaHomeTab extends StatelessWidget {
           : '';
       return 'Resume at ${minutes}m$remaining';
     }
-    return item.mediaType == 'tv' ? 'Next episode ready' : 'Play from start';
+    return item.isMovie ? 'Play from start' : 'Next episode ready';
   }
 
   List<Widget> _genreRows() {
