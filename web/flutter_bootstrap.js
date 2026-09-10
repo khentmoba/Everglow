@@ -8,6 +8,20 @@
 // never touches service workers and ours owns the scope alone.
 //
 // Placeholders below are substituted at build time by flutter_tools.
+// Clean up deprecated Intl.v8BreakIterator ahead of Flutter's browser detection
+// so it cleanly chooses standard CanvasKit ICU text segmentation instead of
+// triggering Chrome's deprecation warning.
+try {
+  if (typeof window !== 'undefined' && window.Intl) {
+    delete window.Intl.v8BreakIterator;
+  }
+} catch (_) {
+  try { window.Intl.v8BreakIterator = undefined; } catch (__) {}
+}
 {{flutter_js}}
 {{flutter_build_config}}
-_flutter.loader.load();
+_flutter.loader.load({
+  config: {
+    canvasKitVariant: "full"
+  }
+});
