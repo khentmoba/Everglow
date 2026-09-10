@@ -338,9 +338,9 @@ service cloud.firestore {
     match /canvas_drawings/{docId} { allow read, write: if false; }
     match /playzone_scores/{docId} { allow read, write: if false; }
     match /relationship_stats/{docId} { allow read, write: if false; }
-    match /mochi_notes/{docId} { allow read, write: if false; }
-    match /mochi_stats/{docId} { allow read, write: if false; }
-    match /mochi_stats/{docId}/{subcol}/{subId} { allow read, write: if false; }
+    match /motchi_notes/{docId} { allow read, write: if false; }
+    match /motchi_stats/{docId} { allow read, write: if false; }
+    match /motchi_stats/{docId}/{subcol}/{subId} { allow read, write: if false; }
     match /daily_digest/{docId} { allow read, write: if false; }
 
     // Secure default: deny everything not explicitly allowed above.

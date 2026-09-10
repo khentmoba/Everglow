@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../domain/memory/memory_fact.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
 
-/// Firestore CRUD for Mochi's permanent memory (ai_memories/shared/facts).
+/// Firestore CRUD for Motchi's permanent memory (ai_memories/shared/facts).
 class AIMemoryRepository implements IAIMemoryRepository {
   final FirebaseFirestore _db;
   final User? _user;
@@ -153,7 +153,7 @@ class AIMemoryRepository implements IAIMemoryRepository {
   }
 
   /// Save a structured fact, reusing Firestore's existing schema and
-  /// adding the structured fields Mochi's trivia/search rely on.
+  /// adding the structured fields Motchi's trivia/search rely on.
   @override
   Future<void> saveStructured({
     required String fact,

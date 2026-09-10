@@ -1,4 +1,4 @@
-/// A single structured fact Mochi remembers about Khent, Clair, or
+/// A single structured fact Motchi remembers about Khent, Clair, or
 /// their relationship.
 ///
 /// Older facts in Firestore only contain [fact] and [category]. The
@@ -53,7 +53,7 @@ class MemoryFact {
     if (lower.startsWith('clair and khent')) return 'Clair and Khent';
     if (lower.startsWith('khent')) return 'Khent';
     if (lower.startsWith('clair')) return 'Clair';
-    return 'Mochi';
+    return 'Motchi';
   }
 
   MemoryFact copyWith({

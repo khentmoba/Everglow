@@ -39,7 +39,7 @@ void main() {
         final page = document.pages.add();
         for (var line = 0; line < 40; line++) {
           page.graphics.drawString(
-            'Mochi uncapped p$p l$line ${'z' * 50}',
+            'Motchi uncapped p$p l$line ${'z' * 50}',
             font,
             bounds: Rect.fromLTWH(0, line * 20, 500, 20),
           );
@@ -91,11 +91,11 @@ void main() {
       document.pages
           .add()
           .graphics
-          .drawString('Mochi study test', PdfStandardFont(PdfFontFamily.helvetica, 12));
+          .drawString('Motchi study test', PdfStandardFont(PdfFontFamily.helvetica, 12));
       final bytes = Uint8List.fromList(await document.save());
       document.dispose();
 
-      expect(extractPdfText(bytes), contains('Mochi study test'));
+      expect(extractPdfText(bytes), contains('Motchi study test'));
     });
 
     test('rejects garbage bytes with a friendly error', () {

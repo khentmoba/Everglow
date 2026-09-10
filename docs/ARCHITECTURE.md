@@ -150,7 +150,7 @@ lib/
 
 functions/
   index.js                      # HTTP functions, Firestore triggers, schedules
-  mochi_core.js                 # pure AI helpers (testable)
+  motchi_core.js                 # pure AI helpers (testable)
   system_core.js                # pure presence TTL helpers (testable)
 
 firestore.rules                 # single source of truth for access control
@@ -166,7 +166,7 @@ web/                            # PWA shell, service worker, icons
 | AI | `proxyAI`, `proxyAIv2`, `agnesImage` | SSE streaming, tool execution, image generation |
 | Ops | `health` | public liveness + Firestore reachability |
 | Trigger | `onNewChatMessage`, `onNewMood`, `onNewStarDrop`, `onNewWatchlistItem`, `onNewGalleryPhoto`, `onWatchPartyInvite`, `onNewMilestone` | FCM partner notifications |
-| Schedule | `keepWarm`, `mochiDailyDigest`, `mochiNightRecap`, `mochiMoodCheckIn`, `mochiSpecialDayNudge`, `sweepStalePresence` | maintenance + proactive features |
+| Schedule | `keepWarm`, `motchiDailyDigest`, `motchiNightRecap`, `motchiMoodCheckIn`, `motchiSpecialDayNudge`, `sweepStalePresence` | maintenance + proactive features |
 | Debug/admin | `debugGallery`, `cleanupGallery` | operational tooling (admin-only where destructive) |
 
 ## 5. Data Flow
@@ -238,7 +238,7 @@ background.
 
 ```mermaid
 sequenceDiagram
-  participant C as Mochi client
+  participant C as Motchi client
   participant F as proxyAI / proxyAIv2
   participant DB as Firestore
   participant L as Agnes 2.5 Flash LLM
@@ -318,8 +318,8 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 
 - `sweepStalePresence`: every 2 minutes, Firestore-indexed stale sweep.
 - `keepWarm`: every 10 minutes, reduces AI cold starts.
-- `mochiDailyDigest` / `mochiNightRecap` / `mochiMoodCheckIn` /
-  `mochiSpecialDayNudge`: Asia/Manila timezone proactive features.
+- `motchiDailyDigest` / `motchiNightRecap` / `motchiMoodCheckIn` /
+  `motchiSpecialDayNudge`: Asia/Manila timezone proactive features.
 
 ### 6.4 External provider contracts
 
@@ -433,7 +433,7 @@ is derived from Firestore.
 
 ### Layer 5: In-process caches
 
-- Mochi persona document cache with TTL.
+- Motchi persona document cache with TTL.
 - AI context cache (30s TTL) to avoid redundant Firestore reads on rapid
   messages.
 

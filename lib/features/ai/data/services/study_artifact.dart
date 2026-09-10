@@ -2,7 +2,7 @@ import 'dart:convert';
 
 /// Study artifacts — the Claude-Artifacts / Gemini-Canvas moment for Study.
 ///
-/// When Mochi answers a "Quiz us" or "Flashcards" ask, the reply carries a
+/// When Motchi answers a "Quiz us" or "Flashcards" ask, the reply carries a
 /// hidden machine-readable block (fenced JSON) alongside the warm human
 /// text. This file turns that block into tappable data:
 ///
@@ -43,7 +43,7 @@ class Flashcard {
   const Flashcard({required this.front, required this.back});
 }
 
-/// A runnable mini-app from Mochi — a game, a page, a tool — as one
+/// A runnable mini-app from Motchi — a game, a page, a tool — as one
 /// self-contained HTML file. Rendered in a sandboxed preview (scripts run,
 /// but the frame can't touch the app or the network identity).
 class HtmlArtifact {
@@ -549,7 +549,7 @@ List<HtmlArtifact> _parseHtmlArtifactBlocks(String text) {
 /// the sandboxed preview can run it as-is.
 String _wrapHtmlFragment(String fragment) {
   final title = _htmlTitle(fragment);
-  final safeTitle = title == 'Preview' ? 'Mochi Canvas' : title;
+  final safeTitle = title == 'Preview' ? 'Motchi Canvas' : title;
   return '<!DOCTYPE html><html><head><meta charset="utf-8">'
       '<meta name="viewport" content="width=device-width,initial-scale=1">'
       '<title>${_escapeHtml(safeTitle)}</title>'

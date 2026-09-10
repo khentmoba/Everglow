@@ -14,18 +14,18 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v6.1.0** — The Glow-Up Update: Journal, 50+ Mochi tools, Cinema polish, XP rewards, phone performance
+> **v6.1.0** — The Glow-Up Update: Journal, 50+ Motchi tools, Cinema polish, XP rewards, phone performance
 > [View full changelog →](https://github.com/khentmoba/Everglow/blob/main/CHANGELOG.md) · [Release page →](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0)
 
 **v6.1.0 — The Glow-Up Update:**
 
-1. **Journal** — Shared couple journal with locked/private entries and tags, plus Mochi search and read-back.
-2. **Mochi AI grows up** — From 12 tools to 50+: web search, memory tools, gallery/garden awareness, study PDFs in chat, and a Notebook-style Study space with quizzes and flashcards.
+1. **Journal** — Shared couple journal with locked/private entries and tags, plus Motchi search and read-back.
+2. **Motchi AI grows up** — From 12 tools to 50+: web search, memory tools, gallery/garden awareness, study PDFs in chat, and a Notebook-style Study space with quizzes and flashcards.
 3. **Cinema, closer to Netflix** — Remind-me bell, Top-10 numerals, touch previews, unified episode list, removable continue-watching, and a no-ads-first player.
 4. **Anime** — AniSkip opening/ending skip buttons, AnimeX home polish, richer hover details.
 5. **XP rewards everyday love** — Faster 200 XP curve with auto-XP for moods, journaling, garden care, stars, and music.
 6. **Faster on phones** — Dashboard scroll fix, Coming Up auto-retry, 49 MB of dead game files dropped, guardian cat 4 MB → 283 KB.
-7. **Fresh coats of paint** — Redesigned Play Zone and Academy hubs, cozy Mochi chat and sidebar.
+7. **Fresh coats of paint** — Redesigned Play Zone and Academy hubs, cozy Motchi chat and sidebar.
 8. **More reliable** — Crash guards with tests, Jukebox stays up through API hiccups, hardened Firestore rules.
 
 _Previous releases: [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) · [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.1.0](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
@@ -82,7 +82,7 @@ _Previous releases: [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/
 
 | Feature | Description | Version |
 |---------|-------------|---------|
-| **Mochi AI** | AI assistant with 50+ callable tools — can manage watchlist, write notes, set moods, search movies/books/anime, check weather, create reminders, and more | 5.0.0 / **6.1.0** |
+| **Motchi AI** | AI assistant with 50+ callable tools — can manage watchlist, write notes, set moods, search movies/books/anime, check weather, create reminders, and more | 5.0.0 / **6.1.0** |
 | **Watch Party** | Watch party with WebRTC voice chat via Firestore signaling | — |
 | **Push Notifications** | FCM-powered notifications with topic subscriptions and in-app toasts | **6.0.0** |
 
@@ -132,7 +132,7 @@ lib/
     utils/                           # Logger, Firestore stream helpers, connectivity
   features/
     academy/                         # Trivia game — 8 categories, solo study, 1v1 matches
-    ai/                              # Mochi AI assistant (Agnes 2.5 Flash + 11 function tools via apihub.agnes-ai.com)
+    ai/                              # Motchi AI assistant (Agnes 2.5 Flash + 11 function tools via apihub.agnes-ai.com)
     books/                           # Book discovery & reader (Open Library) + Our Books list
     bucket_list/                     # Shared bucket list kanban (todo / doing / done)
     calendar/                        # Shared calendar + date polls (Rallly-style voting)
@@ -159,7 +159,7 @@ lib/
     widgets/shelf/                   # Shelf UI: ShelfPosterCard, ShelfHeroCarousel, CinemaNavBar, etc.
   firebase_options.dart              # Generated Firebase config
 functions/
-  index.js                           # Cloud Functions: proxies + AI (Mochi) + scheduled tasks
+  index.js                           # Cloud Functions: proxies + AI (Motchi) + scheduled tasks
 test/                                # Unit tests for calendar, canvas, dashboard, xp
 ```
 
@@ -235,20 +235,20 @@ The workflow:
 | `proxyTmdb` | Authenticated TMDB proxy (server-side API key, ID-token required) |
 | `proxyLastfm` | Authenticated Last.fm proxy (server-side API key) |
 | `proxySpotifySearch` / `spotifyExchange` / `spotifyRefresh` / `spotifyCurrentlyPlaying` | Spotify OAuth + search + playback |
-| `proxyAI` / `proxyAIv2` | Mochi AI proxy — Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 50+ tools |
+| `proxyAI` / `proxyAIv2` | Motchi AI proxy — Agnes 2.5 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 50+ tools |
 | `agnesImage` | Agnes image generation proxy (`agnes-image-2.0-flash`) |
 | `verifyPasscode` | Server-verified passcode login (Khent/Clair) |
 | `health` | Public liveness + Firestore reachability |
 | `onNewChatMessage` + 6 triggers | Firestore triggers: push + Discord fan-out for chat, moods, stars, watchlist, gallery, milestones, invites |
-| `mochiDailyDigest` + 7 schedules | Mochi scheduled jobs: digests, recaps, nudges, reminders, memory sweep |
+| `motchiDailyDigest` + 7 schedules | Motchi scheduled jobs: digests, recaps, nudges, reminders, memory sweep |
 | `notifyDiscordWatch` / `discordInteractions` | Discord watch-party notifications + interactions |
-| `sweepStalePresence` / `mochiStats` | Presence janitor + Mochi usage stats |
+| `sweepStalePresence` / `motchiStats` | Presence janitor + Motchi usage stats |
 
 ## Release History
 
 The full release-by-release history lives in [`CHANGELOG.md`](./CHANGELOG.md) and the [releases page](https://github.com/khentmoba/Everglow/releases):
 
-- [**v6.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) — The Glow-Up Update: Journal, 50+ Mochi tools, Cinema polish, XP rewards, phone performance
+- [**v6.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) — The Glow-Up Update: Journal, 50+ Motchi tools, Cinema polish, XP rewards, phone performance
 - [**v6.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) — The Relationship Hub Update: Bucket List, Calendar, Gallery, Daily Bloom Overhaul, Push Notifications, AI Function Calling
 - [**v5.3.0**](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) — Anime Embeds: provider switching, VidSrc, AniList fix
 - [**v5.2.0**](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) — Rich Anime Details: AniList/Jikan, anime search modal

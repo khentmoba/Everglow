@@ -7,15 +7,15 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 import 'everglow_markdown.dart';
 
-/// Global chat bubble system — ONE look for Mochi, Study, and Sanctuary.
+/// Global chat bubble system — ONE look for Motchi, Study, and Sanctuary.
 ///
-/// Why this exists: Mochi and Study each grew their own bubble containers,
+/// Why this exists: Motchi and Study each grew their own bubble containers,
 /// so a visual fix in one never reached the other (the "still bad UI"
 /// Khent flagged). Every assistant surface now builds on these two
 /// widgets, so an upgrade here upgrades the whole app at once.
 ///
 /// - [EverglowUserBubble] — warm rose gradient, right-aligned.
-/// - [EverglowAssistantBubble] — frosted glass with Mochi header row,
+/// - [EverglowAssistantBubble] — frosted glass with Motchi header row,
 ///   markdown body, copy button, and timestamp footer.
 /// - Both use Dusk Petal tokens only and stay selectable on web.
 class EverglowUserBubble extends StatelessWidget {
@@ -125,9 +125,9 @@ class EverglowUserBubble extends StatelessWidget {
   }
 }
 
-/// Assistant bubble shared by Mochi chat and Study answers.
+/// Assistant bubble shared by Motchi chat and Study answers.
 ///
-/// [title] is "Mochi" in chat, "MOCHI" in Study; [subtitle] is the
+/// [title] is "Motchi" in chat, "MOTCHI" in Study; [subtitle] is the
 /// context hint ("from your PDFs", "private memory + Everglow context").
 /// Streaming callers pass [isStreaming] + [streamingFooter] to show the
 /// caret / progress bar instead of the timestamp row.
@@ -145,13 +145,13 @@ class EverglowAssistantBubble extends StatelessWidget {
   const EverglowAssistantBubble({
     super.key,
     required this.text,
-    this.title = 'Mochi',
+    this.title = 'Motchi',
     this.subtitle,
     this.timeLabel,
     this.isStreaming = false,
     this.streamingFooter,
     this.leadingReasoning,
-    this.avatarAsset = 'assets/images/mochi_avatar.png',
+    this.avatarAsset = 'assets/images/motchi_avatar.png',
     this.maxWidth,
   });
 
@@ -232,7 +232,7 @@ class EverglowAssistantBubble extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header: MOCHI · context + copy.
+                // Header: MOTCHI · context + copy.
                 Row(
                   children: [
                     Container(

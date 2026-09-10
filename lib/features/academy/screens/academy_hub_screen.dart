@@ -398,7 +398,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                               ),
                               const SizedBox(height: AppSpacing.md),
                               AcademyModeCard(
-                                title: 'Study with Mochi',
+                                title: 'Study with Motchi',
                                 subtitle: 'Ask about your PDFs',
                                 badge: 'AI HELPER',
                                 icon: Icons.picture_as_pdf_rounded,
@@ -461,7 +461,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Solo for quiet practice, 1v1 to race your love, Mochi for PDFs.',
+            'Solo for quiet practice, 1v1 to race your love, Motchi for PDFs.',
             style: AppTypography.outfitWhite.copyWith(
               fontSize: 13,
               height: 1.45,
