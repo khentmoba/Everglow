@@ -105,6 +105,18 @@ class PerfSettings {
     await _persist();
   }
 
+  /// The cycle the frame meter's `dpr` line taps through:
+  /// device → 2.0x → 1.5x → device.
+  ///
+  /// 2.0 first because that is the setting worth testing: it roughly halves the
+  /// pixels the browser has to composite on a 3x phone while keeping the layout
+  /// identical.
+  static double? nextRenderScale(double? current) {
+    if (current == null) return 2.0;
+    if (current >= 2.0) return 1.5;
+    return null;
+  }
+
   static Future<void> _persist() async {
     try {
       final prefs = await SharedPreferences.getInstance();
