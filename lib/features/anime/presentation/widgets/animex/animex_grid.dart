@@ -4,6 +4,7 @@ import '../../../../cinema/data/models/media_item.dart';
 
 import 'animex_poster_card.dart';
 import 'animex_skeleton.dart';
+import 'animex_tokens.dart';
 
 /// Responsive auto-fill poster grid with a staggered entrance animation.
 class AnimeXGrid extends StatelessWidget {
@@ -49,7 +50,8 @@ class AnimeXGrid extends StatelessWidget {
             crossAxisCount: columns,
             crossAxisSpacing: spacing,
             mainAxisSpacing: spacing * 2,
-            childAspectRatio: tileWidth / (tileWidth * 1.5 + 58),
+            childAspectRatio:
+                tileWidth / (tileWidth * 1.5 + AnimeXTokens.posterDetailsHeight),
           ),
           itemBuilder: (context, i) {
             final item = items[i];

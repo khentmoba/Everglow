@@ -68,7 +68,7 @@ class AnimeXSkeletonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: cardWidth * 1.5 + 56,
+      height: cardWidth * 1.5 + AnimeXTokens.posterDetailsHeight,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
