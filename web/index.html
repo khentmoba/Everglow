@@ -21,12 +21,12 @@
   <meta name="description" content="Everglow - A private digital relationship scrapbook">
   <meta name="theme-color" content="#1a0f1e">
   <meta name="color-scheme" content="dark">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Everglow">
   <meta name="format-detection" content="telephone=no">
   <meta name="google" content="notranslate">
@@ -59,14 +59,45 @@
 
   <style>
     /* Instant dark splash: avoids white flash and gives LCP feedback before
-       CanvasKit/main.dart.js download + compile (the long pole on web). */
+       CanvasKit/main.dart.js download + compile (the long pole on web).
+       Fixed full-screen bounds prevent iOS chin gap and document scrolling. */
     html, body {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      min-height: 100vh;
       margin: 0;
       padding: 0;
-      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+      -webkit-overscroll-behavior: none;
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
       background: #1a0f1e;
       color-scheme: dark;
-      overscroll-behavior-y: none;
+    }
+
+    /* Prevent hidden text-editing textarea from intercepting pointermove/touch events
+       and corrupting offsetY relative to flutter-view (Chromium issue #184524) */
+    flt-text-editing-host {
+      pointer-events: none !important;
+    }
+
+    /* Prevent iOS Safari from auto-zooming when tapping text fields.
+       Keep them selectable/editable despite body user-select:none. */
+    input, textarea, select,
+    flt-text-editing-host input,
+    flt-text-editing-host textarea {
+      font-size: 16px !important;
+      -webkit-user-select: text !important;
+      user-select: text !important;
     }
     #eg-splash {
       position: fixed;
@@ -162,6 +193,79 @@
         }
         return origError.apply(console, arguments);
       };
+    })();
+  </script>
+
+  <script>
+    // Enforce viewport meta tag against Flutter Web's FullPageEmbeddingStrategy:
+    // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
+    // user-scalable=no & viewport-fit=cover, which causes accidental zoom & layout
+    // stretching on mobile devices. This observer guarantees the tag stays locked.
+    (function () {
+      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+      function lockMeta() {
+        var metas = document.querySelectorAll('meta[name="viewport"]');
+        for (var i = 0; i < metas.length; i++) {
+          if (metas[i].getAttribute('content') !== expected) {
+            metas[i].setAttribute('content', expected);
+          }
+        }
+        if (metas.length === 0 && document.head) {
+          var m = document.createElement('meta');
+          m.name = 'viewport';
+          m.content = expected;
+          document.head.appendChild(m);
+        }
+      }
+      if (typeof MutationObserver !== 'undefined') {
+        new MutationObserver(lockMeta).observe(document.head || document.documentElement, {
+          childList: true,
+          attributes: true,
+          attributeFilter: ['content']
+        });
+      }
+    })();
+
+    // Active scroll guardian: keeps document window at (0, 0) scroll offset
+    // so Flutter Web's computeEventOffsetToTarget never suffers downward tap offset.
+    (function () {
+      function resetScroll() {
+        if (window.scrollX !== 0 || window.scrollY !== 0) {
+          window.scrollTo(0, 0);
+        }
+        if (document.documentElement) {
+          if (document.documentElement.scrollTop !== 0) document.documentElement.scrollTop = 0;
+          if (document.documentElement.scrollLeft !== 0) document.documentElement.scrollLeft = 0;
+        }
+        if (document.body) {
+          if (document.body.scrollTop !== 0) document.body.scrollTop = 0;
+          if (document.body.scrollLeft !== 0) document.body.scrollLeft = 0;
+        }
+      }
+
+      window.addEventListener('scroll', resetScroll, { passive: true });
+      window.addEventListener('resize', resetScroll, { passive: true });
+      window.addEventListener('orientationchange', resetScroll, { passive: true });
+      window.addEventListener('pointerdown', resetScroll, { capture: true, passive: true });
+      window.addEventListener('touchstart', resetScroll, { capture: true, passive: true });
+
+      // When virtual keyboard dismisses on iOS/Android:
+      window.addEventListener('focusout', function () {
+        resetScroll();
+        setTimeout(resetScroll, 50);
+        setTimeout(resetScroll, 200);
+        setTimeout(resetScroll, 400);
+      }, { passive: true });
+
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('scroll', resetScroll, { passive: true });
+        window.visualViewport.addEventListener('resize', resetScroll, { passive: true });
+      }
+
+      // Prevent multi-finger pinch-zoom on iOS Safari:
+      document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
     })();
   </script>
 
