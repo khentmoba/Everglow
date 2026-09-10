@@ -200,10 +200,12 @@ class _EmbedWebViewState extends State<EmbedWebView> {
             color: Colors.black,
             alignment: Alignment.center,
             child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   const Icon(
                     Icons.error_outline_rounded,
                     color: AppColors.roseQuartz,
@@ -244,6 +246,7 @@ class _EmbedWebViewState extends State<EmbedWebView> {
               ),
             ),
           ),
+        ),
       ],
     );
 
