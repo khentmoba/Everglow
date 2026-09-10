@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../data/services/mochi_today_service.dart';
 import '../../domain/memory/memory_retrieval.dart';
 import '../../domain/memory/today_recap.dart';
+import '../../../books/data/services/web_tts_service.dart';
 
 /// Mochi Today — the connective-layer recap. One screen that answers
 /// "what is happening with us" from every part of Everglow and shows
@@ -146,12 +148,43 @@ class _MochiTodayScreenState extends State<MochiTodayScreen> {
               color: AppColors.auroraGold.withValues(alpha: 0.4),
             ),
           ),
-          child: Text(
-            recap,
-            style: AppTypography.outfitWhite.copyWith(
-              fontSize: 15,
-              height: 1.5,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.wb_twilight_rounded,
+                        size: 15,
+                        color: AppColors.auroraGold,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'TODAY IN EVERGLOW',
+                        style: AppTypography.labelSmall().copyWith(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: AppColors.auroraGold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  _TodayRecapListenButton(text: recap),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                recap,
+                style: AppTypography.outfitWhite.copyWith(
+                  fontSize: 15,
+                  height: 1.5,
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -333,5 +366,84 @@ class _EmptyLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, style: AppTypography.outfitMuted);
+  }
+}
+
+class _TodayRecapListenButton extends StatefulWidget {
+  final String text;
+  const _TodayRecapListenButton({required this.text});
+
+  @override
+  State<_TodayRecapListenButton> createState() => _TodayRecapListenButtonState();
+}
+
+class _TodayRecapListenButtonState extends State<_TodayRecapListenButton> {
+  bool _speaking = false;
+
+  void _toggle() {
+    HapticFeedback.lightImpact();
+    if (_speaking) {
+      WebTtsService.instance.stop();
+      if (mounted) setState(() => _speaking = false);
+    } else {
+      setState(() => _speaking = true);
+      WebTtsService.instance.speak(
+        widget.text,
+        onComplete: () {
+          if (mounted) setState(() => _speaking = false);
+        },
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_speaking) {
+      WebTtsService.instance.stop();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!WebTtsService.instance.isSupported) return const SizedBox.shrink();
+    return InkWell(
+      onTap: _toggle,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+        decoration: BoxDecoration(
+          color: _speaking
+              ? AppColors.auroraRose.withValues(alpha: 0.20)
+              : AppColors.auroraGold.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _speaking
+                ? AppColors.auroraRose.withValues(alpha: 0.40)
+                : AppColors.auroraGold.withValues(alpha: 0.35),
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _speaking ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
+              size: 14,
+              color: _speaking ? AppColors.auroraRose : AppColors.auroraGold,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              _speaking ? 'Stop' : 'Listen',
+              style: AppTypography.labelSmall().copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: _speaking ? AppColors.auroraRose : AppColors.auroraGold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
