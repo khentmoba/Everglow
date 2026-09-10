@@ -409,6 +409,80 @@ class KatanaService {
     }
   }
 
+  // ── Couple reading & recommendations ──────────────────────────
+
+  Future<KatanaBookmark?> getPartnerProgress(
+    String slug,
+    String currentUserName,
+  ) async {
+    if (currentUserName.isEmpty || slug.isEmpty) return null;
+    final partner = currentUserName == 'khentsgdz'
+        ? 'clairjassen'
+        : (currentUserName == 'clairjassen' ? 'khentsgdz' : '');
+    if (partner.isEmpty) return null;
+    try {
+      final doc = await _bookmarks.doc('$partner|$slug').get();
+      if (doc.exists && doc.data() != null) {
+        final bookmark = KatanaBookmark.fromFirestore(doc.data()!, doc.id);
+        if (bookmark.hasProgress) return bookmark;
+      }
+    } catch (e) {
+      Logger.e('getPartnerProgress error', error: e);
+    }
+    return null;
+  }
+
+  Future<KatanaBookmark?> getRecommendationForMe(
+    String slug,
+    String currentUserName,
+  ) async {
+    if (currentUserName.isEmpty || slug.isEmpty) return null;
+    try {
+      final doc = await _bookmarks.doc('$currentUserName|$slug').get();
+      if (doc.exists && doc.data() != null) {
+        final bookmark = KatanaBookmark.fromFirestore(doc.data()!, doc.id);
+        if (bookmark.isRecommended) return bookmark;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> recommendManga({
+    required KatanaManga manga,
+    required String fromUser,
+    required String note,
+  }) async {
+    if (fromUser.isEmpty || manga.slug.isEmpty) return;
+    final partner = fromUser == 'khentsgdz'
+        ? 'clairjassen'
+        : (fromUser == 'clairjassen' ? 'khentsgdz' : '');
+    if (partner.isEmpty) return;
+    try {
+      final ref = _bookmarks.doc('$partner|${manga.slug}');
+      final existing = await ref.get();
+      final data = existing.exists
+          ? Map<String, dynamic>.from(existing.data()!)
+          : KatanaBookmark(
+              slug: manga.slug,
+              title: manga.title,
+              coverUrl: manga.coverUrl,
+              status: manga.status,
+              addedAt: DateTime.now(),
+            ).toFirestore();
+
+      data['slug'] = manga.slug;
+      data['title'] = manga.title;
+      data['coverUrl'] = manga.coverUrl;
+      data['userName'] = partner;
+      data['recommendedBy'] = fromUser;
+      data['recommendationNote'] = note.trim();
+      data['recommendedAt'] = Timestamp.now();
+      await ref.set(data, SetOptions(merge: true));
+    } catch (e) {
+      Logger.e('recommendManga error', error: e);
+    }
+  }
+
   // ── Reading list (manga_library, shared with the dashboard's "Reading" shelf) ──
   //
   // The dashboard's "Reading" section streams `manga_library` entries whose
