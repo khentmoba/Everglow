@@ -73,50 +73,57 @@ class _CurrentlyWatchingHeader extends StatefulWidget {
 class _CurrentlyWatchingHeaderState extends State<_CurrentlyWatchingHeader> {
   final TMDBService _service = TMDBService();
   List<MediaItem> _items = [];
-  Future<List<MediaItem>>? _future;
+  StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _subscribe();
   }
 
   @override
   void didUpdateWidget(covariant _CurrentlyWatchingHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
       _items = [];
-      _load();
+      _subscribe();
     }
   }
 
-  void _load() {
+  void _subscribe() {
     if (widget.userName.isEmpty) {
-      _future = null;
       if (mounted) setState(() => _items = []);
       return;
     }
-    final future = _service.getPreviewItems(
-      widget.userName,
-      limit: TMDBWatchlistService.previewLimit,
+    // Realtime so undo (chip-tap remove / Continue Watching X) drops the
+    // count immediately instead of lingering until a manual reload. Bounded
+    // by previewLimit (limit) to keep dashboard reads light.
+    _streamSub?.cancel();
+    _streamSub = _service
+        .getCurrentlyWatchingStream(
+          widget.userName,
+          limit: TMDBWatchlistService.previewLimit,
+        )
+        .listen(
+      (items) {
+        if (!mounted) return;
+        // Cinema owns every movie (live-action or anime) plus non-anime TV;
+        // anime series live in the Anime rail. Filtering on isCinemaItem
+        // (instead of bare !isAnime) keeps anime films in this shelf so
+        // movie lovers never lose them from Currently Watching.
+        setState(() => _items = items.watchingCinema);
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        setState(() => _items = []);
+      },
     );
-    _future = future;
-    future.then((items) {
-      if (!mounted || _future != future) return;
-      // Cinema owns every movie (live-action or anime) plus non-anime TV;
-      // anime series live in the Anime rail. Filtering on isCinemaItem
-      // (instead of bare !isAnime) keeps anime films in this shelf so
-      // movie lovers never lose them from Currently Watching.
-      setState(() => _items = items.watchingCinema);
-    }).catchError((Object e) {
-      if (!mounted || _future != future) return;
-      setState(() => _items = []);
-    });
   }
 
   @override
   void dispose() {
-    _future = null;
+    _streamSub?.cancel();
     super.dispose();
   }
 
@@ -151,57 +158,64 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
   List<MediaItem> _items = [];
   bool _hasLoaded = false;
   bool _loadError = false;
-  Future<List<MediaItem>>? _future;
+  StreamSubscription<List<MediaItem>>? _streamSub;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _subscribe();
   }
 
   @override
   void didUpdateWidget(covariant _CurrentlyWatchingShelf oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.userName != widget.userName) {
+      _streamSub?.cancel();
       setState(() {
         _items = [];
         _hasLoaded = false;
         _loadError = false;
       });
-      _load();
+      _subscribe();
     }
   }
 
-  void _load() {
+  void _subscribe() {
     if (widget.userName.isEmpty) {
-      _future = null;
       if (mounted) setState(() => _hasLoaded = true);
       return;
     }
-    final future = _service.getPreviewItems(
-      widget.userName,
-      limit: TMDBWatchlistService.previewLimit,
+    // Realtime stream (bounded by previewLimit via limit) so undo /
+    // remove updates the shelf immediately. Mirrors the anime Watching Now
+    // shelf, which already streams for this reason.
+    _streamSub?.cancel();
+    _streamSub = _service
+        .getCurrentlyWatchingStream(
+          widget.userName,
+          limit: TMDBWatchlistService.previewLimit,
+        )
+        .listen(
+      (items) {
+        if (!mounted) return;
+        // Same cinema rule as the header: every movie counts here.
+        final filtered = items.watchingCinema;
+        setState(() {
+          _items = filtered;
+          _hasLoaded = true;
+          _loadError = false;
+        });
+        if (filtered.isNotEmpty) _backfillPosters(filtered);
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        // Report the failure instead of a false-empty shelf: a denied
+        // fetch means the data is unreachable, not absent.
+        setState(() {
+          _hasLoaded = true;
+          _loadError = true;
+        });
+      },
     );
-    _future = future;
-    future.then((items) {
-      if (!mounted || _future != future) return;
-      // Same cinema rule as the header: every movie counts here.
-      final filtered = items.watchingCinema;
-      setState(() {
-        _items = filtered;
-        _hasLoaded = true;
-        _loadError = false;
-      });
-      if (filtered.isNotEmpty) _backfillPosters(filtered);
-    }).catchError((Object e) {
-      if (!mounted || _future != future) return;
-      // Report the failure instead of a false-empty shelf: a denied
-      // fetch means the data is unreachable, not absent.
-      setState(() {
-        _hasLoaded = true;
-        _loadError = true;
-      });
-    });
   }
 
   Future<void> _backfillPosters(List<MediaItem> items) async {
@@ -216,7 +230,7 @@ class _CurrentlyWatchingShelfState extends State<_CurrentlyWatchingShelf> {
 
   @override
   void dispose() {
-    _future = null;
+    _streamSub?.cancel();
     super.dispose();
   }
 
