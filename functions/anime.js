@@ -246,12 +246,61 @@ function firstM3u8(node, out) {
   return found;
 }
 
+/** Turns a display title into the HiAnime slug shape
+ *  (`Black Clover` -> `black-clover`). */
+function hianimeSlug(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Slug candidates to probe when the exact title has no HiAnime entry.
+ * Season-split titles (`Black Clover Season 2`) rarely exist upstream —
+ * HiAnime usually keeps one combined entry (`black-clover`) — so the
+ * exact slug stays first and the stripped base is only a fallback.
+ */
+function hianimeSlugVariants(slug) {
+  const out = [];
+  if (slug) out.push(slug);
+  const stripped = String(slug || '')
+    .replace(/-(season|s|part|cour|series)-?\d+$/i, '')
+    .replace(/-\d+(st|nd|rd|th)-season$/i, '')
+    .replace(/-final-season$/i, '')
+    .replace(/-s\d+$/i, '');
+  if (stripped && stripped !== slug) out.push(stripped);
+  return out;
+}
+
+/** Normalizes upstream episode ids to the `slug::ep=N` shape the
+ *  servers/stream endpoints accept (`slug/ep-N`, `slug?ep=N`). */
+function normalizeHianimeEpisodeId(id) {
+  return String(id || '')
+    .replace(/\/ep-/i, '::ep=')
+    .replace(/\?ep=/i, '::ep=');
+}
+
+/** Picks the first playable server, accepting both the `{name}` and
+ *  `{serverName}` item shapes the API has returned over time. */
+function pickHianimeServer(list) {
+  const pick = Array.isArray(list) && list.length > 0 ? list[0] : null;
+  if (!pick) return null;
+  const rawName = pick.name != null ? pick.name : pick.serverName;
+  if (!rawName) return null;
+  return {
+    server: String(rawName).toLowerCase().replace(/\s+/g, '-'),
+    embedUrl: pick.embedUrl || null,
+  };
+}
+
 // ─── HiAnime ─────────────────────────────────────────────
 
 async function resolveHianime(base, titles, year, ep, audio) {
   let matchKey = null;
 
-  // 1. Try search API if available
+  // 1. Try search API if available (upstream breaks this at times —
+  //    it currently answers "page not found" for every keyword).
   try {
     const search = await fetchJson(
       `${base}/api/v1/search?keyword=${encodeURIComponent(titles[0])}&page=1`,
@@ -274,15 +323,39 @@ async function resolveHianime(base, titles, year, ep, audio) {
     if (match && match.key) matchKey = match.key;
   } catch (_) {}
 
-  // 2. If search fails or returns nothing, try slug candidates directly
+  // 1b. Fall back to the suggestion endpoint, which searches the same
+  // catalog through a different upstream page.
+  if (!matchKey) {
+    try {
+      const sug = await fetchJson(
+        `${base}/api/v1/suggestion?keyword=${encodeURIComponent(titles[0])}`,
+        10000,
+      );
+      const items =
+        sug && Array.isArray(sug.data) ? sug.data : [];
+      const match = pickBestMatch(
+        items.map((a) => ({
+          key: a.id,
+          title: [a.title, a.alternativeTitle]
+            .filter(Boolean)
+            .join(' ~ '),
+        })),
+        titles,
+        year,
+      );
+      if (match && match.key) matchKey = match.key;
+    } catch (_) {}
+  }
+
+  // 2. If search finds nothing, probe slug candidates directly —
+  //    exact slugs first, then season-stripped bases (e.g.
+  //    `black-clover-season-2` -> `black-clover`).
   let eps = null;
   const candidates = matchKey ? [matchKey] : [];
   for (const t of titles) {
-    const slug = t
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    if (slug && !candidates.includes(slug)) candidates.push(slug);
+    for (const slug of hianimeSlugVariants(hianimeSlug(t))) {
+      if (slug && !candidates.includes(slug)) candidates.push(slug);
+    }
   }
 
   for (const key of candidates) {
@@ -310,12 +383,15 @@ async function resolveHianime(base, titles, year, ep, audio) {
     list.find((e) => Number(e.episodeNumber) === ep) || list[ep - 1];
   if (!target || !target.id) throw new Error('hianime: episode missing');
 
-  // Normalize episode ID (handles both 'slug/ep-1' and 'slug::ep=1')
-  const epId = target.id.replace(/\/ep-/, '::ep=');
+  // Normalize episode id to the `slug::ep=N` shape the servers/stream
+  // endpoints accept (upstream lists `slug/ep-N`).
+  const epId = normalizeHianimeEpisodeId(target.id);
 
-  // Pick server
-  let server = 'hd-1';
-  let serverEmbedUrl = null;
+  // Servers to try, cleanest first. Upstream sometimes lists a dead
+  // server first (HD-2 currently 500s on some episodes while HD-1
+  // serves them fine), so every server gets an embed + stream attempt
+  // before we drop to the sandboxed third-party iframe.
+  let serverOptions = [{ server: 'hd-1', embedUrl: null }];
   try {
     const servers = await fetchJson(
       `${base}/api/v1/servers?id=${encodeURIComponent(epId)}`,
@@ -331,67 +407,73 @@ async function resolveHianime(base, titles, year, ep, audio) {
           ? servers.data.sub
           : []
         : [];
-    const pick = serverList[0];
-    if (pick && pick.name) {
-      server = String(pick.name).toLowerCase().replace(/\s+/g, '-');
-      serverEmbedUrl = pick.embedUrl || null;
-    }
+    const options = (Array.isArray(serverList) ? serverList : [])
+      .map((item) => pickHianimeServer([item]))
+      .filter(Boolean)
+      .slice(0, 3);
+    if (options.length > 0) serverOptions = options;
   } catch (e) {
     console.warn('[proxyAnime] hianime servers fallback:', e.message);
   }
+  let serverEmbedUrl = serverOptions[0].embedUrl || null;
 
-  // 1. Try clean embed endpoint
-  try {
-    const embedRes = await fetch(
-      `${base}/api/v1/embed/${server}/${encodeURIComponent(epId)}/${audio}`,
-      {
-        headers: { 'User-Agent': DESKTOP_UA, Accept: 'text/html' },
-        signal: AbortSignal.timeout(10000),
-      },
-    );
-    if (embedRes.ok) {
-      let html = await embedRes.text();
-      if (html.includes('<video') || html.includes('hls')) {
-        html = html.replace(
-          /<head([^>]*)>/i,
-          `<head$1><base href="${base}/">`,
-        );
-        return { playerHtml: html };
+  // 1. Try clean embed endpoint on each server
+  for (const opt of serverOptions) {
+    try {
+      const embedRes = await fetch(
+        `${base}/api/v1/embed/${opt.server}/${encodeURIComponent(epId)}/${audio}`,
+        {
+          headers: { 'User-Agent': DESKTOP_UA, Accept: 'text/html' },
+          signal: AbortSignal.timeout(10000),
+        },
+      );
+      if (embedRes.ok) {
+        let html = await embedRes.text();
+        if (html.includes('<video') || html.includes('hls')) {
+          html = html.replace(
+            /<head([^>]*)>/i,
+            `<head$1><base href="${base}/">`,
+          );
+          return { playerHtml: html };
+        }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+    if (opt.embedUrl && !serverEmbedUrl) serverEmbedUrl = opt.embedUrl;
+  }
 
-  // 2. Try stream endpoint
-  try {
-    const stream = await fetchJson(
-      `${base}/api/v1/stream?id=${encodeURIComponent(epId)}&server=${encodeURIComponent(server)}&type=${audio}`,
-      12000,
-    );
-    const data = stream && stream.data;
-    const file =
-      data &&
-      (data.master_m3u8 ||
-        (data.link && data.link.file) ||
-        (data.variants && data.variants[0] && data.variants[0].url) ||
-        data.streamingLink);
-    if (file) {
-      const proxied = `${base}/api/v1/proxy?url=${encodeURIComponent(file)}&referer=${encodeURIComponent(data.embedUrl || 'https://megacloud.tv')}`;
-      const tracks =
-        data.tracks && Array.isArray(data.tracks)
-          ? data.tracks.filter((t) => t && t.file)
-          : [];
-      return {
-        playerHtml: hlsPlayerHtml({
-          src: proxied,
-          tracks,
-          title: matchKey,
-        }),
-      };
-    }
-    if (data && data.embedUrl) {
-      serverEmbedUrl = data.embedUrl;
-    }
-  } catch (_) {}
+  // 2. Try stream endpoint on each server
+  for (const opt of serverOptions) {
+    try {
+      const stream = await fetchJson(
+        `${base}/api/v1/stream?id=${encodeURIComponent(epId)}&server=${encodeURIComponent(opt.server)}&type=${audio}`,
+        12000,
+      );
+      const data = stream && stream.data;
+      const file =
+        data &&
+        (data.master_m3u8 ||
+          (data.link && data.link.file) ||
+          (data.variants && data.variants[0] && data.variants[0].url) ||
+          data.streamingLink);
+      if (file) {
+        const proxied = `${base}/api/v1/proxy?url=${encodeURIComponent(file)}&referer=${encodeURIComponent(data.embedUrl || 'https://megacloud.tv')}`;
+        const tracks =
+          data.tracks && Array.isArray(data.tracks)
+            ? data.tracks.filter((t) => t && t.file)
+            : [];
+        return {
+          playerHtml: hlsPlayerHtml({
+            src: proxied,
+            tracks,
+            title: matchKey,
+          }),
+        };
+      }
+      if (data && data.embedUrl) {
+        serverEmbedUrl = data.embedUrl;
+      }
+    } catch (_) {}
+  }
 
   // 3. Fall back to sandboxed embed URL if available
   if (serverEmbedUrl) {
@@ -707,6 +789,10 @@ module.exports = {
   // Pure helpers (unit-tested).
   normTitle,
   pickBestMatch,
+  hianimeSlug,
+  hianimeSlugVariants,
+  normalizeHianimeEpisodeId,
+  pickHianimeServer,
   validateAnimeParams,
   failHtml,
   hlsPlayerHtml,
