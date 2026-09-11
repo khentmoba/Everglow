@@ -686,14 +686,34 @@ function assertPlayableHead(chunk, url, label) {
   }
 }
 
+/** Total seconds of content in a media playlist. */
+function playlistDuration(text) {
+  let total = 0;
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const m = line.trim().match(/^#EXTINF:\s*([0-9]+(?:\.[0-9]+)?)/);
+    if (m) total += Number.parseFloat(m[1]);
+  }
+  return total;
+}
+
+/**
+ * Minimum seconds for a playlist to plausibly be a full episode or movie.
+ * Truncated uploads, trailers misfiled as episodes, and DMCA-gutted files
+ * (seconds of valid video with a healthy structure) fail over instead of
+ * playing a minute and dying. Rejecting here only demotes Megavid for the
+ * title — the app still tries the next server.
+ */
+const MIN_MEGAVID_SECONDS = 120;
+
 /**
  * Proves a Megavid stream is actually playable before we serve our player
  * page for it: master playlist, every variant (the player auto-switches
  * quality, so each rendition must work — or the master itself when it
  * already lists segments), encryption key / init map when present, and
- * each variant's first segment must all fetch with playable bytes.
- * Anything dead throws, and the endpoint answers with the failover marker
- * so the app advances to the next server instead of stalling on a spinner.
+ * each variant's first segment must all fetch with playable bytes. Every
+ * rendition must also hold a plausible amount of content. Anything dead
+ * throws, and the endpoint answers with the failover marker so the app
+ * advances to the next server instead of stalling on a spinner.
  */
 async function verifyMegavidStream(masterUrl) {
   const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist');
@@ -720,6 +740,9 @@ async function verifyMegavidStream(masterUrl) {
   }
   await Promise.all(
     medias.map(async ({ url: mediaUrl, text: mediaText }) => {
+      if (playlistDuration(mediaText) < MIN_MEGAVID_SECONDS) {
+        throw new Error('megavid: playlist too short to be the episode');
+      }
       const segments = playlistUris(mediaText, mediaUrl);
       if (!segments.length) {
         throw new Error('megavid: playlist has no segments');
@@ -1159,5 +1182,7 @@ module.exports = {
   playlistUris,
   verifyMegavidStream,
   assertPlayableHead,
+  playlistDuration,
+  MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
 };

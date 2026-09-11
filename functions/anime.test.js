@@ -17,6 +17,8 @@ const {
   playlistUris,
   verifyMegavidStream,
   assertPlayableHead,
+  playlistDuration,
+  MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
 } = require('./anime');
 
@@ -190,7 +192,7 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
   const master =
     '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://cdn/v.m3u8\n';
   const variant =
-    '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n';
+    '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\nhttps://cdn/s0.ts\n';
   const seen = [];
   const origins = [];
   const realFetch = globalThis.fetch;
@@ -275,21 +277,21 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
       name: 'first segment 403',
       fetch: async (url) =>
         String(url).endsWith('.m3u8')
-          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\nhttps://cdn/s0.ts\n')
           : { ok: false, status: 403 },
     },
     {
       name: 'no segments listed',
       fetch: async (url) =>
         String(url).endsWith('.m3u8')
-          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\n')
           : segOk,
     },
     {
       name: 'segment without CORS header',
       fetch: async (url) =>
         String(url).endsWith('.m3u8')
-          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\nhttps://cdn/s0.ts\n')
           : {
               ok: true,
               status: 206,
@@ -306,7 +308,7 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
       name: 'segment is an HTML error page',
       fetch: async (url) =>
         String(url).endsWith('.m3u8')
-          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\nhttps://cdn/s0.ts\n')
           : {
               ok: true,
               status: 200,
@@ -334,9 +336,22 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
         }
         if (u.endsWith('.m3u8')) {
           const seg = u.includes('/b.m3u8') ? 'https://cdn/b0.ts' : 'https://cdn/a0.ts';
-          return playlist(`#EXTM3U\n#EXTINF:4,\n${seg}\n`);
+          return playlist(`#EXTM3U\n#EXTINF:200,\n${seg}\n`);
         }
         if (String(url).endsWith('b0.ts')) return { ok: false, status: 404 };
+        return segOk;
+      },
+    },
+    {
+      name: 'truncated 72s playlist',
+      fetch: async (url) => {
+        if (String(url).endsWith('.m3u8')) {
+          const segs = Array.from(
+            { length: 18 },
+            (_, i) => `#EXTINF:4.004,\nhttps://cdn/s${i}.ts\n`,
+          ).join('');
+          return playlist(`#EXTM3U\n#EXT-X-TARGETDURATION:4\n${segs}`);
+        }
         return segOk;
       },
     },
@@ -346,7 +361,7 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
         if (String(url).endsWith('.m3u8')) {
           return playlist(
             '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://cdn/k.key"\n' +
-              '#EXTINF:4,\nhttps://cdn/s0.ts\n',
+              '#EXTINF:200,\nhttps://cdn/s0.ts\n',
           );
         }
         if (String(url).endsWith('.key')) return { ok: false, status: 404 };
@@ -376,6 +391,15 @@ test('assertPlayableHead only accepts real TS bytes for .ts files', () => {
   assert.doesNotThrow(() =>
     assertPlayableHead(new Uint8Array([0x00, 0x00]), 'https://cdn/s0.m4s', 'segment'),
   );
+});
+
+test('playlistDuration sums EXTINF durations', () => {
+  assert.equal(
+    playlistDuration('#EXTM3U\n#EXTINF:4,\na.ts\n#EXTINF:3.5,\nb.ts\n'),
+    7.5,
+  );
+  assert.equal(playlistDuration('#EXTM3U\n#EXT-X-TARGETDURATION:4\n'), 0);
+  assert.ok(MIN_MEGAVID_SECONDS >= 60);
 });
 
 test('firstM3u8 digs nested urls out of API payloads', () => {
