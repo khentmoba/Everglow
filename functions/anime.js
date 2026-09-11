@@ -822,7 +822,7 @@ function pickAnivexaStream(watch) {
 /** Fetches an Anivexa HLS playlist and proves it is a real playlist.
  *  (Unlike [fetchPlaylist], this stays host-neutral: third-party anime
  *  CDNs rarely send the CORS header Megavid's CDN does.) */
-async function fetchAnivexaPlaylist(url, timeoutMs, label) {
+async function fetchAnivexaPlaylist(url, timeoutMs = 5000, label = 'playlist') {
   const res = await fetch(url, {
     headers: { 'User-Agent': DESKTOP_UA, Accept: '*/*' },
     redirect: 'follow',
@@ -848,7 +848,7 @@ async function verifyAnivexaMp4(url) {
       Range: 'bytes=0-1023',
     },
     redirect: 'follow',
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(6000),
   });
   if (!res.ok && res.status !== 206) {
     throw new Error(`anivexa file ${res.status}`);
@@ -883,24 +883,29 @@ async function verifyAnivexaStream(url, type) {
     await verifyAnivexaMp4(url);
     return;
   }
-  const master = await fetchAnivexaPlaylist(url, 8000, 'playlist');
+  const master = await fetchAnivexaPlaylist(url);
   const variants = playlistUris(master, url, { variantsOnly: true });
   const mediaUrl = variants.length > 0 ? variants[0] : url;
   const media =
     variants.length > 0
-      ? await fetchAnivexaPlaylist(mediaUrl, 8000, 'variant')
+      ? await fetchAnivexaPlaylist(mediaUrl)
       : master;
   const segments = playlistUris(media, mediaUrl);
   if (!segments.length) throw new Error('anivexa: playlist has no segments');
 }
 
 async function resolveAnivexa(base, anilistId, ep, audio) {
+  // Hard budget: Cloud Functions cut us off at 60s, and Clair should
+  // never stare at a spinner that long — stop starting new providers
+  // after 40s so the app fails over to the next server in time.
+  const deadline = Date.now() + 40000;
   for (const provider of ANIVEXA_PROVIDERS) {
+    if (Date.now() > deadline) break;
     let epId = null;
     try {
       const data = await fetchJson(
         `${base}/episodes/${provider}/${anilistId}`,
-        10000,
+        7000,
       );
       epId = pickAnivexaEpisode(data, provider, ep, audio);
     } catch (_) {
@@ -908,7 +913,7 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
     }
     if (!epId) continue;
     try {
-      const watch = await fetchJson(`${base}/${epId}`, 12000);
+      const watch = await fetchJson(`${base}/${epId}`, 8000);
       const pick = pickAnivexaStream(watch);
       if (!pick) continue;
       // Removed episodes answer with dead links — verify first so the
