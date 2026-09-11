@@ -10,6 +10,9 @@ const {
   failHtml,
   hlsPlayerHtml,
   firstM3u8,
+  resolvePlaylistUrl,
+  playlistUris,
+  verifyMegavidStream,
   NO_SOURCE_MARKER,
 } = require('./anime');
 
@@ -94,6 +97,144 @@ test('hlsPlayerHtml inline script parses', () => {
   );
   assert.ok(blocks.length >= 1);
   for (const code of blocks) new vm.Script(code);
+});
+
+test('playlistUris resolves variants and skips comments', () => {
+  const master =
+    '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://cdn/x/480p/video.m3u8\n' +
+    '#EXT-X-STREAM-INF:BANDWIDTH=2\n/vid/720p/video.m3u8\n';
+  assert.deepEqual(
+    playlistUris(master, 'https://cdn/x/playlist.m3u8', { variantsOnly: true }),
+    ['https://cdn/x/480p/video.m3u8', 'https://cdn/vid/720p/video.m3u8'],
+  );
+  const media =
+    '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nseg0.ts\n' +
+    '#EXTINF:4,\nhttps://cdn/y/seg1.ts\n';
+  assert.deepEqual(playlistUris(media, 'https://cdn/x/v/video.m3u8'), [
+    'https://cdn/x/v/seg0.ts',
+    'https://cdn/y/seg1.ts',
+  ]);
+  assert.equal(resolvePlaylistUrl('s.ts', 'https://h/a/b.m3u8'), 'https://h/a/s.ts');
+  assert.equal(resolvePlaylistUrl('javascript:alert(1)', 'https://h/a.m3u8'), null);
+});
+
+test('verifyMegavidStream accepts a healthy stream end to end', async () => {
+  const master =
+    '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://cdn/v.m3u8\n';
+  const variant =
+    '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n';
+  const seen = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    seen.push(String(url));
+    if (String(url).endsWith('.m3u8')) {
+      const text = String(url).includes('/v.m3u8') ? variant : master;
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
+        text: async () => text,
+      };
+    }
+    return {
+      ok: true,
+      status: 206,
+      body: {
+        getReader: () => ({
+          read: async () => ({ done: false, value: new Uint8Array([1, 2]) }),
+          cancel: async () => {},
+        }),
+      },
+    };
+  };
+  try {
+    const out = await verifyMegavidStream('https://cdn/master.m3u8');
+    assert.equal(out.variantUrl, 'https://cdn/v.m3u8');
+    assert.equal(out.segmentUrl, 'https://cdn/s0.ts');
+    assert.ok(seen.includes('https://cdn/master.m3u8'));
+    assert.ok(seen.includes('https://cdn/v.m3u8'));
+    assert.ok(seen.includes('https://cdn/s0.ts'));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('verifyMegavidStream rejects dead playlists, segments, and key failures', async () => {
+  const realFetch = globalThis.fetch;
+  const playlist = (text) => ({
+    ok: true,
+    status: 200,
+    headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
+    text: async () => text,
+  });
+  const segOk = {
+    ok: true,
+    status: 206,
+    body: {
+      getReader: () => ({
+        read: async () => ({ done: false, value: new Uint8Array([1]) }),
+        cancel: async () => {},
+      }),
+    },
+  };
+  const cases = [
+    {
+      name: 'master 404',
+      fetch: async () => ({ ok: false, status: 404 }),
+    },
+    {
+      name: 'master without CORS header',
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        text: async () => '#EXTM3U\n',
+      }),
+    },
+    {
+      name: 'variant 404',
+      fetch: async (url) =>
+        String(url).includes('master')
+          ? playlist('#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://cdn/v.m3u8\n')
+          : { ok: false, status: 404 },
+    },
+    {
+      name: 'first segment 403',
+      fetch: async (url) =>
+        String(url).endsWith('.m3u8')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n')
+          : { ok: false, status: 403 },
+    },
+    {
+      name: 'no segments listed',
+      fetch: async (url) =>
+        String(url).endsWith('.m3u8')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n')
+          : segOk,
+    },
+    {
+      name: 'encryption key 404',
+      fetch: async (url) => {
+        if (String(url).endsWith('.m3u8')) {
+          return playlist(
+            '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://cdn/k.key"\n' +
+              '#EXTINF:4,\nhttps://cdn/s0.ts\n',
+          );
+        }
+        if (String(url).endsWith('.key')) return { ok: false, status: 404 };
+        return segOk;
+      },
+    },
+  ];
+  for (const c of cases) {
+    globalThis.fetch = c.fetch;
+    await assert.rejects(
+      verifyMegavidStream('https://cdn/master.m3u8'),
+      /megavid/,
+      c.name,
+    );
+  }
+  globalThis.fetch = realFetch;
 });
 
 test('firstM3u8 digs nested urls out of API payloads', () => {

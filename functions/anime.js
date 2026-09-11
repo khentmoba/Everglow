@@ -532,6 +532,136 @@ async function resolvePahe(base, titles, year, ep, audio) {
   return { m3u8: urls[0] };
 }
 
+// ─── Megavid stream verification ────────────────────────────────
+
+/** Resolves a possibly-relative playlist URI against its playlist URL. */
+function resolvePlaylistUrl(ref, base) {
+  try {
+    const abs = new URL(String(ref || '').trim(), base).toString();
+    if (abs.startsWith('https://') || abs.startsWith('http://')) return abs;
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Non-comment URIs from an HLS playlist, resolved to absolute http(s) URLs.
+ * With [variantsOnly], only URIs following an `#EXT-X-STREAM-INF` line are
+ * returned (master playlist quality variants).
+ */
+function playlistUris(text, base, { variantsOnly = false } = {}) {
+  const lines = String(text || '').split(/\r?\n/);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('#')) continue;
+    if (variantsOnly) {
+      const prev = (lines[i - 1] || '').trim();
+      if (!prev.startsWith('#EXT-X-STREAM-INF')) continue;
+    }
+    const abs = resolvePlaylistUrl(line, base);
+    if (abs && !out.includes(abs)) out.push(abs);
+  }
+  return out;
+}
+
+/**
+ * Fetches an HLS playlist: it must answer 200, allow our player origin
+ * (hls.js fetches with CORS — a playlist without the header can never
+ * play in our player), and actually parse as a playlist.
+ */
+async function fetchPlaylist(url, timeoutMs, label) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Referer: 'https://megavid.buzz/',
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
+  const allow =
+    res.headers && typeof res.headers.get === 'function'
+      ? res.headers.get('access-control-allow-origin')
+      : null;
+  if (!allow) {
+    throw new Error(`megavid ${label} blocks cross-origin playback`);
+  }
+  const text = await res.text();
+  if (!text || !text.includes('#EXTM3U')) {
+    throw new Error(`megavid ${label} is not a playlist`);
+  }
+  return text;
+}
+
+/**
+ * Downloads just the first bytes of a segment, key, or init map: proves
+ * the file exists without pulling megabytes when the CDN ignores our
+ * Range request.
+ */
+async function fetchSegmentHead(url, timeoutMs, label) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Referer: 'https://megavid.buzz/',
+      Range: 'bytes=0-1023',
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
+  if (!res.body || typeof res.body.getReader !== 'function') {
+    const buf = await res.arrayBuffer();
+    if (!buf.byteLength) throw new Error(`megavid ${label} is empty`);
+    return;
+  }
+  const reader = res.body.getReader();
+  try {
+    const { done, value } = await reader.read();
+    if (done || !value || !value.byteLength) {
+      throw new Error(`megavid ${label} is empty`);
+    }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch (_) {}
+  }
+}
+
+/**
+ * Proves a Megavid stream is actually playable before we serve our player
+ * page for it: master playlist, first variant (or the master itself when
+ * it already lists segments), encryption key / init map when present, and
+ * the first segment must all fetch. Anything dead throws, and the endpoint
+ * answers with the failover marker so the app advances to the next server
+ * instead of stalling on a spinner.
+ */
+async function verifyMegavidStream(masterUrl) {
+  const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist');
+  const variants = playlistUris(masterText, masterUrl, { variantsOnly: true });
+  let mediaUrl = masterUrl;
+  let mediaText = masterText;
+  if (variants.length > 0) {
+    mediaUrl = variants[0];
+    mediaText = await fetchPlaylist(mediaUrl, 8000, 'variant');
+  }
+  const keyMatch = mediaText.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
+  if (keyMatch) {
+    const keyUrl = resolvePlaylistUrl(keyMatch[1], mediaUrl);
+    if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key');
+  }
+  const mapMatch = mediaText.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
+  if (mapMatch) {
+    const mapUrl = resolvePlaylistUrl(mapMatch[1], mediaUrl);
+    if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map');
+  }
+  const segments = playlistUris(mediaText, mediaUrl);
+  if (!segments.length) throw new Error('megavid: playlist has no segments');
+  await fetchSegmentHead(segments[0], 10000, 'segment');
+  return { variantUrl: mediaUrl, segmentUrl: segments[0] };
+}
+
 // ─── Megavid (Direct HLS Stream with NO ADS) ─────────────
 
 async function resolveMegavid(anilistId, malId, ep, audio) {
@@ -553,6 +683,10 @@ async function resolveMegavid(anilistId, malId, ep, audio) {
   if (data.status !== 'ok' || !data.source) {
     throw new Error('megavid: no stream');
   }
+  // Removed episodes and stale CDN records answer "ok" with a playlist
+  // that never plays — verify first so the app fails over to the next
+  // server instead of stalling (see verifyMegavidStream).
+  await verifyMegavidStream(data.source);
   const tracks = (Array.isArray(data.tracks) ? data.tracks : []).filter(
     (t) => t && t.file,
   );
@@ -760,5 +894,8 @@ module.exports = {
   failHtml,
   hlsPlayerHtml,
   firstM3u8,
+  resolvePlaylistUrl,
+  playlistUris,
+  verifyMegavidStream,
   NO_SOURCE_MARKER,
 };
