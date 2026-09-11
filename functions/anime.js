@@ -256,27 +256,27 @@ const DEFAULT_BASES = {
   ANIVEXA_API_BASE: '',
 };
 
-/** Anivexa providers to try, cleanest direct streams first.
+/** Anivexa providers, priority order = array order.
  *
- * AniZone serves plain HLS with no token games (verified live); MP4
- * hosts follow; FlixCloud-backed providers sit last because their
- * playlists are encrypted and IP-bound, so they fail our playback
- * check and are skipped automatically. */
-const ANIVEXA_PROVIDERS = [
-  // Open/direct-friendly HLS first — no relay bandwidth needed.
+ * Core: the providers that actually answer in live tests. Open
+ * direct-friendly HLS first (no relay bandwidth needed), hotlink-locked
+ * HLS next (plays through the relay with the stream's own Referer),
+ * then animegg — it answers 20s+ at times, so it never leads.
+ *
+ * Spares: only burst when the core produced nothing. Each has failed
+ * for every live title so far (cloud-IP blocks), but rotation means
+ * today's dead host is tomorrow's winner. */
+const ANIVEXA_CORE_PROVIDERS = [
   'anineko',
-  'anizone',
-  // Hotlink-locked HLS — plays through the relay with the stream's
-  // own Referer (see resolveAnivexa).
   'anikoto',
+  'anizone',
   'aniwaves',
   'anibd',
   'animedunya',
-  // animegg answers 20s+ at times; demoted so its hang never leads
-  // the priority order.
   'animegg',
-  // Spares: fail fast when their upstreams block cloud IPs; rotation
-  // means today's dead host is tomorrow's winner.
+];
+
+const ANIVEXA_SPARE_PROVIDERS = [
   '2dhive',
   'kaa',
   'reanime',
@@ -285,6 +285,11 @@ const ANIVEXA_PROVIDERS = [
   'animenosub',
   'senshi',
   'animeonsen',
+];
+
+const ANIVEXA_PROVIDERS = [
+  ...ANIVEXA_CORE_PROVIDERS,
+  ...ANIVEXA_SPARE_PROVIDERS,
 ];
 
 /** Our self-hosted API hosts come from env or default bases,
@@ -1090,21 +1095,16 @@ async function verifyAnivexaStream(url, type, remaining, referer) {
   return { mediaUrl };
 }
 
-async function resolveAnivexa(base, anilistId, ep, audio) {
-  // Hard budget: Cloud Functions cut us off at 60s, and Clair should
-  // never stare at a spinner that long. Everything races — episode
-  // lookups go out together, then stream fetch + verify for every hit
-  // runs together — and the first verified stream in provider-priority
-  // order wins. Typical cost is the slowest contender, not the sum.
-  const deadline = Date.now() + 40000;
-  const remaining = () => Math.max(500, deadline - Date.now());
-
-  // 1. Episode ids from every provider at once — but DON'T wait for
-  // the slowest. One hanging provider (animegg answers 20s+ at times)
-  // used to hold Promise.allSettled open to its full timeout and eat
-  // the whole budget even when good hits landed at 3s. Collect hits
-  // as they land and move on the moment we have one.
-  const found = ANIVEXA_PROVIDERS.map(async (provider) => {
+async function burstAnivexaEpisodes(
+  base,
+  providers,
+  anilistId,
+  ep,
+  audio,
+  remaining,
+  windowMs,
+) {
+  const found = providers.map(async (provider) => {
     const data = await fetchJson(
       `${base}/episodes/${provider}/${anilistId}`,
       Math.min(14000, remaining()),
@@ -1126,10 +1126,10 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
       resolve();
     };
     // A hanging provider must never hold the burst past this window.
-    timer = setTimeout(finish, Math.min(13000, remaining()));
+    timer = setTimeout(finish, windowMs);
     found.forEach((p) => {
       p.then((v) => {
-        if (v && v.epId) hits.push(v);
+        if (!closed && v && v.epId) hits.push(v);
       })
         .catch(() => {})
         .finally(() => {
@@ -1138,6 +1138,45 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
         });
     });
   });
+  return hits;
+}
+
+async function resolveAnivexa(base, anilistId, ep, audio) {
+  // Hard budget: Cloud Functions cut us off at 60s, and Clair should
+  // never stare at a spinner that long. Everything races — episode
+  // lookups go out together, then stream fetch + verify for every hit
+  // runs together — and the first verified stream in provider-priority
+  // order wins. Typical cost is the slowest contender, not the sum.
+  const deadline = Date.now() + 40000;
+  const remaining = () => Math.max(500, deadline - Date.now());
+
+  // 1. Episode ids, in two waves so Render's small CPU is never asked
+  // to run 15 scrapes at once (that saturation pushed even fast
+  // providers past the window and killed whole bursts). Each wave
+  // collects hits AS THEY LAND and stops the moment one arrives — a
+  // hanging provider (animegg answers 20s+ at times) can never eat
+  // the whole window again.
+  const hitWindowMs = Math.min(13000, remaining());
+  let hits = await burstAnivexaEpisodes(
+    base,
+    ANIVEXA_CORE_PROVIDERS,
+    anilistId,
+    ep,
+    audio,
+    remaining,
+    hitWindowMs,
+  );
+  if (!hits.length && remaining() > 8000) {
+    hits = await burstAnivexaEpisodes(
+      base,
+      ANIVEXA_SPARE_PROVIDERS,
+      anilistId,
+      ep,
+      audio,
+      remaining,
+      Math.min(10000, remaining()),
+    );
+  }
   if (!hits.length) {
     console.warn(`[proxyAnime] anivexa ${anilistId} ep=${ep}: episode missing everywhere`);
     throw new Error('anivexa: episode missing');
@@ -1585,6 +1624,8 @@ module.exports = {
   proxyMegavidHls,
   // Pure helpers (unit-tested).
   ANIVEXA_PROVIDERS,
+  ANIVEXA_CORE_PROVIDERS,
+  ANIVEXA_SPARE_PROVIDERS,
   pickAnivexaEpisode,
   pickAnivexaStream,
   normTitle,
