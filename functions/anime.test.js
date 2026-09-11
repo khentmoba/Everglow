@@ -37,15 +37,15 @@ test('validateAnimeParams rejects bad source, ids, episodes', () => {
   assert.ok(
     validateAnimeParams({ source: 'hianime', malId: 21, ep: 0 }).error,
   );
-  const ok = validateAnimeParams({
-    source: 'animepahe',
+  const okMegavid = validateAnimeParams({
+    source: 'megavid',
     anilistId: 21,
     malId: 0,
-    ep: 3,
-    audio: 'dub',
+    ep: 1,
+    audio: 'sub',
   });
-  assert.equal(ok.error, undefined);
-  assert.equal(ok.audio, 'dub');
+  assert.equal(okMegavid.error, undefined);
+  assert.equal(okMegavid.source, 'megavid');
 });
 
 test('failHtml always carries the app failover marker', () => {

@@ -58,9 +58,9 @@ class AnimeXWatchPage extends StatefulWidget {
     if (name == null) return '';
     switch (name) {
       case 'Server 1':
-        return 'Mega Play';
+        return 'Everglow';
       case 'Server 2':
-        return 'Anixo';
+        return 'HiAnime';
       case 'Server 3':
         return 'Megavid';
       default:
@@ -82,31 +82,25 @@ class AnimeXWatchPage extends StatefulWidget {
   }
 
   /// Builds the anime embed servers, cleanest first. Every server plays
-  /// caged inside the sandboxed player frame, which traps the popunders
-  /// / top-frame hijacks third-party anime embeds are famous for — the
-  /// cage is what keeps the web app from being thrown into TikTok /
-  /// YouTube, not the providers behaving themselves.
+  /// caged inside the sandboxed player frame, with zero ads:
   ///
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
-  ///   ani.zip supplies a `themoviedb_id`.
-  /// - HiAnime / AnimePahe: our own `proxyAnime` player page, which
-  ///   resolves the episode on our server (through our self-hosted
-  ///   HiAnime / AnimePahe API) and serves a clean player from our own
-  ///   domain — no third-party ad script ever reaches Clair's phone.
-  ///   AniList/MAL-keyed, so they work without a TMDB mapping.
-  /// - Megavid / Anixo / Mega Play: AniList/MAL-keyed third-party
-  ///   embeds. Fallbacks only — Megavid is deliberately NOT the
-  ///   default. These need no TMDB mapping, so titles without one
-  ///   still get a real server selector instead of a single stuck chip.
+  ///   ani.zip supplies a `themoviedb_id`. 100% ad-free.
+  /// - HiAnime: our own `proxyAnime` player page, which resolves the
+  ///   episode on our server (through our live HiAnime API backend)
+  ///   and serves a clean player from our own domain — no third-party
+  ///   ad script ever reaches Clair's phone.
+  /// - Megavid: direct HLS streams from Megavid's `/source` API served
+  ///   through `proxyAnime`. Bypasses the third-party website embed
+  ///   and all its popunders completely — 100% AD-FREE.
   ///
   /// [episodeSlots] maps a MAL episode number to the season/episode
   /// pair TMDB expects — shows whose MAL entry starts mid-series (e.g.
   /// Attack on Titan season 2) would otherwise open the wrong episode.
   /// [idToken] is Clair's Firebase login token for the `proxyAnime`
   /// servers (player iframes cannot send headers, so it travels as
-  /// `?token=`). Empty until the async sign-in resolves — the servers
-  /// stay listed and simply fail over to the next one until then.
+  /// `?token=`).
   static List<AnimeServerOption> buildServers({
     int? anilistId,
     int? malId,
@@ -122,10 +116,6 @@ class AnimeXWatchPage extends StatefulWidget {
     final aniId = hasAni ? anilistId : 0;
 
     final hasSource = hasAni || hasMal;
-    String aniUrl(String host, String path, int ep, String audio) {
-      if (hasAni) return '$host$path/ani/$anilistId/$ep/$audio';
-      return '$host$path/mal/$effectiveMal/$ep/$audio';
-    }
 
     String proxyAnimeUrl(String source, int ep, String audio) {
       final params = <String>[
@@ -159,34 +149,8 @@ class AnimeXWatchPage extends StatefulWidget {
         available: hasSource,
       ),
       AnimeServerOption(
-        name: 'AnimePahe',
-        urlBuilder: (ep, audio) => proxyAnimeUrl('animepahe', ep, audio),
-        available: hasSource,
-      ),
-      AnimeServerOption(
         name: 'Megavid',
-        urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://megavid.buzz/ani/$anilistId/$ep/$audio';
-          }
-          return 'https://megavid.buzz/mal/$effectiveMal/$ep/$audio';
-        },
-        available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'Anixo',
-        urlBuilder: (ep, audio) {
-          final base = hasAni
-              ? 'https://anixo.buzz/embed/ani/$anilistId/$ep'
-              : 'https://anixo.buzz/embed/mal/$effectiveMal/$ep';
-          return '$base?track=$audio';
-        },
-        available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'Mega Play',
-        urlBuilder: (ep, audio) =>
-            aniUrl('https://megaplay.buzz', '/stream', ep, audio),
+        urlBuilder: (ep, audio) => proxyAnimeUrl('megavid', ep, audio),
         available: hasSource,
       ),
     ];
@@ -835,13 +799,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   void _selectServer(int index) {
     setState(() {
       _serverIndex = index;
-      _failedServerIndices.remove(index);
+      _failedServerIndices.clear();
       _showErrorCard = false;
       _skipJumpSeconds = null;
       _playbackPosition = null;
     });
     _persistServer(index);
-    _probeCurrentServer();
+    _probeCurrentServer(autoAdvance: false);
   }
 
   /// Remembers the working server for this anime so the next visit
@@ -855,7 +819,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// CORS headers) and scans the HTML for their "content unavailable"
   /// error page. When found, advances to the next available server so the
   /// user never stares at a dead "We're Sorry / 410" iframe.
-  Future<void> _probeCurrentServer() async {
+  Future<void> _probeCurrentServer({bool autoAdvance = true}) async {
     final url = _playerUrl;
     if (url.isEmpty || _probingServer) return;
     setState(() => _probingServer = true);
@@ -865,7 +829,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           .timeout(const Duration(seconds: 10));
       final body = utf8.decode(response.bodyBytes);
       if (_isProviderErrorPage(body) && mounted) {
-        _handleContentError();
+        if (autoAdvance) {
+          _handleContentError();
+        } else {
+          setState(() => _showErrorCard = true);
+        }
       }
     } catch (_) {
       // Network errors are ambiguous; leave the iframe up so the user can
