@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const vm = require('node:vm');
 const {
   normTitle,
   pickBestMatch,
@@ -62,6 +63,37 @@ test('hlsPlayerHtml escapes titles and includes subs', () => {
   assert.ok(!html.includes('<b>Hi</b>'));
   assert.ok(html.includes('https://x/y.m3u8'));
   assert.ok(html.includes('en.vtt'));
+});
+
+test('hlsPlayerHtml recovers instead of spinning forever', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Ep 1',
+    tracks: [],
+  });
+  // Starts playback once the manifest is ready (phones block silent autoplay).
+  assert.ok(html.includes('MANIFEST_PARSED'));
+  // Transient failures retry; repeated fatal ones surface a card + retry.
+  assert.ok(html.includes('recoverMediaError'));
+  assert.ok(html.includes('startLoad'));
+  assert.ok(html.includes('location.reload'));
+  // Unrecoverable stalls tell the app to advance to the next server.
+  assert.ok(html.includes('animex-content-error'));
+  // The in-player card must never trip the dead-server probe.
+  assert.ok(!html.includes(NO_SOURCE_MARKER));
+});
+
+test('hlsPlayerHtml inline script parses', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Ep 1',
+    tracks: [],
+  });
+  const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+    (m) => m[1],
+  );
+  assert.ok(blocks.length >= 1);
+  for (const code of blocks) new vm.Script(code);
 });
 
 test('firstM3u8 digs nested urls out of API payloads', () => {
