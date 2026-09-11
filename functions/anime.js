@@ -944,10 +944,11 @@ function httpsOrigin(u) {
 /** Picks the cleanest playable stream from an Anivexa `/watch/...`
  *  response. Pure: prefers plain HLS over MP4 and never returns
  *  `embed` fallbacks (those carry third-party ad scripts). Also picks
- *  the embed origin hotlink-locked hosts expect as Referer — matched
- *  to the winning server by name, else the first embed entry — so the
- *  relay can replay it. Subtitle entries are normalized to the
- *  `{file, label}` shape [hlsPlayerHtml] expects. */
+ *  the origin hotlink-locked hosts expect as Referer — read off the
+ *  winning stream first (referer / embedUrl / embed), then the watch
+ *  headers block, then the embeds array — so the relay can replay it.
+ *  Subtitle entries are normalized to the `{file, label}` shape
+ *  [hlsPlayerHtml] expects. */
 function pickAnivexaStream(watch) {
   const streams =
     watch && Array.isArray(watch.streams) ? watch.streams : [];
@@ -972,15 +973,16 @@ function pickAnivexaStream(watch) {
     .slice(0, 8);
   const embeds =
     watch && Array.isArray(watch.embeds) ? watch.embeds : [];
-  const bestName = String((best && best.server) || '').toLowerCase();
-  const named = embeds.find(
-    (e) =>
-      e &&
-      String(e.name || '').toLowerCase() &&
-      bestName.includes(String(e.name || '').toLowerCase()),
-  );
+  // Referer hunting order: the winning stream carries its own origin
+  // hint (referer / embedUrl / embed); some providers instead attach a
+  // `headers` block or a top-level referer; the embeds array is the
+  // last resort. Normalized to scheme + host + trailing slash — locked
+  // CDNs are strict about the exact shape (megaplay.buzz 403s without
+  // the slash).
   const referer =
-    httpsOrigin(named && named.url) ||
+    httpsOrigin(best && (best.referer || best.embedUrl || best.embed)) ||
+    httpsOrigin(watch && watch.headers && watch.headers.Referer) ||
+    httpsOrigin(watch && watch.referer) ||
     embeds.map((e) => httpsOrigin(e && e.url)).find(Boolean) ||
     null;
   return { src: best.url, tracks, type: best.type, referer };
