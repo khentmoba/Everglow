@@ -273,6 +273,13 @@ const ANIVEXA_PROVIDERS = [
   'animedunya',
   'aniwaves',
   'reanime',
+  // Unverified spares: each fails fast when its upstream blocks cloud
+  // IPs, and rotation means today's dead host is tomorrow's winner.
+  'mkissa',
+  'anidbapp',
+  'animenosub',
+  'senshi',
+  'animeonsen',
 ];
 
 /** Our self-hosted API hosts come from env or default bases,
@@ -951,7 +958,10 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
       hits.push(r.value);
     }
   });
-  if (!hits.length) throw new Error('anivexa: episode missing');
+  if (!hits.length) {
+    console.warn(`[proxyAnime] anivexa ${anilistId} ep=${ep}: episode missing everywhere`);
+    throw new Error('anivexa: episode missing');
+  }
 
   // 2. Streams + verification race; priority order decides the winner.
   // Failed contenders are logged with their reason — without this the
