@@ -36,7 +36,6 @@ const { getAdmin, isPublicDnsHost } = require('./common.js');
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
 /** Marker text the app probe recognizes as "try the next server". */
 const NO_SOURCE_MARKER = 'no playable stream sources';
 
@@ -534,6 +533,11 @@ async function resolvePahe(base, titles, year, ep, audio) {
 
 // ─── Megavid stream verification ────────────────────────────────
 
+/** Origin our player pages serve from. Verification requests carry it so
+ *  upstream CORS behavior matches what the real player sees in a browser —
+ *  several CDNs only emit access-control headers when Origin is present. */
+const PLAYER_ORIGIN = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
+
 /** Resolves a possibly-relative playlist URI against its playlist URL. */
 function resolvePlaylistUrl(ref, base) {
   try {
@@ -577,6 +581,7 @@ async function fetchPlaylist(url, timeoutMs, label) {
       'User-Agent': DESKTOP_UA,
       Accept: '*/*',
       Referer: 'https://megavid.buzz/',
+      Origin: PLAYER_ORIGIN,
     },
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -598,7 +603,8 @@ async function fetchPlaylist(url, timeoutMs, label) {
 /**
  * Downloads just the first bytes of a segment, key, or init map: proves
  * the file exists without pulling megabytes when the CDN ignores our
- * Range request.
+ * Range request. Like playlists, these go through hls.js, so the CORS
+ * header is required too. Returns the first chunk for content checks.
  */
 async function fetchSegmentHead(url, timeoutMs, label) {
   const res = await fetch(url, {
@@ -606,15 +612,23 @@ async function fetchSegmentHead(url, timeoutMs, label) {
       'User-Agent': DESKTOP_UA,
       Accept: '*/*',
       Referer: 'https://megavid.buzz/',
+      Origin: PLAYER_ORIGIN,
       Range: 'bytes=0-1023',
     },
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
+  const allow =
+    res.headers && typeof res.headers.get === 'function'
+      ? res.headers.get('access-control-allow-origin')
+      : null;
+  if (!allow) {
+    throw new Error(`megavid ${label} blocks cross-origin playback`);
+  }
   if (!res.body || typeof res.body.getReader !== 'function') {
     const buf = await res.arrayBuffer();
     if (!buf.byteLength) throw new Error(`megavid ${label} is empty`);
-    return;
+    return new Uint8Array(buf.slice(0, 1024));
   }
   const reader = res.body.getReader();
   try {
@@ -622,6 +636,7 @@ async function fetchSegmentHead(url, timeoutMs, label) {
     if (done || !value || !value.byteLength) {
       throw new Error(`megavid ${label} is empty`);
     }
+    return value.slice ? value.slice(0, 1024) : value;
   } finally {
     try {
       await reader.cancel();
@@ -630,36 +645,62 @@ async function fetchSegmentHead(url, timeoutMs, label) {
 }
 
 /**
+ * First segment bytes must look like MPEG-TS (sync byte 0x47) when the URL
+ * points at a .ts file. CDNs often answer 200 with an HTML error page for
+ * removed files — fetchable, but it can never play. Other containers
+ * (fmp4 segments) only need to be non-empty.
+ */
+function assertPlayableHead(chunk, url, label) {
+  const path = String(url).split('?')[0].toLowerCase();
+  if (path.endsWith('.ts') && chunk[0] !== 0x47) {
+    throw new Error(`megavid ${label} is not video data`);
+  }
+}
+
+/**
  * Proves a Megavid stream is actually playable before we serve our player
- * page for it: master playlist, first variant (or the master itself when
- * it already lists segments), encryption key / init map when present, and
- * the first segment must all fetch. Anything dead throws, and the endpoint
- * answers with the failover marker so the app advances to the next server
- * instead of stalling on a spinner.
+ * page for it: master playlist, every variant (the player auto-switches
+ * quality, so each rendition must work — or the master itself when it
+ * already lists segments), encryption key / init map when present, and
+ * each variant's first segment must all fetch with playable bytes.
+ * Anything dead throws, and the endpoint answers with the failover marker
+ * so the app advances to the next server instead of stalling on a spinner.
  */
 async function verifyMegavidStream(masterUrl) {
   const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist');
   const variants = playlistUris(masterText, masterUrl, { variantsOnly: true });
-  let mediaUrl = masterUrl;
-  let mediaText = masterText;
-  if (variants.length > 0) {
-    mediaUrl = variants[0];
-    mediaText = await fetchPlaylist(mediaUrl, 8000, 'variant');
-  }
-  const keyMatch = mediaText.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
+  const medias =
+    variants.length > 0
+      ? await Promise.all(
+          variants.slice(0, 4).map(async (v) => ({
+            url: v,
+            text: await fetchPlaylist(v, 8000, 'variant'),
+          })),
+        )
+      : [{ url: masterUrl, text: masterText }];
+  const first = medias[0];
+  const keyMatch = first.text.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
   if (keyMatch) {
-    const keyUrl = resolvePlaylistUrl(keyMatch[1], mediaUrl);
+    const keyUrl = resolvePlaylistUrl(keyMatch[1], first.url);
     if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key');
   }
-  const mapMatch = mediaText.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
+  const mapMatch = first.text.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
   if (mapMatch) {
-    const mapUrl = resolvePlaylistUrl(mapMatch[1], mediaUrl);
+    const mapUrl = resolvePlaylistUrl(mapMatch[1], first.url);
     if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map');
   }
-  const segments = playlistUris(mediaText, mediaUrl);
-  if (!segments.length) throw new Error('megavid: playlist has no segments');
-  await fetchSegmentHead(segments[0], 10000, 'segment');
-  return { variantUrl: mediaUrl, segmentUrl: segments[0] };
+  await Promise.all(
+    medias.map(async ({ url: mediaUrl, text: mediaText }) => {
+      const segments = playlistUris(mediaText, mediaUrl);
+      if (!segments.length) {
+        throw new Error('megavid: playlist has no segments');
+      }
+      const head = await fetchSegmentHead(segments[0], 10000, 'segment');
+      assertPlayableHead(head, segments[0], 'segment');
+    }),
+  );
+  const firstSegments = playlistUris(first.text, first.url);
+  return { variantUrl: first.url, segmentUrl: firstSegments[0] };
 }
 
 // ─── Megavid (Direct HLS Stream with NO ADS) ─────────────
@@ -897,5 +938,6 @@ module.exports = {
   resolvePlaylistUrl,
   playlistUris,
   verifyMegavidStream,
+  assertPlayableHead,
   NO_SOURCE_MARKER,
 };
