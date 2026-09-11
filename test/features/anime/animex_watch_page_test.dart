@@ -273,10 +273,15 @@ void main() {
         malId: 21,
         tmdbId: 37854,
         idToken: 'abc 123',
+        title: 'One Piece',
       );
       expect(
         servers[1].urlBuilder(2, 'dub'),
         contains('token=abc%20123'),
+      );
+      expect(
+        servers[1].urlBuilder(2, 'dub'),
+        contains('title=One%20Piece'),
       );
       expect(
         servers[2].urlBuilder(2, 'dub'),

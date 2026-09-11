@@ -113,6 +113,7 @@ class AnimeXWatchPage extends StatefulWidget {
     int? tmdbId,
     Map<int, ({int season, int episode})> episodeSlots = const {},
     String idToken = '',
+    String title = '',
   }) {
     final hasAni = anilistId != null && anilistId > 0;
     final effectiveMal = malId ?? 0;
@@ -133,6 +134,7 @@ class AnimeXWatchPage extends StatefulWidget {
         'malId=$effectiveMal',
         'ep=$ep',
         'audio=$audio',
+        if (title.isNotEmpty) 'title=${Uri.encodeComponent(title)}',
         if (idToken.isNotEmpty) 'token=${Uri.encodeComponent(idToken)}',
       ];
       return 'https://us-central1-everglow-1c6db.cloudfunctions.net/'
@@ -603,6 +605,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       tmdbId: _mappedTmdbId,
       episodeSlots: _episodeSlots,
       idToken: _idToken,
+      title: _item.title,
     );
   }
 

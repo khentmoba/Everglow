@@ -176,10 +176,16 @@ async function fetchJson(url, timeoutMs) {
   return res.json();
 }
 
-/** Our self-hosted API hosts come from env only (never from the client),
+const DEFAULT_BASES = {
+  HIANIME_API_BASE: 'https://hianime-api-two.vercel.app',
+};
+
+/** Our self-hosted API hosts come from env or default bases,
  *  and must be public https hosts — same SSRF guard as the other proxies. */
 async function envBase(name) {
-  const raw = (process.env[name] || '').trim().replace(/\/+$/, '');
+  const raw = (process.env[name] || DEFAULT_BASES[name] || '')
+    .trim()
+    .replace(/\/+$/, '');
   if (!raw) return null;
   let parsed;
   try {
@@ -502,15 +508,18 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  let titles;
+  const clientTitle = String(req.query.title || '').trim();
+  let titles = clientTitle ? [clientTitle] : [];
   let year = null;
-  try {
-    const found = await anilistTitles(anilistId, malId);
-    titles = found.titles;
-    year = found.year;
-  } catch (e) {
-    sendFail('Title lookup failed — try another server.');
-    return;
+  if (!titles.length) {
+    try {
+      const found = await anilistTitles(anilistId, malId);
+      titles = found.titles;
+      year = found.year;
+    } catch (e) {
+      sendFail('Title lookup failed — try another server.');
+      return;
+    }
   }
   if (!titles.length) {
     sendFail('Title lookup failed — try another server.');
