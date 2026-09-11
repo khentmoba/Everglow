@@ -5,6 +5,10 @@ const test = require('node:test');
 const {
   normTitle,
   pickBestMatch,
+  hianimeSlug,
+  hianimeSlugVariants,
+  normalizeHianimeEpisodeId,
+  pickHianimeServer,
   validateAnimeParams,
   failHtml,
   hlsPlayerHtml,
@@ -62,6 +66,56 @@ test('hlsPlayerHtml escapes titles and includes subs', () => {
   assert.ok(!html.includes('<b>Hi</b>'));
   assert.ok(html.includes('https://x/y.m3u8'));
   assert.ok(html.includes('en.vtt'));
+});
+
+test('hianimeSlugVariants tries the exact slug before the stripped base', () => {
+  assert.deepEqual(hianimeSlugVariants('black-clover-season-2'), [
+    'black-clover-season-2',
+    'black-clover',
+  ]);
+  assert.deepEqual(hianimeSlugVariants('solo-leveling-s2'), [
+    'solo-leveling-s2',
+    'solo-leveling',
+  ]);
+  assert.deepEqual(hianimeSlugVariants('attack-on-titan-final-season'), [
+    'attack-on-titan-final-season',
+    'attack-on-titan',
+  ]);
+  // Plain slugs gain no duplicate candidate.
+  assert.deepEqual(hianimeSlugVariants('black-clover'), ['black-clover']);
+  assert.deepEqual(hianimeSlugVariants(hianimeSlug('Black Clover!')), [
+    'black-clover',
+  ]);
+});
+
+test('normalizeHianimeEpisodeId accepts every upstream id shape', () => {
+  assert.equal(
+    normalizeHianimeEpisodeId('black-clover/ep-2'),
+    'black-clover::ep=2',
+  );
+  assert.equal(
+    normalizeHianimeEpisodeId('steins-gate-3?ep=213'),
+    'steins-gate-3::ep=213',
+  );
+  assert.equal(
+    normalizeHianimeEpisodeId('black-clover::ep=2'),
+    'black-clover::ep=2',
+  );
+});
+
+test('pickHianimeServer accepts name and serverName item shapes', () => {
+  assert.deepEqual(pickHianimeServer([{ name: 'HD-2' }]), {
+    server: 'hd-2',
+    embedUrl: null,
+  });
+  assert.deepEqual(
+    pickHianimeServer([
+      { serverName: 'HD-1', embedUrl: 'https://x/e/1' },
+    ]),
+    { server: 'hd-1', embedUrl: 'https://x/e/1' },
+  );
+  assert.equal(pickHianimeServer([]), null);
+  assert.equal(pickHianimeServer(null), null);
 });
 
 test('firstM3u8 digs nested urls out of API payloads', () => {
