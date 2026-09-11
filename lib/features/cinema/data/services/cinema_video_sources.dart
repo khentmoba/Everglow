@@ -47,6 +47,9 @@ class CinemaVideoSources {
     'videasy',
     'movish',
     'vidbolt',
+    'vidcore',
+    'vidlink',
+    '111movies',
   };
 
   static bool _isNoAds(VideoSourceConfig p) =>

@@ -40,6 +40,10 @@ String buildVideoSourceUrl(
     } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
       return '$tvBase$id?season=$season&episode=$episode';
     } else {
+      // vidlink: https://vidlink.pro/tv/{id}/{season}/{episode}
+      // vidcore: https://vidcore.org/embed/tv/{id}/{season}/{episode}
+      // 111movies: https://111movies.com/tv/{id}/{season}/{episode}
+      // Default path style: base/{id}/{season}/{episode}
       final separator = tvBase.endsWith('/') ? '' : '/';
       final base = '$tvBase$separator$id/$season/$episode';
       final url = isVideasy
