@@ -222,8 +222,18 @@ test('httpsOrigin only passes https origins', () => {
   assert.equal(httpsOrigin(null), null);
 });
 
-test('ANIVEXA_PROVIDERS leads with verified plain HLS', () => {
-  assert.equal(ANIVEXA_PROVIDERS[0], 'anizone');
+test('ANIVEXA_PROVIDERS leads with open HLS, hangy hosts demoted', () => {
+  // Open/direct hosts first; animegg hangs 20s+ at times and must sit
+  // behind the reliable ones; spares always trail.
+  assert.equal(ANIVEXA_PROVIDERS[0], 'anineko');
+  assert.ok(
+    ANIVEXA_PROVIDERS.indexOf('anikoto') <
+      ANIVEXA_PROVIDERS.indexOf('animegg'),
+  );
+  assert.ok(
+    ANIVEXA_PROVIDERS.indexOf('animegg') <
+      ANIVEXA_PROVIDERS.indexOf('mkissa'),
+  );
   assert.ok(ANIVEXA_PROVIDERS.includes('reanime'));
 });
 
