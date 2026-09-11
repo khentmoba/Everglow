@@ -954,20 +954,27 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
   if (!hits.length) throw new Error('anivexa: episode missing');
 
   // 2. Streams + verification race; priority order decides the winner.
+  // Failed contenders are logged with their reason — without this the
+  // only signal is a grey box on Clair's phone and a bare 502 here.
   const raced = await Promise.allSettled(
-    hits.map(async ({ epId }) => {
-      const watch = await fetchJson(
-        `${base}/${epId}`,
-        Math.min(8000, remaining()),
-      );
-      const pick = pickAnivexaStream(watch);
-      if (!pick) throw new Error('anivexa: no stream');
-      // Removed episodes answer with dead links — verify first so a
-      // dying host can't win the race with an unplayable URL.
-      await verifyAnivexaStream(pick.src, pick.type, remaining);
-      return pick;
+    hits.map(async ({ provider, epId }) => {
+      try {
+        const watch = await fetchJson(
+          `${base}/${epId}`,
+          Math.min(8000, remaining()),
+        );
+        const pick = pickAnivexaStream(watch);
+        if (!pick) throw new Error('no stream in watch response');
+        // Removed episodes answer with dead links — verify first so a
+        // dying host can't win the race with an unplayable URL.
+        await verifyAnivexaStream(pick.src, pick.type, remaining);
+        return pick;
+      } catch (e) {
+        throw new Error(`${provider}: ${e && e.message ? e.message : e}`);
+      }
     }),
   );
+  const failures = [];
   for (let i = 0; i < hits.length; i++) {
     const r = raced[i];
     if (r.status === 'fulfilled' && r.value) {
@@ -979,7 +986,9 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
         }),
       };
     }
+    failures.push(r.status === 'rejected' ? String(r.reason) : 'empty');
   }
+  console.warn(`[proxyAnime] anivexa ${anilistId} ep=${ep}: ${failures.join(' | ')}`);
   throw new Error('anivexa: no playable source found');
 }
 
