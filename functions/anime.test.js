@@ -13,6 +13,7 @@ const {
   resolvePlaylistUrl,
   playlistUris,
   verifyMegavidStream,
+  assertPlayableHead,
   NO_SOURCE_MARKER,
 } = require('./anime');
 
@@ -124,9 +125,11 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
   const variant =
     '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n';
   const seen = [];
+  const origins = [];
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, opts) => {
     seen.push(String(url));
+    origins.push(opts && opts.headers ? opts.headers.Origin : null);
     if (String(url).endsWith('.m3u8')) {
       const text = String(url).includes('/v.m3u8') ? variant : master;
       return {
@@ -139,9 +142,10 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
     return {
       ok: true,
       status: 206,
+      headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
       body: {
         getReader: () => ({
-          read: async () => ({ done: false, value: new Uint8Array([1, 2]) }),
+          read: async () => ({ done: false, value: new Uint8Array([0x47, 2]) }),
           cancel: async () => {},
         }),
       },
@@ -154,6 +158,7 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
     assert.ok(seen.includes('https://cdn/master.m3u8'));
     assert.ok(seen.includes('https://cdn/v.m3u8'));
     assert.ok(seen.includes('https://cdn/s0.ts'));
+    assert.ok(origins.length > 0 && origins.every((o) => typeof o === 'string' && o.length > 0));
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -170,9 +175,10 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
   const segOk = {
     ok: true,
     status: 206,
+    headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
     body: {
       getReader: () => ({
-        read: async () => ({ done: false, value: new Uint8Array([1]) }),
+        read: async () => ({ done: false, value: new Uint8Array([0x47]) }),
         cancel: async () => {},
       }),
     },
@@ -213,6 +219,61 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
           : segOk,
     },
     {
+      name: 'segment without CORS header',
+      fetch: async (url) =>
+        String(url).endsWith('.m3u8')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n')
+          : {
+              ok: true,
+              status: 206,
+              headers: { get: () => null },
+              body: {
+                getReader: () => ({
+                  read: async () => ({ done: false, value: new Uint8Array([0x47]) }),
+                  cancel: async () => {},
+                }),
+              },
+            },
+    },
+    {
+      name: 'segment is an HTML error page',
+      fetch: async (url) =>
+        String(url).endsWith('.m3u8')
+          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nhttps://cdn/s0.ts\n')
+          : {
+              ok: true,
+              status: 200,
+              headers: { get: () => '*' },
+              body: {
+                getReader: () => ({
+                  read: async () => ({
+                    done: false,
+                    value: new Uint8Array([0x3c, 0x68, 0x74, 0x6d, 0x6c]),
+                  }),
+                  cancel: async () => {},
+                }),
+              },
+            },
+    },
+    {
+      name: 'second variant dead',
+      fetch: async (url) => {
+        const u = String(url);
+        if (u.endsWith('master.m3u8')) {
+          return playlist(
+            '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://cdn/a.m3u8\n' +
+              '#EXT-X-STREAM-INF:BANDWIDTH=2\nhttps://cdn/b.m3u8\n',
+          );
+        }
+        if (u.endsWith('.m3u8')) {
+          const seg = u.includes('/b.m3u8') ? 'https://cdn/b0.ts' : 'https://cdn/a0.ts';
+          return playlist(`#EXTM3U\n#EXTINF:4,\n${seg}\n`);
+        }
+        if (String(url).endsWith('b0.ts')) return { ok: false, status: 404 };
+        return segOk;
+      },
+    },
+    {
       name: 'encryption key 404',
       fetch: async (url) => {
         if (String(url).endsWith('.m3u8')) {
@@ -235,6 +296,19 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
     );
   }
   globalThis.fetch = realFetch;
+});
+
+test('assertPlayableHead only accepts real TS bytes for .ts files', () => {
+  assert.doesNotThrow(() =>
+    assertPlayableHead(new Uint8Array([0x47, 0, 0]), 'https://cdn/s0.ts', 'segment'),
+  );
+  assert.throws(
+    () => assertPlayableHead(new Uint8Array([0x3c, 0x21]), 'https://cdn/s0.ts', 'segment'),
+    /not video data/,
+  );
+  assert.doesNotThrow(() =>
+    assertPlayableHead(new Uint8Array([0x00, 0x00]), 'https://cdn/s0.m4s', 'segment'),
+  );
 });
 
 test('firstM3u8 digs nested urls out of API payloads', () => {
