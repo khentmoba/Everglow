@@ -38,6 +38,7 @@ const {
   onNewMilestone,
 } = require('./triggers.js');
 
+const { proxyAnime, proxyAnimeSegment } = require('./anime.js');
 const { proxySpotifySearch, spotifyExchange, spotifyRefresh, spotifyCurrentlyPlaying } = require('./spotify.js');
 const { verifyPasscode } = require('./passcode.js');
 const { health, sweepStalePresence } = require('./system_functions.js');
@@ -99,6 +100,8 @@ module.exports = Object.assign({}, module.exports, {
   proxyMangaDex,
   proxyVideoStream,
   proxyWatchStream,
+  proxyAnime,
+  proxyAnimeSegment,
   proxySpotifySearch,
   spotifyExchange,
   spotifyRefresh,

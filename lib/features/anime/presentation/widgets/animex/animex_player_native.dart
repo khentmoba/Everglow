@@ -141,8 +141,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     'megaplay.buzz',
     'everglow-1c6db.web.app',
     'cinesrc.st',
-    'movish.to',
-    'vidbolt.xyz',
+    'us-central1-everglow-1c6db.cloudfunctions.net',
   };
 
   @override
