@@ -5,6 +5,8 @@ const test = require('node:test');
 const vm = require('node:vm');
 const {
   ANIVEXA_PROVIDERS,
+  ANIVEXA_CORE_PROVIDERS,
+  ANIVEXA_SPARE_PROVIDERS,
   pickAnivexaEpisode,
   pickAnivexaStream,
   isAnivexaMediaHost,
@@ -226,6 +228,7 @@ test('ANIVEXA_PROVIDERS leads with open HLS, hangy hosts demoted', () => {
   // Open/direct hosts first; animegg hangs 20s+ at times and must sit
   // behind the reliable ones; spares always trail.
   assert.equal(ANIVEXA_PROVIDERS[0], 'anineko');
+  assert.equal(ANIVEXA_PROVIDERS[1], 'anikoto');
   assert.ok(
     ANIVEXA_PROVIDERS.indexOf('anikoto') <
       ANIVEXA_PROVIDERS.indexOf('animegg'),
@@ -235,6 +238,14 @@ test('ANIVEXA_PROVIDERS leads with open HLS, hangy hosts demoted', () => {
       ANIVEXA_PROVIDERS.indexOf('mkissa'),
   );
   assert.ok(ANIVEXA_PROVIDERS.includes('reanime'));
+  // The burst waves are core-first; spares only fire when core is empty.
+  assert.equal(ANIVEXA_CORE_PROVIDERS[0], 'anineko');
+  assert.ok(ANIVEXA_CORE_PROVIDERS.includes('animegg'));
+  assert.ok(ANIVEXA_SPARE_PROVIDERS.includes('2dhive'));
+  assert.equal(
+    ANIVEXA_PROVIDERS.length,
+    ANIVEXA_CORE_PROVIDERS.length + ANIVEXA_SPARE_PROVIDERS.length,
+  );
 });
 
 test('failHtml always carries the app failover marker', () => {
