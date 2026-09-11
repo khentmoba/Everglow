@@ -6,21 +6,24 @@
  * The app never talks to third-party anime APIs directly. It loads one of
  * these URLs in the sandboxed player frame:
  *
- *   GET /proxyAnime?source=hianime|megavid&anilistId=<id>&malId=<id>
+ *   GET /proxyAnime?source=hianime|megavid|anivexa&anilistId=<id>&malId=<id>
  *       &ep=<n>&audio=sub|dub&token=<firebase id token>
  *
  * The function resolves the episode server-side (through our own
- * self-hosted HiAnime / AnimePahe API instances, whose base URLs stay in
- * server env vars) and serves a clean player page from OUR domain — so no
- * third-party ad script ever reaches Clair's phone.
+ * self-hosted HiAnime / AnimePahe / Anivexa API instances, whose base
+ * URLs stay in server env vars) and serves a clean player page from OUR
+ * domain — so no third-party ad script ever reaches Clair's phone.
  *
  * Self-host one instance of each (personal use only):
  *   - HiAnime API : https://github.com/MSMods-Pro/hianime-api
  *                   (Docker or Cloudflare Workers)
  *   - AnimePahe API: https://github.com/ElijahCodes12345/animepahe-api
  *                   (Docker or Railway; needs `npx playwright install`)
- * Then set HIANIME_API_BASE / ANIMEPAHE_API_BASE on the functions
- * (firebase functions .env) and redeploy.
+ *   - Anivexa API : https://github.com/walterwhite-69/Anivexa-API
+ *                   (Node.js; Railway/Render/VPS — NOT Vercel, whose
+ *                   datacenter IPs anime upstreams block)
+ * Then set HIANIME_API_BASE / ANIMEPAHE_API_BASE / ANIVEXA_API_BASE on
+ * the functions (firebase functions .env) and redeploy.
  *
  * Auth: Firebase ID token via `Authorization: Bearer` header OR `?token=`
  * (player iframes cannot send headers). Failures always return an HTML
@@ -199,9 +202,12 @@ function validateAnimeParams(query) {
   if (
     source !== 'hianime' &&
     source !== 'animepahe' &&
-    source !== 'megavid'
+    source !== 'megavid' &&
+    source !== 'anivexa'
   ) {
-    return { error: 'source must be hianime, animepahe, or megavid' };
+    return {
+      error: 'source must be hianime, animepahe, megavid, or anivexa',
+    };
   }
   const anilistId = Number.parseInt(String(query.anilistId || '0'), 10) || 0;
   const malId = Number.parseInt(String(query.malId || '0'), 10) || 0;
@@ -244,7 +250,30 @@ async function fetchJson(url, timeoutMs) {
 
 const DEFAULT_BASES = {
   HIANIME_API_BASE: 'https://hianime-api-two.vercel.app',
+  // No public default: Anivexa must be self-hosted (personal use only).
+  // Until ANIVEXA_API_BASE is set, the source fails over with the
+  // "no playable stream sources" marker like any missing backend.
+  ANIVEXA_API_BASE: '',
 };
+
+/** Anivexa providers to try, cleanest direct streams first.
+ *
+ * AniZone serves plain HLS with no token games (verified live); MP4
+ * hosts follow; FlixCloud-backed providers sit last because their
+ * playlists are encrypted and IP-bound, so they fail our playback
+ * check and are skipped automatically. */
+const ANIVEXA_PROVIDERS = [
+  'anizone',
+  'animegg',
+  'anikoto',
+  'anineko',
+  '2dhive',
+  'anibd',
+  'kaa',
+  'animedunya',
+  'aniwaves',
+  'reanime',
+];
 
 /** Our self-hosted API hosts come from env or default bases,
  *  and must be public https hosts — same SSRF guard as the other proxies. */
@@ -740,6 +769,165 @@ async function resolveMegavid(anilistId, malId, ep, audio) {
   };
 }
 
+// ─── Anivexa (AniList-keyed aggregator, direct streams, NO ADS) ───
+
+/** Picks the episode id for [ep] from one Anivexa provider node.
+ *  Pure: `data` is one `/episodes/...` response, `provider` one of
+ *  [ANIVEXA_PROVIDERS]. Falls back to sub when the dub list is empty
+ *  and to index position when numbering is off. */
+function pickAnivexaEpisode(data, provider, ep, audio) {
+  const node = data && data[provider];
+  const bucket = node && node.episodes;
+  const wanted =
+    bucket && Array.isArray(bucket[audio]) && bucket[audio].length
+      ? bucket[audio]
+      : bucket && bucket.sub;
+  if (!Array.isArray(wanted)) return null;
+  const list = wanted;
+  const hit =
+    list.find((e) => Number(e && e.number) === ep) || list[ep - 1];
+  return hit && hit.id ? String(hit.id) : null;
+}
+
+/** Picks the cleanest playable stream from an Anivexa `/watch/...`
+ *  response. Pure: prefers plain HLS over MP4 and never returns
+ *  `embed` fallbacks (those carry third-party ad scripts). Subtitle
+ *  entries are normalized to the `{file, label}` shape [hlsPlayerHtml]
+ *  expects. */
+function pickAnivexaStream(watch) {
+  const streams =
+    watch && Array.isArray(watch.streams) ? watch.streams : [];
+  const playable = streams.filter(
+    (s) =>
+      s &&
+      typeof s.url === 'string' &&
+      /^https?:\/\//i.test(s.url) &&
+      (s.type === 'hls' || s.type === 'mp4'),
+  );
+  if (!playable.length) return null;
+  const best =
+    playable.find((s) => s.type === 'hls') || playable[0];
+  const subs =
+    watch && Array.isArray(watch.subtitles) ? watch.subtitles : [];
+  const tracks = subs
+    .filter((t) => t && (t.url || t.file))
+    .map((t) => ({
+      file: t.url || t.file,
+      label: t.language || t.label || 'Subtitles',
+    }))
+    .slice(0, 8);
+  return { src: best.url, tracks, type: best.type };
+}
+
+/** Fetches an Anivexa HLS playlist and proves it is a real playlist.
+ *  (Unlike [fetchPlaylist], this stays host-neutral: third-party anime
+ *  CDNs rarely send the CORS header Megavid's CDN does.) */
+async function fetchAnivexaPlaylist(url, timeoutMs, label) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': DESKTOP_UA, Accept: '*/*' },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok && res.status !== 206) {
+    throw new Error(`anivexa ${label} ${res.status}`);
+  }
+  const text = await res.text();
+  if (!text || !text.includes('#EXTM3U')) {
+    throw new Error(`anivexa ${label} is not a playlist`);
+  }
+  return text;
+}
+
+/** Confirms one MP4 file answers as video, reading a single chunk so
+ *  a full-file 200 never downloads the whole episode server-side. */
+async function verifyAnivexaMp4(url) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Range: 'bytes=0-1023',
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok && res.status !== 206) {
+    throw new Error(`anivexa file ${res.status}`);
+  }
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (!ct.includes('video/') && !ct.includes('octet-stream')) {
+    throw new Error('anivexa file is not video');
+  }
+  try {
+    if (res.body && typeof res.body.getReader === 'function') {
+      const reader = res.body.getReader();
+      try {
+        await reader.read();
+      } finally {
+        try {
+          await reader.cancel();
+        } catch (_) {}
+      }
+    } else {
+      await res.arrayBuffer();
+    }
+  } catch (_) {}
+}
+
+/** Proves a candidate stream actually plays before we hand it to
+ *  Clair's phone: HLS playlists must parse down to a variant with
+ *  segments (this also rejects the encrypted blobs some hosts
+ *  serve with a playlist content-type); MP4s must answer as video.
+ *  Anything dead throws so the caller moves to the next provider. */
+async function verifyAnivexaStream(url, type) {
+  if (type === 'mp4') {
+    await verifyAnivexaMp4(url);
+    return;
+  }
+  const master = await fetchAnivexaPlaylist(url, 8000, 'playlist');
+  const variants = playlistUris(master, url, { variantsOnly: true });
+  const mediaUrl = variants.length > 0 ? variants[0] : url;
+  const media =
+    variants.length > 0
+      ? await fetchAnivexaPlaylist(mediaUrl, 8000, 'variant')
+      : master;
+  const segments = playlistUris(media, mediaUrl);
+  if (!segments.length) throw new Error('anivexa: playlist has no segments');
+}
+
+async function resolveAnivexa(base, anilistId, ep, audio) {
+  for (const provider of ANIVEXA_PROVIDERS) {
+    let epId = null;
+    try {
+      const data = await fetchJson(
+        `${base}/episodes/${provider}/${anilistId}`,
+        10000,
+      );
+      epId = pickAnivexaEpisode(data, provider, ep, audio);
+    } catch (_) {
+      continue;
+    }
+    if (!epId) continue;
+    try {
+      const watch = await fetchJson(`${base}/${epId}`, 12000);
+      const pick = pickAnivexaStream(watch);
+      if (!pick) continue;
+      // Removed episodes answer with dead links — verify first so the
+      // app fails over to the next provider instead of stalling.
+      await verifyAnivexaStream(pick.src, pick.type);
+      return {
+        playerHtml: hlsPlayerHtml({
+          src: pick.src,
+          tracks: pick.tracks,
+          title: `Episode ${ep}`,
+        }),
+      };
+    } catch (_) {
+      continue;
+    }
+  }
+  throw new Error('anivexa: no playable source found');
+}
+
 // ─── Endpoints ───────────────────────────────────────────
 
 const proxyAnime = functions.https.onRequest(async (req, res) => {
@@ -791,6 +979,30 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
       sendFail('No stream found — try another server.');
       return;
     }
+  }
+
+  // Anivexa is AniList-keyed and needs no title lookup: one id in,
+  // direct streams out. It sits beside Megavid, ahead of the
+  // title-search sources.
+  if (source === 'anivexa') {
+    if (anilistId <= 0) {
+      sendFail('Anivexa needs an AniList id — try another server.');
+      return;
+    }
+    const anivexaBase = await envBase('ANIVEXA_API_BASE');
+    if (!anivexaBase) {
+      sendFail('Source is not set up yet — try another server.');
+      return;
+    }
+    try {
+      const out = await resolveAnivexa(anivexaBase, anilistId, ep, audio);
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.set('Cache-Control', 'public, max-age=300');
+      res.status(200).send(out.playerHtml);
+    } catch (e) {
+      sendFail('No stream found — try another server.');
+    }
+    return;
   }
 
   const base = await envBase(
@@ -929,6 +1141,9 @@ module.exports = {
   proxyAnime,
   proxyAnimeSegment,
   // Pure helpers (unit-tested).
+  ANIVEXA_PROVIDERS,
+  pickAnivexaEpisode,
+  pickAnivexaStream,
   normTitle,
   pickBestMatch,
   validateAnimeParams,

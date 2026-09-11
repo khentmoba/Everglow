@@ -63,6 +63,8 @@ class AnimeXWatchPage extends StatefulWidget {
         return 'HiAnime';
       case 'Server 3':
         return 'Megavid';
+      case 'Server 4':
+        return 'Anivexa';
       default:
         return name;
     }
@@ -94,6 +96,10 @@ class AnimeXWatchPage extends StatefulWidget {
   /// - Megavid: direct HLS streams from Megavid's `/source` API served
   ///   through `proxyAnime`. Bypasses the third-party website embed
   ///   and all its popunders completely — 100% AD-FREE.
+  /// - Anivexa: our own `proxyAnime` player page over a self-hosted
+  ///   Anivexa API, which aggregates many anime upstreams behind one
+  ///   AniList id and returns direct streams. AniList-keyed, so it
+  ///   needs an AniList id. 100% ad-free.
   ///
   /// [episodeSlots] maps a MAL episode number to the season/episode
   /// pair TMDB expects — shows whose MAL entry starts mid-series (e.g.
@@ -152,6 +158,11 @@ class AnimeXWatchPage extends StatefulWidget {
         name: 'Megavid',
         urlBuilder: (ep, audio) => proxyAnimeUrl('megavid', ep, audio),
         available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'Anivexa',
+        urlBuilder: (ep, audio) => proxyAnimeUrl('anivexa', ep, audio),
+        available: hasAni,
       ),
     ];
   }
