@@ -239,56 +239,104 @@ function firstM3u8(node, out) {
 // ─── HiAnime ─────────────────────────────────────────────
 
 async function resolveHianime(base, titles, year, ep, audio) {
-  const search = await fetchJson(
-    `${base}/api/v1/search?keyword=${encodeURIComponent(titles[0])}&page=1`,
-    12000,
-  );
-  const results = search && search.data && search.data.animes;
-  const match = pickBestMatch(
-    (Array.isArray(results) ? results : []).map((a) => ({
-      key: a.id,
-      title: [a.title, a.alternativeTitle, a.japanese].filter(Boolean).join(' ~ '),
-    })),
-    titles,
-    year,
-  );
-  if (!match) throw new Error('hianime: no match');
+  let matchKey = null;
 
-  const eps = await fetchJson(
-    `${base}/api/v1/episodes/${encodeURIComponent(match.key)}`,
-    12000,
-  );
-  const list =
-    eps && eps.data && Array.isArray(eps.data.episodes) ? eps.data.episodes : [];
-  const target = list.find((e) => Number(e.episodeNumber) === ep) || list[ep - 1];
-  if (!target || !target.id) throw new Error('hianime: episode missing');
-
-  let server = 'hd-2';
+  // 1. Try search API if available
   try {
-    const servers = await fetchJson(
-      `${base}/api/v1/servers?id=${encodeURIComponent(target.id)}`,
+    const search = await fetchJson(
+      `${base}/api/v1/search?keyword=${encodeURIComponent(titles[0])}&page=1`,
       10000,
     );
-    const subs =
-      servers && servers.data && Array.isArray(servers.data.sub)
-        ? servers.data.sub
+    const results =
+      search &&
+      search.data &&
+      (search.data.animes || search.data.response);
+    const match = pickBestMatch(
+      (Array.isArray(results) ? results : []).map((a) => ({
+        key: a.id,
+        title: [a.title, a.alternativeTitle, a.japanese]
+          .filter(Boolean)
+          .join(' ~ '),
+      })),
+      titles,
+      year,
+    );
+    if (match && match.key) matchKey = match.key;
+  } catch (_) {}
+
+  // 2. If search fails or returns nothing, try slug candidates directly
+  let eps = null;
+  const candidates = matchKey ? [matchKey] : [];
+  for (const t of titles) {
+    const slug = t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (slug && !candidates.includes(slug)) candidates.push(slug);
+  }
+
+  for (const key of candidates) {
+    try {
+      const res = await fetchJson(
+        `${base}/api/v1/episodes/${encodeURIComponent(key)}`,
+        10000,
+      );
+      if (
+        res &&
+        res.data &&
+        Array.isArray(res.data.episodes) &&
+        res.data.episodes.length > 0
+      ) {
+        eps = res;
+        matchKey = key;
+        break;
+      }
+    } catch (_) {}
+  }
+  if (!eps) throw new Error('hianime: no match');
+
+  const list = eps.data.episodes;
+  const target =
+    list.find((e) => Number(e.episodeNumber) === ep) || list[ep - 1];
+  if (!target || !target.id) throw new Error('hianime: episode missing');
+
+  // Normalize episode ID (handles both 'slug/ep-1' and 'slug::ep=1')
+  const epId = target.id.replace(/\/ep-/, '::ep=');
+
+  // Pick server
+  let server = 'hd-1';
+  let serverEmbedUrl = null;
+  try {
+    const servers = await fetchJson(
+      `${base}/api/v1/servers?id=${encodeURIComponent(epId)}`,
+      10000,
+    );
+    const serverList =
+      servers && servers.data
+        ? audio === 'dub' &&
+          Array.isArray(servers.data.dub) &&
+          servers.data.dub.length > 0
+          ? servers.data.dub
+          : Array.isArray(servers.data.sub)
+          ? servers.data.sub
+          : []
         : [];
-    const want = audio === 'dub' && servers.data.dub && servers.data.dub[0];
-    const pick = want || subs[0];
-    if (pick && pick.serverName) {
-      server = String(pick.serverName).toLowerCase().replace(/\s+/g, '-');
+    const pick = serverList[0];
+    if (pick && pick.name) {
+      server = String(pick.name).toLowerCase().replace(/\s+/g, '-');
+      serverEmbedUrl = pick.embedUrl || null;
     }
   } catch (e) {
     console.warn('[proxyAnime] hianime servers fallback:', e.message);
   }
 
-  // Prefer the self-hosted clean embed page; fall back to raw HLS.
+  // 1. Try clean embed endpoint
   try {
     const embedRes = await fetch(
-      `${base}/api/v1/embed/${server}/${encodeURIComponent(target.id)}/${audio}`,
+      `${base}/api/v1/embed/${server}/${encodeURIComponent(epId)}/${audio}`,
       {
         headers: { 'User-Agent': DESKTOP_UA, Accept: 'text/html' },
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(10000),
       },
     );
     if (embedRes.ok) {
@@ -301,25 +349,60 @@ async function resolveHianime(base, titles, year, ep, audio) {
         return { playerHtml: html };
       }
     }
-  } catch (e) {
-    console.warn('[proxyAnime] hianime embed fallback:', e.message);
+  } catch (_) {}
+
+  // 2. Try stream endpoint
+  try {
+    const stream = await fetchJson(
+      `${base}/api/v1/stream?id=${encodeURIComponent(epId)}&server=${encodeURIComponent(server)}&type=${audio}`,
+      12000,
+    );
+    const data = stream && stream.data;
+    const file =
+      data &&
+      (data.master_m3u8 ||
+        (data.link && data.link.file) ||
+        (data.variants && data.variants[0] && data.variants[0].url) ||
+        data.streamingLink);
+    if (file) {
+      const proxied = `${base}/api/v1/proxy?url=${encodeURIComponent(file)}&referer=${encodeURIComponent(data.embedUrl || 'https://megacloud.tv')}`;
+      const tracks =
+        data.tracks && Array.isArray(data.tracks)
+          ? data.tracks.filter((t) => t && t.file)
+          : [];
+      return {
+        playerHtml: hlsPlayerHtml({
+          src: proxied,
+          tracks,
+          title: matchKey,
+        }),
+      };
+    }
+    if (data && data.embedUrl) {
+      serverEmbedUrl = data.embedUrl;
+    }
+  } catch (_) {}
+
+  // 3. Fall back to sandboxed embed URL if available
+  if (serverEmbedUrl) {
+    const safeEmbedHtml =
+      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<meta name="referrer" content="no-referrer">' +
+      '<title>' +
+      escHtml(titles[0]) +
+      '</title>' +
+      '<style>html,body,iframe{margin:0;padding:0;width:100%;height:100%;border:0;background:#000;overflow:hidden}</style>' +
+      '</head><body><iframe src="' +
+      escHtml(serverEmbedUrl) +
+      '" allowfullscreen ' +
+      'sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock" ' +
+      'allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *"></iframe>' +
+      '</body></html>';
+    return { playerHtml: safeEmbedHtml };
   }
 
-  const stream = await fetchJson(
-    `${base}/api/v1/stream?id=${encodeURIComponent(target.id)}` +
-      `&server=${encodeURIComponent(server)}&type=${audio}`,
-    12000,
-  );
-  const file = stream && stream.data && stream.data.link && stream.data.link.file;
-  if (!file) throw new Error('hianime: no stream');
-  const proxied =
-    `${base}/api/v1/proxy?url=${encodeURIComponent(file)}` +
-    `&referer=${encodeURIComponent('https://megacloud.tv')}`;
-  const tracks =
-    stream.data.tracks && Array.isArray(stream.data.tracks)
-      ? stream.data.tracks.filter((t) => t && t.file)
-      : [];
-  return { playerHtml: hlsPlayerHtml({ src: proxied, tracks, title: match.key }) };
+  throw new Error('hianime: no playable source found');
 }
 
 // ─── AnimePahe ───────────────────────────────────────────
