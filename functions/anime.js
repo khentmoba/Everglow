@@ -939,12 +939,14 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
   const deadline = Date.now() + 40000;
   const remaining = () => Math.max(500, deadline - Date.now());
 
-  // 1. Episode ids from every provider at once (cheap, 1-3s each).
+  // 1. Episode ids from every provider at once. One burst of 15
+  // scrapes saturates Render's small CPU for ~15s, so this step gets
+  // a generous timeout — the deadline below still caps the total.
   const found = await Promise.allSettled(
     ANIVEXA_PROVIDERS.map(async (provider) => {
       const data = await fetchJson(
         `${base}/episodes/${provider}/${anilistId}`,
-        Math.min(7000, remaining()),
+        Math.min(22000, remaining()),
       );
       return {
         provider,
