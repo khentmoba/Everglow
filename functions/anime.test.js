@@ -4,6 +4,9 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const vm = require('node:vm');
 const {
+  ANIVEXA_PROVIDERS,
+  pickAnivexaEpisode,
+  pickAnivexaStream,
   normTitle,
   pickBestMatch,
   validateAnimeParams,
@@ -50,6 +53,70 @@ test('validateAnimeParams rejects bad source, ids, episodes', () => {
   });
   assert.equal(okMegavid.error, undefined);
   assert.equal(okMegavid.source, 'megavid');
+});
+
+test('validateAnimeParams accepts anivexa', () => {
+  const ok = validateAnimeParams({
+    source: 'anivexa',
+    anilistId: 20,
+    malId: 20,
+    ep: 1,
+    audio: 'dub',
+  });
+  assert.equal(ok.error, undefined);
+  assert.equal(ok.source, 'anivexa');
+});
+
+test('pickAnivexaEpisode finds episodes with audio fallback', () => {
+  const data = {
+    anizone: {
+      episodes: {
+        sub: [
+          { id: 'watch/anizone/20/sub/anizone-1', number: 1 },
+          { id: 'watch/anizone/20/sub/anizone-2', number: 2 },
+        ],
+        dub: [],
+      },
+    },
+  };
+  assert.equal(
+    pickAnivexaEpisode(data, 'anizone', 2, 'sub'),
+    'watch/anizone/20/sub/anizone-2',
+  );
+  // Empty dub list falls back to sub.
+  assert.equal(
+    pickAnivexaEpisode(data, 'anizone', 1, 'dub'),
+    'watch/anizone/20/sub/anizone-1',
+  );
+  assert.equal(pickAnivexaEpisode(data, 'anizone', 99, 'sub'), null);
+  assert.equal(pickAnivexaEpisode(data, 'missing', 1, 'sub'), null);
+  assert.equal(pickAnivexaEpisode(null, 'anizone', 1, 'sub'), null);
+});
+
+test('pickAnivexaStream prefers HLS and drops embeds', () => {
+  const watch = {
+    streams: [
+      { server: 'X-embed', type: 'embed', url: 'https://x/e/1' },
+      { server: 'X-mp4', type: 'mp4', url: 'https://x/v.mp4' },
+      { server: 'X-hls', type: 'hls', url: 'https://x/master.m3u8' },
+    ],
+    subtitles: [{ url: 'https://x/en.vtt', language: 'English' }],
+  };
+  const pick = pickAnivexaStream(watch);
+  assert.equal(pick.src, 'https://x/master.m3u8');
+  assert.deepEqual(pick.tracks, [
+    { file: 'https://x/en.vtt', label: 'English' },
+  ]);
+  assert.equal(
+    pickAnivexaStream({ streams: [{ type: 'embed', url: 'https://x/e' }] }),
+    null,
+  );
+  assert.equal(pickAnivexaStream({}), null);
+});
+
+test('ANIVEXA_PROVIDERS leads with verified plain HLS', () => {
+  assert.equal(ANIVEXA_PROVIDERS[0], 'anizone');
+  assert.ok(ANIVEXA_PROVIDERS.includes('reanime'));
 });
 
 test('failHtml always carries the app failover marker', () => {
