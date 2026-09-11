@@ -1,12 +1,12 @@
 'use strict';
 
 /**
- * Everglow anime resolver — ad-free HiAnime + AnimePahe playback.
+ * Everglow anime resolver — ad-free HiAnime + Megavid playback.
  *
  * The app never talks to third-party anime APIs directly. It loads one of
  * these URLs in the sandboxed player frame:
  *
- *   GET /proxyAnime?source=hianime|animepahe&anilistId=<id>&malId=<id>
+ *   GET /proxyAnime?source=hianime|megavid&anilistId=<id>&malId=<id>
  *       &ep=<n>&audio=sub|dub&token=<firebase id token>
  *
  * The function resolves the episode server-side (through our own
@@ -101,8 +101,17 @@ function failHtml(title, detail) {
   );
 }
 
-/** Minimal ad-free HLS player. The video URL must already be playable
- *  from a browser (proxied through us when the upstream needs headers). */
+/** Ad-free HLS player with recovery. The video URL must already be playable
+ *  from a browser (proxied through us when the upstream needs headers).
+ *
+ *  The first version attached hls.js and hoped for the best: any fatal
+ *  stream error stalled on an endless spinner, and phones that block
+ *  unmuted autoplay never started at all. This version starts playback once
+ *  the manifest is ready, retries transient failures, and — after repeated
+ *  fatal errors — shows a "try another server" card with a retry button
+ *  instead of spinning forever. The card deliberately avoids the failover
+ *  marker text, so the app's server probe never mistakes a healthy player
+ *  page for a dead one. */
 function hlsPlayerHtml({ src, title, tracks }) {
   const trackTags = (Array.isArray(tracks) ? tracks : [])
     .filter((t) => t && t.file)
@@ -119,16 +128,70 @@ function hlsPlayerHtml({ src, title, tracks }) {
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<meta name="referrer" content="no-referrer">' +
     '<title>' + escHtml(title || 'Everglow') + '</title>' +
-    '<style>html,body{margin:0;height:100%;background:#000}' +
-    'video{width:100%;height:100%;background:#000}</style></head><body>' +
-    '<video id="v" controls playsinline autoplay>' +
+    '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}' +
+    'video{width:100%;height:100%;background:#000}' +
+    '.ov{position:fixed;inset:0;display:flex;align-items:center;' +
+    'justify-content:center;background:rgba(0,0,0,.72);z-index:5}' +
+    '.spin{width:44px;height:44px;border:4px solid rgba(255,255,255,.2);' +
+    'border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite}' +
+    '@keyframes sp{to{transform:rotate(360deg)}}' +
+    '#tap{cursor:pointer;border:0;border-radius:999px;padding:14px 26px;' +
+    'font-size:16px;font-weight:700;color:#fff;background:#ff2e63}' +
+    '#dead{flex-direction:column;text-align:center;color:#e2e2ea;' +
+    'font-family:sans-serif;padding:0 28px}' +
+    '#dead button{margin-top:14px;cursor:pointer;border:1px solid #ff2e63;' +
+    'border-radius:999px;padding:10px 24px;font-size:14px;color:#fff;' +
+    'background:transparent}' +
+    '</style></head><body>' +
+    '<video id="v" controls playsinline autoplay preload="auto" ' +
+    'crossorigin="anonymous">' +
     (trackTags ? '\n    ' + trackTags : '') +
     '</video>\n' +
+    '<div class="ov" id="boot"><div class="spin"></div></div>\n' +
+    '<div class="ov" id="tapw" hidden>' +
+    '<button id="tap">&#9654; Tap to play</button></div>\n' +
+    '<div class="ov" id="dead" hidden>' +
+    '<p style="font-size:15px;margin:0 0 6px">This stream stalled.</p>' +
+    '<p style="font-size:12px;color:#8b8b9e;margin:0">' +
+    'Try another server below — or retry here.</p>' +
+    '<button onclick="location.reload()">Retry</button></div>\n' +
     '<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>\n' +
     '<script>(function(){var src=' + JSON.stringify(src) + ';var v=' +
-    "document.getElementById('v');" +
-    'if(window.Hls&&Hls.isSupported()){var h=new Hls();h.loadSource(src);' +
-    'h.attachMedia(v);}else{v.src=src;}})();</' + 'script></body></html>'
+    'document.getElementById("v");' +
+    'var boot=document.getElementById("boot");' +
+    'var tapw=document.getElementById("tapw");' +
+    'var tap=document.getElementById("tap");' +
+    'var dead=document.getElementById("dead");' +
+    'function hideBoot(){boot.style.display="none";}' +
+    'function showTap(){tapw.hidden=false;}' +
+    'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
+    'if(p&&p.catch){p.catch(function(){showTap();});}}' +
+    'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
+    'try{window.parent.postMessage("animex-content-error","*");}' +
+    'catch(e){}}' +
+    'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
+    'v.addEventListener("playing",function(){hideBoot();tapw.hidden=true;});' +
+    'v.addEventListener("waiting",function(){' +
+    'if(dead.hidden){boot.style.display="flex";}});' +
+    'if(window.Hls&&Hls.isSupported()){' +
+    'var h=new Hls({maxBufferLength:30});var fatal=0;' +
+    'h.on(Hls.Events.ERROR,function(ev,data){' +
+    'if(!data||!data.fatal){return;}fatal++;' +
+    'if(fatal>3){try{h.destroy();}catch(e){}giveUp();return;}' +
+    'var ET=Hls.ErrorTypes||{};' +
+    'try{' +
+    'if(data.type===ET.NETWORK_ERROR){h.startLoad();}' +
+    'else if(data.type===ET.MEDIA_ERROR){h.recoverMediaError();}' +
+    'else if(fatal<3){h.startLoad();}' +
+    'else{h.destroy();giveUp();}' +
+    '}catch(e){giveUp();}});' +
+    'h.on(Hls.Events.MANIFEST_PARSED,function(){tryPlay();});' +
+    'h.loadSource(src);h.attachMedia(v);' +
+    '}else{' +
+    'v.src=src;' +
+    'v.addEventListener("loadedmetadata",function(){tryPlay();});' +
+    'v.addEventListener("error",function(){giveUp();});' +
+    '}});</' + 'script></body></html>'
   );
 }
 
@@ -544,27 +607,13 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
       res.status(200).send(out.playerHtml);
       return;
     } catch (e) {
-      console.warn('[proxyAnime] megavid /source fallback:', e.message);
-      const effectiveMal = malId || 0;
-      const embedUrl =
-        anilistId > 0
-          ? `https://megavid.buzz/ani/${anilistId}/${ep}/${audio}`
-          : `https://megavid.buzz/mal/${effectiveMal}/${ep}/${audio}`;
-      const fallbackHtml =
-        '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-        '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-        '<meta name="referrer" content="no-referrer">' +
-        '<title>Megavid</title>' +
-        '<style>html,body,iframe{margin:0;padding:0;width:100%;height:100%;border:0;background:#000;overflow:hidden}</style>' +
-        '</head><body><iframe src="' +
-        escHtml(embedUrl) +
-        '" allowfullscreen ' +
-        'sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock" ' +
-        'allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *"></iframe>' +
-        '</body></html>';
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      res.set('Cache-Control', 'public, max-age=300');
-      res.status(200).send(fallbackHtml);
+      // Megavid has no stream for this episode — its API answers
+      // "missing" for unreleased or removed titles. The old code served
+      // the Megavid website embed here, but that page just spins its
+      // loader forever on missing episodes (and brings back the popunders
+      // the direct-stream path was built to avoid). Fail with the marker
+      // instead so the app auto-advances to the next server.
+      sendFail('No stream found — try another server.');
       return;
     }
   }
