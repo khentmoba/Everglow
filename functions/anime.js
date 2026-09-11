@@ -569,10 +569,38 @@ async function resolvePahe(base, titles, year, ep, audio) {
 
 // ─── Megavid stream verification ────────────────────────────────
 
-/** Origin our player pages serve from. Verification requests carry it so
- *  upstream CORS behavior matches what the real player sees in a browser —
- *  several CDNs only emit access-control headers when Origin is present. */
-const PLAYER_ORIGIN = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
+/** Megavid upstream hosts. Restricted allowlist so the HLS proxy below
+ *  can never become an open proxy. */
+const MEGAVID_HOSTS = new Set(['megavid.buzz']);
+
+function isMegavidHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return [...MEGAVID_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
+}
+
+/** Anivexa CDN hosts observed serving pool streams. Suffix-matched so
+ *  rotating subdomains (fetch8.flixcloud.cc, s247.vidcache.net) stay
+ *  covered. Shares the HLS proxy below with Megavid — the endpoint
+ *  name stays for client-contract stability (see proxyMegavidHls). */
+const ANIVEXA_MEDIA_HOSTS = new Set([
+  'cdn.savedly.net',
+  'akirax.buzz',
+  'imgnex.top',
+  'vivibebe.site',
+  'vid-cdn.xyz',
+  'echovideo.to',
+  'echovideo.ru',
+  'vidcache.net',
+  'flixcloud.cc',
+  'atomic4cdn.top',
+]);
+
+function isAnivexaMediaHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return [...ANIVEXA_MEDIA_HOSTS].some(
+    (a) => h === a || h.endsWith(`.${a}`),
+  );
+}
 
 /** Resolves a possibly-relative playlist URI against its playlist URL. */
 function resolvePlaylistUrl(ref, base) {
@@ -607,9 +635,10 @@ function playlistUris(text, base, { variantsOnly = false } = {}) {
 }
 
 /**
- * Fetches an HLS playlist: it must answer 200, allow our player origin
- * (hls.js fetches with CORS — a playlist without the header can never
- * play in our player), and actually parse as a playlist.
+ * Fetches an HLS playlist: it must answer 200 and actually parse as a
+ * playlist. No CORS check here — server-side fetches ignore CORS, and
+ * the browser never touches this URL directly (see proxyMegavidHls,
+ * which re-serves everything from our own domain with `*`).
  */
 async function fetchPlaylist(url, timeoutMs, label) {
   const res = await fetch(url, {
@@ -617,18 +646,10 @@ async function fetchPlaylist(url, timeoutMs, label) {
       'User-Agent': DESKTOP_UA,
       Accept: '*/*',
       Referer: 'https://megavid.buzz/',
-      Origin: PLAYER_ORIGIN,
     },
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
-  const allow =
-    res.headers && typeof res.headers.get === 'function'
-      ? res.headers.get('access-control-allow-origin')
-      : null;
-  if (!allow) {
-    throw new Error(`megavid ${label} blocks cross-origin playback`);
-  }
   const text = await res.text();
   if (!text || !text.includes('#EXTM3U')) {
     throw new Error(`megavid ${label} is not a playlist`);
@@ -639,8 +660,9 @@ async function fetchPlaylist(url, timeoutMs, label) {
 /**
  * Downloads just the first bytes of a segment, key, or init map: proves
  * the file exists without pulling megabytes when the CDN ignores our
- * Range request. Like playlists, these go through hls.js, so the CORS
- * header is required too. Returns the first chunk for content checks.
+ * Range request. No CORS check — the browser streams through
+ * proxyMegavidHls (same-origin + `*`), so upstream headers don't matter.
+ * Returns the first chunk for content checks.
  */
 async function fetchSegmentHead(url, timeoutMs, label) {
   const res = await fetch(url, {
@@ -648,19 +670,11 @@ async function fetchSegmentHead(url, timeoutMs, label) {
       'User-Agent': DESKTOP_UA,
       Accept: '*/*',
       Referer: 'https://megavid.buzz/',
-      Origin: PLAYER_ORIGIN,
       Range: 'bytes=0-1023',
     },
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
-  const allow =
-    res.headers && typeof res.headers.get === 'function'
-      ? res.headers.get('access-control-allow-origin')
-      : null;
-  if (!allow) {
-    throw new Error(`megavid ${label} blocks cross-origin playback`);
-  }
   if (!res.body || typeof res.body.getReader !== 'function') {
     const buf = await res.arrayBuffer();
     if (!buf.byteLength) throw new Error(`megavid ${label} is empty`);
@@ -762,9 +776,95 @@ async function verifyMegavidStream(masterUrl) {
   return { variantUrl: first.url, segmentUrl: firstSegments[0] };
 }
 
-// ─── Megavid (Direct HLS Stream with NO ADS) ─────────────
+// ─── Megavid (Proxied HLS Stream with NO ADS) ─────────────
 
-async function resolveMegavid(anilistId, malId, ep, audio) {
+/** Builds our same-origin proxy URL for one upstream Megavid file.
+ *  Pure: `proxyBase` is `https://<host>/proxyMegavidHls`. */
+function megavidProxyUrl(proxyBase, token, absUrl, ref) {
+  let url =
+    `${proxyBase}?u=${encodeURIComponent(absUrl)}` +
+    `&token=${encodeURIComponent(String(token || ''))}`;
+  if (ref) url += `&ref=${encodeURIComponent(ref)}`;
+  return url;
+}
+
+/** Rewrites every Megavid URI inside an HLS playlist to our proxy.
+ *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
+ *  Non-Megavid URLs are left untouched so a future mixed playlist can't
+ *  turn the proxy into an open relay. */
+/** Shared playlist rewriter. [isAllowed] decides which hosts may be
+ *  pulled into the proxy (never an open relay); [ref] travels as
+ *  `&ref=` so the proxy can replay the Referer hotlink-locked hosts
+ *  demand. */
+function rewritePlaylistWithHosts(
+  text,
+  playlistUrl,
+  proxyBase,
+  token,
+  ref,
+  isAllowed,
+) {
+  const rewriteUri = (uri) => {
+    const abs = resolvePlaylistUrl(uri, playlistUrl);
+    if (!abs) return null;
+    try {
+      if (!isAllowed(new URL(abs).hostname)) return null;
+    } catch (_) {
+      return null;
+    }
+    return megavidProxyUrl(proxyBase, token, abs, ref);
+  };
+  return String(text || '')
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return line;
+      if (trimmed.startsWith('#')) {
+        if (!trimmed.includes('URI="')) return line;
+        return line.replace(/URI="([^"]+)"/g, (m, uri) => {
+          const out = rewriteUri(uri);
+          return out ? `URI="${out}"` : m;
+        });
+      }
+      const out = rewriteUri(trimmed);
+      return out || line;
+    })
+    .join('\n');
+}
+
+function rewriteMegavidPlaylist(text, playlistUrl, proxyBase, token) {
+  return rewritePlaylistWithHosts(
+    text,
+    playlistUrl,
+    proxyBase,
+    token,
+    '',
+    isMegavidHost,
+  );
+}
+
+/** Rewrites Anivexa pool URIs into the shared proxy, carrying the
+ *  embed-origin Referer each locked host expects. Pure. */
+function rewriteAnivexaPlaylist(text, playlistUrl, proxyBase, token, ref) {
+  return rewritePlaylistWithHosts(
+    text,
+    playlistUrl,
+    proxyBase,
+    token,
+    ref,
+    isAnivexaMediaHost,
+  );
+}
+
+/** Own base URL for the Megavid HLS proxy, derived from the incoming
+ *  request so staged and live hosts each rewrite to themselves. */
+function megavidProxyBase(req) {
+  const host = (req.get && req.get('host')) || req.headers.host || '';
+  const proto = req.protocol || 'https';
+  return `${proto}://${host}/proxyMegavidHls`;
+}
+
+async function resolveMegavid(anilistId, malId, ep, audio, req) {
   const isDub = audio === 'dub' ? 'dub' : 'sub';
   const url =
     anilistId > 0
@@ -790,9 +890,21 @@ async function resolveMegavid(anilistId, malId, ep, audio) {
   const tracks = (Array.isArray(data.tracks) ? data.tracks : []).filter(
     (t) => t && t.file,
   );
+  // Megavid's CDN answers `access-control-allow-origin: https://megavid.buzz`
+  // for every playlist and segment — never `*`, never our origin — so a
+  // direct hls.js fetch from our player domain always dies on CORS and the
+  // player shows "This stream stalled". Route every playlist, variant, key,
+  // and segment through proxyMegavidHls (same-origin + `*`, Referer added
+  // server-side) so the browser never talks to Megavid directly.
+  const token = (req && req.query && req.query.token) || '';
+  const src = megavidProxyUrl(
+    megavidProxyBase(req),
+    token,
+    data.source,
+  );
   return {
     playerHtml: hlsPlayerHtml({
-      src: data.source,
+      src,
       tracks,
       title: `Episode ${ep}`,
     }),
@@ -819,11 +931,23 @@ function pickAnivexaEpisode(data, provider, ep, audio) {
   return hit && hit.id ? String(hit.id) : null;
 }
 
+/** Origin of an `https:` URL, or null. Pure. */
+function httpsOrigin(u) {
+  try {
+    const parsed = new URL(String(u || ''));
+    return parsed.protocol === 'https:' ? `${parsed.origin}/` : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /** Picks the cleanest playable stream from an Anivexa `/watch/...`
  *  response. Pure: prefers plain HLS over MP4 and never returns
- *  `embed` fallbacks (those carry third-party ad scripts). Subtitle
- *  entries are normalized to the `{file, label}` shape [hlsPlayerHtml]
- *  expects. */
+ *  `embed` fallbacks (those carry third-party ad scripts). Also picks
+ *  the embed origin hotlink-locked hosts expect as Referer — matched
+ *  to the winning server by name, else the first embed entry — so the
+ *  relay can replay it. Subtitle entries are normalized to the
+ *  `{file, label}` shape [hlsPlayerHtml] expects. */
 function pickAnivexaStream(watch) {
   const streams =
     watch && Array.isArray(watch.streams) ? watch.streams : [];
@@ -846,19 +970,33 @@ function pickAnivexaStream(watch) {
       label: t.language || t.label || 'Subtitles',
     }))
     .slice(0, 8);
-  return { src: best.url, tracks, type: best.type };
+  const embeds =
+    watch && Array.isArray(watch.embeds) ? watch.embeds : [];
+  const bestName = String((best && best.server) || '').toLowerCase();
+  const named = embeds.find(
+    (e) =>
+      e &&
+      String(e.name || '').toLowerCase() &&
+      bestName.includes(String(e.name || '').toLowerCase()),
+  );
+  const referer =
+    httpsOrigin(named && named.url) ||
+    embeds.map((e) => httpsOrigin(e && e.url)).find(Boolean) ||
+    null;
+  return { src: best.url, tracks, type: best.type, referer };
 }
 
 /** Fetches an Anivexa HLS playlist and proves it is a real playlist.
- *  (Unlike [fetchPlaylist], this stays host-neutral: third-party anime
- *  CDNs rarely send the CORS header Megavid's CDN does.) */
-async function fetchAnivexaPlaylist(url, timeoutMs, label, remaining) {
+ *  [referer] replays the embed origin when the host locks its files. */
+async function fetchAnivexaPlaylist(url, timeoutMs, label, remaining, referer) {
   const budget =
     typeof remaining === 'function'
       ? Math.min(timeoutMs, remaining())
       : timeoutMs;
+  const headers = { 'User-Agent': DESKTOP_UA, Accept: '*/*' };
+  if (referer) headers.Referer = referer;
   const res = await fetch(url, {
-    headers: { 'User-Agent': DESKTOP_UA, Accept: '*/*' },
+    headers,
     redirect: 'follow',
     signal: AbortSignal.timeout(budget),
   });
@@ -874,15 +1012,17 @@ async function fetchAnivexaPlaylist(url, timeoutMs, label, remaining) {
 
 /** Confirms one MP4 file answers as video, reading a single chunk so
  *  a full-file 200 never downloads the whole episode server-side. */
-async function verifyAnivexaMp4(url, remaining) {
+async function verifyAnivexaMp4(url, remaining, referer) {
   const budget =
     typeof remaining === 'function' ? Math.min(6000, remaining()) : 6000;
+  const headers = {
+    'User-Agent': DESKTOP_UA,
+    Accept: '*/*',
+    Range: 'bytes=0-1023',
+  };
+  if (referer) headers.Referer = referer;
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': DESKTOP_UA,
-      Accept: '*/*',
-      Range: 'bytes=0-1023',
-    },
+    headers,
     redirect: 'follow',
     signal: AbortSignal.timeout(budget),
   });
@@ -914,20 +1054,33 @@ async function verifyAnivexaMp4(url, remaining) {
  *  segments (this also rejects the encrypted blobs some hosts
  *  serve with a playlist content-type); MP4s must answer as video.
  *  Anything dead throws so the caller moves to the next provider. */
-async function verifyAnivexaStream(url, type, remaining) {
+async function verifyAnivexaStream(url, type, remaining, referer) {
   if (type === 'mp4') {
-    await verifyAnivexaMp4(url, remaining);
-    return;
+    await verifyAnivexaMp4(url, remaining, referer);
+    return { mediaUrl: url };
   }
-  const master = await fetchAnivexaPlaylist(url, 5000, 'playlist', remaining);
+  const master = await fetchAnivexaPlaylist(
+    url,
+    5000,
+    'playlist',
+    remaining,
+    referer,
+  );
   const variants = playlistUris(master, url, { variantsOnly: true });
   const mediaUrl = variants.length > 0 ? variants[0] : url;
   const media =
     variants.length > 0
-      ? await fetchAnivexaPlaylist(mediaUrl, 5000, 'variant', remaining)
+      ? await fetchAnivexaPlaylist(
+        mediaUrl,
+        5000,
+        'variant',
+        remaining,
+        referer,
+      )
       : master;
   const segments = playlistUris(media, mediaUrl);
   if (!segments.length) throw new Error('anivexa: playlist has no segments');
+  return { mediaUrl };
 }
 
 async function resolveAnivexa(base, anilistId, ep, audio) {
@@ -966,8 +1119,13 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
   }
 
   // 2. Streams + verification race; priority order decides the winner.
-  // Failed contenders are logged with their reason — without this the
-  // only signal is a grey box on Clair's phone and a bare 502 here.
+  // Each contender first tries the direct file (free when the host
+  // serves openly), then replays the embed-origin Referer — a pass
+  // there means the host is hotlink-locked and playback must go
+  // through the relay (`proxied`), which replays the Referer for
+  // every playlist and segment. Failed contenders are logged with
+  // their reason — without this the only signal is a grey box on
+  // Clair's phone and a bare 502 here.
   const raced = await Promise.allSettled(
     hits.map(async ({ provider, epId }) => {
       try {
@@ -979,26 +1137,47 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
         if (!pick) throw new Error('no stream in watch response');
         // Removed episodes answer with dead links — verify first so a
         // dying host can't win the race with an unplayable URL.
-        await verifyAnivexaStream(pick.src, pick.type, remaining);
-        return pick;
+        try {
+          await verifyAnivexaStream(pick.src, pick.type, remaining, null);
+          return { ...pick, proxied: null };
+        } catch (directErr) {
+          if (!pick.referer) throw directErr;
+          const checked = await verifyAnivexaStream(
+            pick.src,
+            pick.type,
+            remaining,
+            pick.referer,
+          );
+          return {
+            ...pick,
+            proxied: {
+              url: checked.mediaUrl,
+              referer: pick.referer,
+            },
+          };
+        }
       } catch (e) {
         throw new Error(`${provider}: ${e && e.message ? e.message : e}`);
       }
     }),
   );
+  const winners = [];
   const failures = [];
   for (let i = 0; i < hits.length; i++) {
     const r = raced[i];
-    if (r.status === 'fulfilled' && r.value) {
-      return {
-        playerHtml: hlsPlayerHtml({
-          src: r.value.src,
-          tracks: r.value.tracks,
-          title: `Episode ${ep}`,
-        }),
-      };
-    }
-    failures.push(r.status === 'rejected' ? String(r.reason) : 'empty');
+    if (r.status === 'fulfilled' && r.value) winners.push(r.value);
+    else failures.push(r.status === 'rejected' ? String(r.reason) : 'empty');
+  }
+  // Direct files first (no relay bandwidth); locked hosts via relay.
+  const best =
+    winners.find((w) => !w.proxied) ||
+    winners.find((w) => w.proxied && w.proxied.referer);
+  if (best) {
+    return {
+      src: best.src,
+      tracks: best.tracks,
+      proxied: best.proxied,
+    };
   }
   console.warn(`[proxyAnime] anivexa ${anilistId} ep=${ep}: ${failures.join(' | ')}`);
   throw new Error('anivexa: no playable source found');
@@ -1040,7 +1219,7 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
 
   if (source === 'megavid') {
     try {
-      const out = await resolveMegavid(anilistId, malId, ep, audio);
+      const out = await resolveMegavid(anilistId, malId, ep, audio, req);
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.set('Cache-Control', 'public, max-age=300');
       res.status(200).send(out.playerHtml);
@@ -1072,9 +1251,24 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
     }
     try {
       const out = await resolveAnivexa(anivexaBase, anilistId, ep, audio);
+      // Hotlink-locked hosts play through our relay (same-origin +
+      // Referer replayed server-side); open hosts play direct and
+      // cost no relay bandwidth.
+      let src = out.src;
+      if (out.proxied) {
+        const host = req.get('host') || req.headers.host || '';
+        const proto = req.protocol || 'https';
+        src =
+          `${proto}://${host}/proxyMegavidHls` +
+          `?u=${encodeURIComponent(out.proxied.url)}` +
+          `&ref=${encodeURIComponent(out.proxied.referer)}` +
+          `&token=${encodeURIComponent(String(req.query.token || ''))}`;
+      }
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.set('Cache-Control', 'public, max-age=300');
-      res.status(200).send(out.playerHtml);
+      res
+        .status(200)
+        .send(hlsPlayerHtml({ src, tracks: out.tracks, title: `Episode ${ep}` }));
     } catch (e) {
       sendFail('No stream found — try another server.');
     }
@@ -1128,6 +1322,153 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
       .send(hlsPlayerHtml({ src: seg, title: titles[0], tracks: [] }));
   } catch (e) {
     sendFail('No stream found — try another server.');
+  }
+});
+
+/** Megavid HLS proxy: re-serves playlists, keys, and segments from OUR
+ *  domain so hls.js never hits Megavid's restrictive CORS (`allow-origin:
+ *  https://megavid.buzz` only). Playlists are rewritten so every nested
+ *  URI points back here; segments stream through with the Referer the
+ *  CDN expects (browsers can't spoof it). Host allowlist keeps this from
+ *  becoming an open proxy. Token is verified when present but optional —
+ *  same public-anime rule as proxyAnime — so an expired token mid-episode
+ *  never kills playback. */
+const proxyMegavidHls = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
+  res.set('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.status(405).json({ error: 'GET only' });
+    return;
+  }
+  const token = req.get('Authorization') || req.query.token;
+  if (token) {
+    // Best-effort: keep playback alive even when the token expired.
+    try {
+      await verifyToken(req);
+    } catch (_) {}
+  }
+
+  const targetUrl = req.query.u;
+  if (typeof targetUrl !== 'string' || !targetUrl) {
+    res.status(400).json({ error: 'Missing ?u=<media url>' });
+    return;
+  }
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch (_) {
+    res.status(400).json({ error: 'Invalid url' });
+    return;
+  }
+  // Shared relay: Megavid's CDN plus the Anivexa pool. The name stays
+  // for client-contract stability — served player pages point here.
+  const useAnivexaHosts = isAnivexaMediaHost(parsed.hostname);
+  if (
+    parsed.protocol !== 'https:' ||
+    (!isMegavidHost(parsed.hostname) && !useAnivexaHosts)
+  ) {
+    res.status(400).json({ error: 'Host not allowed' });
+    return;
+  }
+  if (!(await isPublicDnsHost(parsed.hostname))) {
+    res.status(400).json({ error: 'Host not allowed' });
+    return;
+  }
+  // Optional `&ref=`: the embed origin a hotlink-locked host expects
+  // as Referer. Strictly validated (https + public DNS) so the relay
+  // can't be aimed at intranet hosts; absent means "no Referer".
+  let ref = '';
+  const rawRef = req.query.ref;
+  if (typeof rawRef === 'string' && rawRef) {
+    try {
+      const r = new URL(rawRef);
+      if (
+        r.protocol === 'https:' &&
+        (await isPublicDnsHost(r.hostname))
+      ) {
+        ref = `${r.origin}/`;
+      }
+    } catch (_) {}
+  }
+
+  try {
+    // Megavid keeps its long-standing Referer; Anivexa sends the
+    // validated embed origin when we have one, else none at all — a
+    // wrong Referer fails locked hosts just as surely as a missing one.
+    const headers = {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+    };
+    if (!useAnivexaHosts || ref) {
+      headers.Referer = useAnivexaHosts ? ref : 'https://megavid.buzz/';
+    }
+    const range = req.get('Range') || req.headers.range;
+    if (range && typeof range === 'string') headers.Range = range;
+    const upstream = await fetch(targetUrl, {
+      headers,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!upstream.ok && upstream.status !== 206) {
+      res.status(upstream.status).json({ error: `Upstream ${upstream.status}` });
+      return;
+    }
+    const upstreamCt = (upstream.headers.get('content-type') || '').toLowerCase();
+    const looksLikePlaylist =
+      upstreamCt.includes('mpegurl') ||
+      upstreamCt.includes('x-mpegurl') ||
+      parsed.pathname.toLowerCase().includes('.m3u8');
+    if (looksLikePlaylist) {
+      const text = await upstream.text();
+      if (text && text.includes('#EXTM3U')) {
+        const proxyBase = megavidProxyBase(req);
+        const tokenQ = String(req.query.token || '');
+        const rewritten = useAnivexaHosts
+          ? rewriteAnivexaPlaylist(text, targetUrl, proxyBase, tokenQ, ref)
+          : rewriteMegavidPlaylist(text, targetUrl, proxyBase, tokenQ);
+        res.set('Content-Type', 'application/vnd.apple.mpegurl');
+        res.set('Cache-Control', 'public, max-age=30');
+        res.status(200).send(rewritten);
+        return;
+      }
+      // Falls through as a plain file when the body isn't a playlist.
+    }
+    const ct =
+      upstream.headers.get('content-type') || 'application/octet-stream';
+    res.set('Content-Type', ct);
+    res.set('Cache-Control', 'public, max-age=3600');
+    const acceptRanges = upstream.headers.get('accept-ranges');
+    if (acceptRanges) res.set('Accept-Ranges', acceptRanges);
+    const contentRange = upstream.headers.get('content-range');
+    if (contentRange) res.set('Content-Range', contentRange);
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) res.set('Content-Length', contentLength);
+    if (req.method === 'HEAD') {
+      res.status(upstream.status === 206 ? 206 : 200).send('');
+      return;
+    }
+    const status = upstream.status === 206 ? 206 : 200;
+    if (upstream.body && typeof upstream.body.getReader === 'function') {
+      const reader = upstream.body.getReader();
+      res.status(status);
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(Buffer.from(value));
+      }
+      res.end();
+      return;
+    }
+    res.status(status).send(Buffer.from(await upstream.arrayBuffer()));
+  } catch (e) {
+    console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
+    res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
 
@@ -1216,6 +1557,7 @@ const proxyAnimeSegment = functions.https.onRequest(async (req, res) => {
 module.exports = {
   proxyAnime,
   proxyAnimeSegment,
+  proxyMegavidHls,
   // Pure helpers (unit-tested).
   ANIVEXA_PROVIDERS,
   pickAnivexaEpisode,
@@ -1233,4 +1575,10 @@ module.exports = {
   playlistDuration,
   MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
-};
+  isMegavidHost,
+  isAnivexaMediaHost,
+  megavidProxyUrl,
+  rewriteMegavidPlaylist,
+  rewriteAnivexaPlaylist,
+  httpsOrigin,
+}

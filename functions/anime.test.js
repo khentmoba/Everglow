@@ -7,6 +7,9 @@ const {
   ANIVEXA_PROVIDERS,
   pickAnivexaEpisode,
   pickAnivexaStream,
+  isAnivexaMediaHost,
+  rewriteAnivexaPlaylist,
+  httpsOrigin,
   normTitle,
   pickBestMatch,
   validateAnimeParams,
@@ -20,6 +23,9 @@ const {
   playlistDuration,
   MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
+  isMegavidHost,
+  megavidProxyUrl,
+  rewriteMegavidPlaylist,
 } = require('./anime');
 
 test('normTitle strips punctuation for fuzzy matching', () => {
@@ -110,11 +116,75 @@ test('pickAnivexaStream prefers HLS and drops embeds', () => {
   assert.deepEqual(pick.tracks, [
     { file: 'https://x/en.vtt', label: 'English' },
   ]);
+  assert.equal(pick.referer, null);
   assert.equal(
     pickAnivexaStream({ streams: [{ type: 'embed', url: 'https://x/e' }] }),
     null,
   );
   assert.equal(pickAnivexaStream({}), null);
+});
+
+test('pickAnivexaStream reports the embed origin as referer', () => {
+  const withEmbeds = {
+    streams: [
+      { server: 'Vidplay', type: 'hls', url: 'https://cdn.h/x.m3u8' },
+    ],
+    embeds: [
+      { name: 'Vidplay', url: 'https://play.h/e/abc' },
+      { name: 'Other', url: 'https://other.h/e/1' },
+    ],
+  };
+  assert.equal(
+    pickAnivexaStream(withEmbeds).referer,
+    'https://play.h/',
+  );
+  // No name match — first embed wins.
+  const fallback = {
+    streams: [{ server: 'X', type: 'mp4', url: 'https://cdn.h/v.mp4' }],
+    embeds: [{ name: 'Y', url: 'https://first.h/e/1' }],
+  };
+  assert.equal(pickAnivexaStream(fallback).referer, 'https://first.h/');
+  // Non-https embeds are ignored.
+  const bad = {
+    streams: [{ server: 'X', type: 'mp4', url: 'https://cdn.h/v.mp4' }],
+    embeds: [{ name: 'X', url: 'http://plain.h/e/1' }],
+  };
+  assert.equal(pickAnivexaStream(bad).referer, null);
+});
+
+test('isAnivexaMediaHost covers rotating pool subdomains', () => {
+  assert.equal(isAnivexaMediaHost('cdn.savedly.net'), true);
+  assert.equal(isAnivexaMediaHost('fetch8.flixcloud.cc'), true);
+  assert.equal(isAnivexaMediaHost('FLIXCLOUD.CC'), true);
+  assert.equal(isAnivexaMediaHost('megavid.buzz'), false);
+  assert.equal(isAnivexaMediaHost('evil.com'), false);
+  assert.equal(isAnivexaMediaHost('flixcloud.cc.evil.com'), false);
+});
+
+test('rewriteAnivexaPlaylist proxies pool hosts with ref, skips others', () => {
+  const base = 'https://host/proxyMegavidHls';
+  const text =
+    '#EXTM3U\nhttps://cdn.savedly.net/a/1.ts\n' +
+    '#EXT-X-KEY:METHOD=AES,URI="https://cdn.savedly.net/a/k"\n' +
+    'https://evil.com/x.ts\n';
+  const out = rewriteAnivexaPlaylist(
+    text,
+    'https://cdn.savedly.net/a/p.m3u8',
+    base,
+    'tok',
+    'https://embed.h/',
+  );
+  assert.ok(out.includes(`${base}?u=${encodeURIComponent('https://cdn.savedly.net/a/1.ts')}`));
+  assert.ok(out.includes('URI="' + base));
+  assert.ok(out.includes(`ref=${encodeURIComponent('https://embed.h/')}`));
+  assert.ok(out.includes('https://evil.com/x.ts'));
+});
+
+test('httpsOrigin only passes https origins', () => {
+  assert.equal(httpsOrigin('https://a.b/c?d=1'), 'https://a.b/');
+  assert.equal(httpsOrigin('http://a.b/c'), null);
+  assert.equal(httpsOrigin('nope'), null);
+  assert.equal(httpsOrigin(null), null);
 });
 
 test('ANIVEXA_PROVIDERS leads with verified plain HLS', () => {
@@ -194,24 +264,24 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
   const variant =
     '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\nhttps://cdn/s0.ts\n';
   const seen = [];
-  const origins = [];
+  const referers = [];
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, opts) => {
     seen.push(String(url));
-    origins.push(opts && opts.headers ? opts.headers.Origin : null);
+    referers.push(opts && opts.headers ? opts.headers.Referer : null);
     if (String(url).endsWith('.m3u8')) {
       const text = String(url).includes('/v.m3u8') ? variant : master;
       return {
         ok: true,
         status: 200,
-        headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
+        headers: { get: () => null },
         text: async () => text,
       };
     }
     return {
       ok: true,
       status: 206,
-      headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
+      headers: { get: () => null },
       body: {
         getReader: () => ({
           read: async () => ({ done: false, value: new Uint8Array([0x47, 2]) }),
@@ -227,7 +297,12 @@ test('verifyMegavidStream accepts a healthy stream end to end', async () => {
     assert.ok(seen.includes('https://cdn/master.m3u8'));
     assert.ok(seen.includes('https://cdn/v.m3u8'));
     assert.ok(seen.includes('https://cdn/s0.ts'));
-    assert.ok(origins.length > 0 && origins.every((o) => typeof o === 'string' && o.length > 0));
+    // Server-side verification sends the Referer the CDN expects; it never
+    // needs CORS headers because the browser streams via proxyMegavidHls.
+    assert.ok(
+      referers.length > 0 &&
+        referers.every((r) => r === 'https://megavid.buzz/'),
+    );
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -238,13 +313,13 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
   const playlist = (text) => ({
     ok: true,
     status: 200,
-    headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
+    headers: { get: () => null },
     text: async () => text,
   });
   const segOk = {
     ok: true,
     status: 206,
-    headers: { get: (k) => (k === 'access-control-allow-origin' ? '*' : null) },
+    headers: { get: () => null },
     body: {
       getReader: () => ({
         read: async () => ({ done: false, value: new Uint8Array([0x47]) }),
@@ -258,12 +333,12 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
       fetch: async () => ({ ok: false, status: 404 }),
     },
     {
-      name: 'master without CORS header',
+      name: 'master is not a playlist',
       fetch: async () => ({
         ok: true,
         status: 200,
         headers: { get: () => null },
-        text: async () => '#EXTM3U\n',
+        text: async () => 'not a playlist',
       }),
     },
     {
@@ -286,23 +361,6 @@ test('verifyMegavidStream rejects dead playlists, segments, and key failures', a
         String(url).endsWith('.m3u8')
           ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\n')
           : segOk,
-    },
-    {
-      name: 'segment without CORS header',
-      fetch: async (url) =>
-        String(url).endsWith('.m3u8')
-          ? playlist('#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:200,\nhttps://cdn/s0.ts\n')
-          : {
-              ok: true,
-              status: 206,
-              headers: { get: () => null },
-              body: {
-                getReader: () => ({
-                  read: async () => ({ done: false, value: new Uint8Array([0x47]) }),
-                  cancel: async () => {},
-                }),
-              },
-            },
     },
     {
       name: 'segment is an HTML error page',
@@ -406,4 +464,42 @@ test('firstM3u8 digs nested urls out of API payloads', () => {
   const found = firstM3u8({ a: [{ url: 'https://cdn/x/master.m3u8?k=1' }] });
   assert.deepEqual(found, ['https://cdn/x/master.m3u8?k=1']);
   assert.deepEqual(firstM3u8({ a: 1 }), []);
+});
+
+test('isMegavidHost only allows Megavid hosts', () => {
+  assert.equal(isMegavidHost('megavid.buzz'), true);
+  assert.equal(isMegavidHost('a.megavid.buzz'), true);
+  assert.equal(isMegavidHost('MEGAVID.buzz'), true);
+  assert.equal(isMegavidHost('evil.com'), false);
+  assert.equal(isMegavidHost('megavid.buzz.evil.com'), false);
+});
+
+test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
+  const base = 'https://host/proxyMegavidHls';
+  const master =
+    '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n' +
+    'https://megavid.buzz/vid/a/v.m3u8\n' +
+    '#EXT-X-MEDIA:TYPE=AUDIO,URI="https://megavid.buzz/vid/a/audio.m3u8"\n';
+  const out = rewriteMegavidPlaylist(
+    master,
+    'https://megavid.buzz/vid/a/master.m3u8',
+    base,
+    'tok',
+  );
+  assert.ok(out.includes(`${base}?u=${encodeURIComponent('https://megavid.buzz/vid/a/v.m3u8')}`));
+  assert.ok(out.includes('URI="' + base));
+  assert.ok(out.includes(encodeURIComponent('tok')));
+  // External hosts are never rewritten into the proxy.
+  const mixed = '#EXTM3U\nhttps://evil.com/x.ts\n';
+  assert.equal(
+    rewriteMegavidPlaylist(mixed, 'https://megavid.buzz/a.m3u8', base, ''),
+    mixed,
+  );
+});
+
+test('megavidProxyUrl carries the upstream URL and token', () => {
+  const u = megavidProxyUrl('https://h/proxyMegavidHls', 't 1', 'https://megavid.buzz/v.m3u8');
+  assert.ok(u.startsWith('https://h/proxyMegavidHls?u='));
+  assert.ok(u.includes(encodeURIComponent('https://megavid.buzz/v.m3u8')));
+  assert.ok(u.includes(encodeURIComponent('t 1')));
 });
