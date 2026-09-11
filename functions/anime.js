@@ -263,18 +263,23 @@ const DEFAULT_BASES = {
  * playlists are encrypted and IP-bound, so they fail our playback
  * check and are skipped automatically. */
 const ANIVEXA_PROVIDERS = [
-  'anizone',
-  'animegg',
-  'anikoto',
+  // Open/direct-friendly HLS first — no relay bandwidth needed.
   'anineko',
-  '2dhive',
-  'anibd',
-  'kaa',
-  'animedunya',
+  'anizone',
+  // Hotlink-locked HLS — plays through the relay with the stream's
+  // own Referer (see resolveAnivexa).
+  'anikoto',
   'aniwaves',
+  'anibd',
+  'animedunya',
+  // animegg answers 20s+ at times; demoted so its hang never leads
+  // the priority order.
+  'animegg',
+  // Spares: fail fast when their upstreams block cloud IPs; rotation
+  // means today's dead host is tomorrow's winner.
+  '2dhive',
+  'kaa',
   'reanime',
-  // Unverified spares: each fails fast when its upstream blocks cloud
-  // IPs, and rotation means today's dead host is tomorrow's winner.
   'mkissa',
   'anidbapp',
   'animenosub',
@@ -1094,26 +1099,44 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
   const deadline = Date.now() + 40000;
   const remaining = () => Math.max(500, deadline - Date.now());
 
-  // 1. Episode ids from every provider at once. One burst of 15
-  // scrapes saturates Render's small CPU for ~15s, so this step gets
-  // a generous timeout — the deadline below still caps the total.
-  const found = await Promise.allSettled(
-    ANIVEXA_PROVIDERS.map(async (provider) => {
-      const data = await fetchJson(
-        `${base}/episodes/${provider}/${anilistId}`,
-        Math.min(22000, remaining()),
-      );
-      return {
-        provider,
-        epId: pickAnivexaEpisode(data, provider, ep, audio),
-      };
-    }),
-  );
+  // 1. Episode ids from every provider at once — but DON'T wait for
+  // the slowest. One hanging provider (animegg answers 20s+ at times)
+  // used to hold Promise.allSettled open to its full timeout and eat
+  // the whole budget even when good hits landed at 3s. Collect hits
+  // as they land and move on the moment we have one.
+  const found = ANIVEXA_PROVIDERS.map(async (provider) => {
+    const data = await fetchJson(
+      `${base}/episodes/${provider}/${anilistId}`,
+      Math.min(14000, remaining()),
+    );
+    return {
+      provider,
+      epId: pickAnivexaEpisode(data, provider, ep, audio),
+    };
+  });
   const hits = [];
-  found.forEach((r) => {
-    if (r.status === 'fulfilled' && r.value && r.value.epId) {
-      hits.push(r.value);
-    }
+  await new Promise((resolve) => {
+    let pending = found.length;
+    let timer = null;
+    let closed = false;
+    const finish = () => {
+      if (closed) return;
+      closed = true;
+      if (timer) clearTimeout(timer);
+      resolve();
+    };
+    // A hanging provider must never hold the burst past this window.
+    timer = setTimeout(finish, Math.min(13000, remaining()));
+    found.forEach((p) => {
+      p.then((v) => {
+        if (v && v.epId) hits.push(v);
+      })
+        .catch(() => {})
+        .finally(() => {
+          pending -= 1;
+          if (pending <= 0) finish();
+        });
+    });
   });
   if (!hits.length) {
     console.warn(`[proxyAnime] anivexa ${anilistId} ep=${ep}: episode missing everywhere`);
