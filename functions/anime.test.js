@@ -124,6 +124,41 @@ test('pickAnivexaStream prefers HLS and drops embeds', () => {
   assert.equal(pickAnivexaStream({}), null);
 });
 
+test('pickAnivexaStream reads the referer off the winning stream', () => {
+  const byStream = {
+    streams: [
+      {
+        server: 'Vidstream-2',
+        type: 'hls',
+        url: 'https://megap.akirax.buzz/x/master.m3u8',
+        referer: 'https://megaplay.buzz/',
+      },
+    ],
+  };
+  assert.equal(pickAnivexaStream(byStream).referer, 'https://megaplay.buzz/');
+
+  const byEmbedUrl = {
+    streams: [
+      {
+        server: 'S',
+        type: 'hls',
+        url: 'https://h/x.m3u8',
+        embedUrl: 'https://megaplay.buzz/stream/s-2/94012/sub',
+      },
+    ],
+  };
+  assert.equal(pickAnivexaStream(byEmbedUrl).referer, 'https://megaplay.buzz/');
+
+  const byHeaders = {
+    streams: [{ server: 'S', type: 'hls', url: 'https://h/x.m3u8' }],
+    headers: { Referer: 'https://cdn.h/page' },
+  };
+  assert.equal(pickAnivexaStream(byHeaders).referer, 'https://cdn.h/');
+
+  // No hints anywhere — stays null so direct-only behavior is kept.
+  assert.equal(pickAnivexaStream({ streams: [{ type: 'hls', url: 'https://h/x.m3u8' }] }).referer, null);
+});
+
 test('pickAnivexaStream reports the embed origin as referer', () => {
   const withEmbeds = {
     streams: [
