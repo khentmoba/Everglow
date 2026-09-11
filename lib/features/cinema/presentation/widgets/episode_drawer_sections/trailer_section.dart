@@ -46,6 +46,11 @@ class TrailerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Same inset deal as CinemaHero: the installed web app stretches under
+    // the iPhone status bar, so the drag handle, drawer close X, and Close
+    // Trailer pill must all sit below it. Browsers/desktop report 0 here
+    // and stay pixel-identical.
+    final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       children: [
         // Backdrop image or Trailer Player
@@ -53,7 +58,7 @@ class TrailerSection extends StatelessWidget {
           height: isMobile ? 300 : 460,
           width: double.infinity,
           child: isPlayingTrailer && trailerKey != null
-              ? _buildTrailerPlayer()
+              ? _buildTrailerPlayer(context)
               : _buildBackdropImage(context),
         ),
 
@@ -102,7 +107,7 @@ class TrailerSection extends StatelessWidget {
           right: 0,
           child: Column(
             children: [
-              const SizedBox(height: 12),
+              SizedBox(height: 12 + topInset),
               Center(
                 child: Container(
                   width: 36,
@@ -119,7 +124,7 @@ class TrailerSection extends StatelessWidget {
 
         // Close button
         Positioned(
-          top: 14,
+          top: 14 + topInset,
           right: 16,
           child: GestureDetector(
             onTap: onClose,
@@ -225,7 +230,8 @@ class TrailerSection extends StatelessWidget {
     );
   }
 
-  Widget _buildTrailerPlayer() {
+  Widget _buildTrailerPlayer(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       children: [
         TrailerPlayer(
@@ -237,7 +243,7 @@ class TrailerSection extends StatelessWidget {
           loop: true,
         ),
         Positioned(
-          top: 14,
+          top: 14 + topInset,
           left: 16,
           child: GestureDetector(
             onTap: onCloseTrailer,
