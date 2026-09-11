@@ -213,7 +213,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 6);
+      expect(servers.length, 3);
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -223,8 +223,6 @@ void main() {
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
 
-      // HiAnime + AnimePahe ride our own ad-free proxy — Megavid is
-      // deliberately NOT the default anymore.
       expect(servers[1].name, 'HiAnime');
       expect(servers[1].available, isTrue);
       expect(
@@ -233,37 +231,12 @@ void main() {
         'proxyAnime?source=hianime&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
-      expect(servers[2].name, 'AnimePahe');
+      expect(servers[2].name, 'Megavid');
       expect(servers[2].available, isTrue);
       expect(
-        servers[2].urlBuilder(1, 'dub'),
+        servers[2].urlBuilder(1, 'sub'),
         'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=animepahe&anilistId=21&malId=21&ep=1&audio=dub',
-      );
-
-      expect(servers[3].name, 'Megavid');
-      expect(servers[3].available, isTrue);
-      expect(
-        servers[3].urlBuilder(1, 'sub'),
-        'https://megavid.buzz/ani/21/1/sub',
-      );
-      expect(
-        servers[3].urlBuilder(1, 'dub'),
-        'https://megavid.buzz/ani/21/1/dub',
-      );
-
-      expect(servers[4].name, 'Anixo');
-      expect(servers[4].available, isTrue);
-      expect(
-        servers[4].urlBuilder(1, 'sub'),
-        'https://anixo.buzz/embed/ani/21/1?track=sub',
-      );
-
-      expect(servers[5].name, 'Mega Play');
-      expect(servers[5].available, isTrue);
-      expect(
-        servers[5].urlBuilder(1, 'sub'),
-        'https://megaplay.buzz/stream/ani/21/1/sub',
+        'proxyAnime?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
       );
     });
 
@@ -287,8 +260,10 @@ void main() {
         servers[2].urlBuilder(2, 'dub'),
         contains('token=abc%20123'),
       );
-      // Third-party embeds never see the token.
-      expect(servers[3].urlBuilder(2, 'dub'), isNot(contains('token=')));
+      expect(
+        servers[2].urlBuilder(2, 'dub'),
+        contains('title=One%20Piece'),
+      );
     });
 
     test('buildServers falls back to MAL routes when AniList ID is absent', () {
@@ -297,7 +272,7 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 6);
+      expect(servers.length, 3);
 
       expect(servers[1].name, 'HiAnime');
       expect(servers[1].available, isTrue);
@@ -307,21 +282,11 @@ void main() {
         'proxyAnime?source=hianime&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
-      expect(servers[2].name, 'AnimePahe');
+      expect(servers[2].name, 'Megavid');
       expect(
-        servers[2].urlBuilder(3, 'dub'),
+        servers[2].urlBuilder(3, 'sub'),
         'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=animepahe&anilistId=0&malId=52991&ep=3&audio=dub',
-      );
-
-      expect(servers[3].name, 'Megavid');
-      expect(
-        servers[3].urlBuilder(3, 'sub'),
-        'https://megavid.buzz/mal/52991/3/sub',
-      );
-      expect(
-        servers[3].urlBuilder(3, 'dub'),
-        'https://megavid.buzz/mal/52991/3/dub',
+        'proxyAnime?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
       expect(servers[0].name, 'Everglow');
@@ -361,18 +326,8 @@ void main() {
         '?tmdbId=1429&type=tv&s=1&e=3',
       );
       expect(
-        servers[4].urlBuilder(1, 'sub'),
-        'https://anixo.buzz/embed/ani/25777/1?track=sub',
-      );
-      expect(
-        servers[5].urlBuilder(1, 'dub'),
-        'https://megaplay.buzz/stream/ani/25777/1/dub',
-      );
-      // Movish / VidBolt are gone — nothing TMDB-keyed remains
-      // except the Everglow shell.
-      expect(
         servers.map((s) => s.name),
-        ['Everglow', 'HiAnime', 'AnimePahe', 'Megavid', 'Anixo', 'Mega Play'],
+        ['Everglow', 'HiAnime', 'Megavid'],
       );
     });
 
@@ -386,14 +341,8 @@ void main() {
       expect(servers[0].available, isFalse);
       expect(servers[1].name, 'HiAnime');
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'AnimePahe');
+      expect(servers[2].name, 'Megavid');
       expect(servers[2].available, isTrue);
-      expect(servers[3].name, 'Megavid');
-      expect(servers[3].available, isTrue);
-      expect(servers[4].name, 'Anixo');
-      expect(servers[4].available, isTrue);
-      expect(servers[5].name, 'Mega Play');
-      expect(servers[5].available, isTrue);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -441,10 +390,10 @@ void main() {
     });
 
     test('normalizeServerName converts legacy names to provider names', () {
-      expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Mega Play');
-      expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'Anixo');
+      expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Everglow');
+      expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'HiAnime');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
-      expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Mega Play');
+      expect(AnimeXWatchPage.normalizeServerName('Megavid'), 'Megavid');
       expect(AnimeXWatchPage.normalizeServerName(''), '');
       expect(AnimeXWatchPage.normalizeServerName(null), '');
     });
@@ -476,20 +425,15 @@ void main() {
       await tester.pump();
 
       expect(find.text('HiAnime'), findsOneWidget);
-      expect(find.text('AnimePahe'), findsOneWidget);
       expect(find.text('Megavid'), findsOneWidget);
-      // AniList-keyed fallbacks need no TMDB mapping, so the selector
-      // always shows a real choice even before ani.zip resolves.
-      expect(find.text('Anixo'), findsOneWidget);
-      expect(find.text('Mega Play'), findsOneWidget);
       // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.
       expect(find.text('Everglow'), findsNothing);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('HiAnime'));
-      await tester.tap(find.text('HiAnime'));
+      await tester.ensureVisible(find.text('Megavid'));
+      await tester.tap(find.text('Megavid'));
       await tester.pump();
 
       await tester.ensureVisible(find.text('DUB'));
