@@ -63,11 +63,11 @@ class CinemaHero extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (isPlayingTrailer && trailerKey != null)
-            _buildTrailer()
+            _buildTrailer(context)
           else
             _buildBackdrop(context),
           _buildScrims(),
-          _buildTopBar(),
+          _buildTopBar(context),
           if (trailerKey != null && !isLoadingTrailer && !isPlayingTrailer)
             _buildTrailerCta(),
           if (isWide) _buildPosterCard(),
@@ -77,7 +77,11 @@ class CinemaHero extends StatelessWidget {
     );
   }
 
-  Widget _buildTrailer() {
+  Widget _buildTrailer(BuildContext context) {
+    // Home-Screen-web (standalone) stretches under the iPhone status bar,
+    // so every fixed top offset also adds the live top inset. Browsers and
+    // desktop report 0 here and stay pixel-identical.
+    final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -90,7 +94,7 @@ class CinemaHero extends StatelessWidget {
           loop: true,
         ),
         Positioned(
-          top: 60,
+          top: 60 + topInset,
           left: 16,
           child: GestureDetector(
             onTap: onCloseTrailer,
@@ -239,7 +243,11 @@ class CinemaHero extends StatelessWidget {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context) {
+    // Same inset deal as [_buildTrailer]: the drag handle and the drawer
+    // close X must sit below the iPhone status bar in the installed web
+    // app, or Clair can't tap the X (it renders under the clock/battery).
+    final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       children: [
         Positioned(
@@ -248,7 +256,7 @@ class CinemaHero extends StatelessWidget {
           right: 0,
           child: Column(
             children: [
-              const SizedBox(height: 12),
+              SizedBox(height: 12 + topInset),
               Container(
                 width: 44,
                 height: 5,
@@ -260,7 +268,7 @@ class CinemaHero extends StatelessWidget {
             ],
           ),
         ),
-        Positioned(top: 10, right: 16, child: _buildCloseButton()),
+        Positioned(top: 10 + topInset, right: 16, child: _buildCloseButton()),
       ],
     );
   }
