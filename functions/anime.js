@@ -845,11 +845,15 @@ function pickAnivexaStream(watch) {
 /** Fetches an Anivexa HLS playlist and proves it is a real playlist.
  *  (Unlike [fetchPlaylist], this stays host-neutral: third-party anime
  *  CDNs rarely send the CORS header Megavid's CDN does.) */
-async function fetchAnivexaPlaylist(url, timeoutMs = 5000, label = 'playlist') {
+async function fetchAnivexaPlaylist(url, timeoutMs, label, remaining) {
+  const budget =
+    typeof remaining === 'function'
+      ? Math.min(timeoutMs, remaining())
+      : timeoutMs;
   const res = await fetch(url, {
     headers: { 'User-Agent': DESKTOP_UA, Accept: '*/*' },
     redirect: 'follow',
-    signal: AbortSignal.timeout(timeoutMs),
+    signal: AbortSignal.timeout(budget),
   });
   if (!res.ok && res.status !== 206) {
     throw new Error(`anivexa ${label} ${res.status}`);
@@ -863,7 +867,9 @@ async function fetchAnivexaPlaylist(url, timeoutMs = 5000, label = 'playlist') {
 
 /** Confirms one MP4 file answers as video, reading a single chunk so
  *  a full-file 200 never downloads the whole episode server-side. */
-async function verifyAnivexaMp4(url) {
+async function verifyAnivexaMp4(url, remaining) {
+  const budget =
+    typeof remaining === 'function' ? Math.min(6000, remaining()) : 6000;
   const res = await fetch(url, {
     headers: {
       'User-Agent': DESKTOP_UA,
@@ -871,7 +877,7 @@ async function verifyAnivexaMp4(url) {
       Range: 'bytes=0-1023',
     },
     redirect: 'follow',
-    signal: AbortSignal.timeout(6000),
+    signal: AbortSignal.timeout(budget),
   });
   if (!res.ok && res.status !== 206) {
     throw new Error(`anivexa file ${res.status}`);
@@ -901,17 +907,17 @@ async function verifyAnivexaMp4(url) {
  *  segments (this also rejects the encrypted blobs some hosts
  *  serve with a playlist content-type); MP4s must answer as video.
  *  Anything dead throws so the caller moves to the next provider. */
-async function verifyAnivexaStream(url, type) {
+async function verifyAnivexaStream(url, type, remaining) {
   if (type === 'mp4') {
-    await verifyAnivexaMp4(url);
+    await verifyAnivexaMp4(url, remaining);
     return;
   }
-  const master = await fetchAnivexaPlaylist(url);
+  const master = await fetchAnivexaPlaylist(url, 5000, 'playlist', remaining);
   const variants = playlistUris(master, url, { variantsOnly: true });
   const mediaUrl = variants.length > 0 ? variants[0] : url;
   const media =
     variants.length > 0
-      ? await fetchAnivexaPlaylist(mediaUrl)
+      ? await fetchAnivexaPlaylist(mediaUrl, 5000, 'variant', remaining)
       : master;
   const segments = playlistUris(media, mediaUrl);
   if (!segments.length) throw new Error('anivexa: playlist has no segments');
@@ -919,38 +925,59 @@ async function verifyAnivexaStream(url, type) {
 
 async function resolveAnivexa(base, anilistId, ep, audio) {
   // Hard budget: Cloud Functions cut us off at 60s, and Clair should
-  // never stare at a spinner that long — stop starting new providers
-  // after 40s so the app fails over to the next server in time.
+  // never stare at a spinner that long. Everything races — episode
+  // lookups go out together, then stream fetch + verify for every hit
+  // runs together — and the first verified stream in provider-priority
+  // order wins. Typical cost is the slowest contender, not the sum.
   const deadline = Date.now() + 40000;
-  for (const provider of ANIVEXA_PROVIDERS) {
-    if (Date.now() > deadline) break;
-    let epId = null;
-    try {
+  const remaining = () => Math.max(500, deadline - Date.now());
+
+  // 1. Episode ids from every provider at once (cheap, 1-3s each).
+  const found = await Promise.allSettled(
+    ANIVEXA_PROVIDERS.map(async (provider) => {
       const data = await fetchJson(
         `${base}/episodes/${provider}/${anilistId}`,
-        7000,
+        Math.min(7000, remaining()),
       );
-      epId = pickAnivexaEpisode(data, provider, ep, audio);
-    } catch (_) {
-      continue;
+      return {
+        provider,
+        epId: pickAnivexaEpisode(data, provider, ep, audio),
+      };
+    }),
+  );
+  const hits = [];
+  found.forEach((r) => {
+    if (r.status === 'fulfilled' && r.value && r.value.epId) {
+      hits.push(r.value);
     }
-    if (!epId) continue;
-    try {
-      const watch = await fetchJson(`${base}/${epId}`, 8000);
+  });
+  if (!hits.length) throw new Error('anivexa: episode missing');
+
+  // 2. Streams + verification race; priority order decides the winner.
+  const raced = await Promise.allSettled(
+    hits.map(async ({ epId }) => {
+      const watch = await fetchJson(
+        `${base}/${epId}`,
+        Math.min(8000, remaining()),
+      );
       const pick = pickAnivexaStream(watch);
-      if (!pick) continue;
-      // Removed episodes answer with dead links — verify first so the
-      // app fails over to the next provider instead of stalling.
-      await verifyAnivexaStream(pick.src, pick.type);
+      if (!pick) throw new Error('anivexa: no stream');
+      // Removed episodes answer with dead links — verify first so a
+      // dying host can't win the race with an unplayable URL.
+      await verifyAnivexaStream(pick.src, pick.type, remaining);
+      return pick;
+    }),
+  );
+  for (let i = 0; i < hits.length; i++) {
+    const r = raced[i];
+    if (r.status === 'fulfilled' && r.value) {
       return {
         playerHtml: hlsPlayerHtml({
-          src: pick.src,
-          tracks: pick.tracks,
+          src: r.value.src,
+          tracks: r.value.tracks,
           title: `Episode ${ep}`,
         }),
       };
-    } catch (_) {
-      continue;
     }
   }
   throw new Error('anivexa: no playable source found');
