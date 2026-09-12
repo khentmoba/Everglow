@@ -213,7 +213,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 3);
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -237,14 +237,6 @@ void main() {
         servers[2].urlBuilder(1, 'sub'),
         'https://us-central1-everglow-1c6db.cloudfunctions.net/'
         'proxyAnime?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
-      );
-
-      expect(servers[3].name, 'Anivexa');
-      expect(servers[3].available, isTrue);
-      expect(
-        servers[3].urlBuilder(1, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=anivexa&anilistId=21&malId=21&ep=1&audio=sub',
       );
     });
 
@@ -280,7 +272,7 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 3);
 
       expect(servers[1].name, 'HiAnime');
       expect(servers[1].available, isTrue);
@@ -304,9 +296,11 @@ void main() {
         '?tmdbId=209867&type=tv&s=1&e=3',
       );
 
-      // Anivexa is AniList-keyed, so it stays unavailable without one.
-      expect(servers[3].name, 'Anivexa');
-      expect(servers[3].available, isFalse);
+      // AniList-only routes still get the two proxyAnime servers.
+      expect(servers[1].name, 'HiAnime');
+      expect(servers[1].available, isTrue);
+      expect(servers[2].name, 'Megavid');
+      expect(servers[2].available, isTrue);
     });
 
     test('buildServers maps multi-season episodes for TMDB-keyed players',
@@ -339,7 +333,7 @@ void main() {
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'HiAnime', 'Megavid', 'Anivexa'],
+        ['Everglow', 'HiAnime', 'Megavid'],
       );
     });
 
@@ -355,8 +349,6 @@ void main() {
       expect(servers[1].available, isTrue);
       expect(servers[2].name, 'Megavid');
       expect(servers[2].available, isTrue);
-      expect(servers[3].name, 'Anivexa');
-      expect(servers[3].available, isTrue);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -407,7 +399,10 @@ void main() {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'HiAnime');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
-      expect(AnimeXWatchPage.normalizeServerName('Server 4'), 'Anivexa');
+      // Server 4 (Anivexa) was removed — the legacy name stays unmapped
+      // so an old saved preference renders as its raw string, never as
+      // a server that no longer exists.
+      expect(AnimeXWatchPage.normalizeServerName('Server 4'), 'Server 4');
       expect(AnimeXWatchPage.normalizeServerName('Megavid'), 'Megavid');
       expect(AnimeXWatchPage.normalizeServerName(''), '');
       expect(AnimeXWatchPage.normalizeServerName(null), '');

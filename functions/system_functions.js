@@ -56,44 +56,6 @@ const health = functions.https.onRequest(async (req, res) => {
 });
 
 /**
- * Anivexa keep-awake doorbell.
- *
- * The Anivexa backend is self-hosted on Render's free tier, which
- * sleeps after ~15 minutes idle. A cold start costs ~28s of the 40s
- * resolve budget, so proxyAnime closes both episode windows with zero
- * hits and Clair gets the grey "try another server" card.
- *
- * This replaced a GitHub Actions cron: GitHub throttles scheduled
- * workflows hard (measured gaps of 113-262 minutes instead of the
- * 10 asked for), so the backend was asleep almost every time Clair
- * tapped the Anivexa tab. Cloud Scheduler keeps to the minute.
- *
- * Pings the root only — it must never touch (or cache) user data.
- */
-const keepAnivexaWarm = onSchedule({
-  schedule: 'every 5 minutes',
-  timeZone: 'UTC',
-  region: 'us-central1',
-}, async () => {
-  const base = String(process.env.ANIVEXA_API_BASE || '')
-    .trim()
-    .replace(/\/+$/, '');
-  if (!base.startsWith('https://')) {
-    console.warn('[keepAnivexaWarm] ANIVEXA_API_BASE missing or not https');
-    return;
-  }
-  const started = Date.now();
-  try {
-    const res = await fetch(`${base}/`, { signal: AbortSignal.timeout(30000) });
-    // Drain a little so the socket closes instead of lingering.
-    await res.text();
-    console.log(`[keepAnivexaWarm] ${res.status} in ${Date.now() - started}ms`);
-  } catch (e) {
-    console.warn('[keepAnivexaWarm] ping failed:', e.message);
-  }
-});
-
-/**
  * Presence TTL sweeper.
  *
  * Clients heartbeat every 60 seconds but a closed tab can leave
@@ -158,5 +120,4 @@ const sweepStalePresence = onSchedule({
 module.exports = {
   health,
   sweepStalePresence,
-  keepAnivexaWarm,
 };

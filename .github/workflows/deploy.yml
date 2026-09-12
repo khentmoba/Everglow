@@ -145,10 +145,6 @@ jobs:
           if [ -n "${DISCORD_KHENT_ID:-}" ]; then echo "DISCORD_KHENT_ID=${DISCORD_KHENT_ID}" >> functions/.env; fi
           if [ -n "${DISCORD_CLAIR_ID1:-}" ]; then echo "DISCORD_CLAIR_ID1=${DISCORD_CLAIR_ID1}" >> functions/.env; fi
           if [ -n "${DISCORD_CLAIR_ID2:-}" ]; then echo "DISCORD_CLAIR_ID2=${DISCORD_CLAIR_ID2}" >> functions/.env; fi
-          # Public self-hosted anime backend (Render free tier). Not a
-          # secret — but it must ship via .env because every functions
-          # deploy resets runtime env to exactly what .env contains.
-          echo "ANIVEXA_API_BASE=https://everglow-ani-map.onrender.com" >> functions/.env
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db --force
 

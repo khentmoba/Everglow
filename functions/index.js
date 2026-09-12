@@ -41,10 +41,9 @@ const {
 const { proxyAnime, proxyAnimeSegment } = require('./anime.js');
 const { proxySpotifySearch, spotifyExchange, spotifyRefresh, spotifyCurrentlyPlaying } = require('./spotify.js');
 const { verifyPasscode } = require('./passcode.js');
-const { health, sweepStalePresence, keepAnivexaWarm } = require('./system_functions.js');
+const { health, sweepStalePresence } = require('./system_functions.js');
 exports.health = health;
 exports.sweepStalePresence = sweepStalePresence;
-exports.keepAnivexaWarm = keepAnivexaWarm;
 const { proxyTmdb, proxyLastfm } = require('./catalog.js');
 exports.proxyTmdb = proxyTmdb;
 exports.proxyLastfm = proxyLastfm;
