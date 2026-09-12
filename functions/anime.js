@@ -1115,6 +1115,8 @@ async function burstAnivexaEpisodes(
     };
   });
   const hits = [];
+  const failures = [];
+  let settled = 0;
   await new Promise((resolve) => {
     let pending = found.length;
     let timer = null;
@@ -1127,18 +1129,33 @@ async function burstAnivexaEpisodes(
     };
     // A hanging provider must never hold the burst past this window.
     timer = setTimeout(finish, windowMs);
-    found.forEach((p) => {
+    found.forEach((p, i) => {
       p.then((v) => {
-        if (!closed && v && v.epId) hits.push(v);
+        if (closed) return;
+        settled += 1;
+        if (v && v.epId) hits.push(v);
+        // A provider that answered but has no episode for this number
+        // is a real signal (wrong mapping, missing audio track) and
+        // must not look like a timeout.
+        else failures.push(`${providers[i]}: no episode ${ep} (${audio})`);
       })
-        .catch(() => {})
+        .catch((e) => {
+          if (closed) return;
+          settled += 1;
+          failures.push(`${providers[i]}: ${e && e.message ? e.message : e}`);
+        })
         .finally(() => {
           pending -= 1;
           if (pending <= 0) finish();
         });
     });
   });
-  return hits;
+  // Any provider still in flight when the window closed is worth naming:
+  // "the whole burst timed out" and "one host hung" need different fixes.
+  if (settled < providers.length) {
+    failures.push(`${providers.length - settled} timed out at ${windowMs}ms`);
+  }
+  return { hits, failures };
 }
 
 async function resolveAnivexa(base, anilistId, ep, audio) {
@@ -1157,7 +1174,7 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
   // hanging provider (animegg answers 20s+ at times) can never eat
   // the whole window again.
   const hitWindowMs = Math.min(13000, remaining());
-  let hits = await burstAnivexaEpisodes(
+  let burst = await burstAnivexaEpisodes(
     base,
     ANIVEXA_CORE_PROVIDERS,
     anilistId,
@@ -1166,8 +1183,9 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
     remaining,
     hitWindowMs,
   );
+  let hits = burst.hits;
   if (!hits.length && remaining() > 8000) {
-    hits = await burstAnivexaEpisodes(
+    const spare = await burstAnivexaEpisodes(
       base,
       ANIVEXA_SPARE_PROVIDERS,
       anilistId,
@@ -1176,9 +1194,15 @@ async function resolveAnivexa(base, anilistId, ep, audio) {
       remaining,
       Math.min(10000, remaining()),
     );
+    hits = spare.hits;
+    burst = { failures: [...burst.failures, ...spare.failures] };
   }
   if (!hits.length) {
-    console.warn(`[proxyAnime] anivexa ${anilistId} ep=${ep}: episode missing everywhere`);
+    // Without the reasons below, a cold backend, a provider block, and
+    // a bad AniList mapping all look identical from the outside.
+    console.warn(
+      `[proxyAnime] anivexa ${anilistId} ep=${ep}: no episode ids (${burst.failures.join(' | ')})`,
+    );
     throw new Error('anivexa: episode missing');
   }
 
@@ -1628,6 +1652,7 @@ module.exports = {
   ANIVEXA_SPARE_PROVIDERS,
   pickAnivexaEpisode,
   pickAnivexaStream,
+  burstAnivexaEpisodes,
   normTitle,
   pickBestMatch,
   validateAnimeParams,

@@ -9,6 +9,7 @@ const {
   ANIVEXA_SPARE_PROVIDERS,
   pickAnivexaEpisode,
   pickAnivexaStream,
+  burstAnivexaEpisodes,
   isAnivexaMediaHost,
   rewriteAnivexaPlaylist,
   httpsOrigin,
@@ -64,6 +65,89 @@ test('validateAnimeParams rejects bad source, ids, episodes', () => {
   });
   assert.equal(okMegavid.error, undefined);
   assert.equal(okMegavid.source, 'megavid');
+});
+
+test('burstAnivexaEpisodes reports why a provider produced nothing', async () => {
+  const realFetch = globalThis.fetch;
+  const providers = ['anineko', 'anikoto', 'anibd'];
+  globalThis.fetch = async (url) => {
+    const p = String(url).split('/episodes/')[1].split('/')[0];
+    if (p === 'anikoto') throw new Error('upstream 403');
+    if (p === 'anibd') {
+      // Answers fine, just has no episode for this number.
+      return {
+        ok: true,
+        json: async () => ({ anibd: { episodes: { sub: [] } } }),
+      };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        anineko: { episodes: { sub: [{ number: 1, id: 'watch/anineko/1/sub/anineko-1' }] } },
+      }),
+    };
+  };
+  try {
+    const { hits, failures } = await burstAnivexaEpisodes(
+      'https://ani',
+      providers,
+      20,
+      1,
+      'sub',
+      () => 5000,
+      2000,
+    );
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].provider, 'anineko');
+    assert.equal(hits[0].epId, 'watch/anineko/1/sub/anineko-1');
+    assert.ok(failures.some((f) => f.includes('anikoto: upstream 403')));
+    assert.ok(failures.some((f) => f.includes('anibd: no episode 1 (sub)')));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('burstAnivexaEpisodes names providers still hanging when the window closes', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => new Promise(() => {}); // never settles
+  try {
+    const { hits, failures } = await burstAnivexaEpisodes(
+      'https://ani',
+      ['anineko', 'anikoto'],
+      20,
+      1,
+      'sub',
+      () => 30000,
+      60,
+    );
+    assert.equal(hits.length, 0);
+    assert.deepEqual(failures, ['2 timed out at 60ms']);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('burstAnivexaEpisodes stops as soon as every provider settles', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ a: { episodes: { sub: [] } } }),
+  });
+  try {
+    const started = Date.now();
+    await burstAnivexaEpisodes(
+      'https://ani',
+      ['a'],
+      20,
+      1,
+      'sub',
+      () => 30000,
+      5000, // generous window that must NOT be waited out
+    );
+    assert.ok(Date.now() - started < 1000, 'should settle without waiting the window');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 test('validateAnimeParams accepts anivexa', () => {
