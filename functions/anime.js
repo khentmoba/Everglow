@@ -188,7 +188,7 @@ function hlsPlayerHtml({ src, title, tracks }) {
     'v.src=src;' +
     'v.addEventListener("loadedmetadata",function(){tryPlay();});' +
     'v.addEventListener("error",function(){giveUp();});' +
-    '}});</' + 'script></body></html>'
+    '}})();</' + 'script></body></html>'
   );
 }
 

@@ -117,6 +117,64 @@ test('hlsPlayerHtml inline script parses', () => {
   for (const code of blocks) new vm.Script(code);
 });
 
+/** Minimal DOM + Hls stubs so the player script can run inside a vm.
+ *  Elements need style/hidden/addEventListener; the video also needs
+ *  src/play for the native-HLS fallback branch. */
+function playerScriptContext(calls) {
+  const element = () => ({
+    style: {},
+    hidden: true,
+    src: '',
+    addEventListener() {},
+    play() {},
+  });
+  const els = {
+    v: element(),
+    boot: element(),
+    tapw: element(),
+    tap: element(),
+    dead: element(),
+  };
+  function Hls() {}
+  Hls.isSupported = () => true;
+  Hls.Events = { ERROR: 'error', MANIFEST_PARSED: 'manifestParsed' };
+  Hls.ErrorTypes = { NETWORK_ERROR: 'networkError', MEDIA_ERROR: 'mediaError' };
+  Hls.prototype.on = function (event, handler) {
+    calls.handlers[event] = handler;
+  };
+  Hls.prototype.loadSource = (url) => calls.loadSource.push(url);
+  Hls.prototype.attachMedia = (media) => calls.attachMedia.push(media);
+  Hls.prototype.destroy = () => {};
+  Hls.prototype.startLoad = () => {};
+  Hls.prototype.recoverMediaError = () => {};
+  const context = {
+    window: { Hls, parent: { postMessage() {} } },
+    Hls,
+    document: { getElementById: (id) => els[id] || null },
+  };
+  context.elements = els;
+  return context;
+}
+
+test('hlsPlayerHtml inline script actually runs and starts the stream', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Ep 1',
+    tracks: [],
+  });
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  const calls = { loadSource: [], attachMedia: [], handlers: {} };
+  const context = playerScriptContext(calls);
+  vm.createContext(context);
+  // Regression: 94c57427 shipped `(function(){...});` — a script that
+  // parses cleanly but is never invoked, so the player spun forever.
+  // Executing the script must actually start the stream.
+  new vm.Script(code, { filename: 'player.js' }).runInContext(context);
+  assert.deepEqual(calls.loadSource, ['https://x/y.m3u8']);
+  assert.equal(calls.attachMedia.length, 1);
+  assert.ok(calls.handlers.manifestParsed, 'manifest handler registered');
+});
+
 test('playlistUris resolves variants and skips comments', () => {
   const master =
     '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://cdn/x/480p/video.m3u8\n' +
