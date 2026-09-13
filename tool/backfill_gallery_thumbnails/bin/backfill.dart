@@ -228,7 +228,7 @@ Future<void> main() async {
 
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final newFull = await _upload(
-      'gallery/migrated/${stamp}_$id\_full.jpg',
+      'gallery/migrated/${stamp}_${id}_full.jpg',
       fullBytes,
     );
     if (newFull == null) {
@@ -238,7 +238,7 @@ Future<void> main() async {
     String? newThumb;
     if (thumbBytes != null) {
       newThumb = await _upload(
-        'gallery/migrated/${stamp}_$id\_thumb.jpg',
+        'gallery/migrated/${stamp}_${id}_thumb.jpg',
         thumbBytes,
       );
     }
