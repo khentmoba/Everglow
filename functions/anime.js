@@ -1,25 +1,23 @@
 'use strict';
 
 /**
- * Everglow anime resolver — ad-free HiAnime + Megavid playback.
+ * Everglow anime resolver — ad-free Megavid (+ legacy AnimePahe) playback.
  *
  * The app never talks to third-party anime APIs directly. It loads one of
  * these URLs in the sandboxed player frame:
  *
- *   GET /proxyAnime?source=hianime|megavid&anilistId=<id>&malId=<id>
+ *   GET /proxyAnime?source=megavid|animepahe&anilistId=<id>&malId=<id>
  *       &ep=<n>&audio=sub|dub&token=<firebase id token>
  *
  * The function resolves the episode server-side (through our own
- * self-hosted HiAnime / AnimePahe API instances, whose base
- * URLs stay in server env vars) and serves a clean player page from OUR
+ * self-hosted AnimePahe API instance, whose base
+ * URL stays in a server env var) and serves a clean player page from OUR
  * domain — so no third-party ad script ever reaches Clair's phone.
  *
- * Self-host one instance of each (personal use only):
- *   - HiAnime API : https://github.com/MSMods-Pro/hianime-api
- *                   (Docker or Cloudflare Workers)
+ * Self-host one instance (personal use only):
  *   - AnimePahe API: https://github.com/ElijahCodes12345/animepahe-api
  *                   (Docker or Railway; needs `npx playwright install`)
- * Then set HIANIME_API_BASE / ANIMEPAHE_API_BASE on
+ * Then set ANIMEPAHE_API_BASE on
  * the functions (firebase functions .env) and redeploy.
  *
  * Auth: Firebase ID token via `Authorization: Bearer` header OR `?token=`
@@ -196,13 +194,9 @@ function hlsPlayerHtml({ src, title, tracks }) {
 
 function validateAnimeParams(query) {
   const source = String(query.source || '').toLowerCase();
-  if (
-    source !== 'hianime' &&
-    source !== 'animepahe' &&
-    source !== 'megavid'
-  ) {
+  if (source !== 'animepahe' && source !== 'megavid') {
     return {
-      error: 'source must be hianime, animepahe, or megavid',
+      error: 'source must be animepahe or megavid',
     };
   }
   const anilistId = Number.parseInt(String(query.anilistId || '0'), 10) || 0;
@@ -244,9 +238,7 @@ async function fetchJson(url, timeoutMs) {
   return res.json();
 }
 
-const DEFAULT_BASES = {
-  HIANIME_API_BASE: 'https://hianime-api-two.vercel.app',
-};
+const DEFAULT_BASES = {};
 
 /** Our self-hosted API hosts come from env or default bases,
  *  and must be public https hosts — same SSRF guard as the other proxies. */
@@ -308,175 +300,6 @@ function firstM3u8(node, out) {
   };
   walk(node);
   return found;
-}
-
-// ─── HiAnime ─────────────────────────────────────────────
-
-async function resolveHianime(base, titles, year, ep, audio) {
-  let matchKey = null;
-
-  // 1. Try search API if available
-  try {
-    const search = await fetchJson(
-      `${base}/api/v1/search?keyword=${encodeURIComponent(titles[0])}&page=1`,
-      10000,
-    );
-    const results =
-      search &&
-      search.data &&
-      (search.data.animes || search.data.response);
-    const match = pickBestMatch(
-      (Array.isArray(results) ? results : []).map((a) => ({
-        key: a.id,
-        title: [a.title, a.alternativeTitle, a.japanese]
-          .filter(Boolean)
-          .join(' ~ '),
-      })),
-      titles,
-      year,
-    );
-    if (match && match.key) matchKey = match.key;
-  } catch (_) {}
-
-  // 2. If search fails or returns nothing, try slug candidates directly
-  let eps = null;
-  const candidates = matchKey ? [matchKey] : [];
-  for (const t of titles) {
-    const slug = t
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-    if (slug && !candidates.includes(slug)) candidates.push(slug);
-  }
-
-  for (const key of candidates) {
-    try {
-      const res = await fetchJson(
-        `${base}/api/v1/episodes/${encodeURIComponent(key)}`,
-        10000,
-      );
-      if (
-        res &&
-        res.data &&
-        Array.isArray(res.data.episodes) &&
-        res.data.episodes.length > 0
-      ) {
-        eps = res;
-        matchKey = key;
-        break;
-      }
-    } catch (_) {}
-  }
-  if (!eps) throw new Error('hianime: no match');
-
-  const list = eps.data.episodes;
-  const target =
-    list.find((e) => Number(e.episodeNumber) === ep) || list[ep - 1];
-  if (!target || !target.id) throw new Error('hianime: episode missing');
-
-  // Normalize episode ID (handles both 'slug/ep-1' and 'slug::ep=1')
-  const epId = target.id.replace(/\/ep-/, '::ep=');
-
-  // Pick server
-  let server = 'hd-1';
-  let serverEmbedUrl = null;
-  try {
-    const servers = await fetchJson(
-      `${base}/api/v1/servers?id=${encodeURIComponent(epId)}`,
-      10000,
-    );
-    const serverList =
-      servers && servers.data
-        ? audio === 'dub' &&
-          Array.isArray(servers.data.dub) &&
-          servers.data.dub.length > 0
-          ? servers.data.dub
-          : Array.isArray(servers.data.sub)
-          ? servers.data.sub
-          : []
-        : [];
-    const pick = serverList[0];
-    if (pick && pick.name) {
-      server = String(pick.name).toLowerCase().replace(/\s+/g, '-');
-      serverEmbedUrl = pick.embedUrl || null;
-    }
-  } catch (e) {
-    console.warn('[proxyAnime] hianime servers fallback:', e.message);
-  }
-
-  // 1. Try clean embed endpoint
-  try {
-    const embedRes = await fetch(
-      `${base}/api/v1/embed/${server}/${encodeURIComponent(epId)}/${audio}`,
-      {
-        headers: { 'User-Agent': DESKTOP_UA, Accept: 'text/html' },
-        signal: AbortSignal.timeout(10000),
-      },
-    );
-    if (embedRes.ok) {
-      let html = await embedRes.text();
-      if (html.includes('<video') || html.includes('hls')) {
-        html = html.replace(
-          /<head([^>]*)>/i,
-          `<head$1><base href="${base}/">`,
-        );
-        return { playerHtml: html };
-      }
-    }
-  } catch (_) {}
-
-  // 2. Try stream endpoint
-  try {
-    const stream = await fetchJson(
-      `${base}/api/v1/stream?id=${encodeURIComponent(epId)}&server=${encodeURIComponent(server)}&type=${audio}`,
-      12000,
-    );
-    const data = stream && stream.data;
-    const file =
-      data &&
-      (data.master_m3u8 ||
-        (data.link && data.link.file) ||
-        (data.variants && data.variants[0] && data.variants[0].url) ||
-        data.streamingLink);
-    if (file) {
-      const proxied = `${base}/api/v1/proxy?url=${encodeURIComponent(file)}&referer=${encodeURIComponent(data.embedUrl || 'https://megacloud.tv')}`;
-      const tracks =
-        data.tracks && Array.isArray(data.tracks)
-          ? data.tracks.filter((t) => t && t.file)
-          : [];
-      return {
-        playerHtml: hlsPlayerHtml({
-          src: proxied,
-          tracks,
-          title: matchKey,
-        }),
-      };
-    }
-    if (data && data.embedUrl) {
-      serverEmbedUrl = data.embedUrl;
-    }
-  } catch (_) {}
-
-  // 3. Fall back to sandboxed embed URL if available
-  if (serverEmbedUrl) {
-    const safeEmbedHtml =
-      '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<meta name="referrer" content="no-referrer">' +
-      '<title>' +
-      escHtml(titles[0]) +
-      '</title>' +
-      '<style>html,body,iframe{margin:0;padding:0;width:100%;height:100%;border:0;background:#000;overflow:hidden}</style>' +
-      '</head><body><iframe src="' +
-      escHtml(serverEmbedUrl) +
-      '" allowfullscreen ' +
-      'sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock" ' +
-      'allow="autoplay *; fullscreen *; encrypted-media *; picture-in-picture *"></iframe>' +
-      '</body></html>';
-    return { playerHtml: safeEmbedHtml };
-  }
-
-  throw new Error('hianime: no playable source found');
 }
 
 // ─── AnimePahe ───────────────────────────────────────────
@@ -880,9 +703,7 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
     }
   }
 
-  const base = await envBase(
-    source === 'hianime' ? 'HIANIME_API_BASE' : 'ANIMEPAHE_API_BASE',
-  );
+  const base = await envBase('ANIMEPAHE_API_BASE');
   if (!base) {
     sendFail('Source is not set up yet — try another server.');
     return;
@@ -907,13 +728,6 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    if (source === 'hianime') {
-      const out = await resolveHianime(base, titles, year, ep, audio);
-      res.set('Content-Type', 'text/html; charset=utf-8');
-      res.set('Cache-Control', 'public, max-age=300');
-      res.status(200).send(out.playerHtml);
-      return;
-    }
     const out = await resolvePahe(base, titles, year, ep, audio);
     const host = req.get('host') || req.headers.host || '';
     const seg =

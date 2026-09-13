@@ -42,10 +42,10 @@ test('validateAnimeParams rejects bad source, ids, episodes', () => {
   assert.ok(validateAnimeParams({ source: 'nope', ep: 1 }).error);
   assert.ok(
     validateAnimeParams({ source: 'hianime', ep: 1 }).error,
-    'needs an id',
+    'hianime was removed',
   );
   assert.ok(
-    validateAnimeParams({ source: 'hianime', malId: 21, ep: 0 }).error,
+    validateAnimeParams({ source: 'megavid', malId: 21, ep: 0 }).error,
   );
   const okMegavid = validateAnimeParams({
     source: 'megavid',
