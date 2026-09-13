@@ -940,6 +940,10 @@ const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
     '.bato.to',
     // MangaSee123
     '.mangasee123.com',
+    // Anime embed probe (animex watch page): VidLink serves no CORS
+    // headers, so the app's dead-server probe can't read its 404 page
+    // directly from Flutter Web. Public page, same guard as the rest.
+    '.vidlink.pro',
     // Scanlation group sites
     '.asurascans.com',
     '.asuracomic.net',
