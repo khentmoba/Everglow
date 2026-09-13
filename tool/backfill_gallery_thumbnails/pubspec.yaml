@@ -1,0 +1,8 @@
+name: backfill_gallery_thumbnails
+description: One-off repair for legacy gallery photos missing resized full + thumb.
+publish_to: none
+environment:
+  sdk: ^3.9.0
+dependencies:
+  http: ^1.6.0
+  image: ^4.3.0
