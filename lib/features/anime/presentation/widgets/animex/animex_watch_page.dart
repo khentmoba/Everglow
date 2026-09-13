@@ -137,9 +137,46 @@ class AnimeXWatchPage extends StatefulWidget {
   /// title), so it is no longer offered. A remembered VidLink choice
   /// simply falls back to the first available server below.
   ///
+  /// Picks the TMDB id for titles ani.zip can't map, via a strict
+  /// catalog search: the kind must match (`movie` for films, `tv`
+  /// otherwise), the normalized title must equal, and the year must
+  /// equal when both sides know it. Anything looser risks opening the
+  /// wrong film for Clair, so near-misses return null (server stays
+  /// hidden) instead of guessing.
+  @visibleForTesting
+  static int? pickTmdbFallbackId({
+    required List<MediaItem> results,
+    required String title,
+    required String year,
+    required bool isMovie,
+  }) {
+    String norm(String s) =>
+        s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final want = norm(title);
+    if (want.isEmpty) return null;
+    final wantKind = isMovie ? 'movie' : 'tv';
+    final wantYear = year.trim();
+    for (final r in results) {
+      if (r.tmdbId <= 0) continue;
+      if (r.mediaType.trim().toLowerCase() != wantKind) continue;
+      if (norm(r.title) != want) continue;
+      final gotYear = r.year.trim();
+      if (wantYear.isNotEmpty &&
+          gotYear.isNotEmpty &&
+          gotYear != wantYear) {
+        continue;
+      }
+      return r.tmdbId;
+    }
+    return null;
+  }
+
   /// [episodeSlots] maps a MAL episode number to the season/episode
   /// pair TMDB expects — shows whose MAL entry starts mid-series (e.g.
   /// Attack on Titan season 2) would otherwise open the wrong episode.
+  /// [isMovie] switches the TMDB-keyed server to the movie endpoint:
+  /// films (e.g. Drifting Home) have a movie TMDB id, and the TV
+  /// endpoint with that id opens nothing.
   /// [idToken] is Clair's Firebase login token for the `proxyAnime`
   /// servers (player iframes cannot send headers, so it travels as
   /// `?token=`).
@@ -150,6 +187,7 @@ class AnimeXWatchPage extends StatefulWidget {
     Map<int, ({int season, int episode})> episodeSlots = const {},
     String idToken = '',
     String title = '',
+    bool isMovie = false,
   }) {
     final hasAni = anilistId != null && anilistId > 0;
     final effectiveMal = malId ?? 0;
@@ -176,6 +214,10 @@ class AnimeXWatchPage extends StatefulWidget {
       AnimeServerOption(
         name: 'Everglow',
         urlBuilder: (ep, audio) {
+          if (isMovie) {
+            return 'https://everglow-1c6db.web.app/embed.html'
+                '?tmdbId=$effectiveTmdb&type=movie';
+          }
           final slot = episodeSlots[ep];
           final season = slot?.season ?? 1;
           final episode = slot?.episode ?? ep;
@@ -256,6 +298,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// episode.
   Map<int, ({int season, int episode})> _episodeSlots = const {};
 
+  /// Whether the TMDB-keyed server uses the movie endpoint. Starts from
+  /// the route item; [_load] refines it once the AniList detail lands.
+  bool _isFilm = false;
+
   /// Firebase login token for the `proxyAnime` (Megavid) server —
   /// player iframes cannot send headers, so it travels as `?token=`.
   /// Empty until sign-in resolves; the server stays listed and simply
@@ -307,6 +353,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       'animex-${_anilistId ?? _malId}',
     );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
+    _isFilm = _item.isMovie;
     _servers = _buildServers();
     _serverIndex = _firstAvailableServer(_servers);
     _episodes = _buildEpisodeList(null);
@@ -485,9 +532,16 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         episodeSlots = parsedSlots;
       }
     } catch (_) {}
+    // ani.zip doesn't know every title (e.g. Drifting Home has no
+    // themoviedb_id) — without a TMDB id every TMDB-keyed server hides
+    // and Clair is left with a Megavid-only list. Fall back to a strict
+    // catalog search (exact title + kind + year, never a guess) so films
+    // like that still open on Everglow.
+    mappedTmdbId ??= await _searchTmdbFallback(detail);
     _mappedAnilistId = mappedAnilistId;
     _mappedTmdbId = mappedTmdbId;
     _episodeSlots = episodeSlots;
+    _isFilm = _filmFor(detail);
     if (!mounted) return;
     final nextServers = _buildServers(
       mappedAnilistId: mappedAnilistId,
@@ -615,6 +669,56 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     return out;
   }
 
+  /// True when this title is a film rather than a series. The route
+  /// item usually knows (`isMovie`), but ONA-listed films (e.g. Drifting
+  /// Home: tv + a single 120-minute episode) don't — so an AniList
+  /// MOVIE format or one long episode counts too. Films need the TMDB
+  /// *movie* endpoint and a movie catalog search; series need TV.
+  bool _filmFor(AniListDetail? detail) {
+    if (_item.isMovie) return true;
+    if (detail == null) return false;
+    if (detail.format == 'MOVIE') return true;
+    final episodes = detail.episodeCount ?? _item.episodeCount ?? 0;
+    final minutes = detail.duration ?? 0;
+    return episodes == 1 && minutes >= 60;
+  }
+
+  /// Strict TMDB fallback for titles ani.zip can't map. Tries the
+  /// English, romaji, then route title; the first strict match wins.
+  /// Never throws — a miss just leaves the TMDB servers hidden.
+  Future<int?> _searchTmdbFallback(AniListDetail? detail) async {
+    final candidates = <String>[
+      if (detail != null) ...[
+        detail.titleEnglish,
+        detail.titleRomaji,
+        detail.titleNative,
+      ],
+      _item.title,
+    ];
+    final isFilm = _filmFor(detail);
+    final seen = <String>{};
+    for (final candidate in candidates) {
+      final query = candidate.trim();
+      // English and route titles are often identical — one search each.
+      if (query.isEmpty || !seen.add(query)) continue;
+      List<MediaItem> results;
+      try {
+        results = await _tmdbService.searchMedia(query);
+      } catch (_) {
+        return null;
+      }
+      if (results.isEmpty) continue;
+      final hit = AnimeXWatchPage.pickTmdbFallbackId(
+        results: results,
+        title: query,
+        year: _item.year,
+        isMovie: isFilm,
+      );
+      if (hit != null) return hit;
+    }
+    return null;
+  }
+
   List<AnimeServerOption> _buildServers({
     int? mappedAnilistId,
     int? mappedMalId,
@@ -626,6 +730,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       episodeSlots: _episodeSlots,
       idToken: _idToken,
       title: _item.title,
+      isMovie: _isFilm,
     );
   }
 
