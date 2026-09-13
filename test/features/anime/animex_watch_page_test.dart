@@ -364,6 +364,182 @@ void main() {
       }
     });
 
+    test('buildServers uses the movie endpoint for films', () {
+      // Drifting Home: ani.zip has no TMDB id and its film id only
+      // plays through the movie endpoint — the TV endpoint opens nothing.
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 139643,
+        malId: 49938,
+        tmdbId: 877957,
+        isMovie: true,
+      );
+      expect(servers.length, 4);
+      expect(servers[0].name, 'Everglow');
+      expect(servers[0].available, isTrue);
+      expect(
+        servers[0].urlBuilder(1, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=877957&type=movie',
+      );
+      // Series keep the season/episode TV endpoint by default.
+      final series = AnimeXWatchPage.buildServers(
+        anilistId: 21,
+        malId: 21,
+        tmdbId: 37854,
+      );
+      expect(
+        series[0].urlBuilder(1, 'sub'),
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=37854&type=tv&s=1&e=1',
+      );
+    });
+
+    group('pickTmdbFallbackId', () {
+      MediaItem result({
+        required int id,
+        required String title,
+        required String type,
+        required String year,
+      }) {
+        return MediaItem(
+          id: 'tmdb-fallback-test',
+          tmdbId: id,
+          title: title,
+          mediaType: type,
+          posterPath: '',
+          backdropPath: '',
+          year: year,
+          status: '',
+          isAnime: false,
+          addedAt: DateTime(2026, 1, 1),
+          source: 'tmdb',
+        );
+      }
+
+      test('picks the strict movie match', () {
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [
+              result(
+                id: 111,
+                title: 'Drifting Home: Drift Away',
+                type: 'movie',
+                year: '2022',
+              ),
+              result(
+                id: 877957,
+                title: 'Drifting Home',
+                type: 'movie',
+                year: '2022',
+              ),
+            ],
+            title: 'Drifting Home',
+            year: '2022',
+            isMovie: true,
+          ),
+          877957,
+        );
+      });
+
+      test('rejects year, kind, and title mismatches', () {
+        // Wrong year.
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [
+              result(
+                id: 1,
+                title: 'Drifting Home',
+                type: 'movie',
+                year: '2024',
+              ),
+            ],
+            title: 'Drifting Home',
+            year: '2022',
+            isMovie: true,
+          ),
+          isNull,
+        );
+        // TV entry for a film.
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [
+              result(
+                id: 2,
+                title: 'Drifting Home',
+                type: 'tv',
+                year: '2022',
+              ),
+            ],
+            title: 'Drifting Home',
+            year: '2022',
+            isMovie: true,
+          ),
+          isNull,
+        );
+        // Near-miss title and empty inputs never guess.
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [
+              result(
+                id: 3,
+                title: 'Drifting Homes',
+                type: 'movie',
+                year: '2022',
+              ),
+            ],
+            title: 'Drifting Home',
+            year: '2022',
+            isMovie: true,
+          ),
+          isNull,
+        );
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [],
+            title: 'Drifting Home',
+            year: '2022',
+            isMovie: true,
+          ),
+          isNull,
+        );
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [
+              result(
+                id: 4,
+                title: 'Drifting Home',
+                type: 'movie',
+                year: '2022',
+              ),
+            ],
+            title: '',
+            year: '2022',
+            isMovie: true,
+          ),
+          isNull,
+        );
+      });
+
+      test('picks series through the tv kind', () {
+        expect(
+          AnimeXWatchPage.pickTmdbFallbackId(
+            results: [
+              result(
+                id: 37854,
+                title: 'One Piece',
+                type: 'tv',
+                year: '1999',
+              ),
+            ],
+            title: 'One Piece',
+            year: '1999',
+            isMovie: false,
+          ),
+          37854,
+        );
+      });
+    });
+
     test('resolveMappingsMalId prefers the AniList detail MAL id', () {
       // The reported bug: route carries only an AniList id (slot reads
       // 0), so mappings must use the MAL id from the AniList detail —
