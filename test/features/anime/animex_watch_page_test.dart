@@ -223,12 +223,11 @@ void main() {
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
 
-      expect(servers[1].name, 'HiAnime');
+      expect(servers[1].name, 'VidLink');
       expect(servers[1].available, isTrue);
       expect(
         servers[1].urlBuilder(1, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=hianime&anilistId=21&malId=21&ep=1&audio=sub',
+        'https://vidlink.pro/anime/21/1/sub?fallback=true',
       );
 
       expect(servers[2].name, 'Megavid');
@@ -249,14 +248,6 @@ void main() {
         title: 'One Piece',
       );
       expect(
-        servers[1].urlBuilder(2, 'dub'),
-        contains('token=abc%20123'),
-      );
-      expect(
-        servers[1].urlBuilder(2, 'dub'),
-        contains('title=One%20Piece'),
-      );
-      expect(
         servers[2].urlBuilder(2, 'dub'),
         contains('token=abc%20123'),
       );
@@ -274,12 +265,11 @@ void main() {
       );
       expect(servers.length, 3);
 
-      expect(servers[1].name, 'HiAnime');
+      expect(servers[1].name, 'VidLink');
       expect(servers[1].available, isTrue);
       expect(
         servers[1].urlBuilder(3, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=hianime&anilistId=0&malId=52991&ep=3&audio=sub',
+        'https://vidlink.pro/anime/52991/3/sub?fallback=true',
       );
 
       expect(servers[2].name, 'Megavid');
@@ -296,8 +286,8 @@ void main() {
         '?tmdbId=209867&type=tv&s=1&e=3',
       );
 
-      // AniList-only routes still get the two proxyAnime servers.
-      expect(servers[1].name, 'HiAnime');
+      // AniList-only routes still get the VidLink + Megavid servers.
+      expect(servers[1].name, 'VidLink');
       expect(servers[1].available, isTrue);
       expect(servers[2].name, 'Megavid');
       expect(servers[2].available, isTrue);
@@ -333,7 +323,7 @@ void main() {
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'HiAnime', 'Megavid'],
+        ['Everglow', 'VidLink', 'Megavid'],
       );
     });
 
@@ -345,7 +335,7 @@ void main() {
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isFalse);
-      expect(servers[1].name, 'HiAnime');
+      expect(servers[1].name, 'VidLink');
       expect(servers[1].available, isTrue);
       expect(servers[2].name, 'Megavid');
       expect(servers[2].available, isTrue);
@@ -397,7 +387,7 @@ void main() {
 
     test('normalizeServerName converts legacy names to provider names', () {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Everglow');
-      expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'HiAnime');
+      expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'VidLink');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
       // Server 4 (Anivexa) was removed — the legacy name stays unmapped
       // so an old saved preference renders as its raw string, never as
@@ -434,7 +424,7 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      expect(find.text('HiAnime'), findsOneWidget);
+      expect(find.text('VidLink'), findsOneWidget);
       expect(find.text('Megavid'), findsOneWidget);
       // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.
