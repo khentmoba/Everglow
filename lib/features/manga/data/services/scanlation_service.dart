@@ -259,6 +259,7 @@ class ScanlationService with ConnectivityAware {
     // Try common search URL patterns
     final searchUrls = [
       '${site.baseUrl}/?s=${Uri.encodeComponent(query)}',
+      '${site.baseUrl}/?search=${Uri.encodeComponent(query)}',
       '${site.baseUrl}/search?q=${Uri.encodeComponent(query)}',
     ];
 

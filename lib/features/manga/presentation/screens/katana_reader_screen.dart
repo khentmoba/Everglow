@@ -59,6 +59,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   String? _error;
   String _server = '';
 
+  /// Set when we only received a handful of chapters (e.g. the 3
+  /// recent ones from a home-page card). The full chapter table is
+  /// fetched in the background so chapter navigation works.
+  bool _chaptersIncomplete = false;
+
   // Reader UX Settings
   bool _showChrome = false;
   ReaderMode _mode = ReaderMode.webtoon;
@@ -108,6 +113,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     _loadPreferences();
     _loadPages();
     _loadBookmark();
+    _loadFullChaptersIfNeeded();
 
     // Start in immersive mode by default
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -171,6 +177,37 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (mounted) setState(() => _bookmarked = bookmarked);
   }
 
+  /// When the reader was opened with only a few chapters (home-page
+  /// cards pass just the 3 recent ones), fetch the manga's full
+  /// chapter table in the background so Prev/Next and the chapter
+  /// picker see every chapter.
+  Future<void> _loadFullChaptersIfNeeded() async {
+    if (widget.chapters.length >= 8) return;
+    try {
+      final detail = await _service.fetchMangaDetail(widget.slug);
+      if (detail == null || detail.chapters.length <= _chapters.length) return;
+      if (!mounted) return;
+      final full = sortChaptersAscending(detail.chapters);
+      final current = _chapters.indexWhere((c) => c.id == _chapter.id);
+      setState(() {
+        _chapters = full;
+        _chaptersIncomplete = false;
+        if (current < 0) {
+          // Keep pointing at the chapter we opened by path.
+          final match = full.where((c) => c.id == _chapter.id).firstOrNull;
+          if (match != null) _chapter = match;
+        }
+      });
+    } catch (_) {
+      // Navigation stays on the short list; reading still works.
+    }
+  }
+
+  /// Set when the first load attempt failed and we are retrying
+  /// once automatically — transient proxy/supplier hiccups used to
+  /// drop the reader straight onto an error screen.
+  bool _autoRetried = false;
+
   Future<void> _loadPages() async {
     setState(() {
       _loading = true;
@@ -196,12 +233,28 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       }
     }
 
+    // One silent retry: cold Cloud Function instances and flaky
+    // upstreams often fail the first volley but succeed immediately
+    // after. Retrying here keeps a hiccup from ever reaching Clair.
+    if (pages.isEmpty && !_autoRetried) {
+      _autoRetried = true;
+      pages = await _service.fetchChapterPages(widget.slug, _chapter.path);
+      if (pages.isEmpty && _server.isEmpty) {
+        pages = await _service.fetchChapterPages(
+          widget.slug,
+          _chapter.path,
+          server: '?sv=3',
+        );
+      }
+    }
+
     if (!mounted) return;
     if (pages.isEmpty) {
       setState(() {
         _loading = false;
         _error =
-            'This chapter could not load from the current server. Try switching backup servers in settings.';
+            'This chapter could not load right now. Check your connection '
+            'and try again — if it keeps failing, the source site may be down.';
       });
       return;
     }
@@ -209,6 +262,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     setState(() {
       _pages = pages;
       _loading = false;
+      _autoRetried = false;
     });
 
     _preloadUpcoming(0);
@@ -295,6 +349,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _lastSavedPage = -1;
       _transformController.value = Matrix4.identity();
     });
+    // If we jumped to a chapter outside the (short) list we were
+    // handed, pull the full table so navigation keeps working.
+    if (!_chapters.any((c) => c.id == chapter.id) || _chaptersIncomplete) {
+      _loadFullChaptersIfNeeded();
+    }
     _loadPages();
   }
 
@@ -615,6 +674,14 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
               style: AppTypography.outfitBold.copyWith(
                 color: KatanaColors.text,
                 fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Fetching pages from the source — this can take a few seconds.',
+              style: KatanaType.small.copyWith(
+                color: KatanaColors.textMuted,
+                fontSize: 12,
               ),
             ),
           ],

@@ -124,10 +124,13 @@ class KatanaItemCard extends StatelessWidget {
         ),
         if (manga.latestChapter != null)
           GestureDetector(
+            // Opens the reader at the true first chapter (`fc`). The old
+            // code passed latestChapter here, so "First Chapter"
+            // actually opened the NEWEST chapter.
             onTap: () => pushReader(
               context,
               slug: manga.slug,
-              chapterId: manga.latestChapter!.path,
+              chapterId: 'fc',
               chapters: manga.recentChapters,
               mangaTitle: manga.title,
               coverUrl: manga.coverUrl,

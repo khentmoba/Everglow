@@ -961,23 +961,34 @@ const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        Referer: parsed.origin + '/',
-      },
-      signal: AbortSignal.timeout(20000),
-    });
-    const body = await upstream.text();
-    res.status(upstream.status);
+    // MangaKatana's bot protection answers rapid concurrent requests
+    // with 200 + an EMPTY body, which used to get cached and served
+    // to the app ("chapters never load"). Retry empty bodies and
+    // never cache them.
+    let body = '';
+    let status = 502;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const upstream = await fetch(targetUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          Referer: parsed.origin + '/',
+        },
+        signal: AbortSignal.timeout(20000),
+      });
+      body = await upstream.text();
+      status = upstream.status;
+      if (status !== 200 || body.length > 0) break;
+      await new Promise((r) => setTimeout(r, 350));
+    }
+    res.status(status);
     res.set(
       'Content-Type',
-      upstream.headers.get('content-type') || 'text/html; charset=utf-8',
+      'text/html; charset=utf-8',
     );
-    res.set('Cache-Control', 'public, max-age=60');
+    res.set('Cache-Control', body.length > 0 ? 'public, max-age=60' : 'no-store');
     res.send(body);
   } catch (e) {
     console.warn(`proxyFetchHtml failed (${targetUrl}):`, e.message);

@@ -56,8 +56,12 @@ class MangakatanaService with ConnectivityAware {
   /// Search MangaKatana by title and return the manga slug.
   Future<String> searchByTitle(String title) async {
     if (title.trim().isEmpty) return '';
+    // The site's real search param is `search` + `search_by` — the
+    // old `?s=…&search_type=title` URL is ignored and the site
+    // returns the home page, so the first link parsed was always a
+    // homepage rail item, not the searched series.
     final uri = Uri.parse(
-      '$_baseUrl/?s=${Uri.encodeComponent(title)}&search_type=title',
+      '$_baseUrl/?search=${Uri.encodeComponent(title)}&search_by=m_name',
     );
     try {
       final headers = await _authHeaders();
@@ -70,7 +74,7 @@ class MangakatanaService with ConnectivityAware {
         final matches = hrefReg.allMatches(body);
         for (final m in matches) {
           final href = m.group(1) ?? '';
-          if (href.contains('/manga/') && !href.contains('?s=')) {
+          if (href.contains('/manga/') && !href.contains('?')) {
             final slug = href.replaceFirst(RegExp(r'.*/manga/'), '');
             if (slug.isNotEmpty && !slug.contains('/')) {
               return slug;
@@ -105,8 +109,11 @@ class MangakatanaService with ConnectivityAware {
 
   List<MangaChapter> _parseChapterList(String html, String slug) {
     final chapters = <MangaChapter>[];
+    // Chapter links look like /manga/{slug}/c413, /manga/{slug}/c528.5
+    // or /manga/{slug}/v6c147 — the old `/chapter` regex matched
+    // nothing on the live site, so this feed always came back empty.
     final linkReg = RegExp(
-      r'<a[^>]*href="([^"]*?/manga/[^"]*?/chapter[^"]*)"[^>]*>([^<]*)',
+      r'<a[^>]*href="([^"]*?/manga/[^"\s]*?/(?:c[\d.]+|v\d+c[\d.]+|fc))"[^>]*>([^<]*)',
       caseSensitive: false,
     );
     final matches = linkReg.allMatches(html);
@@ -116,11 +123,15 @@ class MangakatanaService with ConnectivityAware {
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
       final id = href;
-      final numMatch = RegExp(
-        r'chapter[_\s-]?([\d.]+)',
-        caseSensitive: false,
-      ).firstMatch(href);
-      final chapterNum = numMatch?.group(1) ?? '';
+      // Pull the number out of the id: c413 → 413, v6c147 → 147,
+      // fc (first chapter) → '0' so it sorts first.
+      final idPart = id.split('/').last.toLowerCase();
+      final cIndex = idPart.lastIndexOf('c');
+      final chapterNum = idPart == 'fc'
+          ? '0'
+          : (cIndex >= 0 && cIndex < idPart.length - 1
+              ? idPart.substring(cIndex + 1)
+              : '');
       chapters.add(
         MangaChapter(
           id: id,

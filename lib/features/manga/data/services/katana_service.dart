@@ -32,7 +32,7 @@ class KatanaService {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final HtmlUnescape _unescape = HtmlUnescape();
 
-  static const Duration _timeout = Duration(seconds: 14);
+  static const Duration _timeout = Duration(seconds: 9);
 
   Map<String, String> get _headers => const {
     'User-Agent':
@@ -80,19 +80,32 @@ class KatanaService {
   String proxiedImageUrl(String url) => proxyImageUrl(url);
 
   Future<String?> _fetchHtml(Uri uri) async {
-    try {
-      final headers = await _authHeaders();
-      final response = await http
-          .get(_proxiedFetch(uri), headers: headers)
-          .timeout(_timeout);
-      if (response.statusCode == 200 && response.body.isNotEmpty) {
-        return response.body;
+    // One retry for transient hiccups (cold Cloud Function instances
+    // occasionally answer 200 with an empty body, and the site or CDN
+    // sometimes drops a request). Keeps chapter loads and search from
+    // failing on the first volley.
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final headers = await _authHeaders();
+        final response = await http
+            .get(_proxiedFetch(uri), headers: headers)
+            .timeout(_timeout);
+        if (response.statusCode == 200 && response.body.isNotEmpty) {
+          return response.body;
+        }
+        if (response.statusCode == 401) {
+          Logger.e('KatanaService fetch 401 - auth required: $uri');
+          return null; // Retrying an auth failure won't help.
+        }
+        // Non-200s used to fail silently, which made chapter loads
+        // look like the app hung. Log them so release builds show why.
+        Logger.e('KatanaService fetch ${response.statusCode}: $uri');
+      } catch (e) {
+        Logger.e('KatanaService fetch failed: $uri', error: e);
       }
-      if (response.statusCode == 401) {
-        Logger.e('KatanaService fetch 401 - auth required: $uri');
+      if (attempt == 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
       }
-    } catch (e) {
-      Logger.e('KatanaService fetch failed: $uri', error: e);
     }
     return null;
   }
@@ -161,9 +174,12 @@ class KatanaService {
         uri = Uri.parse('$_baseUrl/author/$key$pagePath');
         break;
       case 'search':
+        // The site's search form submits `search` + `search_by`.
+        // The old `s` param is silently ignored and the site
+        // returns the home page instead of results.
         uri = Uri.parse(
           '$_baseUrl$pagePath',
-        ).replace(queryParameters: {'s': query, 'search_by': searchBy});
+        ).replace(queryParameters: {'search': query, 'search_by': searchBy});
         break;
       case 'directory':
       default:
@@ -199,7 +215,7 @@ class KatanaService {
 
     final isSearch = mode == 'search';
     final items = isSearch
-        ? _parseCompactItems(_blocksOfClass(html, 'item'))
+        ? _parseExpandedItems(_searchResultBlocks(html))
         : _parseExpandedItems(_blocksOfClass(html, 'item'));
 
     return KatanaPageResult(
@@ -270,10 +286,10 @@ class KatanaService {
     final html = await _fetchHtml(
       Uri.parse(
         '$_baseUrl/',
-      ).replace(queryParameters: {'s': query, 'search_by': searchBy}),
+      ).replace(queryParameters: {'search': query, 'search_by': searchBy}),
     );
     if (html == null) return const [];
-    final items = _parseCompactItems(_blocksOfClass(html, 'item'));
+    final items = _parseCompactItems(_searchResultBlocks(html));
     return items.take(8).toList();
   }
 
@@ -578,6 +594,19 @@ class KatanaService {
 
   // ── Parsers ─────────────────────────────────────────────────────
 
+  /// Parses only the real "Search results" section of a search
+  /// page. The page also embeds the Latest Updates and Hot Manga
+  /// rails below the results — without this bound those rails were
+  /// parsed as search results, so a search for anything returned
+  /// dozens of unrelated homepage titles.
+  List<String> _searchResultBlocks(String html) {
+    final start = html.indexOf('Search results');
+    if (start < 0) return const [];
+    // The section ends at the next widget header (Genres, Hot Manga…).
+    final end = html.indexOf('widget-title', start + 20);
+    return _blocksOfClass(html, 'item', start: start, end: end);
+  }
+
   /// Finds balanced `<div class="item" ...>...</div>` blocks starting
   /// at or after [start].
   static List<String> _blocksOfClass(
@@ -697,7 +726,7 @@ class KatanaService {
       recent.add(
         KatanaChapter(
           id: m.group(1)!,
-          num: m.group(1) == 'fc' ? '' : m.group(1)!.substring(1),
+          num: katanaChapterNumFromId(m.group(1)!),
           title: _unescape.convert(m.group(2)!.trim()),
           updateAt: _parseKatanaDate(m.group(3) ?? ''),
         ),
@@ -736,7 +765,7 @@ class KatanaService {
     final id = m.group(1)!;
     return KatanaChapter(
       id: id,
-      num: id == 'fc' ? '' : id.substring(1),
+      num: katanaChapterNumFromId(id),
       title: _unescape.convert(m.group(2)!.trim()),
     );
   }
@@ -782,9 +811,7 @@ class KatanaService {
           latestChapter: chapterM != null
               ? KatanaChapter(
                   id: chapterM.group(1)!,
-                  num: chapterM.group(1) == 'fc'
-                      ? ''
-                      : chapterM.group(1)!.substring(1),
+                  num: katanaChapterNumFromId(chapterM.group(1)!),
                   title: chapterTitle,
                 )
               : null,
@@ -827,9 +854,7 @@ class KatanaService {
           latestChapter: chapterM != null
               ? KatanaChapter(
                   id: chapterM.group(1)!,
-                  num: chapterM.group(1) == 'fc'
-                      ? ''
-                      : chapterM.group(1)!.substring(1),
+                  num: katanaChapterNumFromId(chapterM.group(1)!),
                   title: _unescape.convert(chapterM.group(2)!.trim()),
                 )
               : null,
@@ -988,7 +1013,7 @@ class KatanaService {
       chapters.add(
         KatanaChapter(
           id: id,
-          num: id == 'fc' ? '' : id.substring(1),
+          num: katanaChapterNumFromId(id),
           title: _unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
           updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
         ),
@@ -1107,9 +1132,19 @@ String formatKatanaTime(DateTime? time) {
 }
 
 /// Sorts a chapter list oldest → newest for the reader.
+///
+/// Ties on the chapter number (e.g. `c5` vs `v2c5` volume re-releases)
+/// fall back to the chapter id so the order is stable — Dart's list
+/// sort is not stable, and without the tie-break the tied chapters
+/// used to shuffle around on every open, which made the list look
+/// inconsistent ("chapter 2 shows up first").
 List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
   final sorted = List<KatanaChapter>.of(chapters)
-    ..sort((a, b) => a.numeric.compareTo(b.numeric));
+    ..sort((a, b) {
+      final byNum = a.numeric.compareTo(b.numeric);
+      if (byNum != 0) return byNum;
+      return a.id.compareTo(b.id);
+    });
   return sorted;
 }
 
