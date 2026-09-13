@@ -60,7 +60,7 @@ class AnimeXWatchPage extends StatefulWidget {
       case 'Server 1':
         return 'Everglow';
       case 'Server 2':
-        return 'HiAnime';
+        return 'VidLink';
       case 'Server 3':
         return 'Megavid';
       default:
@@ -82,15 +82,15 @@ class AnimeXWatchPage extends StatefulWidget {
   }
 
   /// Builds the anime embed servers, cleanest first. Every server plays
-  /// caged inside the sandboxed player frame, with zero ads:
+  /// caged inside the sandboxed player frame:
   ///
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
   ///   ani.zip supplies a `themoviedb_id`. 100% ad-free.
-  /// - HiAnime: our own `proxyAnime` player page, which resolves the
-  ///   episode on our server (through our live HiAnime API backend)
-  ///   and serves a clean player from our own domain — no third-party
-  ///   ad script ever reaches Clair's phone.
+  /// - VidLink: third-party embed keyed on the MAL id, sub/dub built
+  ///   in. Its bundle ships a dormant popunder engine, but it is
+  ///   disabled on every player route today and our sandbox (no
+  ///   allow-popups) blocks it regardless.
   /// - Megavid: direct HLS streams from Megavid's `/source` API served
   ///   through `proxyAnime`. Bypasses the third-party website embed
   ///   and all its popunders completely — 100% AD-FREE.
@@ -144,9 +144,11 @@ class AnimeXWatchPage extends StatefulWidget {
         available: effectiveTmdb > 0,
       ),
       AnimeServerOption(
-        name: 'HiAnime',
-        urlBuilder: (ep, audio) => proxyAnimeUrl('hianime', ep, audio),
-        available: hasSource,
+        name: 'VidLink',
+        urlBuilder: (ep, audio) =>
+            'https://vidlink.pro/anime/$effectiveMal/$ep/$audio'
+            '?fallback=true',
+        available: hasMal,
       ),
       AnimeServerOption(
         name: 'Megavid',
@@ -200,10 +202,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// episode.
   Map<int, ({int season, int episode})> _episodeSlots = const {};
 
-  /// Firebase login token for the `proxyAnime` (HiAnime / AnimePahe)
-  /// servers — player iframes cannot send headers, so it travels as
-  /// `?token=`. Empty until sign-in resolves; the servers stay listed
-  /// and simply fail over until then.
+  /// Firebase login token for the `proxyAnime` (Megavid) server —
+  /// player iframes cannot send headers, so it travels as `?token=`.
+  /// Empty until sign-in resolves; the server stays listed and simply
+  /// fails over until then.
   String _idToken = '';
 
   String get _memoryKey =>
@@ -573,9 +575,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
   }
 
-  /// Fetches the login token once so the `proxyAnime` servers can
+  /// Fetches the login token once so the `proxyAnime` server can
   /// authenticate. Rebuilds the server list in place so the current
-  /// selection survives — only the HiAnime / AnimePahe URLs change.
+  /// selection survives — only the Megavid URL changes.
   Future<void> _refreshIdToken() async {
     try {
       final token =
