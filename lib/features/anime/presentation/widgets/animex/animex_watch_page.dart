@@ -64,6 +64,12 @@ class AnimeXWatchPage extends StatefulWidget {
         lower.contains('error - megaplay') ||
         lower.contains('all stream servers failed') ||
         lower.contains('no playable stream sources') ||
+        // MegaPlay / AniXo refuse sandboxed iframes outright — our
+        // player frame stays sandboxed (no popups for Clair), so
+        // their block cards must fail over to the next server.
+        lower.contains('sandbox is not allowed') ||
+        lower.contains('sandboxed our player is not allowed') ||
+        lower.contains('remove sandbox') ||
         // VidLink 404s dead embeds with a Next.js "not found" shell (its
         // anime player died sitewide in Sep 2026) and prints its own
         // "Couldn't Find This Episode" card once the bundle runs.
@@ -85,6 +91,12 @@ class AnimeXWatchPage extends StatefulWidget {
         return 'VidLink';
       case 'Server 3':
         return 'Megavid';
+      // Prior branch names ('Mega Play', 'Anixo') map to the current
+      // spellings so remembered choices survive the rename.
+      case 'Mega Play':
+        return 'MegaPlay';
+      case 'Anixo':
+        return 'AniXo';
       default:
         return name;
     }
@@ -109,6 +121,13 @@ class AnimeXWatchPage extends StatefulWidget {
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
   ///   ani.zip supplies a `themoviedb_id`. 100% ad-free.
+  /// - MegaPlay: third-party embed keyed on the AniList id (falls back
+  ///   to MAL). Sits before AniXo so titles without a TMDB mapping open
+  ///   on it, matching the MegaPlay / AniXo / Megavid order.
+  /// - AniXo: third-party embed keyed on the AniList id (falls back to
+  ///   MAL). Both third-party embeds stay sandboxed (no popups); when
+  ///   either answers with its sandbox-block or 410 card the probe
+  ///   advances to the next server.
   /// - Megavid: direct HLS streams from Megavid's `/source` API served
   ///   through `proxyAnime`. Bypasses the third-party website embed
   ///   and all its popunders completely — 100% AD-FREE.
@@ -164,6 +183,26 @@ class AnimeXWatchPage extends StatefulWidget {
               '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
         },
         available: effectiveTmdb > 0,
+      ),
+      AnimeServerOption(
+        name: 'MegaPlay',
+        urlBuilder: (ep, audio) {
+          if (hasAni) {
+            return 'https://megaplay.buzz/stream/ani/$aniId/$ep/$audio';
+          }
+          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
+        },
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'AniXo',
+        urlBuilder: (ep, audio) {
+          if (hasAni) {
+            return 'https://anixo.buzz/embed/ani/$aniId/$ep?track=$audio';
+          }
+          return 'https://anixo.buzz/embed/mal/$effectiveMal/$ep?track=$audio';
+        },
+        available: hasSource,
       ),
       AnimeServerOption(
         name: 'Megavid',
