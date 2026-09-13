@@ -359,8 +359,12 @@ async function resolvePahe(base, titles, year, ep, audio) {
 // ─── Megavid stream verification ────────────────────────────────
 
 /** Megavid upstream hosts. Restricted allowlist so the HLS proxy below
- *  can never become an open proxy. */
-const MEGAVID_HOSTS = new Set(['megavid.buzz']);
+ *  can never become an open proxy. Playlists are served from Megavid's own
+ *  domain (incl. cp.megavid.buzz), but every media segment streams from its
+ *  CDN at cdn.api-webs.com — leaving that host out means the rewritten
+ *  playlists point the browser straight at the CDN, whose responses carry
+ *  no CORS headers, so playback stalls on every episode. */
+const MEGAVID_HOSTS = new Set(['megavid.buzz', 'cdn.api-webs.com']);
 
 function isMegavidHost(hostname) {
   const h = String(hostname || '').toLowerCase();

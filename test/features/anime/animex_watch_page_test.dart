@@ -213,7 +213,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 3);
+      expect(servers.length, 2);
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -223,17 +223,11 @@ void main() {
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
 
-      expect(servers[1].name, 'VidLink');
+      // VidLink was removed: its anime embeds 404 sitewide since Sep 2026.
+      expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
       expect(
         servers[1].urlBuilder(1, 'sub'),
-        'https://vidlink.pro/anime/21/1/sub?fallback=true',
-      );
-
-      expect(servers[2].name, 'Megavid');
-      expect(servers[2].available, isTrue);
-      expect(
-        servers[2].urlBuilder(1, 'sub'),
         'https://us-central1-everglow-1c6db.cloudfunctions.net/'
         'proxyAnime?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
       );
@@ -248,11 +242,11 @@ void main() {
         title: 'One Piece',
       );
       expect(
-        servers[2].urlBuilder(2, 'dub'),
+        servers[1].urlBuilder(2, 'dub'),
         contains('token=abc%20123'),
       );
       expect(
-        servers[2].urlBuilder(2, 'dub'),
+        servers[1].urlBuilder(2, 'dub'),
         contains('title=One%20Piece'),
       );
     });
@@ -263,18 +257,11 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 3);
+      expect(servers.length, 2);
 
-      expect(servers[1].name, 'VidLink');
-      expect(servers[1].available, isTrue);
+      expect(servers[1].name, 'Megavid');
       expect(
         servers[1].urlBuilder(3, 'sub'),
-        'https://vidlink.pro/anime/52991/3/sub?fallback=true',
-      );
-
-      expect(servers[2].name, 'Megavid');
-      expect(
-        servers[2].urlBuilder(3, 'sub'),
         'https://us-central1-everglow-1c6db.cloudfunctions.net/'
         'proxyAnime?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
       );
@@ -286,11 +273,9 @@ void main() {
         '?tmdbId=209867&type=tv&s=1&e=3',
       );
 
-      // AniList-only routes still get the VidLink + Megavid servers.
-      expect(servers[1].name, 'VidLink');
+      // AniList-only routes still get the Megavid server.
+      expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'Megavid');
-      expect(servers[2].available, isTrue);
     });
 
     test('buildServers maps multi-season episodes for TMDB-keyed players',
@@ -323,7 +308,7 @@ void main() {
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'VidLink', 'Megavid'],
+        ['Everglow', 'Megavid'],
       );
     });
 
@@ -335,10 +320,8 @@ void main() {
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isFalse);
-      expect(servers[1].name, 'VidLink');
+      expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'Megavid');
-      expect(servers[2].available, isTrue);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -387,6 +370,8 @@ void main() {
 
     test('normalizeServerName converts legacy names to provider names', () {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Everglow');
+      // Server 2 (VidLink) was removed, but old saved choices still
+      // normalize here and fall back to the first available server.
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'VidLink');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
       // Server 4 (Anivexa) was removed — the legacy name stays unmapped
@@ -483,7 +468,8 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      expect(find.text('VidLink'), findsOneWidget);
+      // VidLink was removed: its anime embeds 404 sitewide since Sep 2026.
+      expect(find.text('VidLink'), findsNothing);
       expect(find.text('Megavid'), findsOneWidget);
       // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.

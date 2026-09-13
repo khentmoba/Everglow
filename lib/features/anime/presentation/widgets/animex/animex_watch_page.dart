@@ -78,6 +78,9 @@ class AnimeXWatchPage extends StatefulWidget {
     switch (name) {
       case 'Server 1':
         return 'Everglow';
+      // Legacy: the VidLink anime server was removed (dead upstream
+      // since Sep 2026). Old saved choices still normalize here and
+      // fall back to the first available server in [_load].
       case 'Server 2':
         return 'VidLink';
       case 'Server 3':
@@ -106,13 +109,14 @@ class AnimeXWatchPage extends StatefulWidget {
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
   ///   ani.zip supplies a `themoviedb_id`. 100% ad-free.
-  /// - VidLink: third-party embed keyed on the MAL id, sub/dub built
-  ///   in. Its bundle ships a dormant popunder engine, but it is
-  ///   disabled on every player route today and our sandbox (no
-  ///   allow-popups) blocks it regardless.
   /// - Megavid: direct HLS streams from Megavid's `/source` API served
   ///   through `proxyAnime`. Bypasses the third-party website embed
   ///   and all its popunders completely — 100% AD-FREE.
+  ///
+  /// VidLink used to sit between these two, but its anime embeds 404
+  /// sitewide since Sep 2026 ("Couldn't Find This Episode" on every
+  /// title), so it is no longer offered. A remembered VidLink choice
+  /// simply falls back to the first available server below.
   ///
   /// [episodeSlots] maps a MAL episode number to the season/episode
   /// pair TMDB expects — shows whose MAL entry starts mid-series (e.g.
@@ -130,11 +134,10 @@ class AnimeXWatchPage extends StatefulWidget {
   }) {
     final hasAni = anilistId != null && anilistId > 0;
     final effectiveMal = malId ?? 0;
-    final hasMal = effectiveMal > 0;
     final effectiveTmdb = tmdbId ?? 0;
     final aniId = hasAni ? anilistId : 0;
 
-    final hasSource = hasAni || hasMal;
+    final hasSource = hasAni || effectiveMal > 0;
 
     String proxyAnimeUrl(String source, int ep, String audio) {
       final params = <String>[
@@ -161,13 +164,6 @@ class AnimeXWatchPage extends StatefulWidget {
               '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
         },
         available: effectiveTmdb > 0,
-      ),
-      AnimeServerOption(
-        name: 'VidLink',
-        urlBuilder: (ep, audio) =>
-            'https://vidlink.pro/anime/$effectiveMal/$ep/$audio'
-            '?fallback=true',
-        available: hasMal,
       ),
       AnimeServerOption(
         name: 'Megavid',
@@ -837,9 +833,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   /// Cloud helper that re-fetches any allowlisted page with permissive
-  /// CORS, so the probe can read third-party embeds (VidLink) that send
-  /// no CORS headers — a direct fetch from Flutter Web dies before a
-  /// response exists.
+  /// CORS, so the probe can read third-party embeds that send no CORS
+  /// headers — a direct fetch from Flutter Web dies before a response
+  /// exists.
   static const String _probeProxyUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
 
@@ -854,7 +850,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           .timeout(const Duration(seconds: 10));
       return utf8.decode(response.bodyBytes);
     } catch (_) {
-      // No CORS (VidLink) or a network hiccup. One retry through our
+      // Missing CORS headers or a network hiccup. One retry through our
       // HTML proxy keeps the probe working from Flutter Web.
       try {
         final proxied = Uri.parse(
