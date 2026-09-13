@@ -23,6 +23,21 @@ class KatanaGenre {
   });
 }
 
+/// Extracts the chapter number from a MangaKatana chapter id.
+///
+/// Ids look like `c413`, `c528.5`, `v6c147` (volume 6 chapter 147) or
+/// `fc` (the very first chapter). Taking everything after the *last*
+/// `c` gives the real chapter number for volume ids too, so `v6c147`
+/// sorts as 147 instead of a broken "6c147" that used to fall back to
+/// 0 and scramble the chapter order.
+String katanaChapterNumFromId(String id) {
+  if (id == 'fc') return '';
+  final lower = id.toLowerCase();
+  final cIndex = lower.lastIndexOf('c');
+  if (cIndex < 0 || cIndex == lower.length - 1) return '';
+  return lower.substring(cIndex + 1);
+}
+
 /// A single chapter entry for a manga (e.g. `c413`).
 class KatanaChapter {
   final String id;
