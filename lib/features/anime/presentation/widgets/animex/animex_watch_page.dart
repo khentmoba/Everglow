@@ -54,6 +54,25 @@ class AnimeXWatchPage extends StatefulWidget {
   const AnimeXWatchPage({super.key, required this.controller});
 
   /// Normalizes legacy server names ('Server 1', etc.) to provider names.
+  /// True when a fetched embed page is the provider's "can't play this"
+  /// error instead of a player. Static so the regression tests can pin
+  /// every known marker.
+  static bool isProviderErrorPage(String body) {
+    final lower = body.toLowerCase();
+    return lower.contains("we're sorry") ||
+        lower.contains('error code: <span>410</span>') ||
+        lower.contains('error - megaplay') ||
+        lower.contains('all stream servers failed') ||
+        lower.contains('no playable stream sources') ||
+        // VidLink 404s dead embeds with a Next.js "not found" shell (its
+        // anime player died sitewide in Sep 2026) and prints its own
+        // "Couldn't Find This Episode" card once the bundle runs.
+        lower.contains('this page could not be found') ||
+        lower.contains("coudn't find this episode") ||
+        lower.contains("couldn't find this episode") ||
+        (lower.contains('410') && lower.contains('copyright violation'));
+  }
+
   static String normalizeServerName(String? name) {
     if (name == null) return '';
     switch (name) {
@@ -817,20 +836,50 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _memoryService.save(_memoryKey, server: _servers[index].name);
   }
 
-  /// Fetches the embed URL from our origin (the providers send permissive
-  /// CORS headers) and scans the HTML for their "content unavailable"
-  /// error page. When found, advances to the next available server so the
-  /// user never stares at a dead "We're Sorry / 410" iframe.
+  /// Cloud helper that re-fetches any allowlisted page with permissive
+  /// CORS, so the probe can read third-party embeds (VidLink) that send
+  /// no CORS headers — a direct fetch from Flutter Web dies before a
+  /// response exists.
+  static const String _probeProxyUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
+
+  /// Fetches the embed page for the dead-server probe: first directly
+  /// (works for our own endpoints and any provider sending CORS), then
+  /// through `proxyFetchHtml` when the browser blocks the request. Null
+  /// when both paths fail — the caller leaves the iframe up.
+  Future<String?> _fetchProbeBody(Uri url) async {
+    try {
+      final response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 10));
+      return utf8.decode(response.bodyBytes);
+    } catch (_) {
+      // No CORS (VidLink) or a network hiccup. One retry through our
+      // HTML proxy keeps the probe working from Flutter Web.
+      try {
+        final proxied = Uri.parse(
+          '$_probeProxyUrl?url=${Uri.encodeComponent(url.toString())}',
+        );
+        final response = await http
+            .get(proxied)
+            .timeout(const Duration(seconds: 12));
+        return utf8.decode(response.bodyBytes);
+      } catch (_) {}
+      return null;
+    }
+  }
+
+  /// Fetches the embed URL and scans the HTML for the provider's
+  /// "content unavailable" error page. When found, advances to the next
+  /// available server so the user never stares at a dead "We're Sorry /
+  /// 410 / Couldn't Find This Episode" iframe.
   Future<void> _probeCurrentServer({bool autoAdvance = true}) async {
     final url = _playerUrl;
     if (url.isEmpty || _probingServer) return;
     setState(() => _probingServer = true);
     try {
-      final response = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10));
-      final body = utf8.decode(response.bodyBytes);
-      if (_isProviderErrorPage(body) && mounted) {
+      final body = await _fetchProbeBody(Uri.parse(url));
+      if (body != null && AnimeXWatchPage.isProviderErrorPage(body) && mounted) {
         if (autoAdvance) {
           _handleContentError();
         } else {
@@ -843,16 +892,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     } finally {
       if (mounted) setState(() => _probingServer = false);
     }
-  }
-
-  bool _isProviderErrorPage(String body) {
-    final lower = body.toLowerCase();
-    return lower.contains("we're sorry") ||
-        lower.contains('error code: <span>410</span>') ||
-        lower.contains('error - megaplay') ||
-        lower.contains('all stream servers failed') ||
-        lower.contains('no playable stream sources') ||
-        (lower.contains('410') && lower.contains('copyright violation'));
   }
 
   void _resetForNewEpisode() {

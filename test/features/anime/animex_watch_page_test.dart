@@ -398,6 +398,65 @@ void main() {
       expect(AnimeXWatchPage.normalizeServerName(null), '');
     });
 
+    test('isProviderErrorPage matches every known dead-embed page', () {
+      // VidLink 404s its anime embeds with a Next.js not-found shell.
+      const vidLink404 =
+          '<!DOCTYPE html><html lang="en" class="dark"><head>'
+          '<title>404: This page could not be found.</title></head>'
+          '<body><script>self.__next_f.push("notFound")</script></body>'
+          '</html>';
+      expect(AnimeXWatchPage.isProviderErrorPage(vidLink404), isTrue);
+      // ...and once its bundle runs, the visible card text (with the
+      // site's own "coudn't" typo) is the marker.
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          "We Coudn't Find This Episode — Please Check back another time",
+        ),
+        isTrue,
+      );
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          "We Couldn't Find This Episode",
+        ),
+        isTrue,
+      );
+      // The classic Megaplay/410 pages the probe already knew.
+      expect(AnimeXWatchPage.isProviderErrorPage("We're sorry..."), isTrue);
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          '<p>error code: <span>410</span></p>',
+        ),
+        isTrue,
+      );
+      expect(
+        AnimeXWatchPage.isProviderErrorPage('all stream servers failed'),
+        isTrue,
+      );
+    });
+
+    test('isProviderErrorPage passes healthy embeds and our own player', () {
+      // Our Megavid/AnimePahe player page must never read as dead — the
+      // in-player stall card deliberately avoids the failover markers.
+      const healthyPlayer =
+          '<!DOCTYPE html><html><head><title>Episode 1</title></head>'
+          '<body><video id="v" controls playsinline autoplay></video>'
+          '<div class="ov" id="boot"></div>'
+          '<div class="ov" id="dead" hidden>'
+          '<p>This stream stalled.</p><button>Retry</button></div>'
+          '<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>'
+          '</body></html>';
+      expect(AnimeXWatchPage.isProviderErrorPage(healthyPlayer), isFalse);
+      // A healthy VidLink embed page.
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          '<title>VidLink</title><div id="player"></div>',
+        ),
+        isFalse,
+      );
+      // Empty body (proxy failure) is ambiguous, not an error page.
+      expect(AnimeXWatchPage.isProviderErrorPage(''), isFalse);
+    });
+
     testWidgets('renders the new server list and sub/dub toggle',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
