@@ -406,8 +406,12 @@ test('isMegavidHost only allows Megavid hosts', () => {
   assert.equal(isMegavidHost('megavid.buzz'), true);
   assert.equal(isMegavidHost('a.megavid.buzz'), true);
   assert.equal(isMegavidHost('MEGAVID.buzz'), true);
+  // Segments stream from Megavid's CDN, not its own domain — the proxy
+  // and playlist rewriter must accept it or every episode stalls on CORS.
+  assert.equal(isMegavidHost('cdn.api-webs.com'), true);
   assert.equal(isMegavidHost('evil.com'), false);
   assert.equal(isMegavidHost('megavid.buzz.evil.com'), false);
+  assert.equal(isMegavidHost('cdn.api-webs.com.evil.com'), false);
 });
 
 test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
@@ -431,6 +435,29 @@ test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
     rewriteMegavidPlaylist(mixed, 'https://megavid.buzz/a.m3u8', base, ''),
     mixed,
   );
+});
+
+test('rewriteMegavidPlaylist proxies CDN segment hosts', () => {
+  const base = 'https://host/proxyMegavidHls';
+  // Regression: Megavid moved every media segment to cdn.api-webs.com
+  // while playlists stayed on megavid.buzz. Leaving the CDN host out
+  // meant variant playlists kept bare CDN URLs, the browser fetched them
+  // directly, and — with no CORS headers — every episode stalled.
+  const variant =
+    '#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.004,\n' +
+    'https://cdn.api-webs.com/abc/480p/video0.ts\n';
+  const out = rewriteMegavidPlaylist(
+    variant,
+    'https://cp.megavid.buzz/hls/abc/480p/video.m3u8',
+    base,
+    'tok',
+  );
+  assert.ok(
+    out.includes(
+      `${base}?u=${encodeURIComponent('https://cdn.api-webs.com/abc/480p/video0.ts')}`,
+    ),
+  );
+  assert.ok(!out.includes('https://cdn.api-webs.com/abc/480p/video0.ts\n'));
 });
 
 test('megavidProxyUrl carries the upstream URL and token', () => {
