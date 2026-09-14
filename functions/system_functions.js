@@ -4,10 +4,9 @@
 // Holds liveness + presence TTL sweeper so index.js stays a thin
 // composition root. Export names match the old index.js surface.
 
-const functions = require('firebase-functions/v1');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-const { APP_VERSION, getAdmin, getDb, enforceRateLimit } = require('./common.js');
+const { APP_VERSION, getAdmin, getDb, enforceRateLimit, cappedHttps } = require('./common.js');
 const { STALE_PRESENCE_MS, isStalePresence } = require('./system_core.js');
 
 /**
@@ -19,7 +18,7 @@ const { STALE_PRESENCE_MS, isStalePresence } = require('./system_core.js');
  * Public by design: it only reveals service identity and Firestore
  * reachability, never user data.
  */
-const health = functions.https.onRequest(async (req, res) => {
+const health = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

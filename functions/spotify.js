@@ -3,7 +3,7 @@
 
 const functions = require('firebase-functions/v1');
 
-const { getAdmin, requireAuth, enforceRateLimit } = require('./common.js');
+const { getAdmin, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
 
 
 // ===== Spotify: Client Credentials search + User OAuth (Duo) =====
@@ -35,7 +35,7 @@ async function _getSpotifyAppToken() {
  * GET /proxySpotifySearch?query=Artist+Track  OR  ?artist=...&track=...
  * Auth required. Returns { trackId, trackName, artistName, albumName, imageUrl, previewUrl, spotifyUrl, embedUrl }.
  */
-const proxySpotifySearch = functions.https.onRequest(async (req, res) => {
+const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -89,7 +89,7 @@ const proxySpotifySearch = functions.https.onRequest(async (req, res) => {
  * POST /spotifyExchange { code, redirectUri, codeVerifier? }
  * Auth required. Exchanges code for access/refresh tokens, stores in Firestore spotify_tokens/{uid}.
  */
-const spotifyExchange = functions.https.onRequest(async (req, res) => {
+const spotifyExchange = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -146,7 +146,7 @@ const spotifyExchange = functions.https.onRequest(async (req, res) => {
  * POST /spotifyRefresh  (no body; uses stored refresh_token)
  * Auth required.
  */
-const spotifyRefresh = functions.https.onRequest(async (req, res) => {
+const spotifyRefresh = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -188,7 +188,7 @@ const spotifyRefresh = functions.https.onRequest(async (req, res) => {
  * GET /spotifyCurrentlyPlaying
  * Useful if client prefers server to fetch with stored token (avoids exposing token to JS).
  */
-const spotifyCurrentlyPlaying = functions.https.onRequest(async (req, res) => {
+const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

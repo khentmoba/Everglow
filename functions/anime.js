@@ -28,8 +28,7 @@
  * grey box.
  */
 
-const functions = require('firebase-functions/v1');
-const { getAdmin, isPublicDnsHost, enforceRateLimit } = require('./common.js');
+const { getAdmin, isPublicDnsHost, enforceRateLimit, cappedHttps } = require('./common.js');
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -658,7 +657,7 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
 
 // ─── Endpoints ───────────────────────────────────────────
 
-const proxyAnime = functions.https.onRequest(async (req, res) => {
+const proxyAnime = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -761,7 +760,7 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
  *  becoming an open proxy. Token is verified when present but optional —
  *  same public-anime rule as proxyAnime — so an expired token mid-episode
  *  never kills playback. */
-const proxyMegavidHls = functions.https.onRequest(async (req, res) => {
+const proxyMegavidHls = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range');
@@ -877,7 +876,7 @@ const proxyMegavidHls = functions.https.onRequest(async (req, res) => {
 /** Streams one upstream segment file with the headers the source needs
  *  (Kwik checks Referer, which browsers cannot spoof). Same token check
  *  as proxyAnime; host allowlist keeps it from becoming an open proxy. */
-const proxyAnimeSegment = functions.https.onRequest(async (req, res) => {
+const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

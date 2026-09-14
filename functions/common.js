@@ -249,10 +249,21 @@ async function checkDailyCap(uid, endpoint, dailyLimit) {
   }
 }
 
+// ─── Instance-count backstop ───────────
+// Every HTTPS endpoint declares its max instance count so a traffic
+// spike, bug loop, or bot flood can't scale the Cloud Functions bill
+// without bound. One Node instance serves many concurrent requests,
+// so these caps are generous for four humans.
+function cappedHttps(maxInstances, handler) {
+  const functions = require('firebase-functions/v1');
+  return functions.runWith({ maxInstances }).https.onRequest(handler);
+}
+
 module.exports = {
   APP_VERSION,
   getAdmin,
   getDb,
+  cappedHttps,
   requireAuth,
   rateLimitHit,
   enforceRateLimit,

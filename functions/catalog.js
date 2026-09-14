@@ -4,9 +4,8 @@
 // TMDB (cinema) + Last.fm (jukebox) proxies. Both keep API keys
 // server-side and require a Firebase ID token.
 
-const functions = require('firebase-functions/v1');
-
 const {
+  cappedHttps,
   requireAuth,
   enforceRateLimit,
   _getExternalCache,
@@ -24,7 +23,7 @@ const {
  * ignored and replaced server-side so the browser bundle never contains it.
  */
 // No minInstances (cost): cold start ~1-2s is fine for metadata lookups.
-const proxyTmdb = functions.https.onRequest(async (req, res) => {
+const proxyTmdb = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -94,7 +93,7 @@ const proxyTmdb = functions.https.onRequest(async (req, res) => {
  * methods are allowed; the API key stays in Cloud Functions.
  */
 // No minInstances (cost): cold start ~1-2s is fine for catalog lookups.
-const proxyLastfm = functions.https.onRequest(async (req, res) => {
+const proxyLastfm = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

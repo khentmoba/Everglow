@@ -3,12 +3,10 @@
 // Everglow Cloud Functions — Motchi image + stats group.
 // Agnes image generation proxy + 7-day observability rollup.
 
-const functions = require('firebase-functions/v1');
-
-const { getAdmin, getDb, requireAuth, enforceRateLimit, checkDailyCap, getVerifiedUsername } = require('./common.js');
+const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, checkDailyCap, getVerifiedUsername } = require('./common.js');
 
 // ── Agnes Image Generation Proxy ────────────────────────────────────
-const agnesImage = functions.https.onRequest(async (req, res) => {
+const agnesImage = cappedHttps(5, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -91,7 +89,7 @@ const agnesImage = functions.https.onRequest(async (req, res) => {
  * Returns tool success rates, hallucination counts, and reminder stats
  * for the last 7 days. Used by a future dashboard.
  */
-const motchiStats = functions.https.onRequest(async (req, res) => {
+const motchiStats = cappedHttps(5, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

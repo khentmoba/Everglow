@@ -6,8 +6,8 @@
 //
 'use strict';
 
-const functions = require('firebase-functions/v1');
 const { onRequest } = require('firebase-functions/v2/https');
+const { cappedHttps } = require('./common.js');
 
 const {
   proxyBookText,
@@ -75,9 +75,9 @@ exports.motchiSpecialDayNudge = motchiSpecialDayNudge;
 exports.motchiReminderChecker = motchiReminderChecker;
 exports.motchiMemorySweep = motchiMemorySweep;
 const { handleProxyAI } = require('./motchi_chat.js');
-exports.proxyAI = functions.https.onRequest(handleProxyAI);
+exports.proxyAI = cappedHttps(10, handleProxyAI);
 // V2 function on Cloud Run — natively supports SSE streaming.
-exports.proxyAIv2 = onRequest({ invoker: 'public' }, handleProxyAI);
+exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10 }, handleProxyAI);
 
 // Motchi schedules live in motchi_schedules.js.
 // Re-exported at the top of this file to keep the deploy surface identical.
