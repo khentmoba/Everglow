@@ -27,6 +27,8 @@ const {
 const {
   getAdmin,
   requireAuth,
+  enforceRateLimit,
+  checkDailyCap,
   getVerifiedUsername,
   _getExternalCache,
   _setExternalCache,
@@ -124,6 +126,8 @@ async function handleProxyAI(req, res) {
   // Validate Firebase Auth token before spending any LLM credits.
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  // Per-minute brake: humans chat far slower than this; bots don't.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
   const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller: clientCaller, enableThinking, canvas } = req.body;
   // Canvas toggle from the chat bar. When the user turns it OFF, Motchi must
@@ -149,6 +153,14 @@ async function handleProxyAI(req, res) {
   }
   if (!verifiedUsername && normalizedClientCaller) {
     console.warn(`[auth] no verified username for uid=${decoded.uid}, falling back to client caller=${normalizedClientCaller}`);
+  }
+  // Daily usage cap, counted across instances (fails open if Firestore
+  // hiccups — never break Clair's chat over a counter write).
+  const _dailyLimit = (caller === 'khentsgdz' || caller === 'clairjassen') ? 300 : 50;
+  const _usage = await checkDailyCap(decoded.uid, 'proxyAI', _dailyLimit);
+  if (!_usage.allowed) {
+    res.status(429).json({ error: 'Daily AI limit reached — Motchi will be back tomorrow.' });
+    return;
   }
 
   // Build context server-side if feature is provided (avoids browser->Firestore latency)

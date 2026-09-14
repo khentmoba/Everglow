@@ -8,6 +8,7 @@ const functions = require('firebase-functions/v1');
 
 const {
   requireAuth,
+  enforceRateLimit,
   _getExternalCache,
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
@@ -39,6 +40,9 @@ const proxyTmdb = functions.https.onRequest(async (req, res) => {
 
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  // One Cinema open fans out to ~30 calls; 300/min per user is generous
+  // for humans and still cuts off floods/bots.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyTmdb', limit: 300, windowMs: 60000, uid: decoded.uid })) return;
 
   const apiKey = (process.env.TMDB_API_KEY || '').trim();
   if (!apiKey) { res.status(503).json({ error: 'TMDB is not configured' }); return; }
@@ -102,6 +106,7 @@ const proxyLastfm = functions.https.onRequest(async (req, res) => {
 
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyLastfm', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
 
   const apiKey = (process.env.LASTFM_API_KEY || '').trim();
   if (!apiKey) { res.status(503).json({ error: 'Last.fm is not configured' }); return; }

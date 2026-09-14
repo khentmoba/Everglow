@@ -158,11 +158,106 @@ function _setExternalCache(key, data) {
   }
 }
 
+// ─── Lightweight in-memory rate limiter ───────────
+// Per-instance sliding-window counters. Each Cloud Functions instance
+// keeps its own map, so this is not a hard global cap — but it stops
+// single-client floods and bot loops cheaply with zero Firestore cost.
+// Expensive endpoints (proxyAI, agnesImage) additionally use the
+// Firestore-backed daily caps below, which hold across instances.
+const _rateBuckets = new Map();
+const RATE_LIMIT_MAX_BUCKETS = 2000;
+const RATE_LIMIT_PRUNE = 200;
+
+function _pruneRateBuckets() {
+  const keys = _rateBuckets.keys();
+  for (let i = 0; i < RATE_LIMIT_PRUNE; i++) {
+    const k = keys.next().value;
+    if (k === undefined) break;
+    _rateBuckets.delete(k);
+  }
+}
+
+/**
+ * Record one hit for `key`. Returns true when the key is OVER the limit
+ * (i.e. the caller should reject with 429). Window slides from first hit.
+ */
+function rateLimitHit(key, limit, windowMs, now = Date.now()) {
+  let bucket = _rateBuckets.get(key);
+  if (!bucket || (now - bucket.start) >= windowMs) {
+    bucket = { start: now, count: 0 };
+    _rateBuckets.set(key, bucket);
+    if (_rateBuckets.size > RATE_LIMIT_MAX_BUCKETS) _pruneRateBuckets();
+  }
+  bucket.count += 1;
+  return bucket.count > limit;
+}
+
+/**
+ * Best-effort client IP behind Google's frontend. `req.ip` here is the
+ * load balancer, not the caller — the first X-Forwarded-For hop is the
+ * real client. Authed endpoints key by UID instead, so a spoofed header
+ * can only move an anonymous caller between IP buckets, never dodge
+ * the UID limits on the expensive endpoints.
+ */
+function clientIp(req) {
+  const fwd = (req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '').toString();
+  const first = fwd.split(',')[0].trim();
+  const ip = ((first || req.ip || 'unknown').toString().trim() || 'unknown').slice(0, 64);
+  return ip;
+}
+
+/**
+ * Enforce a per-minute style limit. Sends 429 + Retry-After and returns
+ * true when over the limit. Pass the verified `uid` for authed endpoints
+ * so limits follow the user; anonymous-tolerant endpoints fall back to IP.
+ */
+function enforceRateLimit(req, res, { endpoint, limit, windowMs, uid = '' }) {
+  const key = uid ? `${endpoint}:u:${uid}` : `${endpoint}:ip:${clientIp(req)}`;
+  if (rateLimitHit(key, limit, windowMs)) {
+    res.set('Retry-After', String(Math.max(1, Math.ceil(windowMs / 1000))));
+    res.status(429).json({ error: 'Too many requests — please slow down.' });
+    return true;
+  }
+  return false;
+}
+
+// ─── Firestore-backed daily usage caps ───────────
+// Counters live at api_usage/{uid}/days/{YYYY-MM-DD} (server-only
+// collection, see firestore.rules). Atomic increments, so concurrent
+// instances can't dodge the cap. Fails OPEN (allows the call) when
+// Firestore is unreachable — we never want to break Clair's chat
+// because a counter write hiccuped; the miss is logged instead.
+function _todayDayKey(now = new Date()) {
+  return now.toISOString().slice(0, 10);
+}
+
+async function checkDailyCap(uid, endpoint, dailyLimit) {
+  const day = _todayDayKey();
+  try {
+    const ref = getDb().collection('api_usage').doc(uid).collection('days').doc(day);
+    await ref.set({
+      [endpoint]: getAdmin().firestore.FieldValue.increment(1),
+      updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    const snap = await ref.get();
+    const count = Number(snap.data()?.[endpoint] || 0);
+    return { allowed: count <= dailyLimit, count };
+  } catch (e) {
+    console.warn('[usage] daily cap check failed (fail-open):', e.message);
+    return { allowed: true, count: 0 };
+  }
+}
+
 module.exports = {
   APP_VERSION,
   getAdmin,
   getDb,
   requireAuth,
+  rateLimitHit,
+  enforceRateLimit,
+  clientIp,
+  checkDailyCap,
+  _todayDayKey,
   getVerifiedUsername,
   isPrivateIpv4,
   isPrivateIp,

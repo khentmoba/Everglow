@@ -5,7 +5,7 @@
 
 const functions = require('firebase-functions/v1');
 
-const { getAdmin, getDb, requireAuth, getVerifiedUsername } = require('./common.js');
+const { getAdmin, getDb, requireAuth, enforceRateLimit, checkDailyCap, getVerifiedUsername } = require('./common.js');
 
 // ── Agnes Image Generation Proxy ────────────────────────────────────
 const agnesImage = functions.https.onRequest(async (req, res) => {
@@ -25,6 +25,19 @@ const agnesImage = functions.https.onRequest(async (req, res) => {
 
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  // Couple-only: image credits are the priciest per call, so cinema
+  // profiles stay out (mirrors motchiStats below).
+  const _imgUser = await getVerifiedUsername(decoded);
+  if (!['khentsgdz', 'clairjassen'].includes(_imgUser || '')) {
+    res.status(403).json({ error: 'Couple-only' });
+    return;
+  }
+  if (enforceRateLimit(req, res, { endpoint: 'agnesImage', limit: 10, windowMs: 60000, uid: decoded.uid })) return;
+  const _imgUsage = await checkDailyCap(decoded.uid, 'agnesImage', 30);
+  if (!_imgUsage.allowed) {
+    res.status(429).json({ error: 'Daily image limit reached — try again tomorrow.' });
+    return;
+  }
 
   const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
@@ -86,6 +99,7 @@ const motchiStats = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'motchiStats', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
   // Couple-only gate: verify username is khentsgdz/clairjassen
   const username = await getVerifiedUsername(decoded);
   if (!['khentsgdz', 'clairjassen'].includes(username || '')) {

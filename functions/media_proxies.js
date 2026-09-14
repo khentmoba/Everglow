@@ -7,6 +7,7 @@ const dns = require('dns').promises;
 const {
   getAdmin,
   requireAuth,
+  enforceRateLimit,
   getVerifiedUsername,
   isPrivateIpv4,
   isPrivateIp,
@@ -33,6 +34,7 @@ const proxyBookText = functions.https.onRequest(async (req, res) => {
 
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyBookText', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
 
   const { urls } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
@@ -114,6 +116,9 @@ const proxyMangaImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  // Image chapters burst ~20-50 requests on open; 240/min per IP covers
+  // humans while cutting off bots. Anonymous by design for <img> tags.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMangaImage', limit: 240, windowMs: 60000 })) return;
   // Image proxies allow anonymous access for <img> tags that cannot send
   // Authorization headers. If a token is provided in the header,
   // validate it; otherwise allow based on host allowlist alone.
@@ -204,6 +209,7 @@ const proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMangaKakalotImage', limit: 240, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -290,6 +296,7 @@ const proxyMangaKatana = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMangaKatana', limit: 240, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -396,6 +403,7 @@ const proxyComick = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'proxyComick', limit: 240, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -480,6 +488,7 @@ const proxyAnimeImage = functions.https.onRequest(async (req, res) => {
   }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyAnimeImage', limit: 240, windowMs: 60000, uid: decoded.uid })) return;
 
 
 
@@ -569,6 +578,9 @@ const proxyGalleryImage = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  // No login by design (<img> tags can't send headers), so the per-IP
+  // limit is the abuse backstop here. Gallery grids burst on scroll.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyGalleryImage', limit: 240, windowMs: 60000 })) return;
 
   const targetUrl = req.query.url;
   if (typeof targetUrl !== 'string' || targetUrl.length === 0) {
@@ -657,6 +669,8 @@ const cleanupGallery = functions.https.onRequest(async (req, res) => {
       return;
     }
   }
+  // Destructive + scans up to 2000 docs: keep it rare.
+  if (enforceRateLimit(req, res, { endpoint: 'cleanupGallery', limit: 10, windowMs: 60000, uid: decoded.uid })) return;
 
   if (req.body?.confirm !== true) {
     res.status(400).json({ error: 'Send { confirm: true } to actually delete' });
@@ -728,6 +742,7 @@ const deleteGalleryPhoto = functions.https.onRequest(async (req, res) => {
     res.status(403).json({ error: 'Couple only' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'deleteGalleryPhoto', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
 
   let objectPath;
   try {
@@ -772,6 +787,7 @@ const proxyScanlation = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'proxyScanlation', limit: 240, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -897,6 +913,8 @@ const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  // HTML scraping is heavier than images, so the anonymous cap is lower.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyFetchHtml', limit: 60, windowMs: 60000 })) return;
   // Allow anonymous for manga scraping (host allowlist restricts to public sites).
   // If a token is provided, validate it.
   const header = req.get('Authorization') || req.headers.authorization || '';
@@ -1035,6 +1053,7 @@ const proxyEmbed = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyEmbed', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
 
 
 
@@ -1249,6 +1268,7 @@ const proxyMangaDex = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMangaDex', limit: 240, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
@@ -1317,6 +1337,7 @@ const proxyVideoStream = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyVideoStream', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
 
 
 
@@ -1398,6 +1419,7 @@ const proxyWatchStream = functions.https.onRequest(async (req, res) => {
   }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxyWatchStream', limit: 60, windowMs: 60000, uid: decoded.uid })) return;
 
 
 
@@ -1845,6 +1867,10 @@ const proxyCatalog = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  // Anonymous-tolerant by design (native clients without a token still
+  // need covers). Upstreams like Jikan are strict (3/sec), so keep the
+  // per-IP cap modest.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyCatalog', limit: 120, windowMs: 60000 })) return;
   const header = req.get('Authorization') || req.headers.authorization || '';
   const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
   if (idToken) {
