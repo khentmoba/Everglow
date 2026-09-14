@@ -54,6 +54,8 @@ exports.sweepStaleDiscordWatch = sweepStaleDiscordWatch;
 const { agnesImage, motchiStats } = require('./motchi_image_stats.js');
 exports.agnesImage = agnesImage;
 exports.motchiStats = motchiStats;
+const { sweepApiUsageAnomalies } = require('./usage_alerts.js');
+exports.sweepApiUsageAnomalies = sweepApiUsageAnomalies;
 const {
   motchiDailyDigest,
   motchiNightRecap,
