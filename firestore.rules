@@ -177,7 +177,14 @@ service cloud.firestore {
     }
 
     match /watch_party_chats/{roomId}/messages/{messageId} {
-      allow read, write: if isCouple() &&
+      allow read: if isCouple() &&
+        (request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
+         request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid);
+      allow create: if isCouple() &&
+        (request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
+         request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid) &&
+        request.resource.data.size() < 8192 && request.resource.data.text is string && request.resource.data.text.size() < 5000;
+      allow update, delete: if isCouple() &&
         (request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.hostUid ||
          request.auth.uid == get(/databases/$(database)/documents/watch_party_rooms/$(roomId)).data.partnerUid);
     }
@@ -195,7 +202,14 @@ service cloud.firestore {
          request.auth.uid == resource.data.partnerUid);
 
       match /messages/{messageId} {
-        allow read, write: if isCouple() &&
+        allow read: if isCouple() &&
+          (request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.hostUid ||
+           request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.partnerUid);
+        allow create: if isCouple() &&
+          (request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.hostUid ||
+           request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.partnerUid) &&
+          request.resource.data.size() < 8192 && request.resource.data.text is string && request.resource.data.text.size() < 5000;
+        allow update, delete: if isCouple() &&
           (request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.hostUid ||
            request.auth.uid == get(/databases/$(database)/documents/temporary_chats/$(roomId)).data.partnerUid);
       }
@@ -332,6 +346,7 @@ service cloud.firestore {
     }
 
     // Server-only collections
+    match /auth_attempts/{attemptId} { allow read, write: if false; }
     match /api_usage/{uid} { allow read, write: if false; }
     match /api_usage/{uid}/days/{dayId} { allow read, write: if false; }
     match /reminders/{docId} { allow read, write: if false; }

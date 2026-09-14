@@ -424,15 +424,15 @@ test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
     master,
     'https://megavid.buzz/vid/a/master.m3u8',
     base,
-    'tok',
   );
   assert.ok(out.includes(`${base}?u=${encodeURIComponent('https://megavid.buzz/vid/a/v.m3u8')}`));
   assert.ok(out.includes('URI="' + base));
-  assert.ok(out.includes(encodeURIComponent('tok')));
+  // Nested media URLs must never carry a login token.
+  assert.ok(!out.includes('token='));
   // External hosts are never rewritten into the proxy.
   const mixed = '#EXTM3U\nhttps://evil.com/x.ts\n';
   assert.equal(
-    rewriteMegavidPlaylist(mixed, 'https://megavid.buzz/a.m3u8', base, ''),
+    rewriteMegavidPlaylist(mixed, 'https://megavid.buzz/a.m3u8', base),
     mixed,
   );
 });
@@ -450,7 +450,6 @@ test('rewriteMegavidPlaylist proxies CDN segment hosts', () => {
     variant,
     'https://cp.megavid.buzz/hls/abc/480p/video.m3u8',
     base,
-    'tok',
   );
   assert.ok(
     out.includes(
@@ -460,9 +459,23 @@ test('rewriteMegavidPlaylist proxies CDN segment hosts', () => {
   assert.ok(!out.includes('https://cdn.api-webs.com/abc/480p/video0.ts\n'));
 });
 
-test('megavidProxyUrl carries the upstream URL and token', () => {
-  const u = megavidProxyUrl('https://h/proxyMegavidHls', 't 1', 'https://megavid.buzz/v.m3u8');
+test('megavidProxyUrl carries the upstream URL, never a token', () => {
+  const u = megavidProxyUrl('https://h/proxyMegavidHls', 'https://megavid.buzz/v.m3u8');
   assert.ok(u.startsWith('https://h/proxyMegavidHls?u='));
   assert.ok(u.includes(encodeURIComponent('https://megavid.buzz/v.m3u8')));
-  assert.ok(u.includes(encodeURIComponent('t 1')));
+  assert.ok(!u.includes('token='));
+});
+
+test('hlsPlayerHtml sends the token as a header, not in URLs', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://h/proxyMegavidHls?u=https%3A%2F%2Fcdn%2Fv.m3u8',
+    title: 'Ep 1',
+    tracks: [],
+    token: 'tok123',
+  });
+  assert.ok(html.includes('xhrSetup'));
+  assert.ok(html.includes('Authorization'));
+  assert.ok(!html.includes('token='));
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  new vm.Script(code);
 });

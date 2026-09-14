@@ -109,7 +109,11 @@ function failHtml(title, detail) {
  *  instead of spinning forever. The card deliberately avoids the failover
  *  marker text, so the app's server probe never mistakes a healthy player
  *  page for a dead one. */
-function hlsPlayerHtml({ src, title, tracks }) {
+function hlsPlayerHtml({ src, title, tracks, token }) {
+  // When the page was loaded with a login token, hls.js sends it back as
+  // an Authorization header — never inside media URLs (which land in
+  // browser history and request logs). Native-HLS Safari keeps using the
+  // token-bearing page URL, which only it needs.
   const trackTags = (Array.isArray(tracks) ? tracks : [])
     .filter((t) => t && t.file)
     .slice(0, 8)
@@ -171,7 +175,9 @@ function hlsPlayerHtml({ src, title, tracks }) {
     'v.addEventListener("waiting",function(){' +
     'if(dead.hidden){boot.style.display="flex";}});' +
     'if(window.Hls&&Hls.isSupported()){' +
-    'var h=new Hls({maxBufferLength:30});var fatal=0;' +
+    (token
+      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});var fatal=0;'
+      : 'var h=new Hls({maxBufferLength:30});var fatal=0;') +
     'h.on(Hls.Events.ERROR,function(ev,data){' +
     'if(!data||!data.fatal){return;}fatal++;' +
     'if(fatal>3){try{h.destroy();}catch(e){}giveUp();return;}' +
@@ -549,18 +555,18 @@ async function verifyMegavidStream(masterUrl) {
 
 /** Builds our same-origin proxy URL for one upstream Megavid file.
  *  Pure: `proxyBase` is `https://<host>/proxyMegavidHls`. */
-function megavidProxyUrl(proxyBase, token, absUrl) {
-  return (
-    `${proxyBase}?u=${encodeURIComponent(absUrl)}` +
-    `&token=${encodeURIComponent(String(token || ''))}`
-  );
+function megavidProxyUrl(proxyBase, absUrl) {
+  // Deliberately token-free: nested playlist/segment/key URLs must never
+  // carry the viewer's login token (history + logs). The player sends
+  // identity as an Authorization header instead (see hlsPlayerHtml).
+  return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
 }
 
 /** Rewrites every Megavid URI inside an HLS playlist to our proxy.
  *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
  *  Non-Megavid URLs are left untouched so a future mixed playlist can't
  *  turn the proxy into an open relay. */
-function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, token, isAllowed) {
+function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed) {
   const rewriteUri = (uri) => {
     const abs = resolvePlaylistUrl(uri, playlistUrl);
     if (!abs) return null;
@@ -569,7 +575,7 @@ function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, token, isAllowed
     } catch (_) {
       return null;
     }
-    return megavidProxyUrl(proxyBase, token, abs);
+    return megavidProxyUrl(proxyBase, abs);
   };
   return String(text || '')
     .split(/\r?\n/)
@@ -589,12 +595,11 @@ function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, token, isAllowed
     .join('\n');
 }
 
-function rewriteMegavidPlaylist(text, playlistUrl, proxyBase, token) {
+function rewriteMegavidPlaylist(text, playlistUrl, proxyBase) {
   return rewritePlaylistWithHosts(
     text,
     playlistUrl,
     proxyBase,
-    token,
     isMegavidHost,
   );
 }
@@ -640,16 +645,13 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
   // and segment through proxyMegavidHls (same-origin + `*`, Referer added
   // server-side) so the browser never talks to Megavid directly.
   const token = (req && req.query && req.query.token) || '';
-  const src = megavidProxyUrl(
-    megavidProxyBase(req),
-    token,
-    data.source,
-  );
+  const src = megavidProxyUrl(megavidProxyBase(req), data.source);
   return {
     playerHtml: hlsPlayerHtml({
       src,
       tracks,
       title: `Episode ${ep}`,
+      token,
     }),
   };
 }
@@ -830,13 +832,8 @@ const proxyMegavidHls = functions.https.onRequest(async (req, res) => {
       const text = await upstream.text();
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
-        const tokenQ = String(req.query.token || '');
-        const rewritten = rewriteMegavidPlaylist(
-        text,
-        targetUrl,
-        proxyBase,
-        tokenQ,
-      );
+        // Nested URLs stay token-free (identity rides the header).
+        const rewritten = rewriteMegavidPlaylist(text, targetUrl, proxyBase);
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
         res.set('Cache-Control', 'public, max-age=30');
         res.status(200).send(rewritten);
