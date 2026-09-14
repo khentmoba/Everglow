@@ -332,6 +332,8 @@ service cloud.firestore {
     }
 
     // Server-only collections
+    match /api_usage/{uid} { allow read, write: if false; }
+    match /api_usage/{uid}/days/{dayId} { allow read, write: if false; }
     match /reminders/{docId} { allow read, write: if false; }
     match /music/{docId} { allow read, write: if false; }
     match /garden_plants/{docId} { allow read, write: if false; }

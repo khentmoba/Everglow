@@ -3,7 +3,7 @@
 
 const functions = require('firebase-functions/v1');
 
-const { getAdmin, requireAuth } = require('./common.js');
+const { getAdmin, requireAuth, enforceRateLimit } = require('./common.js');
 
 
 // ===== Spotify: Client Credentials search + User OAuth (Duo) =====
@@ -43,6 +43,7 @@ const proxySpotifySearch = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'Only GET' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'proxySpotifySearch', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
   const q = String(req.query.query || '').trim();
   const artist = String(req.query.artist || '').trim();
   const track = String(req.query.track || '').trim();
@@ -96,6 +97,7 @@ const spotifyExchange = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'spotifyExchange', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
   const { code, redirectUri, codeVerifier } = req.body || {};
   if (!code || !redirectUri) { res.status(400).json({ error: 'code and redirectUri required' }); return; }
   const { id, secret } = _getSpotifyCreds();
@@ -152,6 +154,7 @@ const spotifyRefresh = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'spotifyRefresh', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
   const { id, secret } = _getSpotifyCreds();
   if (!id) { res.status(503).json({ error: 'Spotify not configured' }); return; }
   try {
@@ -193,6 +196,7 @@ const spotifyCurrentlyPlaying = functions.https.onRequest(async (req, res) => {
   if (req.method !== 'GET') { res.status(405).json({ error: 'GET only' }); return; }
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  if (enforceRateLimit(req, res, { endpoint: 'spotifyCurrentlyPlaying', limit: 120, windowMs: 60000, uid: decoded.uid })) return;
   try {
     const ref = getAdmin().firestore().collection('spotify_tokens').doc(decoded.uid);
     const snap = await ref.get();

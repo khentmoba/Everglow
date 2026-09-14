@@ -8,7 +8,7 @@ const functions = require('firebase-functions/v1');
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-const { getDb, requireAuth, getVerifiedUsername } = require('./common.js');
+const { getDb, requireAuth, enforceRateLimit, getVerifiedUsername } = require('./common.js');
 
 const notifyDiscordWatch = functions.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -22,6 +22,7 @@ const notifyDiscordWatch = functions.https.onRequest(async (req, res) => {
   let username = '';
   try { username = await getVerifiedUsername(decoded); } catch (e) { console.warn('[notifyDiscordWatch] user lookup failed:', e.message); }
   if (username !== 'khentsgdz' && username !== 'clairjassen') { res.status(403).json({ error: 'Couple only' }); return; }
+  if (enforceRateLimit(req, res, { endpoint: 'notifyDiscordWatch', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
   const { title, posterPath, mediaType, season, episode } = req.body || {};
   if (!title || (mediaType !== 'movie' && mediaType !== 'tv')) { res.status(400).json({ error: 'title + mediaType required' }); return; }
   const { buildWatchPost, postToWebhook, patchWebhookMessage } = require('./discord.js');
@@ -59,6 +60,9 @@ const notifyDiscordWatch = functions.https.onRequest(async (req, res) => {
 
 const discordInteractions = onRequest({ invoker: 'public' }, async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+  // Public by necessity (Discord calls us); signature-checked below and
+  // per-IP capped here so forged floods die cheaply.
+  if (enforceRateLimit(req, res, { endpoint: 'discordInteractions', limit: 120, windowMs: 60000 })) return;
   const sig = req.get('X-Signature-Ed25519') || '';
   const ts = req.get('X-Signature-Timestamp') || '';
   const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);

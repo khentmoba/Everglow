@@ -29,7 +29,7 @@
  */
 
 const functions = require('firebase-functions/v1');
-const { getAdmin, isPublicDnsHost } = require('./common.js');
+const { getAdmin, isPublicDnsHost, enforceRateLimit } = require('./common.js');
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -669,6 +669,9 @@ const proxyAnime = functions.https.onRequest(async (req, res) => {
     return;
   }
 
+  // One page load per episode; resolving fans out to several upstream
+  // fetches, so cap anonymous page renders per IP.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyAnime', limit: 60, windowMs: 60000 })) return;
   // Auth: token is validated if present; omitted/warming tokens are allowed
   // so public anime streaming isn't interrupted by async token refresh.
   const token = req.get('Authorization') || req.query.token;
@@ -769,6 +772,9 @@ const proxyMegavidHls = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'GET only' });
     return;
   }
+  // Playlists/keys re-fetch often during a stream; 240/min per IP is
+  // generous for 1-2 viewers and still cuts floods.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyMegavidHls', limit: 240, windowMs: 60000 })) return;
   const token = req.get('Authorization') || req.query.token;
   if (token) {
     // Best-effort: keep playback alive even when the token expired.
@@ -891,6 +897,8 @@ const proxyAnimeSegment = functions.https.onRequest(async (req, res) => {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
+  // A stream pulls a segment every few seconds; 240/min per viewer.
+  if (enforceRateLimit(req, res, { endpoint: 'proxyAnimeSegment', limit: 240, windowMs: 60000, uid: authed.uid || '' })) return;
 
   const targetUrl = req.query.u;
   if (typeof targetUrl !== 'string' || !targetUrl) {

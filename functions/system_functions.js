@@ -7,7 +7,7 @@
 const functions = require('firebase-functions/v1');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-const { APP_VERSION, getAdmin, getDb } = require('./common.js');
+const { APP_VERSION, getAdmin, getDb, enforceRateLimit } = require('./common.js');
 const { STALE_PRESENCE_MS, isStalePresence } = require('./system_core.js');
 
 /**
@@ -33,6 +33,9 @@ const health = functions.https.onRequest(async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
+  // Public by design (uptime probes), but each hit reads Firestore —
+  // cap it so a bot loop can't bill us.
+  if (enforceRateLimit(req, res, { endpoint: 'health', limit: 60, windowMs: 60000 })) return;
 
   const checks = { firestore: 'pending' };
   let status = 'ok';
