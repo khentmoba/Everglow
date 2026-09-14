@@ -1,12 +1,12 @@
 'use strict';
 
-const functions = require('firebase-functions/v1');
 const net = require('net');
 const dns = require('dns').promises;
 
 const {
   getAdmin,
   requireAuth,
+  cappedHttps,
   enforceRateLimit,
   getVerifiedUsername,
   isPrivateIpv4,
@@ -17,7 +17,7 @@ const {
 
 const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
 
-const proxyBookText = functions.https.onRequest(async (req, res) => {
+const proxyBookText = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -102,7 +102,7 @@ const proxyBookText = functions.https.onRequest(async (req, res) => {
  * Mirrors the `proxyBookText` pattern: optional Firebase Auth token in
  * the Authorization header, validated if present.
  */
-const proxyMangaImage = functions.https.onRequest(async (req, res) => {
+const proxyMangaImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -195,7 +195,7 @@ const proxyMangaImage = functions.https.onRequest(async (req, res) => {
  * Accepts:
  *   GET /proxyMangaKakalotImage?url=<encoded image url>
  */
-const proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
+const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -282,7 +282,7 @@ const proxyMangaKakalotImage = functions.https.onRequest(async (req, res) => {
  * Accepts:
  *   GET /proxyMangaKatana?url=<encoded image url>
  */
-const proxyMangaKatana = functions.https.onRequest(async (req, res) => {
+const proxyMangaKatana = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -389,7 +389,7 @@ const proxyMangaKatana = functions.https.onRequest(async (req, res) => {
  * Same pattern as `proxyMangaDex` — forwards to api.comick.dev with
  * permissive CORS headers.
  */
-const proxyComick = functions.https.onRequest(async (req, res) => {
+const proxyComick = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -472,7 +472,7 @@ const proxyComick = functions.https.onRequest(async (req, res) => {
  *   - *.ak.crunchyroll.com
  *   - *.funimation.com
  */
-const proxyAnimeImage = functions.https.onRequest(async (req, res) => {
+const proxyAnimeImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -564,7 +564,7 @@ const proxyAnimeImage = functions.https.onRequest(async (req, res) => {
  * Storage URL already contains a per-file download token, and we
  * restrict to our own bucket to prevent open-proxy abuse.
  */
-const proxyGalleryImage = functions.https.onRequest(async (req, res) => {
+const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -638,7 +638,7 @@ const proxyGalleryImage = functions.https.onRequest(async (req, res) => {
  *
  * Auth required (only khentsgdz can call this).
  */
-const cleanupGallery = functions.https.onRequest(async (req, res) => {
+const cleanupGallery = cappedHttps(5, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -720,7 +720,7 @@ const cleanupGallery = functions.https.onRequest(async (req, res) => {
  * from the download URL and restricted to the `gallery/` prefix, so the
  * caller can never aim this at other files.
  */
-const deleteGalleryPhoto = functions.https.onRequest(async (req, res) => {
+const deleteGalleryPhoto = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -773,7 +773,7 @@ const deleteGalleryPhoto = functions.https.onRequest(async (req, res) => {
  * The host is validated against a whitelist of known scanlation
  * domains. Mirrors the `proxyMangaKakalotImage` pattern.
  */
-const proxyScanlation = functions.https.onRequest(async (req, res) => {
+const proxyScanlation = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -899,7 +899,7 @@ const proxyScanlation = functions.https.onRequest(async (req, res) => {
  * This follows the same pattern as proxyScanlation (image proxy) but
  * returns text/html instead of binary image data.
  */
-const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
+const proxyFetchHtml = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -1044,7 +1044,7 @@ const proxyFetchHtml = functions.https.onRequest(async (req, res) => {
  *   5. Injects a lightweight ad-block script (popup blocker + MutationObserver)
  *   6. Returns the cleaned HTML with permissive CORS headers
  */
-const proxyEmbed = functions.https.onRequest(async (req, res) => {
+const proxyEmbed = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
@@ -1254,7 +1254,7 @@ const proxyEmbed = functions.https.onRequest(async (req, res) => {
   }
 });
 
-const proxyMangaDex = functions.https.onRequest(async (req, res) => {
+const proxyMangaDex = cappedHttps(30, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -1329,7 +1329,7 @@ const proxyMangaDex = functions.https.onRequest(async (req, res) => {
  * Accepts: POST /proxyVideoStream  { type, id, season?, episode? }
  * Returns: { url: string|null, debug: {...} }
  */
-const proxyVideoStream = functions.https.onRequest(async (req, res) => {
+const proxyVideoStream = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
@@ -1403,7 +1403,7 @@ const proxyVideoStream = functions.https.onRequest(async (req, res) => {
  * Accepts:
  *   GET /proxyWatchStream?url=<encoded upstream url>[&referer=<encoded>]
  */
-const proxyWatchStream = functions.https.onRequest(async (req, res) => {
+const proxyWatchStream = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -1866,7 +1866,7 @@ function resolveCatalogUpstream(baseKey, pathParam) {
   return targetUrl;
 }
 
-const proxyCatalog = functions.https.onRequest(async (req, res) => {
+const proxyCatalog = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');

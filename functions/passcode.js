@@ -1,9 +1,8 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const functions = require('firebase-functions/v1');
 
-const { getAdmin, clientIp } = require('./common.js');
+const { getAdmin, clientIp, cappedHttps } = require('./common.js');
 const { isValidPasscodeFormat } = require('./auth_core.js');
 
 // ===== verifyPasscode (Khent/Clair server gate; Breyan/Octagram stay client) =====
@@ -14,7 +13,6 @@ const { isValidPasscodeFormat } = require('./auth_core.js');
 // cost nothing and close the cold-start reset hole.
 const _pcAttempts = new Map();
 function _pcHit(ip){const n=Date.now();const a=_pcAttempts.get(ip)||[];const w=a.filter(t=>n-t<60000);w.push(n);_pcAttempts.set(ip,w);if(_pcAttempts.size>400)_pcAttempts.clear();return w.length>8;}
-
 const _PC_WINDOW_MS = 10 * 60 * 1000;
 const _PC_MAX_FAILS = 20;
 const _PC_LOCK_MS = 15 * 60 * 1000;
@@ -52,7 +50,7 @@ async function _pcLockoutRead(ipHash) {
   }
 }
 
-const verifyPasscode = functions.https.onRequest(async(req,res)=>{
+const verifyPasscode = cappedHttps(10, async(req,res)=>{
   res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Methods','POST, OPTIONS');res.set('Access-Control-Allow-Headers','Content-Type');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
   if(req.method!=='POST'){res.status(405).json({error:'POST only'});return;}
