@@ -1,30 +1,53 @@
 part of 'episode_drawer.dart';
 
 abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
-  Future<void> _updateStatus(String newStatus) async {
-    // Guard against rapid double-taps that would race.
-    if (_isUpdatingStatus) {
-      Logger.d("[Status] Ignoring — update already in progress");
-      return;
-    }
-    _isUpdatingStatus = true;
-    try {
-      await _doUpdateStatus(newStatus);
-    } finally {
-      _isUpdatingStatus = false;
-    }
-  }
-
-  Future<void> _doUpdateStatus(String newStatus) async {
+  Future<void> _updateStatus(String newStatus) {
+    // Immediate tap feedback — haptics fire at tap time, not when the
+    // queued write runs, so rapid taps never feel dead on slow network.
     HapticFeedback.selectionClick();
+    // Capture auth synchronously: the queued write may run after an async
+    // gap, when context.read would be unsafe.
     final auth = context.read<AuthService>();
     final userName = auth.currentUser ?? '';
     final partnerUsername = auth.partnerUsername;
+    final isCoupleUser = auth.isCoupleUser;
+    // Serial queue: rapid taps process in order instead of racing (the
+    // original bug) or being silently dropped (the iPhone hang Khent saw
+    // — taps ignored for seconds while the network was slow, then working
+    // again with no feedback about the lost tap).
+    final next = _statusQueue.then(
+      (_) => _doUpdateStatus(
+        newStatus,
+        userName: userName,
+        partnerUsername: partnerUsername,
+        isCoupleUser: isCoupleUser,
+      ),
+    );
+    // Keep the chain alive even if one write fails.
+    _statusQueue = next.catchError((_) {});
+    return next;
+  }
+
+  /// Updates [_statusNotifier] without rebuilding the drawer body.
+  /// Only the chips listen to the notifier (see [_buildStatusChip]), so
+  /// the hero/trailer/episodes never relay out for a status tap.
+  void _setStatus(String value) {
+    if (!mounted) return;
+    _statusNotifier.value = value;
+  }
+
+  Future<void> _doUpdateStatus(
+    String newStatus, {
+    required String userName,
+    required String? partnerUsername,
+    required bool isCoupleUser,
+  }) async {
+    if (!mounted) return;
     Logger.d(
       "[Status] _updateStatus called: newStatus=$newStatus, userName=$userName, currentItemStatus=${widget.item.status}, currentLocalStatus=$_currentStatus, tmdbId=${widget.item.tmdbId}, isAnime=${widget.item.isAnime}, mediaType=${widget.item.mediaType}, mounted=$mounted",
     );
     if (userName.isEmpty) {
-      _showSnack('Please sign in to manage your watchlist');
+      if (mounted) _showSnack('Please sign in to manage your watchlist');
       return;
     }
     // ── Guard: only couple users may set partner-specific statuses.
@@ -34,8 +57,7 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     // taps from writing Khent/Clair semantics into Firestore. Removal
     // (tapping the already-selected chip) is still allowed so stale
     // partner data can be cleared.
-    if (!auth.isCoupleUser &&
-        _currentStatus != newStatus) {
+    if (!isCoupleUser && _currentStatus != newStatus) {
       const partnerStatuses = {
         'watching-khent',
         'watching-clair',
@@ -54,9 +76,9 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     }
     // Save the previous status so we can revert locally if the Firestore
     // write fails. Without this, a network error in isAnimeByTmdbId or
-    // saveToWatchList would leave the chip highlighted (from the early
-    // setState) while the document in Firestore still has the old status —
-    // making the change appear to "revert" the next time the stream fires.
+    // saveToWatchList would leave the chip highlighted (from the optimistic
+    // notifier update) while the document in Firestore still has the old
+    // status — making the change appear to "revert" when the stream fires.
     final previousStatus = _currentStatus;
 
     if (_currentStatus == newStatus) {
@@ -67,7 +89,11 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
       // Removing from the current user instead would delete the wrong doc
       // (or nothing) and the shelf would appear to never update.
       Logger.d("[Status] Same status tapped — removing from watchlist");
-      setState(() => _currentStatus = '');
+      _setStatus('');
+      // Immediate feedback: the chip already flipped via the notifier.
+      // The old code waited for the Firestore round-trip before showing
+      // anything, so a slow phone sat silent for seconds (the hang).
+      if (mounted) _showSnack('Removed from watchlist');
       try {
         String ownerToRemove = userName;
         final routedOwner = TMDBService.resolveStatusOwner(
@@ -86,9 +112,19 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         Logger.d(
           "[Status] Removing tmdbId=${widget.item.tmdbId} from owner=$ownerToRemove (previous=$previousStatus, viewer=$userName)",
         );
+        // Fast path: the drawer often already holds the Firestore doc id
+        // (items opened from a shelf). Deleting by id skips the query +
+        // delete round-trips. Merged couple items (userName "a,b") keep
+        // the primary's id, so only use it for single-owner matches.
+        String? docId;
+        if (widget.item.id.isNotEmpty &&
+            widget.item.userName.trim() == ownerToRemove) {
+          docId = widget.item.id;
+        }
         await _tmdbService.removeFromWatchList(
           widget.item.tmdbId,
           ownerToRemove,
+          docId: docId,
         );
         // For "Both" statuses, also remove from the partner's doc.
         if (previousStatus == 'watched-both' ||
@@ -108,17 +144,18 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
           }
         }
         Logger.d("[Status] Remove succeeded");
-        if (mounted) _showSnack('Removed from watchlist');
       } catch (e) {
         Logger.e('Failed to remove from watchlist', error: e);
         if (mounted) {
-          setState(() => _currentStatus = previousStatus);
-          _showSnack('Failed to remove — please try again');
+          _setStatus(previousStatus);
+          _showSnackError('Failed to remove — please try again');
         }
       }
     } else {
-      // Optimistically update the chip UI.
-      setState(() => _currentStatus = newStatus);
+      // Optimistically update the chip UI + confirm now; the network
+      // (anime probe + Firestore writes) lands in the background.
+      _setStatus(newStatus);
+      if (mounted) _showSnack('Watchlist updated');
       try {
         // Auto-detect anime so the dashboard's Anime rail picks it up
         // automatically. We do this against TMDB /details because that's the
@@ -215,12 +252,11 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         }
 
         Logger.d("[Status] saveToWatchList completed successfully");
-        if (mounted) _showSnack('Watchlist updated');
       } catch (e) {
         Logger.e('Failed to update watchlist status', error: e);
         if (mounted) {
-          setState(() => _currentStatus = previousStatus);
-          _showSnack('Failed to update — please try again');
+          _setStatus(previousStatus);
+          _showSnackError('Failed to update — please try again');
         }
       }
     }
@@ -261,6 +297,22 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: AppTypography.outfitWhite),
+        backgroundColor: AppColors.deepRose,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Error variant: replaces the optimistic confirm shown at tap time
+  /// instead of queuing behind its 2s duration.
+  void _showSnackError(String msg) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(msg, style: AppTypography.outfitWhite),
         backgroundColor: AppColors.deepRose,

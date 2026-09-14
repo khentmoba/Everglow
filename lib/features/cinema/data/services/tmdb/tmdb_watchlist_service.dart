@@ -320,10 +320,23 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
     }
   }
 
-  Future<void> removeFromWatchList(int tmdbId, String userName) async {
+  Future<void> removeFromWatchList(
+    int tmdbId,
+    String userName, {
+    String? docId,
+  }) async {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
+      // Fast path: the drawer often already holds the doc id, which
+      // skips the query round-trip entirely (1 write vs query + write).
+      // Callers must only pass it for single-owner matches — merged
+      // couple items carry the primary's id, never the partner's.
+      if (docId != null && docId.isNotEmpty) {
+        await collection.doc(docId).delete();
+        Logger.i("Removed from watch list: $tmdbId ($userName)");
+        return;
+      }
       final existing = await collection
           .where('tmdbId', isEqualTo: tmdbId)
           .where('userName', isEqualTo: userName)

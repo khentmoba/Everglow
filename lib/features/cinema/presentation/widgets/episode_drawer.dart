@@ -850,10 +850,15 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     IconData icon = Icons.check_circle_rounded,
     Color activeColor = AppColors.deepRose,
   }) {
-    final isSelected = _currentStatus == status;
-    return GestureDetector(
-      onTap: () => _updateStatus(status),
-      child: AnimatedContainer(
+    // Listens to the status directly so a tap repaints only the chips.
+    // The drawer body (hero/trailer/episodes) never rebuilds for this.
+    return ValueListenableBuilder<String>(
+      valueListenable: _statusNotifier,
+      builder: (context, current, _) {
+        final isSelected = current == status;
+        return GestureDetector(
+          onTap: () => _updateStatus(status),
+          child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -904,7 +909,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             ),
           ],
         ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1061,10 +1068,14 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     IconData icon = Icons.check_circle_rounded,
     Color activeColor = AppColors.deepRose,
   }) {
-    final isSelected = _currentStatus == status;
-    return GestureDetector(
-      onTap: () => _updateStatus(status),
-      child: AnimatedContainer(
+    // Same isolation as the enhanced chip: only chips repaint on tap.
+    return ValueListenableBuilder<String>(
+      valueListenable: _statusNotifier,
+      builder: (context, current, _) {
+        final isSelected = current == status;
+        return GestureDetector(
+          onTap: () => _updateStatus(status),
+          child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
@@ -1096,7 +1107,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             ),
           ],
         ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
