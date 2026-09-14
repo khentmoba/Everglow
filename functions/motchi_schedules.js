@@ -16,6 +16,9 @@ const motchiDailyDigest = onSchedule({
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {
+  // Outer guard: a failed Firestore read must log, not throw — an
+  // uncaught scheduled run just burns a retry and pages the logs.
+  try {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -105,6 +108,9 @@ const motchiDailyDigest = onSchedule({
     body: digest.slice(0, 240),
     data: { type: 'daily_digest' },
   });
+  } catch (e) {
+    console.warn('[motchiDailyDigest] failed:', e.message);
+  }
 });
 
 // ── Scheduled: Night Recap (9:00 PM PHT = 13:00 UTC) ──────────────
@@ -113,6 +119,7 @@ const motchiNightRecap = onSchedule({
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {
+  try {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
   const [moodSnap, activitySnap, starSnap, memorySnap] = await Promise.all([
@@ -147,6 +154,9 @@ const motchiNightRecap = onSchedule({
     body: recap.slice(0, 240),
     data: { type: 'night_recap' },
   });
+  } catch (e) {
+    console.warn('[motchiNightRecap] failed:', e.message);
+  }
 });
 
 // ── Scheduled: Mood Check-In (8:00 PM PHT = 12:00 UTC) ──────────
@@ -158,17 +168,21 @@ const motchiMoodCheckIn = onSchedule({
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
-  const moods = await db.collection('moods').where('date', '==', today).get();
-  const loggedUids = new Set(moods.docs.map(d => d.data().uid));
+  try {
+    const moods = await db.collection('moods').where('date', '==', today).get();
+    const loggedUids = new Set(moods.docs.map(d => d.data().uid));
 
-  for (const uid of ['khentsgdz', 'clairjassen']) {
-    if (!loggedUids.has(uid)) {
-      await sendFCMToUser(uid, {
-        title: '🍡 Motchi wants to know...',
-        body: 'How are you feeling today? Tell me your mood! 💭',
-        data: { type: 'mood_checkin' },
-      });
+    for (const uid of ['khentsgdz', 'clairjassen']) {
+      if (!loggedUids.has(uid)) {
+        await sendFCMToUser(uid, {
+          title: '🍡 Motchi wants to know...',
+          body: 'How are you feeling today? Tell me your mood! 💭',
+          data: { type: 'mood_checkin' },
+        });
+      }
     }
+  } catch (e) {
+    console.warn('[motchiMoodCheckIn] check-in failed:', e.message);
   }
 
   // W4-D14: Behavior-based initiative — silence gap + mood trend
