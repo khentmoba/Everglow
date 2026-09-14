@@ -30,7 +30,12 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
   bool _castRequested = false;
   bool _reviewsRequested = false;
   bool _similarRequested = false;
-  late String _currentStatus;
+  // Status chips listen to this directly so tapping a chip only rebuilds
+  // the chips — not the hero/trailer/episodes/cast. A full-drawer setState
+  // on every tap relaid out the YouTube iframe on iPhone and read as a
+  // multi-second hang after undo. See _EpisodeDrawerStateCore2._updateStatus.
+  late final ValueNotifier<String> _statusNotifier;
+  String get _currentStatus => _statusNotifier.value;
   List<String> _genreNames = [];
 
   /// AniList detail record, kept around for the synopsis / studio / format
@@ -93,7 +98,11 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
   /// so all status options are reachable without a horizontal scroll
   /// gesture or Shift+wheel.
   final _statusScrollCtrl = ScrollController();
-  bool _isUpdatingStatus = false;
+  // Serial queue for status taps. The old boolean guard silently dropped
+  // taps while a save/remove was in flight — on slow mobile network that
+  // read as a multi-second hang (tap does nothing, then works again).
+  // Chaining keeps writes sequential (no race) without ever losing a tap.
+  Future<void> _statusQueue = Future.value();
 
   // For header parallax/fade
   late AnimationController _fadeCtrl;
@@ -108,7 +117,7 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
     // variant so the correct chip is highlighted. Per-user Firestore
     // docs store "self" variants, but couple chips expect "watched-khent",
     // "watched-clair", etc.
-    _currentStatus = widget.item.resolveCoupleStatus();
+    _statusNotifier = ValueNotifier(widget.item.resolveCoupleStatus());
     _fadeCtrl = AnimationController(
       vsync: this as TickerProvider,
       duration: const Duration(milliseconds: 600),
@@ -159,6 +168,7 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   @override
   void dispose() {
     _statusScrollCtrl.dispose();
+    _statusNotifier.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
