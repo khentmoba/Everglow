@@ -48,11 +48,23 @@ const motchiDailyDigest = onSchedule({
     }),
   };
 
+  // Quiet-day skip: no moods, no fresh activity, no starlight — the paid
+  // LLM polish would just gush over an empty week. The deterministic
+  // recap below still goes out, so Clair never misses her digest.
+  const _cutoff = Date.now() - 36 * 60 * 60 * 1000;
+  const _freshActivity = activitySnap.docs.some((d) => {
+    const t = d.data().timestamp;
+    const ms = t?.toMillis?.() ?? t?.toDate?.()?.getTime?.() ?? 0;
+    return ms > _cutoff;
+  });
+  const _quietDay = moodsSnap.empty && starSnap.empty && !_freshActivity;
+  if (_quietDay) console.log('[motchiDailyDigest] quiet day — skipping LLM polish');
+
   // Try a real Motchi voice first; fall back to the deterministic recap.
   let digest = composeTodayRecap(recapData);
   try {
     const apiKey = process.env.AGNES_API_KEY;
-    if (apiKey) {
+    if (apiKey && !_quietDay) {
       const dataBlob = JSON.stringify(recapData).slice(0, 6000);
       const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
         method: 'POST',
@@ -321,10 +333,20 @@ const motchiWeeklyRecap = onSchedule({
       })),
     };
     let recap = composeTodayRecap(recapData);
+    // Quiet-week skip: same idea as the daily digest — empty weeks get
+    // the deterministic recap, no paid polish.
+    const _wCutoff = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    const _wFresh = activitySnap.docs.some((d) => {
+      const t = d.data().timestamp;
+      const ms = t?.toMillis?.() ?? t?.toDate?.()?.getTime?.() ?? 0;
+      return ms > _wCutoff;
+    });
+    const _quietWeek = moodsSnap.empty && starSnap.empty && !_wFresh && recapData.activities.length === 0;
+    if (_quietWeek) console.log('[motchiWeeklyRecap] quiet week — skipping LLM polish');
     // Try LLM polish (same as daily digest, but weekly)
     try {
       const apiKey = process.env.AGNES_API_KEY;
-      if (apiKey) {
+      if (apiKey && !_quietWeek) {
         const dataBlob = JSON.stringify(recapData).slice(0, 6000);
         const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
           method: 'POST',
