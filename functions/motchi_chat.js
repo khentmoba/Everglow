@@ -302,10 +302,11 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
 ${identityContext ? `\n${identityContext}` : ''}
 ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
-  // Server-side memory filtering: select top 30 relevant memories.
+  // Server-side memory filtering: top 10 relevant memories ride along.
+  // (Was 30 — the tail rarely mattered and cost tokens every call.)
   // `lastUserMessage` is plain text, so downstream scoring never crashes
   // on multimodal content blocks.
-  const relevantMemories = await selectRelevantMemories(memories, lastUserMessage);
+  const relevantMemories = await selectRelevantMemories(memories, lastUserMessage, 10);
   if (relevantMemories.length > 0) {
     systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
   }
@@ -399,10 +400,10 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           ? trimmed.substring(factsIdx, nextSectionIdx)
           : trimmed.substring(factsIdx);
         const factsLines = factsSection.split('\n').filter(l => l.startsWith('- '));
-        if (factsLines.length > 30) {
+        if (factsLines.length > 10) {
           const before = trimmed.substring(0, factsIdx);
           const after = nextSectionIdx !== -1 ? trimmed.substring(nextSectionIdx) : '';
-          trimmed = before + `\n## Remembered Facts\n${factsLines.slice(0, 30).join('\n')}\n*(+${factsLines.length - 30} more facts)*` + after;
+          trimmed = before + `\n## Remembered Facts\n${factsLines.slice(0, 10).join('\n')}\n*(+${factsLines.length - 10} more facts)*` + after;
         }
       }
     }
@@ -1253,6 +1254,14 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     const trimmed = String(userMsg || '').trim().toLowerCase();
     const isPureGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i.test(trimmed);
     if (isPureGreeting) {
+      // A bare greeting never needs tools — answer warm and free.
+      // Compound asks ("hi, remember X") don't match, so they keep
+      // full tools. Both request builders omit `tools`/`tool_choice`
+      // entirely when this list is empty.
+      return [];
+    }
+    const isSmallTalk = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i.test(trimmed);
+    if (isSmallTalk) {
       const coreAllowed = new Set([
         'set_mood',
         'save_to_starlight_jar',
@@ -2731,6 +2740,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
       let currentMessages = [...nimMessages];
       let toolRound = 0;
+      // Global spend brake: 8 rounds are normal, retries are not.
+      // Caps the worst case at 8 successes + 4 retries per message
+      // (was: 8 rounds x 3 attempts = 24 paid calls).
+      let agnesCalls = 0;
+      const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
 
       while (toolRound < MAX_TOOL_ROUNDS) {
@@ -2740,6 +2754,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         let streamResp = null;
         let lastFetchError = null;
         for (let attempt = 0; attempt < 3; attempt++) {
+          if (agnesCalls >= MAX_AGNES_CALLS_PER_MESSAGE) {
+            lastFetchError = 'message call budget spent';
+            break;
+          }
+          agnesCalls++;
           try {
             streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
               method: 'POST',
@@ -2750,8 +2769,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               body: JSON.stringify({
                 model,
                 messages: currentMessages,
-                tools,
-                tool_choice: 'auto',
+                // Greetings carry no tools at all (cheapest path); the
+                // key must be omitted, not emptied, with tool_choice.
+                ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
                 max_tokens: 16384,
                 temperature: 0.6,
                 top_p: 0.95,
@@ -2953,8 +2973,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         body: JSON.stringify({
           model: model,
           messages: nimMessages,
-          tools,
-          tool_choice: 'auto',
+          ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
           max_tokens: 16384,
           temperature: 0.6,
           top_p: 0.95,
