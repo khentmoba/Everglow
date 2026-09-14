@@ -122,6 +122,52 @@ class AnimeXWatchPage extends StatefulWidget {
     return routeMalId;
   }
 
+  /// Base URL of our ad-free anime resolver (see functions/anime.js).
+  /// Megavid plays through it instead of the provider's website embed:
+  /// the function resolves the episode server-side and serves our own
+  /// player page, so no third-party ad or tracker script ever reaches
+  /// Clair's phone — and a missing episode answers with the failover
+  /// marker (HTTP 502) instead of spinning its loader forever.
+  static const String proxyAnimeBase =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime';
+
+  /// Builds the Megavid player URL via our ad-free resolver.
+  @visibleForTesting
+  static String megavidProxyUrl({
+    required int anilistId,
+    required int malId,
+    required int episode,
+    required String audio,
+  }) {
+    return '$proxyAnimeBase?source=megavid'
+        '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
+  }
+
+  /// Picks the server a visit should open on: the remembered choice
+  /// when it is still offered, otherwise Everglow whenever it is
+  /// available, otherwise the first available server. Everglow is ours
+  /// (no ads, no popups), so it stays the default even when a previous
+  /// visit left the index pointing at a third-party server.
+  @visibleForTesting
+  static int defaultServerIndex(
+    List<AnimeServerOption> servers, {
+    String? rememberedServer,
+  }) {
+    final remembered = normalizeServerName(rememberedServer);
+    if (remembered.isNotEmpty) {
+      final at = servers.indexWhere(
+        (s) => s.available && s.name == remembered,
+      );
+      if (at != -1) return at;
+    }
+    final everglow = servers.indexWhere(
+      (s) => s.available && s.name == 'Everglow',
+    );
+    if (everglow != -1) return everglow;
+    final first = servers.indexWhere((s) => s.available);
+    return first == -1 ? 0 : first;
+  }
+
   /// Builds the anime embed servers, cleanest first. Each provider has
   /// its own embedding rules (verified Sep 2026 against the providers
   /// themselves and a working reference site) — the player frame
@@ -131,25 +177,24 @@ class AnimeXWatchPage extends StatefulWidget {
   ///   fresh titles. TMDB-keyed, so it only becomes available once
   ///   ani.zip supplies a `themoviedb_id`. Sandboxed, no referrer,
   ///   100% ad-free.
+  /// - Megavid: our ad-free resolver ([proxyAnimeBase]) keyed on the
+  ///   AniList id (falls back to MAL). Sandboxed, no referrer. A dead
+  ///   episode answers with the failover marker so the probe advances
+  ///   to the next server instead of spinning.
   /// - MegaPlay: third-party embed keyed on the AniList id (falls back
-  ///   to MAL). Sits before AniXo so titles without a TMDB mapping open
-  ///   on it, matching the MegaPlay / AniXo / Megavid order. Refuses
-  ///   sandboxed iframes ("Remove sandbox to use it") and answers 410
-  ///   with no Referer — so it plays unsandboxed with the origin sent.
-  /// - AniXo: third-party embed keyed on the AniList id (falls back to
-  ///   MAL). Same deal: a JS sandbox detector pauses the video behind
-  ///   an overlay, and the firewall 403s referrer-less loads — so it
-  ///   also plays unsandboxed with the origin sent. When either answers
-  ///   with its 410 card the probe advances to the next server.
-  /// - Megavid: the provider's own website embed (same URL shape as the
-  ///   reference site). Needs the origin Referer ("Embed Only" without
-  ///   it) but has no sandbox detector, so it stays sandboxed and its
-  ///   popunders die silently.
+  ///   to MAL). Last resort for titles without a TMDB mapping — it
+  ///   refuses sandboxed iframes ("Remove sandbox to use it") and
+  ///   answers 410 with no Referer, so it plays unsandboxed with the
+  ///   origin sent, ads included. When it answers with its 410 card
+  ///   the probe advances to the next server.
   ///
-  /// VidLink used to sit between these two, but its anime embeds 404
-  /// sitewide since Sep 2026 ("Couldn't Find This Episode" on every
-  /// title), so it is no longer offered. A remembered VidLink choice
-  /// simply falls back to the first available server below.
+  /// AniXo used to sit between the last two, but it is only a scraper
+  /// relay over MegaPlay behind a bot-check ticket that embedded
+  /// players cannot pass reliably — and it ships its own popunder ad
+  /// tag — so it is no longer offered. VidLink's anime embeds 404
+  /// sitewide since Sep 2026, so it is no longer offered either.
+  /// A remembered AniXo/VidLink choice simply falls back to Everglow
+  /// (see [defaultServerIndex]).
   ///
   /// Picks the TMDB id for titles ani.zip can't map, via a strict
   /// catalog search: the kind must match (`movie` for films, `tv`
@@ -222,34 +267,22 @@ class AnimeXWatchPage extends StatefulWidget {
         available: effectiveTmdb > 0,
       ),
       AnimeServerOption(
+        name: 'Megavid',
+        urlBuilder: (ep, audio) => AnimeXWatchPage.megavidProxyUrl(
+          anilistId: aniId,
+          malId: effectiveMal,
+          episode: ep,
+          audio: audio,
+        ),
+        available: hasSource,
+      ),
+      AnimeServerOption(
         name: 'MegaPlay',
         urlBuilder: (ep, audio) {
           if (hasAni) {
             return 'https://megaplay.buzz/stream/ani/$aniId/$ep/$audio';
           }
           return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
-        },
-        available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'AniXo',
-        urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://anixo.buzz/embed/ani/$aniId/$ep?track=$audio';
-          }
-          return 'https://anixo.buzz/embed/mal/$effectiveMal/$ep?track=$audio';
-        },
-        available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'Megavid',
-        urlBuilder: (ep, audio) {
-          final idType = hasAni ? 'ani' : 'mal';
-          final id = hasAni ? aniId : effectiveMal;
-          // Deep rose keeps the player skin on-brand; autoplay matches
-          // the reference site's embed settings.
-          return 'https://megavid.buzz/$idType/$id/$ep/$audio'
-              '?color=%23C2185B&autoplay=true';
         },
         available: hasSource,
       ),
@@ -351,7 +384,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
     _isFilm = _item.isMovie;
     _servers = _buildServers();
-    _serverIndex = _firstAvailableServer(_servers);
+    _serverIndex = AnimeXWatchPage.defaultServerIndex(_servers);
     _episodes = _buildEpisodeList(null);
     _load();
     _fetchSkipTimes();
@@ -542,7 +575,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       mappedAnilistId: mappedAnilistId,
       mappedMalId: mappingsMalId,
     );
-    final firstAvailable = nextServers.indexWhere((s) => s.available);
     setState(() {
       _detail = detail;
       _episodes = _buildEpisodeList(detail, aniZipEpisodes: aniZipEpisodes);
@@ -550,20 +582,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
       }
       _servers = nextServers;
-      final normalizedRemembered =
-          AnimeXWatchPage.normalizeServerName(_rememberedServer);
-      final rememberedIndex = normalizedRemembered.isEmpty
-          ? -1
-          : nextServers.indexWhere(
-              (s) => s.available && s.name == normalizedRemembered,
-            );
-      if (rememberedIndex != -1) {
-        _serverIndex = rememberedIndex;
-      } else if (firstAvailable != -1 &&
-          (_serverIndex >= _servers.length ||
-              !_servers[_serverIndex].available)) {
-        _serverIndex = firstAvailable;
-      }
+      // Fresh visits open on Everglow whenever it is available (it is
+      // ours: no ads, no popups); an explicit remembered choice wins.
+      _serverIndex = AnimeXWatchPage.defaultServerIndex(
+        nextServers,
+        rememberedServer: _rememberedServer,
+      );
     });
     _recordHistory(_selectedEpisode);
     _saveWatchProgress(episode: _selectedEpisode);
@@ -868,12 +892,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     });
   }
 
-  /// Index of the first available server, or 0 when none is available
-  /// yet (the player then shows an empty URL until [_load] resolves).
-  static int _firstAvailableServer(List<AnimeServerOption> servers) {
-    final index = servers.indexWhere((s) => s.available);
-    return index == -1 ? 0 : index;
-  }
+
 
   String get _playerUrl {
     if (_servers.isEmpty) return '';

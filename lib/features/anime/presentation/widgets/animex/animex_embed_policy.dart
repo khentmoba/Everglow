@@ -1,18 +1,19 @@
 /// Per-host iframe policy for the AnimeX player frame.
 ///
-/// The three third-party anime servers each enforce their own embedding
-/// rules (verified Sep 2026 against the providers themselves and a
-/// working reference site), so one blanket policy can't cover them:
+/// The third-party anime servers each enforce their own embedding rules
+/// (verified Sep 2026 against the providers themselves and a working
+/// reference site), so one blanket policy can't cover them:
 ///
 /// - MegaPlay renders "Sandboxed our player is not allowed. Remove
 ///   sandbox to use it" inside any sandboxed iframe, and answers 410
 ///   ("We're Sorry") when the load carries no Referer.
-/// - AniXo ships a JS sandbox detector (`frameElement.hasAttribute`)
-///   that pauses the video behind an overlay, and its firewall 403s
-///   ("Leech Block Engaged") referrer-less loads.
-/// - Megavid answers 403 ("Embed Only") with no Referer, but has no
-///   sandbox detector — so it stays sandboxed and its popunders die
-///   silently.
+/// - Megavid plays through our own ad-free resolver (see
+///   AnimeXWatchPage.proxyAnimeBase), so it stays sandboxed with no
+///   referrer like our own pages.
+///
+/// AniXo is no longer offered (a bot-gated relay over MegaPlay), but
+/// its entries below stay as a guard in case one of its URLs ever
+/// reaches the frame again — as do Megavid's direct-embed entries.
 ///
 /// Our own pages (Everglow embed, trailers) keep the caller's policy.
 class AnimeXEmbedPolicy {
