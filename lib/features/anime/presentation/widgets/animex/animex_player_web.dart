@@ -7,6 +7,7 @@ import 'package:web/web.dart' as web;
 import '../../../data/services/anilist_service.dart';
 
 import 'animex_buttons.dart';
+import 'animex_embed_policy.dart';
 import 'animex_tokens.dart';
 import 'animex_videasy_progress.dart';
 
@@ -20,8 +21,9 @@ class AnimeXPlayerFrame extends StatefulWidget {
 
   /// When true the embed runs inside a sandbox that traps popups and
   /// top-frame navigation (the ad engines behind third-party anime
-  /// servers rely on both). Provider playback only needs scripts +
-  /// same-origin, so video keeps working while popunders die silently.
+  /// servers rely on both). MegaPlay and AniXo refuse sandboxed iframes
+  /// outright, so the frame skips the attribute for them (see
+  /// AnimeXEmbedPolicy); every other provider stays caged.
   /// Trailers pass false — YouTube owns its embed and needs no cage.
   final bool sandbox;
 
@@ -75,6 +77,13 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     super.initState();
     _viewType =
         'animex-frame-${widget.url.hashCode}-${DateTime.now().microsecondsSinceEpoch}';
+    // Per-host policy: MegaPlay/AniXo block sandboxed frames, and all
+    // three third-party servers reject referrer-less loads — without
+    // this the frame shows their 410/403/Embed-Only cards instead.
+    final sandboxed =
+        widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url);
+    final referrer =
+        AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy);
     _iframe = web.HTMLIFrameElement()
       ..src = widget.url
       ..allow =
@@ -82,7 +91,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       ..setAttribute('allowfullscreen', 'true')
       ..setAttribute('webkitallowfullscreen', 'true')
       ..setAttribute('mozallowfullscreen', 'true')
-      ..setAttribute('referrerpolicy', widget.referrerPolicy)
+      ..setAttribute('referrerpolicy', referrer)
       ..style.border = 'none'
       ..style.width = '100%'
       ..style.height = '100%';
@@ -91,7 +100,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     // YouTube app-open spam) while scripts + same-origin keep the
     // HLS player itself alive. Mirrors web/embed.html and the cinema
     // player, which cage their upstreams the same way.
-    if (widget.sandbox) {
+    if (sandboxed) {
       _iframe.setAttribute(
         'sandbox',
         'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',

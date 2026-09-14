@@ -136,6 +136,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   /// else (app-store pages, tiktok:// / youtube:// app-open intents,
   /// redirect farms) is the ad engine talking, so the WebView drops it.
   static const _allowedHosts = {
+    'megaplay.buzz',
+    'anixo.buzz',
     'megavid.buzz',
     'everglow-1c6db.web.app',
     'cinesrc.st',
