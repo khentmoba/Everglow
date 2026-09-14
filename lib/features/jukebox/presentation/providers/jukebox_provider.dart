@@ -14,7 +14,7 @@ class JukeboxProvider extends ChangeNotifier {
     MusicPersistenceService? persistenceService,
     AuthService? authService,
     Future<bool> Function(String uid)? awardListenXp,
-    Duration pollInterval = const Duration(seconds: 30),
+    Duration pollInterval = const Duration(seconds: 60),
     Duration resubscribeDelay = const Duration(seconds: 5),
   }) : _apiService = apiService ?? MusicSyncService(),
        _persistenceService =
@@ -41,9 +41,15 @@ class JukeboxProvider extends ChangeNotifier {
   final Duration _pollInterval;
   final Duration _resubscribeDelay;
 
-  /// Last awarded track per Last.fm username, so the 30s poll doesn't
+  /// Last awarded track per Last.fm username, so the poll doesn't
   /// re-award the same scrobble every tick.
   final Map<String, String> _lastAwardedTrackKey = {};
+
+  /// Last synced track per Last.fm username. The poll skips its Firestore
+  /// write when nothing changed, so idle hours cost zero writes instead
+  /// of two every minute. Play/stop transitions always change the key
+  /// (live vs timestamped), so they still sync immediately.
+  final Map<String, String> _lastSyncedTrackKey = {};
 
   late final StreamController<Map<String, MusicStatus>> _statusController;
   StreamSubscription? _firestoreSubscription;
@@ -68,7 +74,8 @@ class JukeboxProvider extends ChangeNotifier {
     _subscribeToFirestore([khentUser, clairUser]);
 
     // 3. Start Polling Last.fm to keep Firestore updated
-    // Poll every 30 seconds as per original spec requirements
+    // Every 60s: fast enough for "now playing", slow enough to be kind
+    // to Last.fm (the server also caches these reads for 5 minutes).
     _fetchAndSync(khentUser, clairUser);
     _pollingTimer = Timer.periodic(_pollInterval, (timer) {
       _fetchAndSync(khentUser, clairUser);
@@ -154,6 +161,9 @@ class JukeboxProvider extends ChangeNotifier {
       return;
     }
     if (status == null) return;
+    final key = _trackKey(status);
+    if (key.isNotEmpty && _lastSyncedTrackKey[lastfmUser] == key) return;
+    _lastSyncedTrackKey[lastfmUser] = key;
     try {
       await _persistenceService.saveMusicStatus(status);
     } catch (_) {}

@@ -118,11 +118,33 @@ const proxyLastfm = functions.https.onRequest(async (req, res) => {
     res.status(400).json({ error: e.message });
     return;
   }
+
+  // Same instance cache as TMDB: the jukebox polls recent tracks every
+  // minute per user, and scrobbles barely move that fast. Only HTTP 200
+  // bodies are cached (5m TTL in common.js) so errors never stick.
+  const cacheProbe = new URL(upstream.toString());
+  cacheProbe.searchParams.delete('api_key');
+  cacheProbe.searchParams.sort();
+  const cacheKey = `lastfm:proxy:${cacheProbe.pathname}?${cacheProbe.searchParams.toString()}`;
+  const cached = _getExternalCache(cacheKey, _EXTERNAL_CACHE_TTLS.lastfm);
+  if (cached) {
+    res.status(cached.status)
+      .set('Content-Type', cached.contentType)
+      .set('X-Cache', 'HIT')
+      .send(cached.body);
+    return;
+  }
+
   try {
     const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
     const body = await response.text();
+    const contentType = response.headers.get('content-type') || 'application/json';
+    if (response.status === 200) {
+      _setExternalCache(cacheKey, { status: 200, contentType, body });
+    }
     res.status(response.status)
-      .set('Content-Type', response.headers.get('content-type') || 'application/json')
+      .set('Content-Type', contentType)
+      .set('X-Cache', 'MISS')
       .send(body);
   } catch (e) {
     console.warn('[proxyLastfm] failed:', e.message);
