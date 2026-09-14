@@ -27,6 +27,9 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
   bool _isCheckingHealth = false;
   String? _healthError;
 
+  Map<String, dynamic>? _usage;
+  bool _isCheckingUsage = false;
+
   bool _isRepairing = false;
   int? _repairedCount;
   bool _isClearingCache = false;
@@ -35,6 +38,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
   void initState() {
     super.initState();
     _checkHealth();
+    _checkUsage();
   }
 
   void _snack(String message) {
@@ -71,6 +75,17 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
       });
     } finally {
       if (mounted) setState(() => _isCheckingHealth = false);
+    }
+  }
+
+  Future<void> _checkUsage() async {
+    setState(() => _isCheckingUsage = true);
+    try {
+      final result = await widget.creatorService.fetchMotchiStats();
+      if (!mounted) return;
+      setState(() => _usage = result);
+    } finally {
+      if (mounted) setState(() => _isCheckingUsage = false);
     }
   }
 
@@ -277,6 +292,70 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
                   ),
                   label: Text(
                     'Ping backend health',
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 13,
+                      color: AppColors.petalWhite,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: AppColors.blushGold.withValues(alpha: 0.4),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.radiusLg,
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── API usage ──
+          _buildSectionCard(
+            emoji: '📊',
+            title: 'API Usage',
+            subtitle: "Today's AI + image calls per person. Alerts ping Khent.",
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_isCheckingUsage)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.blushGold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                else if (_usage != null)
+                  _buildUsageBody()
+                else
+                  Text(
+                    'Usage is unavailable right now.',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _isCheckingUsage ? null : _checkUsage,
+                  icon: const Icon(
+                    Icons.refresh_rounded,
+                    size: 16,
+                    color: AppColors.blushGold,
+                  ),
+                  label: Text(
+                    'Refresh usage',
                     style: AppTypography.outfitBold.copyWith(
                       fontSize: 13,
                       color: AppColors.petalWhite,
@@ -663,6 +742,66 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildUsageBody() {
+    final usage = _usage!['usage'];
+    final alerts = _usage!['recentAlerts'];
+    final day = (_usage!['usageDay'] as String?) ?? '';
+    final entries = usage is Map
+        ? usage.entries
+            .where((e) => e.value is Map)
+            .toList()
+        : <MapEntry<dynamic, dynamic>>[];
+    final alertList = alerts is List ? alerts : const [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (day.isNotEmpty)
+          Text(
+            'Today ($day) · AI cap 300 · images cap 30',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 11,
+              color: AppColors.textMuted,
+            ),
+          ),
+        if (day.isNotEmpty) const SizedBox(height: 8),
+        if (entries.isEmpty)
+          Text(
+            'No calls counted yet today.',
+            style: AppTypography.outfitWhite.copyWith(
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final e in entries)
+                _buildPill(
+                  label:
+                      '${e.key} · AI ${(e.value as Map)['proxyAI'] ?? 0} · img ${(e.value as Map)['agnesImage'] ?? 0}',
+                  ok: true,
+                ),
+            ],
+          ),
+        if (alertList.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          for (final a in alertList.take(3))
+            Text(
+              '⚠️ ${(a as Map?)?['message'] ?? a}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 11,
+                color: AppColors.auroraRose,
+              ),
+            ),
+        ],
+      ],
     );
   }
 

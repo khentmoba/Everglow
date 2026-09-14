@@ -137,9 +137,30 @@ const motchiStats = functions.https.onRequest(async (req, res) => {
       return { titles: data.titles || [], at: data.createdAt?.toDate?.()?.toISOString() || null };
     });
     const reminders = { total: (remSnap.docs || []).length, fired: (remSnap.docs || []).filter(d => d.data().fired === true).length };
+    // Today's per-user API counters + recent anomaly alerts, so Khent's
+    // Creator tab can show usage without opening the Firestore console.
+    // Best-effort: never fail the whole stats call over this section.
+    const usage = {};
+    let recentAlerts = [];
+    const usageDay = new Date().toISOString().slice(0, 10);
+    try {
+      const usersSnap = await db.collection('users').limit(20).get();
+      await Promise.all(usersSnap.docs.map(async (u) => {
+        const snap = await db.collection('api_usage').doc(u.id).collection('days').doc(usageDay).get().catch(() => null);
+        if (snap && snap.exists) {
+          const d = snap.data() || {};
+          usage[u.data()?.username || u.id] = { proxyAI: d.proxyAI || 0, agnesImage: d.agnesImage || 0 };
+        }
+      }));
+      const alertSnap = await db.collection('api_usage').doc('_alerts').collection('keys').orderBy('lastAlertAt', 'desc').limit(10).get().catch(() => ({ docs: [] }));
+      recentAlerts = (alertSnap.docs || []).map((a) => ({ message: a.data()?.message || '', at: a.data()?.lastAlertAt?.toDate?.()?.toISOString() || null }));
+    } catch (_) {}
     res.json({
       window: '7d',
       generatedAt: new Date().toISOString(),
+      usage,
+      usageDay,
+      recentAlerts,
       tools: toolStats,
       totalCalls,
       okRate: totalCalls ? (okCalls / totalCalls) : 0,

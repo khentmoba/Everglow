@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -319,6 +320,26 @@ class CreatorService {
         'status': 'offline',
         'error': e.toString(),
       };
+    }
+  }
+
+  /// Fetches the couple-only Motchi stats rollup (7-day tool health plus
+  /// today's per-user API counters and recent anomaly alerts).
+  Future<Map<String, dynamic>?> fetchMotchiStats() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null || token.isEmpty) return null;
+      final uri = Uri.parse(
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/motchiStats',
+      );
+      final response = await _http
+          .get(uri, headers: {'Authorization': 'Bearer $token'})
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(response.body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
     }
   }
 
