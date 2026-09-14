@@ -172,9 +172,16 @@ async function handleProxyAI(req, res) {
     ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
-  const serverContext = (feature && !context)
-    ? await buildContextForFeature(feature, caller, lastUserMessage)
-    : '';
+  // Server context is a nice-to-have: if Firestore hiccups on a cold
+  // cache, answer without it rather than failing Clair's whole chat.
+  let serverContext = '';
+  if (feature && !context) {
+    try {
+      serverContext = await buildContextForFeature(feature, caller, lastUserMessage);
+    } catch (e) {
+      console.warn('[proxyAI] server context failed, continuing without it:', e.message);
+    }
+  }
   const resolvedContext = context || serverContext || '';
 
   // Load Motchi's persona from Firestore (cached in memory for 5 min)

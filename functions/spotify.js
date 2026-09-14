@@ -49,9 +49,11 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   const track = String(req.query.track || '').trim();
   const query = q || (artist && track ? artist + ' ' + track : '') || artist || track;
   if (!query) { res.status(400).json({ error: 'Missing query or artist/track' }); return; }
-  const token = await _getSpotifyAppToken();
-  if (!token) { res.status(503).json({ error: 'Spotify not configured' }); return; }
   try {
+    // Inside the try: a network blowup while fetching the app token
+    // used to escape as an uncaught 500 with no JSON body.
+    const token = await _getSpotifyAppToken();
+    if (!token) { res.status(503).json({ error: 'Spotify not configured' }); return; }
     const url = 'https://api.spotify.com/v1/search?' + new URLSearchParams({ q: query, type: 'track', limit: '5', market: 'US' }).toString();
     const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) { res.status(r.status).json({ error: 'Spotify search failed ' + r.status }); return; }

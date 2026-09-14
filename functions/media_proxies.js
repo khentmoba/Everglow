@@ -660,7 +660,13 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     return;
   }
   const admin = getAdmin();
-  const decoded = await admin.auth().verifyIdToken(idToken);
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(idToken);
+  } catch (e) {
+    res.status(401).json({ error: 'Invalid or expired auth token' });
+    return;
+  }
   if (decoded.uid !== 'Khentsgdz') {
     // Fall back to the user document so recreated accounts keep working.
     const userDoc = await admin.firestore().collection('users').doc(decoded.uid).get();
