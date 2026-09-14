@@ -9,7 +9,7 @@ const indexExports = require('./index.js');
 test('proxyCatalog allow-list rejects unknown base', () => {
   assert.throws(
     () => resolveCatalogUpstream('evil', 'search.json?q=x'),
-    /base must be openlibrary, jikan, itunes, or aniskip/,
+    /base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, or anizip/,
   );
 });
 
@@ -76,6 +76,25 @@ test('proxyCatalog strips path traversal but keeps legit query', () => {
   const url = resolveCatalogUpstream('jikan', '/anime?q=one+piece');
   assert.equal(url.origin + url.pathname, 'https://api.jikan.moe/v4/anime');
   assert.equal(url.searchParams.get('q'), 'one piece');
+});
+
+test('proxyCatalog builds opentdb quiz URL server-side', () => {
+  const url = resolveCatalogUpstream(
+    'opentdb',
+    'api.php?amount=50&category=9&type=multiple&token=abc',
+  );
+  assert.equal(url.origin + url.pathname, 'https://opentdb.com/api.php');
+  assert.equal(url.searchParams.get('amount'), '50');
+  assert.equal(url.searchParams.get('token'), 'abc');
+});
+
+test('proxyCatalog builds gutendex/archive/anizip URLs server-side', () => {
+  const g = resolveCatalogUpstream('gutendex', 'books?search=dune');
+  assert.equal(g.origin + g.pathname, 'https://gutendex.com/books');
+  const a = resolveCatalogUpstream('archive', 'metadata/dune');
+  assert.equal(a.origin + a.pathname, 'https://archive.org/metadata/dune');
+  const z = resolveCatalogUpstream('anizip', 'mappings?mal_id=16498');
+  assert.equal(z.origin + z.pathname, 'https://api.ani.zip/mappings');
 });
 
 test('index re-exports proxyCatalog', () => {

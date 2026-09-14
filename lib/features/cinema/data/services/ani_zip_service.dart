@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/catalog_proxy_client.dart';
 
 /// Lightweight client for the `ani.zip` mapping API
 /// (https://api.ani.zip). ani.zip aggregates per-episode metadata from
@@ -24,9 +24,10 @@ import '../../../../core/utils/logger.dart';
 ///
 /// The API is unauthenticated and has no published rate limit, so we
 /// don't run requests through a queue — a small in-memory cache keyed
-/// on MAL id is enough to keep re-opens snappy.
+/// on MAL id is enough to keep re-opens snappy. Reads go through the
+/// `anizip` proxyCatalog base (edge-cached 5 min) instead of direct.
 class AniZipService with ConnectivityAware {
-  static const String _baseUrl = 'https://api.ani.zip';
+  final CatalogProxyClient _proxy = CatalogProxyClient();
 
   // Singleton — same lifetime as JikanService so the cache survives
   // detail-drawer rebuilds and the video-player initState re-opens.
@@ -70,11 +71,15 @@ class AniZipService with ConnectivityAware {
         return cached;
       }
     }
-    final uri = Uri.parse('$_baseUrl/mappings?mal_id=$malId');
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await _proxy.get(
+        'anizip',
+        'mappings',
+        query: {'mal_id': '$malId'},
+        timeout: const Duration(seconds: 15),
+      );
       if (response.statusCode != 200) {
-        Logger.e('ani.zip GET $uri failed (${response.statusCode})');
+        Logger.e('ani.zip mappings?mal_id=$malId failed (${response.statusCode})');
         return null;
       }
       final body = json.decode(response.body) as Map<String, dynamic>;
@@ -92,7 +97,7 @@ class AniZipService with ConnectivityAware {
       _cacheAt[malId] = DateTime.now();
       return body;
     } catch (e) {
-      Logger.e('ani.zip GET $uri error', error: e);
+      Logger.e('ani.zip mappings?mal_id=$malId error', error: e);
       return null;
     }
   }
@@ -103,11 +108,17 @@ class AniZipService with ConnectivityAware {
   /// Cached under the resolved MAL id so later MAL-keyed reads hit.
   Future<Map<String, dynamic>?> fetchMappingsByAnilist(int anilistId) async {
     if (anilistId <= 0) return null;
-    final uri = Uri.parse('$_baseUrl/mappings?anilist_id=$anilistId');
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+      final response = await _proxy.get(
+        'anizip',
+        'mappings',
+        query: {'anilist_id': '$anilistId'},
+        timeout: const Duration(seconds: 15),
+      );
       if (response.statusCode != 200) {
-        Logger.e('ani.zip GET $uri failed (${response.statusCode})');
+        Logger.e(
+          'ani.zip mappings?anilist_id=$anilistId failed (${response.statusCode})',
+        );
         return null;
       }
       final body = json.decode(response.body) as Map<String, dynamic>;
@@ -129,7 +140,7 @@ class AniZipService with ConnectivityAware {
       }
       return body;
     } catch (e) {
-      Logger.e('ani.zip GET $uri error', error: e);
+      Logger.e('ani.zip mappings?anilist_id=$anilistId error', error: e);
       return null;
     }
   }

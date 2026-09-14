@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../models/book_search_result.dart';
 
 /// Searches the Internet Archive's public text collection via the
@@ -14,9 +14,12 @@ class InternetArchiveService {
   factory InternetArchiveService() => _instance;
   InternetArchiveService._internal();
 
-  static const String _searchBase = 'https://archive.org/advancedsearch.php';
+  final CatalogProxyClient _proxy = CatalogProxyClient();
+
+  // NOTE: search + metadata JSON go through proxyCatalog (see search()
+  // and fetchMetadata()); these bases only build download links and
+  // cover <img> URLs, which stay direct by design.
   static const String _downloadBase = 'https://archive.org/download';
-  static const String _metadataBase = 'https://archive.org/metadata';
   static const String _imgBase = 'https://archive.org/services/img';
 
   Future<List<BookSearchResult>> search(
@@ -38,18 +41,25 @@ class InternetArchiveService {
     final langClause = (language != null && language.isNotEmpty)
         ? ' AND language:($language)'
         : '';
-    final uri = Uri.parse(_searchBase).replace(
-      queryParameters: {
-        'q': '(${query.trim()}) AND mediatype:texts$langClause',
-        'fl[]': fl.join(','),
-        'sort[]': 'downloads desc',
-        'rows': '$limit',
-        'page': '1',
-        'output': 'json',
-      },
-    );
+    // Trimmed so the proxied query string always fits the proxy's
+    // 300-char upstream-query budget.
+    final q = query.trim().length > 100
+        ? query.trim().substring(0, 100)
+        : query.trim();
     try {
-      final response = await http.get(uri);
+      final response = await _proxy.get(
+        'archive',
+        'advancedsearch.php',
+        query: {
+          'q': '($q) AND mediatype:texts$langClause',
+          'fl[]': fl.join(','),
+          'sort[]': 'downloads desc',
+          'rows': '$limit',
+          'page': '1',
+          'output': 'json',
+        },
+        timeout: const Duration(seconds: 12),
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final docs = data['response']?['docs'] as List? ?? const [];
@@ -68,8 +78,10 @@ class InternetArchiveService {
   Future<BookSearchResult?> fetchMetadata(BookSearchResult result) async {
     if (result.iaId.isEmpty) return result;
     try {
-      final response = await http.get(
-        Uri.parse('$_metadataBase/${result.iaId}'),
+      final response = await _proxy.get(
+        'archive',
+        'metadata/${result.iaId}',
+        timeout: const Duration(seconds: 12),
       );
       if (response.statusCode != 200) return result;
       final data = json.decode(response.body) as Map<String, dynamic>;
