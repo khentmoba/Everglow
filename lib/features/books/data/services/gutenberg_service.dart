@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../models/book_search_result.dart';
 
 /// Searches Project Gutenberg through the Gutendex API
@@ -12,7 +12,7 @@ class GutenbergService {
   factory GutenbergService() => _instance;
   GutenbergService._internal();
 
-  static const String _base = 'https://gutendex.com/books';
+  final CatalogProxyClient _proxy = CatalogProxyClient();
 
   Future<List<BookSearchResult>> search(
     String query, {
@@ -20,13 +20,22 @@ class GutenbergService {
     int limit = 20,
   }) async {
     if (query.trim().isEmpty) return const [];
+    // Trimmed so the proxied query string always fits the proxy's
+    // 300-char upstream-query budget.
+    final q = query.trim().length > 120
+        ? query.trim().substring(0, 120)
+        : query.trim();
     final params = <String, String>{
-      'search': query.trim(),
+      'search': q,
       if (language != null && language.isNotEmpty) 'languages': language,
     };
-    final uri = Uri.parse(_base).replace(queryParameters: params);
     try {
-      final response = await http.get(uri);
+      final response = await _proxy.get(
+        'gutendex',
+        'books',
+        query: params,
+        timeout: const Duration(seconds: 12),
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final results = data['results'] as List? ?? const [];
@@ -46,9 +55,13 @@ class GutenbergService {
   /// Most-downloaded public-domain books — the closest legal analog
   /// to WeLib's "Most Popular".
   Future<List<BookSearchResult>> mostPopular({int limit = 20}) async {
-    final uri = Uri.parse('$_base?sort=popular');
     try {
-      final response = await http.get(uri);
+      final response = await _proxy.get(
+        'gutendex',
+        'books',
+        query: const {'sort': 'popular'},
+        timeout: const Duration(seconds: 12),
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final results = data['results'] as List? ?? const [];
@@ -66,7 +79,11 @@ class GutenbergService {
 
   Future<BookSearchResult?> fetchBook(int id) async {
     try {
-      final response = await http.get(Uri.parse('$_base/$id'));
+      final response = await _proxy.get(
+        'gutendex',
+        'books/$id',
+        timeout: const Duration(seconds: 12),
+      );
       if (response.statusCode == 200) {
         final book = json.decode(response.body) as Map<String, dynamic>;
         final mapped = _mapBook(book);

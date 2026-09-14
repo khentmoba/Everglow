@@ -1821,6 +1821,10 @@ async function initWasm() {
  *   GET /proxyCatalog?base=jikan&path=anime%3Fq%3D...%26limit%3D20
  *   GET /proxyCatalog?base=itunes&path=search%3Fterm%3D...%26entity%3Dsong%26media%3Dmusic
  *   GET /proxyCatalog?base=aniskip&path=v1%2Fskip-times%2F5114%2F1%3Ftypes%5B%5D%3Dop
+ *   GET /proxyCatalog?base=opentdb&path=api.php%3Famount%3D50%26category%3D9
+ *   GET /proxyCatalog?base=gutendex&path=books%3Fsearch%3Ddune
+ *   GET /proxyCatalog?base=archive&path=advancedsearch.php%3Fq%3D...%26output%3Djson
+ *   GET /proxyCatalog?base=anizip&path=mappings%3Fmal_id%3D16498
  *
  * The pure parts (base allow-list, path sanitize, URL build) live in
  * [resolveCatalogUpstream] below so unit tests cover them without
@@ -1831,11 +1835,20 @@ const _catalogBases = {
   jikan: 'https://api.jikan.moe/v4/',
   itunes: 'https://itunes.apple.com/',
   aniskip: 'https://api.aniskip.com/',
+  opentdb: 'https://opentdb.com/',
+  gutendex: 'https://gutendex.com/',
+  archive: 'https://archive.org/',
+  anizip: 'https://api.ani.zip/',
 };
+
+// Sessionful upstreams must never edge-cache: OpenTDB hands out a
+// per-user session token and advances it on every question call, so a
+// cached response would share tokens across players and repeat questions.
+const _catalogNoStoreBases = new Set(['opentdb']);
 
 function resolveCatalogUpstream(baseKey, pathParam) {
   const upstreamBase = _catalogBases[String(baseKey || '').toLowerCase()];
-  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, itunes, or aniskip');
+  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, or anizip');
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     throw new Error('Missing ?path=<api path> query param');
   }
@@ -1905,7 +1918,8 @@ const proxyCatalog = functions.https.onRequest(async (req, res) => {
       'Content-Type',
       upstream.headers.get('content-type') || 'application/json',
     );
-    res.set('Cache-Control', 'public, max-age=300');
+    const _noStore = _catalogNoStoreBases.has(String(req.query.base || '').toLowerCase());
+    res.set('Cache-Control', _noStore ? 'private, no-store' : 'public, max-age=300');
     res.send(body);
   } catch (e) {
     console.warn(`proxyCatalog failed (${targetUrl}):`, e.message);

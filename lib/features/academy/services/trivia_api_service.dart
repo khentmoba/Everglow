@@ -1,15 +1,17 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:html_unescape/html_unescape.dart';
+import '../../../shared/utils/catalog_proxy_client.dart';
 import '../models/academy_question.dart';
 
 class TriviaApiService {
-  static const String _baseUrl = 'https://opentdb.com/api.php';
-  static const String _tokenUrl = 'https://opentdb.com/api_token.php';
+  TriviaApiService({CatalogProxyClient? proxy})
+      : _proxy = proxy ?? CatalogProxyClient();
+
   static const String _tokenKey = 'opentdb_session_token';
   static const String _tokenTimestampKey = 'opentdb_token_timestamp';
 
+  final CatalogProxyClient _proxy;
   final _unescape = HtmlUnescape();
   String? _sessionToken;
 
@@ -28,9 +30,14 @@ class TriviaApiService {
   }
 
   Future<void> _requestNewToken() async {
-    final response = await http
-        .get(Uri.parse('$_tokenUrl?command=request'))
-        .timeout(const Duration(seconds: 10));
+    // Routed through proxyCatalog (no-store for opentdb) so session
+    // tokens are never edge-cached and shared between players.
+    final response = await _proxy.get(
+      'opentdb',
+      'api_token.php',
+      query: {'command': 'request'},
+      timeout: const Duration(seconds: 10),
+    );
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       if (data['response_code'] == 0) {
@@ -48,11 +55,12 @@ class TriviaApiService {
   Future<void> resetSession() async {
     if (_sessionToken == null) return;
 
-    final response = await http
-        .get(
-          Uri.parse('$_tokenUrl?command=reset&token=$_sessionToken'),
-        )
-        .timeout(const Duration(seconds: 10));
+    final response = await _proxy.get(
+      'opentdb',
+      'api_token.php',
+      query: {'command': 'reset', 'token': '$_sessionToken'},
+      timeout: const Duration(seconds: 10),
+    );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -73,12 +81,17 @@ class TriviaApiService {
   }) async {
     if (_sessionToken == null) await initSession();
 
-    final url =
-        '$_baseUrl?amount=$amount&category=$categoryId&type=multiple&token=$_sessionToken';
-
-    final response = await http
-        .get(Uri.parse(url))
-        .timeout(const Duration(seconds: 15));
+    final response = await _proxy.get(
+      'opentdb',
+      'api.php',
+      query: {
+        'amount': '$amount',
+        'category': '$categoryId',
+        'type': 'multiple',
+        'token': '$_sessionToken',
+      },
+      timeout: const Duration(seconds: 15),
+    );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
