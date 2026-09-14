@@ -52,23 +52,30 @@ class AnimeXWatchPage extends StatefulWidget {
 
   const AnimeXWatchPage({super.key, required this.controller});
 
-  /// Normalizes legacy server names ('Server 1', etc.) to provider names.
   /// True when a fetched embed page is the provider's "can't play this"
   /// error instead of a player. Static so the regression tests can pin
   /// every known marker.
+  ///
+  /// ONLY strings proven absent from healthy player pages belong here
+  /// (verified Sep 2026 against all three providers): AniXo's healthy
+  /// page carries its hidden sandbox overlay ("please remove sandbox
+  /// ... sandbox is not allowed") plus an "all stream servers failed"
+  /// toast string, and Megavid's healthy page carries hidden "We're
+  /// Sorry" / "Embed Only" templates — so none of those phrases can
+  /// ever be markers. What remains: MegaPlay's 410 title, AniXo's
+  /// firewall cards, our own failure marker, and the retired VidLink
+  /// cards. HTTP status (non-200) is checked separately by the probe.
   static bool isProviderErrorPage(String body) {
     final lower = body.toLowerCase();
-    return lower.contains("we're sorry") ||
-        lower.contains('error code: <span>410</span>') ||
+    return lower.contains('error code: <span>410</span>') ||
         lower.contains('error - megaplay') ||
-        lower.contains('all stream servers failed') ||
         lower.contains('no playable stream sources') ||
-        // MegaPlay / AniXo refuse sandboxed iframes outright — our
-        // player frame stays sandboxed (no popups for Clair), so
-        // their block cards must fail over to the next server.
-        lower.contains('sandbox is not allowed') ||
-        lower.contains('sandboxed our player is not allowed') ||
-        lower.contains('remove sandbox') ||
+        // AniXo firewall cards (its 403 block page). The healthy player
+        // only ever says "anti-leech protection" (no "engaged"), so
+        // the full phrases stay unambiguous.
+        lower.contains('leech block engaged') ||
+        lower.contains('leech protection engaged') ||
+        lower.contains('403 forbidden') ||
         // VidLink 404s dead embeds with a Next.js "not found" shell (its
         // anime player died sitewide in Sep 2026) and prints its own
         // "Couldn't Find This Episode" card once the bundle runs.
@@ -78,6 +85,7 @@ class AnimeXWatchPage extends StatefulWidget {
         (lower.contains('410') && lower.contains('copyright violation'));
   }
 
+  /// Normalizes legacy server names ('Server 1', etc.) to provider names.
   static String normalizeServerName(String? name) {
     if (name == null) return '';
     switch (name) {
