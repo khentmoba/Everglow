@@ -28,7 +28,9 @@ class TriviaApiService {
   }
 
   Future<void> _requestNewToken() async {
-    final response = await http.get(Uri.parse('$_tokenUrl?command=request'));
+    final response = await http
+        .get(Uri.parse('$_tokenUrl?command=request'))
+        .timeout(const Duration(seconds: 10));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       if (data['response_code'] == 0) {
@@ -46,9 +48,11 @@ class TriviaApiService {
   Future<void> resetSession() async {
     if (_sessionToken == null) return;
 
-    final response = await http.get(
-      Uri.parse('$_tokenUrl?command=reset&token=$_sessionToken'),
-    );
+    final response = await http
+        .get(
+          Uri.parse('$_tokenUrl?command=reset&token=$_sessionToken'),
+        )
+        .timeout(const Duration(seconds: 10));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -72,7 +76,9 @@ class TriviaApiService {
     final url =
         '$_baseUrl?amount=$amount&category=$categoryId&type=multiple&token=$_sessionToken';
 
-    final response = await http.get(Uri.parse(url));
+    final response = await http
+        .get(Uri.parse(url))
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -86,12 +92,26 @@ class TriviaApiService {
               .toList();
 
         case 3: // Token Not Found
+          if (retryCount >= 3) {
+            throw Exception('OpenTDB session recovery failed after retries.');
+          }
           await _requestNewToken();
-          return fetchQuestions(categoryId: categoryId, amount: amount);
+          return fetchQuestions(
+            categoryId: categoryId,
+            amount: amount,
+            retryCount: retryCount + 1,
+          );
 
         case 4: // Token Empty
+          if (retryCount >= 3) {
+            throw Exception('OpenTDB session recovery failed after retries.');
+          }
           await resetSession();
-          return fetchQuestions(categoryId: categoryId, amount: amount);
+          return fetchQuestions(
+            categoryId: categoryId,
+            amount: amount,
+            retryCount: retryCount + 1,
+          );
 
         case 5: // Rate Limit
           if (retryCount < 3) {
