@@ -242,26 +242,20 @@ void main() {
       expect(servers[3].available, isTrue);
       expect(
         servers[3].urlBuilder(1, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
+        'https://megavid.buzz/ani/21/1/sub?color=%23C2185B&autoplay=true',
       );
     });
 
-    test('buildServers appends the login token to proxyAnime urls', () {
+    test('buildServers points Megavid at the direct site embed', () {
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
         tmdbId: 37854,
-        idToken: 'abc 123',
-        title: 'One Piece',
       );
+      // On-brand player skin with autoplay; dub rides the path segment.
       expect(
         servers[3].urlBuilder(2, 'dub'),
-        contains('token=abc%20123'),
-      );
-      expect(
-        servers[3].urlBuilder(2, 'dub'),
-        contains('title=One%20Piece'),
+        'https://megavid.buzz/ani/21/2/dub?color=%23C2185B&autoplay=true',
       );
     });
 
@@ -288,8 +282,7 @@ void main() {
       expect(servers[3].name, 'Megavid');
       expect(
         servers[3].urlBuilder(3, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-        'proxyAnime?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
+        'https://megavid.buzz/mal/52991/3/sub?color=%23C2185B&autoplay=true',
       );
 
       expect(servers[0].name, 'Everglow');
@@ -629,8 +622,9 @@ void main() {
         AnimeXWatchPage.isProviderErrorPage('all stream servers failed'),
         isTrue,
       );
-      // MegaPlay / AniXo block sandboxed iframes — our player stays
-      // sandboxed, so these cards must fail over to Megavid.
+      // MegaPlay / AniXo refuse sandboxed iframes, so the player frame
+      // embeds them unsandboxed — but if either ever re-blocks, these
+      // cards must still fail over to the next server.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           'Opss! Sandboxed our player is not allowed.',
@@ -666,6 +660,15 @@ void main() {
       );
       // Empty body (proxy failure) is ambiguous, not an error page.
       expect(AnimeXWatchPage.isProviderErrorPage(''), isFalse);
+      // Megavid's healthy player page carries the same Embed Only text
+      // as its 403 block page (a hidden div) — the probe tells them
+      // apart by status code, never by body text.
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          '<h2>Embed Only</h2><div id="player"></div>',
+        ),
+        isFalse,
+      );
     });
 
     testWidgets('renders the new server list and sub/dub toggle',

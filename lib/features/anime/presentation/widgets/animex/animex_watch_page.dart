@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import 'package:http/http.dart' as http;
@@ -115,22 +114,29 @@ class AnimeXWatchPage extends StatefulWidget {
     return routeMalId;
   }
 
-  /// Builds the anime embed servers, cleanest first. Every server plays
-  /// caged inside the sandboxed player frame:
+  /// Builds the anime embed servers, cleanest first. Each provider has
+  /// its own embedding rules (verified Sep 2026 against the providers
+  /// themselves and a working reference site) — the player frame
+  /// applies them per host:
   ///
   /// - Everglow: our own embed.html shell around CineSrc. Default for
   ///   fresh titles. TMDB-keyed, so it only becomes available once
-  ///   ani.zip supplies a `themoviedb_id`. 100% ad-free.
+  ///   ani.zip supplies a `themoviedb_id`. Sandboxed, no referrer,
+  ///   100% ad-free.
   /// - MegaPlay: third-party embed keyed on the AniList id (falls back
   ///   to MAL). Sits before AniXo so titles without a TMDB mapping open
-  ///   on it, matching the MegaPlay / AniXo / Megavid order.
+  ///   on it, matching the MegaPlay / AniXo / Megavid order. Refuses
+  ///   sandboxed iframes ("Remove sandbox to use it") and answers 410
+  ///   with no Referer — so it plays unsandboxed with the origin sent.
   /// - AniXo: third-party embed keyed on the AniList id (falls back to
-  ///   MAL). Both third-party embeds stay sandboxed (no popups); when
-  ///   either answers with its sandbox-block or 410 card the probe
-  ///   advances to the next server.
-  /// - Megavid: direct HLS streams from Megavid's `/source` API served
-  ///   through `proxyAnime`. Bypasses the third-party website embed
-  ///   and all its popunders completely — 100% AD-FREE.
+  ///   MAL). Same deal: a JS sandbox detector pauses the video behind
+  ///   an overlay, and the firewall 403s referrer-less loads — so it
+  ///   also plays unsandboxed with the origin sent. When either answers
+  ///   with its 410 card the probe advances to the next server.
+  /// - Megavid: the provider's own website embed (same URL shape as the
+  ///   reference site). Needs the origin Referer ("Embed Only" without
+  ///   it) but has no sandbox detector, so it stays sandboxed and its
+  ///   popunders die silently.
   ///
   /// VidLink used to sit between these two, but its anime embeds 404
   /// sitewide since Sep 2026 ("Couldn't Find This Episode" on every
@@ -177,16 +183,11 @@ class AnimeXWatchPage extends StatefulWidget {
   /// [isMovie] switches the TMDB-keyed server to the movie endpoint:
   /// films (e.g. Drifting Home) have a movie TMDB id, and the TV
   /// endpoint with that id opens nothing.
-  /// [idToken] is Clair's Firebase login token for the `proxyAnime`
-  /// servers (player iframes cannot send headers, so it travels as
-  /// `?token=`).
   static List<AnimeServerOption> buildServers({
     int? anilistId,
     int? malId,
     int? tmdbId,
     Map<int, ({int season, int episode})> episodeSlots = const {},
-    String idToken = '',
-    String title = '',
     bool isMovie = false,
   }) {
     final hasAni = anilistId != null && anilistId > 0;
@@ -195,20 +196,6 @@ class AnimeXWatchPage extends StatefulWidget {
     final aniId = hasAni ? anilistId : 0;
 
     final hasSource = hasAni || effectiveMal > 0;
-
-    String proxyAnimeUrl(String source, int ep, String audio) {
-      final params = <String>[
-        'source=$source',
-        'anilistId=$aniId',
-        'malId=$effectiveMal',
-        'ep=$ep',
-        'audio=$audio',
-        if (title.isNotEmpty) 'title=${Uri.encodeComponent(title)}',
-        if (idToken.isNotEmpty) 'token=${Uri.encodeComponent(idToken)}',
-      ];
-      return 'https://us-central1-everglow-1c6db.cloudfunctions.net/'
-          'proxyAnime?${params.join('&')}';
-    }
 
     return [
       AnimeServerOption(
@@ -248,7 +235,14 @@ class AnimeXWatchPage extends StatefulWidget {
       ),
       AnimeServerOption(
         name: 'Megavid',
-        urlBuilder: (ep, audio) => proxyAnimeUrl('megavid', ep, audio),
+        urlBuilder: (ep, audio) {
+          final idType = hasAni ? 'ani' : 'mal';
+          final id = hasAni ? aniId : effectiveMal;
+          // Deep rose keeps the player skin on-brand; autoplay matches
+          // the reference site's embed settings.
+          return 'https://megavid.buzz/$idType/$id/$ep/$audio'
+              '?color=%23C2185B&autoplay=true';
+        },
         available: hasSource,
       ),
     ];
@@ -302,12 +296,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// the route item; [_load] refines it once the AniList detail lands.
   bool _isFilm = false;
 
-  /// Firebase login token for the `proxyAnime` (Megavid) server —
-  /// player iframes cannot send headers, so it travels as `?token=`.
-  /// Empty until sign-in resolves; the server stays listed and simply
-  /// fails over until then.
-  String _idToken = '';
-
   String get _memoryKey =>
       PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
   List<_ServerOption> _servers = [];
@@ -357,7 +345,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _servers = _buildServers();
     _serverIndex = _firstAvailableServer(_servers);
     _episodes = _buildEpisodeList(null);
-    _refreshIdToken();
     _load();
     _fetchSkipTimes();
     _restoreMemory();
@@ -728,36 +715,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       malId: mappedMalId ?? _malId,
       tmdbId: _mappedTmdbId,
       episodeSlots: _episodeSlots,
-      idToken: _idToken,
-      title: _item.title,
       isMovie: _isFilm,
     );
-  }
-
-  /// Fetches the login token once so the `proxyAnime` server can
-  /// authenticate. Rebuilds the server list in place so the current
-  /// selection survives — only the Megavid URL changes.
-  Future<void> _refreshIdToken() async {
-    try {
-      final token =
-          await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
-      if (!mounted || token.isEmpty || token == _idToken) return;
-      final currentName = _servers.isNotEmpty &&
-              _serverIndex >= 0 &&
-              _serverIndex < _servers.length
-          ? _servers[_serverIndex].name
-          : null;
-      setState(() {
-        _idToken = token;
-        _servers = _buildServers();
-        if (currentName != null) {
-          final again = _servers.indexWhere(
-            (s) => s.available && s.name == currentName,
-          );
-          if (again != -1) _serverIndex = again;
-        }
-      });
-    } catch (_) {}
   }
 
   void _selectEpisode(int episode) {
@@ -987,11 +946,18 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// (works for our own endpoints and any provider sending CORS), then
   /// through `proxyFetchHtml` when the browser blocks the request. Null
   /// when both paths fail — the caller leaves the iframe up.
+  ///
+  /// A non-200 answer counts as dead even when its body holds no known
+  /// marker: Megavid's healthy player page contains the same "Embed
+  /// Only" text as its 403 block page (a hidden div), so the status
+  /// code is the only thing telling them apart. The sentinel reuses the
+  /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
       final response = await http
           .get(url)
           .timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {
       // Missing CORS headers or a network hiccup. One retry through our
@@ -1003,6 +969,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         final response = await http
             .get(proxied)
             .timeout(const Duration(seconds: 12));
+        if (response.statusCode != 200) return 'no playable stream sources';
         return utf8.decode(response.bodyBytes);
       } catch (_) {}
       return null;
