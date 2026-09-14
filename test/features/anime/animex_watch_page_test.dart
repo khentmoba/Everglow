@@ -610,30 +610,23 @@ void main() {
         ),
         isTrue,
       );
-      // The classic Megaplay/410 pages the probe already knew.
-      expect(AnimeXWatchPage.isProviderErrorPage("We're sorry..."), isTrue);
+      // MegaPlay's real 410 page (HTTP 200 with the error text, so the
+      // status check can't catch it — the title and code must).
+      const megaPlay410 =
+          '<title>Error - MegaPlay</title>'
+          "<h2>We're Sorry!</h2>"
+          '<p>removed due a copyright violation.</p>'
+          '<p>Error Code: <span>410</span></p>';
+      expect(AnimeXWatchPage.isProviderErrorPage(megaPlay410), isTrue);
+      // AniXo's firewall 403 page (title + leech cards).
+      const anixo403 =
+          '<title>403 Forbidden - Leech Protection Engaged</title>'
+          '<h2>403 Leech Block Engaged</h2>';
+      expect(AnimeXWatchPage.isProviderErrorPage(anixo403), isTrue);
+      // Our own failure pages carry the failover marker.
       expect(
         AnimeXWatchPage.isProviderErrorPage(
-          '<p>error code: <span>410</span></p>',
-        ),
-        isTrue,
-      );
-      expect(
-        AnimeXWatchPage.isProviderErrorPage('all stream servers failed'),
-        isTrue,
-      );
-      // MegaPlay / AniXo refuse sandboxed iframes, so the player frame
-      // embeds them unsandboxed — but if either ever re-blocks, these
-      // cards must still fail over to the next server.
-      expect(
-        AnimeXWatchPage.isProviderErrorPage(
-          'Opss! Sandboxed our player is not allowed.',
-        ),
-        isTrue,
-      );
-      expect(
-        AnimeXWatchPage.isProviderErrorPage(
-          'Please remove sandbox from embed code.',
+          'no playable stream sources — try another server.',
         ),
         isTrue,
       );
@@ -666,6 +659,32 @@ void main() {
       expect(
         AnimeXWatchPage.isProviderErrorPage(
           '<h2>Embed Only</h2><div id="player"></div>',
+        ),
+        isFalse,
+      );
+      // Megavid's healthy page also hides a We're Sorry error template
+      // (shown only when its own stream fails at runtime) — the sorry
+      // text alone must never read as dead.
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          "<title>KissKH Player</title><h2>We're Sorry!</h2>"
+          '<p id="error-msg">We can not find the file.</p>',
+        ),
+        isFalse,
+      );
+      // AniXo's healthy page hides its sandbox overlay markup plus an
+      // all-stream-servers toast string — both must pass, since the
+      // frame embeds AniXo unsandboxed and the overlay never shows.
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          '<div class="cp-sandbox-msg">please remove sandbox from '
+          'embed code. sandbox is not allowed.</div>',
+        ),
+        isFalse,
+      );
+      expect(
+        AnimeXWatchPage.isProviderErrorPage(
+          "showToast('all stream servers failed: ' + errorMsg)",
         ),
         isFalse,
       );
