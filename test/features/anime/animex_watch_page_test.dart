@@ -213,7 +213,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 3);
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -223,39 +223,37 @@ void main() {
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
 
-      expect(servers[1].name, 'MegaPlay');
+      // Megavid plays through our ad-free resolver, never the
+      // provider's website embed.
+      expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
       expect(
         servers[1].urlBuilder(1, 'sub'),
-        'https://megaplay.buzz/stream/ani/21/1/sub',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
-      expect(servers[2].name, 'AniXo');
+      // AniXo was removed: a bot-gated relay over MegaPlay with its own
+      // popunder ad tag. MegaPlay stays last as the ad-heavy fallback.
+      expect(servers[2].name, 'MegaPlay');
       expect(servers[2].available, isTrue);
       expect(
         servers[2].urlBuilder(1, 'sub'),
-        'https://anixo.buzz/embed/ani/21/1?track=sub',
-      );
-
-      // VidLink was removed: its anime embeds 404 sitewide since Sep 2026.
-      expect(servers[3].name, 'Megavid');
-      expect(servers[3].available, isTrue);
-      expect(
-        servers[3].urlBuilder(1, 'sub'),
-        'https://megavid.buzz/ani/21/1/sub?color=%23C2185B&autoplay=true',
+        'https://megaplay.buzz/stream/ani/21/1/sub',
       );
     });
 
-    test('buildServers points Megavid at the direct site embed', () {
+    test('buildServers points Megavid at our ad-free resolver', () {
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
         tmdbId: 37854,
       );
-      // On-brand player skin with autoplay; dub rides the path segment.
+      // Episode and dub ride the query string the function validates.
       expect(
-        servers[3].urlBuilder(2, 'dub'),
-        'https://megavid.buzz/ani/21/2/dub?color=%23C2185B&autoplay=true',
+        servers[1].urlBuilder(2, 'dub'),
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=megavid&anilistId=21&malId=21&ep=2&audio=dub',
       );
     });
 
@@ -265,24 +263,19 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 3);
 
-      expect(servers[1].name, 'MegaPlay');
+      expect(servers[1].name, 'Megavid');
       expect(
         servers[1].urlBuilder(3, 'sub'),
-        'https://megaplay.buzz/stream/mal/52991/3/sub',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
-      expect(servers[2].name, 'AniXo');
+      expect(servers[2].name, 'MegaPlay');
       expect(
         servers[2].urlBuilder(3, 'sub'),
-        'https://anixo.buzz/embed/mal/52991/3?track=sub',
-      );
-
-      expect(servers[3].name, 'Megavid');
-      expect(
-        servers[3].urlBuilder(3, 'sub'),
-        'https://megavid.buzz/mal/52991/3/sub?color=%23C2185B&autoplay=true',
+        'https://megaplay.buzz/stream/mal/52991/3/sub',
       );
 
       expect(servers[0].name, 'Everglow');
@@ -294,10 +287,10 @@ void main() {
 
       // AniList-only routes still get every AniList-keyed server.
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'AniXo');
+      expect(servers[1].name, 'Megavid');
+      expect(servers[1].available, isTrue);
+      expect(servers[2].name, 'MegaPlay');
       expect(servers[2].available, isTrue);
-      expect(servers[3].name, 'Megavid');
-      expect(servers[3].available, isTrue);
     });
 
     test('buildServers maps multi-season episodes for TMDB-keyed players',
@@ -330,7 +323,7 @@ void main() {
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'MegaPlay', 'AniXo', 'Megavid'],
+        ['Everglow', 'Megavid', 'MegaPlay'],
       );
     });
 
@@ -342,12 +335,10 @@ void main() {
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isFalse);
-      expect(servers[1].name, 'MegaPlay');
+      expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'AniXo');
+      expect(servers[2].name, 'MegaPlay');
       expect(servers[2].available, isTrue);
-      expect(servers[3].name, 'Megavid');
-      expect(servers[3].available, isTrue);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -366,7 +357,7 @@ void main() {
         tmdbId: 877957,
         isMovie: true,
       );
-      expect(servers.length, 4);
+      expect(servers.length, 3);
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
       expect(
@@ -570,6 +561,54 @@ void main() {
       );
     });
 
+    test('defaultServerIndex keeps Everglow as the main server', () {
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 21,
+        malId: 21,
+        tmdbId: 37854,
+      );
+      // Fresh visits open on Everglow even though MegaPlay sits at the
+      // stale pre-load index — this used to stick Clair on MegaPlay.
+      expect(
+        AnimeXWatchPage.defaultServerIndex(servers),
+        0,
+      );
+      // An explicit remembered choice still wins.
+      expect(
+        AnimeXWatchPage.defaultServerIndex(
+          servers,
+          rememberedServer: 'MegaPlay',
+        ),
+        2,
+      );
+      // A remembered server that no longer exists (AniXo, VidLink)
+      // falls back to Everglow, never to a dead entry.
+      expect(
+        AnimeXWatchPage.defaultServerIndex(
+          servers,
+          rememberedServer: 'AniXo',
+        ),
+        0,
+      );
+      // Without a TMDB mapping Everglow hides, so fresh visits open
+      // on the ad-free Megavid resolver instead of MegaPlay.
+      final noTmdb = AnimeXWatchPage.buildServers(
+        anilistId: 21,
+        malId: 21,
+      );
+      expect(
+        AnimeXWatchPage.defaultServerIndex(noTmdb),
+        1,
+      );
+      expect(noTmdb[1].name, 'Megavid');
+      // Nothing available yet — index 0 until _load resolves.
+      final none = AnimeXWatchPage.buildServers(
+        anilistId: null,
+        malId: 0,
+      );
+      expect(AnimeXWatchPage.defaultServerIndex(none), 0);
+    });
+
     test('normalizeServerName converts legacy names to provider names', () {
       expect(AnimeXWatchPage.normalizeServerName('Server 1'), 'Everglow');
       // Server 2 (VidLink) was removed, but old saved choices still
@@ -716,21 +755,22 @@ void main() {
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
 
-      // VidLink was removed: its anime embeds 404 sitewide since Sep 2026.
+      // VidLink and AniXo were removed: VidLink 404s sitewide since
+      // Sep 2026, and AniXo is a bot-gated relay over MegaPlay.
       expect(find.text('VidLink'), findsNothing);
+      expect(find.text('AniXo'), findsNothing);
       // No TMDB mapping resolves in tests, so Everglow hides and the
-      // visible row matches the MegaPlay / AniXo / Megavid order.
-      expect(find.text('MegaPlay'), findsOneWidget);
-      expect(find.text('AniXo'), findsOneWidget);
+      // visible row matches the Megavid / MegaPlay order.
       expect(find.text('Megavid'), findsOneWidget);
+      expect(find.text('MegaPlay'), findsOneWidget);
       // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.
       expect(find.text('Everglow'), findsNothing);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('AniXo'));
-      await tester.tap(find.text('AniXo'));
+      await tester.ensureVisible(find.text('Megavid'));
+      await tester.tap(find.text('Megavid'));
       await tester.pump();
 
       await tester.ensureVisible(find.text('DUB'));
