@@ -134,6 +134,7 @@ async function getVerifiedUsername(decoded) {
 const _externalCache = new Map();
 const _EXTERNAL_CACHE_TTLS = {
   tmdb: 10 * 60 * 1000,
+  lastfm: 5 * 60 * 1000,
   weather: 15 * 60 * 1000,
   books: 30 * 60 * 1000,
   anime: 10 * 60 * 1000,
