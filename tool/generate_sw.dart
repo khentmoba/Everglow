@@ -8,9 +8,9 @@ import "build_stamp.dart";
 void main() {
   final buildConst = buildStamp();
   // The version-busted core shell URL. build_web.dart stamps the exact same
-  // string into flutter_bootstrap.js + the index preload after `flutter
-  // build web`, so the loader requests this URL and the worker below can
-  // tell builds apart by URL alone.
+  // string into flutter_bootstrap.js after `flutter build web`, so the loader
+  // requests this URL and the worker below can tell builds apart by URL
+  // alone.
   final coreUrl = "main.dart.js?v=$buildConst";
 
   final sw = """

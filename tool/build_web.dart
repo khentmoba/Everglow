@@ -51,10 +51,14 @@ Future<void> main(List<String> args) async {
 }
 
 /// Rewrites the core-shell URL to `main.dart.js?v=<build stamp>` in the
-/// emitted loader + preload, so every build is a distinct service-worker
+/// emitted Flutter loader, so every build is a distinct service-worker
 /// cache key (see generate_sw.dart). Without this, filenames are stable
 /// across Flutter builds and a post-deploy reload can boot stale bytes
 /// from the still-active old worker — near-certain on slow lines.
+///
+/// The page itself never references the shell: a `<link rel=preload>` for a
+/// worker-served URL is discarded by Chrome (cross-world mismatch) and only
+/// wastes the download, so index.html no longer carries one.
 ///
 /// Only quoted references are touched, so a `main.dart.js.map` source-map
 /// reference (source-mapped builds) can never be corrupted. Fails the
@@ -66,12 +70,11 @@ void _stampCoreShell() {
   for (final path in [
     "build/web/flutter_bootstrap.js",
     "build/web/flutter.js",
-    "build/web/index.html",
   ]) {
     final file = File(path);
     if (!file.existsSync()) {
       // flutter.js is an emitted spare (the page loads the inlined copy in
-      // flutter_bootstrap.js); the other two must exist.
+      // flutter_bootstrap.js), so only the bootstrap is required.
       if (path.endsWith("flutter.js")) continue;
       throw StateError("[build_web] missing $path; cannot stamp core shell.");
     }
