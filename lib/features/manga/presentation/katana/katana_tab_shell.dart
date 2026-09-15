@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../screens/katana_currently_reading_screen.dart';
 import '../screens/katana_directory_screen.dart';
 import '../screens/katana_genres_screen.dart';
 import '../screens/katana_home_screen.dart';
@@ -10,7 +11,7 @@ import './katana_theme.dart';
 ///
 /// The [KatanaHeader] (logo, search, nav tabs) stays mounted while only
 /// the content below it cross-fades between tabs. Tapping Home, Latest
-/// update, Manga Directory, New Manga, or Genres therefore feels like
+/// update, Manga Directory, New Manga, Genres, or Currently Reading
 ///
 /// Detail, search, bookmarks, and reader pages are still pushed as real
 /// routes on top — those genuinely are new pages.
@@ -117,6 +118,8 @@ class KatanaTabShellState extends State<KatanaTabShell> {
 
   void showGenres() => _show(KatanaNav.genres, '', '', '');
 
+  void showReading() => _show(KatanaNav.reading, '', '', '');
+
   void showTab(
     KatanaNav tab, {
     String mode = 'directory',
@@ -135,6 +138,8 @@ class KatanaTabShellState extends State<KatanaTabShell> {
       case KatanaNav.genres:
         if (mode.isEmpty) return showGenres();
         return showCatalog(mode: mode, slug: slug, title: title);
+      case KatanaNav.reading:
+        return showReading();
     }
   }
 
@@ -211,6 +216,8 @@ class KatanaTabShellState extends State<KatanaTabShell> {
           );
         }
         return const KatanaGenresScreen(embed: true);
+      case KatanaNav.reading:
+        return const KatanaCurrentlyReadingScreen(embed: true);
     }
   }
 }
