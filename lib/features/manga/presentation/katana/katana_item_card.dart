@@ -379,11 +379,27 @@ class KatanaCompactCard extends StatelessWidget {
             ],
           ),
           if (manga.latestChapter != null)
-            Text(
-              manga.latestChapter!.displayTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: KatanaType.accent.copyWith(fontSize: 11.5),
+            GestureDetector(
+              // Like the site's rail: tapping the chapter link opens
+              // the reader at that chapter, while the rest of the
+              // card opens the detail page.
+              onTap: () {
+                final latest = manga.latestChapter!;
+                pushReader(
+                  context,
+                  slug: manga.slug,
+                  chapterId: latest.path,
+                  chapters: [latest],
+                  mangaTitle: manga.title,
+                  coverUrl: manga.coverUrl,
+                );
+              },
+              child: Text(
+                manga.latestChapter!.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KatanaType.accent.copyWith(fontSize: 11.5),
+              ),
             ),
         ],
       ),

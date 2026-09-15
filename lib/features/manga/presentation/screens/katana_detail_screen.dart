@@ -790,7 +790,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                   for (int i = 0; i < chapters.length; i++)
                     _ChapterRow(
                       chapter: chapters[i],
-                      isNew: i < 3,
+                      isNew: chapters[i].isNew,
                       onTap: () => _openReader(chapters[i]),
                       highlight: i % 2 == 1,
                     ),

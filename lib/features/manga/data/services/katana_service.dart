@@ -1069,6 +1069,10 @@ class KatanaService {
           num: katanaChapterNumFromId(id),
           title: _unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
           updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
+          // The site marks its own fresh rows with a New badge
+          // (only the newest, and only when recently updated) —
+          // mirror it instead of guessing.
+          isNew: block.contains('class="new"'),
         ),
       );
     }
