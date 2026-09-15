@@ -42,6 +42,8 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   Timer? _timer;
   bool _muted = true;
   bool _ready = false;
+  // Accumulated horizontal drag distance for the current swipe gesture.
+  double _dragDx = 0;
   // Trailer lookups stay off the open path on phones: details (runtime,
   // synopsis, match %) load immediately, the YouTube key only resolves
   // after the still has painted or the user taps Play.
@@ -236,91 +238,122 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
         ? 560.0
         : (MediaQuery.sizeOf(context).height * 0.58).clamp(380.0, 540.0);
 
-    return SizedBox(
-      height: height,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimatedSwitcher(
-            duration: AppMotion.orZero(const Duration(milliseconds: 700)),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeIn,
-            child: _buildMedia(isDesktop),
-          ),
-          // Bottom scrim into page background.
-          const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.transparent,
-                    Color(0x33100912),
-                    NetflixColors.background,
-                  ],
-                  stops: [0.0, 0.42, 0.72, 1.0],
-                ),
-              ),
+    return GestureDetector(
+      // The dot indicators promise swiping, so horizontal drags flip
+      // slides. Vertical drags still reach the page scroll: the gesture
+      // arena only hands us the pointer when it moves mostly sideways.
+      onHorizontalDragStart: (_) => _dragDx = 0,
+      onHorizontalDragUpdate: (details) => _dragDx += details.delta.dx,
+      onHorizontalDragCancel: () => _dragDx = 0,
+      onHorizontalDragEnd: (_) {
+        if (widget.items.length < 2) return;
+        if (_dragDx <= -60) {
+          _select((_index + 1) % widget.items.length);
+        } else if (_dragDx >= 60) {
+          _select((_index - 1 + widget.items.length) % widget.items.length);
+        }
+        _dragDx = 0;
+      },
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: AppMotion.orZero(const Duration(milliseconds: 700)),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: _buildMedia(isDesktop),
             ),
-          ),
-          // Left scrim for text legibility.
-          const IgnorePointer(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Color(0xB30A0710),
-                    Color(0x590A0710),
-                    Colors.transparent,
-                  ],
-                  stops: [0.0, 0.35, 0.75],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: isDesktop ? 48 : 16,
-            right: isDesktop ? 48 : 16,
-            bottom: 54,
-            child: _buildContent(isDesktop),
-          ),
-          if (_trailerKey != null)
-            Positioned(
-              right: isDesktop ? 48 : 16,
-              bottom: 62,
-              child: _MuteButton(
-                muted: _muted,
-                onToggle: () => setState(() => _muted = !_muted),
-              ),
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 16,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(widget.items.length, (i) {
-                final active = i == _index;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 18 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: active
-                        ? NetflixColors.accent
-                        : Colors.white.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(3),
+            // Bottom scrim into page background.
+            const IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.transparent,
+                      Color(0x33100912),
+                      NetflixColors.background,
+                    ],
+                    stops: [0.0, 0.42, 0.72, 1.0],
                   ),
-                );
-              }),
+                ),
+              ),
             ),
-          ),
-        ],
+            // Left scrim for text legibility.
+            const IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Color(0xB30A0710),
+                      Color(0x590A0710),
+                      Colors.transparent,
+                    ],
+                    stops: [0.0, 0.35, 0.75],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: isDesktop ? 48 : 16,
+              right: isDesktop ? 48 : 16,
+              bottom: 54,
+              child: _buildContent(isDesktop),
+            ),
+            if (_trailerKey != null)
+              Positioned(
+                right: isDesktop ? 48 : 16,
+                bottom: 62,
+                child: _MuteButton(
+                  muted: _muted,
+                  onToggle: () => setState(() => _muted = !_muted),
+                ),
+              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 16,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(widget.items.length, (i) {
+                  final active = i == _index;
+                  // Dots are tappable shortcuts — and padded so each one
+                  // is a comfortable touch target on phones.
+                  return GestureDetector(
+                    key: ValueKey('billboard-dot-$i'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (i != _index) _select(i);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 10,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: active ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? NetflixColors.accent
+                              : Colors.white.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
