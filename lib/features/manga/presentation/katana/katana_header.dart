@@ -11,7 +11,7 @@ import './katana_nav.dart';
 import './katana_theme.dart';
 import '../../../../core/services/auth_service.dart';
 
-enum KatanaNav { home, latest, directory, newManga, genres }
+enum KatanaNav { home, latest, directory, newManga, genres, reading }
 
 /// The Manga Katana style header: logo, top navigation, a search bar
 /// with live suggestions and the signed-in user / bookmarks entry.
@@ -249,6 +249,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                       () => pushDirectory(context, mode: 'new'),
                     ),
                     _buildGenresNav(),
+                    _navItem(
+                      KatanaNav.reading,
+                      'Currently Reading',
+                      () => pushCurrentlyReading(context),
+                    ),
                     if (!desktop) ...[
                       const SizedBox(width: 8),
                       _navItem(null, 'Bookmarks', () => pushBookmarks(context)),
