@@ -43,7 +43,10 @@ const _cMuted = AppColors.mutedPurple;
 /// (Home, Search, To Read, Read) with a custom glassmorphic bottom
 /// nav. Mirrors `CinemaScreen` from the cinema feature.
 class BooksScreen extends StatefulWidget {
-  const BooksScreen({super.key});
+  /// Pre-filled search text, e.g. when tapping an author name on the
+  /// detail page. Opens straight on the Search tab.
+  final String initialQuery;
+  const BooksScreen({super.key, this.initialQuery = ''});
 
   @override
   State<BooksScreen> createState() => _BooksScreenState();
