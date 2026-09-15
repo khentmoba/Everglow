@@ -21,6 +21,8 @@ const pinned = {
       ['phone', 'overflow'],
   'test/features/dashboard/presentation/widgets/feature_section_layout_test.dart':
       ['phone', 'overflow'],
+  'test/features/dashboard/presentation/widgets/dashboard_top_actions_layout_test.dart':
+      ['phone', 'tablet', 'overflow'],
 };
 
 Future<void> main() async {
