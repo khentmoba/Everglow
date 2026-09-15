@@ -10,8 +10,9 @@ import '../../data/models/manga_item.dart';
 import '../../data/services/katana_service.dart';
 import '../../data/services/mangakakalot_service.dart';
 import '../katana/currently_reading_shelf.dart' show CurrentlyReadingShelf;
-import '../katana/katana_header.dart';
+import '../katana/katana_header.dart' show KatanaNav;
 import '../katana/katana_nav.dart';
+import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 import '../widgets/manga_details_drawer.dart';
 
@@ -23,7 +24,12 @@ import '../widgets/manga_details_drawer.dart';
 /// jumps straight back into the saved chapter, and the X removes the
 /// title from Currently Reading without deleting chapter progress.
 class KatanaCurrentlyReadingScreen extends StatefulWidget {
-  const KatanaCurrentlyReadingScreen({super.key});
+  const KatanaCurrentlyReadingScreen({super.key, this.embed = false});
+
+  /// When true, renders headerless tab content for [KatanaTabShell].
+  /// When false (standalone route), wraps in the tab shell so header
+  /// tabs still switch in place.
+  final bool embed;
 
   @override
   State<KatanaCurrentlyReadingScreen> createState() =>
@@ -187,15 +193,17 @@ class _KatanaCurrentlyReadingScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: KatanaColors.background,
-      body: Column(
-        children: [
-          const KatanaHeader(active: KatanaNav.reading),
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
+    if (!widget.embed) {
+      return const KatanaTabShell(initialTab: KatanaNav.reading);
+    }
+    return _buildContent();
+  }
+
+  /// Headerless tab content for [KatanaTabShell].
+  Widget _buildContent() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
                 child: _loading
                     ? const Center(
                         child: CircularProgressIndicator(
@@ -255,11 +263,7 @@ class _KatanaCurrentlyReadingScreenState
                                 ],
                             ],
                           ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
     );
   }
 

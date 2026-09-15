@@ -115,6 +115,14 @@ void pushBookmarks(BuildContext context) {
 }
 
 void pushCurrentlyReading(BuildContext context) {
+  final shell = KatanaTabShell.maybeOf(context);
+  if (shell != null) {
+    shell.showReading();
+    return;
+  }
+  if (KatanaTabShell.popToShell(context, tab: KatanaNav.reading, mode: '')) {
+    return;
+  }
   Navigator.of(context).push(
     MaterialPageRoute(
         builder: (_) => const KatanaCurrentlyReadingScreen()),
