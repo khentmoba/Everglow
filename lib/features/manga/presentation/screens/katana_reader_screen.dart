@@ -70,6 +70,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   ReaderThemeStyle _themeStyle = ReaderThemeStyle.plum;
   double _brightness = 1.0;
   bool _twoPage = false;
+  bool _fitHeight = true;
   bool _bookmarked = false;
 
   // Page Tracking
@@ -137,6 +138,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       final themeStr = prefs.getString('katana_reader_theme');
       final brightnessVal = prefs.getDouble('katana_reader_brightness');
       final twoPageVal = prefs.getBool('katana_reader_two_page');
+      final fitHeightVal = prefs.getBool('katana_reader_fit_height');
 
       if (!mounted) return;
       setState(() {
@@ -158,6 +160,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         if (twoPageVal != null) {
           _twoPage = twoPageVal;
         }
+        if (fitHeightVal != null) {
+          _fitHeight = fitHeightVal;
+        }
       });
     } catch (_) {}
   }
@@ -169,6 +174,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       await prefs.setString('katana_reader_theme', _themeStyle.name);
       await prefs.setDouble('katana_reader_brightness', _brightness);
       await prefs.setBool('katana_reader_two_page', _twoPage);
+      await prefs.setBool('katana_reader_fit_height', _fitHeight);
     } catch (_) {}
   }
 
@@ -428,6 +434,19 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       currentChapter: _chapter,
       onChapterSelected: (c) => _goToChapter(c),
     );
+  }
+
+  void _changeServer(String server) {
+    if (_server == server) return;
+    setState(() => _server = server);
+    _loadPages();
+  }
+
+  void _setDarken(double percent) {
+    setState(() {
+      _brightness = (1.0 - percent / 100).clamp(0.2, 1.0);
+    });
+    _savePreferences();
   }
 
   Future<void> _toggleBookmark() async {
@@ -885,20 +904,37 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   Widget _buildSinglePagedImage(int index) {
     final url = _service.proxiedImageUrl(_pages[index]);
 
+    Widget placeholder(BuildContext context, String url) => Container(
+      alignment: Alignment.center,
+      color: _themeStyle.surfaceColor,
+      child: CircularProgressIndicator(
+        color: KatanaColors.accent.withValues(alpha: 0.4),
+        strokeWidth: 2.2,
+      ),
+    );
+
+    // Fit height ON resizes the page into the viewport (the site's
+    // default); OFF shows it full-width with vertical scroll.
+    if (!_fitHeight) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.fitWidth,
+          width: double.infinity,
+          fadeInDuration: const Duration(milliseconds: 150),
+          placeholder: placeholder,
+          errorWidget: (context, url, error) => _buildImageError(index),
+        ),
+      );
+    }
     return CachedNetworkImage(
       imageUrl: url,
       fit: BoxFit.contain,
       width: double.infinity,
       height: double.infinity,
       fadeInDuration: const Duration(milliseconds: 150),
-      placeholder: (context, url) => Container(
-        alignment: Alignment.center,
-        color: _themeStyle.surfaceColor,
-        child: CircularProgressIndicator(
-          color: KatanaColors.accent.withValues(alpha: 0.4),
-          strokeWidth: 2.2,
-        ),
-      ),
+      placeholder: placeholder,
       errorWidget: (context, url, error) => _buildImageError(index),
     );
   }
@@ -1044,79 +1080,230 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: () async {
-                  final navigator = Navigator.of(context);
-                  await _saveProgress(_currentPage);
-                  navigator.pop();
-                },
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 18,
-                  color: KatanaColors.text,
-                ),
-                tooltip: 'Back',
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () async {
+                      final navigator = Navigator.of(context);
+                      await _saveProgress(_currentPage);
+                      navigator.pop();
+                    },
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: KatanaColors.text,
+                    ),
+                    tooltip: 'Back',
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.mangaTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.outfitBold.copyWith(
+                            color: KatanaColors.text,
+                            fontSize: 14.5,
+                          ),
+                        ),
+                        Text(
+                          _chapter.displayTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: KatanaType.small.copyWith(
+                            color: KatanaColors.accent,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _bookmarked
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      color: _bookmarked
+                          ? KatanaColors.green
+                          : KatanaColors.textMuted,
+                      size: 22,
+                    ),
+                    tooltip: _bookmarked ? 'Bookmarked' : 'Bookmark chapter',
+                    onPressed: _toggleBookmark,
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.tune_rounded,
+                      color: KatanaColors.text,
+                      size: 21,
+                    ),
+                    tooltip: 'Reader settings',
+                    onPressed: _openSettings,
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.warning_amber_rounded,
+                      color: KatanaColors.textLight,
+                      size: 20,
+                    ),
+                    tooltip: 'Report error',
+                    onPressed: _reportChapter,
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Chapter nav lives top AND bottom, like the site's
+              // duplicated nav_chapters block.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(6, 2, 6, 0),
+                child: _buildChapterNavRow(),
+              ),
+              const SizedBox(height: 6),
+              _buildReaderToolbar(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// MangaKatana-style quick toolbar: image server switch, Fit
+  /// height toggle and Darken slider, right under the chapter nav
+  /// like the site's reader options row.
+  Widget _buildReaderToolbar() {
+    final darken = ((1.0 - _brightness) * 100).clamp(0.0, 80.0);
+    final paged = _mode != ReaderMode.webtoon;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        children: [
+          Text('Server', style: KatanaType.small.copyWith(fontSize: 11)),
+          const SizedBox(width: 6),
+          _serverPill('1', ''),
+          const SizedBox(width: 4),
+          _serverPill('2', '?sv=mk'),
+          const SizedBox(width: 4),
+          _serverPill('3', '?sv=3'),
+          const SizedBox(width: 10),
+          Container(width: 1, height: 18, color: KatanaColors.border),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: paged
+                ? () {
+                    setState(() => _fitHeight = !_fitHeight);
+                    _savePreferences();
+                  }
+                : null,
+            child: Opacity(
+              opacity: paged ? 1.0 : 0.45,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: _fitHeight && paged
+                      ? KatanaColors.accent.withValues(alpha: 0.16)
+                      : KatanaColors.surfaceAlt,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: _fitHeight && paged
+                        ? KatanaColors.accent
+                        : KatanaColors.border,
+                  ),
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      widget.mangaTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitBold.copyWith(
-                        color: KatanaColors.text,
-                        fontSize: 14.5,
-                      ),
+                    Icon(
+                      _fitHeight
+                          ? Icons.check_box_rounded
+                          : Icons.check_box_outline_blank_rounded,
+                      size: 14,
+                      color: _fitHeight && paged
+                          ? KatanaColors.accent
+                          : KatanaColors.textMuted,
                     ),
+                    const SizedBox(width: 4),
                     Text(
-                      _chapter.displayTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: KatanaType.small.copyWith(
-                        color: KatanaColors.accent,
-                        fontSize: 12,
+                      'Fit height',
+                      style: AppTypography.outfitBold.copyWith(
+                        color: _fitHeight && paged
+                            ? KatanaColors.accent
+                            : KatanaColors.textMuted,
+                        fontSize: 11.5,
                       ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                icon: Icon(
-                  _bookmarked
-                      ? Icons.bookmark_rounded
-                      : Icons.bookmark_border_rounded,
-                  color:
-                      _bookmarked ? KatanaColors.green : KatanaColors.textMuted,
-                  size: 22,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(width: 1, height: 18, color: KatanaColors.border),
+          const SizedBox(width: 10),
+          Text('Darken', style: KatanaType.small.copyWith(fontSize: 11)),
+          SizedBox(
+            width: 110,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 6,
                 ),
-                tooltip: _bookmarked ? 'Bookmarked' : 'Bookmark chapter',
-                onPressed: _toggleBookmark,
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.tune_rounded,
-                  color: KatanaColors.text,
-                  size: 21,
-                ),
-                tooltip: 'Reader settings',
-                onPressed: _openSettings,
+              child: Slider(
+                value: darken,
+                min: 0,
+                max: 80,
+                divisions: 16,
+                activeColor: KatanaColors.accent,
+                inactiveColor: KatanaColors.border,
+                onChanged: _setDarken,
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: KatanaColors.textLight,
-                  size: 20,
-                ),
-                tooltip: 'Report error',
-                onPressed: _reportChapter,
-              ),
-            ],
+            ),
+          ),
+          Text(
+            '${darken.round()}%',
+            style: KatanaType.small.copyWith(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serverPill(String label, String value) {
+    final selected = _server == value;
+    return GestureDetector(
+      onTap: () => _changeServer(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected
+              ? KatanaColors.accent.withValues(alpha: 0.16)
+              : KatanaColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: selected ? KatanaColors.accent : KatanaColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.outfitBold.copyWith(
+            color: selected ? KatanaColors.accent : KatanaColors.textMuted,
+            fontSize: 11.5,
           ),
         ),
       ),
@@ -1195,79 +1382,82 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                 const SizedBox(height: 6),
               ],
 
-              // Navigation Controls
-              Row(
-                children: [
-                  Expanded(
-                    child: _navButton(
-                      label: '‹ Prev',
-                      enabled: _prevChapter != null,
-                      onTap: _prevChapter != null
-                          ? () => _goToChapter(_prevChapter!)
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: GestureDetector(
-                      onTap: _openChapterPicker,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 9,
-                          horizontal: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: KatanaColors.surfaceAlt,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: KatanaColors.border),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.list_rounded,
-                              size: 16,
-                              color: KatanaColors.accent,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                _chapter.displayTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.outfitBold.copyWith(
-                                  color: KatanaColors.text,
-                                  fontSize: 12.5,
-                                ),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.arrow_drop_down_rounded,
-                              color: KatanaColors.textMuted,
-                              size: 18,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _navButton(
-                      label: 'Next ›',
-                      enabled: _nextChapter != null,
-                      onTap: _nextChapter != null
-                          ? () => _goToChapter(_nextChapter!)
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
+              // Navigation Controls (shared with the top chrome).
+              _buildChapterNavRow(),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  /// Prev / chapter-picker / Next row, shown in both the top and
+  /// bottom chrome like the site's duplicated chapter nav.
+  Widget _buildChapterNavRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _navButton(
+            label: '‹ Prev',
+            enabled: _prevChapter != null,
+            onTap: _prevChapter != null
+                ? () => _goToChapter(_prevChapter!)
+                : null,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: _openChapterPicker,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
+              decoration: BoxDecoration(
+                color: KatanaColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KatanaColors.border),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.list_rounded,
+                    size: 16,
+                    color: KatanaColors.accent,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      _chapter.displayTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.outfitBold.copyWith(
+                        color: KatanaColors.text,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: KatanaColors.textMuted,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _navButton(
+            label: 'Next ›',
+            enabled: _nextChapter != null,
+            onTap: _nextChapter != null
+                ? () => _goToChapter(_nextChapter!)
+                : null,
+          ),
+        ),
+      ],
     );
   }
 
