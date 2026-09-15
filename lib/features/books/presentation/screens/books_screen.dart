@@ -10,6 +10,8 @@ import '../../data/services/book_download_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/services/open_library_service.dart';
 import '../widgets/advanced_search_sheet.dart';
+import '../widgets/book_categories.dart';
+import 'book_list_screen.dart';
 import '../widgets/zlib_result_row.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/shelf/atmospheric_backdrop.dart';
@@ -34,7 +36,6 @@ const _cBlack = AppColors.animeBackground;
 const _cCard = AppColors.shimmerBase;
 const _cRose = AppColors.roseQuartz;
 const _cDeepRose = AppColors.deepRose;
-const _cGold = AppColors.animeGold;
 const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
@@ -117,7 +118,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
             child: StaggeredEntrance(index: 1, child: _buildHomeSearch()),
           ),
           SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 2, child: _buildHeroBanner()),
+            child: StaggeredEntrance(index: 2, child: _buildStatsStrip()),
           ),
           if (_readHistoryList.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -128,9 +129,14 @@ class _BooksScreenState extends _BooksScreenStateBase {
             ),
           ],
           SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 4, child: _buildTrendingRankings()),
+            child: StaggeredEntrance(index: 4, child: _buildCategories()),
           ),
-          ..._buildSubjectRows(),
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(index: 5, child: _buildPopularRail()),
+          ),
+          SliverToBoxAdapter(
+            child: StaggeredEntrance(index: 6, child: _buildRecentRail()),
+          ),
           const SliverPadding(padding: EdgeInsets.only(bottom: 100)),
         ],
       ),
@@ -299,339 +305,159 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
-  // ── HERO CAROUSEL ──────────────────────────────────────────────────
+  // ── Z-LIB HOME SECTIONS ────────────────────────────────────────────
 
-  Widget _buildHeroBanner() {
-    if (_trendingCarousel.isEmpty) return const SizedBox.shrink();
+  /// Honest counts from the feeds actually loaded — no fake totals.
+  Widget _buildStatsStrip() {
+    final popular = _popular.length;
+    final recent = _recent.length;
+    if (popular == 0 && recent == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: _cCard.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _cRose.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _StatBit(value: '$popular', label: 'Popular now'),
+            Container(width: 1, height: 28, color: _cRose.withValues(alpha: 0.12)),
+            _StatBit(value: '$recent', label: 'Fresh titles'),
+            Container(width: 1, height: 28, color: _cRose.withValues(alpha: 0.12)),
+            _StatBit(value: '${bookCategories.length}', label: 'Shelves'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategories() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 320,
-          child: PageView.builder(
-            controller: _carouselController,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: _onCarouselPageChanged,
-            itemCount: _trendingCarousel.length,
-            itemBuilder: (context, index) {
-              final item = _trendingCarousel[index];
-              return AnimatedBuilder(
-                animation: _carouselController,
-                builder: (context, child) {
-                  double scale = 1.0;
-                  if (_carouselController.position.haveDimensions) {
-                    final diff = (_carouselController.page! - index).abs();
-                    scale = (1 - (diff * 0.06)).clamp(0.92, 1.0);
-                  } else {
-                    scale = index == _carouselPage ? 1.0 : 0.94;
-                  }
-                  return Transform.scale(scale: scale, child: child);
-                },
-                child: _buildHeroCard(item, index),
-              );
-            },
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: 'Browse',
+            title: 'Categories',
+            icon: Icons.grid_view_rounded,
+            accent: _cAmber,
+            count: bookCategories.length,
+            countLabel: 'shelves',
+            onSeeAll: () => context.push('/books/categories'),
           ),
         ),
-        const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(_trendingCarousel.length, (i) {
-            final isActive = i == _carouselPage;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeInOut,
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: isActive ? 22 : 5,
-              height: 5,
-              decoration: BoxDecoration(
-                color: isActive ? _cDeepRose : _cMuted.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(3),
-                boxShadow: isActive
-                    ? [
-                        BoxShadow(
-                          color: _cDeepRose.withValues(alpha: 0.6),
-                          blurRadius: 8,
+        ScrollEdgeFade(
+          fadeColor: _cBlack,
+          child: SizedBox(
+            height: 96,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: bookCategories.length,
+              itemBuilder: (context, index) {
+                final category = bookCategories[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      context.push('/books/category', extra: category);
+                    },
+                    child: Container(
+                      width: 92,
+                      decoration: BoxDecoration(
+                        color: _cCard.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: category.color.withValues(alpha: 0.25),
                         ),
-                      ]
-                    : null,
-              ),
-            );
-          }),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(category.icon, color: category.color, size: 24),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            child: Text(
+                              category.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.outfitBold.copyWith(
+                                color: _cWhite,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildHeroCard(BookItem item, int index) {
-    return GestureDetector(
-      onTap: () => _showBookDetails(item),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: _cDeepRose.withValues(alpha: 0.18),
-                blurRadius: 30,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.5),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                item.coverUrl.isNotEmpty
-                    ? AppNetworkImage(
-                        imageUrl: item.coverUrl,
-                        fit: BoxFit.cover,
-                        cacheWidth: 800,
-                        errorWidget: Container(color: _cCard),
-                      )
-                    : Container(color: _cCard),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        _cBlack.withValues(alpha: 0.15),
-                        _cBlack.withValues(alpha: 0.78),
-                        _cBlack.withValues(alpha: 0.98),
-                      ],
-                      stops: const [0.0, 0.28, 0.62, 1.0],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 20,
-                  left: 20,
-                  right: 20,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: _cDeepRose,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.local_fire_department_rounded,
-                                  color: Colors.white,
-                                  size: 11,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '#${index + 1} TRENDING',
-                                  style: AppTypography.outfitWhite.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.cormorantBlack.copyWith(
-                          fontSize: 26,
-                          height: 1.1,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              blurRadius: 12,
-                            ),
-                          ],
-                          color: _cWhite,
-                        ),
-                      ),
-                      if (item.author.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'by ${item.author}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: _cWhite.withValues(alpha: 0.85),
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          if (item.year.isNotEmpty) ...[
-                            Text(
-                              item.year,
-                              style: AppTypography.outfitBold.copyWith(
-                                color: _cGold,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 8),
-                              width: 3,
-                              height: 3,
-                              decoration: const BoxDecoration(
-                                color: _cMuted,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ],
-                          Text(
-                            'Tap to explore',
-                            style: AppTypography.outfitWhite.copyWith(
-                              color: _cMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+  Widget _buildPopularRail() {
+    return _buildFeedRail(
+      eyebrow: 'Trending this week',
+      title: 'Most Popular',
+      icon: Icons.local_fire_department_rounded,
+      accent: _cAmber,
+      results: _popular,
+      onSeeAll: () => context.push(
+        '/books/list',
+        extra: const BookListArgs.popular(),
       ),
     );
   }
 
-  // ── TRENDING RANKINGS ──────────────────────────────────────────────
-
-  Widget _buildTrendingRankings() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ShelfSectionHeader(
-            eyebrow: 'This Week',
-            title: 'Trending Now',
-            icon: Icons.emoji_events_rounded,
-            accent: _cAmber,
-            count: 10,
-            countLabel: 'titles',
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: (_responsiveListHeight(context, fallback: 480)),
-            child: _trendingRankings.isEmpty
-                ? const EverglowEmptyState(
-                    icon: Icons.emoji_events_outlined,
-                    title: 'No rankings available',
-                    subtitle: 'Check back soon — the chart refreshes weekly.',
-                  )
-                : ListView.separated(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: _trendingRankings.take(10).length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (context, index) {
-                      final item = _trendingRankings[index];
-                      return _RankingTile(
-                        item: item,
-                        rank: index + 1,
-                        onTap: () => _showBookDetails(item),
-                      );
-                    },
-                  ),
-          ),
-        ],
+  Widget _buildRecentRail() {
+    return _buildFeedRail(
+      eyebrow: 'Fresh in the catalog',
+      title: 'Recently Added',
+      icon: Icons.fiber_new_rounded,
+      accent: _cDeepRose,
+      results: _recent,
+      onSeeAll: () => context.push(
+        '/books/list',
+        extra: const BookListArgs.recent(),
       ),
     );
   }
 
-  /// Returns a responsive list height proportional to the viewport,
-  /// clamped so the list never collapses on mobile or blows out on
-  /// ultrawide displays.
-  static double _responsiveListHeight(
-    BuildContext context, {
-    required double fallback,
+  Widget _buildFeedRail({
+    required String eyebrow,
+    required String title,
+    required IconData icon,
+    required Color accent,
+    required List<BookSearchResult> results,
+    required VoidCallback onSeeAll,
   }) {
-    final viewH = MediaQuery.sizeOf(context).height;
-    return (viewH * 0.42).clamp(fallback * 0.6, fallback * 1.35);
-  }
-
-  // ── SUBJECT ROWS ───────────────────────────────────────────────────
-
-  List<Widget> _buildSubjectRows() {
-    final rows = <Widget>[];
-    var i = 4;
-    _subjectLists.forEach((name, items) {
-      final meta = _BooksScreenStateBase._featuredSubjects.firstWhere(
-        (s) => s['name'] == name,
-        orElse: () => {
-          'name': name,
-          'icon': Icons.menu_book_rounded,
-          'color': _cRose,
-        },
-      );
-      final icon = meta['icon'] as IconData?;
-      final color = meta['color'] as Color? ?? _cRose;
-      rows.add(
-        SliverToBoxAdapter(
-          child: StaggeredEntrance(
-            index: i,
-            child: _buildSection(
-              name,
-              'Books',
-              items,
-              accentColor: color,
-              icon: icon,
-            ),
-          ),
-        ),
-      );
-      i++;
-    });
-    return rows;
-  }
-
-  Widget _buildSection(
-    String title,
-    String subtitle,
-    List<BookItem> items, {
-    Color accentColor = _cRose,
-    IconData? icon,
-  }) {
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (results.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 32, 20, 14),
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
           child: ShelfSectionHeader(
-            eyebrow: subtitle,
+            eyebrow: eyebrow,
             title: title,
             icon: icon,
-            accent: accentColor,
-            count: items.length,
-            countLabel: items.length == 1 ? 'title' : 'titles',
+            accent: accent,
+            count: results.length,
+            countLabel: results.length == 1 ? 'title' : 'titles',
+            onSeeAll: onSeeAll,
           ),
         ),
         ScrollEdgeFade(
@@ -642,23 +468,23 @@ class _BooksScreenState extends _BooksScreenStateBase {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: items.length,
+              itemCount: results.length,
               itemBuilder: (context, index) {
-                final book = items[index];
+                final result = results[index];
                 return Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: SizedBox(
                     width: 150,
                     child: ShelfPosterCard(
-                      imageUrl: book.coverUrl,
-                      title: book.title,
-                      subtitle: book.author.isNotEmpty
-                          ? 'by ${book.author}'
-                          : (book.year.isNotEmpty ? book.year : null),
+                      imageUrl: result.coverUrl,
+                      title: result.title,
+                      subtitle: result.author.isNotEmpty
+                          ? 'by ${result.author}'
+                          : (result.year.isNotEmpty ? result.year : null),
                       badge: 'BOOK',
                       badgeIcon: Icons.menu_book_rounded,
-                      badgeColor: accentColor,
-                      onTap: () => _showBookDetails(book),
+                      badgeColor: accent,
+                      onTap: () => _showResultDetails(result),
                     ),
                   ),
                 );

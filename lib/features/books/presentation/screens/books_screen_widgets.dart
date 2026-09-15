@@ -1,172 +1,5 @@
 part of 'books_screen.dart';
 
-class _RankingTile extends StatelessWidget {
-  final BookItem item;
-  final int rank;
-  final VoidCallback onTap;
-  const _RankingTile({
-    required this.item,
-    required this.rank,
-    required this.onTap,
-  });
-  Color get _rankColor {
-    switch (rank) {
-      case 1:
-        return AppColors.warmAmber;
-      case 2:
-        return AppColors.rankSilver;
-      case 3:
-        return AppColors.rankBronze;
-      default:
-        return _cMuted;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isTop3 = rank <= 3;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: _cCard.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isTop3
-                ? _rankColor.withValues(alpha: 0.3)
-                : _cRose.withValues(alpha: 0.07),
-            width: isTop3 ? 1.0 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 38,
-              child: isTop3
-                  ? Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _rankColor.withValues(alpha: 0.15),
-                        border: Border.all(
-                          color: _rankColor.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _rankColor.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$rank',
-                        style: AppTypography.cormorantBlack.copyWith(
-                          fontSize: 18,
-                          color: _rankColor,
-                        ),
-                      ),
-                    )
-                  : Center(
-                      child: Text(
-                        '$rank',
-                        style: AppTypography.outfitBold.copyWith(
-                          fontSize: 14,
-                          color: _cMuted,
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 44,
-                height: 62,
-                child: item.coverUrl.isNotEmpty
-                    ? AppNetworkImage(
-                        imageUrl: item.coverUrl,
-                        fit: BoxFit.cover,
-                        cacheWidth: 120,
-                      )
-                    : Container(color: _cCard),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitHeading.copyWith(
-                      color: _cWhite,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (item.author.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      item.author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: _cMuted,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      if (item.year.isNotEmpty) ...[
-                        Text(
-                          item.year,
-                          style: AppTypography.outfitBold.copyWith(
-                            color: _cGold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _cDeepRose.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'BOOK',
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: _cDeepRose,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: _cMuted, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ContinueReadingRail extends StatelessWidget {
   final List<BookItem> items;
   final ValueChanged<BookItem> onOpen;
@@ -422,3 +255,34 @@ class _LoadMoreRow extends StatelessWidget {
   }
 }
 
+
+/// One number + label bit in the home stats strip.
+class _StatBit extends StatelessWidget {
+  final String value;
+  final String label;
+  const _StatBit({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: AppTypography.cormorantBlack.copyWith(
+            fontSize: 22,
+            color: _cWhite,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: AppTypography.outfitHeading.copyWith(
+            fontSize: 9,
+            color: _cMuted,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
+    );
+  }
+}

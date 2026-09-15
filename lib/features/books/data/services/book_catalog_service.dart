@@ -265,10 +265,21 @@ class BookCatalogService {
 
   /// Category browse: subject discovery mapped to catalog results.
   /// Powers both the home rails and the full category list pages.
-  Future<List<BookSearchResult>> byCategory(String category, {int limit = 20}) async {
+  Future<List<BookSearchResult>> byCategory(String category, {int limit = 20}) {
+    return byCategoryPaged(category, limit: limit);
+  }
+
+  /// Paged variant for category list pages (`offset` > 0 loads
+  /// deeper Open Library subject pages).
+  Future<List<BookSearchResult>> byCategoryPaged(
+    String category, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
     final items = await _openLibrary.discoverBySubject(
       category,
       limit: limit,
+      offset: offset,
     );
     return _fromOpenLibrary(items).map((r) {
       if (r.categories.contains(category)) return r;
@@ -276,22 +287,7 @@ class BookCatalogService {
     }).toList();
   }
 
-  /// The Z-Lib style category set shown on the home tab. Each maps
-  /// to an Open Library subject query.
-  static const List<String> categories = [
-    'Romance',
-    'Mystery',
-    'Science Fiction',
-    'Fantasy',
-    'Classics',
-    'Adventure',
-    'Horror',
-    'Poetry',
-    'History',
-    'Biography',
-    'Children',
-    'Cooking',
-  ];
+
 
   /// Enrich a result with the full detail payload (description,
   /// publisher, size, real download URLs) for the detail page.

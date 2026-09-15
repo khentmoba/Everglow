@@ -10,15 +10,9 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   List<BookItem> _toReadList = [];
   List<BookItem> _readHistoryList = [];
 
-  List<BookItem> _trendingCarousel = [];
-  List<BookItem> _trendingRankings = [];
-  final Map<String, List<BookItem>> _subjectLists = {};
+  List<BookSearchResult> _popular = [];
+  List<BookSearchResult> _recent = [];
   bool _isLoadingHome = true;
-  final PageController _carouselController = PageController(
-    viewportFraction: 0.88,
-  );
-  int _carouselPage = 0;
-  Timer? _carouselTimer;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -36,48 +30,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   bool _isLoadingMore = false;
   BookSearchFilters _advancedFilters = BookSearchFilters.none;
 
-  static final List<Map<String, dynamic>> _featuredSubjects = [
-    {
-      'name': 'Romance',
-      'icon': Icons.favorite_rounded,
-      'color': AppColors.accentPink,
-    },
-    {
-      'name': 'Mystery',
-      'icon': Icons.search_rounded,
-      'color': const Color(0xFF7B1FA2),
-    },
-    {
-      'name': 'Science Fiction',
-      'icon': Icons.rocket_launch_rounded,
-      'color': AppColors.animeCyan,
-    },
-    {
-      'name': 'Fantasy',
-      'icon': Icons.auto_awesome_rounded,
-      'color': const Color(0xFF3949AB),
-    },
-    {
-      'name': 'Classics',
-      'icon': Icons.menu_book_rounded,
-      'color': AppColors.animeGold,
-    },
-    {
-      'name': 'Adventure',
-      'icon': Icons.explore_rounded,
-      'color': const Color(0xFFEF6C00),
-    },
-    {
-      'name': 'Horror',
-      'icon': Icons.brightness_3_rounded,
-      'color': AppColors.twilight,
-    },
-    {
-      'name': 'Poetry',
-      'icon': Icons.auto_awesome_motion_outlined,
-      'color': AppColors.softLavender,
-    },
-  ];
+
 
   @override
   void initState() {
@@ -105,8 +58,6 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     _searchController.dispose();
     _searchFocusNode.dispose();
     _searchDebounce?.cancel();
-    _carouselController.dispose();
-    _carouselTimer?.cancel();
     super.dispose();
   }
 
@@ -138,50 +89,15 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
 
   Future<void> _fetchHomeData() async {
     setState(() => _isLoadingHome = true);
-
-    final trending = await _service.fetchTrending();
+    final feeds = await Future.wait([
+      _catalog.mostPopular(limit: 12),
+      _catalog.recentlyAdded(limit: 12),
+    ]);
     if (!mounted) return;
     setState(() {
-      _trendingRankings = trending;
-      _trendingCarousel = trending.take(5).toList();
+      _popular = feeds[0];
+      _recent = feeds[1];
       _isLoadingHome = false;
-    });
-    _startCarouselAutoPlay();
-    _fetchSubjectLists();
-  }
-
-  Future<void> _fetchSubjectLists() async {
-    for (final subject in _featuredSubjects) {
-      final name = subject['name'] as String;
-      final items = await _service.discoverBySubject(name, limit: 12);
-      if (mounted && items.isNotEmpty) {
-        setState(() {
-          _subjectLists[name] = items;
-        });
-      }
-    }
-  }
-
-  static const Duration _carouselHoldDuration = Duration(seconds: 12);
-
-  void _onCarouselPageChanged(int index) {
-    setState(() => _carouselPage = index);
-    _restartCarouselAutoPlay();
-  }
-
-  void _startCarouselAutoPlay() => _restartCarouselAutoPlay();
-
-  void _restartCarouselAutoPlay() {
-    _carouselTimer?.cancel();
-    _carouselTimer = Timer(_carouselHoldDuration, () {
-      if (!mounted) return;
-      if (_trendingCarousel.isEmpty || !_carouselController.hasClients) return;
-      final nextPage = (_carouselPage + 1) % _trendingCarousel.length;
-      _carouselController.animateToPage(
-        nextPage,
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeInOutCubic,
-      );
     });
   }
 
@@ -257,9 +173,16 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     }
   }
 
-  void _showBookDetails(BookItem item) {
+  void _showBookDetails(BookItem item, [BookSearchResult? result]) {
     HapticFeedback.lightImpact();
-    context.push('/books/detail', extra: BookDetailArgs(item: item));
+    context.push(
+      '/books/detail',
+      extra: BookDetailArgs(item: item, result: result),
+    );
+  }
+
+  void _showResultDetails(BookSearchResult result) {
+    _showBookDetails(result.toBookItem(), result);
   }
 
   void _switchTab(int index) {

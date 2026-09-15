@@ -250,18 +250,21 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     return _subjectSearch('fiction', limit: limit);
   }
 
-  /// Curated subject discovery row. Used for the "Romance",
-  /// "Mystery" etc. carousel rows on the home tab.
+  /// Curated subject discovery row. Used for the category rails
+  /// and full category list pages. Supports `offset` so category
+  /// pages can load more.
   Future<List<BookItem>> discoverBySubject(
     String subject, {
     int limit = 12,
+    int offset = 0,
   }) async {
-    return _subjectSearch(subject, limit: limit);
+    return _subjectSearch(subject, limit: limit, offset: offset);
   }
 
   Future<List<BookItem>> _subjectSearch(
     String subject, {
     int limit = 12,
+    int offset = 0,
   }) async {
     try {
       final response = await _proxy.get(
@@ -271,6 +274,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
           'subject': subject,
           'limit': '$limit',
           'sort': 'trending',
+          if (offset > 0) 'offset': '$offset',
         },
       );
       if (response.statusCode == 200) {
