@@ -698,40 +698,14 @@ class _CinemaScreenState extends State<CinemaScreen> {
           NetflixNavLink('My List', 3),
           NetflixNavLink('Search', 1),
         ],
-        mobileItems: const [
-          NetflixMobileItem(
-            label: 'Home',
-            icon: Icons.home_outlined,
-            activeIcon: Icons.home_rounded,
-            tab: 0,
-          ),
-          NetflixMobileItem(
-            label: 'New & Popular',
-            icon: Icons.local_fire_department_outlined,
-            activeIcon: Icons.local_fire_department_rounded,
-            tab: 2,
-            browseOptionId: 'collection-new',
-          ),
-          NetflixMobileItem(
-            label: 'My List',
-            icon: Icons.bookmark_border_rounded,
-            activeIcon: Icons.bookmark_rounded,
-            tab: 3,
-          ),
-          NetflixMobileItem(
-            label: 'Search',
-            icon: Icons.search_rounded,
-            activeIcon: Icons.search_rounded,
-            tab: 1,
-          ),
-          NetflixMobileItem(
-            label: 'Together',
-            icon: Icons.favorite_outline_rounded,
-            activeIcon: Icons.favorite_rounded,
-            tab: 4,
-          ),
-        ],
+        // Cinema-only profiles get Anime instead of Together here — it is
+        // their only ride to `/anime` on mobile (no dashboard, and the
+        // floating button is their logout).
+        mobileItems: cinemaMobileNavItems(
+          isCinemaOnlyUser: isCinemaOnlyUser,
+        ),
         onSelect: _onNavSelect,
+        onAnimeTap: () => GoRouter.of(context).go('/anime'),
       ),
     );
   }

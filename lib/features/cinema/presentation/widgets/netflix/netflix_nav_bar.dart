@@ -41,13 +41,99 @@ class NetflixMobileItem {
   final int tab;
   final String? browseOptionId;
 
+  /// True for the Anime entry, which leaves Cinema for the `/anime` route
+  /// instead of switching tabs. Handled via [NetflixNavBar.onAnimeTap].
+  final bool isAnimeLink;
+
   const NetflixMobileItem({
     required this.label,
     required this.icon,
     required this.activeIcon,
     required this.tab,
     this.browseOptionId,
+    this.isAnimeLink = false,
   });
+}
+
+/// Mobile bottom-bar entries for the Cinema shell.
+///
+/// Couple users (Khent / Clair) get the full set ending in Together.
+/// Cinema-only profiles (Breyan / Octagram) get Anime instead of Together:
+/// Together is couple-only and would only show them a locked screen, while
+/// Anime would otherwise be unreachable for them on mobile — they have no
+/// dashboard and the floating corner button is their logout.
+List<NetflixMobileItem> cinemaMobileNavItems({
+  required bool isCinemaOnlyUser,
+}) {
+  if (isCinemaOnlyUser) {
+    return const [
+      NetflixMobileItem(
+        label: 'Home',
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+        tab: 0,
+      ),
+      NetflixMobileItem(
+        label: 'New & Popular',
+        icon: Icons.local_fire_department_outlined,
+        activeIcon: Icons.local_fire_department_rounded,
+        tab: 2,
+        browseOptionId: 'collection-new',
+      ),
+      NetflixMobileItem(
+        label: 'My List',
+        icon: Icons.bookmark_border_rounded,
+        activeIcon: Icons.bookmark_rounded,
+        tab: 3,
+      ),
+      NetflixMobileItem(
+        label: 'Search',
+        icon: Icons.search_rounded,
+        activeIcon: Icons.search_rounded,
+        tab: 1,
+      ),
+      NetflixMobileItem(
+        label: 'Anime',
+        icon: Icons.animation_outlined,
+        activeIcon: Icons.animation_rounded,
+        tab: 0,
+        isAnimeLink: true,
+      ),
+    ];
+  }
+  return const [
+    NetflixMobileItem(
+      label: 'Home',
+      icon: Icons.home_outlined,
+      activeIcon: Icons.home_rounded,
+      tab: 0,
+    ),
+    NetflixMobileItem(
+      label: 'New & Popular',
+      icon: Icons.local_fire_department_outlined,
+      activeIcon: Icons.local_fire_department_rounded,
+      tab: 2,
+      browseOptionId: 'collection-new',
+    ),
+    NetflixMobileItem(
+      label: 'My List',
+      icon: Icons.bookmark_border_rounded,
+      activeIcon: Icons.bookmark_rounded,
+      tab: 3,
+    ),
+    NetflixMobileItem(
+      label: 'Search',
+      icon: Icons.search_rounded,
+      activeIcon: Icons.search_rounded,
+      tab: 1,
+    ),
+    NetflixMobileItem(
+      label: 'Together',
+      icon: Icons.favorite_outline_rounded,
+      activeIcon: Icons.favorite_rounded,
+      tab: 4,
+    ),
+  ];
 }
 
 /// Netflix-style cinema navigation.
@@ -60,6 +146,7 @@ class NetflixNavBar extends StatelessWidget {
   final List<NetflixNavLink> links;
   final List<NetflixMobileItem>? mobileItems;
   final void Function(int tab, String? browseOptionId) onSelect;
+  final VoidCallback? onAnimeTap;
   final VoidCallback? onSearchTap;
   final VoidCallback? onAccountTap;
   final VoidCallback? onBackToDashboard;
@@ -72,6 +159,7 @@ class NetflixNavBar extends StatelessWidget {
     required this.links,
     required this.onSelect,
     this.mobileItems,
+    this.onAnimeTap,
     this.onSearchTap,
     this.onAccountTap,
     this.onBackToDashboard,
@@ -86,6 +174,7 @@ class NetflixNavBar extends StatelessWidget {
     // it as bottomNavigationBar.
     return _NetflixBottomNav(
       currentIndex: currentIndex,
+      onAnimeTap: onAnimeTap,
       items:
           mobileItems ??
           const [
@@ -355,11 +444,13 @@ class _NetflixBottomNav extends StatelessWidget {
   final int currentIndex;
   final List<NetflixMobileItem> items;
   final void Function(int tab, String? browseOptionId) onSelect;
+  final VoidCallback? onAnimeTap;
 
   const _NetflixBottomNav({
     required this.currentIndex,
     required this.items,
     required this.onSelect,
+    this.onAnimeTap,
   });
 
   @override
@@ -379,8 +470,16 @@ class _NetflixBottomNav extends StatelessWidget {
                 Expanded(
                   child: _MobileTab(
                     item: item,
-                    active: item.tab == currentIndex,
-                    onTap: () => onSelect(item.tab, item.browseOptionId),
+                    // The Anime entry leaves Cinema, so it never shows as
+                    // the active tab.
+                    active: !item.isAnimeLink && item.tab == currentIndex,
+                    onTap: () {
+                      if (item.isAnimeLink) {
+                        onAnimeTap?.call();
+                      } else {
+                        onSelect(item.tab, item.browseOptionId);
+                      }
+                    },
                   ),
                 ),
             ],
