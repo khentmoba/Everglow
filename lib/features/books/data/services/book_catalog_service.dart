@@ -256,11 +256,16 @@ class BookCatalogService {
     return _applySort(merged, BookSort.popular).take(limit).toList();
   }
 
-  /// Recently Added analog: Open Library's newest imports. Only OL
-  /// tracks import dates, so this feed is OL-only by design.
+  /// Recently Added analog: recently *published* Open Library books
+  /// with real covers (see `OpenLibraryService.fetchRecent`). Only OL
+  /// tracks publish years at this scale, so this feed is OL-only by
+  /// design. Cover-less stragglers are dropped so the rail never
+  /// renders placeholder tiles.
   Future<List<BookSearchResult>> recentlyAdded({int limit = 20}) async {
     final items = await _openLibrary.fetchRecent(limit: limit);
-    return _fromOpenLibrary(items);
+    final mapped = _fromOpenLibrary(items);
+    final withCovers = mapped.where((r) => r.coverUrl.isNotEmpty).toList();
+    return withCovers.isNotEmpty ? withCovers : mapped;
   }
 
   /// Category browse: subject discovery mapped to catalog results.
