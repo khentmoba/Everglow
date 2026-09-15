@@ -20,6 +20,51 @@ class ContinueReadingShelf extends StatefulWidget {
 class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
   final KatanaService _service = KatanaService();
   String? _loadingSlug;
+  final Set<String> _healAttempted = {};
+
+  bool _needsHeal(KatanaBookmark bookmark) {
+    if (bookmark.slug.isEmpty) return false;
+    if (bookmark.title.trim().isEmpty) return true;
+    if (bookmark.coverUrl.trim().isEmpty) return true;
+    final uri = Uri.tryParse(bookmark.coverUrl.trim());
+    if (uri == null || !uri.hasScheme) return true;
+    return false;
+  }
+
+  /// Proactively fills in title/cover for progress-only docs as soon as
+  /// the shelf renders, so Clair never stares at a placeholder thumbnail.
+  /// Runs once per slug per session; the bookmark stream rebuilds the
+  /// shelf once Firestore has the healed values.
+  void _healMissingMeta(List<KatanaBookmark> bookmarks) {
+    for (final bookmark in bookmarks) {
+      if (!_needsHeal(bookmark)) continue;
+      _requestHeal(bookmark);
+    }
+  }
+
+  void _requestHeal(KatanaBookmark bookmark) {
+    if (bookmark.slug.isEmpty) return;
+    if (_healAttempted.contains(bookmark.slug)) return;
+    _healAttempted.add(bookmark.slug);
+    unawaited(_healOne(bookmark));
+  }
+
+  Future<void> _healOne(KatanaBookmark bookmark) async {
+    try {
+      final detail = await _service.fetchMangaDetail(bookmark.slug);
+      if (!mounted || detail == null) return;
+      if (detail.title.isEmpty && detail.coverUrl.isEmpty) return;
+      await _service.saveReadingProgress(
+        slug: bookmark.slug,
+        userName: widget.userName,
+        chapterId: bookmark.lastReadChapterId,
+        chapterTitle: bookmark.lastReadChapterTitle,
+        page: bookmark.lastReadPage,
+        title: detail.title,
+        coverUrl: detail.coverUrl,
+      );
+    } catch (_) {}
+  }
 
   Future<void> _resumeReading(KatanaBookmark bookmark) async {
     if (_loadingSlug != null) return;
@@ -30,8 +75,10 @@ class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
       if (!mounted) return;
       // Heal progress-only docs saved before title/cover were persisted:
       // the shelf would otherwise show a blank title + placeholder cover.
-      if (detail != null &&
-          (bookmark.title.isEmpty || bookmark.coverUrl.isEmpty)) {
+      // Use the fresh detail cover/title so the shelf heals even when the
+      // user goes straight to the reader.
+      if (detail != null && _needsHeal(bookmark)) {
+        _healAttempted.add(bookmark.slug);
         unawaited(
           _service.saveReadingProgress(
             slug: bookmark.slug,
@@ -65,13 +112,20 @@ class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
         );
       }
 
+      final resolvedTitle = (detail?.title.trim().isNotEmpty == true)
+          ? detail!.title
+          : bookmark.title;
+      final resolvedCover = (detail?.coverUrl.trim().isNotEmpty == true)
+          ? detail!.coverUrl
+          : bookmark.coverUrl;
+
       pushReader(
         context,
         slug: bookmark.slug,
         chapterId: target.path,
         chapters: chapters,
-        mangaTitle: bookmark.title,
-        coverUrl: bookmark.coverUrl,
+        mangaTitle: resolvedTitle,
+        coverUrl: resolvedCover,
       );
     } catch (_) {
       if (mounted) {
@@ -100,6 +154,10 @@ class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
 
         if (withProgress.isEmpty) return const SizedBox.shrink();
 
+        // Heal placeholder thumbnails in the background as soon as we see
+        // them — no need to wait for Clair to tap a card first.
+        _healMissingMeta(withProgress);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -124,6 +182,7 @@ class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
                     isLoading: isLoading,
                     onResume: () => _resumeReading(item),
                     onTapDetail: () => pushDetail(context, item.slug),
+                    onCoverError: () => _requestHeal(item),
                   );
                 },
               ),
@@ -154,18 +213,22 @@ class _ResumeCard extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onResume;
   final VoidCallback onTapDetail;
+  final VoidCallback? onCoverError;
 
   const _ResumeCard({
     required this.bookmark,
     required this.isLoading,
     required this.onResume,
     required this.onTapDetail,
+    this.onCoverError,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Card tap goes to the detail/info page. Only the explicit Resume
+    // button jumps straight into the reader.
     return GestureDetector(
-      onTap: onResume,
+      onTap: onTapDetail,
       child: Container(
         width: 320,
         padding: const EdgeInsets.all(10),
@@ -204,14 +267,21 @@ class _ResumeCard extends StatelessWidget {
                     : KatanaNetworkImage(
                         bookmark.coverUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: KatanaColors.surfaceAlt,
-                          child: const Icon(
-                            Icons.broken_image_rounded,
-                            color: KatanaColors.textLight,
-                            size: 24,
-                          ),
-                        ),
+                        errorBuilder: (_, _, _) {
+                          if (onCoverError != null) {
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => onCoverError!(),
+                            );
+                          }
+                          return Container(
+                            color: KatanaColors.surfaceAlt,
+                            child: const Icon(
+                              Icons.broken_image_rounded,
+                              color: KatanaColors.textLight,
+                              size: 24,
+                            ),
+                          );
+                        },
                       ),
               ),
             ),
