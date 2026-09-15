@@ -14,6 +14,24 @@ import '../../../heartbeat/presentation/widgets/mood_picker.dart';
 import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
 
+/// Geometry of the pinned top-action row (creator / canvas / mood /
+/// chat). The buttons float above the scroll view, so whatever scrolls
+/// under them can never be read.
+///
+/// The dashboard header reserves [kTopActionsReserve] at the top of the
+/// scroll view: on phones the centered "EST. FEBRUARY 14, 2026" pill is
+/// wider than the free space between the left and right buttons, so it
+/// used to run behind the canvas and chat circles on first launch. Keep
+/// the three values in step with the 54px buttons above.
+const double kTopActionsInset = 24; // gap under the status bar / safe area
+const double kTopActionsSize = 54; // button diameter
+const double kTopActionsReserve =
+    kTopActionsInset + kTopActionsSize + 20; // clear of the row's bottom edge
+
+/// Top of the mood prompt card: clear of the pinned row *and* of the
+/// header pill, which starts at [kTopActionsReserve].
+const double kMoodPromptTop = kTopActionsReserve + 34;
+
 /// Floating overlay buttons and indicators on top of the dashboard.
 ///
 /// Includes: Motchi AI button, Guardian mascot, Creator mode (admin),
@@ -62,7 +80,7 @@ class DashboardOverlays extends StatelessWidget {
         // Creator Mode Button (Admin Only)
         if (context.watch<AuthService>().currentUser == 'khentsgdz')
           Positioned(
-            top: 24,
+            top: kTopActionsInset,
             left: 24,
             child: AppMotion.reduced
                 ? _FloatingAction(
@@ -100,7 +118,7 @@ class DashboardOverlays extends StatelessWidget {
 
         // Canvas + Partner status + Actions - top-right
         Positioned(
-          top: 24,
+          top: kTopActionsInset,
           right: 96,
           child: AppMotion.reduced
               ? Row(
@@ -146,7 +164,7 @@ class DashboardOverlays extends StatelessWidget {
 
         // Sanctuary Chat Button - top-right
         Positioned(
-          top: 24,
+          top: kTopActionsInset,
           right: 24,
           child: AppMotion.reduced
               ? _FloatingAction(
@@ -176,7 +194,7 @@ class DashboardOverlays extends StatelessWidget {
 
         // Mood Picker prompt
         Positioned(
-          top: 100,
+          top: kMoodPromptTop,
           right: 24,
           child: Consumer<GuardianController>(
             builder: (context, controller, child) {
@@ -235,8 +253,8 @@ class _FloatingActionState extends State<_FloatingAction> {
             child: AnimatedContainer(
               duration: AppMotion.orZero(AppMotion.fast),
               curve: AppMotion.easeOutStrong,
-              width: 54,
-              height: 54,
+              width: kTopActionsSize,
+              height: kTopActionsSize,
               margin: const EdgeInsets.only(bottom: 12),
               transform: Matrix4.identity()
                 ..scaleByDouble(

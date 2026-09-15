@@ -410,10 +410,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: CustomScrollView(
                     controller: _scrollController,
                     slivers: [
-                      // Header
+                      // Header. The top padding reserves the pinned
+                      // top-action row (see DashboardOverlays): on phones
+                      // the anniversary pill is wider than the gap between
+                      // the floating buttons, so it has to start below
+                      // them instead of scrolling behind them.
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: EdgeInsets.fromLTRB(AppSpacing.pageH(context), 48, AppSpacing.pageH(context), 24),
+                          padding: EdgeInsets.fromLTRB(AppSpacing.pageH(context), kTopActionsReserve, AppSpacing.pageH(context), 24),
                           child: widget.animate
                               ? (AppMotion.reduced
                                     ? _buildHeader(context)
