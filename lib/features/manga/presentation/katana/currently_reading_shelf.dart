@@ -19,6 +19,12 @@ import 'katana_theme.dart';
 /// enriched with chapter progress from `katana_bookmarks` for Katana
 /// titles so Clair sees "Ch. 12 • Page 5" and a Resume button.
 ///
+/// The "You" row also folds in titles with chapter progress that were
+/// never pinned as Reading (the old Continue Reading shelf), so there
+/// is exactly one resume shelf on home and nothing resumable hides.
+/// Those entries show no Remove button — there is no library entry to
+/// remove — and vanish from this row only when their progress does.
+///
 /// For couple users the shelf splits into "You" and partner rows, just
 /// like the dashboard Reading shelf. Hidden entirely until there is
 /// something to show, so the home page stays clean for new readers.
@@ -31,6 +37,62 @@ String katanaSlugOfItem(MangaItem item) {
     if (parts.length > 1 && parts[1].isNotEmpty) return parts[1];
   }
   return item.mangaKakalotId;
+}
+
+/// Turns a bare slug into a readable title so progress-only entries
+/// saved before title/cover were persisted never render blank.
+String humanizeKatanaSlug(String slug) {
+  final clean = slug.trim();
+  if (clean.isEmpty) return 'Untitled series';
+  return clean
+      .split('-')
+      .where((w) => w.isNotEmpty)
+      .map((w) => w[0].toUpperCase() + w.substring(1))
+      .join(' ');
+}
+
+/// Builds a display-only library entry from a progress bookmark for
+/// titles Clair read but never pinned as Reading. `libraryStatus`
+/// stays `'none'` so the card renders without a Remove button.
+MangaItem progressOnlyReadingItem(KatanaBookmark bookmark, String userName) {
+  final title = bookmark.title.trim().isNotEmpty
+      ? bookmark.title
+      : humanizeKatanaSlug(bookmark.slug);
+  return MangaItem(
+    id: 'progress|${bookmark.slug}',
+    mangaId: 'katana|${bookmark.slug}',
+    title: title,
+    coverUrl: bookmark.coverUrl,
+    status: bookmark.status,
+    userName: userName,
+    addedAt: bookmark.addedAt,
+    lastReadChapterId: bookmark.lastReadChapterId,
+    lastReadPage: bookmark.lastReadPage,
+    mangaKakalotId: bookmark.slug,
+  );
+}
+
+/// Merges the pinned Reading list with progress-only bookmarks
+/// (read but never pinned), deduplicated by Katana slug. Pinned
+/// entries keep their order first; progress-only entries follow.
+List<MangaItem> mergeReadingWithProgress({
+  required List<MangaItem> reading,
+  required List<KatanaBookmark> bookmarks,
+  required String userName,
+}) {
+  final pinnedSlugs = <String>{
+    for (final item in reading)
+      if (katanaSlugOfItem(item).isNotEmpty) katanaSlugOfItem(item),
+  };
+  final merged = List<MangaItem>.from(reading);
+  for (final bookmark in bookmarks) {
+    if (!bookmark.hasProgress) continue;
+    if (bookmark.slug.isEmpty) continue;
+    if (pinnedSlugs.contains(bookmark.slug)) continue;
+    pinnedSlugs.add(bookmark.slug);
+    merged.add(progressOnlyReadingItem(bookmark, userName));
+  }
+  return merged;
 }
 
 class CurrentlyReadingShelf extends StatefulWidget {
@@ -59,8 +121,10 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
 
   List<MangaItem> _mine = const [];
   List<MangaItem> _partner = const [];
+  List<KatanaBookmark> _bookmarks = const [];
   Map<String, KatanaBookmark> _bookmarksBySlug = const {};
   String? _loadingSlug;
+  final Set<String> _healAttempted = {};
 
   bool get _hasPartner =>
       widget.partnerName != null && widget.partnerName!.isNotEmpty;
@@ -87,6 +151,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
       _bookmarkSub?.cancel();
       _mine = const [];
       _partner = const [];
+      _bookmarks = const [];
       _bookmarksBySlug = const {};
       _subscribe();
     }
@@ -106,10 +171,12 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
         if (mounted) setState(() => _partner = items);
       });
     }
-    // Bookmark progress enriches Katana cards with chapter + page.
+    // Bookmark progress enriches Katana cards with chapter + page,
+    // and progress-only entries join the "You" row (see build).
     _bookmarkSub = _katana.bookmarkStream(widget.userName).listen((items) {
       if (!mounted) return;
       setState(() {
+        _bookmarks = items;
         _bookmarksBySlug = {for (final b in items) b.slug: b};
       });
     });
@@ -127,6 +194,50 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
     final slug = katanaSlugOfItem(item);
     if (slug.isEmpty) return null;
     return _bookmarksBySlug[slug];
+  }
+
+  bool _needsHeal(KatanaBookmark bookmark) {
+    if (bookmark.slug.isEmpty) return false;
+    if (bookmark.title.trim().isEmpty) return true;
+    if (bookmark.coverUrl.trim().isEmpty) return true;
+    final uri = Uri.tryParse(bookmark.coverUrl.trim());
+    if (uri == null || !uri.hasScheme) return true;
+    return false;
+  }
+
+  /// Fills in title/cover for progress-only entries as soon as the
+  /// shelf renders, so Clair never stares at a placeholder thumbnail.
+  /// Runs once per slug per session; the bookmark stream rebuilds the
+  /// shelf once Firestore has the healed values.
+  void _healMissingMeta(List<KatanaBookmark> bookmarks) {
+    for (final bookmark in bookmarks) {
+      if (!_needsHeal(bookmark)) continue;
+      _requestHeal(bookmark);
+    }
+  }
+
+  void _requestHeal(KatanaBookmark bookmark) {
+    if (bookmark.slug.isEmpty) return;
+    if (_healAttempted.contains(bookmark.slug)) return;
+    _healAttempted.add(bookmark.slug);
+    unawaited(_healOne(bookmark));
+  }
+
+  Future<void> _healOne(KatanaBookmark bookmark) async {
+    try {
+      final detail = await _katana.fetchMangaDetail(bookmark.slug);
+      if (!mounted || detail == null) return;
+      if (detail.title.isEmpty && detail.coverUrl.isEmpty) return;
+      await _katana.saveReadingProgress(
+        slug: bookmark.slug,
+        userName: widget.userName,
+        chapterId: bookmark.lastReadChapterId,
+        chapterTitle: bookmark.lastReadChapterTitle,
+        page: bookmark.lastReadPage,
+        title: detail.title,
+        coverUrl: detail.coverUrl,
+      );
+    } catch (_) {}
   }
 
   Future<void> _resume(MangaItem item) async {
@@ -235,7 +346,19 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
   @override
   Widget build(BuildContext context) {
     if (widget.userName.isEmpty) return const SizedBox.shrink();
-    if (_mine.isEmpty && _partner.isEmpty) return const SizedBox.shrink();
+    // One resume shelf: pinned Reading entries plus progress-only
+    // titles, deduplicated by slug so nothing appears twice.
+    final mergedMine = mergeReadingWithProgress(
+      reading: _mine,
+      bookmarks: _bookmarks,
+      userName: widget.userName,
+    );
+    if (mergedMine.isEmpty && _partner.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    // Heal placeholder thumbnails in the background as soon as we
+    // see them — no need to wait for Clair to tap a card first.
+    _healMissingMeta(_bookmarks);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,7 +384,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
         const SizedBox(height: 12),
         _ReadingRow(
           label: _hasPartner ? 'You' : null,
-          items: _mine.take(10).toList(),
+          items: mergedMine.take(10).toList(),
           progressFor: _progressFor,
           loadingSlug: _loadingSlug,
           slugOf: katanaSlugOfItem,
@@ -523,7 +646,9 @@ class _ReadingCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (onRemove != null) ...[
+                      // Progress-only entries have no library entry
+                      // to remove, so they render without the X.
+                      if (onRemove != null && item.isReading) ...[
                         const SizedBox(width: 6),
                         GestureDetector(
                           onTap: onRemove,

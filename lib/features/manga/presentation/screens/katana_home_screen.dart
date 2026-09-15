@@ -4,7 +4,6 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
-import '../katana/continue_reading_shelf.dart';
 import '../katana/currently_reading_shelf.dart';
 import '../katana/katana_header.dart';
 import '../katana/katana_item_card.dart';
@@ -146,12 +145,6 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1240),
-            child: ContinueReadingShelf(userName: user),
-          ),
-        ),
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
