@@ -67,7 +67,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     String releaseDate;
     if (_isAnimeSourced) {
       releaseDate = widget.item.year;
-    } else if (widget.item.mediaType == 'movie') {
+    } else if (_isFilm) {
       releaseDate = (_details?['release_date'] ?? '') as String;
     } else {
       releaseDate = (_details?['first_air_date'] ?? '') as String;
@@ -169,7 +169,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 ),
               ),
 
-              if (widget.item.mediaType == 'movie')
+              if (_isFilm)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -191,6 +191,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Films never reach here (_isFilm true shows Play
+                      // above). ONA-listed films like Drifting Home used to
+                      // fall through and render fake Episode rows.
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
                         child: _buildDiscordShareButton(
@@ -577,7 +580,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 child: _buildCinemaMetaPanel(),
               ),
             ),
-            if (widget.item.mediaType == 'movie')
+            if (_isFilm)
               SliverToBoxAdapter(
                 child: _buildCinemaActions(isUnreleased: isUnreleased),
               )
@@ -586,6 +589,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Films never reach here — see classic variant above.
                     if (isUnreleased)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
