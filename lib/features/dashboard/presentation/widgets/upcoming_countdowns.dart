@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -14,6 +15,7 @@ import '../../../calendar/data/services/calendar_service.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/presentation/widgets/calendar_event_style.dart';
 import 'feature_section.dart';
+import 'dashboard_load_tracker.dart';
 
 // Shared formatter: constructing DateFormat per card per build re-parses
 // the pattern on every emission while scrolling.
@@ -44,6 +46,9 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
     if (cached != null) {
       _events = cached;
       _isLoading = false;
+      // Cache-first paint counts as ready; report post-frame since
+      // notifyListeners must not fire during initState's build pass.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reportLoaded());
     }
     _subscribe();
   }
@@ -67,6 +72,7 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
           _error = null;
           _isLoading = false;
         });
+        _reportLoaded();
       },
       onError: (Object error) {
         if (!mounted) return;
@@ -97,6 +103,9 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
         _isLoading = false;
         _error = error ?? _error;
       });
+      // Retries exhausted: the error row is final, so the veil can
+      // stop waiting on us even though no dates arrived.
+      _reportLoaded();
     }
   }
 
@@ -107,6 +116,15 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
       _retryCount = 0;
     });
     _subscribe();
+  }
+
+  /// First-screen progress: dates have settled (data, cache, or final
+  /// error), so the load veil can count us. Marking is idempotent —
+  /// cache hits, snapshots, and manual retries all funnel here safely.
+  void _reportLoaded() {
+    try {
+      context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.dates);
+    } catch (_) {}
   }
 
   @override

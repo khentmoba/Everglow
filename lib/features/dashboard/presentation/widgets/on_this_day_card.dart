@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -7,6 +8,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_radius.dart';
 import 'feature_section.dart';
 import '../../../../shared/utils/tmdb_images.dart';
+import 'dashboard_load_tracker.dart';
 
 /// Dashboard card surfacing spontaneous nostalgia from Gallery, Cinema,
 /// and Chat. Hidden entirely when nothing matches.
@@ -35,15 +37,30 @@ class _OnThisDayCardState extends State<OnThisDayCard>
   }
 
   Future<void> _load() async {
-    final memories = await _service.getAllMemories();
-    if (!mounted) return;
-    setState(() {
-      _memories = memories;
-      _loading = false;
-    });
-    if (memories.isNotEmpty) {
-      _staggerController.forward();
+    try {
+      final memories = await _service.getAllMemories();
+      if (!mounted) return;
+      setState(() {
+        _memories = memories;
+        _loading = false;
+      });
+      if (memories.isNotEmpty) {
+        _staggerController.forward();
+      }
+    } finally {
+      _reportLoaded();
     }
+  }
+
+  /// First-screen progress: memories have settled (data or empty), so the
+  /// load veil can count us. Safe outside the dashboard (no tracker) and
+  /// after dispose — both just no-op.
+  void _reportLoaded() {
+    try {
+      context.read<DashboardLoadTracker>().mark(
+        DashboardLoadSignal.memories,
+      );
+    } catch (_) {}
   }
 
   @override
