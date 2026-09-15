@@ -4,12 +4,17 @@ import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
 import '../katana/katana_header.dart';
 import '../katana/katana_nav.dart';
+import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
 /// The Genres page: every genre as a card with its count and
 /// description, mirroring the site's genre directory.
 class KatanaGenresScreen extends StatefulWidget {
-  const KatanaGenresScreen({super.key});
+  const KatanaGenresScreen({super.key, this.embed = false});
+
+  /// When true, renders just the tab content so [KatanaTabShell] can
+  /// keep one header mounted while tabs switch underneath it.
+  final bool embed;
 
   @override
   State<KatanaGenresScreen> createState() => _KatanaGenresScreenState();
@@ -39,54 +44,46 @@ class _KatanaGenresScreenState extends State<KatanaGenresScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: KatanaColors.background,
-      body: Column(
-        children: [
-          const KatanaHeader(active: KatanaNav.genres),
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: KatanaColors.accent,
+    if (widget.embed) return _buildContent();
+
+    return const KatanaTabShell(initialTab: KatanaNav.genres);
+  }
+
+  /// Headerless tab content for [KatanaTabShell].
+  Widget _buildContent() {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(color: KatanaColors.accent),
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Text('Genres', style: KatanaType.heading),
+                  const SizedBox(height: 4),
+                  Text('${_genres.length} genres', style: KatanaType.small),
+                  const SizedBox(height: 16),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 330,
+                          childAspectRatio: 2.4,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
                         ),
-                      )
-                    : ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          Text('Genres', style: KatanaType.heading),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_genres.length} genres',
-                            style: KatanaType.small,
-                          ),
-                          const SizedBox(height: 16),
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 330,
-                                  childAspectRatio: 2.4,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
-                                ),
-                            itemCount: _genres.length,
-                            itemBuilder: (context, index) {
-                              final genre = _genres[index];
-                              return _GenreCard(genre: genre);
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                      ),
+                    itemCount: _genres.length,
+                    itemBuilder: (context, index) {
+                      final genre = _genres[index];
+                      return _GenreCard(genre: genre);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-            ),
-          ),
-        ],
       ),
     );
   }
