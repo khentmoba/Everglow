@@ -43,10 +43,25 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     final author = authorList.isNotEmpty ? authorList.first : '';
 
     final coverId = (doc['cover_i'] as num?)?.toInt();
-    final coverUrl = BookItem.coverFromCoverId(coverId, size: 'L');
+    // Fallback: some docs lack `cover_i` but carry a cover edition —
+    // resolve via the edition OLID so the rail still gets a thumbnail.
+    final coverEditionKey = doc['cover_edition_key'] as String?;
+    final coverUrl = coverId != null && coverId > 0
+        ? BookItem.coverFromCoverId(coverId, size: 'L')
+        : BookItem.coverFromOlid(coverEditionKey, size: 'L');
 
-    final firstYear = (doc['first_publish_year'] as num?)?.toInt();
-    final year = firstYear != null ? firstYear.toString() : '';
+    final firstYearRaw = doc['first_publish_year'];
+    final firstYear = firstYearRaw is num
+        ? firstYearRaw.toInt()
+        : int.tryParse(firstYearRaw?.toString() ?? '');
+    // Guard against bogus OL import years (e.g. 9999, 2098) that
+    // would otherwise render as subtitles like "9981".
+    final nowYear = DateTime.now().year;
+    final year = (firstYear != null &&
+            firstYear >= 1400 &&
+            firstYear <= nowYear + 1)
+        ? firstYear.toString()
+        : '';
 
     final iaIds =
         (doc['ia'] as List?)?.map((e) => e.toString()).toList() ??
@@ -239,14 +254,48 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   }
 
   /// Recently added books — the Z-Lib "Recently Added" rail.
-  /// `sort=new` orders by Open Library import date.
+  ///
+  /// NOTE: `sort=new` (Open Library import date) is unusable here —
+  /// its top results are spam/scan imports with no `cover_i`, no `ia`,
+  /// malformed `/works/...M` keys, and bogus years (9999), which is
+  /// why the rail rendered placeholder tiles with subtitles like
+  /// "9981". Instead this queries recent *publish* years sorted by
+  /// trending, over-fetches, and keeps only real works with covers
+  /// and sane years.
   Future<List<BookItem>> fetchRecent({int limit = 15}) async {
-    final page = await searchPaged(
-      'language:eng',
-      limit: limit,
-      sort: 'new',
-    );
-    if (page.items.isNotEmpty) return page.items;
+    final nowYear = DateTime.now().year;
+    final fromYear = nowYear - 6;
+    // Over-fetch so the cover/year filter below still leaves a full
+    // rail. Open Library caps `limit` at 100 per page.
+    final fetchLimit = (limit * 4).clamp(1, 100);
+    try {
+      final page = await searchPaged(
+        'first_publish_year:[$fromYear TO $nowYear]',
+        limit: fetchLimit,
+        sort: 'trending',
+      );
+      final filtered = page.items.where((item) {
+        if (item.coverUrl.isEmpty) return false;
+        if (item.workKey.isEmpty || !item.workKey.endsWith('W')) {
+          return false;
+        }
+        final y = int.tryParse(item.year) ?? 0;
+        if (y < 1500 || y > nowYear + 1) return false;
+        return true;
+      }).toList();
+      if (filtered.isNotEmpty) return filtered.take(limit).toList();
+    } catch (e) {
+      Logger.e('Open Library recent error', error: e);
+    }
+    final fallback = await _subjectSearch('fiction', limit: limit * 2);
+    final usable = fallback.where((item) {
+      if (item.coverUrl.isEmpty) return false;
+      if (item.workKey.isEmpty || !item.workKey.endsWith('W')) {
+        return false;
+      }
+      return true;
+    }).toList();
+    if (usable.isNotEmpty) return usable.take(limit).toList();
     return _subjectSearch('fiction', limit: limit);
   }
 
