@@ -44,12 +44,14 @@ class KatanaChapter {
   final String num;
   final String title;
   final DateTime? updateAt;
+  final bool isNew;
 
   const KatanaChapter({
     required this.id,
     required this.num,
     required this.title,
     this.updateAt,
+    this.isNew = false,
   });
 
   /// MangaKatana chapter path, e.g. `c413` or `fc`.
