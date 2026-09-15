@@ -230,13 +230,16 @@ class KatanaPageResult {
   });
 }
 
-/// Aggregated home page data (Latest Updates, Hot Manga, genres).
+/// Aggregated home page data (Hot Updates rail, Latest Updates,
+/// Hot Manga, genres).
 class KatanaHomeData {
+  final List<KatanaManga> hotUpdates;
   final List<KatanaManga> latest;
   final List<KatanaManga> hot;
   final List<KatanaGenre> genres;
 
   const KatanaHomeData({
+    this.hotUpdates = const [],
     this.latest = const [],
     this.hot = const [],
     this.genres = const [],

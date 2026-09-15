@@ -112,8 +112,8 @@ class KatanaService {
 
   // ── Home ────────────────────────────────────────────────────────
 
-  /// Aggregates the Manga Katana home page: Latest Updates items,
-  /// the Hot Manga rail, and all genres with counts.
+  /// Aggregates the Manga Katana home page: the Hot Updates rail,
+  /// Latest Updates items, the Hot Manga rail, and all genres.
   Future<KatanaHomeData> fetchHome() async {
     final html = await _fetchHtml(Uri.parse('$_baseUrl/'));
     if (html == null) return const KatanaHomeData();
@@ -134,7 +134,12 @@ class KatanaService {
     }
     final hot = _parseHotItems(hotBlocks);
 
-    return KatanaHomeData(latest: latest, hot: hot, genres: _parseGenres(html));
+    return KatanaHomeData(
+      hotUpdates: _parseHotUpdateRail(html),
+      latest: latest,
+      hot: hot,
+      genres: _parseGenres(html),
+    );
   }
 
   // ── Directory / Latest / New / Genre / Author ───────────────────
@@ -816,6 +821,54 @@ class KatanaService {
                 )
               : null,
           authors: authors,
+        ),
+      );
+    }
+    return items;
+  }
+
+  /// Parses the Hot Updates rail at the very top of the home page
+  /// (`#hot_update .slick_book`, desktop only on the site): compact
+  /// cover + title + latest chapter, no status badge and no summary.
+  /// The item markup differs slightly from the Hot Manga widget
+  /// (whitespace inside `h3.title`, an `<i>` icon inside the chapter
+  /// link), so it gets its own tolerant parser.
+  List<KatanaManga> _parseHotUpdateRail(String html) {
+    final start = html.indexOf('id="hot_update"');
+    if (start < 0) return const [];
+    final end = html.indexOf('id="wrap_content"', start);
+    final blocks = _blocksOfClass(html, 'item', start: start, end: end);
+    final items = <KatanaManga>[];
+    for (final block in blocks) {
+      final hrefMatch = RegExp(
+        r'href="https://mangakatana\.com/manga/([^"/]+)"',
+      ).firstMatch(block);
+      if (hrefMatch == null) continue;
+      final slug = hrefMatch.group(1)!;
+      final titleM = RegExp(
+        r'<h3 class="title">\s*<a[^>]*>([^<]+)</a>',
+        dotAll: true,
+      ).firstMatch(block);
+      final chapterM = RegExp(
+        r'<div class="chapter">\s*<a href="[^"]*/(c[^"/]+|fc)"[^>]*>(.*?)</a>',
+        dotAll: true,
+      ).firstMatch(block);
+      final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
+      items.add(
+        KatanaManga(
+          slug: slug,
+          id: idMatch?.group(1) ?? slug,
+          title: titleM != null
+              ? _unescape.convert(titleM.group(1)!.trim())
+              : slug,
+          coverUrl: _coverFrom(block),
+          latestChapter: chapterM != null
+              ? KatanaChapter(
+                  id: chapterM.group(1)!,
+                  num: katanaChapterNumFromId(chapterM.group(1)!),
+                  title: _clean(chapterM.group(2)!),
+                )
+              : null,
         ),
       );
     }

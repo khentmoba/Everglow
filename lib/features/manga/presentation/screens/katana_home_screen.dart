@@ -158,6 +158,15 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
           ),
         ),
         const SizedBox(height: 14),
+        if (desktop && _type == 'all' && data.hotUpdates.isNotEmpty) ...[
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1240),
+              child: _buildHotUpdatesRail(data.hotUpdates),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
@@ -425,6 +434,41 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     );
   }
 
+  /// The site's `#hot_update .slick_book` rail: full-width sideways
+  /// scroll above Latest Updates, desktop only (`uk-visible-large`).
+  Widget _buildHotUpdatesRail(List<KatanaManga> items) {
+    return KatanaCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const KatanaSectionHeader(
+            title: 'Hot Updates',
+            trailing: Icon(
+              Icons.whatshot_rounded,
+              color: KatanaColors.orange,
+              size: 20,
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 258,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, index) => SizedBox(
+                width: 120,
+                child: KatanaCompactCard(manga: items[index], width: 120),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHotWidget(List<KatanaManga> hot) {
     if (hot.isEmpty) return const SizedBox.shrink();
     return KatanaCard(
@@ -442,7 +486,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 150,
+            height: 226,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
