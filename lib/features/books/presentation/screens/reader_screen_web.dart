@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/book_item.dart';
 import '../../data/services/book_download_helper.dart';
+import '../../data/services/epub_service.dart';
 import '../../data/services/open_library_service.dart';
 import '../../data/services/web_tts_service.dart';
 import '../widgets/chapter_list.dart';

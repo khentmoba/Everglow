@@ -11,6 +11,7 @@ const { cappedHttps } = require('./common.js');
 
 const {
   proxyBookText,
+  proxyBookFile,
   proxyCatalog,
   proxyMangaImage,
   proxyMangaKakalotImage,
@@ -87,6 +88,7 @@ exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10 }, handlePro
 // Re-exports: keep the deploy surface identical.
 module.exports = Object.assign({}, module.exports, {
   proxyBookText,
+  proxyBookFile,
   proxyCatalog,
   proxyMangaImage,
   proxyMangaKakalotImage,
