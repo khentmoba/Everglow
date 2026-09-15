@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_typography.dart';
@@ -26,6 +28,22 @@ class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
     try {
       final detail = await _service.fetchMangaDetail(bookmark.slug);
       if (!mounted) return;
+      // Heal progress-only docs saved before title/cover were persisted:
+      // the shelf would otherwise show a blank title + placeholder cover.
+      if (detail != null &&
+          (bookmark.title.isEmpty || bookmark.coverUrl.isEmpty)) {
+        unawaited(
+          _service.saveReadingProgress(
+            slug: bookmark.slug,
+            userName: widget.userName,
+            chapterId: bookmark.lastReadChapterId,
+            chapterTitle: bookmark.lastReadChapterTitle,
+            page: bookmark.lastReadPage,
+            title: detail.title,
+            coverUrl: detail.coverUrl,
+          ),
+        );
+      }
       final chapters = detail?.chapters ?? const <KatanaChapter>[];
       final sorted = sortChaptersAscending(chapters);
 
@@ -118,6 +136,19 @@ class _ContinueReadingShelfState extends State<ContinueReadingShelf> {
   }
 }
 
+/// Shows the saved title, falling back to a human-readable slug so
+/// progress-only bookmarks never render a blank title line.
+String _displayTitle(KatanaBookmark bookmark) {
+  if (bookmark.title.trim().isNotEmpty) return bookmark.title;
+  final slug = bookmark.slug.trim();
+  if (slug.isEmpty) return 'Untitled series';
+  return slug
+      .split('-')
+      .where((w) => w.isNotEmpty)
+      .map((w) => w[0].toUpperCase() + w.substring(1))
+      .join(' ');
+}
+
 class _ResumeCard extends StatelessWidget {
   final KatanaBookmark bookmark;
   final bool isLoading;
@@ -193,7 +224,7 @@ class _ResumeCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    bookmark.title,
+                    _displayTitle(bookmark),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.outfitBold.copyWith(
@@ -260,7 +291,7 @@ class _ResumeCard extends StatelessWidget {
                             ),
                           const SizedBox(width: 4),
                           Text(
-                            isLoading ? 'Opening...' : 'Resume ▶',
+                            isLoading ? 'Opening...' : 'Resume',
                             style: AppTypography.outfitBold.copyWith(
                               color: Colors.white,
                               fontSize: 11.5,

@@ -345,6 +345,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       chapterId: _chapter.id,
       chapterTitle: _chapter.displayTitle,
       page: page,
+      title: widget.mangaTitle,
+      coverUrl: widget.coverUrl,
     );
   }
 
@@ -1141,7 +1143,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
             ),
             const SizedBox(height: 12),
             KatanaButton(
-              label: 'Read Next Chapter ▶',
+              label: 'Read Next Chapter',
               icon: Icons.arrow_forward_rounded,
               onTap: () => _goToChapter(next),
             ),
