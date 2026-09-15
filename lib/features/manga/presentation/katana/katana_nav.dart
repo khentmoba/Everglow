@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../data/models/katana_models.dart';
 import '../screens/katana_bookmarks_screen.dart';
+import '../screens/katana_currently_reading_screen.dart';
 import '../screens/katana_detail_screen.dart';
 import '../screens/katana_directory_screen.dart';
 import '../screens/katana_genres_screen.dart';
@@ -70,6 +71,13 @@ void pushBookmarks(BuildContext context) {
   Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => const KatanaBookmarksScreen()));
+}
+
+void pushCurrentlyReading(BuildContext context) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+        builder: (_) => const KatanaCurrentlyReadingScreen()),
+  );
 }
 
 void pushGenres(BuildContext context) {

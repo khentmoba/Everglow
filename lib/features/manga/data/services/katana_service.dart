@@ -505,6 +505,25 @@ class KatanaService {
       await _bookmarks
           .doc('$userName|$slug')
           .set(data, SetOptions(merge: true));
+      // Mirror progress onto the Currently Reading library entry when
+      // one exists, so the shelf shows "Ch. X • Page Y" without
+      // creating entries behind Clair's back.
+      try {
+        final existing = await _library
+            .where('mangaId', isEqualTo: _katanaMangaId(slug))
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get();
+        for (final doc in existing.docs) {
+          await doc.reference.set({
+            'lastReadChapterId': chapterId,
+            'lastReadChapterTitle': chapterTitle,
+            'lastReadPage': page,
+          }, SetOptions(merge: true));
+        }
+      } catch (e) {
+        Logger.e('saveReadingProgress library mirror error', error: e);
+      }
     } catch (e) {
       Logger.e('saveReadingProgress error', error: e);
     }
@@ -654,6 +673,12 @@ class KatanaService {
         'altTitles': manga.altNames,
       };
       if (existing.docs.isNotEmpty) {
+        // Preserve the original add order and any saved chapter
+        // progress — re-marking a series as Reading must not wipe
+        // where Clair left off.
+        data.remove('addedAt');
+        data.remove('lastReadChapterId');
+        data.remove('lastReadPage');
         await existing.docs.first.reference.set(data, SetOptions(merge: true));
       } else {
         await _library.doc('$userName|$mangaId').set(data);
