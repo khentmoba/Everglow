@@ -79,6 +79,15 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   bool _showPagePill = false;
   Timer? _pagePillTimer;
 
+  // Per-page resilience (mirrors the site's reader: independent page
+  // slots, silent CDN-host retries, one token-URL refresh per chapter
+  // when several pages fail together).
+  final Map<int, int> _cdnStep = {};
+  final Set<String> _fallbackScheduled = {};
+  final Set<int> _failedPages = {};
+  bool _tokenRefreshed = false;
+  bool _refreshingTokens = false;
+
   String get _user => context.read<AuthService>().currentUser ?? '';
 
   int get _currentIndex {
@@ -97,6 +106,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   void initState() {
     super.initState();
     _chapters = sortChaptersAscending(widget.chapters);
+    _chaptersIncomplete = widget.chapters.length < 8;
     final initial =
         _chapters.where((c) => c.id == widget.chapterId).firstOrNull;
     _chapter = initial ??
@@ -219,39 +229,31 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _loading = true;
       _error = null;
       _currentPage = 1;
+      _cdnStep.clear();
+      _failedPages.clear();
+      _fallbackScheduled.clear();
+      _tokenRefreshed = false;
     });
 
+    // fetchChapterPages already tries the requested server first and
+    // then the other two, so one call covers every CDN.
     var pages = await _service.fetchChapterPages(
       widget.slug,
       _chapter.path,
       server: _server,
     );
 
-    // Silent fallback: if Primary server is empty, try Server 2 (?sv=mk)
-    if (pages.isEmpty && _server.isEmpty) {
-      pages = await _service.fetchChapterPages(
-        widget.slug,
-        _chapter.path,
-        server: '?sv=mk',
-      );
-      if (pages.isNotEmpty) {
-        _server = '?sv=mk';
-      }
-    }
-
     // One silent retry: cold Cloud Function instances and flaky
     // upstreams often fail the first volley but succeed immediately
     // after. Retrying here keeps a hiccup from ever reaching Clair.
     if (pages.isEmpty && !_autoRetried) {
       _autoRetried = true;
-      pages = await _service.fetchChapterPages(widget.slug, _chapter.path);
-      if (pages.isEmpty && _server.isEmpty) {
-        pages = await _service.fetchChapterPages(
-          widget.slug,
-          _chapter.path,
-          server: '?sv=3',
-        );
-      }
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      pages = await _service.fetchChapterPages(
+        widget.slug,
+        _chapter.path,
+        server: _server,
+      );
     }
 
     if (!mounted) return;
@@ -288,7 +290,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     final start = (currentIndex + 1).clamp(0, _pages.length);
     final end = (currentIndex + 4).clamp(0, _pages.length);
     for (int i = start; i < end; i++) {
-      final url = _service.proxiedImageUrl(_pages[i]);
+      final url = _proxiedPageUrl(i);
       if (url.isNotEmpty) {
         precacheImage(CachedNetworkImageProvider(url), context)
             .catchError((_) {});
@@ -354,6 +356,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _pages = const [];
       _lastSavedPage = -1;
       _transformController.value = Matrix4.identity();
+      _cdnStep.clear();
+      _failedPages.clear();
+      _fallbackScheduled.clear();
+      _tokenRefreshed = false;
+      _autoRetried = false;
     });
     // If we jumped to a chapter outside the (short) list we were
     // handed, pull the full table so navigation keeps working.
@@ -788,23 +795,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   }
 
   Widget _buildWebtoonImage(int index) {
-    final url = _service.proxiedImageUrl(_pages[index]);
-
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: _proxiedPageUrl(index),
       fit: BoxFit.fitWidth,
       width: double.infinity,
       fadeInDuration: const Duration(milliseconds: 180),
-      placeholder: (context, url) => Container(
-        height: 380,
-        alignment: Alignment.center,
-        color: _themeStyle.surfaceColor,
-        child: CircularProgressIndicator(
-          color: KatanaColors.accent.withValues(alpha: 0.4),
-          strokeWidth: 2.2,
-        ),
-      ),
-      errorWidget: (context, url, error) => _buildImageError(index),
+      placeholder: (context, url) => _buildPagePending(index),
+      errorWidget: (context, url, error) => _pageErrorWidget(index),
     );
   }
 
@@ -902,40 +899,29 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   }
 
   Widget _buildSinglePagedImage(int index) {
-    final url = _service.proxiedImageUrl(_pages[index]);
-
-    Widget placeholder(BuildContext context, String url) => Container(
-      alignment: Alignment.center,
-      color: _themeStyle.surfaceColor,
-      child: CircularProgressIndicator(
-        color: KatanaColors.accent.withValues(alpha: 0.4),
-        strokeWidth: 2.2,
-      ),
-    );
-
     // Fit height ON resizes the page into the viewport (the site's
     // default); OFF shows it full-width with vertical scroll.
     if (!_fitHeight) {
       return SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: CachedNetworkImage(
-          imageUrl: url,
+          imageUrl: _proxiedPageUrl(index),
           fit: BoxFit.fitWidth,
           width: double.infinity,
           fadeInDuration: const Duration(milliseconds: 150),
-          placeholder: placeholder,
-          errorWidget: (context, url, error) => _buildImageError(index),
+          placeholder: (context, url) => _buildPagePending(index),
+          errorWidget: (context, url, error) => _pageErrorWidget(index),
         ),
       );
     }
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: _proxiedPageUrl(index),
       fit: BoxFit.contain,
       width: double.infinity,
       height: double.infinity,
       fadeInDuration: const Duration(milliseconds: 150),
-      placeholder: placeholder,
-      errorWidget: (context, url, error) => _buildImageError(index),
+      placeholder: (context, url) => _buildPagePending(index),
+      errorWidget: (context, url, error) => _pageErrorWidget(index),
     );
   }
 
@@ -952,37 +938,156 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     }
   }
 
-  Widget _buildImageError(int index) {
+  /// Proxied URL for page [index], including whatever CDN-host
+  /// fallback step the page has silently advanced to after failures.
+  String _proxiedPageUrl(int index) {
+    final origin = KatanaService.cdnFallbackUrl(
+      _pages[index],
+      _cdnStep[index] ?? 0,
+    );
+    return _service.proxiedImageUrl(origin);
+  }
+
+  /// MangaKatana-style pending slot: every page owns an independent
+  /// slot that shows its number while loading, so one slow page never
+  /// disturbs the rest of the chapter.
+  Widget _buildPagePending(int index) {
     return Container(
-      height: 240,
+      height: 380,
       alignment: Alignment.center,
       color: _themeStyle.surfaceColor,
-      padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.broken_image_rounded,
-            color: KatanaColors.textLight,
-            size: 32,
-          ),
-          const SizedBox(height: 8),
           Text(
-            'Page ${index + 1} failed to load',
-            style: KatanaType.small,
+            'Page ${index + 1}',
+            style: KatanaType.small.copyWith(
+              color: KatanaColors.textMuted,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 8),
-          KatanaButton(
-            label: 'Retry page',
-            icon: Icons.refresh_rounded,
-            onTap: () {
-              CachedNetworkImage.evictFromCache(
-                _service.proxiedImageUrl(_pages[index]),
-              );
-              setState(() {});
-            },
+          const SizedBox(height: 10),
+          CircularProgressIndicator(
+            color: KatanaColors.accent.withValues(alpha: 0.4),
+            strokeWidth: 2.2,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Error slot for page [index]. Like the site's reader, a failed
+  /// image first retries silently on the other CDN hosts; only when
+  /// every host fails does the slot itself ask Clair to tap to retry
+  /// or switch servers.
+  Widget _pageErrorWidget(int index) {
+    final origin = index < _pages.length ? _pages[index] : '';
+    final step = _cdnStep[index] ?? 0;
+    if (origin.isNotEmpty && step < KatanaService.cdnFallbackCount(origin)) {
+      final key = '$index:$step';
+      if (_fallbackScheduled.add(key)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _fallbackScheduled.remove(key);
+          if (!mounted || index >= _pages.length) return;
+          setState(() => _cdnStep[index] = step + 1);
+        });
+      }
+      return _buildPagePending(index);
+    }
+    if (origin.isNotEmpty) _notePageFailed(index);
+    return _buildImageError(index);
+  }
+
+  /// Records a page whose every CDN host failed. When several pages
+  /// fail together the chapter's token URLs have usually expired, so
+  /// — like the site's own refresh — the URLs are fetched fresh once
+  /// instead of leaving Clair with a broken chapter.
+  void _notePageFailed(int index) {
+    if (!_failedPages.add(index)) return;
+    _maybeRefreshTokens();
+  }
+
+  Future<void> _maybeRefreshTokens() async {
+    if (_tokenRefreshed || _refreshingTokens || _failedPages.length < 3) {
+      return;
+    }
+    _refreshingTokens = true;
+    final fresh = await _service.fetchChapterPages(
+      widget.slug,
+      _chapter.path,
+      server: _server,
+    );
+    _refreshingTokens = false;
+    if (!mounted) return;
+    // Only swap when the fresh list matches page-for-page, exactly
+    // like the site, which refuses to remap a mismatched refresh.
+    if (fresh.isEmpty || fresh.length != _pages.length) return;
+    _tokenRefreshed = true;
+    setState(() {
+      _pages = fresh;
+      _cdnStep.clear();
+      _failedPages.clear();
+    });
+    _showSnack('Page links refreshed — retry the failed pages.');
+  }
+
+  void _retryPage(int index) {
+    if (index >= _pages.length) return;
+    CachedNetworkImage.evictFromCache(_proxiedPageUrl(index));
+    setState(() {
+      _cdnStep.remove(index);
+      _failedPages.remove(index);
+    });
+  }
+
+  /// Cycles Server 1 → 2 → 3 → 1, like the site's "Click another
+  /// server if the images is not displayed" switch.
+  void _cycleServer() {
+    const order = ['', '?sv=mk', '?sv=3'];
+    const labels = ['Server 1', 'Server 2', 'Server 3'];
+    final next = order[(order.indexOf(_server) + 1) % order.length];
+    setState(() => _server = next);
+    _showSnack('Switched to ${labels[order.indexOf(next)]}');
+    _loadPages();
+  }
+
+  Widget _buildImageError(int index) {
+    return GestureDetector(
+      onTap: () => _retryPage(index),
+      child: Container(
+        height: 300,
+        alignment: Alignment.center,
+        color: _themeStyle.surfaceColor,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.broken_image_rounded,
+              color: KatanaColors.textLight,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Page ${index + 1} failed to load',
+              style: KatanaType.small,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Tap to retry',
+              style: KatanaType.small.copyWith(
+                color: KatanaColors.accent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            KatanaButton(
+              label: 'Try another server',
+              icon: Icons.dns_rounded,
+              onTap: _cycleServer,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -324,6 +324,38 @@ class KatanaService {
 
   // ── Chapter pages ───────────────────────────────────────────────
 
+  /// CDN hosts MangaKatana serves chapter images from. The site's own
+  /// reader retries a failed image on a different `iN.` host with the
+  /// same token path — the token stays valid across hosts.
+  static const List<String> katanaCdnHosts = ['i1', 'i6', 'i7', 'i5', 'i2'];
+
+  /// Rewrites [url] to its [step]-th fallback CDN host (step 0 is the
+  /// URL unchanged). Returns [url] unchanged when it has no `iN.`
+  /// host or [step] runs past the available hosts.
+  static String cdnFallbackUrl(String url, int step) {
+    if (step <= 0) return url;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final match = RegExp(r'^(i\d+)\.').firstMatch(uri.host);
+    if (match == null) return url;
+    final current = match.group(1)!;
+    final rest = katanaCdnHosts.where((h) => h != current).toList();
+    if (step > rest.length) return url;
+    return url.replaceFirst('$current.', '${rest[step - 1]}.');
+  }
+
+  /// How many silent CDN-host retries [url] gets before the reader
+  /// shows its tap-to-retry slot. Zero for non-`iN.` URLs.
+  static int cdnFallbackCount(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return 0;
+    final match = RegExp(r'^(i\d+)\.').firstMatch(uri.host);
+    if (match == null) return 0;
+    return katanaCdnHosts.contains(match.group(1))
+        ? katanaCdnHosts.length - 1
+        : katanaCdnHosts.length;
+  }
+
   /// Maps the reader's server switch to the cookie the site itself
   /// sets (`#switch_sv` in the chapter page): Server 1 is the absence
   /// of the cookie, Server 2 is `s_r=sv2`, Server 3 is `s_r=sv3`.
@@ -747,10 +779,8 @@ class KatanaService {
 
     final recent = <KatanaChapter>[];
     final chapterBlocks = RegExp(
-      '<div class="chapter"><a href="[^"]*/(' +
-          chapterIdPattern +
-          r')"[^>]*>([^<]*)</a></div>'
-          r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
+      '<div class="chapter"><a href="[^"]*/($chapterIdPattern)"[^>]*>([^<]*)</a></div>'
+      r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
       dotAll: true,
     ).allMatches(block);
     for (final m in chapterBlocks) {
