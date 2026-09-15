@@ -3,12 +3,18 @@ part of 'books_screen.dart';
 abstract class _BooksScreenStateBase extends State<BooksScreen> {
   final OpenLibraryService _service = OpenLibraryService();
   final BookCatalogService _catalog = BookCatalogService();
+  final BookLibraryService _library = BookLibraryService();
   int _currentIndex = 0;
+  int _librarySegment = 0;
 
   StreamSubscription<List<BookItem>>? _readlistSub;
+  StreamSubscription<List<BookItem>>? _favoritesSub;
+  StreamSubscription<List<BookItem>>? _historySub;
   List<BookItem> _readlist = [];
   List<BookItem> _toReadList = [];
   List<BookItem> _readHistoryList = [];
+  List<BookItem> _favorites = [];
+  List<BookItem> _history = [];
 
   List<BookSearchResult> _popular = [];
   List<BookSearchResult> _recent = [];
@@ -49,12 +55,20 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       if (userName.isEmpty) return;
       _loadCachedReadList(userName);
       _subscribeToReadList(userName);
+      _favoritesSub = _library.getFavoritesStream(userName).listen((items) {
+        if (mounted) setState(() => _favorites = items);
+      });
+      _historySub = _library.getDownloadHistoryStream(userName).listen((items) {
+        if (mounted) setState(() => _history = items);
+      });
     });
   }
 
   @override
   void dispose() {
     _readlistSub?.cancel();
+    _favoritesSub?.cancel();
+    _historySub?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
     _searchDebounce?.cancel();
