@@ -1,3 +1,4 @@
+import 'package:everglow/features/manga/data/models/katana_models.dart';
 import 'package:everglow/features/manga/data/models/manga_item.dart';
 import 'package:everglow/features/manga/presentation/katana/currently_reading_shelf.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,6 +78,99 @@ void main() {
       expect(item.title, isEmpty);
       expect(item.lastReadChapterId, 'c12');
       expect(item.lastReadPage, 5);
+    });
+  });
+
+  KatanaBookmark bookmark({
+    required String slug,
+    String title = '',
+    String chapterId = '',
+    int page = 0,
+  }) {
+    return KatanaBookmark(
+      slug: slug,
+      title: title,
+      coverUrl: '',
+      addedAt: DateTime(2026, 1, 2),
+      lastReadChapterId: chapterId,
+      lastReadPage: page,
+    );
+  }
+
+  group('humanizeKatanaSlug', () {
+    test('title-cases slug words', () {
+      expect(
+        humanizeKatanaSlug('chronicles-of-the-lazy-sovereign'),
+        'Chronicles Of The Lazy Sovereign',
+      );
+    });
+
+    test('falls back for empty slugs', () {
+      expect(humanizeKatanaSlug('  '), 'Untitled series');
+    });
+  });
+
+  group('mergeReadingWithProgress', () {
+    test('appends progress-only titles after pinned entries', () {
+      final merged = mergeReadingWithProgress(
+        reading: [_readingItem(mangaId: 'katana|solo-leveling')],
+        bookmarks: [
+          bookmark(slug: 'lazy-sovereign', chapterId: 'c2', page: 1),
+        ],
+        userName: 'clairjassen',
+      );
+      expect(merged, hasLength(2));
+      expect(merged.first.title, 'Solo Leveling');
+      final extra = merged.last;
+      expect(extra.mangaId, 'katana|lazy-sovereign');
+      expect(extra.title, 'Lazy Sovereign');
+      expect(extra.lastReadChapterId, 'c2');
+      expect(extra.lastReadPage, 1);
+      // Display-only: no library entry, so no Remove button.
+      expect(extra.isReading, isFalse);
+      expect(katanaSlugOfItem(extra), 'lazy-sovereign');
+    });
+
+    test('skips bookmarks already pinned as Reading', () {
+      final merged = mergeReadingWithProgress(
+        reading: [_readingItem(mangaId: 'katana|solo-leveling')],
+        bookmarks: [
+          bookmark(
+            slug: 'solo-leveling',
+            title: 'Solo Leveling',
+            chapterId: 'c12',
+            page: 5,
+          ),
+        ],
+        userName: 'clairjassen',
+      );
+      expect(merged, hasLength(1));
+      expect(merged.first.title, 'Solo Leveling');
+    });
+
+    test('skips bookmarks without progress', () {
+      final merged = mergeReadingWithProgress(
+        reading: const [],
+        bookmarks: [bookmark(slug: 'just-bookmarked')],
+        userName: 'clairjassen',
+      );
+      expect(merged, isEmpty);
+    });
+
+    test('keeps saved titles over humanized slugs', () {
+      final merged = mergeReadingWithProgress(
+        reading: const [],
+        bookmarks: [
+          bookmark(
+            slug: 'lazy-sovereign',
+            title: 'Chronicles of the Lazy Sovereign',
+            chapterId: 'c2',
+          ),
+        ],
+        userName: 'clairjassen',
+      );
+      expect(merged, hasLength(1));
+      expect(merged.first.title, 'Chronicles of the Lazy Sovereign');
     });
   });
 }
