@@ -133,39 +133,41 @@ class _KatanaHeaderState extends State<KatanaHeader> {
         right: false,
         child: Column(
           children: [
-            // Top row: back (couple users) + logo + centered search +
-            // bookmarks + user. Left and right clusters mirror each
-            // other so the search stays visually centered.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  if (showBack) ...[
-                    Tooltip(
-                      message: 'Back to Everglow',
-                      child: IconButton(
-                        onPressed: _handleBack,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 18,
-                          color: KatanaColors.textMuted,
+            // Top area: on desktop keep back + logo + centered search +
+            // bookmarks + user in one row. On phone/tablet the logo row
+            // would squeeze the search field down to just the icons
+            // (only the Name/Author toggle stayed tappable), so the
+            // search gets its own full-width row below the logo.
+            if (desktop)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    if (showBack) ...[
+                      Tooltip(
+                        message: 'Back to Everglow',
+                        child: IconButton(
+                          onPressed: _handleBack,
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 18,
+                            color: KatanaColors.textMuted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    _buildLogo(),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 620),
+                          child: _buildSearchField(),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                  ],
-                  _buildLogo(),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 620),
-                        child: _buildSearchField(),
-                      ),
-                    ),
-                  ),
-                  if (desktop) ...[
                     const SizedBox(width: 16),
                     SizedBox(
                       width: 210,
@@ -178,16 +180,41 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                         ],
                       ),
                     ),
-                  ] else if (showBack) ...[
-                    // Mirror the back button's width on mobile so the
-                    // search field stays centered.
-                    const SizedBox(width: 54),
-                  ] else ...[
-                    const SizedBox(width: 8),
                   ],
-                ],
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        if (showBack) ...[
+                          Tooltip(
+                            message: 'Back to Everglow',
+                            child: IconButton(
+                              onPressed: _handleBack,
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 18,
+                                color: KatanaColors.textMuted,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Flexible(child: _buildLogo()),
+                        const Spacer(),
+                        _buildBookmarksButton(),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildSearchField(),
+                  ],
+                ),
               ),
-            ),
             // Suggestions dropdown (stays visible for empty results so
             // "No matches found." actually shows, like the site).
             if (_searchController.text.trim().length >= 3 &&
@@ -237,14 +264,17 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   }
 
   Widget _buildLogo() {
+    final narrow = MediaQuery.sizeOf(context).width < 500;
+    final logoSize = narrow ? 30.0 : 34.0;
+    final fontSize = narrow ? 19.0 : 22.0;
     return GestureDetector(
       onTap: () => pushHome(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: logoSize,
+            height: logoSize,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [KatanaColors.accent, KatanaColors.accentDark],
@@ -253,10 +283,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               ),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.auto_awesome_rounded,
               color: Colors.white,
-              size: 19,
+              size: narrow ? 17 : 19,
             ),
           ),
           const SizedBox(width: 8),
@@ -267,7 +297,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                   text: 'Manga',
                   style: AppTypography.outfitBold.copyWith(
                     color: KatanaColors.text,
-                    fontSize: 22,
+                    fontSize: fontSize,
                     height: 1,
                   ),
                 ),
@@ -275,7 +305,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                   text: 'Celestia',
                   style: AppTypography.outfitBold.copyWith(
                     color: KatanaColors.accent,
-                    fontSize: 22,
+                    fontSize: fontSize,
                     height: 1,
                   ),
                 ),
@@ -290,10 +320,12 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   Widget _buildSearchField() {
     final hasText = _searchController.text.isNotEmpty;
     final canSubmit = _searchController.text.trim().length >= 3;
-    final narrow = MediaQuery.sizeOf(context).width < 500;
+    final width = MediaQuery.sizeOf(context).width;
+    final narrow = width < 500;
+    final desktop = width >= 900;
     return Container(
-      height: 40,
-      constraints: const BoxConstraints(maxWidth: 560),
+      height: desktop ? 40 : 44,
+      constraints: const BoxConstraints(maxWidth: 620),
       decoration: BoxDecoration(
         color: KatanaColors.background,
         borderRadius: BorderRadius.circular(6),
@@ -308,7 +340,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
             child: TextField(
               controller: _searchController,
               focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
+              onChanged: (value) {
+                // Rebuild so the clear/submit buttons enable correctly.
+                setState(() {});
+                _onSearchChanged(value);
+              },
               onSubmitted: (_) => _submitSearch(),
               textInputAction: TextInputAction.search,
               style: AppTypography.outfitWhite.copyWith(
@@ -322,9 +358,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
                 suffixIcon: hasText
-                    ? GestureDetector(
-                        onTap: _clearSearch,
-                        child: const Icon(
+                    ? IconButton(
+                        onPressed: _clearSearch,
+                        visualDensity: VisualDensity.compact,
+                        tooltip: 'Clear',
+                        icon: const Icon(
                           Icons.clear_rounded,
                           size: 16,
                           color: KatanaColors.textLight,
@@ -332,8 +370,8 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                       )
                     : null,
                 suffixIconConstraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
+                  minWidth: 32,
+                  minHeight: 32,
                 ),
               ),
             ),
@@ -342,9 +380,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
           // site's select next to the input.
           GestureDetector(
             onTap: _toggleSearchBy,
+            behavior: HitTestBehavior.opaque,
             child: Container(
               margin: const EdgeInsets.only(right: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
                 color: KatanaColors.surface,
                 borderRadius: BorderRadius.circular(4),
@@ -371,10 +410,14 @@ class _KatanaHeaderState extends State<KatanaHeader> {
           IconButton(
             onPressed: canSubmit ? _submitSearch : null,
             visualDensity: VisualDensity.compact,
-            tooltip: 'Search',
+            tooltip: canSubmit ? 'Search' : 'Type at least 3 letters',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(40, 40),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             icon: Icon(
               Icons.arrow_forward_rounded,
-              size: 17,
+              size: 18,
               color: canSubmit
                   ? KatanaColors.accent
                   : KatanaColors.textLight,
