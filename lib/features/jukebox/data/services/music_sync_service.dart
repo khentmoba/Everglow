@@ -239,16 +239,12 @@ class MusicSyncService {
     return [];
   }
 
-  /// Fetches every track by [artist] that [username] has scrobbled, with
-  /// per-track play counts (`user.getartisttracks`). Powers the artist
-  /// showdown: the same call feeds both the head-to-head total and the
-  /// song-by-song table.
-  ///
-  /// The artist name is forced onto each result instead of trusting the
-  /// entry's artist node (Last.fm's shape varies here), so totals always
-  /// group under exactly the artist that was picked. Returns an empty list
-  /// when the user is unknown, the artist has no scrobbles, or the request
-  /// fails.
+  /// Deprecated: `user.getartisttracks` was deprecated by Last.fm in 2019
+  /// (stale legacy backend, entries carry no `playcount`). Kept for tests
+  /// and backwards compat — new code should pull `user.gettoptracks`
+  /// (limit 1000) and filter by artist locally, as ArtistShowdownProvider
+  /// now does.
+  @Deprecated('Use fetchTopTracks(limit: 1000) filtered by artist instead')
   Future<List<TopMusicTrack>> fetchArtistTracks(
     String username,
     String artist, {

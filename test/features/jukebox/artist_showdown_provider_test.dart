@@ -4,27 +4,29 @@ import 'package:everglow/features/jukebox/data/models/top_music_track.dart';
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
 import 'package:everglow/features/jukebox/presentation/providers/artist_showdown_provider.dart';
 
-TopMusicTrack _track(String name, int plays) => TopMusicTrack(
-  rank: 1,
-  trackName: name,
-  artistName: 'Ethel Cain',
-  playCount: plays,
-  imageUrl: null,
-  spotifyUrl: 'https://open.spotify.com/search/x',
-);
+TopMusicTrack _track(String name, int plays, {String artist = 'Ethel Cain'}) =>
+    TopMusicTrack(
+      rank: 1,
+      trackName: name,
+      artistName: artist,
+      playCount: plays,
+      imageUrl: null,
+      spotifyUrl: 'https://open.spotify.com/search/x',
+    );
 
 class _FakeSync extends MusicSyncService {
   _FakeSync({required this.byUser});
 
-  /// Last.fm username -> tracks for that user.
+  /// Last.fm username -> full all-time top tracks (provider filters by
+  /// artist locally, mirroring the live `user.gettoptracks` path).
   final Map<String, List<TopMusicTrack>> byUser;
   int calls = 0;
 
   @override
-  Future<List<TopMusicTrack>> fetchArtistTracks(
-    String username,
-    String artist, {
-    int limit = 200,
+  Future<List<TopMusicTrack>> fetchTopTracks(
+    String username, {
+    int limit = 10,
+    String period = 'overall',
   }) async {
     calls++;
     return byUser[username] ?? const [];
@@ -72,6 +74,34 @@ void main() {
       provider.dispose();
     });
 
+    test('ignores tracks by other artists', () async {
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [
+            _track('American Teenager', 42),
+            _track('Video Games', 999, artist: 'Lana Del Rey'),
+          ],
+          'clairjassen': [
+            _track('Strangers', 12),
+            _track('Summertime Sadness', 500, artist: 'Lana Del Rey'),
+          ],
+        },
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      expect(provider.khentTotal, 42);
+      expect(provider.clairTotal, 12);
+      expect(provider.tracks, hasLength(2));
+      expect(
+        provider.tracks.every(
+          (t) => t.trackName != 'Video Games' && t.trackName != 'Summertime Sadness',
+        ),
+        isTrue,
+      );
+      provider.dispose();
+    });
+
     test('merges case-insensitive duplicates into one row', () async {
       final sync = _FakeSync(
         byUser: {
@@ -107,21 +137,33 @@ void main() {
     test('caches per artist so switching back never refetches', () async {
       final sync = _FakeSync(
         byUser: {
-          'khentsgdz': [_track('A', 3)],
-          'clairjassen': [_track('A', 4)],
+          'khentsgdz': [
+            _track('A', 3),
+            _track('Video Games', 7, artist: 'Lana Del Rey'),
+          ],
+          'clairjassen': [
+            _track('A', 4),
+            _track('Video Games', 3, artist: 'Lana Del Rey'),
+          ],
         },
       );
       final provider = ArtistShowdownProvider(syncService: sync);
       await _waitFor(() => !provider.isLoading);
+      expect(provider.khentTotal, 3);
+      expect(provider.clairTotal, 4);
       expect(sync.calls, 2);
 
       await provider.selectArtist('Lana Del Rey');
       await _waitFor(() => !provider.isLoading);
       expect(provider.artist, 'Lana Del Rey');
+      expect(provider.khentTotal, 7);
+      expect(provider.clairTotal, 3);
       expect(sync.calls, 4);
 
       await provider.selectArtist('Ethel Cain');
       expect(provider.artist, 'Ethel Cain');
+      expect(provider.khentTotal, 3);
+      expect(provider.clairTotal, 4);
       expect(sync.calls, 4);
       provider.dispose();
     });
