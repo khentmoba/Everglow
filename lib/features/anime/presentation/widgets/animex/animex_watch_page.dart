@@ -122,6 +122,34 @@ class AnimeXWatchPage extends StatefulWidget {
     return routeMalId;
   }
 
+  static final _seasonInTitleRegex =
+      RegExp(r'season\s+(\d+)', caseSensitive: false);
+
+  /// Season to persist with watch progress for an anime episode.
+  ///
+  /// Anime seasons are separate catalog entries ("Black Clover Season 2")
+  /// but progress used to hardcode season 1, so the dashboard showed S1E1
+  /// against a Season 2 title. Prefer the ani.zip TMDB mapping when known,
+  /// otherwise the season in the title, otherwise 1. Movies return null so
+  /// shelves never gain stale S1E1 fields.
+  @visibleForTesting
+  static int? resolveProgressSeason({
+    required bool isMovie,
+    required String title,
+    required int episode,
+    required Map<int, ({int season, int episode})> episodeSlots,
+  }) {
+    if (isMovie) return null;
+    final slot = episodeSlots[episode];
+    if (slot != null && slot.season > 0) return slot.season;
+    final match = _seasonInTitleRegex.firstMatch(title);
+    if (match != null) {
+      final parsed = int.tryParse(match.group(1) ?? '');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    return 1;
+  }
+
   /// Base URL of our ad-free anime resolver (see functions/anime.js).
   /// Megavid plays through it instead of the provider's website embed:
   /// the function resolves the episode server-side and serves our own
@@ -837,11 +865,19 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
     // Movies have no episode progress — write null so Firestore never
     // gains stale S1E1 fields that shelves would then display.
+    // Series resolve the real season (ani.zip mapping, else the season in
+    // the title) so "Black Clover Season 2" never saves as S1E1.
     final isMovie = mediaItem.isMovie;
+    final progressSeason = AnimeXWatchPage.resolveProgressSeason(
+      isMovie: isMovie,
+      title: mediaItem.title,
+      episode: ep,
+      episodeSlots: _episodeSlots,
+    );
     _tmdbService.updateProgress(
       mediaItem,
       userName,
-      season: isMovie ? null : 1,
+      season: progressSeason,
       episode: isMovie ? null : ep,
       timestamp: pos?.round(),
       durationSeconds: duration,
@@ -861,7 +897,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
         userName,
-        season: _item.isMovie ? null : 1,
+        season: AnimeXWatchPage.resolveProgressSeason(
+          isMovie: _item.isMovie,
+          title: _item.title,
+          episode: _selectedEpisode,
+          episodeSlots: _episodeSlots,
+        ),
         episode: _item.isMovie ? null : _selectedEpisode,
         timestamp: position.round(),
         durationSeconds: duration.round(),
@@ -881,7 +922,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
         userName,
-        season: _item.isMovie ? null : 1,
+        season: AnimeXWatchPage.resolveProgressSeason(
+          isMovie: _item.isMovie,
+          title: _item.title,
+          episode: _selectedEpisode,
+          episodeSlots: _episodeSlots,
+        ),
         episode: _item.isMovie ? null : _selectedEpisode,
         timestamp: _playbackPosition?.round(),
         durationSeconds:

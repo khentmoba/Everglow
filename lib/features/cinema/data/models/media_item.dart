@@ -158,6 +158,24 @@ class MediaItem {
     return true;
   }
 
+  static final _seasonInTitleRegex =
+      RegExp(r'season\s+(\d+)', caseSensitive: false);
+
+  /// Season number to show in shelves.
+  ///
+  /// Anime seasons are separate catalog entries whose titles already carry
+  /// the season ("Black Clover Season 2") while progress is saved per-entry
+  /// as season 1 — so showing the saved 1 contradicts the title Clair sees.
+  /// Prefer the season in the title when present, otherwise the saved season.
+  int get displaySeason {
+    final match = _seasonInTitleRegex.firstMatch(title);
+    if (match != null) {
+      final parsed = int.tryParse(match.group(1) ?? '');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+    return currentSeason ?? 1;
+  }
+
   /// True for anime series (TV) — the only anime that lives exclusively
   /// in the Anime rail. Anime *movies* belong in the cinema shelves too
   /// (see [isCinemaItem]) so film lovers never lose them from
