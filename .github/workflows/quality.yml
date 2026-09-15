@@ -64,6 +64,9 @@ jobs:
       # AppVersion <-> CHANGELOG <-> README. release.yml publishes from
       # this paperwork on version bumps; this guard keeps its input clean.
       - run: dart tool/ci/check_release_sync.dart
+      # MangaCelestia stays ad-free: no ad SDKs, ad widgets, Hide-Ads
+      # flows, or webviews in the manga section.
+      - run: dart tool/ci/check_no_ads.dart
 
   # PRs previously merged with a broken web build: quality ran analyze
   # + test but the web build only ran on main push, so hosting/revert
