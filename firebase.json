@@ -227,6 +227,10 @@
         "function": "proxyBookText"
       },
       {
+        "source": "/api/proxyBookFile",
+        "function": "proxyBookFile"
+      },
+      {
         "source": "/api/verifyPasscode",
         "function": "verifyPasscode"
       },

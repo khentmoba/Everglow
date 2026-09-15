@@ -10,7 +10,9 @@ import '../../data/models/book_item.dart';
 import '../../data/models/book_search_result.dart';
 import '../../data/services/book_catalog_service.dart';
 import '../../data/services/book_download_helper.dart';
+import '../../data/services/book_library_service.dart';
 import '../../data/services/open_library_service.dart';
+import '../../data/services/our_books_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
@@ -42,6 +44,8 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     with SingleTickerProviderStateMixin {
   final BookCatalogService _catalog = BookCatalogService();
   final OpenLibraryService _service = OpenLibraryService();
+  final BookLibraryService _library = BookLibraryService();
+  final OurBooksService _ours = OurBooksService();
   late final TabController _tabController;
 
   BookSearchResult? _result;
@@ -50,13 +54,14 @@ class _BookDetailScreenState extends State<BookDetailScreen>
   bool _loadingSimilar = true;
   bool _descExpanded = false;
   bool _saved = false;
+  bool _favorited = false;
 
   BookItem get _item => widget.args.item;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _saved = _item.isToRead || _item.isRead;
     _result = widget.args.result;
     _loadDetails();
@@ -197,8 +202,80 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _DownloadSheet(result: _result, item: _item),
+      builder: (_) => _DownloadSheet(
+        result: _result,
+        item: _item,
+        onDownloaded: _logDownload,
+      ),
     );
+  }
+
+  /// Download one file and remember it in the personal history.
+  Future<void> _downloadFile(String format, String url) async {
+    HapticFeedback.selectionClick();
+    final fileName =
+        '${_sanitizeFileName(_item.title)}.${format.toUpperCase()}';
+    downloadUrl(url, filename: fileName);
+    await _logDownload(format);
+  }
+
+  Future<void> _logDownload(String format) async {
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) return;
+    await _library.logDownload(_bookForReading(), userName, format: format);
+  }
+
+  Future<void> _toggleFavorite() async {
+    HapticFeedback.selectionClick();
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName.isEmpty) {
+      _showSnack('Please sign in to favorite books');
+      return;
+    }
+    final book = _bookForReading();
+    if (_favorited) {
+      await _library.removeFavorite(book.workKey, userName);
+      if (mounted) {
+        setState(() => _favorited = false);
+        _showSnack('Removed from favorites');
+      }
+    } else {
+      await _library.addFavorite(book, userName);
+      if (mounted) {
+        setState(() => _favorited = true);
+        _showSnack('Added to favorites');
+      }
+    }
+  }
+
+  Future<void> _sendToOurs() async {
+    HapticFeedback.selectionClick();
+    final userName = context.read<AuthService>().currentUser ?? '';
+    if (userName != 'khentsgdz' && userName != 'clairjassen') {
+      _showSnack('Our Books is just for the two of you');
+      return;
+    }
+    final added = await _ours.addToOurBooks(_bookForReading(), userName);
+    if (!mounted) return;
+    _showSnack(
+      added == null ? 'Could not add right now' : 'Added to Our Books',
+    );
+  }
+
+  /// Best download format first (EPUB > PDF > TXT ...) so the big
+  /// button always offers the nicest file.
+  MapEntry<String, String>? get _bestDownload {
+    final downloads = <String, String>{...?(_result?.downloadUrls)};
+    if (downloads.isEmpty && _item.iaId.isNotEmpty) {
+      downloads['epub'] =
+          'https://archive.org/download/${_item.iaId}/${_item.iaId}.epub';
+      downloads['pdf'] =
+          'https://archive.org/download/${_item.iaId}/${_item.iaId}.pdf';
+    }
+    if (downloads.isEmpty) return null;
+    final entries = downloads.entries.toList()
+      ..sort((a, b) => _formatRank(a.key).compareTo(_formatRank(b.key)));
+    return entries.first;
   }
 
   void _showSnack(String msg) {
@@ -225,7 +302,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       body: SafeArea(
         top: false,
         child: DefaultTabController(
-          length: 3,
+          length: 2,
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -270,6 +347,15 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                       ),
                       const SizedBox(width: 8),
                       _TopIconButton(
+                        icon: _favorited
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        label: _favorited ? 'Favorited' : 'Favorite',
+                        active: _favorited,
+                        onTap: _toggleFavorite,
+                      ),
+                      const SizedBox(width: 8),
+                      _TopIconButton(
                         icon: _saved
                             ? Icons.bookmark_rounded
                             : Icons.bookmark_border_rounded,
@@ -282,13 +368,15 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                 ),
               ),
               SliverToBoxAdapter(child: _buildHero()),
+              SliverToBoxAdapter(child: _buildDownloadHero()),
               SliverToBoxAdapter(child: _buildDescription()),
+              SliverToBoxAdapter(child: _buildDetailsCard()),
               SliverToBoxAdapter(child: _buildActionBar()),
               SliverPersistentHeader(
                 pinned: true,
                 delegate: _TabHeaderDelegate(
                   controller: _tabController,
-                  count: 3,
+                  count: 2,
                 ),
               ),
               SliverFillRemaining(
@@ -297,7 +385,6 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                   controller: _tabController,
                   children: [
                     _buildDownloadsTab(),
-                    _buildTechnicalTab(),
                     _buildSimilarTab(),
                   ],
                 ),
@@ -362,12 +449,20 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                 ),
                 if (author.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    author,
-                    style: AppTypography.outfitWhite.copyWith(
-                      color: _cRose.withValues(alpha: 0.85),
-                      fontSize: 12.5,
-                      fontStyle: FontStyle.italic,
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      context.push('/books', extra: author);
+                    },
+                    child: Text(
+                      author,
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: _cRose.withValues(alpha: 0.85),
+                        fontSize: 12.5,
+                        fontStyle: FontStyle.italic,
+                        decoration: TextDecoration.underline,
+                        decorationColor: _cRose.withValues(alpha: 0.4),
+                      ),
                     ),
                   ),
                 ],
@@ -474,38 +569,227 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     );
   }
 
-  Widget _buildActionBar() {
-    final canListen =
+  /// Z-Lib style primary download block: one big button offering
+  /// the best format, with Read / Listen as quiet secondaries.
+  Widget _buildDownloadHero() {
+    final best = _bestDownload;
+    final canRead =
         _result?.readCandidates.isNotEmpty == true ||
         _item.readSourceUrl.isNotEmpty;
-    final canRead = canListen;
-    final canDownload =
-        _result?.downloadUrls.isNotEmpty == true || _item.iaId.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (best != null)
+            ElevatedButton.icon(
+              onPressed: () {
+                final count = (_result?.downloadUrls.length ?? 0);
+                if (count > 1) {
+                  _showDownloadSheet();
+                } else {
+                  _downloadFile(best.key, best.value);
+                }
+              },
+              icon: const Icon(Icons.download_rounded, size: 20),
+              label: Text(
+                'Download ${best.key.toUpperCase()}${_result?.sizeMb != null && _result!.sizeMb! > 0 ? ' · ${_result!.sizeMb!.toStringAsFixed(1)} MB' : ''}',
+                style: AppTypography.outfitBold.copyWith(fontSize: 15),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _cDeepRose,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 6,
+                shadowColor: _cDeepRose.withValues(alpha: 0.5),
+              ),
+            ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: canRead ? () => _openReader() : null,
+                  icon: const Icon(Icons.auto_stories_rounded, size: 18),
+                  label: const Text('Read Online'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _cWhite,
+                    side: BorderSide(color: _cRose.withValues(alpha: 0.25)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: canRead ? () => _openReader(listen: true) : null,
+                  icon: const Icon(Icons.headphones_rounded, size: 18),
+                  label: const Text('Listen'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _cWhite,
+                    side: BorderSide(color: _cRose.withValues(alpha: 0.25)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Z-Lib style details card: the full metadata table up front
+  /// instead of hidden behind a tab.
+  Widget _buildDetailsCard() {
+    final rows = _detailRows();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final result = _result;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        decoration: BoxDecoration(
+          color: _cCard.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _cRose.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'DETAILS',
+              style: AppTypography.outfitHeading.copyWith(
+                color: _cMuted,
+                fontSize: 10,
+                letterSpacing: 1.6,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final row in rows)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 96,
+                      child: Text(
+                        row.$1,
+                        style: AppTypography.outfitHeading.copyWith(
+                          color: _cMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        row.$2,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cWhite,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if ((result?.subjects ?? const []).isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: result!.subjects
+                    .take(8)
+                    .map(
+                      (s) => GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          context.push('/books/category', extra: s);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _cBlack.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: _cRose.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          child: Text(
+                            s,
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: _cRose.withValues(alpha: 0.85),
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<(String, String)> _detailRows() {
+    final result = _result;
+    final isbn = [
+      if ((result?.isbn13 ?? '').isNotEmpty) result!.isbn13,
+      if ((result?.isbn ?? _item.isbn).isNotEmpty)
+        (result?.isbn ?? _item.isbn),
+    ].join(' · ');
+    return <(String, String)>[
+      if ((result?.subjects ?? const []).isNotEmpty)
+        ('Category', result!.subjects.first),
+      ('Type', 'Book'),
+      if ((result?.year ?? _item.year).isNotEmpty)
+        ('Year', (result?.year ?? _item.year)),
+      if ((result?.publisher ?? _item.publisher).isNotEmpty)
+        ('Publisher', (result?.publisher ?? _item.publisher)),
+      if ((result?.language ?? '').isNotEmpty) ('Language', result!.language),
+      if ((result?.pageCount ?? _item.pageCount) > 0)
+        ('Pages', '${result?.pageCount ?? _item.pageCount}'),
+      if (isbn.isNotEmpty) ('ISBN', isbn),
+      if ((_result?.fileLine ?? '').isNotEmpty)
+        ('File', _result!.fileLine),
+      ('Source', result?.sourceLabel ?? _item.readSourceLabel),
+      if (result?.ratingCount != null)
+        ('Downloads', _compact(result!.ratingCount!)),
+      if ((result?.gutenbergId ?? 0) > 0)
+        ('Gutenberg ID', '${result!.gutenbergId}'),
+      if ((result?.iaId ?? _item.iaId).isNotEmpty)
+        ('Archive ID', result?.iaId ?? _item.iaId),
+    ];
+  }
+
+  Widget _buildActionBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _ActionChip(
-            icon: Icons.headphones_rounded,
-            label: 'Listen',
-            color: _cAmber,
-            enabled: canListen,
-            onTap: canListen ? () => _openReader(listen: true) : null,
-          ),
-          _ActionChip(
-            icon: Icons.auto_stories_rounded,
-            label: 'Read',
+            icon: Icons.favorite_rounded,
+            label: 'Ours',
             color: _cDeepRose,
-            enabled: canRead,
-            onTap: canRead ? () => _openReader() : null,
-          ),
-          _ActionChip(
-            icon: Icons.download_rounded,
-            label: 'Download',
-            color: AppColors.cinemaGreen,
-            enabled: canDownload,
-            onTap: canDownload ? _showDownloadSheet : null,
+            enabled: true,
+            onTap: _sendToOurs,
           ),
           _ActionChip(
             icon: Icons.share_rounded,
@@ -522,6 +806,15 @@ class _BookDetailScreenState extends State<BookDetailScreen>
             color: const Color(0xFF7B1FA2),
             enabled: true,
             onTap: _toggleSave,
+          ),
+          _ActionChip(
+            icon: _favorited
+                ? Icons.star_rounded
+                : Icons.star_border_rounded,
+            label: _favorited ? 'Loved' : 'Love',
+            color: _cAmber,
+            enabled: true,
+            onTap: _toggleFavorite,
           ),
         ],
       ),
@@ -570,7 +863,6 @@ class _BookDetailScreenState extends State<BookDetailScreen>
         }
         final entry = entries[index];
         final ext = entry.key.toUpperCase();
-        final fileName = '${_sanitizeFileName(_item.title)}.$ext';
         return Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -620,7 +912,7 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                 ),
               ),
               TextButton(
-                onPressed: () => downloadUrl(entry.value, filename: fileName),
+                onPressed: () => _downloadFile(entry.key, entry.value),
                 style: TextButton.styleFrom(
                   backgroundColor: _cDeepRose,
                   foregroundColor: Colors.white,
@@ -664,103 +956,6 @@ class _BookDetailScreenState extends State<BookDetailScreen>
         .replaceAll(RegExp(r'\s+'), '-')
         .trim();
     return cleaned.isEmpty ? 'book' : cleaned;
-  }
-
-  Widget _buildTechnicalTab() {
-    final result = _result;
-    final rows = <(String, String)>[
-      if ((result?.language ?? '').isNotEmpty) ('Language', result!.language),
-      if ((result?.filetype ?? '').isNotEmpty)
-        ('File type', result!.filetype.toUpperCase()),
-      if (result?.sizeMb != null && result!.sizeMb! > 0)
-        ('Size', '${result.sizeMb!.toStringAsFixed(1)} MB'),
-      if ((result?.year ?? _item.year).isNotEmpty)
-        ('Year', (result?.year ?? _item.year)),
-      if ((result?.publisher ?? '').isNotEmpty)
-        ('Publisher', result!.publisher),
-      if ((result?.pageCount ?? _item.pageCount) > 0)
-        ('Pages', '${result?.pageCount ?? _item.pageCount}'),
-      if (result?.ratingCount != null)
-        ('Downloads', _compact(result!.ratingCount!)),
-      ('Source', result?.sourceLabel ?? _item.readSourceLabel),
-      if ((result?.gutenbergId ?? 0) > 0)
-        ('Gutenberg ID', '${result!.gutenbergId}'),
-      if ((result?.iaId ?? _item.iaId).isNotEmpty)
-        ('Archive ID', result?.iaId ?? _item.iaId),
-      if ((result?.workKey ?? _item.workKey).isNotEmpty)
-        ('Open Library', result?.workKey ?? _item.workKey),
-    ];
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-      children: [
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 110,
-                  child: Text(
-                    row.$1,
-                    style: AppTypography.outfitHeading.copyWith(
-                      color: _cMuted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    row.$2,
-                    style: AppTypography.outfitWhite.copyWith(
-                      color: _cWhite,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 12),
-        if ((result?.subjects ?? const []).isNotEmpty) ...[
-          Text(
-            'SUBJECTS',
-            style: AppTypography.outfitHeading.copyWith(
-              color: _cMuted,
-              fontSize: 10,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: result!.subjects
-                .take(12)
-                .map(
-                  (s) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _cCard,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _cRose.withValues(alpha: 0.12)),
-                    ),
-                    child: Text(
-                      s,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: _cRose.withValues(alpha: 0.85),
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
-      ],
-    );
   }
 
   Widget _buildSimilarTab() {

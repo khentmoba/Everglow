@@ -9,6 +9,78 @@ import './open_library_service.dart';
 /// Sort modes copied from WeLib's search page.
 enum BookSort { relevant, popular, newest, oldest, largest, smallest, random }
 
+/// Z-Lib style advanced-search filters. Every field maps onto either
+/// an Open Library query field (title / author / publisher / isbn)
+/// or a client-side post-filter (year range, exact match) applied
+/// after the three sources are merged.
+class BookSearchFilters {
+  final String? title;
+  final String? author;
+  final String? publisher;
+  final String? isbn;
+  final int? yearFrom;
+  final int? yearTo;
+  final bool exact;
+
+  const BookSearchFilters({
+    this.title,
+    this.author,
+    this.publisher,
+    this.isbn,
+    this.yearFrom,
+    this.yearTo,
+    this.exact = false,
+  });
+
+  static const BookSearchFilters none = BookSearchFilters();
+
+  bool get isEmpty =>
+      (title?.trim().isEmpty ?? true) &&
+      (author?.trim().isEmpty ?? true) &&
+      (publisher?.trim().isEmpty ?? true) &&
+      (isbn?.trim().isEmpty ?? true) &&
+      yearFrom == null &&
+      yearTo == null &&
+      !exact;
+
+  bool get isNotEmpty => !isEmpty;
+
+  /// Short human summary for the filter pill, e.g. "Author + 1940–1960".
+  String get summary {
+    final parts = <String>[];
+    if (title?.trim().isNotEmpty == true) parts.add('Title');
+    if (author?.trim().isNotEmpty == true) parts.add('Author');
+    if (publisher?.trim().isNotEmpty == true) parts.add('Publisher');
+    if (isbn?.trim().isNotEmpty == true) parts.add('ISBN');
+    if (yearFrom != null || yearTo != null) {
+      parts.add('${yearFrom ?? '…'}–${yearTo ?? '…'}');
+    }
+    if (exact) parts.add('Exact');
+    return parts.join(' · ');
+  }
+}
+
+/// One page of merged catalog results. `total` is the Open Library
+/// catalog-wide match count; `hasMore` tells the list whether a
+/// "Load more" row should be shown.
+class CatalogPage {
+  final List<BookSearchResult> results;
+  final int total;
+  final bool hasMore;
+
+  const CatalogPage({
+    required this.results,
+    required this.total,
+    required this.hasMore,
+  });
+
+  static const CatalogPage empty = CatalogPage(
+    results: [],
+    total: 0,
+    hasMore: false,
+  );
+}
+
 /// The "database" behind the WeLib-style search: merges Open Library
 /// (discovery + metadata), Project Gutenberg (public-domain text +
 /// downloads), and Internet Archive (public-domain downloads) into a
@@ -52,24 +124,125 @@ class BookCatalogService {
     String? language,
     BookSort sort = BookSort.relevant,
     int limit = 30,
+    BookSearchFilters filters = BookSearchFilters.none,
+    int offset = 0,
   }) async {
-    if (query.trim().isEmpty) return const [];
+    final page = await searchPaged(
+      query,
+      filetype: filetype,
+      language: language,
+      sort: sort,
+      limit: limit,
+      offset: offset,
+      filters: filters,
+    );
+    return page.results;
+  }
+
+  /// Z-Lib style paged search across the merged catalog.
+  ///
+  /// Page 1 fans out to all three sources (Open Library +
+  /// Gutenberg + Internet Archive) and merges them. Deeper pages
+  /// are Open Library only — it is the only source with true
+  /// offset paging over millions of docs, and merging ranked pages
+  /// from three APIs would duplicate and mis-order results.
+  Future<CatalogPage> searchPaged(
+    String query, {
+    String? filetype,
+    String? language,
+    BookSort sort = BookSort.relevant,
+    int limit = 30,
+    int offset = 0,
+    BookSearchFilters filters = BookSearchFilters.none,
+  }) async {
+    if (query.trim().isEmpty && filters.isEmpty) return CatalogPage.empty;
     final langCode = language == null ? null : _langCode(language);
+    final q = query.trim();
+
+    if (offset > 0) {
+      final page = await _openLibrary.searchPaged(
+        q,
+        limit: limit,
+        offset: offset,
+        title: filters.title,
+        author: filters.author,
+        publisher: filters.publisher,
+        isbn: filters.isbn,
+      );
+      var results = _fromOpenLibrary(page.items);
+      results = _applyFilters(
+        results,
+        filetype: filetype,
+        language: language,
+        filters: filters,
+        query: q,
+      );
+      results = _applySort(results, sort);
+      return CatalogPage(
+        results: results,
+        total: page.total,
+        hasMore: offset + page.items.length < page.total,
+      );
+    }
 
     final results = await Future.wait([
-      _openLibrary.searchBooks(query).then(_fromOpenLibrary),
+      _openLibrary
+          .searchPaged(
+            q,
+            limit: limit,
+            title: filters.title,
+            author: filters.author,
+            publisher: filters.publisher,
+            isbn: filters.isbn,
+          )
+          .then((p) => (page: p, results: _fromOpenLibrary(p.items))),
       _gutenberg.search(
-        query,
+        _effectiveQuery(q, filters),
         language: _gutenbergLang(langCode),
         limit: limit,
       ),
-      _archive.search(query, language: langCode, limit: limit),
+      _archive.search(
+        _effectiveQuery(q, filters),
+        language: langCode,
+        limit: limit,
+      ),
     ]);
 
-    var merged = _merge(results.expand((r) => r).toList());
-    merged = _applyFilters(merged, filetype: filetype, language: language);
+    final olPage = (results[0] as ({OpenLibraryPage page, List<BookSearchResult> results})).page;
+    final olResults =
+        (results[0] as ({OpenLibraryPage page, List<BookSearchResult> results})).results;
+    final all = [
+      ...olResults,
+      ...(results[1] as List<BookSearchResult>),
+      ...(results[2] as List<BookSearchResult>),
+    ];
+    var merged = _merge(all);
+    merged = _applyFilters(
+      merged,
+      filetype: filetype,
+      language: language,
+      filters: filters,
+      query: q,
+    );
     merged = _applySort(merged, sort);
-    return merged.take(limit).toList();
+    final clipped = merged.take(limit).toList();
+    return CatalogPage(
+      results: clipped,
+      total: olPage.total,
+      hasMore: olPage.total > olResults.length || merged.length > limit,
+    );
+  }
+
+  /// Gutenberg and Gutendex/IA only take a free-text query, so fold
+  /// the structured filters into one best-effort string for them.
+  /// The precise filtering still happens client-side in [_applyFilters].
+  String _effectiveQuery(String query, BookSearchFilters filters) {
+    final parts = <String>[
+      query,
+      if (filters.title?.trim().isNotEmpty == true) filters.title!.trim(),
+      if (filters.author?.trim().isNotEmpty == true) filters.author!.trim(),
+    ];
+    return parts.where((p) => p.isNotEmpty).join(' ');
   }
 
   /// Most Popular analog: Open Library trending plus Gutenberg's
@@ -83,6 +256,39 @@ class BookCatalogService {
     return _applySort(merged, BookSort.popular).take(limit).toList();
   }
 
+  /// Recently Added analog: Open Library's newest imports. Only OL
+  /// tracks import dates, so this feed is OL-only by design.
+  Future<List<BookSearchResult>> recentlyAdded({int limit = 20}) async {
+    final items = await _openLibrary.fetchRecent(limit: limit);
+    return _fromOpenLibrary(items);
+  }
+
+  /// Category browse: subject discovery mapped to catalog results.
+  /// Powers both the home rails and the full category list pages.
+  Future<List<BookSearchResult>> byCategory(String category, {int limit = 20}) {
+    return byCategoryPaged(category, limit: limit);
+  }
+
+  /// Paged variant for category list pages (`offset` > 0 loads
+  /// deeper Open Library subject pages).
+  Future<List<BookSearchResult>> byCategoryPaged(
+    String category, {
+    int limit = 30,
+    int offset = 0,
+  }) async {
+    final items = await _openLibrary.discoverBySubject(
+      category,
+      limit: limit,
+      offset: offset,
+    );
+    return _fromOpenLibrary(items).map((r) {
+      if (r.categories.contains(category)) return r;
+      return r.copyWith(categories: [...r.categories, category]);
+    }).toList();
+  }
+
+
+
   /// Enrich a result with the full detail payload (description,
   /// publisher, size, real download URLs) for the detail page.
   Future<BookSearchResult> details(BookSearchResult result) async {
@@ -92,7 +298,26 @@ class BookCatalogService {
     } else if (result.gutenbergId > 0) {
       enriched = (await _gutenberg.fetchBook(result.gutenbergId)) ?? result;
     } else if (result.workKey.isNotEmpty) {
-      final work = await _openLibrary.fetchWorkDetails(result.workKey);
+      final fetched = await Future.wait([
+        _openLibrary.fetchWorkDetails(result.workKey),
+        _openLibrary.fetchEditions(result.workKey),
+      ]);
+      final work = fetched[0] as Map<String, dynamic>?;
+      final editions = fetched[1] as List<Map<String, dynamic>>;
+      // First edition carrying physical details (pages, ISBN,
+      // publisher) — feeds the Z-Lib style meta table.
+      Map<String, dynamic>? edition;
+      for (final e in editions) {
+        if ((e['number_of_pages'] as num?) != null ||
+            (e['isbn_13'] is List && (e['isbn_13'] as List).isNotEmpty) ||
+            (e['isbn_10'] is List && (e['isbn_10'] as List).isNotEmpty) ||
+            (e['publishers'] is List &&
+                (e['publishers'] as List).isNotEmpty)) {
+          edition = e;
+          break;
+        }
+      }
+      edition ??= editions.isNotEmpty ? editions.first : null;
       if (work != null) {
         final descRaw = work['description'];
         String desc = '';
@@ -113,10 +338,29 @@ class BookCatalogService {
                 (work['publishers'] as List).isNotEmpty)
             ? (work['publishers'] as List).first.toString()
             : '';
+        final editionPublishers = edition?['publishers'];
+        final editionPublisher =
+            editionPublishers is List && editionPublishers.isNotEmpty
+            ? editionPublishers.first.toString()
+            : '';
+        final isbn13 = edition?['isbn_13'];
+        final isbn10 = edition?['isbn_10'];
         enriched = enriched.copyWith(
           description: desc.isNotEmpty ? desc : result.description,
           subjects: subjects.isNotEmpty ? subjects : result.subjects,
-          publisher: publisher.isNotEmpty ? publisher : result.publisher,
+          publisher: publisher.isNotEmpty
+              ? publisher
+              : (editionPublisher.isNotEmpty
+                    ? editionPublisher
+                    : result.publisher),
+          pageCount:
+              (edition?['number_of_pages'] as num?)?.toInt() ?? result.pageCount,
+          isbn13: isbn13 is List && isbn13.isNotEmpty
+              ? isbn13.first.toString()
+              : result.isbn13,
+          isbn: isbn10 is List && isbn10.isNotEmpty
+              ? isbn10.first.toString()
+              : result.isbn,
           year: (work['first_publish_date'] as String?)?.isNotEmpty == true
               ? work['first_publish_date'] as String
               : result.year,
@@ -151,6 +395,13 @@ class BookCatalogService {
   /// True when this result can be read or downloaded in-app.
   bool get isSupportedCatalog => true;
 
+  /// Compact count for result headers: 1234 -> "1.2K".
+  static String compactCount(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
+    return '$n';
+  }
+
   // ---------------------------------------------------------------------
   // Mapping + merge
   // ---------------------------------------------------------------------
@@ -162,12 +413,16 @@ class BookCatalogService {
           : 0;
       final ia = !item.iaId.startsWith('pg') ? item.iaId : '';
       final readUrl = item.readSourceUrl;
+      final isbn = item.isbn;
       return BookSearchResult(
         title: item.title,
         author: item.author,
         coverUrl: item.coverUrl,
         year: item.year,
+        publisher: item.publisher,
         subjects: item.subjects,
+        isbn: isbn.length == 10 ? isbn : '',
+        isbn13: isbn.length == 13 ? isbn : '',
         sourceLabel: item.readSourceLabel.isNotEmpty
             ? item.readSourceLabel
             : 'Open Library',
@@ -214,7 +469,11 @@ class BookCatalogService {
   BookSearchResult _richer(BookSearchResult a, BookSearchResult b) {
     final downloads = <String, String>{...a.downloadUrls, ...b.downloadUrls};
     final readCandidates = <String>[...a.readCandidates, ...b.readCandidates];
+    final categories = <String>{...a.categories, ...b.categories}.toList();
     return a.copyWith(
+      isbn: a.isbn.isEmpty ? b.isbn : a.isbn,
+      isbn13: a.isbn13.isEmpty ? b.isbn13 : a.isbn13,
+      categories: categories,
       description: a.description.isEmpty ? b.description : a.description,
       publisher: a.publisher.isEmpty ? b.publisher : a.publisher,
       filetype: a.filetype.isEmpty ? b.filetype : a.filetype,
@@ -243,6 +502,8 @@ class BookCatalogService {
     List<BookSearchResult> results, {
     String? filetype,
     String? language,
+    BookSearchFilters filters = BookSearchFilters.none,
+    String query = '',
   }) {
     return results.where((r) {
       if (filetype != null && filetype.isNotEmpty) {
@@ -254,6 +515,42 @@ class BookCatalogService {
       if (language != null && language.isNotEmpty) {
         if (r.language.isEmpty ||
             r.language.toLowerCase() != language.toLowerCase()) {
+          return false;
+        }
+      }
+      // Structured filters: Open Library already applied them
+      // server-side, but Gutenberg/IA results need them here.
+      if (filters.title?.trim().isNotEmpty == true &&
+          !r.title.toLowerCase().contains(filters.title!.trim().toLowerCase())) {
+        return false;
+      }
+      if (filters.author?.trim().isNotEmpty == true &&
+          !r.author.toLowerCase().contains(
+            filters.author!.trim().toLowerCase(),
+          )) {
+        return false;
+      }
+      if (filters.publisher?.trim().isNotEmpty == true &&
+          !r.publisher.toLowerCase().contains(
+            filters.publisher!.trim().toLowerCase(),
+          )) {
+        return false;
+      }
+      if (filters.isbn?.trim().isNotEmpty == true) {
+        final needle = filters.isbn!.trim().replaceAll('-', '');
+        final hay = '${r.isbn}${r.isbn13}'.replaceAll('-', '');
+        if (hay.isEmpty || !hay.contains(needle)) return false;
+      }
+      final year = _yearOf(r);
+      if (filters.yearFrom != null && year < filters.yearFrom!) return false;
+      if (filters.yearTo != null && year > 0 && year > filters.yearTo!) {
+        return false;
+      }
+      // Exact match: the title or author must equal the query.
+      if (filters.exact && query.isNotEmpty) {
+        final q = query.trim().toLowerCase();
+        if (r.title.trim().toLowerCase() != q &&
+            r.author.trim().toLowerCase() != q) {
           return false;
         }
       }

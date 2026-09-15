@@ -19,6 +19,8 @@ class BookItem {
   final String author;
   final String coverUrl;
   final String year;
+  final String publisher;
+  final String isbn;
   final int pageCount;
   final List<String> subjects;
   final String status;
@@ -47,6 +49,8 @@ class BookItem {
     this.author = '',
     this.coverUrl = '',
     this.year = '',
+    this.publisher = '',
+    this.isbn = '',
     this.pageCount = 0,
     this.subjects = const [],
     required this.status,
@@ -103,6 +107,8 @@ class BookItem {
       author: data['author'] ?? '',
       coverUrl: data['coverUrl'] ?? '',
       year: data['year'] ?? '',
+      publisher: data['publisher'] ?? '',
+      isbn: data['isbn'] ?? '',
       pageCount: (data['pageCount'] as num?)?.toInt() ?? 0,
       subjects: subjects,
       status: data['status'] ?? 'to-read',
@@ -178,6 +184,8 @@ class BookItem {
       'author': author,
       'coverUrl': coverUrl,
       'year': year,
+      'publisher': publisher,
+      'isbn': isbn,
       'pageCount': pageCount,
       'subjects': subjects,
       'status': status,
@@ -201,6 +209,8 @@ class BookItem {
     String? author,
     String? coverUrl,
     String? year,
+    String? publisher,
+    String? isbn,
     int? pageCount,
     List<String>? subjects,
     String? status,
@@ -218,6 +228,8 @@ class BookItem {
       author: author ?? this.author,
       coverUrl: coverUrl ?? this.coverUrl,
       year: year ?? this.year,
+      publisher: publisher ?? this.publisher,
+      isbn: isbn ?? this.isbn,
       pageCount: pageCount ?? this.pageCount,
       subjects: subjects ?? this.subjects,
       status: status ?? this.status,

@@ -65,6 +65,9 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       }
     }
     if (candidates.isEmpty) {
+      // No plain-text source: try the EPUB file before giving up.
+      if (await _tryEpubFallback()) return;
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _loadError = 'No readable copy available for this title.';
@@ -76,9 +79,10 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       final result = await _service.fetchBookTextFromCandidates(candidates);
       if (!mounted) return;
       if (!result.isSuccess) {
-        // Public-domain IA items can still lose the text race (proxy
-        // down, mirror 404, redirect to a borrow page). Show the
-        // embedded viewer instead of the "no readable text" error.
+        // Plain text failed: try the EPUB file, then the embedded
+        // viewer, before showing the "no readable text" error.
+        if (await _tryEpubFallback()) return;
+        if (!mounted) return;
         final embedIa = resolvedIaId ?? iaId;
         if (embedIa.isNotEmpty && !embedIa.startsWith('pg')) {
           _registerIframe(embedIa);
@@ -154,6 +158,32 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
       Logger.e('Reader IA edition lookup failed ($workKey)', error: e);
     }
     return null;
+  }
+
+  /// EPUB fallback: fetch the book's EPUB file, extract chapters in
+  /// spine order, and show them in the normal text reader. Returns
+  /// true when the reader state was updated (caller must return).
+  Future<bool> _tryEpubFallback() async {
+    final epubUrls = EpubService().candidatesFor(widget.book);
+    if (epubUrls.isEmpty) return false;
+    final epub = await EpubService().loadChapters(epubUrls);
+    if (!mounted) return true;
+    if (!epub.isSuccess) return false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_progressKey, 0);
+    setState(() {
+      _chapters = epub.chapters
+          .map((c) => BookChapter(title: c.title, body: c.body))
+          .toList();
+      _currentChapter = 0;
+      _isLoading = false;
+    });
+    if (widget.startListening) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showListenSheet();
+      });
+    }
+    return true;
   }
 
   /// Guard against a proxied/redirected HTML page (e.g. an Internet

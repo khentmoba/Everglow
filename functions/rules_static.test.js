@@ -128,3 +128,15 @@ test('storage gallery/memories/milestones allow couple reads', () => {
   }
   assert.ok(!storage.includes('request.auth.uid == userId;\n      allow write') || true);
 });
+
+test('book library collections are couple-only', () => {
+  for (const name of ['book_favorites', 'book_download_history']) {
+    assert.match(
+      rules,
+      new RegExp(
+        `match \\/${name}\\/\\{docId\\} \\{[\\s\\S]*?allow read: if isCouple\\(\\);`,
+      ),
+      `${name} must be couple-only`,
+    );
+  }
+});

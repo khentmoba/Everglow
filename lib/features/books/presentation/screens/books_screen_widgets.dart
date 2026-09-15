@@ -1,212 +1,5 @@
 part of 'books_screen.dart';
 
-class _RankingTile extends StatelessWidget {
-  final BookItem item;
-  final int rank;
-  final VoidCallback onTap;
-  const _RankingTile({
-    required this.item,
-    required this.rank,
-    required this.onTap,
-  });
-  Color get _rankColor {
-    switch (rank) {
-      case 1:
-        return AppColors.warmAmber;
-      case 2:
-        return AppColors.rankSilver;
-      case 3:
-        return AppColors.rankBronze;
-      default:
-        return _cMuted;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isTop3 = rank <= 3;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: _cCard.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isTop3
-                ? _rankColor.withValues(alpha: 0.3)
-                : _cRose.withValues(alpha: 0.07),
-            width: isTop3 ? 1.0 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 38,
-              child: isTop3
-                  ? Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _rankColor.withValues(alpha: 0.15),
-                        border: Border.all(
-                          color: _rankColor.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _rankColor.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$rank',
-                        style: AppTypography.cormorantBlack.copyWith(
-                          fontSize: 18,
-                          color: _rankColor,
-                        ),
-                      ),
-                    )
-                  : Center(
-                      child: Text(
-                        '$rank',
-                        style: AppTypography.outfitBold.copyWith(
-                          fontSize: 14,
-                          color: _cMuted,
-                        ),
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 44,
-                height: 62,
-                child: item.coverUrl.isNotEmpty
-                    ? AppNetworkImage(
-                        imageUrl: item.coverUrl,
-                        fit: BoxFit.cover,
-                        cacheWidth: 120,
-                      )
-                    : Container(color: _cCard),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.outfitHeading.copyWith(
-                      color: _cWhite,
-                      fontSize: 13,
-                    ),
-                  ),
-                  if (item.author.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      item.author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: _cMuted,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      if (item.year.isNotEmpty) ...[
-                        Text(
-                          item.year,
-                          style: AppTypography.outfitBold.copyWith(
-                            color: _cGold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _cDeepRose.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          'BOOK',
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: _cDeepRose,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: _cMuted, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RowAction extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final Color color;
-  final VoidCallback? onTap;
-  const _RowAction({
-    required this.icon,
-    required this.tooltip,
-    required this.color,
-    required this.onTap,
-  });
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Tooltip(
-          message: tooltip,
-          child: Opacity(
-            opacity: enabled ? 1.0 : 0.3,
-            child: Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: color.withValues(alpha: 0.3)),
-              ),
-              alignment: Alignment.center,
-              child: Icon(icon, color: color, size: 15),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ContinueReadingRail extends StatelessWidget {
   final List<BookItem> items;
   final ValueChanged<BookItem> onOpen;
@@ -377,186 +170,119 @@ class _ContinueReadingRail extends StatelessWidget {
   }
 }
 
-String _compactCount(int n) {
-  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
-  if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
-  return '$n';
+/// Tune button next to the search box. Glows amber while advanced
+/// filters are active so Clair can see at a glance that the list
+/// is narrowed.
+class _AdvancedButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+  const _AdvancedButton({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: Tooltip(
+        message: 'Advanced search',
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: active
+                ? _cAmber.withValues(alpha: 0.18)
+                : _cCard,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: active
+                  ? _cAmber.withValues(alpha: 0.5)
+                  : _cRose.withValues(alpha: 0.15),
+            ),
+          ),
+          child: Icon(
+            Icons.tune_rounded,
+            color: active ? _cAmber : _cDeepRose,
+            size: 22,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-class _BookResultRow extends StatelessWidget {
-  final BookSearchResult result;
-  final VoidCallback onOpen;
-  final VoidCallback? onListen;
-  final VoidCallback? onRead;
-  final VoidCallback? onDownload;
-  final VoidCallback onShare;
-  final VoidCallback onSave;
-
-  const _BookResultRow({
-    required this.result,
-    required this.onOpen,
-    required this.onListen,
-    required this.onRead,
-    required this.onDownload,
-    required this.onShare,
-    required this.onSave,
-  });
+/// Z-Lib style "Load more" footer for the paged result list.
+class _LoadMoreRow extends StatelessWidget {
+  final bool loading;
+  final VoidCallback onTap;
+  const _LoadMoreRow({required this.loading, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onOpen();
-        },
+        onTap: loading ? null : onTap,
+        behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: _cCard.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _cRose.withValues(alpha: 0.08)),
+            color: _cDeepRose.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _cDeepRose.withValues(alpha: 0.3)),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 58,
-                  height: 82,
-                  child: result.coverUrl.isNotEmpty
-                      ? AppNetworkImage(
-                          imageUrl: result.coverUrl,
-                          fit: BoxFit.cover,
-                          cacheWidth: 160,
-                          errorWidget: Container(color: _cBlack),
-                        )
-                      : Container(
-                          color: _cBlack,
-                          child: const Icon(
-                            Icons.menu_book_rounded,
-                            color: _cMuted,
-                            size: 22,
-                          ),
-                        ),
+          alignment: Alignment.center,
+          child: loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: _cDeepRose,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Text(
+                  'Load more results',
+                  style: AppTypography.outfitBold.copyWith(
+                    color: _cDeepRose,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      result.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitBold.copyWith(
-                        color: _cWhite,
-                        fontSize: 13.5,
-                        height: 1.2,
-                      ),
-                    ),
-                    if (result.author.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        result.author,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: _cMuted,
-                          fontSize: 11,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                    if (result.metaLine.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        result.metaLine,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: _cGold.withValues(alpha: 0.85),
-                          fontSize: 10.5,
-                        ),
-                      ),
-                    ],
-                    if (result.hasRating) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          for (var i = 1; i <= 5; i++)
-                            Icon(
-                              i <= result.rating!.round()
-                                  ? Icons.star_rounded
-                                  : Icons.star_border_rounded,
-                              color: _cGold,
-                              size: 13,
-                            ),
-                          const SizedBox(width: 4),
-                          Text(
-                            result.rating!.toStringAsFixed(1),
-                            style: AppTypography.outfitBold.copyWith(
-                              color: _cMuted,
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else if (result.ratingCount != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '${_compactCount(result.ratingCount!)} downloads',
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: _cMuted,
-                          fontSize: 10.5,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        _RowAction(
-                          icon: Icons.headphones_rounded,
-                          tooltip: 'Listen',
-                          color: _cAmber,
-                          onTap: onListen,
-                        ),
-                        _RowAction(
-                          icon: Icons.auto_stories_rounded,
-                          tooltip: 'Read',
-                          color: _cDeepRose,
-                          onTap: onRead,
-                        ),
-                        _RowAction(
-                          icon: Icons.download_rounded,
-                          tooltip: 'Download',
-                          color: AppColors.cinemaGreen,
-                          onTap: onDownload,
-                        ),
-                        _RowAction(
-                          icon: Icons.share_rounded,
-                          tooltip: 'Share',
-                          color: AppColors.cinemaBlue,
-                          onTap: onShare,
-                        ),
-                        _RowAction(
-                          icon: Icons.bookmark_border_rounded,
-                          tooltip: 'Save',
-                          color: const Color(0xFF7B1FA2),
-                          onTap: onSave,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         ),
       ),
+    );
+  }
+}
+
+
+/// One number + label bit in the home stats strip.
+class _StatBit extends StatelessWidget {
+  final String value;
+  final String label;
+  const _StatBit({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: AppTypography.cormorantBlack.copyWith(
+            fontSize: 22,
+            color: _cWhite,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: AppTypography.outfitHeading.copyWith(
+            fontSize: 9,
+            color: _cMuted,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
     );
   }
 }

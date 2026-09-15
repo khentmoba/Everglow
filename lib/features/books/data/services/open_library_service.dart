@@ -57,6 +57,13 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
         (doc['subject'] as List?)?.take(8).map((e) => e.toString()).toList() ??
         const <String>[];
 
+    final publishers =
+        (doc['publisher'] as List?)?.map((e) => e.toString()).toList() ??
+        const <String>[];
+    final isbns =
+        (doc['isbn'] as List?)?.map((e) => e.toString()).toList() ??
+        const <String>[];
+
     final readSource = _resolveReadSource(iaId: iaId, workKey: workKey);
     final readLabel = _readSourceLabel(iaId: iaId);
 
@@ -68,6 +75,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       author: author,
       coverUrl: coverUrl,
       year: year,
+      publisher: publishers.isNotEmpty ? publishers.first : '',
+      isbn: isbns.isNotEmpty ? isbns.first : '',
       subjects: subjects,
       status: '',
       addedAt: DateTime.now(),
@@ -155,18 +164,54 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
   /// Routed through [CatalogProxyClient] (Cloud Function allow-list +
   /// edge cache) instead of calling openlibrary.org directly.
   Future<List<BookItem>> searchBooks(String query) async {
-    if (query.isEmpty) return [];
+    final page = await searchPaged(query, limit: 20);
+    return page.items;
+  }
+
+  /// Z-Lib style paged search with field filters. Open Library's
+  /// `search.json` accepts `title`, `author`, `publisher`, and `isbn`
+  /// as first-class query fields plus `offset` for deep paging, so
+  /// the advanced-search sheet maps 1:1 onto this call.
+  Future<OpenLibraryPage> searchPaged(
+    String query, {
+    int limit = 20,
+    int offset = 0,
+    String? title,
+    String? author,
+    String? publisher,
+    String? isbn,
+    String sort = '',
+  }) async {
+    final hasFilter =
+        query.trim().isNotEmpty ||
+        (title?.trim().isNotEmpty == true) ||
+        (author?.trim().isNotEmpty == true) ||
+        (publisher?.trim().isNotEmpty == true) ||
+        (isbn?.trim().isNotEmpty == true);
+    if (!hasFilter) return OpenLibraryPage.empty;
 
     try {
+      final params = <String, String>{
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        if (title?.trim().isNotEmpty == true) 'title': title!.trim(),
+        if (author?.trim().isNotEmpty == true) 'author': author!.trim(),
+        if (publisher?.trim().isNotEmpty == true)
+          'publisher': publisher!.trim(),
+        if (isbn?.trim().isNotEmpty == true) 'isbn': isbn!.trim(),
+        if (sort.isNotEmpty) 'sort': sort,
+        'limit': '$limit',
+        if (offset > 0) 'offset': '$offset',
+      };
       final response = await _proxy.get(
         'openlibrary',
         'search.json',
-        query: {'q': query, 'limit': '20'},
+        query: params,
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final List docs = data['docs'] ?? [];
-        return docs
+        final total = (data['numFound'] as num?)?.toInt() ?? docs.length;
+        final items = docs
             .where(
               (d) =>
                   (d['title'] as String?)?.isNotEmpty == true &&
@@ -175,13 +220,14 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
             )
             .map((d) => _mapDocToBookItem(d as Map<String, dynamic>))
             .toList();
+        return OpenLibraryPage(items: items, total: total);
       } else {
         Logger.e('Open Library search failed (${response.statusCode})');
       }
     } catch (e) {
       Logger.e('Open Library search error', error: e);
     }
-    return [];
+    return OpenLibraryPage.empty;
   }
 
   /// Trending / popular books. Open Library doesn't have a strict
@@ -192,18 +238,33 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     return _subjectSearch('best', limit: 15);
   }
 
-  /// Curated subject discovery row. Used for the "Romance",
-  /// "Mystery" etc. carousel rows on the home tab.
+  /// Recently added books — the Z-Lib "Recently Added" rail.
+  /// `sort=new` orders by Open Library import date.
+  Future<List<BookItem>> fetchRecent({int limit = 15}) async {
+    final page = await searchPaged(
+      'language:eng',
+      limit: limit,
+      sort: 'new',
+    );
+    if (page.items.isNotEmpty) return page.items;
+    return _subjectSearch('fiction', limit: limit);
+  }
+
+  /// Curated subject discovery row. Used for the category rails
+  /// and full category list pages. Supports `offset` so category
+  /// pages can load more.
   Future<List<BookItem>> discoverBySubject(
     String subject, {
     int limit = 12,
+    int offset = 0,
   }) async {
-    return _subjectSearch(subject, limit: limit);
+    return _subjectSearch(subject, limit: limit, offset: offset);
   }
 
   Future<List<BookItem>> _subjectSearch(
     String subject, {
     int limit = 12,
+    int offset = 0,
   }) async {
     try {
       final response = await _proxy.get(
@@ -213,6 +274,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
           'subject': subject,
           'limit': '$limit',
           'sort': 'trending',
+          if (offset > 0) 'offset': '$offset',
         },
       );
       if (response.statusCode == 200) {
@@ -379,6 +441,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
               'author': item.author,
               'coverUrl': item.coverUrl,
               'year': item.year,
+              'publisher': item.publisher,
+              'isbn': item.isbn,
               'pageCount': item.pageCount,
               'subjects': item.subjects,
               'status': item.status,
@@ -410,6 +474,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
                 author: data['author'] ?? '',
                 coverUrl: data['coverUrl'] ?? '',
                 year: data['year'] ?? '',
+                publisher: data['publisher'] ?? '',
+                isbn: data['isbn'] ?? '',
                 pageCount: (data['pageCount'] as num?)?.toInt() ?? 0,
                 subjects:
                     (data['subjects'] as List?)
@@ -581,6 +647,23 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     // Borrow/error pages are typically short HTML or contain a title.
     return trimmed.startsWith('<') && trimmed.length < 4096;
   }
+}
+
+/// One page of Open Library search results with the catalog-wide
+/// total (`numFound`) so the UI can show "1,234 results" and know
+/// whether more pages exist.
+class OpenLibraryPage {
+  final List<BookItem> items;
+  final int total;
+
+  const OpenLibraryPage({required this.items, required this.total});
+
+  static const OpenLibraryPage empty = OpenLibraryPage(
+    items: [],
+    total: 0,
+  );
+
+  bool get hasMore => items.length < total;
 }
 
 /// Result of [OpenLibraryService.fetchBookTextFromCandidates].
