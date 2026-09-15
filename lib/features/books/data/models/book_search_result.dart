@@ -32,6 +32,14 @@ class BookSearchResult {
   final String description;
   final List<String> subjects;
 
+  /// ISBN-10 / ISBN-13 when the source catalog provides them
+  /// (Open Library search docs carry an `isbn` list).
+  final String isbn;
+  final String isbn13;
+
+  /// Category / subject slugs for the Z-Lib style category browse.
+  final List<String> categories;
+
   /// Human label of the source catalog ("Project Gutenberg", ...).
   final String sourceLabel;
 
@@ -61,6 +69,9 @@ class BookSearchResult {
     this.ratingCount,
     this.description = '',
     this.subjects = const [],
+    this.isbn = '',
+    this.isbn13 = '',
+    this.categories = const [],
     this.sourceLabel = '',
     this.workKey = '',
     this.iaId = '',
@@ -72,6 +83,49 @@ class BookSearchResult {
   String get id => workKey.isNotEmpty
       ? workKey
       : (gutenbergId > 0 ? 'pg$gutenbergId' : (iaId.isNotEmpty ? iaId : title));
+
+  /// Z-Lib style file line: "EPUB, 2.9 MB" — extension first so the
+  /// eye can scan a dense result list.
+  String get fileLine {
+    final ext = filetype.isNotEmpty
+        ? filetype.toUpperCase()
+        : (downloadUrls.isNotEmpty
+              ? downloadUrls.keys.first.toUpperCase()
+              : '');
+    if (ext.isEmpty) return '';
+    if (sizeMb != null && sizeMb! > 0) {
+      return '$ext, ${sizeMb!.toStringAsFixed(1)} MB';
+    }
+    return ext;
+  }
+
+  /// All known download extensions, EPUB-first for the detail page.
+  List<String> get extensions {
+    final exts = downloadUrls.keys.toList();
+    exts.sort((a, b) => _extRank(a).compareTo(_extRank(b)));
+    return exts;
+  }
+
+  static int _extRank(String ext) {
+    switch (ext) {
+      case 'epub':
+        return 0;
+      case 'pdf':
+        return 1;
+      case 'txt':
+        return 2;
+      case 'mobi':
+        return 3;
+      case 'azw3':
+        return 4;
+      case 'fb2':
+        return 5;
+      case 'html':
+        return 6;
+      default:
+        return 7;
+    }
+  }
 
   /// WeLib meta line: "pdf · English · 2020 · 2.9 MB".
   String get metaLine {
@@ -100,6 +154,9 @@ class BookSearchResult {
     int? ratingCount,
     String? description,
     List<String>? subjects,
+    String? isbn,
+    String? isbn13,
+    List<String>? categories,
     String? sourceLabel,
     String? workKey,
     String? iaId,
@@ -121,6 +178,9 @@ class BookSearchResult {
       ratingCount: ratingCount ?? this.ratingCount,
       description: description ?? this.description,
       subjects: subjects ?? this.subjects,
+      isbn: isbn ?? this.isbn,
+      isbn13: isbn13 ?? this.isbn13,
+      categories: categories ?? this.categories,
       sourceLabel: sourceLabel ?? this.sourceLabel,
       workKey: workKey ?? this.workKey,
       iaId: iaId ?? this.iaId,
