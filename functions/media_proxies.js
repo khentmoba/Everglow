@@ -15,7 +15,10 @@ const {
   isAllowedBookTextUrl,
 } = require('./common.js');
 
-const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
+const {
+  resolveGalleryDeletePath,
+  resolveKatanaServerCookie,
+} = require('./media_proxy_core.js');
 
 const proxyBookText = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -895,7 +898,13 @@ const proxyScanlation = cappedHttps(30, async (req, res) => {
  * so direct browser fetches are blocked on Flutter Web.
  *
  * Accepts:
- *   GET /proxyFetchHtml?url=<encoded target URL>
+ *   GET /proxyFetchHtml?url=<encoded target URL>[&cookie=<server cookie>]
+ *
+ * The optional `cookie` param exists for MangaKatana's image-server
+ * switch: the site picks Server 2/3 from a `s_r` cookie, the `?sv=`
+ * query alone is ignored. Only the exact values `s_r=sv2` and
+ * `s_r=sv3` are forwarded, and only to mangakatana.com hosts —
+ * anything else is dropped.
  *
  * The function:
  *   1. Validates the URL against a whitelist of manga/scraping domains
@@ -996,6 +1005,15 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     return;
   }
 
+  // MangaKatana picks its image server from a `s_r` cookie (Server 1 =
+  // no cookie, Server 2 = `s_r=sv2`, Server 3 = `s_r=sv3`). Without the
+  // cookie, Server 2/3 requests silently return Server 1's page URLs,
+  // so the app's server switch did nothing.
+  const serverCookie = resolveKatanaServerCookie(
+    parsed.hostname,
+    req.query.cookie,
+  );
+
   try {
     // MangaKatana's bot protection answers rapid concurrent requests
     // with 200 + an EMPTY body, which used to get cached and served
@@ -1011,6 +1029,7 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           Referer: parsed.origin + '/',
+          ...(serverCookie ? { Cookie: serverCookie } : {}),
         },
         signal: AbortSignal.timeout(20000),
       });

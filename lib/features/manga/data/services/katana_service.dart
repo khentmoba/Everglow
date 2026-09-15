@@ -34,6 +34,12 @@ class KatanaService {
 
   static const Duration _timeout = Duration(seconds: 9);
 
+  /// Matches every MangaKatana chapter id shape seen on the live
+  /// site: plain (`c413`), decimals (`c528.5`), part/version
+  /// suffixes (`c38-p11`, `c12-v2`), volume ids (`v6c147`) and the
+  /// first-chapter id (`fc`).
+  static const String chapterIdPattern = r'(?:v\d+)?c[^"/]+|fc';
+
   Map<String, String> get _headers => const {
     'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -50,10 +56,11 @@ class KatanaService {
     return _headers;
   }
 
-  Uri _proxiedFetch(Uri uri) {
-    return Uri.parse(
-      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
-    );
+  Uri _proxiedFetch(Uri uri, {String cookie = ''}) {
+    final base =
+        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}';
+    if (cookie.isEmpty) return Uri.parse(base);
+    return Uri.parse('$base&cookie=${Uri.encodeComponent(cookie)}');
   }
 
   /// Proxies a page image (covers and chapter pages) through the
@@ -79,7 +86,7 @@ class KatanaService {
 
   String proxiedImageUrl(String url) => proxyImageUrl(url);
 
-  Future<String?> _fetchHtml(Uri uri) async {
+  Future<String?> _fetchHtml(Uri uri, {String cookie = ''}) async {
     // One retry for transient hiccups (cold Cloud Function instances
     // occasionally answer 200 with an empty body, and the site or CDN
     // sometimes drops a request). Keeps chapter loads and search from
@@ -88,7 +95,7 @@ class KatanaService {
       try {
         final headers = await _authHeaders();
         final response = await http
-            .get(_proxiedFetch(uri), headers: headers)
+            .get(_proxiedFetch(uri, cookie: cookie), headers: headers)
             .timeout(_timeout);
         if (response.statusCode == 200 && response.body.isNotEmpty) {
           return response.body;
@@ -317,24 +324,73 @@ class KatanaService {
 
   // ── Chapter pages ───────────────────────────────────────────────
 
+  /// CDN hosts MangaKatana serves chapter images from. The site's own
+  /// reader retries a failed image on a different `iN.` host with the
+  /// same token path — the token stays valid across hosts.
+  static const List<String> katanaCdnHosts = ['i1', 'i6', 'i7', 'i5', 'i2'];
+
+  /// Rewrites [url] to its [step]-th fallback CDN host (step 0 is the
+  /// URL unchanged). Returns [url] unchanged when it has no `iN.`
+  /// host or [step] runs past the available hosts.
+  static String cdnFallbackUrl(String url, int step) {
+    if (step <= 0) return url;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return url;
+    final match = RegExp(r'^(i\d+)\.').firstMatch(uri.host);
+    if (match == null) return url;
+    final current = match.group(1)!;
+    final rest = katanaCdnHosts.where((h) => h != current).toList();
+    if (step > rest.length) return url;
+    return url.replaceFirst('$current.', '${rest[step - 1]}.');
+  }
+
+  /// How many silent CDN-host retries [url] gets before the reader
+  /// shows its tap-to-retry slot. Zero for non-`iN.` URLs.
+  static int cdnFallbackCount(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return 0;
+    final match = RegExp(r'^(i\d+)\.').firstMatch(uri.host);
+    if (match == null) return 0;
+    return katanaCdnHosts.contains(match.group(1))
+        ? katanaCdnHosts.length - 1
+        : katanaCdnHosts.length;
+  }
+
+  /// Maps the reader's server switch to the cookie the site itself
+  /// sets (`#switch_sv` in the chapter page): Server 1 is the absence
+  /// of the cookie, Server 2 is `s_r=sv2`, Server 3 is `s_r=sv3`.
+  /// Without the cookie, Server 2/3 requests silently return Server
+  /// 1's page URLs — the `?sv=` query alone is ignored by the site.
+  static String cookieForServer(String server) {
+    switch (server) {
+      case '?sv=mk':
+        return 's_r=sv2';
+      case '?sv=3':
+        return 's_r=sv3';
+      default:
+        return '';
+    }
+  }
+
   /// Resolves the page image URLs for a chapter. The site embeds two
-  /// image URL arrays in inline scripts (`thzq` for server 1, `ytaw`
-  /// as fallback). If the first server's array is empty we retry the
-  /// `?sv=mk` and `?sv=3` variants exactly like the site's server
-  /// switcher.
+  /// image URL arrays in inline scripts (`thzq` plus the `ytaw`
+  /// fallback). The requested server is tried first — with the
+  /// cookie + query combination the site's own server switcher uses
+  /// — then the other two servers, so a down CDN never blocks the
+  /// chapter outright.
   Future<List<String>> fetchChapterPages(
     String slug,
     String chapterId, {
     String server = '',
   }) async {
     if (slug.isEmpty || chapterId.isEmpty) return const [];
-    final uris = <Uri>[
-      Uri.parse('$_baseUrl/manga/$slug/$chapterId$server'),
-      Uri.parse('$_baseUrl/manga/$slug/$chapterId?sv=mk'),
-      Uri.parse('$_baseUrl/manga/$slug/$chapterId?sv=3'),
-    ];
-    for (final uri in uris) {
-      final html = await _fetchHtml(uri);
+    const servers = ['', '?sv=mk', '?sv=3'];
+    final ordered = [server, ...servers.where((s) => s != server)];
+    for (final sv in ordered) {
+      final html = await _fetchHtml(
+        Uri.parse('$_baseUrl/manga/$slug/$chapterId$sv'),
+        cookie: cookieForServer(sv),
+      );
       if (html == null) continue;
       final urls = _parseImageArrays(html);
       if (urls.isNotEmpty) return urls;
@@ -723,7 +779,7 @@ class KatanaService {
 
     final recent = <KatanaChapter>[];
     final chapterBlocks = RegExp(
-      r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a></div>'
+      '<div class="chapter"><a href="[^"]*/($chapterIdPattern)"[^>]*>([^<]*)</a></div>'
       r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
       dotAll: true,
     ).allMatches(block);
@@ -754,19 +810,11 @@ class KatanaService {
 
   KatanaChapter? _parseChapterLink(String block) {
     final m = RegExp(
-      r'<a href="https://mangakatana\.com/manga/[^"]*/(c\d+)"[^>]*>([^<]*)</a>',
+      r'<a href="https://mangakatana\.com/manga/[^"]*/(' +
+          chapterIdPattern +
+          r')"[^>]*>([^<]*)</a>',
     ).firstMatch(block);
-    if (m == null) {
-      final fc = RegExp(
-        r'<a href="https://mangakatana\.com/manga/[^"]*/fc"[^>]*>([^<]*)</a>',
-      ).firstMatch(block);
-      if (fc == null) return null;
-      return KatanaChapter(
-        id: 'fc',
-        num: '',
-        title: _unescape.convert(fc.group(1)!.trim()),
-      );
-    }
+    if (m == null) return null;
     final id = m.group(1)!;
     return KatanaChapter(
       id: id,
@@ -795,7 +843,7 @@ class KatanaService {
           ).firstMatch(block) ??
           RegExp(r'class="title">([^<]+)</a>').firstMatch(block);
       final chapterM = RegExp(
-        r'href="[^"]*/(c\d+|fc)"[^>]*>(.*?)</a>',
+        r'href="[^"]*/(' + chapterIdPattern + r')"[^>]*>(.*?)</a>',
         dotAll: true,
       ).firstMatch(block);
       final authors = <String>[];
@@ -850,7 +898,9 @@ class KatanaService {
         dotAll: true,
       ).firstMatch(block);
       final chapterM = RegExp(
-        r'<div class="chapter">\s*<a href="[^"]*/(c[^"/]+|fc)"[^>]*>(.*?)</a>',
+        r'<div class="chapter">\s*<a href="[^"]*/(' +
+            chapterIdPattern +
+            r')"[^>]*>(.*?)</a>',
         dotAll: true,
       ).firstMatch(block);
       final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
@@ -892,7 +942,9 @@ class KatanaService {
         r'class="status (ongoing|completed)"',
       ).firstMatch(block);
       final chapterM = RegExp(
-        r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a>',
+        r'<div class="chapter"><a href="[^"]*/(' +
+            chapterIdPattern +
+            r')"[^>]*>([^<]*)</a>',
       ).firstMatch(block);
       final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
       items.add(
@@ -1044,17 +1096,31 @@ class KatanaService {
     );
   }
 
-  List<KatanaChapter> _parseChapterTable(String html) {
+  List<KatanaChapter> _parseChapterTable(String html) =>
+      parseChapterTable(html);
+
+  /// Parses the detail-page chapter table. Public so tests can feed
+  /// it real row HTML and pin the behavior.
+  ///
+  /// Two shapes used to slip through and silently drop chapters:
+  /// rows the site marks as "Go to" jump targets carry the chapter
+  /// id in `data-jump` (`<tr data-jump="c30">`) instead of a number,
+  /// and volume chapters link to `v6c147`-style paths.
+  static List<KatanaChapter> parseChapterTable(String html) {
+    final unescape = HtmlUnescape();
     final chapters = <KatanaChapter>[];
     final rows = RegExp(
-      r'<tr data-jump="\d+">.*?</tr>',
+      r'<tr data-jump="[^"]*">.*?</tr>',
       dotAll: true,
     ).allMatches(html);
+    final hrefRe = RegExp(
+      r'href="https://mangakatana\.com/manga/[^"]*/(' +
+          chapterIdPattern +
+          r')"',
+    );
     for (final row in rows) {
       final block = row.group(0)!;
-      final hrefM = RegExp(
-        r'href="https://mangakatana\.com/manga/[^"]*/(c[^"/]+|fc)"',
-      ).firstMatch(block);
+      final hrefM = hrefRe.firstMatch(block);
       if (hrefM == null) continue;
       final id = hrefM.group(1)!;
       final titleM = RegExp(
@@ -1067,7 +1133,7 @@ class KatanaService {
         KatanaChapter(
           id: id,
           num: katanaChapterNumFromId(id),
-          title: _unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
+          title: unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
           updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
           // The site marks its own fresh rows with a New badge
           // (only the newest, and only when recently updated) —
@@ -1111,7 +1177,7 @@ class KatanaService {
   }
 
   /// Parses "Aug-12-2026" style dates from chapter tables.
-  DateTime? _parseKatanaDate(String raw) {
+  static DateTime? _parseKatanaDate(String raw) {
     if (raw.trim().isEmpty) return null;
     final m = RegExp(r'(\w{3})-(\d{1,2})-(\d{4})').firstMatch(raw);
     if (m == null) return null;
