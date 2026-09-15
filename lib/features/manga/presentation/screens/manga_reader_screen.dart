@@ -1,10 +1,10 @@
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../shared/utils/responsive_image.dart';
+import '../widgets/reader_page_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -99,6 +99,19 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     // Save progress periodically
     if (_currentPageEstimate % 5 == 0) {
       _saveProgress(_currentPageEstimate);
+    }
+    _preloadUpcoming(_currentPageEstimate);
+  }
+
+  /// Warms the cache for the next few pages so turning the page
+  /// never waits on the network for a page Clair is about to reach.
+  void _preloadUpcoming(int currentIndex) {
+    final pages = _pages;
+    if (pages == null || !mounted) return;
+    final start = (currentIndex + 1).clamp(0, pages.filenames.length);
+    final end = (currentIndex + 4).clamp(0, pages.filenames.length);
+    for (int i = start; i < end; i++) {
+      ReaderPageImage.precachePage(context, pages.urlForPage(i));
     }
   }
 
@@ -326,6 +339,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       _pages = pages;
       _isLoading = false;
     });
+    _preloadUpcoming(0);
     // Restore last read page
     if (widget.manga.lastReadChapterId == widget.chapter.id &&
         widget.manga.lastReadPage > 0 &&
@@ -823,6 +837,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         top: MediaQuery.paddingOf(context).top + 56,
         bottom: MediaQuery.paddingOf(context).bottom + 120,
       ),
+      // Keep neighbours built so paging back and forth never
+      // re-resolves a page that already loaded.
+      scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
+      addAutomaticKeepAlives: true,
+      addRepaintBoundaries: true,
       itemCount: pageCount + 1, // +1 for "Next Chapter" card
       itemBuilder: (context, index) {
         if (index == pageCount) {
@@ -831,77 +850,18 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         }
 
         final url = _pages!.urlForPage(index);
-        return Column(
-          children: [
-            // Page image — fills width, no gaps
-            Image.network(
-              url,
-              width: double.infinity,
-              fit: BoxFit.fitWidth,
-              cacheWidth: kIsWeb ? null : heroCacheWidth(context),
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  width: double.infinity,
-                  constraints: const BoxConstraints(minHeight: 400),
-                  alignment: Alignment.center,
-                  child: CircularProgressIndicator(
-                    color: AppTheme.deepRose.withValues(alpha: 0.6),
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
-                        : null,
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stack) {
-                return Container(
-                  width: double.infinity,
-                  height: 300,
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.broken_image,
-                        color: Colors.white24,
-                        size: 40,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Page ${index + 1} failed to load',
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: Colors.white38,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      GestureDetector(
-                        onTap: _loadPages,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.deepRose.withValues(alpha: 0.2),
-                            borderRadius: AppRadius.radiusXs,
-                          ),
-                          child: Text(
-                            'Retry',
-                            style: AppTypography.outfitWhite.copyWith(
-                              color: AppTheme.deepRose,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
+        // Page image — fills width, no gaps. Once loaded it stays
+        // loaded (disk cache + keep-alive); a failed page retries
+        // itself and offers a per-page Retry instead of reloading
+        // the whole chapter.
+        return ReaderPageImage(
+          key: ValueKey('page-$index-$url'),
+          imageUrl: url,
+          pageNumber: index + 1,
+          fit: BoxFit.fitWidth,
+          slotColor: const Color(0xFF14141C),
+          accentColor: AppTheme.deepRose,
+          mutedColor: Colors.white38,
         );
       },
     );
