@@ -34,6 +34,29 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   bool _searched = false;
   String _searchBy = 'm_name';
 
+  /// Which way the pink underline wipes: true grows it from the left
+  /// when moving forward through the tabs (Home towards Reading),
+  /// false from the right when moving back. Follows the same
+  /// direction as the content glide below it.
+  bool _wipeFromLeft = true;
+  int _lastTabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastTabIndex = KatanaNav.values.indexOf(widget.active);
+  }
+
+  @override
+  void didUpdateWidget(covariant KatanaHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) {
+      final next = KatanaNav.values.indexOf(widget.active);
+      _wipeFromLeft = next >= _lastTabIndex;
+      _lastTabIndex = next;
+    }
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -119,8 +142,8 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     final desktop = width >= 900;
 
     return Container(
-      color: KatanaColors.surface,
       decoration: const BoxDecoration(
+        color: KatanaColors.surface,
         border: Border(bottom: BorderSide(color: KatanaColors.border)),
       ),
       // Top-only SafeArea: the surface color stays full-bleed behind the
@@ -140,7 +163,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
             // search gets its own full-width row below the logo.
             if (desktop)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   children: [
                     if (showBack) ...[
@@ -423,9 +449,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
             icon: Icon(
               Icons.arrow_forward_rounded,
               size: 18,
-              color: canSubmit
-                  ? KatanaColors.accent
-                  : KatanaColors.textLight,
+              color: canSubmit ? KatanaColors.accent : KatanaColors.textLight,
             ),
           ),
         ],
@@ -607,21 +631,35 @@ class _KatanaHeaderState extends State<KatanaHeader> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: active ? KatanaColors.accent : Colors.transparent,
-              width: 2.5,
+        padding: const EdgeInsets.fromLTRB(13, 11, 13, 6),
+        // Stack (not Column): the label sizes the item and the
+        // underline stretches to the label width. A Column would
+        // hand the bar unbounded width and it would collapse.
+        child: Stack(
+          alignment: Alignment.bottomCenter,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7.5),
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                style: AppTypography.outfitBold.copyWith(
+                  color: active ? KatanaColors.accent : KatanaColors.text,
+                  fontSize: 13.5,
+                ),
+                child: Text(label),
+              ),
             ),
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTypography.outfitBold.copyWith(
-            color: active ? KatanaColors.accent : KatanaColors.text,
-            fontSize: 13.5,
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _GlideUnderline(
+                active: active,
+                fromLeft: _wipeFromLeft,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -629,6 +667,41 @@ class _KatanaHeaderState extends State<KatanaHeader> {
 
   Widget _buildGenresNav() {
     return _GenresDropdown(child: _navItem(KatanaNav.genres, 'Genres', () {}));
+  }
+}
+
+/// The pink bar under the active nav tab. It wipes in from the side
+/// being travelled from and wipes back out, instead of snapping.
+class _GlideUnderline extends StatelessWidget {
+  final bool active;
+  final bool fromLeft;
+
+  const _GlideUnderline({required this.active, required this.fromLeft});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: active ? 1 : 0),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      builder: (_, value, _) {
+        final v = value.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: v,
+          child: Transform.scale(
+            scaleX: v,
+            alignment: fromLeft ? Alignment.centerLeft : Alignment.centerRight,
+            child: Container(
+              height: 2.5,
+              decoration: BoxDecoration(
+                color: KatanaColors.accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

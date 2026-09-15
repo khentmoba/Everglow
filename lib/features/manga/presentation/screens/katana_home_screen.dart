@@ -9,6 +9,7 @@ import '../katana/katana_header.dart';
 import '../katana/katana_item_card.dart';
 import '../katana/katana_nav.dart';
 import '../katana/katana_pagination.dart';
+import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
@@ -330,65 +331,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
   }
 
   Widget _buildLoading() {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      children: [
-        for (int i = 0; i < 6; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: KatanaCard(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: KatanaColors.border,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          height: 14,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: KatanaColors.border,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          height: 10,
-                          width: 180,
-                          decoration: BoxDecoration(
-                            color: KatanaColors.border,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          height: 10,
-                          width: 120,
-                          decoration: BoxDecoration(
-                            color: KatanaColors.border,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
-    );
+    return const KatanaListSkeleton(physics: AlwaysScrollableScrollPhysics());
   }
 
   Widget _buildError() {

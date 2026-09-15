@@ -8,6 +8,7 @@ import '../katana/katana_header.dart';
 import '../katana/katana_item_card.dart';
 import '../katana/katana_nav.dart';
 import '../katana/katana_pagination.dart';
+import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
@@ -348,8 +349,9 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
 
   Widget _buildList() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(color: KatanaColors.accent),
+      return const KatanaListSkeleton(
+        rows: 8,
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
       );
     }
     if (_error != null) {

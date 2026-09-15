@@ -12,6 +12,7 @@ import '../../data/services/mangakakalot_service.dart';
 import '../katana/currently_reading_shelf.dart' show CurrentlyReadingShelf;
 import '../katana/katana_header.dart' show KatanaNav;
 import '../katana/katana_nav.dart';
+import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 import '../widgets/manga_details_drawer.dart';
@@ -205,10 +206,9 @@ class _KatanaCurrentlyReadingScreenState
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1100),
                 child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: KatanaColors.accent,
-                        ),
+                    ? const KatanaListSkeleton(
+                        rows: 5,
+                        padding: EdgeInsets.fromLTRB(16, 14, 16, 60),
                       )
                     : _user.isEmpty
                         ? _empty(
