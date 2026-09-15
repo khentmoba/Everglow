@@ -56,10 +56,11 @@ class KatanaService {
     return _headers;
   }
 
-  Uri _proxiedFetch(Uri uri) {
-    return Uri.parse(
-      '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}',
-    );
+  Uri _proxiedFetch(Uri uri, {String cookie = ''}) {
+    final base =
+        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}';
+    if (cookie.isEmpty) return Uri.parse(base);
+    return Uri.parse('$base&cookie=${Uri.encodeComponent(cookie)}');
   }
 
   /// Proxies a page image (covers and chapter pages) through the
@@ -85,7 +86,7 @@ class KatanaService {
 
   String proxiedImageUrl(String url) => proxyImageUrl(url);
 
-  Future<String?> _fetchHtml(Uri uri) async {
+  Future<String?> _fetchHtml(Uri uri, {String cookie = ''}) async {
     // One retry for transient hiccups (cold Cloud Function instances
     // occasionally answer 200 with an empty body, and the site or CDN
     // sometimes drops a request). Keeps chapter loads and search from
@@ -94,7 +95,7 @@ class KatanaService {
       try {
         final headers = await _authHeaders();
         final response = await http
-            .get(_proxiedFetch(uri), headers: headers)
+            .get(_proxiedFetch(uri, cookie: cookie), headers: headers)
             .timeout(_timeout);
         if (response.statusCode == 200 && response.body.isNotEmpty) {
           return response.body;
@@ -323,24 +324,41 @@ class KatanaService {
 
   // ── Chapter pages ───────────────────────────────────────────────
 
+  /// Maps the reader's server switch to the cookie the site itself
+  /// sets (`#switch_sv` in the chapter page): Server 1 is the absence
+  /// of the cookie, Server 2 is `s_r=sv2`, Server 3 is `s_r=sv3`.
+  /// Without the cookie, Server 2/3 requests silently return Server
+  /// 1's page URLs — the `?sv=` query alone is ignored by the site.
+  static String cookieForServer(String server) {
+    switch (server) {
+      case '?sv=mk':
+        return 's_r=sv2';
+      case '?sv=3':
+        return 's_r=sv3';
+      default:
+        return '';
+    }
+  }
+
   /// Resolves the page image URLs for a chapter. The site embeds two
-  /// image URL arrays in inline scripts (`thzq` for server 1, `ytaw`
-  /// as fallback). If the first server's array is empty we retry the
-  /// `?sv=mk` and `?sv=3` variants exactly like the site's server
-  /// switcher.
+  /// image URL arrays in inline scripts (`thzq` plus the `ytaw`
+  /// fallback). The requested server is tried first — with the
+  /// cookie + query combination the site's own server switcher uses
+  /// — then the other two servers, so a down CDN never blocks the
+  /// chapter outright.
   Future<List<String>> fetchChapterPages(
     String slug,
     String chapterId, {
     String server = '',
   }) async {
     if (slug.isEmpty || chapterId.isEmpty) return const [];
-    final uris = <Uri>[
-      Uri.parse('$_baseUrl/manga/$slug/$chapterId$server'),
-      Uri.parse('$_baseUrl/manga/$slug/$chapterId?sv=mk'),
-      Uri.parse('$_baseUrl/manga/$slug/$chapterId?sv=3'),
-    ];
-    for (final uri in uris) {
-      final html = await _fetchHtml(uri);
+    const servers = ['', '?sv=mk', '?sv=3'];
+    final ordered = [server, ...servers.where((s) => s != server)];
+    for (final sv in ordered) {
+      final html = await _fetchHtml(
+        Uri.parse('$_baseUrl/manga/$slug/$chapterId$sv'),
+        cookie: cookieForServer(sv),
+      );
       if (html == null) continue;
       final urls = _parseImageArrays(html);
       if (urls.isNotEmpty) return urls;
