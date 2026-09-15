@@ -13,6 +13,7 @@ import "../../features/heartbeat/presentation/controllers/mood_controller.dart";
 import "../../features/xp/data/services/xp_service.dart";
 import "../../features/jukebox/data/services/spotify_auth_service.dart";
 import "../../features/jukebox/data/services/spotify_player_service.dart";
+import "../../features/jukebox/presentation/providers/artist_showdown_provider.dart";
 import "../../features/jukebox/presentation/providers/jukebox_provider.dart";
 import "../../features/jukebox/presentation/providers/music_stats_provider.dart";
 import "../services/auth_service.dart";
@@ -83,4 +84,5 @@ final List<SingleChildWidget> appProviders = [
     ),
   ),
   ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
+  ChangeNotifierProvider(create: (_) => ArtistShowdownProvider()),
 ];

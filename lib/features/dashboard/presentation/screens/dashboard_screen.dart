@@ -30,6 +30,7 @@ import '../../../heartbeat/presentation/controllers/mood_controller.dart';
 import '../../../academy/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
+import '../../../../features/jukebox/presentation/widgets/artist_showdown_card.dart';
 import '../../../../features/jukebox/presentation/widgets/music_stats_section.dart';
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
 import '../widgets/gallery_preview.dart';
@@ -693,6 +694,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                         delayMs: 625,
                         placeholderHeight: 560,
                         deferMs: 440,
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                      _animatedSliver(
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: ArtistShowdownCard(),
+                        ),
+                        delayMs: 630,
+                        placeholderHeight: 420,
+                        deferMs: 450,
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 16)),
                       _animatedSliver(

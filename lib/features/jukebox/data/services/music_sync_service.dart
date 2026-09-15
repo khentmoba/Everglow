@@ -239,6 +239,79 @@ class MusicSyncService {
     return [];
   }
 
+  /// Fetches every track by [artist] that [username] has scrobbled, with
+  /// per-track play counts (`user.getartisttracks`). Powers the artist
+  /// showdown: the same call feeds both the head-to-head total and the
+  /// song-by-song table.
+  ///
+  /// The artist name is forced onto each result instead of trusting the
+  /// entry's artist node (Last.fm's shape varies here), so totals always
+  /// group under exactly the artist that was picked. Returns an empty list
+  /// when the user is unknown, the artist has no scrobbles, or the request
+  /// fails.
+  Future<List<TopMusicTrack>> fetchArtistTracks(
+    String username,
+    String artist, {
+    int limit = 200,
+  }) async {
+    if (username.isEmpty ||
+        artist.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return [];
+    }
+
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.getartisttracks&user=$username'
+        '&artist=${Uri.encodeComponent(artist)}&limit=$limit&format=json',
+      );
+
+      final response = await _getWithAuth(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final tracks = _asMapList(data['artisttracks']?['track']);
+        if (tracks.isNotEmpty) {
+          final parsed = <TopMusicTrack>[];
+          for (var i = 0; i < tracks.length; i++) {
+            final track = TopMusicTrack.fromJson(tracks[i]);
+            parsed.add(
+              TopMusicTrack(
+                rank: track.rank > 0 ? track.rank : i + 1,
+                trackName: track.trackName,
+                artistName: artist,
+                playCount: track.playCount,
+                imageUrl: track.imageUrl,
+                spotifyUrl:
+                    'https://open.spotify.com/search/${Uri.encodeComponent('$artist ${track.trackName}')}',
+                mbid: track.mbid,
+              ),
+            );
+          }
+          return parsed;
+        } else {
+          _warnOnLastfmError(data, 'artist tracks', username);
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+        Logger.w(
+          'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
+        );
+      } else {
+        Logger.e(
+          'Jukebox Service Error (artist tracks, $username): Status ${response.statusCode} - ${response.body}',
+        );
+      }
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: Artist tracks API call for $username timed out after 10s.',
+      );
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (artist tracks, $username)', error: e);
+    }
+    return [];
+  }
+
   /// Fetches the user's all-time scrobble count via `user.getInfo`.
   ///
   /// Returns 0 when the user is unknown, the key is missing, or the request
