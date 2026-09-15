@@ -9,6 +9,8 @@ import '../../data/services/book_catalog_service.dart';
 import '../../data/services/book_download_helper.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/services/open_library_service.dart';
+import '../widgets/advanced_search_sheet.dart';
+import '../widgets/zlib_result_row.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/shelf/atmospheric_backdrop.dart';
 import '../../../../shared/widgets/shelf/filter_chip.dart';
@@ -714,48 +716,59 @@ class _BooksScreenState extends _BooksScreenStateBase {
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Container(
-            decoration: BoxDecoration(
-              color: _cCard,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _cRose.withValues(alpha: 0.15)),
-              boxShadow: [
-                BoxShadow(
-                  color: _cDeepRose.withValues(alpha: 0.08),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              onChanged: _onSearchChanged,
-              style: AppTypography.outfitWhite.copyWith(
-                color: _cWhite,
-                fontSize: 15,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Title, author, subject...',
-                hintStyle: AppTypography.outfitWhite.copyWith(
-                  color: _cMuted,
-                  fontSize: 15,
-                ),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Icon(
-                    Icons.search_rounded,
-                    color: _cDeepRose,
-                    size: 22,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: _cCard,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: _cRose.withValues(alpha: 0.15)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _cDeepRose.withValues(alpha: 0.08),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    onChanged: _onSearchChanged,
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _cWhite,
+                      fontSize: 15,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Title, author, ISBN...',
+                      hintStyle: AppTypography.outfitWhite.copyWith(
+                        color: _cMuted,
+                        fontSize: 15,
+                      ),
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: _cDeepRose,
+                          size: 22,
+                        ),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 0,
+                        vertical: 16,
+                      ),
+                    ),
                   ),
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 0,
-                  vertical: 16,
-                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              _AdvancedButton(
+                active: _advancedFilters.isNotEmpty,
+                onTap: _openAdvancedSearch,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -770,6 +783,24 @@ class _BooksScreenState extends _BooksScreenStateBase {
               : Column(
                   children: [
                     _buildSearchFilters(),
+                    if (_advancedFilters.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: ActiveFiltersPill(
+                            filters: _advancedFilters,
+                            onEdit: _openAdvancedSearch,
+                            onClear: () {
+                              setState(
+                                () => _advancedFilters =
+                                    BookSearchFilters.none,
+                              );
+                              _rerunSearchIfNeeded();
+                            },
+                          ),
+                        ),
+                      ),
                     if (!_searchRan && _searchResults.isEmpty)
                       Expanded(child: _buildSearchEmptyState())
                     else if (_searchResults.isEmpty)
@@ -787,7 +818,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
                         child: Row(
                           children: [
                             Text(
-                              '${_searchResults.length} RESULTS',
+                              _searchTotal > 0
+                                  ? '${BookCatalogService.compactCount(_searchTotal)} RESULTS'
+                                  : '${_searchResults.length} RESULTS',
                               style: AppTypography.outfitHeading.copyWith(
                                 fontSize: 9,
                                 color: _cMuted,
@@ -809,9 +842,17 @@ class _BooksScreenState extends _BooksScreenStateBase {
                         child: ListView.builder(
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                           physics: const BouncingScrollPhysics(),
-                          itemCount: _searchResults.length,
-                          itemBuilder: (context, index) =>
-                              _buildResultRow(_searchResults[index]),
+                          itemCount: _searchResults.length +
+                              (_searchHasMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index >= _searchResults.length) {
+                              return _LoadMoreRow(
+                                loading: _isLoadingMore,
+                                onTap: _loadMoreSearch,
+                              );
+                            }
+                            return _buildResultRow(_searchResults[index]);
+                          },
                         ),
                       ),
                     ],
@@ -824,7 +865,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
 
   Widget _buildResultRow(BookSearchResult result) {
     final book = result.toBookItem();
-    return _BookResultRow(
+    return ZlibResultRow(
       result: result,
       onOpen: () {
         HapticFeedback.lightImpact();
@@ -833,18 +874,21 @@ class _BooksScreenState extends _BooksScreenStateBase {
           extra: BookDetailArgs(item: book, result: result),
         );
       },
-      onListen: result.readCandidates.isNotEmpty
-          ? () => context.push('/books/listen', extra: book)
-          : null,
-      onRead: result.readCandidates.isNotEmpty
-          ? () => context.push('/books/reader', extra: book)
-          : null,
       onDownload: result.downloadUrls.isNotEmpty
           ? () => _showRowDownload(result)
           : null,
-      onShare: () => _shareResult(result),
       onSave: () => _saveResult(result),
     );
+  }
+
+  Future<void> _openAdvancedSearch() async {
+    final picked = await AdvancedSearchSheet.open(
+      context,
+      _advancedFilters,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _advancedFilters = picked);
+    _rerunSearchIfNeeded();
   }
 
   // ── READLIST TABS ──────────────────────────────────────────────────

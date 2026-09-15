@@ -29,6 +29,12 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   String? _searchFiletype;
   String? _searchLanguage;
   bool _searchRan = false;
+  // Z-Lib style paging + advanced filters.
+  static const int _searchPageSize = 30;
+  int _searchTotal = 0;
+  bool _searchHasMore = false;
+  bool _isLoadingMore = false;
+  BookSearchFilters _advancedFilters = BookSearchFilters.none;
 
   static final List<Map<String, dynamic>> _featuredSubjects = [
     {
@@ -178,31 +184,69 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       if (!mounted) return;
       if (query.trim().isNotEmpty) {
         _performSearch(query.trim());
-      } else {
+      } else if (_advancedFilters.isEmpty) {
         setState(() {
           _searchResults = [];
+          _searchTotal = 0;
+          _searchHasMore = false;
           _isSearching = false;
           _searchRan = false;
         });
+      } else {
+        _performSearch('');
       }
     });
   }
 
   Future<void> _performSearch(String query) async {
     setState(() => _isSearching = true);
-    final results = await _catalog.search(
+    final page = await _catalog.searchPaged(
       query,
       filetype: _searchFiletype,
       language: _searchLanguage,
       sort: _searchSort,
-      limit: 30,
+      limit: _searchPageSize,
+      filters: _advancedFilters,
     );
     if (mounted) {
       setState(() {
-        _searchResults = results;
+        _searchResults = page.results;
+        _searchTotal = page.total;
+        _searchHasMore = page.hasMore;
         _isSearching = false;
         _searchRan = true;
       });
+    }
+  }
+
+  /// Z-Lib "Load more": appends the next Open Library page to the
+  /// current result list.
+  Future<void> _loadMoreSearch() async {
+    if (_isLoadingMore || !_searchHasMore) return;
+    setState(() => _isLoadingMore = true);
+    final page = await _catalog.searchPaged(
+      _searchController.text.trim(),
+      filetype: _searchFiletype,
+      language: _searchLanguage,
+      sort: _searchSort,
+      limit: _searchPageSize,
+      offset: _searchResults.length,
+      filters: _advancedFilters,
+    );
+    if (mounted) {
+      setState(() {
+        _searchResults = [..._searchResults, ...page.results];
+        _searchTotal = page.total;
+        _searchHasMore = page.hasMore;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  void _rerunSearchIfNeeded() {
+    if (_searchController.text.trim().isNotEmpty ||
+        _advancedFilters.isNotEmpty) {
+      _performSearch(_searchController.text.trim());
     }
   }
 
@@ -291,9 +335,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
                         if (value == null) return;
                         HapticFeedback.selectionClick();
                         setState(() => _searchSort = value);
-                        if (_searchController.text.trim().isNotEmpty) {
-                          _performSearch(_searchController.text.trim());
-                        }
+                        _rerunSearchIfNeeded();
                       },
                     ),
                   ),
@@ -312,9 +354,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
                         setState(() {
                           _searchFiletype = _searchFiletype == ft ? null : ft;
                         });
-                        if (_searchController.text.trim().isNotEmpty) {
-                          _performSearch(_searchController.text.trim());
-                        }
+                        _rerunSearchIfNeeded();
                       },
                     ),
                   ),
@@ -345,9 +385,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
                         setState(() {
                           _searchLanguage = lang == 'All' ? null : lang;
                         });
-                        if (_searchController.text.trim().isNotEmpty) {
-                          _performSearch(_searchController.text.trim());
-                        }
+                        _rerunSearchIfNeeded();
                       },
                     ),
                   ),
@@ -461,29 +499,6 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _shareResult(BookSearchResult result) async {
-    HapticFeedback.selectionClick();
-    String url = '';
-    if (result.gutenbergId > 0) {
-      url = 'https://www.gutenberg.org/ebooks/${result.gutenbergId}';
-    } else if (result.iaId.isNotEmpty) {
-      url = 'https://archive.org/details/${result.iaId}';
-    } else if (result.workKey.isNotEmpty) {
-      url = 'https://openlibrary.org${result.workKey}';
-    }
-    await Clipboard.setData(ClipboardData(text: '$url\n${result.title}'));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Link copied'),
-        backgroundColor: _cDeepRose,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
       ),
     );
   }
