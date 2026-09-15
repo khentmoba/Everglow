@@ -986,9 +986,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (origin.isNotEmpty && step < KatanaService.cdnFallbackCount(origin)) {
       final key = '$index:$step';
       if (_fallbackScheduled.add(key)) {
+        final chapterId = _chapter.id;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _fallbackScheduled.remove(key);
           if (!mounted || index >= _pages.length) return;
+          if (_chapter.id != chapterId) return;
           setState(() => _cdnStep[index] = step + 1);
         });
       }
