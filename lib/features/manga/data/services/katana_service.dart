@@ -34,6 +34,12 @@ class KatanaService {
 
   static const Duration _timeout = Duration(seconds: 9);
 
+  /// Matches every MangaKatana chapter id shape seen on the live
+  /// site: plain (`c413`), decimals (`c528.5`), part/version
+  /// suffixes (`c38-p11`, `c12-v2`), volume ids (`v6c147`) and the
+  /// first-chapter id (`fc`).
+  static const String chapterIdPattern = r'(?:v\d+)?c[^"/]+|fc';
+
   Map<String, String> get _headers => const {
     'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -723,8 +729,10 @@ class KatanaService {
 
     final recent = <KatanaChapter>[];
     final chapterBlocks = RegExp(
-      r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a></div>'
-      r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
+      '<div class="chapter"><a href="[^"]*/(' +
+          chapterIdPattern +
+          r')"[^>]*>([^<]*)</a></div>'
+          r'\s*</div>\s*<div class="uk-width-2-10"><div class="update_time">([^<]*)</div>',
       dotAll: true,
     ).allMatches(block);
     for (final m in chapterBlocks) {
@@ -754,19 +762,11 @@ class KatanaService {
 
   KatanaChapter? _parseChapterLink(String block) {
     final m = RegExp(
-      r'<a href="https://mangakatana\.com/manga/[^"]*/(c\d+)"[^>]*>([^<]*)</a>',
+      r'<a href="https://mangakatana\.com/manga/[^"]*/(' +
+          chapterIdPattern +
+          r')"[^>]*>([^<]*)</a>',
     ).firstMatch(block);
-    if (m == null) {
-      final fc = RegExp(
-        r'<a href="https://mangakatana\.com/manga/[^"]*/fc"[^>]*>([^<]*)</a>',
-      ).firstMatch(block);
-      if (fc == null) return null;
-      return KatanaChapter(
-        id: 'fc',
-        num: '',
-        title: _unescape.convert(fc.group(1)!.trim()),
-      );
-    }
+    if (m == null) return null;
     final id = m.group(1)!;
     return KatanaChapter(
       id: id,
@@ -795,7 +795,7 @@ class KatanaService {
           ).firstMatch(block) ??
           RegExp(r'class="title">([^<]+)</a>').firstMatch(block);
       final chapterM = RegExp(
-        r'href="[^"]*/(c\d+|fc)"[^>]*>(.*?)</a>',
+        r'href="[^"]*/(' + chapterIdPattern + r')"[^>]*>(.*?)</a>',
         dotAll: true,
       ).firstMatch(block);
       final authors = <String>[];
@@ -850,7 +850,9 @@ class KatanaService {
         dotAll: true,
       ).firstMatch(block);
       final chapterM = RegExp(
-        r'<div class="chapter">\s*<a href="[^"]*/(c[^"/]+|fc)"[^>]*>(.*?)</a>',
+        r'<div class="chapter">\s*<a href="[^"]*/(' +
+            chapterIdPattern +
+            r')"[^>]*>(.*?)</a>',
         dotAll: true,
       ).firstMatch(block);
       final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
@@ -892,7 +894,9 @@ class KatanaService {
         r'class="status (ongoing|completed)"',
       ).firstMatch(block);
       final chapterM = RegExp(
-        r'<div class="chapter"><a href="[^"]*/(c[^"/]+|fc)"[^>]*>([^<]*)</a>',
+        r'<div class="chapter"><a href="[^"]*/(' +
+            chapterIdPattern +
+            r')"[^>]*>([^<]*)</a>',
       ).firstMatch(block);
       final idMatch = RegExp(r'data-id="(\d+)"').firstMatch(block);
       items.add(
@@ -1044,17 +1048,31 @@ class KatanaService {
     );
   }
 
-  List<KatanaChapter> _parseChapterTable(String html) {
+  List<KatanaChapter> _parseChapterTable(String html) =>
+      parseChapterTable(html);
+
+  /// Parses the detail-page chapter table. Public so tests can feed
+  /// it real row HTML and pin the behavior.
+  ///
+  /// Two shapes used to slip through and silently drop chapters:
+  /// rows the site marks as "Go to" jump targets carry the chapter
+  /// id in `data-jump` (`<tr data-jump="c30">`) instead of a number,
+  /// and volume chapters link to `v6c147`-style paths.
+  static List<KatanaChapter> parseChapterTable(String html) {
+    final unescape = HtmlUnescape();
     final chapters = <KatanaChapter>[];
     final rows = RegExp(
-      r'<tr data-jump="\d+">.*?</tr>',
+      r'<tr data-jump="[^"]*">.*?</tr>',
       dotAll: true,
     ).allMatches(html);
+    final hrefRe = RegExp(
+      r'href="https://mangakatana\.com/manga/[^"]*/(' +
+          chapterIdPattern +
+          r')"',
+    );
     for (final row in rows) {
       final block = row.group(0)!;
-      final hrefM = RegExp(
-        r'href="https://mangakatana\.com/manga/[^"]*/(c[^"/]+|fc)"',
-      ).firstMatch(block);
+      final hrefM = hrefRe.firstMatch(block);
       if (hrefM == null) continue;
       final id = hrefM.group(1)!;
       final titleM = RegExp(
@@ -1067,7 +1085,7 @@ class KatanaService {
         KatanaChapter(
           id: id,
           num: katanaChapterNumFromId(id),
-          title: _unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
+          title: unescape.convert(titleM?.group(1)?.trim() ?? 'Chapter $id'),
           updateAt: _parseKatanaDate(timeM?.group(1) ?? ''),
           // The site marks its own fresh rows with a New badge
           // (only the newest, and only when recently updated) —
@@ -1111,7 +1129,7 @@ class KatanaService {
   }
 
   /// Parses "Aug-12-2026" style dates from chapter tables.
-  DateTime? _parseKatanaDate(String raw) {
+  static DateTime? _parseKatanaDate(String raw) {
     if (raw.trim().isEmpty) return null;
     final m = RegExp(r'(\w{3})-(\d{1,2})-(\d{4})').firstMatch(raw);
     if (m == null) return null;
