@@ -41,7 +41,6 @@ import '../widgets/timeline_view.dart';
 import '../widgets/on_this_day_card.dart';
 
 import '../widgets/anniversary_metrics.dart';
-import '../widgets/dashboard_boot_veil.dart';
 import '../widgets/dashboard_overlays.dart';
 import '../widgets/deferred_section.dart';
 import '../widgets/xp_progress_section.dart';
@@ -73,15 +72,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
   String? _lastGardenUid;
-  // One-time cold-start veil: keeps the EVERGLOW loading screen over the
-  // dashboard until the first screen's data has settled, so Clair never
-  // watches the site assemble itself after login. Shown once per app run —
-  // navigating back to the dashboard later stays instant.
-  static bool _bootVeilShown = false;
-  bool _showBootVeil = false;
-  DateTime? _bootStart;
-  Timer? _bootPoll;
-  Timer? _bootSafety;
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _sectionKeys = {
     'zone-today': GlobalKey(),
@@ -107,7 +97,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _lifecycle.install(_setOfflineFromHeartbeat);
-    _beginBootVeil();
 
     Future.microtask(() {
       if (mounted) {
@@ -182,8 +171,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
-    _bootPoll?.cancel();
-    _bootSafety?.cancel();
     _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _lifecycle.uninstall();
@@ -267,75 +254,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       });
     }
-  }
-
-  void _dismissBootVeil() {
-    _bootPoll?.cancel();
-    _bootPoll = null;
-    _bootSafety?.cancel();
-    _bootSafety = null;
-    _bootVeilShown = true;
-    if (mounted && _showBootVeil) {
-      setState(() => _showBootVeil = false);
-    }
-  }
-
-  /// Starts the one-time cold-start veil (see [_showBootVeil]). Dismissal
-  /// needs three things: the auth session ready, the garden's first data
-  /// (the slowest card in the Today zone) settled, and a minimum warmth
-  /// so the door-to-dashboard handoff never flashes. A 9s safety net
-  /// always dismisses so Clair is never trapped behind the veil.
-  void _beginBootVeil() {
-    if (_bootVeilShown) return;
-    _showBootVeil = true;
-    _bootStart = DateTime.now();
-    _bootPoll?.cancel();
-    _bootPoll = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      _checkBootReady();
-    });
-    _bootSafety?.cancel();
-    _bootSafety = Timer(const Duration(seconds: 9), () {
-      if (mounted) _dismissBootVeil();
-    });
-    // Warm the header emblem while covered so it paints instantly.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      try {
-        // Synchronous use of context: precacheImage resolves its config
-        // now and only decodes asynchronously; failures stay silent.
-        unawaited(
-          precacheImage(
-            const AssetImage('assets/images/logo.png'),
-            context,
-          ).then<void>((_) {}, onError: (_) {}),
-        );
-      } catch (_) {}
-      _checkBootReady();
-    });
-  }
-
-  void _checkBootReady() {
-    if (!mounted || !_showBootVeil) return;
-    final start = _bootStart;
-    if (start == null) return;
-    final elapsed = DateTime.now().difference(start);
-    // Minimum warmth: the veil should feel intentional, not a flash.
-    if (elapsed < const Duration(milliseconds: 2000)) return;
-    var authed = true;
-    try {
-      authed = context.read<AuthService>().isReady;
-    } catch (_) {}
-    if (!authed) return;
-    var gardenSettled = elapsed >= const Duration(seconds: 6);
-    try {
-      final garden = context.read<GardenProvider>();
-      gardenSettled =
-          gardenSettled || garden.stats != null || garden.hasError;
-    } catch (_) {
-      gardenSettled = true;
-    }
-    if (!gardenSettled) return;
-    _dismissBootVeil();
   }
 
   void _setOfflineFromHeartbeat() {
@@ -422,7 +340,25 @@ class _DashboardScreenState extends State<DashboardScreen>
     final isReady = context.select<AuthService, bool>((a) => a.isReady);
 
     if (!isReady) {
-      return const Scaffold(body: DashboardBootVeil(visible: true));
+      return const Scaffold(
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: EverglowBackground(baseColor: AppColors.inkDeep),
+            ),
+            Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.deepRose,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     final contentMaxWidth = const ResponsiveValue<double>(
@@ -762,10 +698,6 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ),
-          // Cold-start loading screen: covers the assembling site until
-          // the Today zone has settled (see _beginBootVeil). Fades out
-          // once per app run; later visits skip it entirely.
-          DashboardBootVeil(visible: _showBootVeil),
         ],
       ),
     );
