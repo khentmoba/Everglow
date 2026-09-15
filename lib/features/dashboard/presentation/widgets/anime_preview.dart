@@ -308,7 +308,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       if (item.year.isNotEmpty) parts.add(item.year);
       parts.add('Movie');
     } else if (item.hasEpisodeProgress && item.currentEpisode != null) {
-      parts.add('S${item.currentSeason ?? 1}E${item.currentEpisode}');
+      parts.add('S${item.displaySeason}E${item.currentEpisode}');
       if (item.year.isNotEmpty) parts.add(item.year);
     } else if (item.currentEpisode == null) {
       // No progress yet: show what the title is, not where the viewer is.
@@ -338,7 +338,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
               subtitle: _subtitleFor(item),
               topBadge:
                   item.hasEpisodeProgress && item.currentEpisode != null
-                  ? 'S${item.currentSeason ?? 1}E${item.currentEpisode}'
+                  ? 'S${item.displaySeason}E${item.currentEpisode}'
                   : null,
               onTap: () => _openDetails(item),
             ),
