@@ -81,6 +81,32 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
       widget.item.source == 'jikan' ||
       widget.item.source == 'anilist';
 
+  /// True when this title is a film and must show Play (never episodes).
+  /// Covers TMDB movies via [MediaItem.isMovie] plus ONA-listed anime
+  /// films (e.g. Drifting Home: tv + ONA + 1 x 120min) which AniList does
+  /// not mark as MOVIE. Mirrors AnimeXWatchPage._filmFor so both entry
+  /// points agree. Checks the live AniList detail first, then falls back
+  /// to the catalog item so legacy tv-stored docs still resolve.
+  bool get _isFilm {
+    if (widget.item.isMovie) return true;
+    if (!_isAnimeSourced) return false;
+    final detail = _aniListDetail;
+    if (detail != null) {
+      return MediaItem.isSingleEpisodeFilm(
+        format: detail.format,
+        episodeCount: detail.episodeCount ?? widget.item.episodeCount,
+        durationMinutes: detail.duration,
+      );
+    }
+    // Detail not loaded yet: use the catalog snapshot so we don't flash
+    // episodes for known films while AniList resolves.
+    return MediaItem.isSingleEpisodeFilm(
+      format: widget.item.format,
+      episodeCount: widget.item.episodeCount,
+      durationMinutes: null,
+    );
+  }
+
   int get _effectiveMalId => _resolvedMalId ?? widget.item.tmdbId;
 
   // Trailer state
@@ -297,6 +323,20 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
       _genreNames = detail.genres;
     });
 
+    // Films never show episodes — not even one row. ONA-listed films
+    // (Drifting Home: ONA + 1 x 120min) used to fall through to the
+    // synthetic Season 1 below and render fake Episode 1..N rows.
+    if (_isFilm) {
+      if (mounted) {
+        setState(() {
+          _seasons = [];
+          _episodes = [];
+          _isLoadingEpisodes = false;
+        });
+      }
+      return;
+    }
+
     // Try using TMDB seasons like cinema. Resolve MAL→TMDB via ani.zip.
     final malId = _resolvedMalId ?? widget.item.tmdbId;
     int? tmdbSeriesId = await _aniZipService.fetchTmdbId(malId);
@@ -383,6 +423,17 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   }
 
   Future<void> _fetchSeasonEpisodes(int seasonNumber) async {
+    // Films never load episodes — guards against stale season-change
+    // callbacks racing the _fetchAnimeDetails film early-return.
+    if (_isFilm) {
+      if (mounted) {
+        setState(() {
+          _isLoadingEpisodes = false;
+          _episodes = [];
+        });
+      }
+      return;
+    }
     setState(() {
       _isLoadingEpisodes = true;
       _episodes = [];

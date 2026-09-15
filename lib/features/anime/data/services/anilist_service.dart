@@ -546,7 +546,21 @@ class AniListService with ConnectivityAware {
     final banner = (m['bannerImage'] as String?) ?? '';
 
     final format = (m['format'] as String?) ?? '';
-    final mediaType = format == 'MOVIE' ? 'movie' : 'tv';
+    final episodesForType = (m['episodes'] is num)
+        ? (m['episodes'] as num).toInt()
+        : null;
+    final durationForType = (m['duration'] is num)
+        ? (m['duration'] as num).toInt()
+        : null;
+    // ONA-listed films (e.g. Drifting Home: ONA + 1 x 120min) are really
+    // movies — without this they open as tv with a fake episode list.
+    final mediaType = MediaItem.isSingleEpisodeFilm(
+      format: format,
+      episodeCount: episodesForType,
+      durationMinutes: durationForType,
+    )
+        ? 'movie'
+        : 'tv';
 
     final yearVal = m['seasonYear'];
     final year = yearVal is num ? yearVal.toString() : '';
@@ -845,7 +859,19 @@ class AniListService with ConnectivityAware {
         '';
     final banner = (m['bannerImage'] as String?) ?? '';
     final format = (m['format'] as String?) ?? '';
-    final mediaType = format == 'MOVIE' ? 'movie' : 'tv';
+    final episodesForType = (m['episodes'] is num)
+        ? (m['episodes'] as num).toInt()
+        : null;
+    final durationForType = (m['duration'] is num)
+        ? (m['duration'] as num).toInt()
+        : null;
+    final mediaType = MediaItem.isSingleEpisodeFilm(
+      format: format,
+      episodeCount: episodesForType,
+      durationMinutes: durationForType,
+    )
+        ? 'movie'
+        : 'tv';
     final yearVal = m['seasonYear'];
     final year = yearVal is num ? yearVal.toString() : '';
 

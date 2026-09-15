@@ -182,6 +182,20 @@ class MediaItem {
   /// Currently Watching / Watched.
   bool get isAnimeSeries => isAnime && !isMovie;
 
+  /// True when AniList lists a title as a single long episode (e.g.
+  /// Drifting Home: format ONA + 1 x 120min) but it is really a film.
+  /// AniList marks some Netflix films as ONA, so `format == MOVIE` alone
+  /// misses them. Mirrors `AnimeXWatchPage._filmFor` so every entry
+  /// point agrees on what a film is.
+  static bool isSingleEpisodeFilm({
+    required String format,
+    int? episodeCount,
+    int? durationMinutes,
+  }) {
+    if (format.trim().toLowerCase() == 'movie') return true;
+    return episodeCount == 1 && (durationMinutes ?? 0) >= 60;
+  }
+
   /// True when this title belongs in the cinema rails: every movie
   /// (live-action or anime) plus non-anime TV. Anime TV series return
   /// false here — the Anime rail owns those.
