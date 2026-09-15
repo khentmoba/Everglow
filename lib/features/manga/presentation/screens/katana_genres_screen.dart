@@ -4,6 +4,7 @@ import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
 import '../katana/katana_header.dart';
 import '../katana/katana_nav.dart';
+import '../katana/katana_skeleton.dart';
 import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
@@ -55,9 +56,7 @@ class _KatanaGenresScreenState extends State<KatanaGenresScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1100),
         child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: KatanaColors.accent),
-              )
+            ? const KatanaGenreGridSkeleton()
             : ListView(
                 padding: const EdgeInsets.all(16),
                 children: [

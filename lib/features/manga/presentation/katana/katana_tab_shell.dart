@@ -87,6 +87,12 @@ class KatanaTabShellState extends State<KatanaTabShell> {
   late String _slug;
   late String _title;
 
+  /// Tab-travel direction: +1 glides content in from the right (moving
+  /// forward through Home, Latest, Directory, New, Genres, Reading),
+  /// -1 from the left. Same-tab switches (genre to genre) count as
+  /// forward.
+  int _direction = 1;
+
   @override
   void initState() {
     super.initState();
@@ -147,11 +153,14 @@ class KatanaTabShellState extends State<KatanaTabShell> {
     if (_tab == tab && _mode == mode && _slug == slug && _title == title) {
       return;
     }
+    final from = KatanaNav.values.indexOf(_tab);
+    final to = KatanaNav.values.indexOf(tab);
     setState(() {
       _tab = tab;
       _mode = mode;
       _slug = slug;
       _title = title;
+      _direction = to >= from ? 1 : -1;
     });
   }
 
@@ -164,10 +173,11 @@ class KatanaTabShellState extends State<KatanaTabShell> {
           KatanaHeader(active: _tab),
           Expanded(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: _fadeSlide,
+              duration: const Duration(milliseconds: 280),
+              reverseDuration: const Duration(milliseconds: 180),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: _glide,
               child: KeyedSubtree(
                 key: ValueKey<String>(_tabKey),
                 child: _buildBody(),
@@ -179,14 +189,23 @@ class KatanaTabShellState extends State<KatanaTabShell> {
     );
   }
 
-  /// Same-window feel: content fades with a barely-there rise while the
-  /// header above it does not move at all.
-  Widget _fadeSlide(Widget child, Animation<double> animation) {
+  /// Soft glide: the new tab drifts in from the side being travelled
+  /// towards while fading in, and the old tab drifts out the other
+  /// way. The header above does not move at all, so it still feels
+  /// like one window.
+  Widget _glide(Widget child, Animation<double> animation) {
+    // The incoming child carries the current key; anything else is on
+    // its way out. Each gets its own drift so they pass each other
+    // instead of crossing.
+    final incoming = child.key == ValueKey<String>(_tabKey);
+    final begin = incoming
+        ? Offset(0.05 * _direction, 0)
+        : Offset(-0.05 * _direction, 0);
     return FadeTransition(
       opacity: animation,
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0, 0.015),
+          begin: begin,
           end: Offset.zero,
         ).animate(animation),
         child: child,
