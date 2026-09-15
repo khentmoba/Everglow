@@ -31,6 +31,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   Timer? _debounce;
   List<KatanaManga> _suggestions = const [];
   bool _searching = false;
+  bool _searched = false;
   String _searchBy = 'm_name';
 
   @override
@@ -47,10 +48,14 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       setState(() {
         _suggestions = const [];
         _searching = false;
+        _searched = false;
       });
       return;
     }
-    setState(() => _searching = true);
+    setState(() {
+      _searching = true;
+      _searched = false;
+    });
     _debounce = Timer(const Duration(milliseconds: 450), () async {
       final results = await _service.fetchSuggestions(
         query,
@@ -60,15 +65,39 @@ class _KatanaHeaderState extends State<KatanaHeader> {
       setState(() {
         _suggestions = results;
         _searching = false;
+        _searched = true;
       });
     });
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchController.clear();
+    setState(() {
+      _suggestions = const [];
+      _searching = false;
+      _searched = false;
+    });
+  }
+
+  void _toggleSearchBy() {
+    setState(() {
+      _searchBy = _searchBy == 'm_name' ? 'author' : 'm_name';
+    });
+    // Re-run the current query under the new mode, like the site.
+    if (_searchController.text.trim().length >= 3) {
+      _onSearchChanged(_searchController.text);
+    }
   }
 
   void _submitSearch() {
     final query = _searchController.text.trim();
     if (query.length < 3) return;
     FocusScope.of(context).unfocus();
-    setState(() => _suggestions = const []);
+    setState(() {
+      _suggestions = const [];
+      _searched = false;
+    });
     pushSearchResults(context, query, searchBy: _searchBy);
   }
 
@@ -159,8 +188,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                 ],
               ),
             ),
-            // Suggestions dropdown
-            if (_suggestions.isNotEmpty || _searching)
+            // Suggestions dropdown (stays visible for empty results so
+            // "No matches found." actually shows, like the site).
+            if (_searchController.text.trim().length >= 3 &&
+                (_searching || _searched))
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                 child: _buildSuggestions(),
@@ -257,6 +288,9 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   }
 
   Widget _buildSearchField() {
+    final hasText = _searchController.text.isNotEmpty;
+    final canSubmit = _searchController.text.trim().length >= 3;
+    final narrow = MediaQuery.sizeOf(context).width < 500;
     return Container(
       height: 40,
       constraints: const BoxConstraints(maxWidth: 560),
@@ -287,50 +321,65 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                 isDense: true,
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.zero,
+                suffixIcon: hasText
+                    ? GestureDetector(
+                        onTap: _clearSearch,
+                        child: const Icon(
+                          Icons.clear_rounded,
+                          size: 16,
+                          color: KatanaColors.textLight,
+                        ),
+                      )
+                    : null,
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 28,
+                  minHeight: 28,
+                ),
               ),
             ),
           ),
-          _searchController.text.isEmpty
-              ? GestureDetector(
-                  onTap: () => setState(() {
-                    _searchBy = _searchBy == 'm_name' ? 'author' : 'm_name';
-                  }),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: KatanaColors.surface,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: KatanaColors.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _searchBy == 'm_name' ? 'Manga Name' : 'Author',
-                          style: KatanaType.small,
-                        ),
-                        const Icon(
-                          Icons.arrow_drop_down_rounded,
-                          size: 16,
-                          color: KatanaColors.textMuted,
-                        ),
-                      ],
-                    ),
+          // Search-by dropdown stays visible while typing, like the
+          // site's select next to the input.
+          GestureDetector(
+            onTap: _toggleSearchBy,
+            child: Container(
+              margin: const EdgeInsets.only(right: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: KatanaColors.surface,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: KatanaColors.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _searchBy == 'm_name'
+                        ? (narrow ? 'Name' : 'Manga Name')
+                        : 'Author',
+                    style: KatanaType.small,
                   ),
-                )
-              : IconButton(
-                  onPressed: _submitSearch,
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(
-                    Icons.arrow_forward_rounded,
-                    size: 17,
-                    color: KatanaColors.accent,
+                  const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    size: 16,
+                    color: KatanaColors.textMuted,
                   ),
-                ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: canSubmit ? _submitSearch : null,
+            visualDensity: VisualDensity.compact,
+            tooltip: 'Search',
+            icon: Icon(
+              Icons.arrow_forward_rounded,
+              size: 17,
+              color: canSubmit
+                  ? KatanaColors.accent
+                  : KatanaColors.textLight,
+            ),
+          ),
         ],
       ),
     );
@@ -393,7 +442,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
   Widget _suggestionTile(KatanaManga item) {
     return InkWell(
       onTap: () {
-        _suggestions = const [];
+        setState(() {
+          _suggestions = const [];
+          _searched = false;
+        });
         _searchController.clear();
         FocusScope.of(context).unfocus();
         pushDetail(context, item.slug);
