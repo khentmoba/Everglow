@@ -592,9 +592,9 @@ class _GatewayPageState extends State<GatewayPage> {
       opacity: isRevealing ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 500),
       child: isRevealing
-          ? const Stack(
+          ? Stack(
               children: [
-                Positioned.fill(
+                const Positioned.fill(
                   child: EverglowBackground(
                     baseColor: AppColors.inkDeep,
                     glows: [
@@ -621,13 +621,45 @@ class _GatewayPageState extends State<GatewayPage> {
                   ),
                 ),
                 Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.deepRose,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.favorite_rounded,
+                        color: AppColors.auroraRose,
+                        size: 26,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'EVERGLOW',
+                        style: TextStyle(
+                          color: AppColors.petalWhite.withValues(alpha: 0.85),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 4.0,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: 120,
+                        child: LinearProgressIndicator(
+                          minHeight: 2,
+                          backgroundColor: const Color(0x26F5EFE6),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.blushGold.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'loading your story…',
+                        style: TextStyle(
+                          color: AppColors.petalWhite.withValues(alpha: 0.45),
+                          fontSize: 10,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
