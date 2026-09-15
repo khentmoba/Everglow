@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -8,6 +9,7 @@ import '../../../../core/utils/logger.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../../xp/domain/models/user_progress.dart';
 import '../../../xp/presentation/widgets/xp_progress_bar.dart';
+import 'dashboard_load_tracker.dart';
 
 /// Binds the XP progress stream to the current uid without re-creating the
 /// Firestore listener on every unrelated auth notification.
@@ -53,6 +55,16 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   void initState() {
     super.initState();
     _bind();
+    // Optimistic first paint: the bar renders on the very first frame
+    // (cache or zero-state), so we count as ready immediately. Reported
+    // post-frame since notifyListeners must not fire during initState's
+    // build pass.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.stars);
+      } catch (_) {}
+    });
   }
 
   @override

@@ -41,6 +41,8 @@ import '../widgets/timeline_view.dart';
 import '../widgets/on_this_day_card.dart';
 
 import '../widgets/anniversary_metrics.dart';
+import '../widgets/dashboard_load_tracker.dart';
+import '../widgets/dashboard_load_veil.dart';
 import '../widgets/dashboard_overlays.dart';
 import '../widgets/deferred_section.dart';
 import '../widgets/xp_progress_section.dart';
@@ -72,6 +74,18 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
   String? _lastGardenUid;
+  // First-screen load veil: a full-screen EVERGLOW loader with a REAL
+  // percent. Each first-screen card marks its DashboardLoadTracker signal
+  // when its own load settles, so the number only climbs on real progress.
+  // Shown once per app run; later dashboard visits stay instant. Two
+  // anti-annoyance guards: a 250ms grace (fast loads never flash a veil)
+  // and a 3s safety (slow network never traps Clair behind it).
+  static bool _loadVeilShown = false;
+  final DashboardLoadTracker _loadTracker = DashboardLoadTracker();
+  bool _showLoadVeil = false;
+  bool _authMarked = false;
+  Timer? _veilGrace;
+  Timer? _veilSafety;
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _sectionKeys = {
     'zone-today': GlobalKey(),
@@ -97,6 +111,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _lifecycle.install(_setOfflineFromHeartbeat);
+    _loadTracker.addListener(_onLoadProgress);
+    // Grace: only veil a load slow enough to need reassurance. Safety:
+    // never hold Clair longer than 3s no matter what is still pending.
+    _veilGrace = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _loadVeilShown || _loadTracker.isComplete) return;
+      setState(() => _showLoadVeil = true);
+    });
+    _veilSafety = Timer(const Duration(seconds: 3), () {
+      if (mounted) _dismissLoadVeil();
+    });
 
     Future.microtask(() {
       if (mounted) {
@@ -105,6 +129,12 @@ class _DashboardScreenState extends State<DashboardScreen>
         // shelf report with the UID, guest flag, and user-doc sync state
         // so the cause is readable without opening the Firebase console.
         Logger.i('[AuthDiag] ${authService.diagLine}');
+        // Auth session is the first load signal (async context: marking
+        // directly is safe here).
+        if (authService.isReady) {
+          _authMarked = true;
+          _loadTracker.mark(DashboardLoadSignal.auth);
+        }
         // Garden sync rides along with _syncPresenceHeartbeat below so it
         // retries while the UID is unavailable instead of running once.
 
@@ -171,6 +201,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
+    _veilGrace?.cancel();
+    _veilSafety?.cancel();
+    _loadTracker.removeListener(_onLoadProgress);
+    _loadTracker.dispose();
     _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _lifecycle.uninstall();
@@ -234,6 +268,25 @@ class _DashboardScreenState extends State<DashboardScreen>
       _lastHeartbeatUsername = username;
     }
     _syncGarden(uid);
+  }
+
+  /// Fires on every tracker mark: the moment the first screen is fully
+  /// reported ready, lift the veil (the fade itself takes ~500ms, so
+  /// Clair still glimpses 100% before her story appears).
+  void _onLoadProgress() {
+    if (_loadTracker.isComplete) _dismissLoadVeil();
+  }
+
+  void _dismissLoadVeil() {
+    _veilGrace?.cancel();
+    _veilGrace = null;
+    _veilSafety?.cancel();
+    _veilSafety = null;
+    _loadTracker.removeListener(_onLoadProgress);
+    _loadVeilShown = true;
+    if (mounted && _showLoadVeil) {
+      setState(() => _showLoadVeil = false);
+    }
   }
 
   /// Starts the DailyBloom garden stream for [uid]. Runs inside the heartbeat
@@ -338,25 +391,37 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final isReady = context.select<AuthService, bool>((a) => a.isReady);
+    // Auth session ready after mount (e.g. deep link before the gateway
+    // finished): the microtask in initState may have run too early, so
+    // catch it here post-frame — never notify during build itself.
+    if (isReady && !_authMarked) {
+      _authMarked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadTracker.mark(DashboardLoadSignal.auth);
+      });
+    }
 
     if (!isReady) {
-      return const Scaffold(
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: EverglowBackground(baseColor: AppColors.inkDeep),
-            ),
-            Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.deepRose,
+      return ChangeNotifierProvider<DashboardLoadTracker>.value(
+        value: _loadTracker,
+        child: const Scaffold(
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: EverglowBackground(baseColor: AppColors.inkDeep),
+              ),
+              Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.deepRose,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -367,8 +432,10 @@ class _DashboardScreenState extends State<DashboardScreen>
       desktop: 980,
     ).of(context);
 
-    return Scaffold(
-      body: Stack(
+    return ChangeNotifierProvider<DashboardLoadTracker>.value(
+      value: _loadTracker,
+      child: Scaffold(
+        body: Stack(
         children: [
           const Positioned.fill(
             child: EverglowBackground(
@@ -698,7 +765,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ),
+          // First-screen load veil: real percent while Today's cards
+          // report ready (see _loadTracker). Fades on complete or the
+          // 3s safety; once per app run, later visits skip it entirely.
+          DashboardLoadVeil(visible: _showLoadVeil),
         ],
+      ),
       ),
     );
   }

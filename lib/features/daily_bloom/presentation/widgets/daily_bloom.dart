@@ -9,6 +9,7 @@ import 'garden_plant_view.dart';
 import 'garden_weather_overlay.dart';
 import 'plant_picker_sheet.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../dashboard/presentation/widgets/dashboard_load_tracker.dart';
 
 /// The living heart of the dashboard: Clair's plant in a night-garden
 /// sanctuary card — moonlight glow, stars, seasonal weather, growth dots,
@@ -26,6 +27,7 @@ class DailyBloom extends StatefulWidget {
 class _DailyBloomState extends State<DailyBloom> {
   bool _showTooltip = false;
   double _scale = 1.0;
+  bool _gardenReported = false;
 
   void _toggleTooltip() {
     setState(() => _showTooltip = !_showTooltip);
@@ -48,6 +50,22 @@ class _DailyBloomState extends State<DailyBloom> {
     return Consumer<GardenProvider>(
       builder: (context, provider, child) {
         final stats = provider.stats;
+        // First-screen progress: the garden has settled (stats or final
+        // error), so the load veil can count us. Reported post-frame —
+        // notifyListeners must not fire during build — and retried each
+        // build until a tracker accepts it (cards can render in tests
+        // or routes without one).
+        if (!_gardenReported && (stats != null || provider.hasError)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _gardenReported) return;
+            try {
+              context.read<DashboardLoadTracker>().mark(
+                DashboardLoadSignal.garden,
+              );
+              _gardenReported = true;
+            } catch (_) {}
+          });
+        }
         final stage = stats?.currentStage ?? 0;
         final plantType = stats != null
             ? PlantType.fromId(stats.plantType)

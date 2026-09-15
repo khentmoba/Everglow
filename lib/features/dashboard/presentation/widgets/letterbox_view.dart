@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../data/services/letterbox_service.dart';
 import 'feature_section.dart';
+import 'dashboard_load_tracker.dart';
 import 'note_card.dart';
 import 'note_dialog.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +45,9 @@ class _LetterboxViewState extends State<LetterboxView> {
     if (cached.isNotEmpty) {
       _notes = cached.take(_previewLimit).toList();
       _isLoading = false;
+      // Cache-first paint counts as ready; report post-frame since
+      // notifyListeners must not fire during initState's build pass.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reportLoaded());
     } else {
       _loadInitialCache();
     }
@@ -57,6 +61,7 @@ class _LetterboxViewState extends State<LetterboxView> {
         _notes = diskNotes.take(_previewLimit).toList();
         _isLoading = false;
       });
+      _reportLoaded();
     }
   }
 
@@ -79,6 +84,7 @@ class _LetterboxViewState extends State<LetterboxView> {
           _isLoading = false;
           _hasError = false;
         });
+        _reportLoaded();
       },
       onError: (_) {
         if (!mounted) return;
@@ -108,6 +114,9 @@ class _LetterboxViewState extends State<LetterboxView> {
         _isLoading = false;
         _hasError = true;
       });
+      // Retries exhausted: the error card is final, so the veil can
+      // stop waiting on us even though no letters arrived.
+      _reportLoaded();
     }
   }
 
@@ -118,6 +127,15 @@ class _LetterboxViewState extends State<LetterboxView> {
       _retryCount = 0;
     });
     _subscribe();
+  }
+
+  /// First-screen progress: letters have settled (cache, disk, snapshot,
+  /// or final error), so the load veil can count us. Marking is
+  /// idempotent — every settle path funnels here safely.
+  void _reportLoaded() {
+    try {
+      context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.letters);
+    } catch (_) {}
   }
 
   void _handleNoteTap(HiddenNote note) {
