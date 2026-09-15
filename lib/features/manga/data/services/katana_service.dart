@@ -485,16 +485,26 @@ class KatanaService {
     required String chapterId,
     required String chapterTitle,
     required int page,
+    String title = '',
+    String coverUrl = '',
   }) async {
     if (userName.isEmpty || slug.isEmpty) return;
     try {
-      await _bookmarks.doc('$userName|$slug').set({
+      final data = <String, dynamic>{
         'slug': slug,
         'userName': userName,
         'lastReadChapterId': chapterId,
         'lastReadChapterTitle': chapterTitle,
         'lastReadPage': page,
-      }, SetOptions(merge: true));
+      };
+      // Progress saves used to omit title/cover, leaving Continue Reading
+      // cards with a blank title and placeholder cover. Only fill when we
+      // have real values so we never blank out an existing bookmark.
+      if (title.isNotEmpty) data['title'] = title;
+      if (coverUrl.isNotEmpty) data['coverUrl'] = coverUrl;
+      await _bookmarks
+          .doc('$userName|$slug')
+          .set(data, SetOptions(merge: true));
     } catch (e) {
       Logger.e('saveReadingProgress error', error: e);
     }
