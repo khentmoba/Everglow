@@ -7,6 +7,7 @@ import '../../data/models/book_item.dart';
 import '../../data/models/book_search_result.dart';
 import '../../data/services/book_catalog_service.dart';
 import '../../data/services/book_download_helper.dart';
+import '../../data/services/book_library_service.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/services/open_library_service.dart';
 import '../widgets/advanced_search_sheet.dart';
@@ -40,9 +41,9 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Main entry for the books feature. Four-tab IndexedStack
-/// (Home, Search, To Read, Read) with a custom glassmorphic bottom
-/// nav. Mirrors `CinemaScreen` from the cinema feature.
+/// Main entry for the books feature. Three-tab IndexedStack
+/// (Home, Search, Library) with a custom glassmorphic bottom nav.
+/// Mirrors `CinemaScreen` from the cinema feature.
 class BooksScreen extends StatefulWidget {
   /// Pre-filled search text, e.g. when tapping an author name on the
   /// detail page. Opens straight on the Search tab.
@@ -85,8 +86,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
               children: [
                 _buildHomeTab(),
                 _buildSearchTab(),
-                _buildReadlistTab(isReadTab: false),
-                _buildReadlistTab(isReadTab: true),
+                _buildLibraryTab(),
               ],
             ),
           ),
@@ -720,7 +720,21 @@ class _BooksScreenState extends _BooksScreenStateBase {
     _rerunSearchIfNeeded();
   }
 
-  // ── READLIST TABS ──────────────────────────────────────────────────
+  // ── LIBRARY TAB ────────────────────────────────────────────────────
+
+  List<BookItem> get _libraryList {
+    switch (_librarySegment) {
+      case 1:
+        return _readHistoryList;
+      case 2:
+        return _favorites;
+      case 3:
+        return _history;
+      case 0:
+      default:
+        return _toReadList;
+    }
+  }
 
   Color _readBadgeColor(String status) {
     switch (status) {
@@ -735,8 +749,8 @@ class _BooksScreenState extends _BooksScreenStateBase {
     }
   }
 
-  Widget _buildReadlistTab({required bool isReadTab}) {
-    final list = isReadTab ? _readHistoryList : _toReadList;
+  Widget _buildLibraryTab() {
+    final list = _libraryList;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -761,14 +775,14 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isReadTab ? 'Read' : 'To Read',
+                      'Library',
                       style: AppTypography.cormorantExtraBold.copyWith(
                         fontSize: 26,
                         color: _cWhite,
                       ),
                     ),
                     Text(
-                      isReadTab ? 'OUR LIBRARY' : 'THE BOOKSHELF',
+                      'YOUR SHELVES',
                       style: AppTypography.outfitHeading.copyWith(
                         fontSize: 9,
                         color: _cMuted,
@@ -800,19 +814,15 @@ class _BooksScreenState extends _BooksScreenStateBase {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        _buildLibrarySegments(),
+        const SizedBox(height: 12),
         Expanded(
           child: list.isEmpty
               ? EverglowEmptyState(
-                  icon: isReadTab
-                      ? Icons.auto_stories_outlined
-                      : Icons.bookmark_border_rounded,
-                  title: isReadTab
-                      ? 'Your read history is empty'
-                      : 'Nothing queued yet',
-                  subtitle: isReadTab
-                      ? 'Books you mark as read will live here so you can revisit them anytime.'
-                      : 'Tap the bookmark on any book to add it to your reading queue.',
+                  icon: _libraryEmptyIcon(),
+                  title: _libraryEmptyTitle(),
+                  subtitle: _libraryEmptySubtitle(),
                 )
               : GridView.builder(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
@@ -834,15 +844,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
                       subtitle: item.author.isNotEmpty
                           ? 'by ${item.author}'
                           : (item.year.isNotEmpty ? item.year : null),
-                      badge: isReadTab
-                          ? item.readDisplay.toUpperCase()
-                          : 'TO READ',
-                      badgeColor: isReadTab
-                          ? _readBadgeColor(item.status)
-                          : _cAmber,
-                      badgeIcon: isReadTab
-                          ? Icons.check_rounded
-                          : Icons.bookmark_rounded,
+                      badge: _libraryBadge(item),
+                      badgeColor: _libraryBadgeColor(item),
+                      badgeIcon: _libraryBadgeIcon(),
                       onTap: () => _showBookDetails(item),
                     );
                   },
@@ -850,6 +854,160 @@ class _BooksScreenState extends _BooksScreenStateBase {
         ),
       ],
     );
+  }
+
+  Widget _buildLibrarySegments() {
+    final segments = [
+      ('To Read', Icons.bookmark_rounded, _toReadList.length),
+      ('Read', Icons.check_rounded, _readHistoryList.length),
+      ('Loved', Icons.favorite_rounded, _favorites.length),
+      ('Files', Icons.download_rounded, _history.length),
+    ];
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: segments.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final segment = segments[index];
+          final active = _librarySegment == index;
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _librarySegment = index);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: active
+                    ? _cDeepRose.withValues(alpha: 0.2)
+                    : _cCard.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: active
+                      ? _cDeepRose.withValues(alpha: 0.5)
+                      : _cRose.withValues(alpha: 0.1),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    segment.$2,
+                    size: 15,
+                    color: active ? _cDeepRose : _cMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    segment.$1,
+                    style: AppTypography.outfitBold.copyWith(
+                      color: active ? _cWhite : _cMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${segment.$3}',
+                    style: AppTypography.outfitBold.copyWith(
+                      color: active ? _cDeepRose : _cMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _libraryBadge(BookItem item) {
+    switch (_librarySegment) {
+      case 1:
+        return item.readDisplay.toUpperCase();
+      case 2:
+        return 'LOVED';
+      case 3:
+        return 'SAVED FILE';
+      case 0:
+      default:
+        return 'TO READ';
+    }
+  }
+
+  Color _libraryBadgeColor(BookItem item) {
+    switch (_librarySegment) {
+      case 1:
+        return _readBadgeColor(item.status);
+      case 2:
+        return AppColors.cinemaPink;
+      case 3:
+        return AppColors.cinemaBlue;
+      case 0:
+      default:
+        return _cAmber;
+    }
+  }
+
+  IconData _libraryBadgeIcon() {
+    switch (_librarySegment) {
+      case 1:
+        return Icons.check_rounded;
+      case 2:
+        return Icons.favorite_rounded;
+      case 3:
+        return Icons.download_rounded;
+      case 0:
+      default:
+        return Icons.bookmark_rounded;
+    }
+  }
+
+  IconData _libraryEmptyIcon() {
+    switch (_librarySegment) {
+      case 1:
+        return Icons.auto_stories_outlined;
+      case 2:
+        return Icons.favorite_border_rounded;
+      case 3:
+        return Icons.download_outlined;
+      case 0:
+      default:
+        return Icons.bookmark_border_rounded;
+    }
+  }
+
+  String _libraryEmptyTitle() {
+    switch (_librarySegment) {
+      case 1:
+        return 'Your read history is empty';
+      case 2:
+        return 'No loved books yet';
+      case 3:
+        return 'No downloads yet';
+      case 0:
+      default:
+        return 'Nothing queued yet';
+    }
+  }
+
+  String _libraryEmptySubtitle() {
+    switch (_librarySegment) {
+      case 1:
+        return 'Books you mark as read will live here so you can revisit them anytime.';
+      case 2:
+        return 'Tap the heart on any book page to keep it here.';
+      case 3:
+        return 'Files you download will be remembered here.';
+      case 0:
+      default:
+        return 'Tap the bookmark on any book to add it to your reading queue.';
+    }
   }
 
   // ── SHIMMER LOADING ────────────────────────────────────────────────
@@ -912,14 +1070,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
           label: 'Search',
         ),
         ShelfNavItem(
-          icon: Icons.bookmark_border_rounded,
-          activeIcon: Icons.bookmark_rounded,
-          label: 'Queue',
-        ),
-        ShelfNavItem(
-          icon: Icons.auto_stories_outlined,
-          activeIcon: Icons.auto_stories_rounded,
-          label: 'Read',
+          icon: Icons.library_books_outlined,
+          activeIcon: Icons.library_books_rounded,
+          label: 'Library',
         ),
       ],
     );
