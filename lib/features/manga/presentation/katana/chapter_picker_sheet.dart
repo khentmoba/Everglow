@@ -44,7 +44,7 @@ class ChapterPickerSheet extends StatefulWidget {
 class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
   final TextEditingController _filterController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _reversed = false; // default: ascending (oldest to newest)
+  bool _reversed = true; // default: newest first, like the site's dropdown
   String _query = '';
 
   @override
