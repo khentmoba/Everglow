@@ -78,6 +78,22 @@ function resolveGalleryDeletePath(imageUrl) {
   return objectPath;
 }
 
+/**
+ * Resolves the MangaKatana image-server cookie to forward upstream.
+ * The site picks Server 2/3 from a `s_r` cookie (Server 1 = no cookie);
+ * the `?sv=` query alone is ignored. Only the two exact values are ever
+ * forwarded, and only to mangakatana.com hosts — anything else yields ''.
+ */
+function resolveKatanaServerCookie(hostname, cookieParam) {
+  const host = String(hostname || '');
+  const hostOk =
+    host === 'mangakatana.com' || host.endsWith('.mangakatana.com');
+  if (!hostOk) return '';
+  return cookieParam === 's_r=sv2' || cookieParam === 's_r=sv3'
+    ? cookieParam
+    : '';
+}
+
 module.exports = {
   buildLastfmUpstream,
   buildTmdbUpstream,
@@ -85,4 +101,5 @@ module.exports = {
   isAllowedTmdbPath,
   normalizeTmdbPath,
   resolveGalleryDeletePath,
+  resolveKatanaServerCookie,
 };

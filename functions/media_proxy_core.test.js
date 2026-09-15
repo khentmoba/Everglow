@@ -6,6 +6,7 @@ const {
   buildLastfmUpstream,
   buildTmdbUpstream,
   resolveGalleryDeletePath,
+  resolveKatanaServerCookie,
 } = require('./media_proxy_core');
 
 test('TMDB proxy strips client credentials and appends server key', () => {
@@ -63,4 +64,28 @@ test('Gallery delete rejects garbage input', () => {
   assert.throws(() => resolveGalleryDeletePath(''));
   assert.throws(() => resolveGalleryDeletePath(null));
   assert.throws(() => resolveGalleryDeletePath('not a url'));
+});
+
+test('Katana server cookie forwards only s_r=sv2/sv3 to mangakatana', () => {
+  assert.equal(
+    resolveKatanaServerCookie('mangakatana.com', 's_r=sv2'),
+    's_r=sv2',
+  );
+  assert.equal(
+    resolveKatanaServerCookie('mangakatana.com', 's_r=sv3'),
+    's_r=sv3',
+  );
+  assert.equal(resolveKatanaServerCookie('mangakatana.com', ''), '');
+  assert.equal(
+    resolveKatanaServerCookie('mangakatana.com', 's_r=sv2; admin=1'),
+    '',
+  );
+  assert.equal(
+    resolveKatanaServerCookie('evil.com', 's_r=sv2'),
+    '',
+  );
+  assert.equal(
+    resolveKatanaServerCookie('mangakatana.com.evil.com', 's_r=sv2'),
+    '',
+  );
 });
