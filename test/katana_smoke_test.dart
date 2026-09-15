@@ -15,6 +15,7 @@ void main() {
     final service = KatanaService();
 
     final home = await service.fetchHome();
+    expect(home.hotUpdates, isNotEmpty, reason: 'home hot updates rail');
     expect(home.latest, isNotEmpty, reason: 'home latest items');
     expect(home.hot, isNotEmpty, reason: 'home hot rail');
     expect(home.genres, isNotEmpty, reason: 'home genres');
