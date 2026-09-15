@@ -122,7 +122,6 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
         ),
         tabs: const [
           Tab(text: 'Downloads'),
-          Tab(text: 'Details'),
           Tab(text: 'Similar'),
         ],
       ),
@@ -137,8 +136,13 @@ class _TabHeaderDelegate extends SliverPersistentHeaderDelegate {
 class _DownloadSheet extends StatelessWidget {
   final BookSearchResult? result;
   final BookItem item;
+  final ValueChanged<String>? onDownloaded;
 
-  const _DownloadSheet({required this.result, required this.item});
+  const _DownloadSheet({
+    required this.result,
+    required this.item,
+    this.onDownloaded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -223,7 +227,10 @@ class _DownloadSheet extends StatelessWidget {
                       ),
                     ),
                     TextButton(
-                      onPressed: () => downloadUrl(entry.value),
+                      onPressed: () {
+                        downloadUrl(entry.value);
+                        onDownloaded?.call(entry.key);
+                      },
                       style: TextButton.styleFrom(
                         backgroundColor: _cDeepRose,
                         foregroundColor: Colors.white,

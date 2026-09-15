@@ -83,6 +83,13 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   void initState() {
     super.initState();
     _fetchHomeData();
+    if (widget.initialQuery.trim().isNotEmpty) {
+      _currentIndex = 1;
+      _searchController.text = widget.initialQuery.trim();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _performSearch(widget.initialQuery.trim());
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final userName = context.read<AuthService>().currentUser ?? '';

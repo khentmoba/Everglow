@@ -12,7 +12,10 @@ import '../screens/reader_screen.dart';
 final List<GoRoute> booksRoutes = [
   GoRoute(
     path: '/books',
-    builder: (_, _) => const BooksScreen(),
+    builder: (_, state) {
+      final query = extraOf<String>(state) ?? '';
+      return BooksScreen(initialQuery: query);
+    },
     routes: [
       GoRoute(
         path: 'reader',
