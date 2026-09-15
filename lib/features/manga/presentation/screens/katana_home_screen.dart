@@ -10,13 +10,18 @@ import '../katana/katana_header.dart';
 import '../katana/katana_item_card.dart';
 import '../katana/katana_nav.dart';
 import '../katana/katana_pagination.dart';
+import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
 /// Manga Katana home: Latest Updates list, Hot Manga rail and the
 /// Genres widget, laid out like the site (content left, widgets right
 /// on desktop).
 class KatanaHomeScreen extends StatefulWidget {
-  const KatanaHomeScreen({super.key});
+  const KatanaHomeScreen({super.key, this.embed = false});
+
+  /// When true, renders just the tab content so [KatanaTabShell] can
+  /// keep one header mounted while tabs switch underneath it.
+  final bool embed;
 
   @override
   State<KatanaHomeScreen> createState() => _KatanaHomeScreenState();
@@ -113,23 +118,16 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: KatanaColors.background,
-      body: Column(
-        children: [
-          const KatanaHeader(active: KatanaNav.home),
-          Expanded(
-            child: RefreshIndicator(
-              color: KatanaColors.accent,
-              onRefresh: () async {
-                await Future.wait([_load(), if (_type != 'all') _loadType()]);
-              },
-              child: _buildBody(),
-            ),
-          ),
-        ],
-      ),
-    );
+    if (widget.embed) {
+      return RefreshIndicator(
+        color: KatanaColors.accent,
+        onRefresh: () async {
+          await Future.wait([_load(), if (_type != 'all') _loadType()]);
+        },
+        child: _buildBody(),
+      );
+    }
+    return const KatanaTabShell(initialTab: KatanaNav.home);
   }
 
   Widget _buildBody() {

@@ -8,6 +8,7 @@ import '../katana/katana_header.dart';
 import '../katana/katana_item_card.dart';
 import '../katana/katana_nav.dart';
 import '../katana/katana_pagination.dart';
+import '../katana/katana_tab_shell.dart';
 import '../katana/katana_theme.dart';
 
 /// Manga Directory and its sibling list pages (Latest update, New
@@ -23,7 +24,12 @@ class KatanaDirectoryScreen extends StatefulWidget {
     this.mode = 'directory',
     this.slug = '',
     this.title = '',
+    this.embed = false,
   });
+
+  /// When true, renders just the tab content so [KatanaTabShell] can
+  /// keep one header mounted while tabs switch underneath it.
+  final bool embed;
 
   @override
   State<KatanaDirectoryScreen> createState() => _KatanaDirectoryScreenState();
@@ -199,51 +205,55 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 960;
 
-    return Scaffold(
-      backgroundColor: KatanaColors.background,
-      body: Column(
-        children: [
-          KatanaHeader(active: _activeNav),
-          Expanded(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1240),
-                child: desktop
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 7, child: _buildMain()),
-                          const SizedBox(width: 16),
-                          SizedBox(
-                            width: 330,
-                            child: ListView(
-                              padding: const EdgeInsets.fromLTRB(0, 14, 0, 40),
-                              children: [
-                                if (_showFilter) ...[
-                                  KatanaCard(
-                                    padding: const EdgeInsets.all(14),
-                                    child: KatanaFilterPanel(
-                                      include: _include,
-                                      exclude: _exclude,
-                                      genreMode: _genreMode,
-                                      chapters: _chapters,
-                                      orderBy: _orderBy,
-                                      onApply: _applyFilter,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                ],
-                                KatanaGenresSidebar(genres: _genres),
-                              ],
+    if (widget.embed) return _buildContent(desktop);
+
+    // Standalone route (e.g. opened from a detail page): wrap in the
+    // tab shell so header tabs still switch in place.
+    return KatanaTabShell(
+      initialTab: _activeNav,
+      initialMode: widget.mode,
+      initialSlug: widget.slug,
+      initialTitle: widget.title,
+    );
+  }
+
+  /// Headerless tab content for [KatanaTabShell].
+  Widget _buildContent(bool desktop) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1240),
+        child: desktop
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 7, child: _buildMain()),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 330,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(0, 14, 0, 40),
+                      children: [
+                        if (_showFilter) ...[
+                          KatanaCard(
+                            padding: const EdgeInsets.all(14),
+                            child: KatanaFilterPanel(
+                              include: _include,
+                              exclude: _exclude,
+                              genreMode: _genreMode,
+                              chapters: _chapters,
+                              orderBy: _orderBy,
+                              onApply: _applyFilter,
                             ),
                           ),
+                          const SizedBox(height: 14),
                         ],
-                      )
-                    : _buildMain(),
-              ),
-            ),
-          ),
-        ],
+                        KatanaGenresSidebar(genres: _genres),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : _buildMain(),
       ),
     );
   }
