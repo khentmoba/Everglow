@@ -52,7 +52,6 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
         // Firestore queries and discarding half of them.
         const wanted = selectBlockKeys(userMessage || '', 7);
         const fetchers = {
-          daily: () => getCachedBlock('daily', 600000, getDailyDigest),
           mood: () => getCachedBlock('mood', 120000, getMoodContext),
           watchlist: () => getCachedBlock('watchlist', 120000, getWatchContext),
           books: () => getCachedBlock('books', 300000, getBooksContext),
@@ -135,26 +134,6 @@ function getProactiveContext() {
 
   if (parts.length === 0) return '';
   return `Today's digest: ${parts.join(' ')}`;
-}
-
-async function getDailyDigest() {
-  try {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-    const db = getDb();
-    const snapshot = await db.collection('daily_digest')
-      .where('date', '>=', todayStart.toISOString())
-      .where('date', '<', tomorrowStart.toISOString())
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) return '';
-    const data = snapshot.docs[0].data();
-    return data.summary ? `Daily digest: ${data.summary}` : '';
-  } catch (_) { return ''; }
 }
 
 async function getMoodContext() {
