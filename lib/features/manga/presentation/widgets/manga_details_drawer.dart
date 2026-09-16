@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/manga_item.dart';
@@ -53,61 +55,58 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     _loadChapters();
   }
 
-  Future<void> _loadChapters() async {
+  /// In-memory chapter cache so reopening the same manga is instant.
+  /// Shared across drawer opens; entries live for 10 minutes.
+  static final Map<String, _ChapterCacheEntry> _chapterCache = {};
+
+  Future<void> _loadChapters({bool forceRefresh = false}) async {
     setState(() {
       _isLoadingChapters = true;
       _chapterError = null;
     });
 
-    final futures = <Future<List<MangaChapter>>>[];
-    final timeout = const Duration(seconds: 20);
-
-    final titlesToTry = <String>[_item.title];
-    for (final alt in _item.altTitles) {
-      if (alt.isNotEmpty && !titlesToTry.contains(alt)) {
-        titlesToTry.add(alt);
+    final cacheKey = _item.mangaId.isNotEmpty ? _item.mangaId : _item.title;
+    if (!forceRefresh) {
+      final cached = _chapterCache[cacheKey];
+      if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
+        if (!mounted) return;
+        setState(() {
+          _chapters = cached.chapters;
+          _scanlationSlugs = cached.scanlationSlugs;
+          _isLoadingChapters = false;
+        });
+        return;
       }
     }
 
-    // 1) Comick API — by hid if we have it
+    const timeout = Duration(seconds: 10);
+
+    // Stage 1: direct ID-based feeds — fast and exact, no title search.
+    // Most library items carry a Comick hid, so this stage alone
+    // usually fills the list in a couple of seconds.
+    final idFutures = <Future<List<MangaChapter>>>[];
+    // Comick chapter feeds need the hid (`mangaId`); the URL slug
+    // answers with a bot-check page, so the hid is always tried when
+    // we have it. Both fire in parallel and the best wins.
     if (_item.comickSlug.isNotEmpty) {
-      futures.add(
+      idFutures.add(
         _comickService
             .getChapterFeed(_item.comickSlug)
             .timeout(timeout, onTimeout: () => <MangaChapter>[]),
       );
-    } else if (_item.comickId > 0 && _item.mangaId.isNotEmpty) {
-      futures.add(
+    }
+    if (_item.comickId > 0 &&
+        _item.mangaId.isNotEmpty &&
+        _item.mangaId != _item.comickSlug) {
+      idFutures.add(
         _comickService
             .getChapterFeed(_item.mangaId)
             .timeout(timeout, onTimeout: () => <MangaChapter>[]),
       );
     }
-
-    // 2) Comick API — search by title to find hid
-    if (_item.comickSlug.isEmpty && _item.comickId == 0) {
-      for (final title in titlesToTry) {
-        futures.add(
-          _comickService
-              .search(query: title, limit: 1)
-              .timeout(timeout, onTimeout: () => <MangaItem>[])
-              .then((results) async {
-                if (results.isEmpty) return <MangaChapter>[];
-                final hid = results.first.comickSlug.isNotEmpty
-                    ? results.first.comickSlug
-                    : results.first.mangaId;
-                if (hid.isEmpty) return <MangaChapter>[];
-                return _comickService.getChapterFeed(hid);
-              })
-              .timeout(timeout, onTimeout: () => <MangaChapter>[]),
-        );
-      }
-    }
-
-    // 3) MangaDex API
     final mangaDexId = _item.mangaKakalotId;
     if (mangaDexId.isNotEmpty) {
-      futures.add(
+      idFutures.add(
         _mangaDexService
             .getChapterFeed(mangaDexId)
             .timeout(timeout, onTimeout: () => <MangaChapter>[]),
@@ -116,77 +115,110 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     if (_item.mangaId.isNotEmpty &&
         _item.mangaId != mangaDexId &&
         _item.comickId == 0) {
-      futures.add(
+      idFutures.add(
         _mangaDexService
             .getChapterFeed(_item.mangaId)
             .timeout(timeout, onTimeout: () => <MangaChapter>[]),
       );
     }
 
-    // 4) MangaKakalot
-    for (final title in titlesToTry) {
-      futures.add(
-        _kakalotService
-            .searchByTitle(title)
-            .timeout(timeout, onTimeout: () => '')
-            .then((slug) async {
-              if (slug.isEmpty) return <MangaChapter>[];
-              return _kakalotService.getChapterFeed(slug);
-            })
-            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
-      );
+    var best = await _pickBest(idFutures);
+
+    // Scanlation slugs help the reader resolve pages later. Look them
+    // up in the background so the chapter list never waits for them.
+    unawaited(_discoverScanlationSlugs());
+
+    // Stage 2: title search — only when the IDs found nothing. Limited
+    // to the main title plus one alt; the full alt list (a dozen+
+    // titles in many languages) used to fan out into 50+ slow scrapes
+    // that all had to finish before anything showed.
+    if (best.isEmpty) {
+      final titles = <String>[_item.title];
+      for (final alt in _item.altTitles) {
+        if (alt.isNotEmpty && !titles.contains(alt)) {
+          titles.add(alt);
+          if (titles.length >= 2) break;
+        }
+      }
+      final searchFutures = <Future<List<MangaChapter>>>[];
+      if (_item.comickSlug.isEmpty && _item.comickId == 0) {
+        for (final title in titles) {
+          searchFutures.add(
+            _comickService
+                .search(query: title, limit: 1)
+                .timeout(timeout, onTimeout: () => <MangaItem>[])
+                .then((results) async {
+                  if (results.isEmpty) return <MangaChapter>[];
+                  final hid = results.first.comickSlug.isNotEmpty
+                      ? results.first.comickSlug
+                      : results.first.mangaId;
+                  if (hid.isEmpty) return <MangaChapter>[];
+                  return _comickService.getChapterFeed(hid);
+                })
+                .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+          );
+        }
+      }
+      for (final title in titles) {
+        searchFutures.add(
+          _kakalotService
+              .searchByTitle(title)
+              .timeout(timeout, onTimeout: () => '')
+              .then((slug) async {
+                if (slug.isEmpty) return <MangaChapter>[];
+                return _kakalotService.getChapterFeed(slug);
+              })
+              .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+        );
+        searchFutures.add(
+          _mangakatanaService
+              .searchByTitle(title)
+              .timeout(timeout, onTimeout: () => '')
+              .then((slug) async {
+                if (slug.isEmpty) return <MangaChapter>[];
+                return _mangakatanaService.getChapterFeed(slug);
+              })
+              .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+        );
+        searchFutures.add(
+          _batoService
+              .searchByTitle(title)
+              .timeout(timeout, onTimeout: () => '')
+              .then((slug) async {
+                if (slug.isEmpty) return <MangaChapter>[];
+                return _batoService.getChapterFeed(slug);
+              })
+              .timeout(timeout, onTimeout: () => <MangaChapter>[]),
+        );
+      }
+      best = await _pickBest(searchFutures);
     }
 
-    // 5) MangaKatana
-    for (final title in titlesToTry) {
-      futures.add(
-        _mangakatanaService
-            .searchByTitle(title)
-            .timeout(timeout, onTimeout: () => '')
-            .then((slug) async {
-              if (slug.isEmpty) return <MangaChapter>[];
-              return _mangakatanaService.getChapterFeed(slug);
-            })
-            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
-      );
+    // Stage 3: scanlation sites as a last resort.
+    if (best.isEmpty) {
+      try {
+        final slugs = await _scanlationService
+            .searchAll(_item.title)
+            .timeout(timeout, onTimeout: () => <String, String>{});
+        if (slugs.isNotEmpty) {
+          if (mounted) _scanlationSlugs = slugs;
+          best = await _scanlationService
+              .getChapterFeedFromAll(slugs)
+              .timeout(timeout, onTimeout: () => <MangaChapter>[]);
+        }
+      } catch (_) {}
     }
-
-    // 6) Scanlation sites — store slugs for later page resolution
-    futures.add(
-      _scanlationService
-          .searchAll(_item.title)
-          .timeout(timeout, onTimeout: () => <String, String>{})
-          .then((slugs) async {
-            if (slugs.isNotEmpty && mounted) {
-              _scanlationSlugs = slugs;
-            }
-            if (slugs.isEmpty) return <MangaChapter>[];
-            return _scanlationService.getChapterFeedFromAll(slugs);
-          })
-          .timeout(timeout, onTimeout: () => <MangaChapter>[]),
-    );
-
-    // 7) Bato.to
-    for (final title in titlesToTry) {
-      futures.add(
-        _batoService
-            .searchByTitle(title)
-            .timeout(timeout, onTimeout: () => '')
-            .then((slug) async {
-              if (slug.isEmpty) return <MangaChapter>[];
-              return _batoService.getChapterFeed(slug);
-            })
-            .timeout(timeout, onTimeout: () => <MangaChapter>[]),
-      );
-    }
-
-    // Pick source with most chapters
-    final list = await _pickBestFromAll(futures);
 
     if (!mounted) return;
-    if (list.isNotEmpty) {
+    if (best.isNotEmpty) {
+      final cleaned = _dedupeAndSort(best);
+      _chapterCache[cacheKey] = _ChapterCacheEntry(
+        chapters: cleaned,
+        scanlationSlugs: _scanlationSlugs,
+        expiresAt: DateTime.now().add(const Duration(minutes: 10)),
+      );
       setState(() {
-        _chapters = list;
+        _chapters = cleaned;
         _isLoadingChapters = false;
       });
     } else {
@@ -197,7 +229,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     }
   }
 
-  Future<List<MangaChapter>> _pickBestFromAll(
+  /// Returns the longest non-empty chapter list: one coherent source.
+  /// Merging every source used to mix foreign chapters into the list
+  /// with huge number gaps (Ch. 385 jumping to Ch. 462), so we now
+  /// pick a single best source instead.
+  Future<List<MangaChapter>> _pickBest(
     List<Future<List<MangaChapter>>> futures,
   ) async {
     if (futures.isEmpty) return const [];
@@ -206,45 +242,58 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         (f) => f.then((list) => list, onError: (_) => <MangaChapter>[]),
       ),
     );
-
-    // Merge all chapters from all sources, deduplicated by normalized
-    // chapter number. When duplicates exist, prefer the source that
-    // has actual page data (pages > 0) over scraped sources (pages == 0).
-    final byChapter = <String, MangaChapter>{};
+    var best = const <MangaChapter>[];
     for (final list in results) {
-      for (final ch in list) {
-        final key = normalizeChapterNum(ch.chapter);
-        if (key.isEmpty) {
-          // Chapters without a number get unique keys by id
-          byChapter['id:${ch.id}'] = ch;
-          continue;
-        }
-        final existing = byChapter[key];
-        if (existing == null) {
-          byChapter[key] = ch;
-        } else {
-          // Prefer the one with more page data, or a richer title
-          if (ch.pages > existing.pages) {
-            byChapter[key] = ch;
-          } else if (ch.pages == existing.pages &&
-              ch.title.length > existing.title.length) {
-            byChapter[key] = ch;
-          }
-        }
+      if (list.length > best.length) best = list;
+    }
+    return best;
+  }
+
+  /// Dedupe one source's chapters by chapter number (Comick returns
+  /// the same chapter once per scanlation group) and sort oldest
+  /// first with a stable id tie-break.
+  List<MangaChapter> _dedupeAndSort(List<MangaChapter> list) {
+    final byChapter = <String, MangaChapter>{};
+    for (final ch in list) {
+      final key = normalizeChapterNum(ch.chapter);
+      if (key.isEmpty) {
+        // Chapters without a number get unique keys by id
+        byChapter['id:${ch.id}'] = ch;
+        continue;
+      }
+      final existing = byChapter[key];
+      if (existing == null) {
+        byChapter[key] = ch;
+      } else if (ch.pages > existing.pages ||
+          (ch.pages == existing.pages &&
+              ch.title.length > existing.title.length)) {
+        byChapter[key] = ch;
       }
     }
-
-    if (byChapter.isEmpty) return const [];
-
-    // Sort by chapter number ascending
-    final merged = byChapter.values.toList()
+    final sorted = byChapter.values.toList()
       ..sort((a, b) {
-        final na = chapterNumValue(a.chapter);
-        final nb = chapterNumValue(b.chapter);
-        return na.compareTo(nb);
+        final byNum = chapterNumValue(
+          a.chapter,
+        ).compareTo(chapterNumValue(b.chapter));
+        if (byNum != 0) return byNum;
+        return a.id.compareTo(b.id);
       });
+    return sorted;
+  }
 
-    return merged;
+  Future<void> _discoverScanlationSlugs() async {
+    if (_scanlationSlugs != null && _scanlationSlugs!.isNotEmpty) return;
+    try {
+      final slugs = await _scanlationService
+          .searchAll(_item.title)
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => <String, String>{},
+          );
+      if (slugs.isNotEmpty && mounted) {
+        setState(() => _scanlationSlugs = slugs);
+      }
+    } catch (_) {}
   }
 
   /// Chapters in display order (newest first by default, like the
@@ -563,7 +612,9 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           label: 'Refresh',
           icon: Icons.refresh_rounded,
           filled: false,
-          onTap: _isLoadingChapters ? null : _loadChapters,
+          onTap: _isLoadingChapters
+              ? null
+              : () => _loadChapters(forceRefresh: true),
         ),
       ],
     );
@@ -732,7 +783,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     label: 'Try again',
                     icon: Icons.refresh_rounded,
                     filled: false,
-                    onTap: _loadChapters,
+                    onTap: () => _loadChapters(forceRefresh: true),
                   ),
                 ],
               ),
@@ -778,6 +829,17 @@ class _LibOption {
   final String label;
   final IconData icon;
   const _LibOption(this.value, this.label, this.icon);
+}
+
+class _ChapterCacheEntry {
+  final List<MangaChapter> chapters;
+  final Map<String, String>? scanlationSlugs;
+  final DateTime expiresAt;
+  const _ChapterCacheEntry({
+    required this.chapters,
+    required this.scanlationSlugs,
+    required this.expiresAt,
+  });
 }
 
 class _DrawerChapterRow extends StatelessWidget {
