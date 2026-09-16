@@ -830,7 +830,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     return;
   }
 
-  async function callAgnes() {
+  async function callAgnesOnce(msgs) {
     const resp = await fetch(
       'https://apihub.agnes-ai.com/v1/chat/completions',
       {
@@ -841,7 +841,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         },
         body: JSON.stringify({
           model: model,
-          messages: nimMessages,
+          messages: msgs,
           ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
           max_tokens: maxTokens,
           temperature: 0.6,
@@ -855,36 +855,98 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     return resp;
   }
 
-  let response = null;
-  let lastError = null;
-
-  response = await callAgnes();
-
-  if (!response || !response.ok) {
-    const errStatus = response ? response.status : 502;
-    const errBody = lastError ? lastError.body : 'No response from Agnes';
+  function nonStreamError(status, detail) {
     // Special-case 413 (Payload Too Large) — pass through Agnes's detail
-    if (errStatus === 413) {
-      console.error('[proxyAI] Agnes returned 413:', errBody);
+    if (status === 413) {
+      console.error('[proxyAI] Agnes returned 413:', detail);
       return res.status(413).json({
-        error: `Payload too large. ${errBody}`,
+        error: `Payload too large. ${detail}`,
         model: model,
       });
     }
-    res.status(errStatus).json({
-      error: `Agnes returned ${errStatus}`,
-      detail: errBody,
-      model: lastError ? lastError.model : model,
+    return res.status(status).json({
+      error: `Agnes returned ${status}`,
+      detail,
+      model: model,
     });
-    return;
   }
 
-  // ── Non-streaming mode ──────────────────────────────
-  const data = await response.json();
-  const message = data.choices?.[0]?.message || {};
-  const reply = (message.content || '').trim();
-  const reasoning = message.reasoning || '';
-  res.json({ reply, reasoning, model: data.model || model });
+  // ── Non-streaming mode: bounded agent loop ───────────────
+  // Mirrors the streaming loop without SSE. One-shot callers (Undo
+  // restores, recommendations, date ideas) answer with tool calls just
+  // like chat does — dropping them silently broke Undo restores.
+  const nsMessages = [...nimMessages];
+  const nsSeen = new Set(); // loop guard, same rule as streaming
+  let nsReply = '';
+  let nsReasoning = '';
+  let nsModel = model;
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    let response;
+    try {
+      response = await callAgnesOnce(nsMessages);
+    } catch (_) {
+      response = null;
+    }
+    if (!response || !response.ok) {
+      if (round > 0) break; // mid-loop failure: keep what we have
+      nonStreamError(response ? response.status : 502, 'No response from Agnes');
+      return;
+    }
+    const data = await response.json();
+    nsModel = data.model || nsModel;
+    const message = data.choices?.[0]?.message || {};
+    if (message.reasoning) nsReasoning += message.reasoning;
+    if (message.content) nsReply += message.content;
+    const freshCalls = (message.tool_calls || []).filter(Boolean).filter((tc) => {
+      const key = `${tc.function?.name || ''}:${tc.function?.arguments || ''}`;
+      if (nsSeen.has(key)) return false;
+      nsSeen.add(key);
+      return true;
+    });
+    if (freshCalls.length === 0) break;
+    nsMessages.push({
+      role: 'assistant',
+      content: message.content || null,
+      tool_calls: freshCalls.map((tc) => ({
+        id: tc.id,
+        type: 'function',
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      })),
+    });
+    const results = await Promise.all(freshCalls.map(async (tc) => {
+      const fnName = tc.function.name;
+      let fnArgs;
+      try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
+      const toolStartedAt = Date.now();
+      let result;
+      try {
+        result = await executeToolCall(toolCtx, fnName, fnArgs);
+      } catch (err) {
+        result = JSON.stringify({ error: err.message || 'Tool execution failed' });
+      }
+      if (TOOL_INVALIDATIONS[fnName]) {
+        try { invalidateContextBlock(TOOL_INVALIDATIONS[fnName]); } catch (_) {}
+      }
+      try {
+        if (typeof logToolCall === 'function') {
+          logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
+        }
+      } catch (_) {}
+      const llmResult = result.length > 3000
+        ? result.slice(0, 3000) + '…[trimmed]'
+        : result;
+      return {
+        toolMsg: { role: 'tool', tool_call_id: tc.id, name: fnName, content: llmResult },
+        fullResult: result,
+      };
+    }));
+    for (const r of results) nsMessages.push(r.toolMsg);
+    const visionMsg = visionMessageForResults(results.map((r) => r.fullResult));
+    if (visionMsg) nsMessages.push(visionMsg);
+  }
+
+  const reply = nsReply.trim();
+  res.json({ reply, reasoning: nsReasoning, model: nsModel });
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
     if (shouldExtractMemory(lastUserMessage, reply)) {
