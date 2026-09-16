@@ -95,6 +95,22 @@ class CinemaVideoSources {
     return merged;
   }
 
+  /// Whether an internal CineSrc episode event (`cinesrc:nextepisode`)
+  /// arriving from [origin] is trusted for [providerId].
+  ///
+  /// The direct CineSrc embed must speak from the real upstream origin;
+  /// our wrapper's forwards are already origin-checked inside embed.html,
+  /// so they are accepted regardless of which origin the wrapper posts
+  /// from. Anything else (other providers, stale events after a server
+  /// switch) is rejected so episode state never jumps on foreign input.
+  static bool trustsCinesrcEpisodeEvent(String providerId, String origin) {
+    if (providerId == 'flux-cinesrc') {
+      return origin == 'https://cinesrc.st';
+    }
+    if (providerId == 'everglow-embed') return true;
+    return false;
+  }
+
   /// Builds the embed URL for a cinema-only server, or `null` when the
   /// provider is not part of the cinema-only registry.
   static String? buildUrl(

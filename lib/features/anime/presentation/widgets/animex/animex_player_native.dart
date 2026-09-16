@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -166,18 +164,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       onPlayerMessage: widget.onPlayerEpisodeChanged == null
           ? null
           : (raw) {
-              try {
-                final decoded = jsonDecode(raw);
-                if (decoded is! Map ||
-                    decoded['type'] != 'cinesrc:nextepisode') {
-                  return;
-                }
-                final season = (decoded['season'] as num?)?.toInt();
-                final episode = (decoded['episode'] as num?)?.toInt();
-                if (season == null || episode == null) return;
-                widget.onPlayerEpisodeChanged?.call(season, episode);
-              } catch (_) {
-                // Foreign bridge traffic — ignore it.
+              final ep = EmbedWebView.parsePlayerEpisode(raw);
+              if (ep != null) {
+                widget.onPlayerEpisodeChanged?.call(ep.$1, ep.$2);
               }
             },
     );
