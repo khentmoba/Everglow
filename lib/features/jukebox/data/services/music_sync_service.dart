@@ -355,16 +355,17 @@ class MusicSyncService {
   /// image (or no image at all), so the dashboard enriches missing covers
   /// with the track's actual album art. Prefers the MusicBrainz [mbid] when
   /// available, otherwise falls back to artist + track lookup. When Last.fm
-  /// still has no usable cover, the iTunes Search API is queried as a final
-  /// fallback (it reliably carries artwork for independent and mainstream
-  /// releases alike). Returns null when every lookup fails.
+  /// still has no usable cover, the iTunes Search API is queried next, and
+  /// Spotify's track search last (it carries singles and stripped versions
+  /// the other two miss — e.g. Ethel Cain's "Crush - Stripped"). Returns
+  /// null when every lookup fails.
   ///
-  /// Matching is deliberately strict: a cover is only returned when the
-  /// lookup result is verifiably the SAME song (title and artist, ignoring
-  /// case and punctuation). A missing cover falls back to the music-note
-  /// tile, which is always better than pairing a row with the wrong song's
-  /// art — e.g. the base "Crush" cover must never land on "Crush -
-  /// Stripped".
+  /// Matching is deliberately strict at every step: a cover is only
+  /// returned when the lookup result is verifiably the SAME song (title
+  /// and artist, ignoring case and punctuation). A missing cover falls
+  /// back to the music-note tile, which is always better than pairing a
+  /// row with the wrong song's art — e.g. the base "Crush" cover must
+  /// never land on "Crush - Stripped".
   Future<String?> fetchTrackArtwork({
     required String artist,
     required String track,
@@ -376,7 +377,12 @@ class MusicSyncService {
       mbid: mbid,
     );
     if (lastfmArtwork != null) return lastfmArtwork;
-    return _fetchItunesArtwork(artist: artist, track: track);
+    final itunesArtwork = await _fetchItunesArtwork(
+      artist: artist,
+      track: track,
+    );
+    if (itunesArtwork != null) return itunesArtwork;
+    return _fetchSpotifyArtwork(artist: artist, track: track);
   }
 
   Future<String?> _fetchLastfmTrackArtwork({
@@ -492,6 +498,62 @@ class MusicSyncService {
     } catch (e) {
       Logger.e(
         'Jukebox Service Exception (iTunes artwork, $artist - $track)',
+        error: e,
+      );
+    }
+    return null;
+  }
+
+  /// Final artwork fallback via Spotify's track search.
+  ///
+  /// Catches the singles and alternate versions Last.fm and iTunes both
+  /// miss (stripped cuts, Spotify Singles, unreleased-tease uploads).
+  /// The proxy already prefers an exact title match server-side, but it
+  /// still answers its top result when nothing matches — so the reply is
+  /// verified here with [_matchesTrack] before its cover is trusted. The
+  /// base "Crush" art must never land on "Crush - Stripped", no
+  /// matter which backend answered.
+  Future<String?> _fetchSpotifyArtwork({
+    required String artist,
+    required String track,
+  }) async {
+    try {
+      final url = Uri.parse(
+        '$_spotifyBaseUrl?artist=${Uri.encodeComponent(artist)}'
+        '&track=${Uri.encodeComponent(track)}',
+      );
+      final response = await _getWithAuth(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map &&
+            _matchesTrack(
+              data['trackName'],
+              data['artistName'],
+              track: track,
+              artist: artist,
+            )) {
+          final img = data['imageUrl'];
+          if (img is String && img.isNotEmpty) return img;
+        } else {
+          Logger.d(
+            'Jukebox Service: Spotify match rejected for '
+            '"$artist - $track".',
+          );
+        }
+        return null;
+      }
+      Logger.d(
+        'Jukebox Service: proxySpotifySearch returned '
+        '${response.statusCode} for "$artist - $track"',
+      );
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: Spotify artwork lookup timed out for '
+        '"$artist - $track".',
+      );
+    } catch (e) {
+      Logger.e(
+        'Jukebox Service Exception (Spotify artwork, $artist - $track)',
         error: e,
       );
     }
