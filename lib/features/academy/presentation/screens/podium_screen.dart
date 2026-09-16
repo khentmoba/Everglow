@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'package:provider/provider.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../shared/widgets/everglow/everglow_background.dart';
-import '../../../core/services/auth_service.dart';
-import '../models/game_match.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../../../core/services/auth_service.dart';
+import '../../data/models/game_match.dart';
 
 class PodiumScreen extends StatefulWidget {
   final GameMatch match;

@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:everglow/features/academy/models/game_match.dart';
+import 'package:everglow/features/academy/data/models/game_match.dart';
 
 void main() {
   group('GameMatch crash-guard', () {

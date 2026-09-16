@@ -27,7 +27,7 @@ import '../widgets/manga_preview.dart';
 import '../widgets/currently_watching_preview.dart';
 import '../../../starlight_jar/presentation/screens/starlight_jar_widget.dart';
 import '../../../heartbeat/presentation/controllers/mood_controller.dart';
-import '../../../academy/widgets/academy_portal_card.dart';
+import '../../../academy/presentation/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
 import '../../../../features/jukebox/presentation/widgets/artist_showdown_card.dart';

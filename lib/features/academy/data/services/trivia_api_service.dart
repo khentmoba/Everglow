@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:html_unescape/html_unescape.dart';
-import '../../../shared/utils/catalog_proxy_client.dart';
+import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../models/academy_question.dart';
 
 class TriviaApiService {

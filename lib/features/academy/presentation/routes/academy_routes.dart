@@ -1,12 +1,12 @@
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_helpers.dart';
 
-import '../../models/academy_question.dart';
-import '../../models/game_match.dart';
-import '../../screens/academy_hub_screen.dart';
-import '../../screens/game_board_screen.dart';
-import '../../screens/podium_screen.dart';
-import '../../screens/solo_study_screen.dart';
+import '../../data/models/academy_question.dart';
+import '../../data/models/game_match.dart';
+import '../screens/academy_hub_screen.dart';
+import '../screens/game_board_screen.dart';
+import '../screens/podium_screen.dart';
+import '../screens/solo_study_screen.dart';
 
 /// Routes owned by the academy feature.
 final List<GoRoute> academyRoutes = [

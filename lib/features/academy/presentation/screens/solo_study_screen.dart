@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../shared/widgets/everglow/everglow_icon_button.dart';
-import '../../../shared/widgets/everglow/everglow_background.dart';
-import '../models/academy_question.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_radius.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
+import '../../data/models/academy_question.dart';
 
 class SoloStudyScreen extends StatefulWidget {
   final List<AcademyQuestion> questions;
