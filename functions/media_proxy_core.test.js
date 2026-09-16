@@ -38,6 +38,12 @@ test('Last.fm proxy allows only read-only lookup methods', () => {
   );
   assert.equal(artistTracks.searchParams.get('method'), 'user.getartisttracks');
   assert.equal(artistTracks.searchParams.get('artist'), 'Ethel Cain');
+  const artistSearch = buildLastfmUpstream(
+    { method: 'artist.search', artist: 'lana del' },
+    'server-key',
+  );
+  assert.equal(artistSearch.searchParams.get('method'), 'artist.search');
+  assert.equal(artistSearch.searchParams.get('artist'), 'lana del');
   assert.throws(() => buildLastfmUpstream({ method: 'artist.addtags' }, 'server-key'));
 });
 
