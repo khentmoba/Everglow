@@ -150,6 +150,37 @@ class AnimeXWatchPage extends StatefulWidget {
     return 1;
   }
 
+  /// Maps a player-reported TMDB season/episode back to our episode number.
+  ///
+  /// The Everglow embed (CineSrc) announces internal episode changes with
+  /// the TMDB season/episode it moved to. Shows whose MAL entry starts
+  /// mid-series resolve through [episodeSlots] (the same table the player
+  /// URL is built from); plain 1:1 shows map season 1 straight across.
+  /// Anything unmappable (a jump into another catalog entry's season, an
+  /// out-of-range number) returns null so we never highlight the wrong row.
+  @visibleForTesting
+  static int? mapPlayerEpisodeToMal({
+    required int tmdbSeason,
+    required int tmdbEpisode,
+    required Map<int, ({int season, int episode})> episodeSlots,
+    required int episodeCount,
+  }) {
+    if (tmdbSeason <= 0 || tmdbEpisode <= 0 || episodeCount <= 0) return null;
+    if (episodeSlots.isNotEmpty) {
+      for (final entry in episodeSlots.entries) {
+        if (entry.value.season == tmdbSeason &&
+            entry.value.episode == tmdbEpisode) {
+          final mal = entry.key;
+          return (mal >= 1 && mal <= episodeCount) ? mal : null;
+        }
+      }
+      return null;
+    }
+    if (tmdbSeason != 1) return null;
+    if (tmdbEpisode < 1 || tmdbEpisode > episodeCount) return null;
+    return tmdbEpisode;
+  }
+
   /// Base URL of our ad-free anime resolver (see functions/anime.js).
   /// Megavid plays through it instead of the provider's website embed:
   /// the function resolves the episode server-side and serves our own
@@ -342,6 +373,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   AniListDetail? _detail;
   List<AniListEpisode> _episodes = [];
   late int _selectedEpisode;
+
+  /// Episode the player frame was loaded with. Manual navigation keeps it
+  /// equal to [_selectedEpisode], but when the embed advances on its own
+  /// (CineSrc auto-play or its built-in episode picker) only
+  /// [_selectedEpisode] moves — the frame keeps playing the new episode
+  /// without a reload while the list, header, and history follow it.
+  late int _playerEpisode;
   String _audio = 'sub';
   int _serverIndex = 0;
   final PlayerMemoryService _memoryService = PlayerMemoryService();
@@ -410,6 +448,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       'animex-${_anilistId ?? _malId}',
     );
     _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
+    _playerEpisode = _selectedEpisode;
     _isFilm = _item.isMovie;
     _servers = _buildServers();
     _serverIndex = AnimeXWatchPage.defaultServerIndex(_servers);
@@ -608,6 +647,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _episodes = _buildEpisodeList(detail, aniZipEpisodes: aniZipEpisodes);
       if (_episodes.isNotEmpty) {
         _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
+        _playerEpisode = _playerEpisode.clamp(1, _episodes.length).toInt();
       }
       _servers = nextServers;
       // Fresh visits open on Everglow whenever it is available (it is
@@ -781,10 +821,45 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
   void _selectEpisode(int episode) {
     if (_selectedEpisode == episode) return;
-    setState(() => _selectedEpisode = episode);
+    // Manual navigation drives BOTH the UI and the player frame: the new
+    // URL key reloads the embed on the picked episode.
+    setState(() {
+      _selectedEpisode = episode;
+      _playerEpisode = episode;
+    });
     _resetForNewEpisode();
     _recordHistory(episode);
     _saveWatchProgress(episode: episode, positionSeconds: 0);
+    _fetchSkipTimes();
+  }
+
+  /// Follows the player when the embed changes episodes on its own.
+  ///
+  /// CineSrc auto-play (and its built-in episode picker) moves to the
+  /// next episode inside the frame without telling us — the list used to
+  /// keep highlighting the old episode. The embed announces each move
+  /// (`cinesrc:nextepisode`, forwarded by our embed.html wrapper), so we
+  /// move the selection, header, history, and progress to match while
+  /// leaving the loaded frame untouched — no reload, no lost position.
+  void _onPlayerEpisodeChanged(int tmdbSeason, int tmdbEpisode) {
+    if (!mounted || _episodes.isEmpty) return;
+    // Only the Everglow server reports internal episode changes. Anything
+    // else arriving here is stale — a server switch already moved on.
+    final current = (_serverIndex >= 0 && _serverIndex < _servers.length)
+        ? _servers[_serverIndex]
+        : null;
+    if (current == null || current.name != 'Everglow') return;
+    final mapped = AnimeXWatchPage.mapPlayerEpisodeToMal(
+      tmdbSeason: tmdbSeason,
+      tmdbEpisode: tmdbEpisode,
+      episodeSlots: _episodeSlots,
+      episodeCount: _episodes.length,
+    );
+    if (mapped == null || mapped == _selectedEpisode) return;
+    setState(() => _selectedEpisode = mapped);
+    _resetForNewEpisode();
+    _recordHistory(mapped);
+    _saveWatchProgress(episode: mapped, positionSeconds: 0);
     _fetchSkipTimes();
   }
 
@@ -956,7 +1031,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       }
     }
     if (current == null) return '';
-    final url = current.urlBuilder(_selectedEpisode, _audio);
+    // Built from the LOADED episode, not the selection: after a
+    // player-driven advance the selection moves on while the frame keeps
+    // playing, and the URL must stay byte-identical so Flutter reuses it.
+    final url = current.urlBuilder(_playerEpisode, _audio);
     // Skip-button jump: Videasy honors ?progress=<seconds>; other anime
     // servers have no known seek param, so the override only applies here.
     final jump = _skipJumpSeconds;
@@ -983,6 +1061,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     }
     setState(() {
       _serverIndex = next.first;
+      // A new server must load the episode actually being watched, which
+      // may have drifted ahead of the loaded frame via player auto-play.
+      _playerEpisode = _selectedEpisode;
       _showErrorCard = false;
     });
     _persistServer(next.first);
@@ -992,6 +1073,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   void _selectServer(int index) {
     setState(() {
       _serverIndex = index;
+      // A new server must load the episode actually being watched, which
+      // may have drifted ahead of the loaded frame via player auto-play.
+      _playerEpisode = _selectedEpisode;
       _failedServerIndices.clear();
       _showErrorCard = false;
       _skipJumpSeconds = null;
@@ -1471,7 +1555,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         _AudioToggle(
           audio: _audio,
           onChanged: (a) {
-            setState(() => _audio = a);
+            setState(() {
+              _audio = a;
+              // The reloaded URL must carry the episode actually being
+              // watched, which may have drifted ahead via auto-play.
+              _playerEpisode = _selectedEpisode;
+            });
             _memoryService.save(_memoryKey, audio: a);
             _failedServerIndices.clear();
             _showErrorCard = false;
@@ -1611,6 +1700,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             url: _playerUrl,
             onContentError: _handleContentError,
             onProgress: _onPlayerProgress,
+            onPlayerEpisodeChanged: _onPlayerEpisodeChanged,
             scrollController: _scrollCtrl,
           );
 

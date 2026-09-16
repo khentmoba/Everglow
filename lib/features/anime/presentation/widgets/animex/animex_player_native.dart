@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_colors.dart';
@@ -117,6 +119,13 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final void Function(VideasyProgress progress)? onProgress;
   final ScrollController? scrollController;
 
+  /// Fires when the embed changes episodes on its own (CineSrc
+  /// auto-play or its built-in episode picker), reporting the TMDB
+  /// season/episode it moved to. Mirrors the web frame's postMessage
+  /// path; on native the event arrives through the `EverglowPlayer`
+  /// JS channel instead.
+  final void Function(int season, int episode)? onPlayerEpisodeChanged;
+
   const AnimeXPlayerFrame({
     super.key,
     required this.url,
@@ -125,6 +134,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onContentError,
     this.onProgress,
     this.scrollController,
+    this.onPlayerEpisodeChanged,
   });
 
   @override
@@ -153,6 +163,23 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
       onError: widget.onContentError,
       allowedHosts: _allowedHosts,
+      onPlayerMessage: widget.onPlayerEpisodeChanged == null
+          ? null
+          : (raw) {
+              try {
+                final decoded = jsonDecode(raw);
+                if (decoded is! Map ||
+                    decoded['type'] != 'cinesrc:nextepisode') {
+                  return;
+                }
+                final season = (decoded['season'] as num?)?.toInt();
+                final episode = (decoded['episode'] as num?)?.toInt();
+                if (season == null || episode == null) return;
+                widget.onPlayerEpisodeChanged?.call(season, episode);
+              } catch (_) {
+                // Foreign bridge traffic — ignore it.
+              }
+            },
     );
   }
 }

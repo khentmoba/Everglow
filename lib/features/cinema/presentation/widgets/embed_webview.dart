@@ -37,6 +37,12 @@ class EmbedWebView extends StatefulWidget {
   /// trailers and the cinema player keep their current behavior.
   final Set<String>? allowedHosts;
 
+  /// Called with page-bridged player events (JSON string) posted to the
+  /// `EverglowPlayer` JS channel. Our embed.html wrapper uses it to
+  /// report CineSrc episode changes on native, where there is no
+  /// window.postMessage path to Flutter. Null disables the channel.
+  final void Function(String message)? onPlayerMessage;
+
   const EmbedWebView({
     super.key,
     required this.url,
@@ -45,6 +51,7 @@ class EmbedWebView extends StatefulWidget {
     this.onError,
     this.borderRadius,
     this.allowedHosts,
+    this.onPlayerMessage,
   });
 
   @override
@@ -83,6 +90,14 @@ class _EmbedWebViewState extends State<EmbedWebView> {
     try {
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       await controller.setBackgroundColor(Colors.black);
+
+      if (widget.onPlayerMessage != null) {
+        await controller.addJavaScriptChannel(
+          'EverglowPlayer',
+          onMessageReceived: (message) =>
+              widget.onPlayerMessage?.call(message.message),
+        );
+      }
 
       if (defaultTargetPlatform == TargetPlatform.android &&
           controller.platform is AndroidWebViewController) {
