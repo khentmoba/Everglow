@@ -79,6 +79,46 @@ class AIService extends ChangeNotifier {
     if (payloads.length <= limit) return payloads;
     return payloads.sublist(payloads.length - limit);
   }
+
+  /// Drops images from all but the last [keepLast] image-bearing messages
+  /// (older photo turns become text-only). Photos would otherwise be
+  /// re-read — and re-billed as vision tokens — on every later reply.
+  /// Pure so the rule is unit-testable.
+  @visibleForTesting
+  static List<Map<String, dynamic>> stripStaleImages(
+    List<Map<String, dynamic>> payloads, {
+    int keepLast = 2,
+  }) {
+    var seen = 0;
+    var changed = false;
+    final out = <Map<String, dynamic>>[];
+    for (var i = payloads.length - 1; i >= 0; i--) {
+      final payload = payloads[i];
+      final content = payload['content'];
+      final blocks = content is List ? content : const [];
+      final hasImages = blocks.any(
+        (b) => b is Map && b['type'] == 'image_url',
+      );
+      if (!hasImages) {
+        out.add(payload);
+        continue;
+      }
+      seen++;
+      if (seen <= keepLast) {
+        out.add(payload);
+        continue;
+      }
+      final text = blocks
+          .whereType<Map>()
+          .where((b) => b['type'] == 'text' && b['text'] is String)
+          .map((b) => b['text'] as String)
+          .join('\n');
+      changed = true;
+      out.add({'role': payload['role'], 'content': text});
+    }
+    if (!changed) return payloads;
+    return out.reversed.toList();
+  }
   String get toolStatus => _toolStatus;
 
   void _resetDraftState() {
@@ -158,9 +198,11 @@ class AIService extends ChangeNotifier {
       final allPayloads = conversation.messages
           .map((m) => m.toApiPayload())
           .toList();
-      final recentMessages = trimHistoryForRequest(
-        allPayloads,
-        limit: isGuardian ? guardianHistoryLimit : historyLimit,
+      final recentMessages = stripStaleImages(
+        trimHistoryForRequest(
+          allPayloads,
+          limit: isGuardian ? guardianHistoryLimit : historyLimit,
+        ),
       );
 
       final shouldThink =
