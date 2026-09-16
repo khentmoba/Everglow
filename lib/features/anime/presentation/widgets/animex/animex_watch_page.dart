@@ -29,6 +29,8 @@ import 'animex_tokens.dart';
 part 'animex_watch_page_widgets.dart';
 part 'animex_watch_page_sheets.dart';
 part 'animex_watch_page_episodes.dart';
+part 'animex_episodes_desktop.dart';
+part 'animex_episodes_mobile.dart';
 part 'animex_watch_page_config.dart';
 part 'animex_watch_page_sections.dart';
 
