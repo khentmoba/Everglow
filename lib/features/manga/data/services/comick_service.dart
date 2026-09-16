@@ -360,54 +360,72 @@ class ComickService with ConnectivityAware {
     return null;
   }
 
+  static MangaChapter _mapChapter(Map<String, dynamic> d, String language) {
+    final groups = d['md_chapters_groups'] as List?;
+    String groupName = '';
+    if (groups != null && groups.isNotEmpty) {
+      final first = groups.first as Map?;
+      final group = first?['md_groups'] as Map?;
+      groupName = group?['title'] as String? ?? '';
+    }
+    return MangaChapter(
+      id: d['hid'] as String? ?? '',
+      title: d['title'] as String? ?? '',
+      chapter: (d['chap'] as dynamic)?.toString() ?? '',
+      volume: (d['vol'] as dynamic)?.toString() ?? '',
+      pages: (d['page'] as num?)?.toInt() ?? 0,
+      translatedLanguage: d['lang'] as String? ?? language,
+      scanlationGroup: groupName,
+      publishAt:
+          DateTime.tryParse((d['publish_at'] as String?) ?? '') ??
+          DateTime.now(),
+    );
+  }
+
   /// Fetch chapter feed for a comic by its Comick hid.
   /// Returns chapters mapped to [MangaChapter]. Chapter page resolution
   /// still goes through MangaDex / Bato.to / MangaSee123 / MangaKakalot.
+  ///
+  /// Comick counts every scanlation-group upload separately, so a
+  /// 357-chapter series can report 900+ entries — a single 500-entry
+  /// page would silently drop the oldest chapters. We paginate until
+  /// everything is fetched (capped at 4 pages for safety).
   Future<List<MangaChapter>> getChapterFeed(
     String hid, {
     String language = 'en',
     int limit = 500,
   }) async {
     if (hid.isEmpty) return [];
-    final uri = Uri.parse('$_baseUrl/comic/$hid/chapters').replace(
-      queryParameters: {
-        'limit': ['$limit'],
-        'lang': [language],
-      },
-    );
-    try {
-      final headers = await _authHeaders();
-      final response = await http
-          .get(_proxied(uri), headers: headers)
-          .timeout(const Duration(seconds: 10));
-      if (response.statusCode == 200) {
+    final all = <MangaChapter>[];
+    for (var page = 1; page <= 4; page++) {
+      final uri = Uri.parse('$_baseUrl/comic/$hid/chapters').replace(
+        queryParameters: {
+          'limit': ['$limit'],
+          'page': ['$page'],
+          'lang': [language],
+        },
+      );
+      try {
+        final headers = await _authHeaders();
+        final response = await http
+            .get(_proxied(uri), headers: headers)
+            .timeout(const Duration(seconds: 10));
+        if (response.statusCode != 200) break;
         final body = json.decode(response.body) as Map<String, dynamic>;
         final chapters = body['chapters'] as List? ?? [];
-        return chapters.whereType<Map<String, dynamic>>().map((d) {
-          final groups = d['md_chapters_groups'] as List?;
-          String groupName = '';
-          if (groups != null && groups.isNotEmpty) {
-            final first = groups.first as Map?;
-            final group = first?['md_groups'] as Map?;
-            groupName = group?['title'] as String? ?? '';
-          }
-          return MangaChapter(
-            id: d['hid'] as String? ?? '',
-            title: d['title'] as String? ?? '',
-            chapter: (d['chap'] as dynamic)?.toString() ?? '',
-            volume: (d['vol'] as dynamic)?.toString() ?? '',
-            pages: (d['page'] as num?)?.toInt() ?? 0,
-            translatedLanguage: d['lang'] as String? ?? language,
-            scanlationGroup: groupName,
-            publishAt:
-                DateTime.tryParse((d['publish_at'] as String?) ?? '') ??
-                DateTime.now(),
-          );
-        }).toList();
+        final total = (body['total'] as num?)?.toInt() ?? 0;
+        all.addAll(
+          chapters
+              .whereType<Map<String, dynamic>>()
+              .map((d) => _mapChapter(d, language)),
+        );
+        if (chapters.length < limit) break;
+        if (total > 0 && all.length >= total) break;
+      } catch (e) {
+        Logger.e('Comick chapter feed error', error: e);
+        break;
       }
-    } catch (e) {
-      Logger.e('Comick chapter feed error', error: e);
     }
-    return [];
+    return all;
   }
 }
