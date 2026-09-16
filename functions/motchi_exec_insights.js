@@ -6,6 +6,8 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
+const { computeInsights, generateTrivia, composeTodayRecap } = require('./motchi_core.js');
+
 async function exec_get_relationship_insights(ctx, args) {
     const [moodSnap, activitySnap] = await Promise.all([
       ctx.db.collection('moods').orderBy('timestamp', 'desc').limit(100).get(),
@@ -140,6 +142,7 @@ async function exec_web_search(ctx, args) {
     } else {
       const searchRes = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
         headers: { 'X-API-Key': apiKey },
+        signal: AbortSignal.timeout(15000),
       });
       if (searchRes.status === 401 || searchRes.status === 403) return JSON.stringify({ error: 'Web search API key is invalid or forbidden.' });
       if (searchRes.status === 402) return JSON.stringify({ error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' });
@@ -174,6 +177,7 @@ async function exec_read_web_page(ctx, args) {
         method: 'POST',
         headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
         body: JSON.stringify({ urls, format: 'markdown' }),
+        signal: AbortSignal.timeout(20000),
       });
       if (fetchRes.status === 401 || fetchRes.status === 403) return JSON.stringify({ error: 'Web page reading API key is invalid or forbidden.' });
       if (fetchRes.status === 429) return JSON.stringify({ error: 'Web page reading rate limit hit — try again in a minute.' });
