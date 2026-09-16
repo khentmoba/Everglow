@@ -45,6 +45,18 @@ test('serverExtractAndSaveMemory ignores empty input', async () => {
   await mem.serverExtractAndSaveMemory('hello', '', 'motchi');
 });
 
+test('claimMemoryExtractSlot throttles to one extraction per window', () => {
+  const now = 1_700_000_000_000;
+  assert.equal(mem.claimMemoryExtractSlot('khentsgdz', now), true);
+  assert.equal(mem.claimMemoryExtractSlot('khentsgdz', now + 1000), false);
+  assert.equal(mem.claimMemoryExtractSlot('KHENTSGdz', now + 2000), false);
+  assert.equal(mem.claimMemoryExtractSlot('clairjassen', now + 3000), true);
+  assert.equal(
+    mem.claimMemoryExtractSlot('khentsgdz', now + mem.EXTRACT_THROTTLE_MS),
+    true,
+  );
+});
+
 test('index still loads with the memory group extracted', () => {
   const indexExports = require('./index');
   assert.ok(indexExports.proxyAI);
