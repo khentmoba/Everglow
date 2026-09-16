@@ -106,15 +106,15 @@ class OurBooksItem {
         : const <String>[];
     return OurBooksItem(
       id: documentId,
-      workKey: data['workKey'] ?? '',
-      editionKey: data['editionKey'] ?? '',
-      iaId: data['iaId'] ?? '',
-      title: data['title'] ?? '',
-      author: data['author'] ?? '',
-      coverUrl: data['coverUrl'] ?? '',
-      year: data['year'] ?? '',
+      workKey: _toStr(data['workKey']),
+      editionKey: _toStr(data['editionKey']),
+      iaId: _toStr(data['iaId']),
+      title: _toStr(data['title']),
+      author: _toStr(data['author']),
+      coverUrl: _toStr(data['coverUrl']),
+      year: _toStr(data['year']),
       subjects: subjects,
-      addedBy: data['addedBy'] ?? '',
+      addedBy: _toStr(data['addedBy']),
       addedAt: _parseDateTime(data['addedAt']),
       khentReadAt: _parseNullableDateTime(data['khentReadAt']),
       clairReadAt: _parseNullableDateTime(data['clairReadAt']),
@@ -175,6 +175,8 @@ class OurBooksItem {
       clairReadAt: clearClairRead ? null : (clairReadAt ?? this.clairReadAt),
     );
   }
+
+  static String _toStr(dynamic value) => value is String ? value : '';
 
   static DateTime _parseDateTime(dynamic value) {
     if (value is Timestamp) return value.toDate();

@@ -51,18 +51,23 @@ class VideoSourceConfig {
     Map<String, dynamic> data, {
     String? id,
   }) {
+    final name = _toStr(data['name']);
     return VideoSourceConfig(
-      id: id ?? (data['id'] as String? ?? ''),
-      name: data['name'] as String? ?? '',
-      shortName:
-          data['shortName'] as String? ?? (data['name'] as String? ?? ''),
-      desc: data['desc'] as String? ?? '',
-      movieUrl: data['movieUrl'] as String? ?? '',
-      tvUrl: data['tvUrl'] as String? ?? '',
-      isRecommended: data['isRecommended'] as bool? ?? false,
-      sandboxSafe: data['sandboxSafe'] as bool? ?? false,
+      id: id ?? _toStr(data['id']),
+      name: name,
+      shortName: _toStr(data['shortName'], fallback: name),
+      desc: _toStr(data['desc']),
+      movieUrl: _toStr(data['movieUrl']),
+      tvUrl: _toStr(data['tvUrl']),
+      isRecommended: _toBool(data['isRecommended']),
+      sandboxSafe: _toBool(data['sandboxSafe']),
     );
   }
+
+  static String _toStr(dynamic value, {String fallback = ''}) =>
+      value is String ? value : fallback;
+
+  static bool _toBool(dynamic value) => value is bool ? value : false;
 
   /// Serialize to a map suitable for Firestore.
   Map<String, dynamic> toFirestore() {
@@ -80,16 +85,16 @@ class VideoSourceConfig {
 
   /// Deserialize from plain JSON (for the hardcoded fallback list).
   factory VideoSourceConfig.fromJson(Map<String, dynamic> json) {
+    final name = _toStr(json['name']);
     return VideoSourceConfig(
-      id: json['id'] as String? ?? '',
-      name: json['name'] as String? ?? '',
-      shortName:
-          json['shortName'] as String? ?? (json['name'] as String? ?? ''),
-      desc: json['desc'] as String? ?? '',
-      movieUrl: json['movieUrl'] as String? ?? '',
-      tvUrl: json['tvUrl'] as String? ?? '',
-      isRecommended: json['isRecommended'] as bool? ?? false,
-      sandboxSafe: json['sandboxSafe'] as bool? ?? false,
+      id: _toStr(json['id']),
+      name: name,
+      shortName: _toStr(json['shortName'], fallback: name),
+      desc: _toStr(json['desc']),
+      movieUrl: _toStr(json['movieUrl']),
+      tvUrl: _toStr(json['tvUrl']),
+      isRecommended: _toBool(json['isRecommended']),
+      sandboxSafe: _toBool(json['sandboxSafe']),
     );
   }
 

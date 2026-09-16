@@ -16,10 +16,19 @@ class GuardianMessage {
   factory GuardianMessage.fromFirestore(Map<String, dynamic> data, String id) {
     return GuardianMessage(
       id: id,
-      content: data['content'] ?? '',
-      category: data['category'] ?? 'idle',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      content: _toStr(data['content']),
+      category: _toStr(data['category'], fallback: 'idle'),
+      createdAt: _toDate(data['createdAt']),
     );
+  }
+
+  static String _toStr(dynamic value, {String fallback = ''}) =>
+      value is String ? value : fallback;
+
+  static DateTime? _toDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return null;
   }
 
   Map<String, dynamic> toFirestore() {

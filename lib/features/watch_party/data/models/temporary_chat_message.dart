@@ -16,12 +16,21 @@ class TemporaryChatMessage extends ChatMessage {
 
   factory TemporaryChatMessage.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? const {};
+    return TemporaryChatMessage.fromMap(doc.id, data);
+  }
+
+  factory TemporaryChatMessage.fromMap(
+    String id,
+    Map<String, dynamic> data,
+  ) {
     return TemporaryChatMessage(
-      id: doc.id,
-      sender: (data['sender'] as String?) ?? '',
-      senderUid: (data['senderUid'] as String?) ?? '',
-      text: (data['text'] as String?) ?? '',
+      id: id,
+      sender: _toStr(data['sender']),
+      senderUid: _toStr(data['senderUid']),
+      text: _toStr(data['text']),
       timestamp: ChatMessage.parseTimestamp(data['timestamp']),
     );
   }
+
+  static String _toStr(dynamic value) => value is String ? value : '';
 }
