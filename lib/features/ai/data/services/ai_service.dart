@@ -58,6 +58,27 @@ class AIService extends ChangeNotifier {
   String? get lastError => _lastError;
   String get draftResponse => _draftResponse;
   String get draftReasoning => _draftReasoning;
+
+  /// How many recent messages ride along per request. Older turns live on
+  /// in archived sessions + summaries, which the server injects on demand —
+  /// resending all 50 stored messages every turn just burns upload bytes
+  /// and input tokens on long chats. Matches the ~20-message archive
+  /// cadence so live history and archives overlap without gaps.
+  static const int historyLimit = 20;
+
+  /// The guardian mascot stays tiny: only the last few turns matter.
+  static const int guardianHistoryLimit = 12;
+
+  /// Keeps only the trailing [limit] payloads (returns the list untouched
+  /// when it already fits). Pure so the trim rule is unit-testable.
+  @visibleForTesting
+  static List<Map<String, dynamic>> trimHistoryForRequest(
+    List<Map<String, dynamic>> payloads, {
+    int limit = historyLimit,
+  }) {
+    if (payloads.length <= limit) return payloads;
+    return payloads.sublist(payloads.length - limit);
+  }
   String get toolStatus => _toolStatus;
 
   void _resetDraftState() {
@@ -131,16 +152,16 @@ class AIService extends ChangeNotifier {
           ? _memoryRepo.all.sublist(0, 10)
           : _memoryRepo.all;
 
-      // Build the API messages payload (all conversation messages).
-      // Guardian mascot replies stay tiny: only the last few turns matter,
-      // so trim history to save tokens, latency, and cost.
+      // Build the API messages payload (recent history only — older turns
+      // live on in archived sessions + summaries server-side).
       final isGuardian = feature == 'guardian';
       final allPayloads = conversation.messages
           .map((m) => m.toApiPayload())
           .toList();
-      final recentMessages = isGuardian && allPayloads.length > 12
-          ? allPayloads.sublist(allPayloads.length - 12)
-          : allPayloads;
+      final recentMessages = trimHistoryForRequest(
+        allPayloads,
+        limit: isGuardian ? guardianHistoryLimit : historyLimit,
+      );
 
       final shouldThink =
           enableThinking ?? const MotchiQuality().shouldAutoThink(message);
