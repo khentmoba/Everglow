@@ -66,7 +66,9 @@ class MoodController extends ChangeNotifier {
     if (uid != null && uid.isNotEmpty && award != null) {
       try {
         await award(uid);
-      } catch (_) {}
+      } catch (e) {
+        Logger.e('Heartbeat: mood XP award failed', error: e);
+      }
     }
   }
 }

@@ -9,6 +9,7 @@ import '../../../cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -275,7 +276,9 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       var updated = await _service.backfillMissingPosters(items);
       updated = await _service.refreshAnimePosters(updated);
       if (mounted) setState(() => _items = updated);
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Dashboard: shelf poster backfill failed', error: e);
+    }
   }
 
   @override
@@ -468,7 +471,9 @@ class _AnimeShelfState extends State<_AnimeShelf> {
       var updated = await _service.backfillMissingPosters(items);
       updated = await _service.refreshAnimePosters(updated);
       if (mounted) setState(() => _items = updated);
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Dashboard: finished-shelf poster backfill failed', error: e);
+    }
   }
 
   @override

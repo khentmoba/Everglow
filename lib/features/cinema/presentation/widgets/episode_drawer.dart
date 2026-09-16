@@ -200,6 +200,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                           season: _selectedSeasonNumber,
                         ),
                       ),
+                      // Films never reach here (_isFilm true shows Play
+                      // above). ONA-listed films like Drifting Home used to
+                      // fall through and render fake Episode rows.
                       EpisodeListSection(
                         episodes: _episodes,
                         seasons: _seasons,
