@@ -18,16 +18,13 @@ TopMusicTrack _track(String artist, String name, int plays) => TopMusicTrack(
   spotifyUrl: 'https://open.spotify.com/search/x',
 );
 
-/// Serves both providers: artist tracks per user per artist (showdown) and
-/// top tracks per user (quick picks).
+/// Serves both providers from each user's all-time top tracks. The showdown
+/// filters by artist locally (live `user.gettoptracks` path); quick picks
+/// read the same top-10s directly.
 class _ShowdownFakeSync extends MusicSyncService {
-  _ShowdownFakeSync({
-    required this.artistTracks,
-    this.topTracks = const {},
-  });
+  _ShowdownFakeSync({required this.topTracks});
 
-  /// '$username|$artist'.toLowerCase() -> tracks.
-  final Map<String, List<TopMusicTrack>> artistTracks;
+  /// Last.fm username (lowercased) -> full top tracks.
   final Map<String, List<TopMusicTrack>> topTracks;
 
   @override
@@ -35,9 +32,11 @@ class _ShowdownFakeSync extends MusicSyncService {
     String username,
     String artist, {
     int limit = 200,
-  }) async =>
-      artistTracks['${username.toLowerCase()}|${artist.toLowerCase()}'] ??
-      const [];
+  }) async {
+    // The showdown must NOT use the deprecated user.getartisttracks
+    // endpoint (stale backend, no playcounts). Fail loudly on regression.
+    throw UnimplementedError('showdown should filter fetchTopTracks');
+  }
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -96,16 +95,13 @@ void main() {
       tester,
     ) async {
       final sync = _ShowdownFakeSync(
-        artistTracks: {
-          'khentsgdz|ethel cain': [_track('Ethel Cain', 'Strangers', 10)],
-          'clairjassen|ethel cain': [
-            _track('Ethel Cain', 'Strangers', 25),
-            _track('Ethel Cain', 'American Teenager', 40),
-          ],
-        },
         topTracks: {
           'khentsgdz': [_track('Ethel Cain', 'Strangers', 10)],
-          'clairjassen': [_track('Lana Del Rey', 'Video Games', 99)],
+          'clairjassen': [
+            _track('Ethel Cain', 'Strangers', 25),
+            _track('Ethel Cain', 'American Teenager', 40),
+            _track('Lana Del Rey', 'Video Games', 99),
+          ],
         },
       );
       final showdown = ArtistShowdownProvider(syncService: sync);
@@ -134,17 +130,15 @@ void main() {
 
     testWidgets('tapping a quick pick switches artists', (tester) async {
       final sync = _ShowdownFakeSync(
-        artistTracks: {
-          'khentsgdz|ethel cain': [_track('Ethel Cain', 'Strangers', 10)],
-          'clairjassen|ethel cain': [_track('Ethel Cain', 'Strangers', 5)],
-          'khentsgdz|lana del rey': [_track('Lana Del Rey', 'Video Games', 7)],
-          'clairjassen|lana del rey': [
+        topTracks: {
+          'khentsgdz': [
+            _track('Ethel Cain', 'Strangers', 10),
+            _track('Lana Del Rey', 'Video Games', 7),
+          ],
+          'clairjassen': [
+            _track('Ethel Cain', 'Strangers', 5),
             _track('Lana Del Rey', 'Video Games', 3),
           ],
-        },
-        topTracks: {
-          'khentsgdz': [_track('Lana Del Rey', 'Video Games', 7)],
-          'clairjassen': const [],
         },
       );
       final showdown = ArtistShowdownProvider(syncService: sync);
@@ -170,7 +164,7 @@ void main() {
     testWidgets('shows the empty state when nobody played the artist', (
       tester,
     ) async {
-      final sync = _ShowdownFakeSync(artistTracks: const {});
+      final sync = _ShowdownFakeSync(topTracks: const {});
       final showdown = ArtistShowdownProvider(syncService: sync);
       final stats = MusicStatsProvider(syncService: sync);
       try {
