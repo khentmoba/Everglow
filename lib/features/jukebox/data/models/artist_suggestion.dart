@@ -17,6 +17,22 @@ class ArtistSuggestion {
     this.mbid,
   });
 
+  ArtistSuggestion copyWith({
+    String? name,
+    int? listeners,
+    String? imageUrl,
+    String? url,
+    String? mbid,
+  }) {
+    return ArtistSuggestion(
+      name: name ?? this.name,
+      listeners: listeners ?? this.listeners,
+      imageUrl: imageUrl ?? this.imageUrl,
+      url: url ?? this.url,
+      mbid: mbid ?? this.mbid,
+    );
+  }
+
   factory ArtistSuggestion.fromJson(Map<String, dynamic> json) {
     final name = (json['name'] as String? ?? '').trim();
     final listeners =

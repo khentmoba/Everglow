@@ -33,7 +33,13 @@ async function _getSpotifyAppToken() {
 /**
  * Resolves a track to a real Spotify ID via Client Credentials.
  * GET /proxySpotifySearch?query=Artist+Track  OR  ?artist=...&track=...
- * Auth required. Returns { trackId, trackName, artistName, albumName, imageUrl, previewUrl, spotifyUrl, embedUrl }.
+ * GET /proxySpotifySearch?type=artist&artist=Name — returns the artist's
+ *   photo ({ artistId, artistName, imageUrl, followers, spotifyUrl }).
+ *   Last.fm removed artist images from its API in 2019 (all artist.search
+ *   rows carry the same white-star placeholder), so the Artist Showdown
+ *   autocomplete gets its thumbnails from here instead.
+ * Auth required. Track mode returns
+ * { trackId, trackName, artistName, albumName, imageUrl, previewUrl, spotifyUrl, embedUrl }.
  */
 const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -47,6 +53,7 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
   const q = String(req.query.query || '').trim();
   const artist = String(req.query.artist || '').trim();
   const track = String(req.query.track || '').trim();
+  const type = String(req.query.type || 'track').trim().toLowerCase();
   const query = q || (artist && track ? artist + ' ' + track : '') || artist || track;
   if (!query) { res.status(400).json({ error: 'Missing query or artist/track' }); return; }
   try {
@@ -54,6 +61,32 @@ const proxySpotifySearch = cappedHttps(20, async (req, res) => {
     // used to escape as an uncaught 500 with no JSON body.
     const token = await _getSpotifyAppToken();
     if (!token) { res.status(503).json({ error: 'Spotify not configured' }); return; }
+    if (type === 'artist') {
+      const name = artist || query;
+      const url = 'https://api.spotify.com/v1/search?' + new URLSearchParams({ q: name, type: 'artist', limit: '5', market: 'US' }).toString();
+      const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
+      if (!r.ok) { res.status(r.status).json({ error: 'Spotify search failed ' + r.status }); return; }
+      const data = await r.json();
+      const items = data.artists && data.artists.items;
+      if (!Array.isArray(items) || items.length === 0) { res.json({ artistId: null, query: name }); return; }
+      // Prefer the exact-name match so "Lana" finds Lana, not "Lana Del Rey".
+      const norm = (s) => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+      const targetNorm = norm(name);
+      let best = items[0];
+      for (const it of items) {
+        if (it && norm(it.name) === targetNorm) { best = it; break; }
+      }
+      const img = best.images && best.images[0] ? best.images[0].url : null;
+      res.json({
+        artistId: best.id || null,
+        artistName: best.name || name,
+        imageUrl: img,
+        followers: (best.followers && best.followers.total) || 0,
+        spotifyUrl: (best.external_urls && best.external_urls.spotify) || ('https://open.spotify.com/artist/' + best.id),
+        query: name,
+      });
+      return;
+    }
     const url = 'https://api.spotify.com/v1/search?' + new URLSearchParams({ q: query, type: 'track', limit: '5', market: 'US' }).toString();
     const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) { res.status(r.status).json({ error: 'Spotify search failed ' + r.status }); return; }

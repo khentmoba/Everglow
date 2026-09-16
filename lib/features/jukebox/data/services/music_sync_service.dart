@@ -31,6 +31,10 @@ class MusicSyncService {
   final String _baseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
 
+  /// Spotify artist-photo lookups go through the same authed proxy path.
+  final String _spotifyBaseUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxySpotifySearch';
+
   // ── Process-wide token cache shared across JukeboxProvider + MusicStatsProvider ──
   // Without this, 8 concurrent proxyLastfm calls on dashboard boot each pay
   // `getIdToken()` independently, serializing behind the auth bridge.
@@ -629,6 +633,39 @@ class MusicSyncService {
       );
     }
     return const [];
+  }
+
+  /// Fetches one artist's photo from Spotify.
+  ///
+  /// Last.fm removed artist images from its API in 2019, so every
+  /// `artist.search` row only carries the white-star placeholder (filtered
+  /// to null by [ArtistSuggestion.fromJson]). Suggestion thumbnails come
+  /// from here instead. Returns null when Spotify has no photo, isn't
+  /// configured, or the lookup fails — the dropdown falls back to the
+  /// initial tile.
+  Future<String?> fetchArtistImage(String artistName) async {
+    final name = artistName.trim();
+    if (name.isEmpty) return null;
+    try {
+      final url = Uri.parse(
+        '$_spotifyBaseUrl?type=artist&artist=${Uri.encodeComponent(name)}',
+      );
+      final response = await _getWithAuth(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map) {
+          final img = data['imageUrl'] as String?;
+          if (img != null && img.isNotEmpty) return img;
+        }
+      }
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: Artist photo for "$name" timed out.',
+      );
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (artist photo, $name)', error: e);
+    }
+    return null;
   }
 
   /// Fetches the user's most-played artists from Last.fm.

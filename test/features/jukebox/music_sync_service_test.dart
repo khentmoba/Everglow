@@ -581,6 +581,43 @@ void main() {
       expect(called, isFalse);
     });
 
+    test('fetchArtistImage returns the Spotify artist photo', () async {
+      final client = MockClient((request) async {
+        expect(request.url.path, contains('proxySpotifySearch'));
+        expect(request.url.queryParameters['type'], 'artist');
+        expect(request.url.queryParameters['artist'], 'Lana Del Rey');
+        return _jsonResponse({
+          'artistId': '00FQb4jTyendYWaN8pLanx',
+          'artistName': 'Lana Del Rey',
+          'imageUrl': 'https://i.scdn.co/image/lana.png',
+          'followers': 12345678,
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final photo = await service.fetchArtistImage('Lana Del Rey');
+      expect(photo, 'https://i.scdn.co/image/lana.png');
+    });
+
+    test('fetchArtistImage returns null when Spotify has no photo', () async {
+      var called = false;
+      final client = MockClient((_) async {
+        called = true;
+        return _jsonResponse({'artistId': null, 'query': 'Nobody'});
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+      expect(await service.fetchArtistImage('Nobody'), isNull);
+      expect(await service.fetchArtistImage('   '), isNull);
+      expect(called, isTrue);
+    });
+
     test('routes iTunes search through proxyCatalog client', () async {
       final requestedBases = <String>[];
       final requestedPaths = <String>[];
