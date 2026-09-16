@@ -50,9 +50,10 @@ class _MotchiScreenState extends State<MotchiScreen> {
   bool _isSending = false;
   bool _userScrolledUp = false;
   DeepThinkMode _deepThinkMode = DeepThinkMode.auto;
-  // Canvas toggle — when off, Motchi just chats normally (no interactive
-  // quiz / flashcards / game buttons). Defaults OFF so quick questions
-  // stay plain chat; toggle it on when a quiz, cards, or game is wanted.
+  // Canvas toggle — when off, Motchi just chats normally instead of making
+  // interactive quizzes / cards / games proactively. Defaults OFF so quick
+  // questions stay plain chat. An explicit ask ("make chess", "quiz us")
+  // auto-turns it on for that request; past artifacts always stay visible.
   bool _canvasEnabled = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
@@ -197,10 +198,18 @@ class _MotchiScreenState extends State<MotchiScreen> {
     final text = retry ? (_lastSentMessage ?? '').trim() : _input.text.trim();
     final hasImages = !retry && _attachedImageUrls.isNotEmpty;
     if (text.isEmpty && !hasImages) return;
+    // Explicit artifact asks turn Canvas on so the game/quiz actually builds.
+    final autoCanvas = !_canvasEnabled && motchiWantsArtifact(text);
     _isSending = true;
     _lastSentMessage = text;
     _input.clear();
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {
+        if (autoCanvas) {
+          _canvasEnabled = true;
+        }
+      });
+    }
     _focusNode.requestFocus();
     _scrollToBottom();
 
@@ -601,7 +610,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                     text: ai.draftResponse,
                                     isUser: false,
                                     isStreaming: true,
-                                    showArtifacts: _canvasEnabled,
+                                    // Always show: if Motchi emitted a block, Clair asked for it.
+                                    // The toggle gates *generation*, never display of past games.
+                                    showArtifacts: true,
                                     keepFullText: userAskedForVisibleQuiz(
                                       _prevUserText(allMsgs, allMsgs.length),
                                     ),
@@ -649,7 +660,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                   ),
                   text: msg.content,
                   isUser: isUserMsg,
-                  showArtifacts: _canvasEnabled,
+                  // Always show past artifacts — turning Canvas off must not
+                  // hide games/quizzes Motchi already made.
+                  showArtifacts: true,
                   keepFullText: !isUserMsg &&
                       userAskedForVisibleQuiz(_prevUserText(allMsgs, i)),
                   timestamp: msg.timestamp,

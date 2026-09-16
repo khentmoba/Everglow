@@ -36,34 +36,37 @@ Future<String> streamSseResponse({
         if (line.startsWith('data: ')) {
           final data = line.substring(6).trim();
           if (data == '[DONE]') break;
+          // Parse first (malformed chunks are skipped); server-sent errors
+          // are handled outside the try so the catch can't swallow them.
+          Map<String, dynamic>? parsed;
           try {
-            final parsed = jsonDecode(data) as Map<String, dynamic>;
-            final reasoning = parsed['reasoning'] as String? ?? '';
-            if (reasoning.isNotEmpty && onReasoning != null) {
-              onReasoning(reasoning);
-            }
-            final content = parsed['content'] as String? ?? '';
-            if (content.isNotEmpty) {
-              fullResponse.write(content);
-              onChunk(content);
-            }
-                final toolStatus = parsed['tool_status'] as String? ?? '';
-    if (toolStatus.isNotEmpty && onToolStatus != null) {
-      onToolStatus(toolStatus);
-    }
-    final toolResult = parsed['tool_result'];
-    if (toolResult is Map<String, dynamic> && onToolResult != null) {
-      onToolResult(toolResult);
-    } else if (toolResult is Map && onToolResult != null) {
-      onToolResult(Map<String, dynamic>.from(toolResult));
-    }
-    final error = parsed['error'] as String? ?? '';
-            if (error.isNotEmpty) {
-              if (onError != null) onError(error);
-              throw Exception(error);
-            }
+            parsed = jsonDecode(data) as Map<String, dynamic>;
           } catch (_) {
-            // skip malformed JSON chunks
+            continue;
+          }
+          final reasoning = parsed['reasoning'] as String? ?? '';
+          if (reasoning.isNotEmpty && onReasoning != null) {
+            onReasoning(reasoning);
+          }
+          final content = parsed['content'] as String? ?? '';
+          if (content.isNotEmpty) {
+            fullResponse.write(content);
+            onChunk(content);
+          }
+          final toolStatus = parsed['tool_status'] as String? ?? '';
+          if (toolStatus.isNotEmpty && onToolStatus != null) {
+            onToolStatus(toolStatus);
+          }
+          final toolResult = parsed['tool_result'];
+          if (toolResult is Map<String, dynamic> && onToolResult != null) {
+            onToolResult(toolResult);
+          } else if (toolResult is Map && onToolResult != null) {
+            onToolResult(Map<String, dynamic>.from(toolResult));
+          }
+          final error = parsed['error'] as String? ?? '';
+          if (error.isNotEmpty) {
+            if (onError != null) onError(error);
+            throw Exception(error);
           }
         }
       }

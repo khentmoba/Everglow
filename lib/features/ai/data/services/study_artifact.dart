@@ -1,5 +1,17 @@
 import 'dart:convert';
 
+/// True when the message explicitly asks for an interactive artifact
+/// (quiz, flashcards, game, app). Explicit asks auto-enable Canvas for
+/// that request so the "Build a game" / "Quiz us" chips work even when
+/// the toggle is off — the toggle blocks *proactive* artifacts, never an
+/// explicit ask. Mirrors the server's wantsArtifact regex.
+bool motchiWantsArtifact(String text) {
+  return RegExp(
+    r'quiz|flashcards?|flash cards?|trivia|\bgame\b|chess|checkers|tic-?tac|html|artifact|\bapp\b|website',
+    caseSensitive: false,
+  ).hasMatch(text);
+}
+
 /// Study artifacts — the Claude-Artifacts / Gemini-Canvas moment for Study.
 ///
 /// When Motchi answers a "Quiz us" or "Flashcards" ask, the reply carries a

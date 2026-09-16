@@ -380,7 +380,9 @@ extension _StudyScreenBuilders on _StudyScreenState {
                 }
                 return _AnswerBubble(
                   text: turn.text,
-                  showArtifacts: _canvasEnabled,
+                  // Always show: hiding past quizzes/cards when the toggle
+                  // is off strands them with no way to reopen.
+                  showArtifacts: true,
                   keepFullText: keepFull,
                 );
               },
