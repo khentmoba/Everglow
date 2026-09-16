@@ -353,6 +353,13 @@ class MusicSyncService {
   /// still has no usable cover, the iTunes Search API is queried as a final
   /// fallback (it reliably carries artwork for independent and mainstream
   /// releases alike). Returns null when every lookup fails.
+  ///
+  /// Matching is deliberately strict: a cover is only returned when the
+  /// lookup result is verifiably the SAME song (title and artist, ignoring
+  /// case and punctuation). A missing cover falls back to the music-note
+  /// tile, which is always better than pairing a row with the wrong song's
+  /// art — e.g. the base "Crush" cover must never land on "Crush -
+  /// Stripped".
   Future<String?> fetchTrackArtwork({
     required String artist,
     required String track,
@@ -388,10 +395,29 @@ class MusicSyncService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final album = data['track']?['album'];
-        if (album is Map) {
-          final picked = pickLastfmImageUrl(album['image'] as List<dynamic>?);
-          if (picked != null) return picked;
+        final trackNode = data['track'];
+        // Last.fm can fuzzy-match the query to a different track (e.g.
+        // "Crush - Stripped" resolving to "Crush"). Only accept the
+        // album art when the returned song is verifiably the requested one.
+        if (trackNode is Map &&
+            _matchesTrack(
+              trackNode['name'],
+              _artistNameOf(trackNode['artist']),
+              track: track,
+              artist: artist,
+            )) {
+          final album = trackNode['album'];
+          if (album is Map) {
+            final picked = pickLastfmImageUrl(
+              album['image'] as List<dynamic>?,
+            );
+            if (picked != null) return picked;
+          }
+        } else {
+          Logger.d(
+            'Jukebox Service: track.getinfo mismatch for '
+            '"$artist - $track" — ignoring its cover.',
+          );
         }
         return null;
       } else {
@@ -415,24 +441,37 @@ class MusicSyncService {
 
   /// Fallback artwork lookup via the iTunes Search API (no key required).
   ///
-  /// Queries `artist + track` first. Last.fm sometimes stores mangled names
-  /// (UTF-8 mojibake of accented names), which can make
-  /// the combined query return nothing, so the search is retried with just
-  /// the track name. Prefers the result whose track name matches exactly
-  /// (ignoring case and punctuation) so a cover is never paired with the
-  /// wrong song.
+  /// Queries `artist + track` first and only accepts a result whose title
+  /// AND artist both match (ignoring case and punctuation). Last.fm
+  /// sometimes stores mangled names (UTF-8 mojibake of accented names),
+  /// which can make the combined query return nothing, so the search is
+  /// retried with just the track name — but the retry still requires an
+  /// exact title match, and for clean ASCII artist names the artist must
+  /// match too. (Mangled names are unverifiable by nature, so the artist
+  /// check is skipped only when the name contains non-ASCII characters.)
+  /// Returns null rather than guessing: no `results.first` fallback, so a
+  /// cover is never paired with the wrong song.
   Future<String?> _fetchItunesArtwork({
     required String artist,
     required String track,
   }) async {
     try {
-      var results = await _searchItunes('$artist $track');
-      if (results.isEmpty) {
-        results = await _searchItunes(track);
+      final results = await _searchItunes('$artist $track');
+      var selected = _selectItunesResult(
+        results,
+        track: track,
+        artist: artist,
+      );
+      if (selected == null && results.isEmpty) {
+        final retry = await _searchItunes(track);
+        selected = _selectItunesResult(
+          retry,
+          track: track,
+          // A mangled Last.fm artist name can never match iTunes' clean
+          // one, so only verifiable (ASCII) names keep the artist check.
+          artist: _hasNonAscii(artist) ? null : artist,
+        );
       }
-      if (results.isEmpty) return null;
-
-      final selected = _selectItunesResult(results, track);
       if (selected == null) return null;
       final artwork = selected['artworkUrl100'];
       if (artwork is! String || artwork.isEmpty) return null;
@@ -485,20 +524,62 @@ class MusicSyncService {
   }
 
   Map<String, dynamic>? _selectItunesResult(
-    List<Map<String, dynamic>> results,
-    String track,
-  ) {
+    List<Map<String, dynamic>> results, {
+    required String track,
+    String? artist,
+  }) {
     if (results.isEmpty) return null;
-    final normalizedTrack = _normalizeForMatch(track);
     for (final result in results) {
-      final resultTrack = result['trackName'];
-      if (resultTrack is String &&
-          _normalizeForMatch(resultTrack) == normalizedTrack) {
+      if (_matchesTrack(
+        result['trackName'],
+        result['artistName'],
+        track: track,
+        artist: artist,
+      )) {
         return result;
       }
     }
-    return results.first;
+    // No exact match: return null so the row falls back to the music-note
+    // tile. Never guess with `results.first` — near-misses (the base
+    // "Crush" for "Crush - Stripped", or another artist's same-titled
+    // song) are exactly how wrong covers end up on leaderboard rows.
+    return null;
   }
+
+  /// True when the candidate title (and, when [artist] is given, the
+  /// candidate artist) identify the requested song. Comparison ignores case
+  /// and punctuation so "Crush – Stripped" still matches "Crush -
+  /// Stripped", but version suffixes and different artists never match.
+  bool _matchesTrack(
+    dynamic candidateTrack,
+    dynamic candidateArtist, {
+    required String track,
+    String? artist,
+  }) {
+    if (candidateTrack is! String) return false;
+    if (_normalizeForMatch(candidateTrack) != _normalizeForMatch(track)) {
+      return false;
+    }
+    if (artist == null) return true;
+    if (candidateArtist is! String) return false;
+    return _normalizeForMatch(candidateArtist) == _normalizeForMatch(artist);
+  }
+
+  /// Reads a Last.fm artist node, which is normally `{"name": ...}` but
+  /// is occasionally a bare string in older responses.
+  static String? _artistNameOf(dynamic artistNode) {
+    if (artistNode is Map) {
+      final name = artistNode['name'];
+      return name is String ? name : null;
+    }
+    return artistNode is String ? artistNode : null;
+  }
+
+  /// True when [value] contains non-ASCII characters — the telltale sign of
+  /// either a genuinely accented name or Last.fm UTF-8 mojibake, both of
+  /// which make byte-level artist comparison against iTunes unreliable.
+  static bool _hasNonAscii(String value) =>
+      value.runes.any((rune) => rune > 127);
 
   /// Fetches the user's most-played artists from Last.fm.
   Future<List<TopArtist>> fetchTopArtists(
