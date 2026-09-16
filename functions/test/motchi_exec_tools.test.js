@@ -114,6 +114,46 @@ test('add_xp clamps the amount and reports the new total', async () => {
   assert.equal(out2.amount, 25); // non-numeric falls back to 25
 });
 
+test('add_xp grants the remainder when the request exceeds the cap', async () => {
+  const leaf = makeDocStub({
+    exists: true,
+    data: { xpTotal: 1000, streak: 5, motchiXpDate: '2026-09-16', motchiXpDayTotal: 150 },
+  });
+  const { ctx, doc } = makeCtx({ leafDoc: leaf });
+  const partial = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 100 }));
+  assert.equal(partial.success, true);
+  assert.equal(partial.amount, 50); // remainder up to the 200 cap
+  assert.equal(partial.dayTotal, 200);
+  assert.equal(partial.xpTotal, 1050);
+  assert.equal(doc.calls.set[0].doc.motchiXpDayTotal, 200);
+  assert.equal(doc.calls.set[0].doc.motchiXpDate, '2026-09-16');
+});
+
+test('add_xp refuses when the day total already hit the cap', async () => {
+  const leaf = makeDocStub({
+    exists: true,
+    data: { xpTotal: 1000, streak: 5, motchiXpDate: '2026-09-16', motchiXpDayTotal: 200 },
+  });
+  const { ctx, doc } = makeCtx({ leafDoc: leaf });
+  const out = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 25 }));
+  assert.equal(out.success, false);
+  assert.equal(out.capped, true);
+  assert.equal(out.xpTotal, 1000); // untouched
+  assert.equal(doc.calls.set.length, 0); // no write at all
+});
+
+test('add_xp resets the day total on a new Philippine day', async () => {
+  const leaf = makeDocStub({
+    exists: true,
+    data: { xpTotal: 1000, streak: 5, motchiXpDate: '2026-09-15', motchiXpDayTotal: 200 },
+  });
+  const { ctx } = makeCtx({ leafDoc: leaf });
+  const out = JSON.parse(await executeToolCall(ctx, 'add_xp', { amount: 25 }));
+  assert.equal(out.success, true);
+  assert.equal(out.amount, 25);
+  assert.equal(out.dayTotal, 25);
+});
+
 test('delete_memory asks for confirmation before touching anything', async () => {
   const leaf = makeDocStub({ exists: true, data: { fact: 'Clair loves oat lattes', category: 'fact' } });
   const { ctx, doc, addedDocs } = makeCtx({ leafDoc: leaf });

@@ -115,22 +115,48 @@ async function exec_get_xp_stats(ctx, args) {
     return JSON.stringify({ stats });
 }
 
+// Motchi-awarded XP is capped per Philippine day so "give me XP" loops
+// can't print levels. One level's worth (200) is generous; real
+// activity awards (moods, garden, journal…) are unaffected — this
+// guards the LLM-triggered tool only.
+const MOTCHI_XP_DAILY_CAP = 200;
+
 async function exec_add_xp(ctx, args) {
-    const amount = Math.min(Math.max(Number(args.amount) || 25, 1), 100);
-    const uid = ctx.callerUid || 'khentsgdz';
-    const ref = ctx.db.collection('users').doc(uid).collection('progress').doc('main');
-    const doc = await ref.get();
-    const current = (doc.exists && doc.data()?.xpTotal) || 0;
-    const xpTotal = current + amount;
-    const level = ctx.levelForXp(xpTotal);
-    await ref.set({
-      xpTotal,
-      level,
-      streak: doc.exists ? (doc.data()?.streak || 0) : 0,
-      lastAwardReason: args.reason || 'Motchi award',
-      lastAwardedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
-    return JSON.stringify({ success: true, uid, amount, xpTotal, level });
+  const amount = Math.min(Math.max(Number(args.amount) || 25, 1), 100);
+  const uid = ctx.callerUid || 'khentsgdz';
+  const ref = ctx.db.collection('users').doc(uid).collection('progress').doc('main');
+  const doc = await ref.get();
+  const data = (doc.exists && doc.data()) || {};
+  const current = data.xpTotal || 0;
+  const today = ctx.phtDateString();
+  const dayTotal = (data.motchiXpDate === today && data.motchiXpDayTotal) || 0;
+  if (dayTotal >= MOTCHI_XP_DAILY_CAP) {
+    return JSON.stringify({
+      success: false,
+      capped: true,
+      dayTotal,
+      cap: MOTCHI_XP_DAILY_CAP,
+      xpTotal: current,
+      level: ctx.levelForXp(current),
+      message: 'Daily Motchi treat limit reached — more applause tomorrow!',
+    });
+  }
+  const grant = Math.min(amount, MOTCHI_XP_DAILY_CAP - dayTotal);
+  const xpTotal = current + grant;
+  const level = ctx.levelForXp(xpTotal);
+  await ref.set({
+    xpTotal,
+    level,
+    streak: doc.exists ? (doc.data()?.streak || 0) : 0,
+    lastAwardReason: args.reason || 'Motchi award',
+    lastAwardedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+    motchiXpDate: today,
+    motchiXpDayTotal: dayTotal + grant,
+  }, { merge: true });
+  return JSON.stringify({
+    success: true, uid, amount: grant, xpTotal, level,
+    dayTotal: dayTotal + grant, cap: MOTCHI_XP_DAILY_CAP,
+  });
 }
 
 async function exec_log_activity(ctx, args) {
