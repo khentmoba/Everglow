@@ -29,328 +29,8 @@ import 'animex_tokens.dart';
 part 'animex_watch_page_widgets.dart';
 part 'animex_watch_page_sheets.dart';
 part 'animex_watch_page_episodes.dart';
-
-class AnimeServerOption {
-  final String name;
-  final String Function(int episode, String audio) urlBuilder;
-  final bool available;
-
-  const AnimeServerOption({
-    required this.name,
-    required this.urlBuilder,
-    this.available = true,
-  });
-}
-
-typedef _ServerOption = AnimeServerOption;
-
-/// Anime detail / watch page: hero with info, video player with server
-/// tabs + sub/dub toggle, episode grid, share, playlists and
-/// recommendations.
-class AnimeXWatchPage extends StatefulWidget {
-  final AnimeXController controller;
-
-  const AnimeXWatchPage({super.key, required this.controller});
-
-  /// True when a fetched embed page is the provider's "can't play this"
-  /// error instead of a player. Static so the regression tests can pin
-  /// every known marker.
-  ///
-  /// ONLY strings proven absent from healthy player pages belong here
-  /// (verified Sep 2026 against all three providers): AniXo's healthy
-  /// page carries its hidden sandbox overlay ("please remove sandbox
-  /// ... sandbox is not allowed") plus an "all stream servers failed"
-  /// toast string, and Megavid's healthy page carries hidden "We're
-  /// Sorry" / "Embed Only" templates — so none of those phrases can
-  /// ever be markers. What remains: MegaPlay's 410 title, AniXo's
-  /// firewall cards, our own failure marker, and the retired VidLink
-  /// cards. HTTP status (non-200) is checked separately by the probe.
-  static bool isProviderErrorPage(String body) {
-    final lower = body.toLowerCase();
-    return lower.contains('error code: <span>410</span>') ||
-        lower.contains('error - megaplay') ||
-        lower.contains('no playable stream sources') ||
-        // AniXo firewall cards (its 403 block page). The healthy player
-        // only ever says "anti-leech protection" (no "engaged"), so
-        // the full phrases stay unambiguous.
-        lower.contains('leech block engaged') ||
-        lower.contains('leech protection engaged') ||
-        lower.contains('403 forbidden') ||
-        // VidLink 404s dead embeds with a Next.js "not found" shell (its
-        // anime player died sitewide in Sep 2026) and prints its own
-        // "Couldn't Find This Episode" card once the bundle runs.
-        lower.contains('this page could not be found') ||
-        lower.contains("coudn't find this episode") ||
-        lower.contains("couldn't find this episode") ||
-        (lower.contains('410') && lower.contains('copyright violation'));
-  }
-
-  /// Normalizes legacy server names ('Server 1', etc.) to provider names.
-  static String normalizeServerName(String? name) {
-    if (name == null) return '';
-    switch (name) {
-      case 'Server 1':
-        return 'Everglow';
-      // Legacy: the VidLink anime server was removed (dead upstream
-      // since Sep 2026). Old saved choices still normalize here and
-      // fall back to the first available server in [_load].
-      case 'Server 2':
-        return 'VidLink';
-      case 'Server 3':
-        return 'Megavid';
-      // Prior branch names ('Mega Play', 'Anixo') map to the current
-      // spellings so remembered choices survive the rename.
-      case 'Mega Play':
-        return 'MegaPlay';
-      case 'Anixo':
-        return 'AniXo';
-      default:
-        return name;
-    }
-  }
-
-  /// Picks the MAL id used for ani.zip mappings lookups. The route often
-  /// carries only an AniList id (the id slot reads 0), so prefer the MAL
-  /// id from the freshly fetched AniList detail and fall back to the
-  /// route's id slot.
-  @visibleForTesting
-  static int resolveMappingsMalId({
-    int? detailMalId,
-    required int routeMalId,
-  }) {
-    if (detailMalId != null && detailMalId > 0) return detailMalId;
-    return routeMalId;
-  }
-
-  static final _seasonInTitleRegex =
-      RegExp(r'season\s+(\d+)', caseSensitive: false);
-
-  /// Season to persist with watch progress for an anime episode.
-  ///
-  /// Anime seasons are separate catalog entries ("Black Clover Season 2")
-  /// but progress used to hardcode season 1, so the dashboard showed S1E1
-  /// against a Season 2 title. Prefer the ani.zip TMDB mapping when known,
-  /// otherwise the season in the title, otherwise 1. Movies return null so
-  /// shelves never gain stale S1E1 fields.
-  @visibleForTesting
-  static int? resolveProgressSeason({
-    required bool isMovie,
-    required String title,
-    required int episode,
-    required Map<int, ({int season, int episode})> episodeSlots,
-  }) {
-    if (isMovie) return null;
-    final slot = episodeSlots[episode];
-    if (slot != null && slot.season > 0) return slot.season;
-    final match = _seasonInTitleRegex.firstMatch(title);
-    if (match != null) {
-      final parsed = int.tryParse(match.group(1) ?? '');
-      if (parsed != null && parsed > 0) return parsed;
-    }
-    return 1;
-  }
-
-  /// Maps a player-reported TMDB season/episode back to our episode number.
-  ///
-  /// The Everglow embed (CineSrc) announces internal episode changes with
-  /// the TMDB season/episode it moved to. Shows whose MAL entry starts
-  /// mid-series resolve through [episodeSlots] (the same table the player
-  /// URL is built from); plain 1:1 shows map season 1 straight across.
-  /// Anything unmappable (a jump into another catalog entry's season, an
-  /// out-of-range number) returns null so we never highlight the wrong row.
-  @visibleForTesting
-  static int? mapPlayerEpisodeToMal({
-    required int tmdbSeason,
-    required int tmdbEpisode,
-    required Map<int, ({int season, int episode})> episodeSlots,
-    required int episodeCount,
-  }) {
-    if (tmdbSeason <= 0 || tmdbEpisode <= 0 || episodeCount <= 0) return null;
-    if (episodeSlots.isNotEmpty) {
-      for (final entry in episodeSlots.entries) {
-        if (entry.value.season == tmdbSeason &&
-            entry.value.episode == tmdbEpisode) {
-          final mal = entry.key;
-          return (mal >= 1 && mal <= episodeCount) ? mal : null;
-        }
-      }
-      return null;
-    }
-    if (tmdbSeason != 1) return null;
-    if (tmdbEpisode < 1 || tmdbEpisode > episodeCount) return null;
-    return tmdbEpisode;
-  }
-
-  /// Base URL of our ad-free anime resolver (see functions/anime.js).
-  /// Megavid plays through it instead of the provider's website embed:
-  /// the function resolves the episode server-side and serves our own
-  /// player page, so no third-party ad or tracker script ever reaches
-  /// Clair's phone — and a missing episode answers with the failover
-  /// marker (HTTP 502) instead of spinning its loader forever.
-  static const String proxyAnimeBase =
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime';
-
-  /// Builds the Megavid player URL via our ad-free resolver.
-  @visibleForTesting
-  static String megavidProxyUrl({
-    required int anilistId,
-    required int malId,
-    required int episode,
-    required String audio,
-  }) {
-    return '$proxyAnimeBase?source=megavid'
-        '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
-  }
-
-  /// Picks the server a visit should open on: the remembered choice
-  /// when it is still offered, otherwise Everglow whenever it is
-  /// available, otherwise the first available server. Everglow is ours
-  /// (no ads, no popups), so it stays the default even when a previous
-  /// visit left the index pointing at a third-party server.
-  @visibleForTesting
-  static int defaultServerIndex(
-    List<AnimeServerOption> servers, {
-    String? rememberedServer,
-  }) {
-    final remembered = normalizeServerName(rememberedServer);
-    if (remembered.isNotEmpty) {
-      final at = servers.indexWhere(
-        (s) => s.available && s.name == remembered,
-      );
-      if (at != -1) return at;
-    }
-    final everglow = servers.indexWhere(
-      (s) => s.available && s.name == 'Everglow',
-    );
-    if (everglow != -1) return everglow;
-    final first = servers.indexWhere((s) => s.available);
-    return first == -1 ? 0 : first;
-  }
-
-  /// Builds the anime embed servers, cleanest first. Each provider has
-  /// its own embedding rules (verified Sep 2026 against the providers
-  /// themselves and a working reference site) — the player frame
-  /// applies them per host:
-  ///
-  /// - Everglow: our own embed.html shell around CineSrc. Default for
-  ///   fresh titles. TMDB-keyed, so it only becomes available once
-  ///   ani.zip supplies a `themoviedb_id`. Sandboxed, no referrer,
-  ///   100% ad-free.
-  /// - Megavid: our ad-free resolver ([proxyAnimeBase]) keyed on the
-  ///   AniList id (falls back to MAL). Sandboxed, no referrer. A dead
-  ///   episode answers with the failover marker so the probe advances
-  ///   to the next server instead of spinning.
-  /// - MegaPlay: third-party embed keyed on the AniList id (falls back
-  ///   to MAL). Last resort for titles without a TMDB mapping — it
-  ///   refuses sandboxed iframes ("Remove sandbox to use it") and
-  ///   answers 410 with no Referer, so it plays unsandboxed with the
-  ///   origin sent, ads included. When it answers with its 410 card
-  ///   the probe advances to the next server.
-  ///
-  /// AniXo used to sit between the last two, but it is only a scraper
-  /// relay over MegaPlay behind a bot-check ticket that embedded
-  /// players cannot pass reliably — and it ships its own popunder ad
-  /// tag — so it is no longer offered. VidLink's anime embeds 404
-  /// sitewide since Sep 2026, so it is no longer offered either.
-  /// A remembered AniXo/VidLink choice simply falls back to Everglow
-  /// (see [defaultServerIndex]).
-  ///
-  /// Picks the TMDB id for titles ani.zip can't map, via a strict
-  /// catalog search: the kind must match (`movie` for films, `tv`
-  /// otherwise), the normalized title must equal, and the year must
-  /// equal when both sides know it. Anything looser risks opening the
-  /// wrong film for Clair, so near-misses return null (server stays
-  /// hidden) instead of guessing.
-  @visibleForTesting
-  static int? pickTmdbFallbackId({
-    required List<MediaItem> results,
-    required String title,
-    required String year,
-    required bool isMovie,
-  }) {
-    String norm(String s) =>
-        s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    final want = norm(title);
-    if (want.isEmpty) return null;
-    final wantKind = isMovie ? 'movie' : 'tv';
-    final wantYear = year.trim();
-    for (final r in results) {
-      if (r.tmdbId <= 0) continue;
-      if (r.mediaType.trim().toLowerCase() != wantKind) continue;
-      if (norm(r.title) != want) continue;
-      final gotYear = r.year.trim();
-      if (wantYear.isNotEmpty &&
-          gotYear.isNotEmpty &&
-          gotYear != wantYear) {
-        continue;
-      }
-      return r.tmdbId;
-    }
-    return null;
-  }
-
-  /// [episodeSlots] maps a MAL episode number to the season/episode
-  /// pair TMDB expects — shows whose MAL entry starts mid-series (e.g.
-  /// Attack on Titan season 2) would otherwise open the wrong episode.
-  /// [isMovie] switches the TMDB-keyed server to the movie endpoint:
-  /// films (e.g. Drifting Home) have a movie TMDB id, and the TV
-  /// endpoint with that id opens nothing.
-  static List<AnimeServerOption> buildServers({
-    int? anilistId,
-    int? malId,
-    int? tmdbId,
-    Map<int, ({int season, int episode})> episodeSlots = const {},
-    bool isMovie = false,
-  }) {
-    final hasAni = anilistId != null && anilistId > 0;
-    final effectiveMal = malId ?? 0;
-    final effectiveTmdb = tmdbId ?? 0;
-    final aniId = hasAni ? anilistId : 0;
-
-    final hasSource = hasAni || effectiveMal > 0;
-
-    return [
-      AnimeServerOption(
-        name: 'Everglow',
-        urlBuilder: (ep, audio) {
-          if (isMovie) {
-            return 'https://everglow-1c6db.web.app/embed.html'
-                '?tmdbId=$effectiveTmdb&type=movie';
-          }
-          final slot = episodeSlots[ep];
-          final season = slot?.season ?? 1;
-          final episode = slot?.episode ?? ep;
-          return 'https://everglow-1c6db.web.app/embed.html'
-              '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
-        },
-        available: effectiveTmdb > 0,
-      ),
-      AnimeServerOption(
-        name: 'Megavid',
-        urlBuilder: (ep, audio) => AnimeXWatchPage.megavidProxyUrl(
-          anilistId: aniId,
-          malId: effectiveMal,
-          episode: ep,
-          audio: audio,
-        ),
-        available: hasSource,
-      ),
-      AnimeServerOption(
-        name: 'MegaPlay',
-        urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://megaplay.buzz/stream/ani/$aniId/$ep/$audio';
-          }
-          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
-        },
-        available: hasSource,
-      ),
-    ];
-  }
-
-  @override
-  State<AnimeXWatchPage> createState() => _AnimeXWatchPageState();
-}
+part 'animex_watch_page_config.dart';
+part 'animex_watch_page_sections.dart';
 
 class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final AniListService _aniList = AniListService();
@@ -708,7 +388,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       final azJaTitle = azTitles?['ja'] as String?;
 
       final baseTitle = base?.title;
-      final title = (baseTitle != null &&
+      final title =
+          (baseTitle != null &&
               baseTitle.isNotEmpty &&
               !baseTitle.toLowerCase().startsWith('episode $i'))
           ? baseTitle
@@ -720,8 +401,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       final synopsis = (baseSynopsis != null && baseSynopsis.isNotEmpty)
           ? baseSynopsis
           : ((az?['overview'] as String?)?.isNotEmpty == true
-              ? (az?['overview'] as String?)
-              : (az?['summary'] as String?));
+                ? (az?['overview'] as String?)
+                : (az?['summary'] as String?));
 
       final baseThumb = base?.thumbnail;
       final thumbnail = (baseThumb != null && baseThumb.isNotEmpty)
@@ -729,7 +410,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           : (az?['image'] as String?);
 
       final rawDuration = az?['runtime'] ?? az?['length'];
-      final duration = base?.duration ??
+      final duration =
+          base?.duration ??
           (rawDuration is num ? rawDuration.toInt() : null) ??
           detail?.duration;
 
@@ -911,8 +593,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         : null;
 
     final status = _watchingStatusFor(userName);
-    final effectiveTmdbId =
-        _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+    final effectiveTmdbId = _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
     if (effectiveTmdbId <= 0) return;
 
     final mediaItem = MediaItem(
@@ -920,8 +601,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       tmdbId: effectiveTmdbId,
       title: _item.title,
       mediaType: _item.mediaType.isNotEmpty ? _item.mediaType : 'tv',
-      posterPath:
-          _item.posterPath.isNotEmpty ? _item.posterPath : _item.posterUrl,
+      posterPath: _item.posterPath.isNotEmpty
+          ? _item.posterPath
+          : _item.posterUrl,
       backdropPath: _item.backdropPath,
       year: _item.year,
       status: status,
@@ -966,8 +648,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       if (!mounted) return;
       final userName = _currentUserName();
       if (userName.isEmpty) return;
-      final effectiveTmdbId =
-          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+      final effectiveTmdbId = _item.tmdbId > 0
+          ? _item.tmdbId
+          : (_anilistId ?? 0);
       if (effectiveTmdbId <= 0) return;
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
@@ -991,8 +674,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       if (!mounted) return;
       final userName = _currentUserName();
       if (userName.isEmpty) return;
-      final effectiveTmdbId =
-          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+      final effectiveTmdbId = _item.tmdbId > 0
+          ? _item.tmdbId
+          : (_anilistId ?? 0);
       if (effectiveTmdbId <= 0) return;
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
@@ -1005,15 +689,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         ),
         episode: _item.isMovie ? null : _selectedEpisode,
         timestamp: _playbackPosition?.round(),
-        durationSeconds:
-            (_detail?.duration != null && _detail!.duration! > 0)
-                ? _detail!.duration! * 60
-                : null,
+        durationSeconds: (_detail?.duration != null && _detail!.duration! > 0)
+            ? _detail!.duration! * 60
+            : null,
       );
     });
   }
-
-
 
   String get _playerUrl {
     if (_servers.isEmpty) return '';
@@ -1111,9 +792,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {
@@ -1143,7 +822,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _probingServer = true);
     try {
       final body = await _fetchProbeBody(Uri.parse(url));
-      if (body != null && AnimeXWatchPage.isProviderErrorPage(body) && mounted) {
+      if (body != null &&
+          AnimeXWatchPage.isProviderErrorPage(body) &&
+          mounted) {
         if (autoAdvance) {
           _handleContentError();
         } else {
@@ -1227,9 +908,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   height: 38,
                   decoration: BoxDecoration(
                     color: const Color(0x990A0A0F),
-                    borderRadius: BorderRadius.circular(
-                      AnimeXTokens.radiusLg,
-                    ),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
                     border: Border.all(color: AnimeXTokens.borderStrong),
                   ),
                   child: const Icon(
@@ -1281,10 +960,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                      borderRadius: BorderRadius.circular(
+                        AnimeXTokens.radiusSm,
+                      ),
                       border: Border.all(color: AnimeXTokens.border),
                     ),
                     child: Row(
@@ -1530,9 +1214,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   color: _serverIndex == i
                       ? AnimeXTokens.accent.withValues(alpha: 0.18)
                       : Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusSm,
-                  ),
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
                   border: Border.all(
                     color: _serverIndex == i
                         ? AnimeXTokens.accent.withValues(alpha: 0.45)
@@ -1587,405 +1269,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           onTap: () => _stepEpisode(1),
         ),
       ],
-    );
-  }
-
-  Widget _buildPlayerSection(BuildContext context) {
-    final episodes = _episodes;
-    final width = MediaQuery.sizeOf(context).width;
-    final isDesktop = width >= 1200;
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    final maxPlayerHeight = (viewportHeight - 280)
-        .clamp(240.0, AnimeXTokens.playerMaxHeight)
-        .toDouble();
-
-    // The sidebar top-aligns with the player, so its height matches the
-    // player's effective 16:9 height exactly (the player column and the
-    // sidebar share the same row constraints).
-    final contentWidth = (width - 48).clamp(0.0, AnimeXTokens.watchPageMaxWidth);
-    final playerColumnWidth = contentWidth - 20 - 380;
-    final sidebarHeight = (playerColumnWidth * 9 / 16)
-        .clamp(0.0, maxPlayerHeight)
-        .toDouble();
-
-    final playerColumn = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildPlayer(context),
-        const SizedBox(height: 12),
-        _buildCurrentEpisodeHeader(context),
-        _buildServerNotice(context),
-        if (!_showErrorCard && _playerUrl.isNotEmpty && _skipRowVisible) ...[
-          const SizedBox(height: 4),
-          _buildSkipRow(context),
-        ],
-        const SizedBox(height: 10),
-        _buildServerAndAudioRow(context),
-        const SizedBox(height: 12),
-        _buildStepButtons(context),
-      ],
-    );
-
-    if (isDesktop) {
-      return Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AnimeXTokens.watchPageMaxWidth,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: playerColumn),
-                const SizedBox(width: 20),
-                SizedBox(
-                  width: 380,
-                  height: sidebarHeight,
-                  child: _DesktopEpisodesSidebar(
-                    episodes: episodes,
-                    selectedEpisode: _selectedEpisode,
-                    animeTitle: _displayTitle,
-                    fallbackPoster: _item.posterUrl,
-                    onSelectEpisode: _selectEpisode,
-                    onShowInfo: _openEpisodeInfo,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: AnimeXTokens.watchPageMaxWidth,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              playerColumn,
-              const SizedBox(height: 24),
-              _MobileEpisodesSection(
-                episodes: episodes,
-                selectedEpisode: _selectedEpisode,
-                animeTitle: _displayTitle,
-                fallbackPoster: _item.posterUrl,
-                onSelectEpisode: _selectEpisode,
-                onShowInfo: _openEpisodeInfo,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayer(BuildContext context) {
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    // Cap height so the player never crowds out the server selector and episode
-    // list on shorter screens (such as laptops or landscape tablets).
-    final maxPlayerHeight = (viewportHeight - 280)
-        .clamp(240.0, AnimeXTokens.playerMaxHeight)
-        .toDouble();
-
-    final player = _showErrorCard
-        ? _buildErrorCard(context)
-        : AnimeXPlayerFrame(
-            key: ValueKey('player-$_playerUrl'),
-            url: _playerUrl,
-            onContentError: _handleContentError,
-            onProgress: _onPlayerProgress,
-            onPlayerEpisodeChanged: _onPlayerEpisodeChanged,
-            scrollController: _scrollCtrl,
-          );
-
-    return Center(
-      child: ConstrainedBox(
-        key: const Key('animex-player-box'),
-        constraints: BoxConstraints(maxHeight: maxPlayerHeight),
-        child: player,
-      ),
-    );
-  }
-
-  Widget _buildErrorCard(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: Container(
-        decoration: BoxDecoration(
-          color: AnimeXTokens.surface,
-          borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
-          border: Border.all(color: AnimeXTokens.border),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: AnimeXTokens.accent,
-              size: 42,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "We're Sorry!",
-              style: dmSansStyle(
-                size: 20,
-                color: AnimeXTokens.textPrimary,
-                weight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(
-                'This episode is not available on the current server. '
-                'Try another server below.',
-                textAlign: TextAlign.center,
-                style: dmSansStyle(
-                  size: 13.5,
-                  color: AnimeXTokens.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoSection(BuildContext context) {
-    final detail = _detail!;
-    final japanese = context.select<AnimexStores, bool>(
-      (stores) => stores.titleJapanese,
-    );
-    final title = japanese
-        ? (detail.titleNative.isNotEmpty ? detail.titleNative : _item.title)
-        : (detail.titleEnglish.isNotEmpty ? detail.titleEnglish : _item.title);
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: AnimeXTokens.watchPageMaxWidth,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: bebasStyle(size: 30, color: AnimeXTokens.textPrimary),
-            ),
-            const SizedBox(height: 8),
-            if (detail.synopsis.isNotEmpty)
-              Text(
-                detail.synopsis,
-                style: interBodyStyle(size: 13.5, height: 1.65),
-              ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 24,
-              runSpacing: 12,
-              children: [
-                _InfoItem(
-                  label: 'Studios',
-                  value: detail.studios.isNotEmpty
-                      ? detail.studios.take(2).join(', ')
-                      : '—',
-                ),
-                _InfoItem(
-                  label: 'Airing',
-                  value: detail.airingStatus.isNotEmpty
-                      ? detail.airingStatus
-                      : '—',
-                ),
-                _InfoItem(
-                  label: 'Duration',
-                  value: detail.duration != null
-                      ? '${detail.duration} min'
-                      : '—',
-                ),
-                _InfoItem(
-                  label: 'Genres',
-                  value: detail.genres.isNotEmpty
-                      ? detail.genres.take(3).join(', ')
-                      : '—',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-  Widget _buildRelations(BuildContext context) {
-    final relations = _detail!.relations
-        .map(
-          (r) => MediaItem(
-            id: '',
-            tmdbId: r.malId ?? 0,
-            title: r.title,
-            mediaType: r.format.trim().toLowerCase() == 'movie'
-                ? 'movie'
-                : 'tv',
-            posterPath: r.coverImageUrl,
-            year: '',
-            status: '',
-            isAnime: true,
-            addedAt: DateTime.now(),
-            source: 'jikan',
-            anilistId: r.id,
-            format: r.format,
-          ),
-        )
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: AnimeXSectionHeader(
-            icon: Icons.link_rounded,
-            title: 'Related',
-          ),
-        ),
-        AnimeXPosterRow(
-          items: relations,
-          onTap: (item) => widget.controller.openWatch(item),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecommendations(BuildContext context) {
-    final recs = _detail!.recommendations
-        .map(
-          (r) => MediaItem(
-            id: '',
-            tmdbId: r.malId ?? 0,
-            title: r.title,
-            mediaType: 'tv',
-            posterPath: r.coverImageUrl,
-            year: '',
-            status: '',
-            isAnime: true,
-            addedAt: DateTime.now(),
-            source: 'jikan',
-            anilistId: r.id,
-          ),
-        )
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: AnimeXSectionHeader(
-            icon: Icons.auto_awesome_rounded,
-            title: 'Recommended Anime',
-          ),
-        ),
-        AnimeXPosterRow(
-          items: recs,
-          onTap: (item) => widget.controller.openWatch(item),
-        ),
-      ],
-    );
-  }
-
-  void _showShareSheet(BuildContext context) {
-    final japanese = context.read<AnimexStores>().titleJapanese;
-    final title = _titleFor(japanese);
-    final url = _detail?.siteUrl ?? 'https://everglow-1c6db.web.app/anime';
-    final text = 'Watching $title on Everglow';
-    final encodedUrl = Uri.encodeComponent(url);
-    final encodedText = Uri.encodeComponent(text);
-    final targets = <(String, IconData, String)>[
-      (
-        'Telegram',
-        Icons.send_rounded,
-        'https://t.me/share/url?url=$encodedUrl&text=$encodedText',
-      ),
-      (
-        'WhatsApp',
-        Icons.chat_bubble_outline_rounded,
-        'https://wa.me/?text=$encodedText%20$encodedUrl',
-      ),
-      (
-        'X / Twitter',
-        Icons.alternate_email_rounded,
-        'https://twitter.com/intent/tweet?url=$encodedUrl&text=$encodedText',
-      ),
-      (
-        'Reddit',
-        Icons.forum_outlined,
-        'https://reddit.com/submit?url=$encodedUrl&title=$encodedText',
-      ),
-    ];
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AnimeXTokens.surfaceRaised,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AnimeXTokens.textMuted,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Share',
-                  style: dmSansStyle(
-                    size: 16,
-                    color: AnimeXTokens.textPrimary,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-            for (final (label, icon, link) in targets)
-              ListTile(
-                leading: Icon(icon, color: AnimeXTokens.textPrimary, size: 20),
-                title: Text(
-                  label,
-                  style: dmSansStyle(
-                    size: 14,
-                    color: AnimeXTokens.textPrimary,
-                    weight: FontWeight.w600,
-                  ),
-                ),
-                onTap: () {
-                  launchUrl(
-                    Uri.parse(link),
-                    mode: LaunchMode.externalApplication,
-                  );
-                  Navigator.pop(sheetContext);
-                },
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
     );
   }
 }
