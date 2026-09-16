@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:everglow/features/academy/models/academy_question.dart';
+import 'package:everglow/features/academy/data/models/academy_question.dart';
 
 void main() {
   group('AcademyQuestion crash-guard', () {

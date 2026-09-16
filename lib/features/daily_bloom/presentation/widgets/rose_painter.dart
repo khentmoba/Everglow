@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_art.dart';
 
 class RosePainter extends CustomPainter {
   final int stage;
@@ -33,7 +34,7 @@ class RosePainter extends CustomPainter {
     paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFE8B4B8), Color(0xFFD4899A)],
+      colors: [AppArt.rosePotLight, AppArt.rosePot],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -42,7 +43,7 @@ class RosePainter extends CustomPainter {
     );
 
     paint.shader = null;
-    paint.color = const Color(0xFFC07080);
+    paint.color = AppArt.roseRim;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8),
@@ -66,7 +67,7 @@ class RosePainter extends CustomPainter {
     );
 
     paint
-      ..color = const Color(0xFF4CAF50)
+      ..color = AppArt.stem
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5;
     canvas.drawPath(stemPath, paint);
@@ -75,7 +76,7 @@ class RosePainter extends CustomPainter {
     if (stage >= 2) {
       paint
         ..style = PaintingStyle.fill
-        ..color = const Color(0xFF388E3C);
+        ..color = AppArt.stemDark;
       _drawThorn(canvas, center.translate(6, -15), true, paint);
       _drawThorn(canvas, center.translate(-3, -30), false, paint);
     }
@@ -105,7 +106,7 @@ class RosePainter extends CustomPainter {
   void _drawLeaf(Canvas canvas, Offset pos, bool right, Paint paint) {
     paint
       ..style = PaintingStyle.fill
-      ..color = const Color(0xFF66BB6A);
+      ..color = AppArt.leaf;
     final path = Path();
     path.moveTo(pos.dx, pos.dy);
     if (right) {
@@ -125,13 +126,13 @@ class RosePainter extends CustomPainter {
       canvas.drawCircle(top, 4, paint);
     } else if (stage <= 3) {
       // Rose bud
-      paint.color = const Color(0xFFE57373);
+      paint.color = AppArt.roseBloom;
       canvas.drawOval(
         Rect.fromCenter(center: top, width: 12, height: 20),
         paint,
       );
       // Sepals
-      paint.color = const Color(0xFF4CAF50);
+      paint.color = AppArt.stem;
       canvas.drawOval(
         Rect.fromCenter(center: top.translate(0, 8), width: 8, height: 6),
         paint,
@@ -147,7 +148,7 @@ class RosePainter extends CustomPainter {
         final layerAlpha = (0.6 + layer * 0.1).clamp(0.0, 1.0);
 
         paint.color = Color.lerp(
-          const Color(0xFFEF5350),
+          AppArt.roseBud,
           AppColors.accentPink,
           layer / layers,
         )!.withValues(alpha: layerAlpha);
@@ -173,7 +174,7 @@ class RosePainter extends CustomPainter {
       }
 
       // Center
-      paint.color = const Color(0xFFFFCDD2);
+      paint.color = AppArt.rosePetalLight;
       canvas.drawCircle(top, 3, paint);
 
       // Glow for stage 5

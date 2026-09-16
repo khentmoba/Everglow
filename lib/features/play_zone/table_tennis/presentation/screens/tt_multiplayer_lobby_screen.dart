@@ -4,7 +4,7 @@ import '../../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/services/auth_service.dart';
-import '../../services/tt_multiplayer_service.dart';
+import '../../data/services/tt_multiplayer_service.dart';
 import 'tt_multiplayer_game_screen.dart';
 import '../../../../../core/theme/app_typography.dart';
 

@@ -29,6 +29,8 @@ import 'study_artifact_sheet.dart';
 part 'motchi_widgets.dart';
 part 'motchi_widgets_streaming.dart';
 part 'motchi_widgets_extra.dart';
+part 'motchi_widgets_markdown.dart';
+part 'motchi_widgets_tools.dart';
 
 enum DeepThinkMode { auto, on, off }
 

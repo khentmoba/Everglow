@@ -4,6 +4,7 @@ import "package:cached_network_image/cached_network_image.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:flutter_cache_manager/flutter_cache_manager.dart";
+import '../../core/theme/app_colors.dart';
 
 /// Shared network image with web-performance defaults.
 ///
@@ -220,7 +221,7 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFFF4C2C2),
+                color: AppColors.roseQuartz,
               ),
             ),
           );
@@ -265,7 +266,7 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFFF4C2C2),
+                color: AppColors.roseQuartz,
               ),
             ),
           );

@@ -265,7 +265,7 @@ class _BoardSection extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF3A2352), Color(0xFF1A1A2E)],
+                    colors: [AppColors.plum, AppColors.twilight],
                   ),
                 ),
               ),

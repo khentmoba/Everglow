@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'trivia_api_service.dart';
 import '../models/academy_question.dart';
-import '../../../core/utils/logger.dart';
+import '../../../../core/utils/logger.dart';
 
 class AcademySyncService {
   // Lazy so widget tests can construct the service without Firebase.

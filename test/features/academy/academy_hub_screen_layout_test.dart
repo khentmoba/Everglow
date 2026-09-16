@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:everglow/features/academy/screens/academy_hub_screen.dart';
+import 'package:everglow/features/academy/presentation/screens/academy_hub_screen.dart';
 
 Widget _card() {
   return AcademyModeCard(

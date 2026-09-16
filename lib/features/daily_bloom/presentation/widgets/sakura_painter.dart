@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_art.dart';
 
 class SakuraPainter extends CustomPainter {
   final int stage;
@@ -33,7 +34,7 @@ class SakuraPainter extends CustomPainter {
     paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFD7CCC8), Color(0xFFBCAAA4)],
+      colors: [AppArt.sakuraPotLight, AppArt.sakuraPot],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -42,7 +43,7 @@ class SakuraPainter extends CustomPainter {
     );
 
     paint.shader = null;
-    paint.color = const Color(0xFF8D6E63);
+    paint.color = AppArt.barkLight;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(rect.left - 4, rect.top - 5, potWidth + 8, 8),
@@ -57,7 +58,7 @@ class SakuraPainter extends CustomPainter {
 
     // Main trunk
     paint
-      ..color = const Color(0xFF5D4037)
+      ..color = AppArt.bark
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5
       ..strokeCap = StrokeCap.round;
@@ -157,7 +158,7 @@ class SakuraPainter extends CustomPainter {
       if (stage == 5) {
         // Falling petals effect
         final glowPaint = Paint()
-          ..color = const Color(0xFFF8BBD0).withValues(alpha: 0.2)
+          ..color = AppArt.sakuraPetal.withValues(alpha: 0.2)
           ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 20);
         canvas.drawCircle(branchTop.translate(5, -15), 35, glowPaint);
       }
@@ -166,7 +167,7 @@ class SakuraPainter extends CustomPainter {
 
   void _drawBlossom(Canvas canvas, Offset center, Paint paint, double size) {
     const petalCount = 5;
-    final petalColor = const Color(0xFFF8BBD0);
+    final petalColor = AppArt.sakuraPetal;
 
     for (int i = 0; i < petalCount; i++) {
       final angle = (2 * pi / petalCount) * i;

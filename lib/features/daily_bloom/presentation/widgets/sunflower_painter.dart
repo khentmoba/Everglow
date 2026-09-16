@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/theme/app_art.dart';
 
 class SunflowerPainter extends CustomPainter {
   final int stage;
@@ -32,7 +33,7 @@ class SunflowerPainter extends CustomPainter {
     paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFA1887F), Color(0xFF8D6E63)],
+      colors: [AppArt.sunflowerPotLight, AppArt.barkLight],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -41,7 +42,7 @@ class SunflowerPainter extends CustomPainter {
     );
 
     paint.shader = null;
-    paint.color = const Color(0xFF795548);
+    paint.color = AppArt.barkDeep;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8),
@@ -63,7 +64,7 @@ class SunflowerPainter extends CustomPainter {
     );
 
     paint
-      ..color = const Color(0xFF558B2F)
+      ..color = AppArt.stemOlive
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4;
     canvas.drawPath(stemPath, paint);
@@ -71,7 +72,7 @@ class SunflowerPainter extends CustomPainter {
     // Leaves
     paint
       ..style = PaintingStyle.fill
-      ..color = const Color(0xFF7CB342);
+      ..color = AppArt.leafOlive;
     _drawLeaf(canvas, center.translate(6, -12), true, paint);
     if (stage >= 2) {
       _drawLeaf(canvas, center.translate(-6, -28), false, paint);
@@ -103,10 +104,10 @@ class SunflowerPainter extends CustomPainter {
       canvas.drawCircle(top, 5, paint);
     } else if (stage <= 3) {
       // Budding head
-      paint.color = const Color(0xFF9E9D24);
+      paint.color = AppArt.sunflowerCenter;
       canvas.drawCircle(top, stage == 2 ? 8 : 12, paint);
       // Green sepals
-      paint.color = const Color(0xFF558B2F);
+      paint.color = AppArt.stemOlive;
       for (int i = 0; i < 4; i++) {
         final angle = (pi / 2) * i;
         canvas.save();
@@ -125,7 +126,7 @@ class SunflowerPainter extends CustomPainter {
       final petalSize = stage == 4 ? 16.0 : 24.0;
 
       // Outer petals (yellow)
-      paint.color = const Color(0xFFFFD54F);
+      paint.color = AppArt.sunflowerPetal;
       for (int i = 0; i < petalCount; i++) {
         final angle = (2 * pi / petalCount) * i;
         canvas.save();
@@ -147,11 +148,11 @@ class SunflowerPainter extends CustomPainter {
 
       // Center disk (brown)
       final centerRadius = stage == 4 ? 10.0 : 14.0;
-      paint.color = const Color(0xFF5D4037);
+      paint.color = AppArt.bark;
       canvas.drawCircle(top, centerRadius, paint);
 
       // Center seeds texture
-      paint.color = const Color(0xFF795548);
+      paint.color = AppArt.barkDeep;
       for (int i = 0; i < 8; i++) {
         final angle = (2 * pi / 8) * i;
         final dx = cos(angle) * centerRadius * 0.5;
@@ -161,7 +162,7 @@ class SunflowerPainter extends CustomPainter {
 
       if (stage == 5) {
         final glowPaint = Paint()
-          ..color = const Color(0xFFFFD54F).withValues(alpha: 0.3)
+          ..color = AppArt.sunflowerPetal.withValues(alpha: 0.3)
           ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 15);
         canvas.drawCircle(top, 20, glowPaint);
       }

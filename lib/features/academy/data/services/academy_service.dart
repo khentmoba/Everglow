@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/academy_question.dart';
 import '../models/game_match.dart';
-import '../../../core/utils/logger.dart';
+import '../../../../core/utils/logger.dart';
 
 class AcademyService {
   // Lazy so widget tests can construct the service without Firebase.

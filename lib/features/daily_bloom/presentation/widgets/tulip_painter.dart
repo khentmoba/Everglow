@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_art.dart';
 
 class TulipPainter extends CustomPainter {
   final int stage;
@@ -32,7 +33,7 @@ class TulipPainter extends CustomPainter {
     paint.shader = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [Color(0xFFB3E5FC), Color(0xFF81D4FA)],
+      colors: [AppArt.tulipPotLight, AppArt.tulipPot],
     ).createShader(rect);
 
     canvas.drawRRect(
@@ -41,7 +42,7 @@ class TulipPainter extends CustomPainter {
     );
 
     paint.shader = null;
-    paint.color = const Color(0xFF4FC3F7);
+    paint.color = AppArt.tulipRim;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8),
@@ -63,7 +64,7 @@ class TulipPainter extends CustomPainter {
     );
 
     paint
-      ..color = const Color(0xFF66BB6A)
+      ..color = AppArt.leaf
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3;
     canvas.drawPath(stemPath, paint);
@@ -71,7 +72,7 @@ class TulipPainter extends CustomPainter {
     // Long elegant leaf
     paint
       ..style = PaintingStyle.fill
-      ..color = const Color(0xFF81C784);
+      ..color = AppArt.leafLight;
     _drawTulipLeaf(canvas, center.translate(3, -8), true, paint);
     if (stage >= 2) {
       _drawTulipLeaf(canvas, center.translate(-3, -22), false, paint);

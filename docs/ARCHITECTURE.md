@@ -136,22 +136,26 @@ lib/
       app_version.dart          # version source of truth
       health_service.dart       # /api/health probe (offline-tolerant)
       system_status.dart        # typed health contract
-    router/app_router.dart      # all GoRouter routes
-    theme/                      # Dusk Petal design tokens
-    utils/                      # logger, stream timeouts, connectivity
-    services/                   # NotificationService (FCM)
+    router/app_router.dart      # composes per-feature route modules (each feature owns presentation/routes/)
+    theme/                      # Dusk Petal design tokens (colors, typography, spacing, art palette)
+    utils/                      # app-wide helpers: logger, stream timeouts, connectivity
+    services/                   # AuthService, PresenceService, StorageService, NotificationService
     models/                     # shared models (PresenceStatus)
-  services/                     # AuthService, PresenceService, StorageService
   features/<feature>/
     data/                       # models + services + repository impls
-    domain/                     # domain models + repository interfaces
-    presentation/               # screens, widgets, controllers, providers
-  shared/widgets/everglow/      # design system
+    domain/                     # domain models + repository interfaces (only where the feature needs them)
+    presentation/               # screens, widgets, controllers, providers, routes
+  shared/
+    utils/                      # feature-agnostic data helpers (proxies, pagination, text, images)
+    widgets/everglow/           # global design system (buttons, cards, scaffolds)
+    widgets/shelf/              # media browsing UI shared by cinema/anime/books (posters, carousels)
 
 functions/
-  index.js                      # HTTP functions, Firestore triggers, schedules
-  motchi_core.js                 # pure AI helpers (testable)
-  system_core.js                # pure presence TTL helpers (testable)
+  index.js                      # thin barrel: wires HTTP functions, triggers, schedules
+  media_proxies.js              # CORS/hotlink proxies (manga, anime, gallery, video)
+  motchi_*.js                   # AI chat core, tools, memory, schedules, prompts
+  catalog.js / anime.js         # catalog + anime proxies
+  system_*.js / triggers.js     # presence TTL, push fan-out, ops jobs
 
 firestore.rules                 # single source of truth for access control
 firestore.indexes.json          # explicit composite indexes
@@ -168,6 +172,21 @@ web/                            # PWA shell, service worker, icons
 | Trigger | `onNewChatMessage`, `onNewMood`, `onNewStarDrop`, `onNewWatchlistItem`, `onNewGalleryPhoto`, `onWatchPartyInvite`, `onNewMilestone` | FCM partner notifications |
 | Schedule | `keepWarm`, `motchiDailyDigest`, `motchiNightRecap`, `motchiMoodCheckIn`, `motchiSpecialDayNudge`, `sweepStalePresence` | maintenance + proactive features |
 | Debug/admin | `debugGallery`, `cleanupGallery` | operational tooling (admin-only where destructive) |
+
+### Agent map — where to put things
+
+- New screen? `lib/features/<feature>/presentation/screens/<name>_screen.dart`
+  + route in `presentation/routes/`, composed by `core/router/app_router.dart`.
+- New data call? Feature `data/services/` first. Only add `domain/` when the
+  feature needs repository interfaces or shared domain models.
+- Shared helper? `core/utils/` for app-wide (logging, streams, connectivity);
+  `shared/utils/` for data helpers (proxies, pagination, text, images).
+- Shared widget? `shared/widgets/everglow/` for global design system;
+  `shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books.
+- Colors? `core/theme/app_colors.dart` for UI, `app_art.dart` for
+  decorative art (flowers, vinyl, painters). Never hardcode `Color(0x…)`.
+- Server proxy or secret? `functions/` module + export in `index.js`.
+  The app never calls third-party APIs directly.
 
 ## 5. Data Flow
 
@@ -325,7 +344,7 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 
 | Provider | Use | Key handling |
 |----------|-----|--------------|
-| Agnes 3.0 Flash (apihub.agnes-ai.com) | AI chat + image gen — 512K context, 120K input budget, 11 tool calls, thinking | server-side AGNES_API_KEY only |
+| Agnes 3.0 Flash (apihub.agnes-ai.com) | AI chat + image gen — 512K context, 120K input budget, 50+ tool calls, thinking | server-side AGNES_API_KEY only |
 | TMDB | cinema/anime metadata | server-side via `proxyTmdb` (authenticated, ID-token required) |
 | Open Library | book text | `proxyBookText` server fetch |
 | MangaDex / Bato / Comick / Mangakakalot / Mangasee123 | manga catalog + images | allow-listed host proxies |

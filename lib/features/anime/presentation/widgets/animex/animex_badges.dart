@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'animex_tokens.dart';
+import '../../../../../core/theme/app_colors.dart';
 
 enum AnimeXBadgeKind {
   sub,
@@ -82,7 +83,7 @@ class AnimeXBadge extends StatelessWidget {
         border: Border.all(color: border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x66000000),
+            color: AppColors.scrimStrong,
             blurRadius: 8,
             offset: Offset(0, 2),
           ),

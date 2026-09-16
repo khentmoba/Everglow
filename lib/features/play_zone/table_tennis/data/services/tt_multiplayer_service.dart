@@ -3,8 +3,8 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/tt_room.dart';
-import '../../../../core/utils/firestore_stream_utils.dart';
-import '../../../../core/utils/logger.dart';
+import '../../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../../core/utils/logger.dart';
 
 class TTMultiplayerService {
   final FirebaseFirestore _fs;
