@@ -7,6 +7,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../../data/models/lastfm_image_utils.dart';
 import '../../data/models/music_status.dart';
 import '../providers/artist_showdown_provider.dart';
 import '../providers/music_stats_provider.dart';
@@ -563,6 +564,9 @@ class _SongRow extends StatelessWidget {
       'clair' => AppColors.cinemaPink,
       _ => AppColors.textMuted,
     };
+    // Last.fm sometimes ships its default star/disc placeholder instead of a
+    // real cover — treat it as missing so the row falls back to the note.
+    final art = cleanLastfmImageUrl(track.imageUrl);
     return GestureDetector(
       onTap: () => showDialog(
         context: context,
@@ -572,7 +576,7 @@ class _SongRow extends StatelessWidget {
             trackName: track.trackName,
             artistName: artist,
             albumName: '',
-            imageUrl: track.imageUrl,
+            imageUrl: art,
             isPlaying: false,
             spotifyUrl: track.spotifyUrl,
           ),
@@ -604,14 +608,14 @@ class _SongRow extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: AppRadius.radiusMd,
-                child: track.imageUrl == null
+                child: art == null
                     ? const Icon(
                         Icons.music_note_rounded,
                         size: 16,
                         color: AppColors.roseQuartz,
                       )
                     : AppNetworkImage(
-                        imageUrl: track.imageUrl!,
+                        imageUrl: art,
                         fit: BoxFit.cover,
                         cacheWidth: 120,
                         errorWidget: const Icon(
@@ -641,14 +645,14 @@ class _SongRow extends StatelessWidget {
                   Row(
                     children: [
                       _MiniCount(
-                        label: 'K',
+                        label: 'Khent',
                         value: track.khentPlays,
                         color: AppColors.auroraTeal,
                         wins: track.leader == 'khent',
                       ),
                       const SizedBox(width: 8),
                       _MiniCount(
-                        label: 'C',
+                        label: 'Clair',
                         value: track.clairPlays,
                         color: AppColors.cinemaPink,
                         wins: track.leader == 'clair',
