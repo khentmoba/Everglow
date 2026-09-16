@@ -53,9 +53,11 @@ async function collectRecapData(db, {
   };
 }
 
-// ── Scheduled: Daily Digest (8:00 AM PHT = 00:00 UTC) ───────────
+// ── Scheduled: Daily Digest (8:00 AM PHT wall time) ───────────
+// NOTE: cron is interpreted in timeZone Asia/Manila below, so these
+// are Philippine wall times (NOT UTC — do not 'correct' them).
 const motchiDailyDigest = onSchedule({
-  schedule: '0 0 * * *',
+  schedule: '0 8 * * *',
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {
@@ -133,9 +135,9 @@ const motchiDailyDigest = onSchedule({
   }
 });
 
-// ── Scheduled: Night Recap (9:00 PM PHT = 13:00 UTC) ──────────────
+// ── Scheduled: Night Recap (11:11 PM PHT wall time) ──────────────
 const motchiNightRecap = onSchedule({
-  schedule: '0 13 * * *',
+  schedule: '11 23 * * *',
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {
@@ -160,9 +162,9 @@ const motchiNightRecap = onSchedule({
   }
 });
 
-// ── Scheduled: Mood Check-In (8:00 PM PHT = 12:00 UTC) ──────────
+// ── Scheduled: Mood Check-In (8:00 PM PHT wall time) ──────────
 const motchiMoodCheckIn = onSchedule({
-  schedule: '0 12 * * *',
+  schedule: '0 20 * * *',
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {
@@ -380,9 +382,9 @@ const motchiWeeklyRecap = onSchedule({
   }
 });
 
-// ── Scheduled: Special Day Nudge (9:00 AM PHT = 01:00 UTC) ───────
+// ── Scheduled: Special Day Nudge (9:00 AM PHT wall time) ───────
 const motchiSpecialDayNudge = onSchedule({
-  schedule: '0 1 * * *',
+  schedule: '0 9 * * *',
   timeZone: 'Asia/Manila',
   region: 'us-central1',
 }, async () => {

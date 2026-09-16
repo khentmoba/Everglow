@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const schedules = require('./motchi_schedules');
 const indexExports = require('./index');
@@ -21,6 +23,16 @@ test('motchi schedules group exposes eight timers', () => {
   for (const name of NAMES) {
     assert.equal(typeof schedules[name], 'function', `missing: ${name}`);
   }
+});
+
+test('couple-facing nudges fire at PHT wall times', () => {
+  // Cron is interpreted in timeZone Asia/Manila, so these literals ARE
+  // Philippine wall times. Pinned: they once drifted 8h when read as UTC.
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_schedules.js'), 'utf8');
+  for (const cron of ['0 8 * * *', '11 23 * * *', '0 20 * * *', '0 9 * * *']) {
+    assert.ok(src.includes(`schedule: '${cron}'`), `missing cron ${cron}`);
+  }
+  assert.ok(!src.includes('PHT = '), 'no stale UTC-equivalent comments');
 });
 
 test('index re-exports the schedules group without renaming', () => {
