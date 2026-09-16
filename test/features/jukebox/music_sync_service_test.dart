@@ -104,6 +104,8 @@ void main() {
         expect(request.url.queryParameters['method'], 'track.getinfo');
         return _jsonResponse({
           'track': {
+            'name': 'Stick Season',
+            'artist': {'name': 'Noah Kahan'},
             'album': {
               'image': [
                 {
@@ -135,6 +137,8 @@ void main() {
         expect(request.url.queryParameters['method'], 'track.getinfo');
         return _jsonResponse({
           'track': {
+            'name': 'Fine Line',
+            'artist': {'name': 'Harry Styles'},
             'album': {
               'image': [
                 {'#text': '', 'size': 'small'},
@@ -199,7 +203,7 @@ void main() {
       expect(artwork, 'https://b.example/600x600bb.jpg');
     });
 
-    test('falls back to the top result when no title matches', () async {
+    test('returns null when no iTunes title matches', () async {
       final client = MockClient((request) async {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
@@ -227,7 +231,270 @@ void main() {
         track: 'Missing Track',
       );
 
-      expect(artwork, 'https://c.example/600x600bb.jpg');
+      // A near-miss must never become the cover: the row falls back to
+      // the music-note tile instead of wearing the wrong song's art.
+      expect(artwork, isNull);
+    });
+
+    test('rejects the base version cover for a versioned title', () async {
+      // Live regression: "Crush - Stripped" wore the base "Crush"
+      // cover because iTunes has no exact "Stripped" title and the old
+      // code guessed with the top result.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 2,
+          'results': [
+            _itunesResult(
+              trackName: 'Crush',
+              artistName: 'Ethel Cain',
+              artwork: 'https://d.example/base-crush/100x100bb.jpg',
+            ),
+            _itunesResult(
+              trackName: 'Crush - Stripped Back',
+              artistName: 'Tribute Band',
+              artwork: 'https://d.example/tribute/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush - Stripped',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('rejects same-titled songs by a different artist', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Crush',
+              artistName: 'David Archuleta',
+              artwork: 'https://e.example/wrong-artist/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('retries track-only for ASCII artists and still checks both', () async {
+      final requestedTerms = <String>[];
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        final term = request.url.queryParameters['term'] ?? '';
+        requestedTerms.add(term);
+        // Combined query comes up empty (iTunes quirk); the track-only
+        // retry finds the exact song by the exact artist.
+        if (term.contains('Ethel Cain')) {
+          return _jsonResponse({'resultCount': 0, 'results': []});
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Strangers',
+              artistName: 'Ethel Cain',
+              artwork: 'https://f.example/strangers/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Strangers',
+      );
+
+      expect(artwork, 'https://f.example/strangers/600x600bb.jpg');
+      expect(requestedTerms, ['Ethel Cain Strangers', 'Strangers']);
+    });
+
+    test('rejects a track-only retry hit by the wrong artist', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        final term = request.url.queryParameters['term'] ?? '';
+        if (term.contains('Obscure')) {
+          return _jsonResponse({'resultCount': 0, 'results': []});
+        }
+        // A cover band shares the title; without the artist check the
+        // row would wear the original's cover.
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Hometown Show',
+              artistName: 'Famous Original',
+              artwork: 'https://g.example/original/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Obscure Cover Band',
+        track: 'Hometown Show',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('ignores Last.fm covers for a fuzzy-matched track', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          // Last.fm resolved "Crush - Stripped" to base "Crush".
+          return _jsonResponse({
+            'track': {
+              'name': 'Crush',
+              'artist': {'name': 'Ethel Cain'},
+              'album': {
+                'image': [
+                  {
+                    '#text': 'https://lastfm.example/base-crush.png',
+                    'size': 'extralarge',
+                  },
+                ],
+              },
+            },
+          });
+        }
+        return _jsonResponse({'resultCount': 0, 'results': []});
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush - Stripped',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('ignores Last.fm covers for the wrong artist', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _jsonResponse({
+            'track': {
+              'name': 'Crush',
+              'artist': {'name': 'David Archuleta'},
+              'album': {
+                'image': [
+                  {
+                    '#text': 'https://lastfm.example/archuleta.png',
+                    'size': 'extralarge',
+                  },
+                ],
+              },
+            },
+          });
+        }
+        return _jsonResponse({'resultCount': 0, 'results': []});
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('falls through to iTunes when the verified track has no art', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          // Last.fm knows the exact song but carries no cover.
+          return _jsonResponse({
+            'track': {
+              'name': 'Strangers',
+              'artist': {'name': 'Ethel Cain'},
+              'album': {
+                'image': [
+                  {'#text': '', 'size': 'small'},
+                  {'#text': '', 'size': 'extralarge'},
+                ],
+              },
+            },
+          });
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Strangers',
+              artistName: 'Ethel Cain',
+              artwork: 'https://h.example/strangers/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Strangers',
+      );
+
+      expect(artwork, 'https://h.example/strangers/600x600bb.jpg');
     });
 
     test('returns null when iTunes also comes up empty', () async {
