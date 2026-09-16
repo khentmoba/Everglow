@@ -36,6 +36,7 @@ const {
 } = require('./common.js');
 const { sendFCMToUser, logToolCall } = require('./triggers.js');
 const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./motchi_context.js');
+const { CORE_TOOLS, selectToolNames } = require('./motchi_tools.js');
 
 const TOOL_INVALIDATIONS = {
   add_to_watchlist: 'watchlist',
@@ -54,8 +55,9 @@ const TOOL_INVALIDATIONS = {
   update_book_progress: 'books',
 };
 
-/** In-memory cache for Motchi's persona document. */
-let _personaCache = null;
+/** In-memory cache for Motchi's persona document (5 min TTL). */
+let _personaCache = { text: null, ts: 0 };
+const _PERSONA_TTL_MS = 5 * 60 * 1000;
 
 // ── Partner UID helpers (couple-only) ──
 const PARTNER_UID = {
@@ -185,7 +187,9 @@ async function handleProxyAI(req, res) {
   const resolvedContext = context || serverContext || '';
 
   // Load Motchi's persona from Firestore (cached in memory for 5 min)
-  let personaBase = _personaCache;
+  let personaBase = (Date.now() - _personaCache.ts < _PERSONA_TTL_MS)
+    ? _personaCache.text
+    : null;
   if (!personaBase) {
     try {
       const admin = getAdmin();
@@ -199,9 +203,7 @@ async function handleProxyAI(req, res) {
       // Firestore read failed — use hardcoded fallback
     }
     if (personaBase) {
-      _personaCache = personaBase;
-      // Invalidate cache after 5 minutes
-      setTimeout(() => { _personaCache = null; }, 5 * 60 * 1000);
+      _personaCache = { text: personaBase, ts: Date.now() };
     }
   }
 
@@ -1269,16 +1271,17 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     }
     const isSmallTalk = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i.test(trimmed);
     if (isSmallTalk) {
-      const coreAllowed = new Set([
-        'set_mood',
-        'save_to_starlight_jar',
-        'remember_fact',
-        'read_memories',
-        'get_today_recap',
-        'get_relationship_insights',
-      ]);
+      const coreAllowed = new Set(CORE_TOOLS);
       return MOTCHI_TOOLS.filter(t => coreAllowed.has(t.function.name));
     }
+    // Intent routing: core tools + only the groups the message asks
+    // for (typically 10-15 of 50 schemas). Falls back to full tools if
+    // the router ever returns nothing, so Motchi never goes blind.
+    try {
+      const wanted = new Set(selectToolNames(userMsg));
+      const routed = MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
+      if (routed.length > 0) return routed;
+    } catch (_) {}
     return MOTCHI_TOOLS;
   }
 
@@ -1289,19 +1292,26 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // Agnes uses chat_template_kwargs.enable_thinking instead of reasoning_effort.
   // enableThinking is already destructured from req.body above.
 
+  // ── Output budget tiers ───────────────────────────────
+  // A self-contained HTML game can approach the ~30KB artifact cap
+  // (~8k tokens), so artifact asks keep 16k (8k truncates games
+  // mid-block: no closing fence = no Preview button). Everyday chat
+  // caps at 4k — Motchi answers concisely by default, and the cap
+  // bounds runaway replies. Study mode and thinking mode keep 16k
+  // for grounded answers and reasoning tokens.
+  const wantsArtifact = /quiz|flashcards?|flash cards?|\bgame\b|chess|checkers|tic-?tac|html|artifact|\bapp\b|website/i.test(lastUserMessage || '');
+  const maxTokens = (feature === 'study' || enableThinkingFlag || (canvasOn && wantsArtifact)) ? 16384 : 4096;
+
   // ── Payload size guard ──────────────────────────────
   // Cloud Run max request size is 32MB; Agnes supports up to 512K context.
   // Trim aggressively as best-effort so the model doesn't
   // waste context on stale history, but don't hard-block — let Agnes handle
   // it if trimming can't fit within Cloud Run's limit.
-  // Output budget: a self-contained HTML game can approach the ~30KB
-  // artifact cap (~8k tokens) before visible text + thinking tokens, so
-  // 8k truncates games mid-block (no closing fence = no Preview button).
   const agnesBody = JSON.stringify({
     model,
     messages: nimMessages,
     tools,
-    max_tokens: 16384,
+    max_tokens: maxTokens,
     temperature: 0.6,
     top_p: 0.95,
     stream: req.body.stream === true,
@@ -1317,7 +1327,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         model,
         messages: nimMessages,
         tools,
-        max_tokens: 16384,
+        max_tokens: maxTokens,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
@@ -1351,7 +1361,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         model,
         messages: nimMessages,
         tools,
-        max_tokens: 16384,
+        max_tokens: maxTokens,
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
@@ -1784,7 +1794,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               const limit = Math.min(args.limit || 20, 50);
               let query = db.collection('ai_memories').doc('shared').collection('facts')
                 .orderBy('createdAt', 'desc')
-                .limit(300);
+                .limit(150);
               const snapshot = await query.get();
               let facts = snapshot.docs.map(d => {
                 const data = d.data();
@@ -1945,7 +1955,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 db.collection('our_cinema').limit(5).get(),
                 db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
                 db.collection('ai_memories').doc('shared').collection('facts')
-                  .orderBy('createdAt', 'desc').limit(300).get(),
+                  .orderBy('createdAt', 'desc').limit(150).get(),
               ]);
               const recap = composeTodayRecap({
                 dateLabel: today,
@@ -2753,6 +2763,10 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
+      // Loop guard: tool+args pairs already executed for this message.
+      // A repeat means the model is circling — stop instead of burning
+      // another paid round on the same call.
+      const seenToolCalls = new Set();
 
       while (toolRound < MAX_TOOL_ROUNDS) {
         toolRound++;
@@ -2779,7 +2793,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 // Greetings carry no tools at all (cheapest path); the
                 // key must be omitted, not emptied, with tool_choice.
                 ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
-                max_tokens: 16384,
+                max_tokens: maxTokens,
                 temperature: 0.6,
                 top_p: 0.95,
                 stream: true,
@@ -2874,6 +2888,19 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           break;
         }
 
+        // Drop repeats of already-executed tool+args pairs. If every
+        // call is a repeat, the model is circling — end the loop and
+        // keep the text already streamed as the answer.
+        collectedToolCalls = collectedToolCalls.filter((tc) => {
+          const key = `${tc.function?.name || ''}:${tc.function?.arguments || ''}`;
+          if (seenToolCalls.has(key)) return false;
+          seenToolCalls.add(key);
+          return true;
+        });
+        if (collectedToolCalls.length === 0) {
+          break;
+        }
+
         // ── Execute tool calls found in the stream ──
         sendEvent({ tool_status: 'executing' });
 
@@ -2927,11 +2954,17 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             sendEvent({ tool_result: { tool: fnName, raw: result } });
           }
 
+          // The client already got the full result above for its cards;
+          // the model only needs a bounded copy. Long search/journal
+          // payloads would otherwise multiply across tool rounds.
+          const llmResult = result.length > 3000
+            ? result.slice(0, 3000) + '…[trimmed]'
+            : result;
           return {
             role: 'tool',
             tool_call_id: tc.id,
             name: fnName,
-            content: result,
+            content: llmResult,
           };
         });
 
@@ -2981,7 +3014,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           model: model,
           messages: nimMessages,
           ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
-          max_tokens: 16384,
+          max_tokens: maxTokens,
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
