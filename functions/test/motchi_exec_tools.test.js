@@ -12,6 +12,8 @@ const tools = require('../motchi_tools.js');
 const {
   createToolCtx,
   executeToolCall,
+  visionMessageForResults,
+  VISION_IMAGES_PER_ROUND,
   TOOL_EXECUTORS,
   levelForXp,
   XP_PER_LEVEL,
@@ -449,6 +451,57 @@ test('delete_bucket_item confirms first', async () => {
   const done = JSON.parse(await executeToolCall(ctx, 'delete_bucket_item', { id: 'b1', confirm: true }));
   assert.equal(done.success, true);
   assert.equal(writes.length, 1);
+});
+
+// ── Gallery vision ────────────────────────────────────────
+
+test('get_gallery stays text-only unless include_images is set', async () => {
+  const { ctx } = makeCollectionCtx({
+    gallery: [{ id: 'g1', data: { caption: 'Beach', imageUrl: 'https://full/1', thumbUrl: 'https://thumb/1' } }],
+  });
+  const out = JSON.parse(await executeToolCall(ctx, 'get_gallery', {}));
+  assert.equal(out.count, 1);
+  assert.equal(out.photos[0].imageUrl, '[image]');
+  assert.ok(!('vision_images' in out));
+});
+
+test('get_gallery attaches up to 3 thumbnails when asked', async () => {
+  const docs = [1, 2, 3, 4, 5].map((i) => ({
+    id: `g${i}`,
+    data: { caption: `Photo ${i}`, imageUrl: `https://full/${i}`, thumbUrl: `https://thumb/${i}` },
+  }));
+  // One photo with full-size URL only (no thumbnail backfilled yet).
+  docs.push({ id: 'g6', data: { caption: 'Old one', imageUrl: 'https://full/6' } });
+  const { ctx } = makeCollectionCtx({ gallery: docs });
+  const out = JSON.parse(await executeToolCall(ctx, 'get_gallery', { include_images: true }));
+  assert.equal(out.vision_images.length, 3);
+  assert.equal(out.vision_images[0].url, 'https://thumb/1'); // thumbnails first
+  assert.equal(out.vision_images[0].caption, 'Photo 1');
+});
+
+test('get_gallery falls back to full URLs without thumbnails', async () => {
+  const { ctx } = makeCollectionCtx({
+    gallery: [{ id: 'g1', data: { caption: 'Old', imageUrl: 'https://full/1' } }],
+  });
+  const out = JSON.parse(await executeToolCall(ctx, 'get_gallery', { include_images: true }));
+  assert.equal(out.vision_images.length, 1);
+  assert.equal(out.vision_images[0].url, 'https://full/1');
+});
+
+test('visionMessageForResults builds image input, capped per round', () => {
+  assert.equal(VISION_IMAGES_PER_ROUND, 3);
+  assert.equal(visionMessageForResults([]), null);
+  assert.equal(visionMessageForResults(['{"photos":[]}']), null);
+  assert.equal(visionMessageForResults(['not json']), null);
+  const msg = visionMessageForResults([
+    JSON.stringify({ vision_images: [{ url: 'a' }, { url: 'b' }] }),
+    JSON.stringify({ vision_images: [{ url: 'c' }, { url: 'd' }] }),
+  ]);
+  assert.equal(msg.role, 'user');
+  const images = msg.content.filter((p) => p.type === 'image_url');
+  assert.equal(images.length, 3); // merged total capped
+  assert.deepEqual(images.map((p) => p.image_url.url), ['a', 'b', 'c']);
+  assert.equal(msg.content[0].type, 'text');
 });
 
 test('createToolCtx builds a live ctx (smoke: shape only)', () => {

@@ -479,6 +479,7 @@ const MOTCHI_TOOLS = [
         type: 'object',
         properties: {
           limit: { type: 'number', description: 'Number of photos to fetch (default 10, max 20)' },
+          include_images: { type: 'boolean', description: 'Set true ONLY when they ask about photo CONTENTS (what is in a picture, find photos showing X). Attaches up to 3 thumbnails for you to actually see — costs extra, so use sparingly.' },
         },
       },
     },

@@ -170,19 +170,29 @@ async function exec_log_activity(ctx, args) {
 }
 
 async function exec_get_gallery(ctx, args) {
-    const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 20);
-    const snap = await ctx.db.collection('gallery').orderBy('createdAt', 'desc').limit(limit).get();
-    if (snap.empty) return JSON.stringify({ photos: [], count: 0 });
-    const photos = snap.docs.map(d => {
-      const data = d.data();
-      return {
-        caption: (data.caption || '').slice(0, 200),
-        uploadedBy: data.uploadedBy || data.author || '',
-        imageUrl: data.imageUrl ? '[image]' : '',
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
-      };
-    });
-    return JSON.stringify({ photos, count: photos.length });
+  const limit = Math.min(Math.max(Number(args.limit) || 10, 1), 20);
+  const wantImages = args.include_images === true;
+  const snap = await ctx.db.collection('gallery').orderBy('createdAt', 'desc').limit(limit).get();
+  if (snap.empty) return JSON.stringify({ photos: [], count: 0 });
+  const vision = [];
+  const photos = snap.docs.map((d) => {
+    const data = d.data();
+    // Vision is thumbnails-first (400px is plenty to see contents) and
+    // capped at 3 per call — each image costs vision tokens.
+    if (wantImages && vision.length < 3) {
+      const url = data.thumbUrl || data.imageUrl || '';
+      if (url) vision.push({ url, caption: (data.caption || '').slice(0, 120) });
+    }
+    return {
+      caption: (data.caption || '').slice(0, 200),
+      uploadedBy: data.uploadedBy || data.author || '',
+      imageUrl: data.imageUrl ? '[image]' : '',
+      createdAt: data.createdAt?.toDate?.()?.toISOString() || null,
+    };
+  });
+  const out = { photos, count: photos.length };
+  if (vision.length > 0) out.vision_images = vision;
+  return JSON.stringify(out);
 }
 
 async function exec_get_garden(ctx, args) {

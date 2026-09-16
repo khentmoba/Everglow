@@ -221,6 +221,37 @@ const _timeout = (ms) =>
     if (typeof t.unref === 'function') t.unref();
   });
 
+// Max gallery thumbnails attached as vision input per tool round.
+// Each image costs vision tokens, so the executor caps its side at 3
+// and the loop caps the merged total here too.
+const VISION_IMAGES_PER_ROUND = 3;
+
+/**
+ * Builds a user message carrying tool-result images (OpenAI-style
+ * image_url parts) for the next model call, or null when no tool
+ * returned any. Pure — takes the FULL (untrimmed) result strings.
+ */
+function visionMessageForResults(fullResults) {
+  const urls = [];
+  for (const r of fullResults || []) {
+    try {
+      const p = typeof r === 'string' ? JSON.parse(r) : r;
+      if (!p || !Array.isArray(p.vision_images)) continue;
+      for (const v of p.vision_images) {
+        if (v && v.url && urls.length < VISION_IMAGES_PER_ROUND) urls.push(v.url);
+      }
+    } catch (_) {}
+  }
+  if (urls.length === 0) return null;
+  return {
+    role: 'user',
+    content: [
+      { type: 'text', text: '[Gallery photos attached for your question above — describe or reference what you actually see in them.]' },
+      ...urls.map((url) => ({ type: 'image_url', image_url: { url } })),
+    ],
+  };
+}
+
 /** Validated, time-boxed tool call. Always resolves to a JSON string. */
 async function executeToolCall(ctx, toolName, args) {
   const v = validateToolArgs(toolName, args);
@@ -237,6 +268,8 @@ async function executeToolCall(ctx, toolName, args) {
 module.exports = {
   createToolCtx,
   executeToolCall,
+  visionMessageForResults,
+  VISION_IMAGES_PER_ROUND,
   TOOL_EXECUTORS,
   levelForXp,
   XP_PER_LEVEL,

@@ -39,7 +39,7 @@ const { sendFCMToUser, logToolCall } = require('./triggers.js');
 const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./motchi_context.js');
 const { CORE_TOOLS, selectToolNames, toolListSection, MAX_TOOL_ROUNDS } = require('./motchi_tools.js');
 const { MOTCHI_TOOLS, selectToolsForRequest } = require('./motchi_tool_schemas.js');
-const { createToolCtx, executeToolCall } = require('./motchi_exec_tools.js');
+const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 
 const TOOL_INVALIDATIONS = {
   add_to_watchlist: 'watchlist',
@@ -783,17 +783,24 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
             ? result.slice(0, 3000) + '…[trimmed]'
             : result;
           return {
-            role: 'tool',
-            tool_call_id: tc.id,
-            name: fnName,
-            content: llmResult,
+            toolMsg: {
+              role: 'tool',
+              tool_call_id: tc.id,
+              name: fnName,
+              content: llmResult,
+            },
+            fullResult: result,
           };
         });
 
         const executedResults = await Promise.all(toolPromises);
         for (const tr of executedResults) {
-          currentMessages.push(tr);
+          currentMessages.push(tr.toolMsg);
         }
+        // Gallery vision: when a tool attached images, show them to the
+        // model as real image input (not text) before the next round.
+        const visionMsg = visionMessageForResults(executedResults.map((tr) => tr.fullResult));
+        if (visionMsg) currentMessages.push(visionMsg);
 
         sendEvent({ tool_status: `round_${toolRound}_done` });
         collectedToolCalls = [];
