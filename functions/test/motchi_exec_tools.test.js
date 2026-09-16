@@ -187,6 +187,108 @@ test('delete_memory reports missing memories and missing ids', async () => {
   assert.match(noId.error, /memory_id required/);
 });
 
+// ── Reminder executors ────────────────────────────────────
+
+function makeReminderDoc(id, data, updates) {
+  return {
+    id,
+    data: () => data,
+    exists: true,
+    ref: { update: async (patch) => { updates.push({ id, patch }); } },
+  };
+}
+
+function makeReminderCtx(docs) {
+  const updates = [];
+  const fakeDocs = docs.map((d, i) =>
+    makeReminderDoc(d.id || `r${i}`, d.data, updates));
+  const query = {
+    where: () => query,
+    orderBy: () => query,
+    limit: () => query,
+    get: async () => ({ docs: fakeDocs, empty: fakeDocs.length === 0, size: fakeDocs.length }),
+  };
+  const db = {
+    collection: () => ({
+      ...query,
+      doc: (id) => {
+        const found = fakeDocs.find((d) => d.id === id);
+        return {
+          get: async () => found || { exists: false, data: () => null },
+          update: async (patch) => { updates.push({ id, patch }); },
+        };
+      },
+      add: async (d) => ({ id: 'new1', data: d }),
+    }),
+  };
+  const { ctx } = makeCtx();
+  ctx.db = db;
+  return { ctx, updates };
+}
+
+test('list_reminders returns pending reminders due-soonest first', async () => {
+  const day = 24 * 60 * 60 * 1000;
+  const ts = (ms) => ({ toDate: () => new Date(ms) });
+  const { ctx } = makeReminderCtx([
+    { id: 'late', data: { title: 'Late', remindAtTs: ts(Date.now() + 3 * day), createdBy: 'khentsgdz' } },
+    { id: 'soon', data: { title: 'Soon', note: 'x', remindAtTs: ts(Date.now() + day), createdBy: 'clairjassen' } },
+    { id: 'nodate', data: { title: 'No date' } },
+  ]);
+  const out = JSON.parse(await executeToolCall(ctx, 'list_reminders', {}));
+  assert.equal(out.count, 3);
+  assert.deepEqual(out.reminders.map((r) => r.id), ['soon', 'late', 'nodate']);
+  assert.equal(out.reminders[0].title, 'Soon');
+  assert.equal(out.reminders[0].created_by, 'clairjassen');
+});
+
+test('cancel_reminder by id cancels a pending reminder', async () => {
+  const { ctx, updates } = makeReminderCtx([
+    { id: 'r1', data: { title: 'Water plants', fired: false } },
+  ]);
+  const out = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { id: 'r1' }));
+  assert.equal(out.success, true);
+  assert.equal(out.title, 'Water plants');
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].patch.cancelled, true);
+  assert.equal(updates[0].patch.fired, true);
+});
+
+test('cancel_reminder by id reports missing, fired, and already-cancelled', async () => {
+  const { ctx, updates } = makeReminderCtx([
+    { id: 'done', data: { title: 'Old', fired: true } },
+    { id: 'gone', data: { title: 'Gone', fired: true, cancelled: true } },
+  ]);
+  const missing = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { id: 'ghost' }));
+  assert.match(missing.error, /not found/);
+  const fired = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { id: 'done' }));
+  assert.match(fired.error, /already fired/);
+  const again = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { id: 'gone' }));
+  assert.equal(again.success, true);
+  assert.equal(again.already_cancelled, true);
+  assert.equal(updates.length, 0);
+  const noArgs = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', {}));
+  assert.match(noArgs.error, /id or title required/);
+});
+
+test('cancel_reminder by title confirms first, then cancels matches', async () => {
+  const { ctx, updates } = makeReminderCtx([
+    { id: 'r1', data: { title: 'Water the garden', fired: false } },
+    { id: 'r2', data: { title: 'Unrelated', fired: false } },
+  ]);
+  const first = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { title: 'water' }));
+  assert.equal(first.needs_confirmation, true);
+  assert.equal(first.count, 1);
+  assert.equal(updates.length, 0);
+  const confirmed = JSON.parse(
+    await executeToolCall(ctx, 'cancel_reminder', { title: 'water', confirm: true }));
+  assert.equal(confirmed.success, true);
+  assert.equal(confirmed.count, 1);
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].id, 'r1');
+  const nomatch = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { title: 'zzz' }));
+  assert.match(nomatch.error, /No pending reminder/);
+});
+
 test('createToolCtx builds a live ctx (smoke: shape only)', () => {
   // getAdmin() throws outside Cloud Functions without credentials, so a
   // live ctx can only be built where Firebase is configured. When it

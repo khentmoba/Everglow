@@ -327,8 +327,76 @@ async function exec_get_weather(ctx, args) {
     return JSON.stringify({ location: args.location, weather: trimmed });
 }
 
+async function exec_list_reminders(ctx, args) {
+  // Equality-only query (no composite index); due-soonest sort in code.
+  const snap = await ctx.db.collection('reminders').where('fired', '==', false).limit(20).get();
+  const items = snap.docs.map((d) => {
+    const data = d.data();
+    const ts = data.remindAtTs;
+    return {
+      id: d.id,
+      title: data.title || '',
+      note: (data.note || '').slice(0, 180),
+      remind_at: data.remindAt || null,
+      created_by: data.createdBy || '',
+      _due: (ts && typeof ts.toDate === 'function') ? ts.toDate().getTime() : null,
+    };
+  }).sort((a, b) => (a._due ?? Infinity) - (b._due ?? Infinity));
+  return JSON.stringify({
+    count: items.length,
+    reminders: items.map(({ _due, ...r }) => r),
+  });
+}
+
+async function exec_cancel_reminder(ctx, args) {
+  const id = String(args.id || args.reminder_id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  const stamp = () => ({
+    fired: true,
+    cancelled: true,
+    cancelledAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+  });
+  if (id) {
+    const ref = ctx.db.collection('reminders').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) return JSON.stringify({ error: `Reminder ${id} not found` });
+    if (snap.data()?.cancelled) {
+      return JSON.stringify({ success: true, id, already_cancelled: true });
+    }
+    if (snap.data()?.fired) {
+      return JSON.stringify({ error: 'That reminder already fired' });
+    }
+    await ref.update(stamp());
+    return JSON.stringify({ success: true, id, title: snap.data()?.title || '' });
+  }
+  // Title match (case-insensitive substring, like the watchlist flow).
+  const snap = await ctx.db.collection('reminders').where('fired', '==', false).limit(50).get();
+  const qLower = title.toLowerCase();
+  const matches = snap.docs.filter((d) => {
+    const t = (d.data().title || '').toLowerCase();
+    return t.includes(qLower) || qLower.includes(t);
+  });
+  if (matches.length === 0) return JSON.stringify({ error: `No pending reminder found for "${title}"` });
+  const preview = matches.slice(0, 3).map((d) => ({ id: d.id, title: d.data().title || '' }));
+  if (!args.confirm) {
+    return JSON.stringify({
+      needs_confirmation: true,
+      message: `Cancel ${preview.length > 1 ? 'these reminders' : 'this reminder'}? ${preview.map((p) => p.title).join(', ')} — re-call cancel_reminder with confirm:true to proceed.`,
+      preview,
+      count: preview.length,
+    });
+  }
+  for (const doc of matches.slice(0, 3)) {
+    await doc.ref.update(stamp());
+  }
+  return JSON.stringify({ success: true, cancelled: preview.map((p) => p.title), count: preview.length });
+}
+
 module.exports = {
   exec_create_reminder,
+  exec_list_reminders,
+  exec_cancel_reminder,
   exec_add_calendar_event,
   exec_get_calendar_events,
   exec_add_bucket_item,

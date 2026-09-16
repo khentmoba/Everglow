@@ -102,6 +102,32 @@ const MOTCHI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'list_reminders',
+      description: 'List pending (not yet fired) reminders for Khent and Clair. Use when they ask what reminders exist.',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancel_reminder',
+      description: 'Cancel a pending reminder by id or title. Title matches ask for confirmation first (re-call with confirm:true).',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Reminder id from list_reminders' },
+          title: { type: 'string', description: 'Reminder title to match (asks confirmation unless confirm is true)' },
+          confirm: { type: 'boolean', description: 'Set true to confirm cancelling title matches' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'log_activity',
       description: 'Log a notable activity or event to recent activity feed. Use to track what Khent & Clair have been doing.',
       parameters: {

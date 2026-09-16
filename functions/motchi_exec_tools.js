@@ -68,6 +68,8 @@ const {
 } = require('./motchi_exec_social.js');
 const {
   exec_create_reminder,
+  exec_list_reminders,
+  exec_cancel_reminder,
   exec_add_calendar_event,
   exec_get_calendar_events,
   exec_add_bucket_item,
@@ -176,6 +178,8 @@ const TOOL_EXECUTORS = {
   get_garden: exec_get_garden,
   get_canvas: exec_get_canvas,
   create_reminder: exec_create_reminder,
+  list_reminders: exec_list_reminders,
+  cancel_reminder: exec_cancel_reminder,
   add_calendar_event: exec_add_calendar_event,
   get_calendar_events: exec_get_calendar_events,
   add_bucket_item: exec_add_bucket_item,

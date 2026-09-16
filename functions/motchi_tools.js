@@ -21,6 +21,8 @@ const TOOL_NAMES = [
   'search_movies',
   'get_weather',
   'create_reminder',
+  'list_reminders',
+  'cancel_reminder',
   'log_activity',
   'search_books',
   'get_date_ideas',
@@ -144,7 +146,7 @@ const TOOL_GROUPS = [
   },
   {
     match: /remind|reminder|alarm|\bnotify\b/i,
-    tools: ['create_reminder'],
+    tools: ['create_reminder', 'list_reminders', 'cancel_reminder'],
   },
   {
     match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b/i,
@@ -331,6 +333,12 @@ function validateToolArgs(toolName, args = {}) {
     }
     case 'search_journal_entries':
       return { ok: true };
+    case 'cancel_reminder': {
+      if (!_text(a.id || a.reminder_id) && !_text(a.title)) {
+        return { ok: false, error: 'id or title required' };
+      }
+      return { ok: true };
+    }
     case 'add_trip':
       if (!_text(a.title)) return { ok: false, error: 'title required' };
       if (!_isValidDateString(a.start_date) || !_isValidDateString(a.end_date)) {
