@@ -45,10 +45,10 @@ packages:
     dependency: "direct main"
     description:
       name: archive
-      sha256: ace891da0862b0e4cabbb064ee3fd87b2728b898949fdb366d83fe98342c9f19
+      sha256: "6c5bcd986e06b94e3c40244af471750840a3d2341d1f9763a1100a14add517b4"
       url: "https://pub.dev"
     source: hosted
-    version: "4.2.0"
+    version: "4.3.0"
   args:
     dependency: transitive
     description:
@@ -269,18 +269,18 @@ packages:
     dependency: "direct main"
     description:
       name: file_picker
-      sha256: "0631f51bbc2e1184bdc9e79384db158dc7830e15b3001feeca700e86563f4d24"
+      sha256: "9be6aac79508dbcf8dac80a4fb20f27ce6f910837ca27e3670b9295995cc0110"
       url: "https://pub.dev"
     source: hosted
-    version: "12.2.0"
+    version: "12.3.0"
   file_picker_darwin:
     dependency: transitive
     description:
       name: file_picker_darwin
-      sha256: "5c32c9400f5c8976c9dd7aa34693c7d2f0c853c28704a1c1409029cb760f5251"
+      sha256: "59fa5394cfa5b6dc8bf491630cb17077b77b844adbb840df371e7be5355d6cf6"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.0"
+    version: "1.2.0"
   file_picker_linux:
     dependency: transitive
     description:
@@ -293,10 +293,10 @@ packages:
     dependency: transitive
     description:
       name: file_picker_platform_interface
-      sha256: d35d8cb68446fae921335bb61501d66cb2469d74c8f3103b8c6ccdbe3fe5afd8
+      sha256: "0355558fd9af6da499d18e333d6b3beb44b0bf19e00933fccd15d18eb8d0e9ca"
       url: "https://pub.dev"
     source: hosted
-    version: "3.3.0"
+    version: "3.4.0"
   file_picker_web:
     dependency: transitive
     description:
@@ -450,10 +450,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_cache_manager
-      sha256: "1de7849213b4c73c85aca7e0ac687a9a5d82ccdb594366b9dcc26cb6a2189cd2"
+      sha256: "911f5f56a586634132c54ef8ae3820c727770d141874ee7ea67998d66046a5f3"
       url: "https://pub.dev"
     source: hosted
-    version: "3.4.2"
+    version: "3.4.3"
   flutter_dotenv:
     dependency: "direct main"
     description:
@@ -556,10 +556,10 @@ packages:
     dependency: "direct main"
     description:
       name: image
-      sha256: "1976370a4df3091bb0f72409c187ad1f9132a818bc6b95ca59c0bae1c75c688e"
+      sha256: a1e7f4951e538a568e14b856702afc9ae1d2f4b202daced8d22c1b9cd211ce89
       url: "https://pub.dev"
     source: hosted
-    version: "4.9.2"
+    version: "4.10.1"
   image_picker:
     dependency: "direct main"
     description:
@@ -908,10 +908,10 @@ packages:
     dependency: "direct main"
     description:
       name: pointer_interceptor
-      sha256: "57210410680379aea8b1b7ed6ae0c3ad349bfd56fe845b8ea934a53344b9d523"
+      sha256: "9ad8889f36a417649ad7578fdb6df967157208cb90f69facd043660424020710"
       url: "https://pub.dev"
     source: hosted
-    version: "0.10.1+2"
+    version: "0.10.1+3"
   pointer_interceptor_ios:
     dependency: transitive
     description:
@@ -1113,18 +1113,18 @@ packages:
     dependency: transitive
     description:
       name: syncfusion_flutter_core
-      sha256: cecc21b0ac16cf6a85f9fa58d0a886cc1c0cc704f6e7aaef7c2a4412bde5ae0f
+      sha256: "5847322d442ab29c04208d2b49166996dcba67e55d0ccd63c8b13d9bacff508e"
       url: "https://pub.dev"
     source: hosted
-    version: "34.2.6"
+    version: "34.2.8"
   syncfusion_flutter_pdf:
     dependency: "direct main"
     description:
       name: syncfusion_flutter_pdf
-      sha256: c8f4d80e2405744dc261a35d85a2255d4428b0078526583e0783d5905674c044
+      sha256: "1332c431ca438c30d35dcbe4a231597eb74f2db4828f1a703cb243fa79029b08"
       url: "https://pub.dev"
     source: hosted
-    version: "34.2.6"
+    version: "34.2.8"
   synchronized:
     dependency: transitive
     description:
@@ -1273,10 +1273,10 @@ packages:
     dependency: "direct main"
     description:
       name: webview_flutter_android
-      sha256: b98656fa4461f8cc05c48a778b4d4883e60ec63e1778348f363f9bb9a477745d
+      sha256: "4de8b3d1ff4ebe1bdb42e68a5e4f809194a3cb0117a8f495f590004f00da3964"
       url: "https://pub.dev"
     source: hosted
-    version: "4.14.0"
+    version: "4.14.1"
   webview_flutter_platform_interface:
     dependency: transitive
     description:
@@ -1305,10 +1305,10 @@ packages:
     dependency: transitive
     description:
       name: windows_file_picker
-      sha256: d999c1c085374724668af0b674a9758d96255c50933faa2ac1cc51eff8308caf
+      sha256: "62e6e6e115231d1d1d71c7b5883b4091ce3e0190e49548dfb0ff8cba8d91ad96"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.0"
+    version: "1.3.0"
   xdg_directories:
     dependency: transitive
     description:
