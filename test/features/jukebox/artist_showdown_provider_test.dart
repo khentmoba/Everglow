@@ -15,12 +15,14 @@ TopMusicTrack _track(String name, int plays, {String artist = 'Ethel Cain'}) =>
     );
 
 class _FakeSync extends MusicSyncService {
-  _FakeSync({required this.byUser});
+  _FakeSync({required this.byUser, this.artworkByTrack = const {}});
 
   /// Last.fm username -> full all-time top tracks (provider filters by
   /// artist locally, mirroring the live `user.gettoptracks` path).
   final Map<String, List<TopMusicTrack>> byUser;
+  final Map<String, String?> artworkByTrack;
   int calls = 0;
+  int artworkCalls = 0;
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -30,6 +32,17 @@ class _FakeSync extends MusicSyncService {
   }) async {
     calls++;
     return byUser[username] ?? const [];
+  }
+
+  @override
+  Future<String?> fetchTrackArtwork({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    artworkCalls++;
+    if (artworkByTrack.containsKey(track)) return artworkByTrack[track];
+    return null;
   }
 }
 
@@ -176,6 +189,46 @@ void main() {
       await provider.selectArtist('   ');
       expect(provider.artist, 'Ethel Cain');
       expect(sync.calls, calls);
+      provider.dispose();
+    });
+
+    test('enriches missing artwork in the background', () async {
+      const art = 'https://img.example/ethel-strangers.png';
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('Strangers', 10)],
+          'clairjassen': [_track('Strangers', 5)],
+        },
+        artworkByTrack: {'Strangers': art},
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+      // Table shows immediately, even before artwork lands.
+      expect(provider.tracks, hasLength(1));
+      await _waitFor(
+        () => provider.tracks.first.imageUrl == art,
+      );
+      expect(sync.artworkCalls, greaterThanOrEqualTo(1));
+      // Totals are untouched by the enrichment pass.
+      expect(provider.khentTotal, 10);
+      expect(provider.clairTotal, 5);
+      provider.dispose();
+    });
+
+    test('leaves rows coverless when artwork lookup fails', () async {
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('Strangers', 10)],
+          'clairjassen': [_track('Strangers', 5)],
+        },
+        artworkByTrack: {'Strangers': null},
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+      // Give the background pass a moment to run and give up quietly.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(provider.tracks.first.imageUrl, isNull);
+      expect(provider.hasData, isTrue);
       provider.dispose();
     });
   });
