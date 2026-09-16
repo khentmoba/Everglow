@@ -18,7 +18,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const EXPECTED_PROMPT_VERSION = 1;
+const EXPECTED_PROMPT_VERSION = 2;
 const MIN_EVAL_CASES = 20;
 
 const root = __dirname;
@@ -26,7 +26,7 @@ const root = __dirname;
 const chatSrc = fs.readFileSync(path.join(root, 'motchi_chat.js'), 'utf8');
 const tools = require('./motchi_tools.js');
 const evalCases = require('./test/motchi_eval_cases.json');
-const promptSnap = fs.readFileSync(path.join(root, 'motchi_prompt_v1.md'), 'utf8');
+const promptSnap = fs.readFileSync(path.join(root, 'motchi_prompt_v2.md'), 'utf8');
 
 const failures = [];
 const checks = {};
