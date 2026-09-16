@@ -21,6 +21,8 @@ const TOOL_NAMES = [
   'search_movies',
   'get_weather',
   'create_reminder',
+  'list_reminders',
+  'cancel_reminder',
   'log_activity',
   'search_books',
   'get_date_ideas',
@@ -65,11 +67,17 @@ const TOOL_NAMES = [
   'search_journal_entries',
   'read_journal_entry',
   'get_trips',
+  'edit_journal_entry',
+  'delete_journal_entry',
+  'update_calendar_event',
+  'delete_calendar_event',
+  'complete_bucket_item',
+  'delete_bucket_item',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
 // Sends Motchi only the tools that match the message intent instead of
-// all 50 schemas every turn. Saves input tokens on every request and
+// all 58 schemas every turn. Saves input tokens on every request and
 // cuts mistaken tool calls. Guaranteed by tests: every eval case's
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.
@@ -144,19 +152,19 @@ const TOOL_GROUPS = [
   },
   {
     match: /remind|reminder|alarm|\bnotify\b/i,
-    tools: ['create_reminder'],
+    tools: ['create_reminder', 'list_reminders', 'cancel_reminder'],
   },
   {
-    match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b/i,
-    tools: ['add_calendar_event', 'get_calendar_events'],
+    match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon/i,
+    tools: ['add_calendar_event', 'get_calendar_events', 'update_calendar_event', 'delete_calendar_event'],
   },
   {
-    match: /journal|diar|reflect|\bentr(?:y|ies)\b/i,
-    tools: ['create_journal_entry', 'get_journal_entries', 'search_journal_entries', 'read_journal_entry'],
+    match: /journal|diar|reflect|\bentr(?:y|ies)\b|letter|rewrite/i,
+    tools: ['create_journal_entry', 'get_journal_entries', 'search_journal_entries', 'read_journal_entry', 'edit_journal_entry', 'delete_journal_entry'],
   },
   {
-    match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b/i,
-    tools: ['add_bucket_item', 'get_bucket_list'],
+    match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b|\bcomplet\w*\b|\bfinish\w*\b/i,
+    tools: ['add_bucket_item', 'get_bucket_list', 'complete_bucket_item', 'delete_bucket_item'],
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
@@ -330,6 +338,37 @@ function validateToolArgs(toolName, args = {}) {
       return { ok: true };
     }
     case 'search_journal_entries':
+      return { ok: true };
+    case 'cancel_reminder': {
+      if (!_text(a.id || a.reminder_id) && !_text(a.title)) {
+        return { ok: false, error: 'id or title required' };
+      }
+      return { ok: true };
+    }
+    case 'edit_journal_entry': {
+      if (!_text(a.id || a.entry_id) && !_text(a.title)) {
+        return { ok: false, error: 'id or title required' };
+      }
+      if (a.content !== undefined && _text(a.content).length > 5000) {
+        return { ok: false, error: 'content too long (max 5000)' };
+      }
+      return { ok: true };
+    }
+    case 'delete_journal_entry':
+    case 'delete_calendar_event':
+    case 'delete_bucket_item':
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
+      return { ok: true };
+    case 'update_calendar_event': {
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
+      const d = a.date || a.start_date;
+      if (d !== undefined && !_isValidDateString(d)) {
+        return { ok: false, error: `Invalid date: ${_text(d)}` };
+      }
+      return { ok: true };
+    }
+    case 'complete_bucket_item':
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
       return { ok: true };
     case 'add_trip':
       if (!_text(a.title)) return { ok: false, error: 'title required' };

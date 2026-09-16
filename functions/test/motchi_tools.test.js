@@ -7,30 +7,40 @@ const path = require('node:path');
 
 const tools = require('../motchi_tools.js');
 
-test('tool loop constants match motchi_chat.js', () => {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'motchi_chat.js'), 'utf8');
+test('tool loop constants are single-sourced in motchi_tools.js', () => {
+  const chat = fs.readFileSync(path.join(__dirname, '..', 'motchi_chat.js'), 'utf8');
+  const dispatch = fs.readFileSync(path.join(__dirname, '..', 'motchi_exec_tools.js'), 'utf8');
   assert.equal(tools.TOOL_TIMEOUT_MS, 25000);
   assert.equal(tools.MAX_TOOL_ROUNDS, 8);
-  assert.match(index, /const TOOL_TIMEOUT_MS = 25000;/);
-  assert.match(index, /const MAX_TOOL_ROUNDS = 8;/);
+  // Nobody redefines them; chat + dispatcher import them.
+  assert.ok(!/const TOOL_TIMEOUT_MS = \d+;/.test(chat));
+  assert.ok(!/const MAX_TOOL_ROUNDS = \d+;/.test(chat));
+  assert.ok(dispatch.includes("require('./motchi_tools.js')"));
+  assert.ok(dispatch.includes('TOOL_TIMEOUT_MS'));
 });
 
-test('TOOL_NAMES covers every tool declared in motchi_chat.js MOTCHI_TOOLS', () => {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'motchi_chat.js'), 'utf8');
-  const declared = [...index.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
+test('TOOL_NAMES covers every tool declared in motchi_tool_schemas.js', () => {
+  const schemas = fs.readFileSync(path.join(__dirname, '..', 'motchi_tool_schemas.js'), 'utf8');
+  const declared = [...schemas.matchAll(/name: '([a-z_]+)',/g)].map((m) => m[1]);
   assert.ok(declared.length >= 48, `expected >=48 tools, saw ${declared.length}`);
   for (const name of declared) {
     assert.ok(tools.TOOL_NAMES.includes(name), `missing tool: ${name}`);
   }
 });
 
-test('every executeTool case has a known tool name', () => {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'motchi_chat.js'), 'utf8');
-  const cases = [...index.matchAll(/case '([a-z_]+)': \{/g)].map((m) => m[1]);
-  const nonTools = new Set(['assistant', 'guardian', 'recommendations', 'date_ideas']);
-  for (const name of cases) {
-    if (nonTools.has(name)) continue;
-    assert.ok(tools.TOOL_NAMES.includes(name), `case without tool: ${name}`);
+test('every executor names a known tool, and every tool has an executor', () => {
+  const execSrc = ['media', 'memory', 'social', 'planning', 'insights']
+    .map((d) => fs.readFileSync(path.join(__dirname, '..', `motchi_exec_${d}.js`), 'utf8'))
+    .join('\n');
+  const dispatch = fs.readFileSync(path.join(__dirname, '..', 'motchi_exec_tools.js'), 'utf8');
+  const fns = [...execSrc.matchAll(/async function exec_([a-z_]+)\(ctx/g)].map((m) => m[1]);
+  const mapped = [...dispatch.matchAll(/^  ([a-z_]+): exec_/gm)].map((m) => m[1]);
+  for (const name of fns) {
+    assert.ok(tools.TOOL_NAMES.includes(name), `executor without tool: ${name}`);
+  }
+  for (const name of tools.TOOL_NAMES) {
+    assert.ok(fns.includes(name), `tool without executor: ${name}`);
+    assert.ok(mapped.includes(name), `tool not dispatched: ${name}`);
   }
 });
 
