@@ -34,13 +34,17 @@ class PresenceStatus {
   factory PresenceStatus.fromFirestore(String uid, Map<String, dynamic> data) {
     return PresenceStatus(
       uid: uid,
-      username: (data['username'] as String?) ?? '',
-      isOnlineRaw: (data['isOnline'] as bool?) ?? false,
+      username: _toStr(data['username']),
+      isOnlineRaw: _toBool(data['isOnline']),
       lastSeen: _toDate(data['lastSeen']),
-      isDoodlingRaw: (data['isDoodling'] as bool?) ?? false,
+      isDoodlingRaw: _toBool(data['isDoodling']),
       lastDoodleAt: _toDate(data['lastDoodleAt']),
     );
   }
+
+  static String _toStr(dynamic value) => value is String ? value : '';
+
+  static bool _toBool(dynamic value) => value is bool ? value : false;
 
   static DateTime? _toDate(dynamic value) {
     if (value is Timestamp) return value.toDate();

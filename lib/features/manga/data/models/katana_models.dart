@@ -180,19 +180,24 @@ class KatanaBookmark {
     String documentId,
   ) {
     return KatanaBookmark(
-      slug: data['slug'] ?? documentId,
-      title: data['title'] ?? '',
-      coverUrl: data['coverUrl'] ?? '',
-      status: data['status'] ?? 'ongoing',
+      slug: _toStr(data['slug'], fallback: documentId),
+      title: _toStr(data['title']),
+      coverUrl: _toStr(data['coverUrl']),
+      status: _toStr(data['status'], fallback: 'ongoing'),
       addedAt: _parseDate(data['addedAt']),
-      lastReadChapterId: data['lastReadChapterId'] ?? '',
-      lastReadPage: (data['lastReadPage'] as num?)?.toInt() ?? 0,
-      lastReadChapterTitle: data['lastReadChapterTitle'] ?? '',
-      latestChapterTitle: data['latestChapterTitle'] ?? '',
-      recommendedBy: data['recommendedBy'] ?? '',
-      recommendationNote: data['recommendationNote'] ?? '',
+      lastReadChapterId: _toStr(data['lastReadChapterId']),
+      lastReadPage: _toInt(data['lastReadPage']),
+      lastReadChapterTitle: _toStr(data['lastReadChapterTitle']),
+      latestChapterTitle: _toStr(data['latestChapterTitle']),
+      recommendedBy: _toStr(data['recommendedBy']),
+      recommendationNote: _toStr(data['recommendationNote']),
     );
   }
+
+  static String _toStr(dynamic value, {String fallback = ''}) =>
+      value is String ? value : fallback;
+
+  static int _toInt(dynamic value) => value is num ? value.toInt() : 0;
 
   Map<String, dynamic> toFirestore() {
     return {

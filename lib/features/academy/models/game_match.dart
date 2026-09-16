@@ -48,18 +48,35 @@ class GameMatch {
   factory GameMatch.fromMap(Map<String, dynamic> map, String docId) {
     return GameMatch(
       matchId: docId,
-      hostId: map['hostId'] ?? '',
-      participantId: map['participantId'],
-      khentScore: map['khentScore'] ?? 0,
-      clairScore: map['clairScore'] ?? 0,
-      status: map['status'] ?? 'waiting',
-      currentQuestionId: map['currentQuestionId'] ?? '',
-      questionIndex: map['questionIndex'] ?? 0,
-      category: map['category'] ?? 'engineering',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      winnerId: map['winnerId'],
-      isReplenishing: map['isReplenishing'] ?? false,
+      hostId: _toStr(map['hostId']),
+      participantId: _toNullableStr(map['participantId']),
+      khentScore: _toInt(map['khentScore']),
+      clairScore: _toInt(map['clairScore']),
+      status: _toStr(map['status'], fallback: 'waiting'),
+      currentQuestionId: _toStr(map['currentQuestionId']),
+      questionIndex: _toInt(map['questionIndex']),
+      category: _toStr(map['category'], fallback: 'engineering'),
+      createdAt: _toDate(map['createdAt']),
+      winnerId: _toNullableStr(map['winnerId']),
+      isReplenishing: map['isReplenishing'] is bool
+          ? map['isReplenishing'] as bool
+          : false,
     );
+  }
+
+  static String _toStr(dynamic value, {String fallback = ''}) =>
+      value is String ? value : fallback;
+
+  static String? _toNullableStr(dynamic value) =>
+      value is String ? value : null;
+
+  static int _toInt(dynamic value) => value is num ? value.toInt() : 0;
+
+  static DateTime _toDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.now();
   }
 
   factory GameMatch.fromFirestore(DocumentSnapshot doc) {

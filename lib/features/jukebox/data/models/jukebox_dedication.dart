@@ -44,13 +44,18 @@ class JukeboxDedication {
     }
     return JukeboxDedication(
       id: id,
-      fromUsername: map['fromUsername'] as String? ?? '',
-      toUsername: map['toUsername'] as String? ?? '',
-      trackName: map['trackName'] as String? ?? '',
-      artistName: map['artistName'] as String? ?? '',
-      imageUrl: map['imageUrl'] as String?,
-      message: map['message'] as String?,
+      fromUsername: _toStr(map['fromUsername']),
+      toUsername: _toStr(map['toUsername']),
+      trackName: _toStr(map['trackName']),
+      artistName: _toStr(map['artistName']),
+      imageUrl: _toNullableStr(map['imageUrl']),
+      message: _toNullableStr(map['message']),
       createdAt: created,
     );
   }
+
+  static String _toStr(dynamic value) => value is String ? value : '';
+
+  static String? _toNullableStr(dynamic value) =>
+      value is String ? value : null;
 }

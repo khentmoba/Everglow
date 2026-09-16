@@ -14,12 +14,14 @@ class DatePollOption {
   });
 
   factory DatePollOption.fromMap(Map<String, dynamic> m) => DatePollOption(
-    id: m['id'] ?? '',
+    id: _toStr(m['id']),
     date: (m['date'] is Timestamp)
         ? (m['date'] as Timestamp).toDate()
         : DateTime.tryParse(m['date'].toString()) ?? DateTime.now(),
-    label: m['label'] ?? '',
+    label: _toStr(m['label']),
   );
+
+  static String _toStr(dynamic value) => value is String ? value : '';
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -54,21 +56,50 @@ class DatePoll {
 
   factory DatePoll.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>? ?? const {};
+    return DatePoll.fromMap(data, doc.id);
+  }
+
+  factory DatePoll.fromMap(Map<String, dynamic> data, String id) {
+    final votes = <String, String>{};
+    final votesRaw = data['votes'];
+    if (votesRaw is Map) {
+      votesRaw.forEach((k, v) {
+        if (k is String && v is String) votes[k] = v;
+      });
+    }
+    final optionsRaw = data['options'];
     return DatePoll(
-      id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
-      createdBy: data['createdBy'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      options: (data['options'] as List<dynamic>? ?? [])
-          .map(
-            (e) => DatePollOption.fromMap(Map<String, dynamic>.from(e as Map)),
-          )
-          .toList(),
-      votes: Map<String, String>.from(data['votes'] ?? {}),
+      id: id,
+      title: _toStr(data['title']),
+      description: _toStr(data['description']),
+      createdBy: _toStr(data['createdBy']),
+      createdAt: _toDate(data['createdAt']),
+      options: optionsRaw is List
+          ? optionsRaw
+                .whereType<Map>()
+                .map(
+                  (e) => DatePollOption.fromMap(
+                    Map<String, dynamic>.from(e),
+                  ),
+                )
+                .toList()
+          : const [],
+      votes: votes,
       status: data['status'] == 'closed' ? PollStatus.closed : PollStatus.open,
-      decidedOptionId: data['decidedOptionId'],
+      decidedOptionId: _toNullableStr(data['decidedOptionId']),
     );
+  }
+
+  static String _toStr(dynamic value) => value is String ? value : '';
+
+  static String? _toNullableStr(dynamic value) =>
+      value is String ? value : null;
+
+  static DateTime _toDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    return DateTime.now();
   }
 
   Map<String, dynamic> toFirestore() => {
