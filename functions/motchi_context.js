@@ -171,7 +171,7 @@ async function getMoodContext() {
       if (!snapshot.empty) {
         const moods = snapshot.docs.map(doc => {
           const d = doc.data();
-          return `${d.moodEmoji || '😊'} ${d.moodLabel || 'okay'}`;
+          return `${d.moodEmoji || '💭'} ${d.mood || d.moodLabel || 'okay'}`;
         }).join(', ');
         moodParts.push(`${username}: ${moods}`);
       }

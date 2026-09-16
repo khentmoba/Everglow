@@ -15,6 +15,8 @@ const {
   computeInsights,
   composeTodayRecap,
   shouldExtractMemory,
+  phtDateString,
+  phtDayBounds,
 } = require('../motchi_core.js');
 
 const {
@@ -164,6 +166,21 @@ test('needsEmbeddingBackfill spots unusable stored vectors', () => {
   assert.equal(needsEmbeddingBackfill([0.1, 0.2]), true);
   assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), true);
   assert.equal(needsEmbeddingBackfill(new Array(64).fill(0)), false);
+});
+
+test('phtDateString keys late-night entries to the PHT day', () => {
+  // 23:59 PHT Sept 16
+  assert.equal(phtDateString(Date.parse('2026-09-16T15:59:59Z')), '2026-09-16');
+  // 00:00 PHT Sept 17 (still Sept 16 in UTC)
+  assert.equal(phtDateString(Date.parse('2026-09-16T16:00:00Z')), '2026-09-17');
+  // noon PHT
+  assert.equal(phtDateString(Date.parse('2026-09-16T04:00:00Z')), '2026-09-16');
+});
+
+test('phtDayBounds spans the PHT calendar day', () => {
+  const { start, end } = phtDayBounds(Date.parse('2026-09-16T12:00:00Z'));
+  assert.equal(start.toISOString(), '2026-09-15T16:00:00.000Z');
+  assert.equal(end.toISOString(), '2026-09-16T15:59:59.999Z');
 });
 
 test('selectBlockKeys falls back to the awareness set', () => {

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/user_mood.dart';
 
@@ -23,7 +24,19 @@ class MoodSource {
 class MoodService implements MoodSource {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  /// Day key shared with Motchi's server reads (`moods.date`).
+  /// Device-local calendar day — Khent and Clair are on Philippine time,
+  /// matching the server's PHT basis.
+  @visibleForTesting
+  static String dateKeyFor(DateTime when) =>
+      '${when.year.toString().padLeft(4, '0')}-'
+      '${when.month.toString().padLeft(2, '0')}-'
+      '${when.day.toString().padLeft(2, '0')}';
+
   /// Submits a new mood entry.
+  ///
+  /// Writes `uid` + `date` alongside the app fields so Motchi's
+  /// server reads (check-ins, digests, recaps) see app-logged moods too.
   @override
   Future<void> submitMood({
     required String username,
@@ -32,6 +45,8 @@ class MoodService implements MoodSource {
   }) async {
     await _db.collection('moods').add({
       'username': username,
+      'uid': username,
+      'date': dateKeyFor(DateTime.now()),
       'moodScore': score,
       'moodEmoji': emoji,
       'timestamp': FieldValue.serverTimestamp(),

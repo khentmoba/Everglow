@@ -16,6 +16,7 @@ const {
   getMessageText,
   estimateTokens,
   shouldExtractMemory,
+  phtDateString,
   AGNES_INPUT_TOKEN_BUDGET,
 } = require('./motchi_core.js');
 const {
@@ -1441,11 +1442,15 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               return JSON.stringify({ success: true });
             }
             case 'set_mood': {
-              const today = new Date().toISOString().slice(0, 10);
+              // PHT day key + username mirror so app reads (username/
+              // timestamp based) and server reads (date based) see the
+              // same record.
+              const today = phtDateString();
               await db.collection('moods').doc(`${callerUid}_${today}`).set({
                 mood: args.mood,
                 note: args.note || null,
                 uid: callerUid,
+                username: callerUid,
                 date: today,
                 timestamp: getAdmin().firestore.FieldValue.serverTimestamp(),
               }, { merge: true });
@@ -1911,7 +1916,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               return JSON.stringify({ questions });
             }
             case 'get_today_recap': {
-              const today = new Date().toISOString().slice(0, 10);
+              const today = phtDateString();
               const [moodSnap, activitySnap, watchSnap, starSnap, memorySnap] = await Promise.all([
                 db.collection('moods').where('date', '==', today).get(),
                 db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
@@ -2394,10 +2399,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               if (!docSnap.exists) return JSON.stringify({ error: 'Habit not found' });
               const data = docSnap.data();
               const now = new Date();
-              const todayKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+              // PHT day basis so after-midnight completions count right.
+              const todayKey = phtDateString(now.getTime());
               const completedDates = (data.completedDates||[]).map(d => {
-                if (d.toDate) return d.toDate().toISOString().slice(0,10);
-                return String(d).slice(0,10);
+                if (d.toDate) return phtDateString(d.toDate().getTime());
+                const parsed = new Date(String(d));
+                return Number.isNaN(parsed.getTime()) ? String(d).slice(0,10) : phtDateString(parsed.getTime());
               });
               if (completedDates.includes(todayKey)) return JSON.stringify({ success: false, error: 'Already completed today', streak: data.streak||0 });
               // Compute streak - naive increment
@@ -2778,7 +2785,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
         if (!streamResp || !streamResp.ok) {
           console.warn(`proxyAI Agnes fetch failed after retries: ${lastFetchError || streamResp?.status}`);
           try {
-            const fallback = composeTodayRecap({ dateLabel: new Date().toISOString().slice(0,10), moods: [], activities: [], watchlist: [], starlight: [], memories: [], insights: [] });
+            const fallback = composeTodayRecap({ dateLabel: phtDateString(), moods: [], activities: [], watchlist: [], starlight: [], memories: [], insights: [] });
             sendEvent({ content: fallback + " 🍡 Motchi is a little sleepy right now, but I'm still here. Try again in a moment?" });
             sendEvent({ tool_status: 'done' });
             sendEvent('[DONE]');

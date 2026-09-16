@@ -7,7 +7,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
-const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill } = require('./motchi_core.js');
+const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
 
 /**
@@ -36,7 +36,7 @@ async function collectRecapData(db, {
       dateLabel,
       moods: moodsSnap.docs.map((d) => ({
         uid: d.data().uid || d.data().username || 'someone',
-        mood: d.data().mood || d.data().moodLabel || 'okay',
+        mood: d.data().mood || d.data().moodEmoji || d.data().moodLabel || 'okay',
       })),
       activities: activitySnap.docs.map((d) => d.data().activity || d.data().description || '').filter(Boolean),
       starlight: starSnap.docs.map((d) => d.data().content || '').filter(Boolean),
@@ -63,7 +63,7 @@ const motchiDailyDigest = onSchedule({
   // uncaught scheduled run just burns a retry and pages the logs.
   try {
   const db = getDb();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = phtDateString();
 
   const { recapData, snaps } = await collectRecapData(db, {
     dateLabel: today,
@@ -141,7 +141,7 @@ const motchiNightRecap = onSchedule({
 }, async () => {
   try {
   const db = getDb();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = phtDateString();
   const { recapData } = await collectRecapData(db, {
     dateLabel: today,
     moodsQuery: db.collection('moods').where('date', '==', today),
@@ -167,11 +167,11 @@ const motchiMoodCheckIn = onSchedule({
   region: 'us-central1',
 }, async () => {
   const db = getDb();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = phtDateString();
 
   try {
     const moods = await db.collection('moods').where('date', '==', today).get();
-    const loggedUids = new Set(moods.docs.map(d => d.data().uid));
+    const loggedUids = new Set(moods.docs.map(d => d.data().uid || d.data().username));
 
     for (const uid of ['khentsgdz', 'clairjassen']) {
       if (!loggedUids.has(uid)) {
@@ -207,7 +207,7 @@ const motchiMoodCheckIn = onSchedule({
     const byUser = { khentsgdz: 0, clairjassen: 0 };
     weekMoods.forEach(doc => {
       const d = doc.data();
-      const m = String(d.mood || d.moodLabel || '').toLowerCase();
+      const m = String(d.mood || d.moodEmoji || d.moodLabel || '').toLowerCase();
       const uid = String(d.uid || d.username || '').toLowerCase();
       if (negative.has(m) && byUser.hasOwnProperty(uid)) byUser[uid]++;
     });
@@ -233,9 +233,7 @@ const motchiSmartNudge = onSchedule({
 }, async () => {
   const db = getDb();
   const now = new Date();
-  const todayStr = now.toISOString().slice(0,10);
-  const tomorrow = new Date(now.getTime()+24*60*60*1000);
-  const tomorrowStr = tomorrow.toISOString().slice(0,10);
+  const todayStr = phtDateString(now.getTime());
   try {
     const logRef = db.collection('motchi_nudge_log').doc(todayStr);
     const logSnap = await logRef.get();
@@ -246,7 +244,7 @@ const motchiSmartNudge = onSchedule({
         const h = doc.data();
         const completedToday = (h.completedDates||[]).some(d => {
           const dt = d.toDate ? d.toDate() : new Date(d);
-          return dt.toISOString().slice(0,10) === todayStr;
+          return phtDateString(dt.getTime()) === todayStr;
         });
         if (!completedToday && (h.streak||0) >= 2 && !logged[`habit_${doc.id}`]) {
           const owner = h.createdBy || 'khentsgdz';
@@ -293,8 +291,7 @@ const motchiSmartNudge = onSchedule({
       }
     } catch (e) { console.warn('[smartNudge] journal', e.message); }
     try {
-      const startTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 0,0,0);
-      const endTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23,59,59);
+      const { start: startTomorrow, end: endTomorrow } = phtDayBounds(now.getTime() + 24 * 60 * 60 * 1000);
       const calSnap = await db.collection('calendar_events')
         .where('date','>=', getAdmin().firestore.Timestamp.fromDate(startTomorrow))
         .where('date','<=', getAdmin().firestore.Timestamp.fromDate(endTomorrow))
@@ -323,8 +320,8 @@ const motchiWeeklyRecap = onSchedule({
   const db = getDb();
   const now = new Date();
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const todayStr = now.toISOString().slice(0, 10);
-  const weekStartStr = weekAgo.toISOString().slice(0, 10);
+  const todayStr = phtDateString(now.getTime());
+  const weekStartStr = phtDateString(weekAgo.getTime());
   try {
     const { recapData, snaps } = await collectRecapData(db, {
       dateLabel: `${weekStartStr} to ${todayStr}`,
@@ -390,7 +387,7 @@ const motchiSpecialDayNudge = onSchedule({
   region: 'us-central1',
 }, async () => {
   const now = new Date();
-  const mmdd = `${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const mmdd = phtDateString(now.getTime()).slice(5);
 
   const specialDays = {
     '02-14': 'Valentine\'s Day (Anniversary!)',
