@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:everglow/features/jukebox/data/models/artist_suggestion.dart';
 import 'package:everglow/features/jukebox/data/models/top_music_track.dart';
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
 import 'package:everglow/features/jukebox/presentation/providers/artist_showdown_provider.dart';
@@ -15,14 +16,20 @@ TopMusicTrack _track(String name, int plays, {String artist = 'Ethel Cain'}) =>
     );
 
 class _FakeSync extends MusicSyncService {
-  _FakeSync({required this.byUser, this.artworkByTrack = const {}});
+  _FakeSync({
+    required this.byUser,
+    this.artworkByTrack = const {},
+    this.suggestions = const [],
+  });
 
   /// Last.fm username -> full all-time top tracks (provider filters by
   /// artist locally, mirroring the live `user.gettoptracks` path).
   final Map<String, List<TopMusicTrack>> byUser;
   final Map<String, String?> artworkByTrack;
+  final List<ArtistSuggestion> suggestions;
   int calls = 0;
   int artworkCalls = 0;
+  int suggestionCalls = 0;
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -43,6 +50,16 @@ class _FakeSync extends MusicSyncService {
     artworkCalls++;
     if (artworkByTrack.containsKey(track)) return artworkByTrack[track];
     return null;
+  }
+
+  @override
+  Future<List<ArtistSuggestion>> fetchArtistSuggestions(
+    String query, {
+    int limit = 6,
+  }) async {
+    suggestionCalls++;
+    final q = query.trim().toLowerCase();
+    return suggestions.where((s) => s.name.toLowerCase().contains(q)).toList();
   }
 }
 
@@ -229,6 +246,61 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(provider.tracks.first.imageUrl, isNull);
       expect(provider.hasData, isTrue);
+      provider.dispose();
+    });
+
+    test('searchArtists caches per query and clears on short input', () async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 3000000,
+        url: '',
+      );
+      final sync = _FakeSync(byUser: const {}, suggestions: const [lana]);
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      await provider.searchArtists('lana del');
+      expect(provider.suggestions, hasLength(1));
+      expect(provider.suggestions.first.name, 'Lana Del Rey');
+      expect(provider.isSearching, isFalse);
+      expect(sync.suggestionCalls, 1);
+
+      // Cached: second identical query never hits the service.
+      await provider.searchArtists('Lana Del');
+      expect(provider.suggestions, hasLength(1));
+      expect(sync.suggestionCalls, 1);
+
+      // Short input hides the dropdown without a fetch.
+      await provider.searchArtists('a');
+      expect(provider.suggestions, isEmpty);
+      expect(provider.isSearching, isFalse);
+      expect(sync.suggestionCalls, 1);
+
+      provider.clearSuggestions();
+      expect(provider.suggestions, isEmpty);
+      provider.dispose();
+    });
+
+    test('selectArtist clears open suggestions', () async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 10,
+        url: '',
+      );
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('Video Games', 7, artist: 'Lana Del Rey')],
+          'clairjassen': [_track('Video Games', 3, artist: 'Lana Del Rey')],
+        },
+        suggestions: const [lana],
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+      await provider.searchArtists('lana');
+      expect(provider.suggestions, isNotEmpty);
+      await provider.selectArtist('Lana Del Rey');
+      expect(provider.suggestions, isEmpty);
+      expect(provider.artist, 'Lana Del Rey');
       provider.dispose();
     });
   });

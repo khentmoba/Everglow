@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/config/env_config.dart';
+import '../../data/models/artist_suggestion.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/services/music_sync_service.dart';
 
@@ -72,12 +73,19 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
   final Map<String, _CachedShowdown> _cache = {};
 
+  List<ArtistSuggestion> _suggestions = const [];
+  bool _isSearching = false;
+  int _searchRequestId = 0;
+  final Map<String, List<ArtistSuggestion>> _suggestionCache = {};
+
   String get artist => _artist;
   bool get isLoading => _isLoading;
   int get khentTotal => _khentTotal;
   int get clairTotal => _clairTotal;
   List<ShowdownTrack> get tracks => _tracks;
   bool get hasData => _khentTotal > 0 || _clairTotal > 0;
+  List<ArtistSuggestion> get suggestions => _suggestions;
+  bool get isSearching => _isSearching;
 
   /// 'khent' | 'clair' | null when tied or empty.
   String? get leader {
@@ -94,8 +102,50 @@ class ArtistShowdownProvider extends ChangeNotifier {
     return _khentTotal / total;
   }
 
+  /// Live autocomplete: type "lana del" and pick "Lana Del Rey".
+  /// Results are cached per query for the session; stale responses are
+  /// dropped via [_searchRequestId] so fast typing never shows old rows.
+  Future<void> searchArtists(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) {
+      if (_suggestions.isNotEmpty || _isSearching) {
+        _suggestions = const [];
+        _isSearching = false;
+        _safeNotify();
+      }
+      return;
+    }
+    final key = trimmed.toLowerCase();
+    final cached = _suggestionCache[key];
+    if (cached != null) {
+      _suggestions = cached;
+      _isSearching = false;
+      _safeNotify();
+      return;
+    }
+    final request = ++_searchRequestId;
+    _isSearching = true;
+    _safeNotify();
+    final results = await _sync.fetchArtistSuggestions(trimmed);
+    if (_disposed || request != _searchRequestId) return;
+    _suggestionCache[key] = results;
+    _suggestions = results;
+    _isSearching = false;
+    _safeNotify();
+  }
+
+  /// Hides the dropdown (after picking, submitting, or clearing the box).
+  void clearSuggestions() {
+    _searchRequestId++;
+    if (_suggestions.isEmpty && !_isSearching) return;
+    _suggestions = const [];
+    _isSearching = false;
+    _safeNotify();
+  }
+
   Future<void> selectArtist(String name) async {
     final artist = name.trim();
+    clearSuggestions();
     if (artist.isEmpty || artist == _artist) return;
     final key = artist.toLowerCase();
     final cached = _cache[key];
