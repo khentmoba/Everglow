@@ -87,10 +87,11 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     const lines = raw.split('\n').map(s=>s.trim()).filter(s=>s && s !== 'NONE').slice(0,3);
     if (lines.length === 0) return;
     const db = getDb();
-    // Fetch recent facts for semantic dedupe (last 100)
+    // Fetch recent facts for semantic dedupe (last 30 — extraction only
+    // needs the fresh window; older dupes are harmless).
     let recentFacts = [];
     try {
-      const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt','desc').limit(100).get();
+      const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt','desc').limit(30).get();
       recentFacts = snap.docs.map(d => d.data().fact || '').filter(Boolean);
     } catch (_) {}
     for (const line of lines) {
@@ -111,14 +112,14 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         try { if (isNearDuplicate(existing, fact, 0.85)) { isDup = true; break; } } catch (_) {}
       }
       if (isDup) continue;
-      // Double-check exact Firestore match
-      try {
-        const existing = await db.collection('ai_memories').doc('shared').collection('facts').where('fact','==',fact).limit(1).get();
-        if (!existing.empty) continue;
-      } catch (_) {}
+      // (No exact-match query: the semantic pass above already skips
+      // case-insensitive duplicates, saving a read per candidate.)
       const parsed = parseFactStructure(fact);
+      // Local-only embedding: rankMemories compares against a local
+      // query vector, so a remote vector would never match dimensions
+      // anyway. Skips an API call per fact and keeps ranking working.
       let embedding = null;
-      try { embedding = await getEmbedding(fact); } catch (_) {}
+      try { embedding = simpleEmbedding(fact, 64); } catch (_) {}
       await db.collection('ai_memories').doc('shared').collection('facts').add({
         fact,
         category,
@@ -144,6 +145,9 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
 async function checkHallucinations(replyText) {
   try {
     if (!replyText || replyText.length < 20) return;
+    // Only media replies can hallucinate titles — skip the TMDB lookups
+    // for journal quotes, chat quotes, and everyday chatter.
+    if (!/recommend|watch|movie|film|\bshow\b|series|anime|cinema|episode/i.test(replyText)) return;
     const apiKey = getTmdbKey();
     if (!apiKey) return;
     // Extract candidate titles: double-quoted, single-quoted, or **bold**
@@ -219,7 +223,7 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
     const db = getDb();
     const snapshot = await db.collection('ai_memories').doc('shared').collection('facts')
       .orderBy('createdAt', 'desc')
-      .limit(300)
+      .limit(150)
       .get();
 
     const memories = [];

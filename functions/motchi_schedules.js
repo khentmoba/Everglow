@@ -28,7 +28,7 @@ const motchiDailyDigest = onSchedule({
     db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
     db.collection('our_cinema').limit(5).get(),
     db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc').limit(300).get(),
+      .orderBy('createdAt', 'desc').limit(150).get(),
   ]);
 
   const recapData = {
@@ -127,7 +127,7 @@ const motchiNightRecap = onSchedule({
     db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
     db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
     db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc').limit(300).get(),
+      .orderBy('createdAt', 'desc').limit(150).get(),
   ]);
 
   const recap = composeTodayRecap({
@@ -330,7 +330,7 @@ const motchiWeeklyRecap = onSchedule({
       db.collection('recent_activity').orderBy('timestamp', 'desc').limit(10).get(),
       db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(5).get(),
       db.collection('our_cinema').limit(5).get(),
-      db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(300).get(),
+      db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(150).get(),
     ]);
     const recapData = {
       dateLabel: `${weekStartStr} to ${todayStr}`,
