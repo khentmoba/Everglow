@@ -149,6 +149,7 @@ test('selectBlockKeys pre-selects the blocks a query needs', () => {
   assert.ok(selectBlockKeys('what should we watch tonight').includes('watchlist'));
   assert.ok(selectBlockKeys('how is our garden doing').includes('garden'));
   assert.ok(selectBlockKeys('what do you remember about our first dates').includes('sessions'));
+  assert.ok(selectBlockKeys('what did we talk about at the start').includes('sessions'));
   assert.ok(selectBlockKeys('add our anniversary dinner to the calendar').includes('calendar'));
   assert.ok(selectBlockKeys('play some Ethel Cain songs').includes('music'));
   assert.ok(selectBlockKeys('log a gym workout streak').includes('wellness'));
