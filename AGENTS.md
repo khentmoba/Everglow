@@ -28,9 +28,11 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 * Start: `lib/main.dart` - starts Firebase, then opens `EverglowApp`.
 * Setup: `lib/core/di/app_providers.dart` - this is where services are created. Do not add setup in `main.dart`.
 * Pages: `lib/core/router/app_router.dart` just joins pages together. Each feature keeps its own pages under `lib/features/<name>/presentation/routes/`.
-* Looks: use `lib/core/theme/` for colors and spacing. Use `lib/shared/widgets/everglow/` for buttons and cards. Never hardcode colors.
-* Features: about 30 small parts under `lib/features/`. Full list is in `README.md`. Each one is `data/` -> `domain/` -> `presentation/`.
-* Server: `functions/index.js` talks to movies, music, and AI. The app never calls those sites directly.
+* Looks: use `lib/core/theme/` for colors and spacing (`app_colors.dart` for UI, `app_art.dart` for decorative art). Use `lib/shared/widgets/everglow/` for buttons and cards. Never hardcode colors.
+* Features: about 30 small parts under `lib/features/`. Full list is in `README.md`. Each one is `data/` -> `presentation/`, plus `domain/` only when it needs repository interfaces or shared models.
+* Helpers: `lib/core/utils/` is app-wide (logging, streams, connectivity). `lib/shared/utils/` is data helpers (proxies, pagination, text, images).
+* Shelf widgets: `lib/shared/widgets/shelf/` is owned by cinema/anime (posters, carousels). Everything else shared goes in `everglow/`.
+* Server: `functions/` talks to movies, music, and AI (`index.js` only wires modules together). The app never calls those sites directly.
 * Rules: `firestore.rules` decides who sees what. |
 
 ## Workflow — how we ship (agreed with Khent)

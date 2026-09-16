@@ -132,7 +132,7 @@ lib/
     utils/                           # Logger, Firestore stream helpers, connectivity
   features/
     academy/                         # Trivia game — 8 categories, solo study, 1v1 matches
-    ai/                              # Motchi AI assistant (Agnes 3.0 Flash + 11 function tools via apihub.agnes-ai.com)
+    ai/                              # Motchi AI assistant (Agnes 3.0 Flash + 50+ function tools via apihub.agnes-ai.com)
     books/                           # Book discovery & reader (Open Library) + Our Books list
     bucket_list/                     # Shared bucket list kanban (todo / doing / done)
     calendar/                        # Shared calendar + date polls (Rallly-style voting)
@@ -142,7 +142,7 @@ lib/
     daily_bloom/                     # Virtual garden (5 plant types, seasonal, shared)
     dashboard/                       # Main hub — anniversary counter, milestone cards, previews
     date_randomizer/                 # Date idea generator (1000+ ideas, shake gesture)
-    entry/                           # Passcode gateway (0221=Clair, 0938=Khent, 9132=Breyan, 8080=Octagram)
+    entry/                           # Passcode gateway (codes verified server-side, never in source)
     gallery/                         # Photo gallery with map view + memories
     guardian/                        # Animated cat mascot with AI-powered messages
     heartbeat/                       # Daily mood tracking (mood picker, partner status)
@@ -158,9 +158,9 @@ lib/
     widgets/everglow/                # Design system: EverglowButton, EverglowCard, EverglowScaffold, etc.
     widgets/shelf/                   # Shelf UI: ShelfPosterCard, ShelfHeroCarousel, CinemaNavBar, etc.
   firebase_options.dart              # Generated Firebase config
-functions/
-  index.js                           # Cloud Functions: proxies + AI (Motchi) + scheduled tasks
-test/                                # Unit tests for calendar, canvas, dashboard, xp
+functions/                           # Cloud Functions: proxies + AI (Motchi) + schedules/triggers
+  index.js                           # Thin barrel that wires up the modules below plus auth, catalog, media, system
+test/                                # Unit + widget tests mirroring lib/ (one folder per feature, plus core/shared)
 ```
 
 ## Getting Started
