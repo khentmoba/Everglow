@@ -29,6 +29,16 @@ test('fallback persona renders its tool list from attached tools', () => {
   assert.ok(!src.includes('- get_trips — Read trips'));
 });
 
+test('non-streaming answers run the agent loop (Undo restores)', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Both answer paths must execute tools — dropping non-streaming tool
+  // calls silently broke Motchi's Undo restores and one-shot callers.
+  const executions = src.split('await executeToolCall(').length - 1;
+  assert.ok(executions >= 2, `expected streaming + non-streaming executors, saw ${executions}`);
+  assert.match(src, /for \(let round = 0; round < MAX_TOOL_ROUNDS; round\+\+\)/);
+  assert.match(src, /Non-streaming mode: bounded agent loop/);
+});
+
 test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',
