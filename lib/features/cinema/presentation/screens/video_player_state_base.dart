@@ -456,7 +456,30 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
             return;
           }
         } catch (_) {
-          // Fall through to VidLink handling.
+          // Fall through to CineSrc / VidLink handling.
+        }
+
+        // CineSrc internal episode changes (auto-play or its episode
+        // picker) arrive as objects. Trusted per provider: the direct
+        // embed must speak from the real upstream origin, while our
+        // wrapper's forwards were already origin-checked in embed.html.
+        try {
+          final obj = data.dartify();
+          if (obj is Map && obj['type'] == 'cinesrc:nextepisode') {
+            if (CinemaVideoSources.trustsCinesrcEpisodeEvent(
+              _selectedProvider.id,
+              origin,
+            )) {
+              final season = (obj['season'] as num?)?.toInt();
+              final episode = (obj['episode'] as num?)?.toInt();
+              if (season != null && episode != null && mounted) {
+                _onPlayerEpisodeChanged(season, episode);
+              }
+            }
+            return;
+          }
+        } catch (_) {
+          // Not an object message — fall through to VidLink handling.
         }
 
         // Only accept messages from the active provider's origin
@@ -510,6 +533,36 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       if (found != null) return found;
     }
     return null;
+  }
+
+  /// Follows the embed when CineSrc changes episodes on its own
+  /// (auto-play or its built-in episode picker).
+  ///
+  /// Without this the navigator kept highlighting the finished episode
+  /// while the frame played the next one — and the runtime-estimate
+  /// fallback timer would later reload the already-playing episode from
+  /// scratch. The new position re-resolves Up Next and reschedules the
+  /// timer, while the iframe itself is never touched: no reload, no
+  /// lost position. Anime-in-cinema is skipped (its MAL ids don't map
+  /// to the reported TMDB season/episode; AnimeX is the anime path).
+  void _onPlayerEpisodeChanged(int season, int episode) {
+    if (!mounted || widget.mediaType != 'tv' || widget.isAnime) return;
+    if (season <= 0 || episode <= 0) return;
+    if (season == _currentSeason && episode == _currentEpisode) return;
+    _progressHeartbeatTimer?.cancel();
+    _resetUpNextForNewEpisode();
+    _playbackPositionSeconds = 0;
+    _playbackDurationSeconds = 0;
+    setState(() {
+      _currentSeason = season;
+      _currentEpisode = episode;
+    });
+    // Manual navigation reloads the iframe, whose load event saves
+    // progress — with no reload we save explicitly instead.
+    _saveWatchProgress();
+    _resolveNextEpisode();
+    _scheduleUpNextFallback(null);
+    _persistPlayerMemory(resetPosition: true);
   }
 
   void _startProgressHeartbeat() {

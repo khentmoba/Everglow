@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -53,6 +54,24 @@ class EmbedWebView extends StatefulWidget {
     this.allowedHosts,
     this.onPlayerMessage,
   });
+
+  /// Parses a page-bridged `cinesrc:nextepisode` event into its
+  /// (season, episode) pair. Returns null for foreign bridge traffic —
+  /// malformed JSON, other message types, or missing numbers.
+  static (int, int)? parsePlayerEpisode(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['type'] != 'cinesrc:nextepisode') {
+        return null;
+      }
+      final season = (decoded['season'] as num?)?.toInt();
+      final episode = (decoded['episode'] as num?)?.toInt();
+      if (season == null || episode == null) return null;
+      return (season, episode);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   State<EmbedWebView> createState() => _EmbedWebViewState();
