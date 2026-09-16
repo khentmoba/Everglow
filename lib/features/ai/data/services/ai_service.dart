@@ -268,16 +268,21 @@ class AIService extends ChangeNotifier {
         );
       }
 
-      // Add assistant reply (skip empty replies, e.g. tool-only rounds that
-      // produced no visible text).
-      if (reply.trim().isNotEmpty) {
-        // Strip the model's leading blank lines/whitespace so the reply
-        // starts right at the first real line instead of a visible gap.
-        final cleaned = reply.trimLeft();
-        conversation.messages.add(
-          AIMessage(role: 'assistant', content: cleaned),
+      // An empty reply means the stream was cut before any text arrived
+      // (server timeout mid-tool-round, truncated generation). Surfacing
+      // an error with Retry beats silent no-reply — Clair should never
+      // stare at her own message wondering if Motchi heard her.
+      if (reply.trim().isEmpty) {
+        throw Exception(
+          'Motchi got distracted and lost her train of thought. Try asking again?',
         );
       }
+      // Strip the model's leading blank lines/whitespace so the reply
+      // starts right at the first real line instead of a visible gap.
+      final cleaned = reply.trimLeft();
+      conversation.messages.add(
+        AIMessage(role: 'assistant', content: cleaned),
+      );
 
       // Publish the finished reply to the UI immediately so the loading
       // state ends as soon as the stream does; Firestore writes below can

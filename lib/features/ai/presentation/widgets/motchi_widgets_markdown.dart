@@ -80,6 +80,16 @@ String _formatToolStatus(String status) {
     'search_journal_entries': 'Searching journal',
     'read_journal_entry': 'Reading journal entry',
     'get_trips': 'Reading trips',
+    'web_search': 'Searching the web',
+    'read_web_page': 'Reading web pages',
+    'list_reminders': 'Listing reminders',
+    'cancel_reminder': 'Cancelling reminder',
+    'edit_journal_entry': 'Editing journal',
+    'delete_journal_entry': 'Deleting journal entry',
+    'update_calendar_event': 'Updating calendar',
+    'delete_calendar_event': 'Deleting calendar event',
+    'complete_bucket_item': 'Completing bucket item',
+    'delete_bucket_item': 'Deleting bucket item',
   };
   return toolNames[status] ?? 'Motchi is thinking';
 }
@@ -182,6 +192,26 @@ IconData _toolIcon(String status) {
       return Icons.auto_stories_rounded;
     case 'get_trips':
       return Icons.map_rounded;
+    case 'web_search':
+      return Icons.public_rounded;
+    case 'read_web_page':
+      return Icons.article_outlined;
+    case 'list_reminders':
+      return Icons.notifications_outlined;
+    case 'cancel_reminder':
+      return Icons.alarm_off_rounded;
+    case 'edit_journal_entry':
+      return Icons.edit_note_rounded;
+    case 'delete_journal_entry':
+      return Icons.delete_outline_rounded;
+    case 'update_calendar_event':
+      return Icons.event_repeat_rounded;
+    case 'delete_calendar_event':
+      return Icons.event_busy_rounded;
+    case 'complete_bucket_item':
+      return Icons.check_circle_rounded;
+    case 'delete_bucket_item':
+      return Icons.delete_outline_rounded;
     default:
       return Icons.auto_fix_high_rounded;
   }
@@ -233,7 +263,19 @@ Color _toolAccent(String status) {
     case 'search_journal_entries':
     case 'read_journal_entry':
     case 'get_trips':
+    case 'list_reminders':
+    case 'cancel_reminder':
       return AppColors.textMuted;
+    case 'web_search':
+    case 'read_web_page':
+      return AppColors.auroraTeal;
+    case 'edit_journal_entry':
+    case 'delete_journal_entry':
+    case 'update_calendar_event':
+    case 'delete_calendar_event':
+    case 'complete_bucket_item':
+    case 'delete_bucket_item':
+      return AppColors.auroraRose;
     case 'mark_watchlist_item_watched':
     case 'update_book_progress':
     case 'add_xp':

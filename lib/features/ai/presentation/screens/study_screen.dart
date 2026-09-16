@@ -244,6 +244,10 @@ class _StudyScreenState extends State<StudyScreen> {
     setState(() {
       _turns.add(_StudyTurn.user(question));
       _sending = true;
+      // Explicit artifact asks turn Canvas on so quizzes/cards build.
+      if (!_canvasEnabled && motchiWantsArtifact(question)) {
+        _canvasEnabled = true;
+      }
     });
     _input.clear();
     _scrollToBottom();

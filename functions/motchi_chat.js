@@ -74,6 +74,21 @@ const PARTNER_UID = {
   clairjassen: "khentsgdz",
 };
 
+/**
+ * Strips hidden artifact blocks (quiz/flashcards/html) from a reply so
+ * downstream text checks (hallucination guard, memory extraction) never
+ * see raw code — an HTML game otherwise flags `<head>`/`<meta>` as fake
+ * movie titles. Mirrors the client's stripArtifactBlocks.
+ */
+function stripArtifactsForChecks(text) {
+  let out = String(text || '');
+  // Complete fenced blocks.
+  out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[ \t]*\n?[\s\S]*?```/gi, '');
+  // Trailing unterminated fence (reply cut off mid-artifact).
+  out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[\s\S]*$/gi, '');
+  return out.trim();
+}
+
 async function handleProxyAI(req, res) {
   // V1 fallback — kept for non-streaming compatibility.
   // V2 equivalent (proxyAIv2) below supports true SSE streaming.
@@ -107,9 +122,10 @@ async function handleProxyAI(req, res) {
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
   const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller: clientCaller, enableThinking, canvas } = req.body;
-  // Canvas toggle from the chat bar. When the user turns it OFF, Motchi must
-  // not create any interactive artifacts at all — plain text only, even for
-  // quizzes. Defaults ON so older app versions keep working.
+  // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
+  // never makes artifacts proactively — but an explicit ask ("make chess",
+  // "quiz us") always wins and still builds the artifact. Defaults ON so
+  // older app versions keep working.
   const canvasOn = canvas !== false;
 
   // Thinking mode: OFF by default for fast responses.
@@ -151,6 +167,9 @@ async function handleProxyAI(req, res) {
     ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
+  // Explicit artifact ask — wins over the Canvas toggle (see above). Used
+  // both for the prompt gate and the output-budget tier below.
+  const wantsArtifact = /quiz|flashcards?|flash cards?|trivia|\bgame\b|chess|checkers|tic-?tac|html|artifact|\bapp\b|website/i.test(lastUserMessage || '');
   // Server context is a nice-to-have: if Firestore hiccups on a cold
   // cache, answer without it rather than failing Clair's whole chat.
   let serverContext = '';
@@ -270,7 +289,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
-  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block. The visible reply stays warm and short ("Made you chess — tap Preview to play!").`;
+  Keep it LEAN (under ~12KB — short CSS, compact JS, no verbose comments) and fully working from the single file. A huge file gets cut off mid-stream and the Preview button never appears, so smaller is better. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block. The visible reply stays warm and short ("Made you chess — tap Preview to play!").`;
   }
 
   // ── Main Motchi chat: same interactive canvas (Canvas / Artifacts style) ──
@@ -282,7 +301,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // Unlike Study mode this is NOT source-grounded — use Everglow context +
   // general knowledge. Never emit the blocks unasked (a summary or explanation
   // stays plain text); only when they ask for a quiz, test, trivia, or cards.
-  if (feature === 'assistant' && canvasOn) {
+  if (feature === 'assistant' && (canvasOn || wantsArtifact)) {
     systemPrompt += `
 ## Interactive Canvas — quiz & flashcards
 - When they ask for a quiz, test, or trivia questions: keep the visible reply warm and short (1-2 lines, e.g. the topic + "tap below to start"), do NOT list the questions or A-D options in the text — put them ONLY in the hidden block (5 questions unless they ask for more):
@@ -291,11 +310,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`
   answer is the 0-based index of the correct option. JSON only inside the block, no commentary inside it.
 - IMPORTANT: this applies even when you quiz THEM (they answer, you grade after — "drop your answers and I'll grade you"). In that case keep the correct answers OUT of the visible text, but STILL append the hidden quiz-json block with the real answers. The hidden block is what opens the tappable interactive quiz; without it there is no button.
-- When Canvas is on and they ask for something to PLAY or USE — a game (chess, checkers, tic-tac-toe), a little app, a website, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
+- When they ask for something to PLAY or USE — a game (chess, checkers, tic-tac-toe), a little app, a website, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
-  Keep it compact (under ~30KB) and fully working from the single file. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
+  Keep it LEAN (under ~12KB — short CSS, compact JS, no verbose comments) and fully working from the single file. A huge file gets cut off mid-stream and the Preview button never appears, so smaller is better: simple but complete beats fancy but truncated. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
 - When they ask for flashcards or study cards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block (10 cards max):
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
@@ -452,14 +471,13 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // enableThinking is already destructured from req.body above.
 
   // ── Output budget tiers ───────────────────────────────
-  // A self-contained HTML game can approach the ~30KB artifact cap
-  // (~8k tokens), so artifact asks keep 16k (8k truncates games
-  // mid-block: no closing fence = no Preview button). Everyday chat
-  // caps at 4k — Motchi answers concisely by default, and the cap
-  // bounds runaway replies. Study mode and thinking mode keep 16k
-  // for grounded answers and reasoning tokens.
-  const wantsArtifact = /quiz|flashcards?|flash cards?|\bgame\b|chess|checkers|tic-?tac|html|artifact|\bapp\b|website/i.test(lastUserMessage || '');
-  const maxTokens = (feature === 'study' || enableThinkingFlag || (canvasOn && wantsArtifact)) ? 16384 : 4096;
+  // Lean HTML games (~12KB, ~3k tokens) still need headroom, so artifact
+  // asks keep 16k (8k truncates games mid-block: no closing fence = no
+  // Preview button). Everyday chat caps at 4k — Motchi answers concisely
+  // by default, and the cap bounds runaway replies. Study mode and
+  // thinking mode keep 16k for grounded answers and reasoning tokens.
+  // (wantsArtifact is computed near the top, next to lastUserMessage.)
+  const maxTokens = (feature === 'study' || enableThinkingFlag || wantsArtifact) ? 16384 : 4096;
 
   // ── Payload size guard ──────────────────────────────
   // Cloud Run max request size is 32MB; Agnes supports up to 512K context.
@@ -585,6 +603,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
+      let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
       // another paid round on the same call.
@@ -701,6 +720,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
               if (finishReason === 'tool_calls') {
                 collectedToolCalls = collectedToolCalls.filter(Boolean);
               }
+              // Length stop = truncated mid-reply (often mid-artifact: no
+              // closing fence, so the client shows no Preview button).
+              if (finishReason === 'length') {
+                _hitLengthLimit = true;
+              }
             } catch (_) {}
           }
         }
@@ -809,14 +833,18 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
       stopKeepalive();
       stopHeartbeat();
+      if (_hitLengthLimit) {
+        console.warn('[proxyAI] Agnes hit max_tokens mid-reply — artifact may be truncated (no closing fence, no Preview button).');
+      }
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
       // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
       if (_streamedFinalReply.trim()) {
-        if (shouldExtractMemory(lastUserMessage, _streamedFinalReply)) {
-          serverExtractAndSaveMemory(lastUserMessage, _streamedFinalReply, caller).catch(() => {});
+        const checkText = stripArtifactsForChecks(_streamedFinalReply);
+        if (checkText && shouldExtractMemory(lastUserMessage, checkText)) {
+          serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
         }
-        checkHallucinations(_streamedFinalReply).catch(() => {});
+        if (checkText) checkHallucinations(checkText).catch(() => {});
       }
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
@@ -949,13 +977,15 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   res.json({ reply, reasoning: nsReasoning, model: nsModel });
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
-    if (shouldExtractMemory(lastUserMessage, reply)) {
-      serverExtractAndSaveMemory(lastUserMessage, reply, caller).catch(() => {});
+    const checkText = stripArtifactsForChecks(reply);
+    if (checkText && shouldExtractMemory(lastUserMessage, checkText)) {
+      serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
     }
-    checkHallucinations(reply).catch(() => {});
+    if (checkText) checkHallucinations(checkText).catch(() => {});
   }
 }
 
 module.exports = {
   handleProxyAI,
+  stripArtifactsForChecks,
 };

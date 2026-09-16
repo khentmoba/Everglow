@@ -76,9 +76,14 @@ exports.motchiSpecialDayNudge = motchiSpecialDayNudge;
 exports.motchiReminderChecker = motchiReminderChecker;
 exports.motchiMemorySweep = motchiMemorySweep;
 const { handleProxyAI } = require('./motchi_chat.js');
-exports.proxyAI = cappedHttps(10, handleProxyAI);
+// Motchi streams long SSE replies (multi-round tool calls + large HTML game
+// artifacts). The 60s default truncated chess games and web-search answers
+// mid-stream — no closing fence means no Preview button, and a timeout
+// before any content streams means no reply at all. 300s covers slow
+// generations; the client times out at 120s per attempt and retries.
+exports.proxyAI = cappedHttps(10, handleProxyAI, { timeoutSeconds: 300, memory: '512MB' });
 // V2 function on Cloud Run — natively supports SSE streaming.
-exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10 }, handleProxyAI);
+exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10, timeoutSeconds: 300, memory: '512MiB' }, handleProxyAI);
 
 // Motchi schedules live in motchi_schedules.js.
 // Re-exported at the top of this file to keep the deploy surface identical.

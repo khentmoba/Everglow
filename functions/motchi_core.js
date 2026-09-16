@@ -474,6 +474,8 @@ module.exports = {
   parseFactStructure,
   scoreMemory,
   rankMemories,
+  simpleEmbedding,
+  isNearDuplicate,
   needsEmbeddingBackfill,
   selectContextBlocks,
   selectBlockKeys,
