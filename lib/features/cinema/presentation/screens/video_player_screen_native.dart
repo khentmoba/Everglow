@@ -71,6 +71,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late int _currentSeason;
   late int _currentEpisode;
 
+  /// Season/episode the WebView was loaded with. Manual navigation keeps
+  /// these equal to the current ones, but when the embed advances on its
+  /// own only the current pair moves — the WebView keeps playing the new
+  /// episode without a rebuild while the UI follows it.
+  late int _playerSeason;
+  late int _playerEpisode;
+
   NextEpisode? _nextEpisode;
   bool _upNextVisible = false;
   int _upNextLeft = 10;
@@ -97,6 +104,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     super.initState();
     _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
+    _playerSeason = _currentSeason;
+    _playerEpisode = _currentEpisode;
     _sourceService.addListener(_onSourcesChanged);
     _providers = _resolveProviders();
     _currentProvider = _resolveCurrent(_providers);
@@ -218,7 +227,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Future<void> _selectProvider(VideoSourceConfig provider) async {
     _userSelectedSource = true;
     _savedProviderId = provider.id;
-    setState(() => _currentProvider = provider);
+    setState(() {
+      _currentProvider = provider;
+      // A new server must load the episode actually being watched, which
+      // may have drifted ahead of the loaded WebView via auto-play.
+      _playerSeason = _currentSeason;
+      _playerEpisode = _currentEpisode;
+    });
     await _memoryService.save(_memoryKey, providerId: provider.id);
     await _sourceService.saveDefaultSourceId(provider.id);
     if (!mounted) return;
@@ -318,6 +333,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     setState(() {
       _currentSeason = next.season;
       _currentEpisode = next.episode;
+      _playerSeason = next.season;
+      _playerEpisode = next.episode;
       _upNextVisible = false;
       _upNextDismissed = false;
       _nextEpisode = null;
@@ -333,6 +350,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _upNextFallbackTimer?.cancel();
     setState(() {
       _currentEpisode--;
+      _playerSeason = _currentSeason;
+      _playerEpisode = _currentEpisode;
       _upNextVisible = false;
       _upNextDismissed = false;
       _nextEpisode = null;
@@ -343,13 +362,47 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   String _buildUrl() {
+    // Built from the LOADED episode, not the selection: after a
+    // player-driven advance the selection moves on while the WebView keeps
+    // playing, and the URL must stay byte-identical so Flutter reuses it.
     return buildVideoSourceUrl(
       _currentProvider,
       mediaType: widget.mediaType,
       id: _externalId.toString(),
-      season: _currentSeason,
-      episode: _currentEpisode,
+      season: _playerSeason,
+      episode: _playerEpisode,
     );
+  }
+
+  /// Follows the embed when it changes episodes on its own (CineSrc
+  /// auto-play or its built-in episode picker), without rebuilding the
+  /// WebView — no reload, no lost position. Only the Everglow server
+  /// reports these on native (our wrapper bridges them); the direct
+  /// CineSrc embed posts to itself inside the WebView, out of reach.
+  void _onPlayerEpisodeChanged(int season, int episode) {
+    if (!mounted || widget.mediaType != 'tv' || widget.isAnime) return;
+    if (season <= 0 || episode <= 0) return;
+    if (_currentProvider.id != 'everglow-embed') return;
+    if (season == _currentSeason && episode == _currentEpisode) return;
+    _upNextTimer?.cancel();
+    _upNextFallbackTimer?.cancel();
+    setState(() {
+      _currentSeason = season;
+      _currentEpisode = episode;
+      _upNextVisible = false;
+      _upNextDismissed = false;
+      _nextEpisode = null;
+    });
+    _hasSavedWatchProgress = false;
+    _saveWatchProgress();
+    _resolveNextEpisode();
+    _scheduleUpNextFallback();
+    _persistEpisodeMemory();
+  }
+
+  void _onPlayerMessage(String raw) {
+    final ep = EmbedWebView.parsePlayerEpisode(raw);
+    if (ep != null) _onPlayerEpisodeChanged(ep.$1, ep.$2);
   }
 
   Future<void> _openInBrowser() async {
@@ -658,9 +711,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             children: [
               EmbedWebView(
                 key: ValueKey(
-                  '${_currentProvider.id}-$_externalId-$_currentSeason-$_currentEpisode',
+                  '${_currentProvider.id}-$_externalId-$_playerSeason-$_playerEpisode',
                 ),
                 url: _buildUrl(),
+                onPlayerMessage: _onPlayerMessage,
                 onLoaded: () {
                   debugPrint(
                     '[VideoPlayerScreen] Loaded ${_currentProvider.id} for '
@@ -697,9 +751,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget _buildFullscreenPlayer() {
     return EmbedWebView(
       key: ValueKey(
-        'fs-${_currentProvider.id}-$_externalId-$_currentSeason-$_currentEpisode',
+        'fs-${_currentProvider.id}-$_externalId-$_playerSeason-$_playerEpisode',
       ),
       url: _buildUrl(),
+      onPlayerMessage: _onPlayerMessage,
     );
   }
 
