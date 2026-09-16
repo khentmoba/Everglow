@@ -424,20 +424,12 @@ class _SuggestionRow extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: AppRadius.radiusMd,
                 child: art == null
-                    ? const Icon(
-                        Icons.person_rounded,
-                        size: 18,
-                        color: AppColors.roseQuartz,
-                      )
+                    ? _ArtistInitial(name: name)
                     : AppNetworkImage(
                         imageUrl: art,
                         fit: BoxFit.cover,
                         cacheWidth: 72,
-                        errorWidget: const Icon(
-                          Icons.person_rounded,
-                          size: 18,
-                          color: AppColors.roseQuartz,
-                        ),
+                        errorWidget: _ArtistInitial(name: name),
                       ),
               ),
             ),
@@ -492,6 +484,37 @@ class _SuggestionRow extends StatelessWidget {
       return '${k.toStringAsFixed(k >= 100 ? 0 : 1)}K';
     }
     return '$value';
+  }
+}
+
+/// Initial tile shown while an artist photo loads (or when Spotify has
+/// none). A big letter on the house gradient reads as intentional, where
+/// the old tiny person glyph looked like a broken image.
+class _ArtistInitial extends StatelessWidget {
+  final String name;
+  const _ArtistInitial({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = name.trim();
+    final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
+    return Container(
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.cinemaPink, AppColors.auroraLilac],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Text(
+        initial,
+        style: AppTypography.outfitBold.copyWith(
+          fontSize: 16,
+          color: AppColors.petalWhite,
+        ),
+      ),
+    );
   }
 }
 

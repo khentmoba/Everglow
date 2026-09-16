@@ -86,6 +86,9 @@ class _ShowdownFakeSync extends MusicSyncService {
     final q = query.trim().toLowerCase();
     return suggestions.where((s) => s.name.toLowerCase().contains(q)).toList();
   }
+
+  @override
+  Future<String?> fetchArtistImage(String artistName) async => null;
 }
 
 Future<void> _pumpCard(
@@ -304,6 +307,81 @@ void main() {
         expect(showdown.artist, 'Lana Del Rey');
         expect(showdown.suggestions, isEmpty);
         expect(find.text('Video Games'), findsOneWidget);
+      } finally {
+        showdown.dispose();
+        stats.dispose();
+      }
+    });
+
+    testWidgets('suggestion rows without photos show the artist initial', (
+      tester,
+    ) async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 3264191,
+        url: '',
+      );
+      final sync = _ShowdownFakeSync(
+        topTracks: {
+          'khentsgdz': [_track('Ethel Cain', 'Strangers', 10)],
+          'clairjassen': [_track('Ethel Cain', 'Strangers', 5)],
+        },
+        suggestions: const [lana],
+      );
+      final showdown = ArtistShowdownProvider(syncService: sync);
+      final stats = MusicStatsProvider(syncService: sync);
+      try {
+        await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+
+        await tester.enterText(find.byType(TextField), 'lana');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(seconds: 1));
+
+        // No photo yet (Spotify lookup stubbed to null): the row shows a
+        // big "L" on the house gradient instead of a broken-looking tile.
+        expect(find.text('L'), findsOneWidget);
+        expect(find.byIcon(Icons.person_rounded), findsNothing);
+      } finally {
+        showdown.dispose();
+        stats.dispose();
+      }
+    });
+
+    testWidgets('suggestion rows with photos show the cover', (
+      tester,
+    ) async {
+      const photo = 'https://i.scdn.co/image/lana.png';
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 3264191,
+        imageUrl: photo,
+        url: '',
+      );
+      final sync = _ShowdownFakeSync(
+        topTracks: {
+          'khentsgdz': [_track('Ethel Cain', 'Strangers', 10)],
+          'clairjassen': [_track('Ethel Cain', 'Strangers', 5)],
+        },
+        suggestions: const [lana],
+      );
+      final showdown = ArtistShowdownProvider(syncService: sync);
+      final stats = MusicStatsProvider(syncService: sync);
+      try {
+        await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+
+        await tester.enterText(find.byType(TextField), 'lana');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is AppNetworkImage && w.imageUrl == photo,
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('L'), findsNothing);
       } finally {
         showdown.dispose();
         stats.dispose();

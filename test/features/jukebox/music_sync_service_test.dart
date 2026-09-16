@@ -502,6 +502,9 @@ void main() {
         if (request.url.queryParameters['method'] == 'track.getinfo') {
           return _lastfmEmptyArtwork();
         }
+        if (request.url.path.contains('proxySpotifySearch')) {
+          return _jsonResponse({'trackId': null, 'query': 'x'});
+        }
         return _jsonResponse({'resultCount': 0, 'results': []});
       });
 
@@ -514,6 +517,104 @@ void main() {
       final artwork = await service.fetchTrackArtwork(
         artist: 'Nobody',
         track: 'Nothing',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('falls back to Spotify when Last.fm and iTunes miss', () async {
+      final requestedPaths = <String>[];
+      final client = MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        if (request.url.path.contains('proxySpotifySearch')) {
+          // Spotify carries the stripped single neither backend had.
+          return _jsonResponse({
+            'trackId': 'stripped123',
+            'trackName': 'Crush - Stripped',
+            'artistName': 'Ethel Cain',
+            'imageUrl': 'https://i.scdn.co/image/stripped.png',
+          });
+        }
+        return _jsonResponse({'resultCount': 0, 'results': []});
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush - Stripped',
+      );
+
+      expect(artwork, 'https://i.scdn.co/image/stripped.png');
+      expect(
+        requestedPaths.where((p) => p.contains('proxySpotifySearch')),
+        hasLength(1),
+      );
+    });
+
+    test('rejects the Spotify top result when the title differs', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        if (request.url.path.contains('proxySpotifySearch')) {
+          // No exact match server-side: the proxy answered base "Crush".
+          return _jsonResponse({
+            'trackId': 'base456',
+            'trackName': 'Crush',
+            'artistName': 'Ethel Cain',
+            'imageUrl': 'https://i.scdn.co/image/base-crush.png',
+          });
+        }
+        return _jsonResponse({'resultCount': 0, 'results': []});
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush - Stripped',
+      );
+
+      expect(artwork, isNull);
+    });
+
+    test('rejects Spotify art by a different artist', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        if (request.url.path.contains('proxySpotifySearch')) {
+          return _jsonResponse({
+            'trackId': 'other789',
+            'trackName': 'Crush',
+            'artistName': 'David Archuleta',
+            'imageUrl': 'https://i.scdn.co/image/archuleta.png',
+          });
+        }
+        return _jsonResponse({'resultCount': 0, 'results': []});
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush',
       );
 
       expect(artwork, isNull);
@@ -579,6 +680,43 @@ void main() {
       expect(await service.fetchArtistSuggestions(''), isEmpty);
       expect(await service.fetchArtistSuggestions('a'), isEmpty);
       expect(called, isFalse);
+    });
+
+    test('fetchArtistImage returns the Spotify artist photo', () async {
+      final client = MockClient((request) async {
+        expect(request.url.path, contains('proxySpotifySearch'));
+        expect(request.url.queryParameters['type'], 'artist');
+        expect(request.url.queryParameters['artist'], 'Lana Del Rey');
+        return _jsonResponse({
+          'artistId': '00FQb4jTyendYWaN8pLanx',
+          'artistName': 'Lana Del Rey',
+          'imageUrl': 'https://i.scdn.co/image/lana.png',
+          'followers': 12345678,
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final photo = await service.fetchArtistImage('Lana Del Rey');
+      expect(photo, 'https://i.scdn.co/image/lana.png');
+    });
+
+    test('fetchArtistImage returns null when Spotify has no photo', () async {
+      var called = false;
+      final client = MockClient((_) async {
+        called = true;
+        return _jsonResponse({'artistId': null, 'query': 'Nobody'});
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+      expect(await service.fetchArtistImage('Nobody'), isNull);
+      expect(await service.fetchArtistImage('   '), isNull);
+      expect(called, isTrue);
     });
 
     test('routes iTunes search through proxyCatalog client', () async {

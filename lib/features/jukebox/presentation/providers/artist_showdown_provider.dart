@@ -77,6 +77,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
   bool _isSearching = false;
   int _searchRequestId = 0;
   final Map<String, List<ArtistSuggestion>> _suggestionCache = {};
+  final Map<String, String?> _artistImageCache = {};
 
   String get artist => _artist;
   bool get isLoading => _isLoading;
@@ -121,6 +122,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
       _suggestions = cached;
       _isSearching = false;
       _safeNotify();
+      // A retype can hit the cache while an earlier enrichment pass is
+      // still fetching photos — top up any rows still missing theirs.
+      if (cached.any((s) => s.imageUrl == null)) {
+        unawaited(_enrichSuggestionArtwork(_searchRequestId, key));
+      }
       return;
     }
     final request = ++_searchRequestId;
@@ -132,6 +138,37 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _suggestions = results;
     _isSearching = false;
     _safeNotify();
+    // Last.fm ships no artist photos (placeholder-only since 2019), so
+    // rows would all show the initial tile. Enrich from Spotify in the
+    // background and pop photos in as they land.
+    unawaited(_enrichSuggestionArtwork(request, key));
+  }
+
+  /// Fills in missing suggestion photos from Spotify without blocking the
+  /// dropdown. Each hit updates the live list and the per-query cache so
+  /// retyping finds photos instantly. Photos are also cached per artist so
+  /// overlapping queries ("lana" vs "lana del") never refetch.
+  Future<void> _enrichSuggestionArtwork(int request, String queryKey) async {
+    for (var i = 0; i < _suggestions.length; i++) {
+      if (_disposed || request != _searchRequestId) return;
+      final current = _suggestions[i];
+      if (current.imageUrl != null) continue;
+      final artistKey = current.name.trim().toLowerCase();
+      String? art;
+      if (_artistImageCache.containsKey(artistKey)) {
+        art = _artistImageCache[artistKey];
+      } else {
+        art = await _sync.fetchArtistImage(current.name);
+        if (_disposed || request != _searchRequestId) return;
+        _artistImageCache[artistKey] = art;
+      }
+      if (art == null || art.isEmpty) continue;
+      final next = List<ArtistSuggestion>.from(_suggestions);
+      next[i] = current.copyWith(imageUrl: art);
+      _suggestions = next;
+      _suggestionCache[queryKey] = next;
+      _safeNotify();
+    }
   }
 
   /// Hides the dropdown (after picking, submitting, or clearing the box).

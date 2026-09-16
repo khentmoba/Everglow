@@ -31,6 +31,10 @@ class MusicSyncService {
   final String _baseUrl =
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfm';
 
+  /// Spotify artist-photo lookups go through the same authed proxy path.
+  final String _spotifyBaseUrl =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxySpotifySearch';
+
   // ── Process-wide token cache shared across JukeboxProvider + MusicStatsProvider ──
   // Without this, 8 concurrent proxyLastfm calls on dashboard boot each pay
   // `getIdToken()` independently, serializing behind the auth bridge.
@@ -351,16 +355,17 @@ class MusicSyncService {
   /// image (or no image at all), so the dashboard enriches missing covers
   /// with the track's actual album art. Prefers the MusicBrainz [mbid] when
   /// available, otherwise falls back to artist + track lookup. When Last.fm
-  /// still has no usable cover, the iTunes Search API is queried as a final
-  /// fallback (it reliably carries artwork for independent and mainstream
-  /// releases alike). Returns null when every lookup fails.
+  /// still has no usable cover, the iTunes Search API is queried next, and
+  /// Spotify's track search last (it carries singles and stripped versions
+  /// the other two miss — e.g. Ethel Cain's "Crush - Stripped"). Returns
+  /// null when every lookup fails.
   ///
-  /// Matching is deliberately strict: a cover is only returned when the
-  /// lookup result is verifiably the SAME song (title and artist, ignoring
-  /// case and punctuation). A missing cover falls back to the music-note
-  /// tile, which is always better than pairing a row with the wrong song's
-  /// art — e.g. the base "Crush" cover must never land on "Crush -
-  /// Stripped".
+  /// Matching is deliberately strict at every step: a cover is only
+  /// returned when the lookup result is verifiably the SAME song (title
+  /// and artist, ignoring case and punctuation). A missing cover falls
+  /// back to the music-note tile, which is always better than pairing a
+  /// row with the wrong song's art — e.g. the base "Crush" cover must
+  /// never land on "Crush - Stripped".
   Future<String?> fetchTrackArtwork({
     required String artist,
     required String track,
@@ -372,7 +377,12 @@ class MusicSyncService {
       mbid: mbid,
     );
     if (lastfmArtwork != null) return lastfmArtwork;
-    return _fetchItunesArtwork(artist: artist, track: track);
+    final itunesArtwork = await _fetchItunesArtwork(
+      artist: artist,
+      track: track,
+    );
+    if (itunesArtwork != null) return itunesArtwork;
+    return _fetchSpotifyArtwork(artist: artist, track: track);
   }
 
   Future<String?> _fetchLastfmTrackArtwork({
@@ -488,6 +498,62 @@ class MusicSyncService {
     } catch (e) {
       Logger.e(
         'Jukebox Service Exception (iTunes artwork, $artist - $track)',
+        error: e,
+      );
+    }
+    return null;
+  }
+
+  /// Final artwork fallback via Spotify's track search.
+  ///
+  /// Catches the singles and alternate versions Last.fm and iTunes both
+  /// miss (stripped cuts, Spotify Singles, unreleased-tease uploads).
+  /// The proxy already prefers an exact title match server-side, but it
+  /// still answers its top result when nothing matches — so the reply is
+  /// verified here with [_matchesTrack] before its cover is trusted. The
+  /// base "Crush" art must never land on "Crush - Stripped", no
+  /// matter which backend answered.
+  Future<String?> _fetchSpotifyArtwork({
+    required String artist,
+    required String track,
+  }) async {
+    try {
+      final url = Uri.parse(
+        '$_spotifyBaseUrl?artist=${Uri.encodeComponent(artist)}'
+        '&track=${Uri.encodeComponent(track)}',
+      );
+      final response = await _getWithAuth(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map &&
+            _matchesTrack(
+              data['trackName'],
+              data['artistName'],
+              track: track,
+              artist: artist,
+            )) {
+          final img = data['imageUrl'];
+          if (img is String && img.isNotEmpty) return img;
+        } else {
+          Logger.d(
+            'Jukebox Service: Spotify match rejected for '
+            '"$artist - $track".',
+          );
+        }
+        return null;
+      }
+      Logger.d(
+        'Jukebox Service: proxySpotifySearch returned '
+        '${response.statusCode} for "$artist - $track"',
+      );
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: Spotify artwork lookup timed out for '
+        '"$artist - $track".',
+      );
+    } catch (e) {
+      Logger.e(
+        'Jukebox Service Exception (Spotify artwork, $artist - $track)',
         error: e,
       );
     }
@@ -629,6 +695,39 @@ class MusicSyncService {
       );
     }
     return const [];
+  }
+
+  /// Fetches one artist's photo from Spotify.
+  ///
+  /// Last.fm removed artist images from its API in 2019, so every
+  /// `artist.search` row only carries the white-star placeholder (filtered
+  /// to null by [ArtistSuggestion.fromJson]). Suggestion thumbnails come
+  /// from here instead. Returns null when Spotify has no photo, isn't
+  /// configured, or the lookup fails — the dropdown falls back to the
+  /// initial tile.
+  Future<String?> fetchArtistImage(String artistName) async {
+    final name = artistName.trim();
+    if (name.isEmpty) return null;
+    try {
+      final url = Uri.parse(
+        '$_spotifyBaseUrl?type=artist&artist=${Uri.encodeComponent(name)}',
+      );
+      final response = await _getWithAuth(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map) {
+          final img = data['imageUrl'] as String?;
+          if (img != null && img.isNotEmpty) return img;
+        }
+      }
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: Artist photo for "$name" timed out.',
+      );
+    } catch (e) {
+      Logger.e('Jukebox Service Exception (artist photo, $name)', error: e);
+    }
+    return null;
   }
 
   /// Fetches the user's most-played artists from Last.fm.

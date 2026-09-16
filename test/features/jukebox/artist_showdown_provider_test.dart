@@ -20,6 +20,7 @@ class _FakeSync extends MusicSyncService {
     required this.byUser,
     this.artworkByTrack = const {},
     this.suggestions = const [],
+    this.artistImages = const {},
   });
 
   /// Last.fm username -> full all-time top tracks (provider filters by
@@ -27,9 +28,11 @@ class _FakeSync extends MusicSyncService {
   final Map<String, List<TopMusicTrack>> byUser;
   final Map<String, String?> artworkByTrack;
   final List<ArtistSuggestion> suggestions;
+  final Map<String, String?> artistImages;
   int calls = 0;
   int artworkCalls = 0;
   int suggestionCalls = 0;
+  int artistImageCalls = 0;
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -60,6 +63,14 @@ class _FakeSync extends MusicSyncService {
     suggestionCalls++;
     final q = query.trim().toLowerCase();
     return suggestions.where((s) => s.name.toLowerCase().contains(q)).toList();
+  }
+
+  @override
+  Future<String?> fetchArtistImage(String artistName) async {
+    artistImageCalls++;
+    final key = artistName.trim().toLowerCase();
+    if (artistImages.containsKey(key)) return artistImages[key];
+    return null;
   }
 }
 
@@ -301,6 +312,78 @@ void main() {
       await provider.selectArtist('Lana Del Rey');
       expect(provider.suggestions, isEmpty);
       expect(provider.artist, 'Lana Del Rey');
+      provider.dispose();
+    });
+
+    test('enriches suggestion photos from Spotify in the background', () async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 3000000,
+        url: '',
+      );
+      const photo = 'https://i.scdn.co/image/lana.png';
+      final sync = _FakeSync(
+        byUser: const {},
+        suggestions: const [lana],
+        artistImages: const {'lana del rey': photo},
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      await provider.searchArtists('lana del');
+      expect(provider.suggestions, hasLength(1));
+      await _waitFor(() => provider.suggestions.first.imageUrl == photo);
+      expect(sync.artistImageCalls, 1);
+      // The per-query cache holds the enriched rows, so retyping is instant.
+      await provider.searchArtists('Lana Del');
+      expect(provider.suggestions.first.imageUrl, photo);
+      expect(sync.suggestionCalls, 1);
+      provider.dispose();
+    });
+
+    test('reuses artist photos across overlapping queries', () async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 1,
+        url: '',
+      );
+      const photo = 'https://i.scdn.co/image/lana.png';
+      final sync = _FakeSync(
+        byUser: const {},
+        suggestions: const [lana],
+        artistImages: const {'lana del rey': photo},
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      await provider.searchArtists('lana del');
+      await _waitFor(() => provider.suggestions.first.imageUrl == photo);
+      expect(sync.artistImageCalls, 1);
+
+      // A different query returning the same artist reuses the photo
+      // without another Spotify lookup.
+      await provider.searchArtists('lana');
+      await _waitFor(() => provider.suggestions.first.imageUrl == photo);
+      expect(sync.artistImageCalls, 1);
+      provider.dispose();
+    });
+
+    test('leaves suggestions photo-less when Spotify has no image', () async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 1,
+        url: '',
+      );
+      final sync = _FakeSync(byUser: const {}, suggestions: const [lana]);
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      await provider.searchArtists('lana');
+      expect(provider.suggestions, hasLength(1));
+      // Give the background pass a moment to run and give up quietly.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(provider.suggestions.first.imageUrl, isNull);
+      expect(sync.artistImageCalls, 1);
       provider.dispose();
     });
   });
