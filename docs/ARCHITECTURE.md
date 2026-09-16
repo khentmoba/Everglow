@@ -49,7 +49,7 @@ flowchart LR
   subgraph External
     TMDB[TMDB]
     OL[Open Library]
-    AGNES[Agnes 2.5 Flash LLM]
+    AGNES[Agnes 3.0 Flash LLM]
     LF[Last.fm]
     MD[MangaDex / Bato / Comick / etc.]
   end
@@ -241,7 +241,7 @@ sequenceDiagram
   participant C as Motchi client
   participant F as proxyAI / proxyAIv2
   participant DB as Firestore
-  participant L as Agnes 2.5 Flash LLM
+  participant L as Agnes 3.0 Flash LLM
 
   C->>F: POST /api/proxyAI(v2) {messages, feature, caller} -> apihub.agnes-ai.com
   F->>DB: fetch user context + ranked memories
@@ -325,7 +325,7 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 
 | Provider | Use | Key handling |
 |----------|-----|--------------|
-| Agnes 2.5 Flash (apihub.agnes-ai.com) | AI chat + image gen — 512K context, 120K input budget, 11 tool calls, thinking | server-side AGNES_API_KEY only |
+| Agnes 3.0 Flash (apihub.agnes-ai.com) | AI chat + image gen — 512K context, 120K input budget, 11 tool calls, thinking | server-side AGNES_API_KEY only |
 | TMDB | cinema/anime metadata | server-side via `proxyTmdb` (authenticated, ID-token required) |
 | Open Library | book text | `proxyBookText` server fetch |
 | MangaDex / Bato / Comick / Mangakakalot / Mangasee123 | manga catalog + images | allow-listed host proxies |

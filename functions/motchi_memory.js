@@ -85,7 +85,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'agnes-2.5-flash',
+        model: 'agnes-3.0-flash',
         messages: [
           {
             role: 'system',

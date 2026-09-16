@@ -466,7 +466,7 @@ function shouldExtractMemory(userMessage, motchiReply) {
   return user.length >= 120;
 }
 
-// Agnes 2.5 Flash: 512K context window, generous token budget.
+// Agnes 3.0 Flash: 512K context window, generous token budget.
 // Use ~25% of context for input safety; reserve rest for output + tool loops.
 const AGNES_INPUT_TOKEN_BUDGET = 120000;
 

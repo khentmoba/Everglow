@@ -449,8 +449,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     return;
   }
 
-  // Model: Agnes 2.5 Flash — 512K context, tool calling, thinking mode, image understanding
-  const model = 'agnes-2.5-flash';
+  // Model: Agnes 3.0 Flash — 512K context, tool calling, thinking mode, image understanding
+  const model = 'agnes-3.0-flash';
 
   // ── Custom Motchi Tools (OpenAI function calling format) ──
   const MOTCHI_TOOLS = [
