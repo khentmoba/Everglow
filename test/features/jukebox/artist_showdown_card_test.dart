@@ -8,14 +8,28 @@ import 'package:everglow/features/jukebox/data/services/music_sync_service.dart'
 import 'package:everglow/features/jukebox/presentation/providers/artist_showdown_provider.dart';
 import 'package:everglow/features/jukebox/presentation/providers/music_stats_provider.dart';
 import 'package:everglow/features/jukebox/presentation/widgets/artist_showdown_card.dart';
+import 'package:everglow/shared/widgets/app_network_image.dart';
 
-TopMusicTrack _track(String artist, String name, int plays) => TopMusicTrack(
+TopMusicTrack _track(
+  String artist,
+  String name,
+  int plays, {
+  String? imageUrl,
+}) => TopMusicTrack(
   rank: 1,
   trackName: name,
   artistName: artist,
   playCount: plays,
-  imageUrl: null,
+  imageUrl: imageUrl,
   spotifyUrl: 'https://open.spotify.com/search/x',
+);
+
+/// Finds a `Text.rich` span line (the song rows render counts as rich text,
+/// so plain `find.text` never matches them).
+Finder _richTextContaining(String needle) => find.byWidgetPredicate(
+  (w) =>
+      w is Text &&
+      (w.textSpan?.toPlainText().contains(needle) ?? false),
 );
 
 /// Serves both providers from each user's all-time top tracks. The showdown
@@ -155,6 +169,64 @@ void main() {
         expect(find.text('Video Games'), findsOneWidget);
         expect(find.text('7'), findsOneWidget);
         expect(find.text('3'), findsOneWidget);
+      } finally {
+        showdown.dispose();
+        stats.dispose();
+      }
+    });
+
+    testWidgets('song rows spell out Khent and Clair', (tester) async {
+      final sync = _ShowdownFakeSync(
+        topTracks: {
+          'khentsgdz': [_track('Ethel Cain', 'Strangers', 10)],
+          'clairjassen': [_track('Ethel Cain', 'Strangers', 25)],
+        },
+      );
+      final showdown = ArtistShowdownProvider(syncService: sync);
+      final stats = MusicStatsProvider(syncService: sync);
+      try {
+        await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+
+        expect(_richTextContaining('Khent'), findsOneWidget);
+        expect(_richTextContaining('Clair'), findsOneWidget);
+      } finally {
+        showdown.dispose();
+        stats.dispose();
+      }
+    });
+
+    testWidgets('song rows attempt cover art and skip placeholders', (
+      tester,
+    ) async {
+      const realArt = 'https://img.example/strangers.png';
+      const placeholder =
+          'https://lastfm-img.freetls.fastly.net/i/u/300x300/'
+          '2a96cbd8b46e442fc41c2b86b821562f.png';
+      final sync = _ShowdownFakeSync(
+        topTracks: {
+          'khentsgdz': [
+            _track('Ethel Cain', 'Strangers', 10, imageUrl: realArt),
+            _track('Ethel Cain', 'Dust Bowl', 9, imageUrl: placeholder),
+          ],
+          'clairjassen': [
+            _track('Ethel Cain', 'Strangers', 25, imageUrl: realArt),
+            _track('Ethel Cain', 'Dust Bowl', 4, imageUrl: placeholder),
+          ],
+        },
+      );
+      final showdown = ArtistShowdownProvider(syncService: sync);
+      final stats = MusicStatsProvider(syncService: sync);
+      try {
+        await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is AppNetworkImage && w.imageUrl == realArt,
+          ),
+          findsOneWidget,
+        );
+        // Placeholder cover falls back to the music-note tile.
+        expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
       } finally {
         showdown.dispose();
         stats.dispose();

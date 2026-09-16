@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/config/env_config.dart';
 import '../../data/models/top_music_track.dart';
@@ -10,6 +11,7 @@ class ShowdownTrack {
   final int clairPlays;
   final String? imageUrl;
   final String spotifyUrl;
+  final String? mbid;
 
   const ShowdownTrack({
     required this.trackName,
@@ -17,6 +19,7 @@ class ShowdownTrack {
     required this.clairPlays,
     this.imageUrl,
     required this.spotifyUrl,
+    this.mbid,
   });
 
   int get combinedPlays => khentPlays + clairPlays;
@@ -125,6 +128,47 @@ class ArtistShowdownProvider extends ChangeNotifier {
     );
     _isLoading = false;
     _safeNotify();
+    // `user.gettoptracks` rarely ships real covers, so rows would all fall
+    // back to the music-note tile. Enrich missing artwork in the background
+    // (Last.fm track.getinfo, then iTunes) and pop covers in as they land.
+    unawaited(_enrichArtwork(request, key, artist));
+  }
+
+  /// Fills in missing covers for the current showdown without blocking the
+  /// table. Each hit updates the live list and the per-artist cache so
+  /// switching away and back keeps the artwork.
+  Future<void> _enrichArtwork(int request, String cacheKey, String artist) async {
+    for (var i = 0; i < _tracks.length; i++) {
+      if (_disposed || request != _requestId) return;
+      final current = _tracks[i];
+      if (current.imageUrl != null) continue;
+      final art = await _sync.fetchTrackArtwork(
+        artist: artist,
+        track: current.trackName,
+        mbid: current.mbid,
+      );
+      if (_disposed || request != _requestId) return;
+      if (art == null || art.isEmpty) continue;
+      final next = List<ShowdownTrack>.from(_tracks);
+      next[i] = ShowdownTrack(
+        trackName: current.trackName,
+        khentPlays: current.khentPlays,
+        clairPlays: current.clairPlays,
+        imageUrl: art,
+        spotifyUrl: current.spotifyUrl,
+        mbid: current.mbid,
+      );
+      _tracks = next;
+      final cached = _cache[cacheKey];
+      if (cached != null) {
+        _cache[cacheKey] = _CachedShowdown(
+          khentTotal: cached.khentTotal,
+          clairTotal: cached.clairTotal,
+          tracks: next,
+        );
+      }
+      _safeNotify();
+    }
   }
 
   /// Pulls each user's all-time top tracks once and keeps only rows for
@@ -163,6 +207,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
       );
       draft.khent += t.playCount;
       draft.imageUrl ??= t.imageUrl;
+      draft.mbid ??= t.mbid;
     }
     for (final t in clair) {
       clairTotal += t.playCount;
@@ -172,6 +217,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
       );
       draft.clair += t.playCount;
       draft.imageUrl ??= t.imageUrl;
+      draft.mbid ??= t.mbid;
     }
     final tracks = byTrack.values
         .map(
@@ -181,6 +227,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
             clairPlays: d.clair,
             imageUrl: d.imageUrl,
             spotifyUrl: d.spotifyUrl,
+            mbid: d.mbid,
           ),
         )
         .toList();
@@ -208,6 +255,7 @@ class _Draft {
   int khent = 0;
   int clair = 0;
   String? imageUrl;
+  String? mbid;
 }
 
 class _CachedShowdown {
