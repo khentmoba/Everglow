@@ -29,6 +29,11 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> loadRequest(LoadRequestParams params) async {}
+
+  @override
+  Future<void> addJavaScriptChannel(
+    JavaScriptChannelParams javaScriptChannelParams,
+  ) async {}
 }
 
 class _FakePlatformWebViewWidget extends PlatformWebViewWidget {
@@ -607,6 +612,134 @@ void main() {
         malId: 0,
       );
       expect(AnimeXWatchPage.defaultServerIndex(none), 0);
+    });
+
+    test('mapPlayerEpisodeToMal maps plain 1:1 shows straight across', () {
+      // The reported bug: CineSrc auto-played 1 -> 2 inside the frame while
+      // the list still highlighted episode 1. The player reports TMDB S/E;
+      // plain shows map season 1 straight to our episode numbers.
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 2,
+          episodeSlots: const {},
+          episodeCount: 12,
+        ),
+        2,
+      );
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 12,
+          episodeSlots: const {},
+          episodeCount: 12,
+        ),
+        12,
+      );
+      // A jump into another season belongs to another catalog entry —
+      // never guess, or history and the highlight rewind to episode 1.
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 2,
+          tmdbEpisode: 1,
+          episodeSlots: const {},
+          episodeCount: 12,
+        ),
+        isNull,
+      );
+      // Out-of-range and empty inputs never map.
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 13,
+          episodeSlots: const {},
+          episodeCount: 12,
+        ),
+        isNull,
+      );
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 0,
+          episodeSlots: const {},
+          episodeCount: 12,
+        ),
+        isNull,
+      );
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 0,
+          tmdbEpisode: 1,
+          episodeSlots: const {},
+          episodeCount: 12,
+        ),
+        isNull,
+      );
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 1,
+          episodeSlots: const {},
+          episodeCount: 0,
+        ),
+        isNull,
+      );
+    });
+
+    test('mapPlayerEpisodeToMal resolves mid-series entries via slots', () {
+      // Attack on Titan season 2 style: MAL episodes 1..2 play as
+      // TMDB S2E1..2 — the reverse table must land back on MAL numbers.
+      const slots = {
+        1: (season: 2, episode: 1),
+        2: (season: 2, episode: 2),
+      };
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 2,
+          tmdbEpisode: 1,
+          episodeSlots: slots,
+          episodeCount: 12,
+        ),
+        1,
+      );
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 2,
+          tmdbEpisode: 2,
+          episodeSlots: slots,
+          episodeCount: 12,
+        ),
+        2,
+      );
+      // Episodes with no slot (unmapped tail, other seasons) never guess.
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 2,
+          tmdbEpisode: 3,
+          episodeSlots: slots,
+          episodeCount: 12,
+        ),
+        isNull,
+      );
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 1,
+          episodeSlots: slots,
+          episodeCount: 12,
+        ),
+        isNull,
+      );
+      // A slot pointing outside our episode list is corrupt — ignore it.
+      expect(
+        AnimeXWatchPage.mapPlayerEpisodeToMal(
+          tmdbSeason: 1,
+          tmdbEpisode: 1,
+          episodeSlots: const {99: (season: 1, episode: 1)},
+          episodeCount: 12,
+        ),
+        isNull,
+      );
     });
 
     test('normalizeServerName converts legacy names to provider names', () {

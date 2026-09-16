@@ -41,6 +41,37 @@
     } catch (err) {}
   }, { passive: true });
 
+  // CineSrc announces internal episode changes (auto-play and its own
+  // episode picker) as {type:'cinesrc:nextepisode', season, episode} to
+  // this wrapper. Without forwarding, the app's episode list keeps
+  // highlighting the old episode while the player is already on the
+  // next one. Forward the event to the app window (Flutter Web listens
+  // for it) and to the native WebView bridge when present. Origin is
+  // checked so only the real upstream can drive the app's episode state.
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.type !== 'cinesrc:nextepisode') return;
+    if (e.origin !== 'https://cinesrc.st') return;
+    var season = parseInt(d.season, 10) || 0;
+    var episode = parseInt(d.episode, 10) || 0;
+    if (season <= 0 || episode <= 0) return;
+    try {
+      window.parent.postMessage(
+        { type: 'cinesrc:nextepisode', season: season, episode: episode },
+        '*'
+      );
+    } catch (err) {}
+    try {
+      if (window.EverglowPlayer && window.EverglowPlayer.postMessage) {
+        window.EverglowPlayer.postMessage(JSON.stringify({
+          type: 'cinesrc:nextepisode',
+          season: season,
+          episode: episode
+        }));
+      }
+    } catch (err) {}
+  });
+
   function readParams() {
     var q = new URLSearchParams(window.location.search);
     return {

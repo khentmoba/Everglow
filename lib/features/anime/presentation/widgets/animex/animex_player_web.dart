@@ -19,6 +19,13 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final void Function(VideasyProgress progress)? onProgress;
   final ScrollController? scrollController;
 
+  /// Fires when the embed changes episodes on its own (CineSrc
+  /// auto-play or its built-in episode picker), reporting the TMDB
+  /// season/episode it moved to. Our embed.html wrapper forwards the
+  /// event after origin-checking the upstream, so the app can keep its
+  /// episode list on the truth instead of the stale loaded episode.
+  final void Function(int season, int episode)? onPlayerEpisodeChanged;
+
   /// When true the embed runs inside a sandbox that traps popups and
   /// top-frame navigation (the ad engines behind third-party anime
   /// servers rely on both). MegaPlay and AniXo refuse sandboxed iframes
@@ -35,6 +42,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onContentError,
     this.onProgress,
     this.scrollController,
+    this.onPlayerEpisodeChanged,
     this.sandbox = true,
   });
 
@@ -126,6 +134,23 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
 
     _onMessage = ((web.MessageEvent event) {
       final raw = event.data;
+      // CineSrc episode changes arrive as objects (forwarded by our
+      // embed.html wrapper, which already origin-checked the upstream).
+      if (raw != null) {
+        try {
+          final obj = raw.dartify();
+          if (obj is Map && obj['type'] == 'cinesrc:nextepisode') {
+            final season = (obj['season'] as num?)?.toInt();
+            final episode = (obj['episode'] as num?)?.toInt();
+            if (season != null && episode != null && mounted) {
+              widget.onPlayerEpisodeChanged?.call(season, episode);
+            }
+            return;
+          }
+        } catch (_) {
+          // Not an object message — fall through to string handling.
+        }
+      }
       final data = raw == null ? '' : raw.toString();
       if (data == 'animex-content-error' && mounted && !_contentError) {
         setState(() => _contentError = true);
