@@ -9,8 +9,8 @@ import 'dart:ui_web' as ui_web;
 
 import '../../../../../core/services/auth_service.dart';
 import '../../../presentation/widgets/web_overlay_button.dart';
-import '../../services/tt_bridge_service.dart';
-import '../../services/tt_multiplayer_service.dart';
+import '../../data/services/tt_bridge_service.dart';
+import '../../data/services/tt_multiplayer_service.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 class TTMultiplayerGameScreen extends StatefulWidget {

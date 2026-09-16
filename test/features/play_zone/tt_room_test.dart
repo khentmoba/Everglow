@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:everglow/features/play_zone/table_tennis/models/tt_room.dart';
+import 'package:everglow/features/play_zone/table_tennis/data/models/tt_room.dart';
 
 void main() {
   group('ttRoomStatusFromString', () {
