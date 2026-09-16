@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/services/katana_service.dart';
@@ -223,6 +224,13 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
     unawaited(_healOne(bookmark));
   }
 
+  /// Reactive heal: a cover URL that looks valid but 404s (stale link)
+  /// triggers one background heal instead of a permanent broken image.
+  void _handleCoverError(MangaItem item) {
+    final bookmark = _progressFor(item);
+    if (bookmark != null) _requestHeal(bookmark);
+  }
+
   Future<void> _healOne(KatanaBookmark bookmark) async {
     try {
       final detail = await _katana.fetchMangaDetail(bookmark.slug);
@@ -237,7 +245,9 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
         title: detail.title,
         coverUrl: detail.coverUrl,
       );
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Manga: shelf cover heal failed', error: e);
+    }
   }
 
   Future<void> _resume(MangaItem item) async {
@@ -391,6 +401,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
           onResume: _resume,
           onOpen: _openDetails,
           onRemove: _remove,
+          onCoverError: _handleCoverError,
           emptyText: _hasPartner
               ? 'Tap "Reading" on any series to track it here.'
               : null,
@@ -424,6 +435,7 @@ class _ReadingRow extends StatelessWidget {
   final Future<void> Function(MangaItem) onResume;
   final void Function(MangaItem) onOpen;
   final Future<void> Function(MangaItem)? onRemove;
+  final void Function(MangaItem)? onCoverError;
   final String? emptyText;
 
   const _ReadingRow({
@@ -435,6 +447,7 @@ class _ReadingRow extends StatelessWidget {
     this.label,
     this.loadingSlug,
     this.onRemove,
+    this.onCoverError,
     this.emptyText,
   });
 
@@ -487,6 +500,9 @@ class _ReadingRow extends StatelessWidget {
                 onOpen: () => onOpen(item),
                 onRemove:
                     onRemove == null ? null : () => onRemove!(item),
+                onCoverError: onCoverError == null
+                    ? null
+                    : () => onCoverError!(item),
               );
             },
           ),
@@ -503,6 +519,7 @@ class _ReadingCard extends StatelessWidget {
   final VoidCallback onResume;
   final VoidCallback onOpen;
   final VoidCallback? onRemove;
+  final VoidCallback? onCoverError;
 
   const _ReadingCard({
     required this.item,
@@ -511,6 +528,7 @@ class _ReadingCard extends StatelessWidget {
     required this.onResume,
     required this.onOpen,
     this.onRemove,
+    this.onCoverError,
   });
 
   String get _progressLine {
@@ -564,14 +582,17 @@ class _ReadingCard extends StatelessWidget {
                     : KatanaNetworkImage(
                         item.coverUrl,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => Container(
-                          color: KatanaColors.surfaceAlt,
-                          child: const Icon(
-                            Icons.broken_image_rounded,
-                            color: KatanaColors.textLight,
-                            size: 24,
-                          ),
-                        ),
+                        errorBuilder: (_, _, _) {
+                          onCoverError?.call();
+                          return Container(
+                            color: KatanaColors.surfaceAlt,
+                            child: const Icon(
+                              Icons.broken_image_rounded,
+                              color: KatanaColors.textLight,
+                              size: 24,
+                            ),
+                          );
+                        },
                       ),
               ),
             ),
