@@ -130,19 +130,21 @@ class ScanlationService with ConnectivityAware {
   /// Returns a map of site name → page URL (slug) for sites that
   /// have the series. Empty map means not found anywhere.
   Future<Map<String, String>> searchAll(String title) async {
-    final results = <String, String>{};
     final query = title.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-    for (final site in _sites) {
-      try {
-        final slug = await _searchSite(site, query);
-        if (slug.isNotEmpty) {
-          results[site.name] = slug;
+    // All sites in parallel — the old sequential loop took up to
+    // 6 sites x 3 URLs x 8s when every site timed out.
+    final entries = await Future.wait(
+      _sites.map((site) async {
+        try {
+          final slug = await _searchSite(site, query);
+          if (slug.isNotEmpty) return MapEntry(site.name, slug);
+        } catch (e) {
+          debugPrint('[ScanlationService] Trying next source: $e');
         }
-      } catch (e) {
-        debugPrint('[ScanlationService] Trying next source: $e');
-      }
-    }
-    return results;
+        return null;
+      }),
+    );
+    return Map.fromEntries(entries.whereType<MapEntry<String, String>>());
   }
 
   /// Fetch chapters from all scanlation sites. Returns a combined
@@ -150,19 +152,25 @@ class ScanlationService with ConnectivityAware {
   Future<List<MangaChapter>> getChapterFeedFromAll(
     Map<String, String> siteSlugs,
   ) async {
+    final entries = siteSlugs.entries.toList();
+    final perSite = await Future.wait(
+      entries.map((entry) async {
+        final site = _findSite(entry.key);
+        if (site == null) return const <MangaChapter>[];
+        try {
+          return await _getChapters(site, entry.value);
+        } catch (e) {
+          debugPrint('[ScanlationService] Trying next source: $e');
+          return const <MangaChapter>[];
+        }
+      }),
+    );
     final all = <MangaChapter>[];
     final seen = <String>{};
-    for (final entry in siteSlugs.entries) {
-      final site = _findSite(entry.key);
-      if (site == null) continue;
-      try {
-        final chapters = await _getChapters(site, entry.value);
-        for (final c in chapters) {
-          final key = '${site.name}:${c.chapter}';
-          if (seen.add(key)) all.add(c);
-        }
-      } catch (e) {
-        debugPrint('[ScanlationService] Trying next source: $e');
+    for (var i = 0; i < perSite.length; i++) {
+      for (final c in perSite[i]) {
+        final key = '${entries[i].key}:${c.chapter}';
+        if (seen.add(key)) all.add(c);
       }
     }
     all.sort((a, b) {
@@ -300,11 +308,11 @@ class ScanlationService with ConnectivityAware {
       }
     }
 
-    // Fallback: guess the slug from the title
-    return query
-        .replaceAll(RegExp(r'\s+'), '-')
-        .replaceAll(RegExp(r'[^\w-]'), '')
-        .toLowerCase();
+    // No match on this site. Returning a guessed slug here used to
+    // force a pointless 404 fetch per site on every open (slow), and
+    // the loose chapter regex could then scrape unrelated chapters
+    // off error pages into the list (wrong numbers).
+    return '';
   }
 
   /// Scrape a series page for its chapter list.
