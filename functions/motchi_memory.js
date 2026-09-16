@@ -50,10 +50,29 @@ async function getEmbedding(text) {
   try { return simpleEmbedding(normalized, 64); } catch (_) { return null; }
 }
 
+// ── Extraction throttle ──────────────────────────────────────
+// Memory extraction costs an LLM call per exchange. Throttle to one
+// extraction per caller per window: rapid-fire chats are usually one
+// topic, so later exchanges in the window add little. In-memory only —
+// a cold instance simply extracts again (today's behavior), and no
+// reads or writes are added to the chat path. Explicit remember_fact
+// tool calls bypass this entirely.
+const EXTRACT_THROTTLE_MS = 30 * 60 * 1000;
+const _extractThrottle = new Map(); // lowercased caller -> last epoch ms
+
+function claimMemoryExtractSlot(caller, nowMs = Date.now(), windowMs = EXTRACT_THROTTLE_MS) {
+  const key = String(caller || '').toLowerCase();
+  const last = _extractThrottle.get(key) || 0;
+  if (nowMs - last < windowMs) return false;
+  _extractThrottle.set(key, nowMs);
+  return true;
+}
+
 async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUsername) {
   try {
     if (!userMessage || !motchiReply) return;
     if (!shouldExtractMemory(userMessage, motchiReply)) return;
+    if (!claimMemoryExtractSlot(callerUsername)) return;
     const trimmedUser = String(userMessage).slice(0, 800).trim();
     const trimmedReply = String(motchiReply).slice(0, 1200).trim();
     if (trimmedUser.length < 10 && trimmedReply.length < 20) return;
@@ -286,4 +305,6 @@ module.exports = {
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,
+  claimMemoryExtractSlot,
+  EXTRACT_THROTTLE_MS,
 };
