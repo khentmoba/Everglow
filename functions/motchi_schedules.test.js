@@ -50,7 +50,7 @@ function fakeDb(canned) {
 
 test('collectRecapData maps snapshots with generous fallbacks', async () => {
   const db = fakeDb({
-    moods: [{ uid: 'khentsgdz', mood: 'happy' }, { username: 'clairjassen', moodLabel: 'calm' }, {}],
+    moods: [{ uid: 'khentsgdz', mood: 'happy' }, { username: 'clairjassen', moodLabel: 'calm' }, { username: 'khentsgdz', moodScore: 4, moodEmoji: '😊' }, {}],
     recent_activity: [{ activity: 'Movie night' }, { description: 'Cooked dinner' }, {}],
     starlight_jar: [{ content: 'I love our mornings' }, {}],
     our_cinema: [{ title: 'Interstellar' }, {}],
@@ -73,7 +73,8 @@ test('collectRecapData maps snapshots with generous fallbacks', async () => {
   assert.equal(recapData.dateLabel, '2026-09-16');
   assert.deepEqual(recapData.moods[0], { uid: 'khentsgdz', mood: 'happy' });
   assert.deepEqual(recapData.moods[1], { uid: 'clairjassen', mood: 'calm' });
-  assert.deepEqual(recapData.moods[2], { uid: 'someone', mood: 'okay' });
+  assert.deepEqual(recapData.moods[2], { uid: 'khentsgdz', mood: '😊' });
+  assert.deepEqual(recapData.moods[3], { uid: 'someone', mood: 'okay' });
   assert.deepEqual(recapData.activities, ['Movie night', 'Cooked dinner']);
   assert.deepEqual(recapData.starlight, ['I love our mornings']);
   assert.deepEqual(recapData.watchlist, ['Interstellar']);

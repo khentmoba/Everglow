@@ -405,6 +405,27 @@ function estimateTokens(text) {
   return Math.ceil(nonCjk / 4) + Math.ceil(cjk * 1.5);
 }
 
+// ── Philippine-time dates ──────────────────────────────────────
+// Cloud Run thinks in UTC but Khent and Clair live in PHT (UTC+8, no
+// daylight saving — the offset never changes). Day-keyed records
+// (moods, digests) use PHT so late-night entries land on the right day.
+const PHT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** YYYY-MM-DD of the PHT calendar day containing `nowMs`. */
+function phtDateString(nowMs = Date.now()) {
+  return new Date(nowMs + PHT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * UTC instants bounding the PHT calendar day containing `nowMs`:
+ * { start, end } as Dates (end is the last millisecond of the day).
+ */
+function phtDayBounds(nowMs = Date.now()) {
+  const pht = new Date(nowMs + PHT_OFFSET_MS);
+  const startMs = Date.UTC(pht.getUTCFullYear(), pht.getUTCMonth(), pht.getUTCDate()) - PHT_OFFSET_MS;
+  return { start: new Date(startMs), end: new Date(startMs + 24 * 60 * 60 * 1000 - 1) };
+}
+
 /**
  * Heuristic gate to avoid calling the memory extraction LLM on casual
  * chatter, greetings, search commands, or questions that contain no
@@ -465,5 +486,8 @@ module.exports = {
   composeTodayRecap,
   getMessageText,
   estimateTokens,
+  phtDateString,
+  phtDayBounds,
+  PHT_OFFSET_MS,
   AGNES_INPUT_TOKEN_BUDGET,
 };
