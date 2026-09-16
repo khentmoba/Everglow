@@ -166,7 +166,6 @@ function isNearDuplicate(a, b, threshold = 0.88) {
 // space match as phrases. Kept generous: a spurious block costs one
 // cached read, a missed block costs Motchi her awareness.
 const CONTEXT_BLOCK_KEYWORDS = {
-  daily: ['today', 'daily', 'digest', 'morning', 'recap'],
   mood: ['mood', 'moods', 'feeling', 'feelings', 'feel', 'felt', 'emotion', 'emotions', 'happy', 'sad', 'stressed', 'tired', 'excited', 'anxious', 'lonely', 'pattern', 'patterns'],
   watchlist: ['movie', 'movies', 'film', 'films', 'watch', 'watched', 'watching', 'watchlist', 'show', 'shows', 'series', 'episode', 'episodes', 'cinema', 'tv', 'drama', 'netflix'],
   books: ['book', 'books', 'read', 'reading', 'author', 'authors', 'novel', 'novels', 'chapter', 'chapters', 'library'],
@@ -190,7 +189,7 @@ const CONTEXT_BLOCK_KEYWORDS = {
 // Awareness set: fetched when the query names nothing in particular.
 // The pricey `sessions` scan is deliberately NOT here — it only runs
 // when the message asks about history, memory, or the past.
-const DEFAULT_CONTEXT_KEYS = ['chat', 'mood', 'activity', 'watchlist', 'starlight', 'daily', 'calendar'];
+const DEFAULT_CONTEXT_KEYS = ['chat', 'mood', 'activity', 'watchlist', 'starlight', 'books', 'calendar'];
 
 /** Block keys to fetch for a query: keyword hits first, defaults fill. */
 function selectBlockKeys(query, maxKeys = 7) {
