@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_art.dart';
 import '../../../../core/theme/app_colors.dart';
 
 /// Hand-drawn lily for Clair's garden.
@@ -28,32 +29,76 @@ class LilyPainter extends CustomPainter {
 
   void _drawPot(Canvas canvas, Offset center, Size size, Paint paint) {
     final potWidth = 60.0 + (animationValue * 2);
-    final potHeight = 40.0;
+    const potHeight = 40.0;
     final rect = Rect.fromCenter(
       center: center.translate(0, potHeight / 2),
       width: potWidth,
       height: potHeight,
     );
 
-    // Soft pink pot with gradient
+    // Soil the stem grows out of.
+    paint
+      ..shader = null
+      ..style = PaintingStyle.fill
+      ..color = AppArt.barkDeep.withValues(alpha: 0.9);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(rect.center.dx, rect.top + 2),
+        width: rect.width * 0.8,
+        height: 10,
+      ),
+      paint,
+    );
+    paint.color = AppArt.bark.withValues(alpha: 0.9);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(rect.center.dx - 3, rect.top + 1),
+        width: rect.width * 0.5,
+        height: 6,
+      ),
+      paint,
+    );
+
+    // Soft pink pot with gradient.
+    paint.color = AppColors.petalWhite;
     paint.shader = LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
       colors: [Colors.pink[100]!, Colors.pink[200]!],
     ).createShader(rect);
-
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, const Radius.circular(8)),
       paint,
     );
 
-    // Pot rim
+    // Soft side shade so the pot feels round.
     paint.shader = null;
-    paint.color = Colors.pink[300]!;
+    paint.color = Colors.pink[300]!.withValues(alpha: 0.35);
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8),
-        const Radius.circular(4),
+        Rect.fromLTWH(
+          rect.right - rect.width * 0.28,
+          rect.top + 4,
+          rect.width * 0.28,
+          rect.height - 4,
+        ),
+        const Radius.circular(6),
+      ),
+      paint,
+    );
+
+    // Pot rim + top light-catch.
+    paint.color = Colors.pink[300]!;
+    final rim = Rect.fromLTWH(rect.left - 4, rect.top - 5, rect.width + 8, 8);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rim, const Radius.circular(4)),
+      paint,
+    );
+    paint.color = AppColors.petalWhite.withValues(alpha: 0.45);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(rim.left + 4, rim.top + 1.2, rim.width - 8, 1.6),
+        const Radius.circular(0.8),
       ),
       paint,
     );
@@ -314,6 +359,20 @@ class LilyPainter extends CustomPainter {
     }
 
     _drawHeart(canvas, top, full, paint);
+
+    // Dew sparkle on one petal — twinkles with the breathing loop.
+    if (full) {
+      final sparklePos = top + Offset(length * 0.42, -length * 0.55);
+      paint
+        ..style = PaintingStyle.fill
+        ..shader = null
+        ..color = AppColors.petalWhite.withValues(
+          alpha: 0.65 + animationValue * 0.3,
+        );
+      canvas.drawCircle(sparklePos, 1.4, paint);
+      paint.color = AppColors.petalWhite.withValues(alpha: 0.35);
+      canvas.drawCircle(sparklePos.translate(3.2, 2.6), 0.8, paint);
+    }
     canvas.restore();
   }
 
