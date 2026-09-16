@@ -140,6 +140,15 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
   return scored.slice(0, maxResults).map((entry) => entry.fact);
 }
 
+/**
+ * True when a stored memory embedding can't match the local query
+ * vector (missing, malformed, or built with other dimensions, e.g. the
+ * retired remote vectors). The nightly sweep recomputes those locally.
+ */
+function needsEmbeddingBackfill(embedding, dim = 64) {
+  return !Array.isArray(embedding) || embedding.length !== dim;
+}
+
 function isNearDuplicate(a, b, threshold = 0.88) {
   const embA = simpleEmbedding(a);
   const embB = simpleEmbedding(b);
@@ -445,6 +454,7 @@ module.exports = {
   parseFactStructure,
   scoreMemory,
   rankMemories,
+  needsEmbeddingBackfill,
   selectContextBlocks,
   selectBlockKeys,
   CONTEXT_BLOCK_KEYWORDS,
