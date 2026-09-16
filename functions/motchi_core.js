@@ -150,6 +150,59 @@ function isNearDuplicate(a, b, threshold = 0.88) {
   }
   return cosineSimilarity(embA, embB) >= threshold;
 }
+// ── Context block pre-selection ────────────────────────────────
+// Picks which Firestore-backed context blocks to fetch BEFORE any read
+// happens, so a chat turn fetches ~8 small blocks instead of ~20.
+// Single words match whole words (case-insensitive); entries with a
+// space match as phrases. Kept generous: a spurious block costs one
+// cached read, a missed block costs Motchi her awareness.
+const CONTEXT_BLOCK_KEYWORDS = {
+  daily: ['today', 'daily', 'digest', 'morning', 'recap'],
+  mood: ['mood', 'moods', 'feeling', 'feelings', 'feel', 'felt', 'emotion', 'emotions', 'happy', 'sad', 'stressed', 'tired', 'excited', 'anxious', 'lonely', 'pattern', 'patterns'],
+  watchlist: ['movie', 'movies', 'film', 'films', 'watch', 'watched', 'watching', 'watchlist', 'show', 'shows', 'series', 'episode', 'episodes', 'cinema', 'tv', 'drama', 'netflix'],
+  books: ['book', 'books', 'read', 'reading', 'author', 'authors', 'novel', 'novels', 'chapter', 'chapters', 'library'],
+  starlight: ['starlight', 'jar', 'grateful', 'gratitude', 'thankful', 'note', 'notes'],
+  chat: ['chat', 'sanctuary', 'said', 'say', 'tell', 'told', 'message', 'messages', 'talk', 'talked', 'talking', 'convo'],
+  music: ['music', 'song', 'songs', 'spotify', 'playlist', 'play', 'playing', 'artist', 'artists', 'album', 'track', 'tracks', 'listen', 'listening', 'karaoke', 'jukebox'],
+  garden: ['garden', 'plant', 'plants', 'planted', 'flower', 'flowers', 'lily', 'lilies', 'bloom', 'blooms'],
+  canvas: ['draw', 'drawing', 'drawings', 'canvas', 'art', 'sketch', 'sketches', 'paint', 'painting'],
+  play_zone: ['game', 'games', 'gaming', 'score', 'scores', 'playzone', 'play', 'win', 'won', 'rank', 'ranked'],
+  relationship: ['anniversary', 'together', 'relationship', 'couple', 'pattern', 'patterns', 'stats', 'days'],
+  activity: ['did', 'today', 'yesterday', 'activity', 'activities', 'been'],
+  sessions: ['remember', 'memory', 'memories', 'history', 'past', 'earlier', 'before', 'yesterday', 'last week', 'recap', 'conversation', 'conversations', 'previously'],
+  calendar: ['calendar', 'schedule', 'scheduled', 'schedules', 'upcoming', 'coming up', 'tomorrow', 'event', 'events', 'this month', 'this week', 'plan', 'plans', 'planning', 'date', 'dates', 'dating', 'anniversary', 'dinner'],
+  journal: ['journal', 'diary', 'diaries', 'reflect', 'reflection', 'entry', 'entries', 'wrote', 'write', 'writing'],
+  bucket: ['bucket', 'dream', 'dreams', 'wish', 'wishes', 'goal', 'goals', 'someday'],
+  travel: ['trip', 'trips', 'travel', 'travels', 'vacation', 'getaway', 'itinerary', 'flight', 'flights', 'hotel', 'hotels'],
+  wellness: ['habit', 'habits', 'streak', 'streaks', 'workout', 'workouts', 'gym', 'routine', 'routines', 'health', 'exercise', 'run', 'running'],
+  budget: ['budget', 'spend', 'spent', 'spending', 'money', 'expense', 'expenses', 'peso', 'pesos', 'php', 'cost', 'costs', 'price', 'prices', 'bought', 'buy'],
+};
+
+// Awareness set: fetched when the query names nothing in particular.
+// The pricey `sessions` scan is deliberately NOT here — it only runs
+// when the message asks about history, memory, or the past.
+const DEFAULT_CONTEXT_KEYS = ['chat', 'mood', 'activity', 'watchlist', 'starlight', 'daily', 'calendar'];
+
+/** Block keys to fetch for a query: keyword hits first, defaults fill. */
+function selectBlockKeys(query, maxKeys = 7) {
+  const lowered = String(query || '').toLowerCase();
+  const words = new Set(lowered.split(/[^a-z0-9]+/).filter(Boolean));
+  const scored = Object.keys(CONTEXT_BLOCK_KEYWORDS).map((key) => {
+    let score = 0;
+    for (const kw of CONTEXT_BLOCK_KEYWORDS[key]) {
+      if (kw.includes(' ')) {
+        if (lowered.includes(kw)) score += 2;
+      } else if (words.has(kw)) {
+        score += 2;
+      }
+    }
+    const rank = DEFAULT_CONTEXT_KEYS.indexOf(key);
+    return { key, score, rank: rank === -1 ? 100 : rank };
+  });
+  scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.key < b.key ? -1 : 1));
+  return scored.slice(0, maxKeys).map((s) => s.key);
+}
+
 function selectContextBlocks(blocks, query, maxBlocks = 6, alwaysKeep = 'proactive') {
   const list = (blocks || []).filter((b) => b && b.key);
   if (list.length === 0) return [];
@@ -393,6 +446,9 @@ module.exports = {
   scoreMemory,
   rankMemories,
   selectContextBlocks,
+  selectBlockKeys,
+  CONTEXT_BLOCK_KEYWORDS,
+  DEFAULT_CONTEXT_KEYS,
   shouldExtractMemory,
   generateTrivia,
   computeInsights,

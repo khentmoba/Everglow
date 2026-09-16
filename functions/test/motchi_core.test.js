@@ -8,6 +8,8 @@ const {
   parseFactStructure,
   rankMemories,
   selectContextBlocks,
+  selectBlockKeys,
+  DEFAULT_CONTEXT_KEYS,
   generateTrivia,
   computeInsights,
   composeTodayRecap,
@@ -141,6 +143,22 @@ test('composeTodayRecap grounds the recap in real data', () => {
   assert.ok(recap.includes('khentsgdz feels happy'));
   assert.ok(recap.includes('"I love our mornings"'));
   assert.ok(recap.includes('On this day'));
+});
+
+test('selectBlockKeys pre-selects the blocks a query needs', () => {
+  assert.ok(selectBlockKeys('what should we watch tonight').includes('watchlist'));
+  assert.ok(selectBlockKeys('how is our garden doing').includes('garden'));
+  assert.ok(selectBlockKeys('what do you remember about our first dates').includes('sessions'));
+  assert.ok(selectBlockKeys('add our anniversary dinner to the calendar').includes('calendar'));
+  assert.ok(selectBlockKeys('play some Ethel Cain songs').includes('music'));
+  assert.ok(selectBlockKeys('log a gym workout streak').includes('wellness'));
+  assert.ok(selectBlockKeys('how much did we spend this month').includes('budget'));
+});
+
+test('selectBlockKeys falls back to the awareness set', () => {
+  assert.deepEqual(selectBlockKeys(''), DEFAULT_CONTEXT_KEYS);
+  assert.deepEqual(selectBlockKeys('zzzq blorp fnord'), DEFAULT_CONTEXT_KEYS);
+  assert.equal(selectBlockKeys('hi motchi').length, 7);
 });
 
 test('buildContextForFeature resolves safely without crashing', async () => {

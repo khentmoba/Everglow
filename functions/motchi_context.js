@@ -9,7 +9,7 @@ const {
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
-const { selectContextBlocks } = require('./motchi_core.js');
+const { selectBlockKeys } = require('./motchi_core.js');
 
 /**
  * In-memory cache for individual feature context blocks.
@@ -47,36 +47,36 @@ async function buildContextForFeature(feature, callerUid, userMessage = '') {
     let result;
     switch (feature) {
       case 'assistant': {
-        const ctxPromises = [
-          ['proactive', Promise.resolve(getProactiveContext())],
-          ['daily', getCachedBlock('daily', 600000, getDailyDigest)],
-          ['mood', getCachedBlock('mood', 120000, getMoodContext)],
-          ['watchlist', getCachedBlock('watchlist', 120000, getWatchContext)],
-          ['books', getCachedBlock('books', 300000, getBooksContext)],
-          ['starlight', getCachedBlock('starlight', 180000, getStarlightContext)],
-          ['chat', getCachedBlock('chat', 60000, getRecentChatContext)],
-          ['music', getCachedBlock('music', 120000, getMusicContext)],
-          ['garden', getCachedBlock('garden', 300000, getGardenContext)],
-          ['canvas', getCachedBlock('canvas', 300000, getCanvasContext)],
-          ['play_zone', getCachedBlock('play_zone', 300000, getPlayZoneContext)],
-          ['relationship', getCachedBlock('relationship', 600000, getRelationshipStats)],
-          ['activity', getCachedBlock('activity', 60000, getRecentActivity)],
-          ['sessions', getCachedBlock('sessions', 120000, getSessionHistoryContext)],
-          ['calendar', getCachedBlock('calendar', 300000, getCalendarContext)],
-          ['journal', getCachedBlock('journal', 180000, getJournalContext)],
-          ['bucket', getCachedBlock('bucket', 300000, getBucketContext)],
-          ['travel', getCachedBlock('travel', 300000, getTravelContext)],
-          ['wellness', getCachedBlock('wellness', 180000, getWellnessContext)],
-          ['budget', typeof getBudgetContext === 'function' ? getCachedBlock('budget', 300000, getBudgetContext) : Promise.resolve('')],
-        ];
-        const resolved = await Promise.all(
-          ctxPromises.map(async ([key, promise]) => ({
-            key,
-            value: await promise,
-          }))
-        );
-        const selected = selectContextBlocks(resolved, userMessage || '', 8);
-        result = selected.map(b => b.value).filter(Boolean).join('\n\n');
+        // Pre-select BEFORE fetching: score block keys against the message
+        // so a turn reads ~7 cached blocks instead of sweeping ~20
+        // Firestore queries and discarding half of them.
+        const wanted = selectBlockKeys(userMessage || '', 7);
+        const fetchers = {
+          daily: () => getCachedBlock('daily', 600000, getDailyDigest),
+          mood: () => getCachedBlock('mood', 120000, getMoodContext),
+          watchlist: () => getCachedBlock('watchlist', 120000, getWatchContext),
+          books: () => getCachedBlock('books', 300000, getBooksContext),
+          starlight: () => getCachedBlock('starlight', 180000, getStarlightContext),
+          chat: () => getCachedBlock('chat', 60000, getRecentChatContext),
+          music: () => getCachedBlock('music', 120000, getMusicContext),
+          garden: () => getCachedBlock('garden', 300000, getGardenContext),
+          canvas: () => getCachedBlock('canvas', 300000, getCanvasContext),
+          play_zone: () => getCachedBlock('play_zone', 300000, getPlayZoneContext),
+          relationship: () => getCachedBlock('relationship', 600000, getRelationshipStats),
+          activity: () => getCachedBlock('activity', 60000, getRecentActivity),
+          sessions: () => getCachedBlock('sessions', 120000, getSessionHistoryContext),
+          calendar: () => getCachedBlock('calendar', 300000, getCalendarContext),
+          journal: () => getCachedBlock('journal', 180000, getJournalContext),
+          bucket: () => getCachedBlock('bucket', 300000, getBucketContext),
+          travel: () => getCachedBlock('travel', 300000, getTravelContext),
+          wellness: () => getCachedBlock('wellness', 180000, getWellnessContext),
+          budget: () => typeof getBudgetContext === 'function' ? getCachedBlock('budget', 300000, getBudgetContext) : Promise.resolve(''),
+        };
+        // Canonical order keeps the prompt stable turn-to-turn.
+        const ordered = Object.keys(fetchers).filter((k) => wanted.includes(k));
+        const values = await Promise.all(ordered.map((k) => fetchers[k]()));
+        // Proactive (birthdays/anniversary) is sync and free: always first.
+        result = [getProactiveContext(), ...values].filter(Boolean).join('\n\n');
         break;
       }
       case 'guardian':
@@ -422,7 +422,7 @@ async function getSessionHistoryContext() {
       .doc('shared')
       .collection('sessions')
       .orderBy('createdAt', 'desc')
-      .limit(50)
+      .limit(20)
       .get();
     if (snapshot.empty) return '';
 
@@ -439,14 +439,15 @@ async function getSessionHistoryContext() {
 
     const parts = [];
     if (summaries.length > 0) {
-      parts.push(`## Past Session Summaries\n${summaries.slice(0, 25).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
+      parts.push(`## Past Session Summaries\n${summaries.slice(0, 10).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
     }
     if (recentSessions.length > 0) {
-      // With 512K context, we can afford richer session history.
-      const CHAR_LIMIT = 40_000;
+      // Bounded: recent turns already carry the live conversation, so
+      // archived sessions only need to jog Motchi's longer memory.
+      const CHAR_LIMIT = 15_000;
       let totalChars = 0;
       const sessionBlocks = [];
-      for (let si = 0; si < Math.min(recentSessions.length, 8); si++) {
+      for (let si = 0; si < Math.min(recentSessions.length, 4); si++) {
         const msgs = recentSessions[si];
         const lines = [];
         for (const m of msgs) {
