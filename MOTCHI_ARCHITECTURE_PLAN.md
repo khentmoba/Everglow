@@ -1,11 +1,11 @@
 # Motchi Agent Architecture Plan — ARCHIVED (Implemented with Agnes)
 
-> **Historical note (2026-08):** This plan was written for Groq (`openai/gpt-oss-120b` / `qwen/qwen3.6-27b`). Everglow has since migrated to **Agnes 2.5 Flash** via `https://apihub.agnes-ai.com` (`proxyAI`/`proxyAIv2` on Cloud Run, `AGNES_API_KEY`, 512K context, `AGNES_INPUT_TOKEN_BUDGET=120000`). `MOTCHI_ARCHITECTURE_PLAN.md` is retained for context — phase checklists below map to the current Agnes implementation.
+> **Historical note (2026-08):** This plan was written for Groq (`openai/gpt-oss-120b` / `qwen/qwen3.6-27b`). Everglow has since migrated to **Agnes 3.0 Flash** via `https://apihub.agnes-ai.com` (`proxyAI`/`proxyAIv2` on Cloud Run, `AGNES_API_KEY`, 512K context, `AGNES_INPUT_TOKEN_BUDGET=120000`). `MOTCHI_ARCHITECTURE_PLAN.md` is retained for context — phase checklists below map to the current Agnes implementation.
 
 
 ## Summary
 
-Transform Motchi from a single-shot chatbot into a real agent with custom tool execution, an agentic loop, smarter memory, and proactive behavior. The model is now `agnes-2.5-flash` via Agnes (apihub.agnes-ai.com) — all improvements were architectural and are now live on `proxyAI`/`proxyAIv2`.
+Transform Motchi from a single-shot chatbot into a real agent with custom tool execution, an agentic loop, smarter memory, and proactive behavior. The model is now `agnes-3.0-flash` via Agnes (apihub.agnes-ai.com) — all improvements were architectural and are now live on `proxyAI`/`proxyAIv2`.
 
 ---
 
@@ -64,7 +64,7 @@ Add tool awareness to Motchi's persona:
 
 ### Token Budget Adjustment
 
-Tool schemas add ~1000 tokens. Increase `Agnes_INPUT_TOKEN_BUDGET` to 120000 (Agnes 2.5 Flash offers 512K context; tool schemas ~1K).
+Tool schemas add ~1000 tokens. Increase `Agnes_INPUT_TOKEN_BUDGET` to 120000 (Agnes 3.0 Flash offers 512K context; tool schemas ~1K).
 
 ### Files Modified
 | File | Change |
@@ -213,7 +213,7 @@ Week 5: Phase 4 + 5 in parallel
 | Conversation | ~2000 | ~2000 | ~2000 |
 | **Total** | **~6000** | **~7000** | **~6700** |
 
-Agnes 2.5 Flash offers 512K context — we're safe (budget 120K).
+Agnes 3.0 Flash offers 512K context — we're safe (budget 120K).
 
 ---
 
