@@ -239,6 +239,25 @@ test('routing lists only known tools and reaches all of them', () => {
   }
 });
 
+test('toolListSection names only the attached tools', () => {
+  const section = tools.toolListSection(['search_movies', 'add_to_watchlist']);
+  assert.ok(section.includes('- search_movies'));
+  assert.ok(section.includes('- add_to_watchlist'));
+  assert.ok(!section.includes('remember_fact'));
+  assert.ok(section.includes('(and no others)'));
+});
+
+test('toolListSection covers all tools and the empty case', () => {
+  const full = tools.toolListSection(tools.TOOL_NAMES);
+  for (const name of tools.TOOL_NAMES) {
+    assert.ok(full.includes(`- ${name}`), `missing ${name}`);
+  }
+  const empty = tools.toolListSection([]);
+  assert.ok(empty.includes('No tools are attached'));
+  const deduped = tools.toolListSection(['set_mood', 'set_mood', null, '']);
+  assert.equal(deduped.match(/- set_mood/g).length, 1);
+});
+
 function validate(name, args) {
   return tools.validateToolArgs(name, args);
 }
