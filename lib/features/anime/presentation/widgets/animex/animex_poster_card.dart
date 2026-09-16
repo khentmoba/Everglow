@@ -322,7 +322,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
                             ]
                           : const [
                               BoxShadow(
-                                color: Color(0x66000000),
+                                color: AppColors.scrimStrong,
                                 blurRadius: 14,
                                 offset: Offset(0, 6),
                               ),

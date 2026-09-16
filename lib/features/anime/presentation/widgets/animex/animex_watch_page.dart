@@ -26,6 +26,7 @@ import 'animex_player.dart';
 import 'animex_poster_row.dart';
 import 'animex_section_header.dart';
 import 'animex_tokens.dart';
+import '../../../../../core/theme/app_colors.dart';
 part 'animex_watch_page_widgets.dart';
 part 'animex_watch_page_sheets.dart';
 part 'animex_watch_page_episodes.dart';

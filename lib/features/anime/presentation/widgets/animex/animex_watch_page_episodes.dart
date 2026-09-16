@@ -110,7 +110,7 @@ class _EpisodeThumbnail extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x66000000),
+                      color: AppColors.scrimStrong,
                       blurRadius: 4,
                       offset: Offset(0, 1),
                     ),

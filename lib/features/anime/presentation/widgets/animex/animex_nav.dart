@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../data/services/animex_stores.dart';
 import '../../../../../core/services/auth_service.dart';
+import '../../../../../core/theme/app_colors.dart';
 
 import 'animex_buttons.dart';
 import 'animex_controller.dart';
@@ -50,7 +51,7 @@ class AnimeXTopHeader extends StatelessWidget {
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x66000000),
+            color: AppColors.scrimStrong,
             blurRadius: 18,
             offset: Offset(0, 4),
           ),

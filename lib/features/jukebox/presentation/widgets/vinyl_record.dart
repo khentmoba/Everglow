@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_art.dart';
 
 class VinylRecord extends StatefulWidget {
   const VinylRecord({super.key, this.isPlaying = true});
@@ -51,7 +52,7 @@ class _VinylRecordState extends State<VinylRecord>
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: const RadialGradient(
-              colors: [Color(0xFF1E1E1E), Color(0xFF050505), Colors.black],
+              colors: [AppArt.vinylEdge, AppArt.vinylCore, Colors.black],
               stops: [0.3, 0.65, 1.0],
             ),
             boxShadow: [
@@ -107,7 +108,7 @@ class _VinylRecordState extends State<VinylRecord>
                     colors: [
                       AppColors.deepRose,
                       AppColors.deepRose.withValues(alpha: 0.85),
-                      const Color(0xFF8E0E3A),
+                      AppArt.vinylLabel,
                     ],
                   ),
                   border: Border.all(

@@ -15,6 +15,7 @@ import 'core/services/notification_service.dart';
 import 'core/system/app_bootstrap.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
 import 'core/utils/connectivity_service.dart';
 import 'core/utils/logger.dart';
@@ -80,25 +81,25 @@ Future<void> _startEverglow() async {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF2D1B33).withValues(alpha: 0.78),
+              color: AppColors.velvet.withValues(alpha: 0.78),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFF4C2C2).withValues(alpha: 0.15)),
+              border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.15)),
             ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cloud_off_rounded, color: Color(0xFFF4C2C2), size: 28),
+                  const Icon(Icons.cloud_off_rounded, color: AppColors.roseQuartz, size: 28),
                   const SizedBox(height: 8),
                   Text(
                     'Something went dark — $widgetName — tap to retry',
-                    style: const TextStyle(color: Color(0xFFFFF5F5), fontSize: 13, fontWeight: FontWeight.w600),
+                    style: const TextStyle(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     msg.length > 180 ? '${msg.substring(0, 180)}…' : msg,
-                    style: TextStyle(color: const Color(0xFFF4C2C2).withValues(alpha: 0.85), fontSize: 11.5),
+                    style: TextStyle(color: AppColors.roseQuartz.withValues(alpha: 0.85), fontSize: 11.5),
                     textAlign: TextAlign.center,
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
@@ -107,7 +108,7 @@ Future<void> _startEverglow() async {
                     const SizedBox(height: 8),
                     Text(
                       shortStack,
-                      style: TextStyle(color: const Color(0xFFFFF5F5).withValues(alpha: 0.65), fontSize: 10, height: 1.35),
+                      style: TextStyle(color: AppColors.petalWhite.withValues(alpha: 0.65), fontSize: 10, height: 1.35),
                       textAlign: TextAlign.left,
                       maxLines: 6,
                       overflow: TextOverflow.ellipsis,
@@ -143,10 +144,10 @@ Future<void> _startEverglow() async {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFC2185B).withValues(alpha: 0.9),
+                        color: AppColors.deepRose.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Text('Retry', style: TextStyle(color: Color(0xFFFFF5F5), fontSize: 13, fontWeight: FontWeight.w600)),
+                      child: const Text('Retry', style: TextStyle(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
