@@ -77,7 +77,10 @@ class _EpisodeThumbnail extends StatelessWidget {
               Container(
                 decoration: BoxDecoration(
                   color: AnimeXTokens.accent.withValues(alpha: 0.25),
-                  border: Border.all(color: AnimeXTokens.accentWarm, width: 2),
+                  border: Border.all(
+                    color: AnimeXTokens.accentWarm,
+                    width: 2,
+                  ),
                   borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
                 ),
                 child: Center(
@@ -101,10 +104,7 @@ class _EpisodeThumbnail extends StatelessWidget {
               left: 6,
               bottom: 6,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2.5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: AnimeXTokens.accent,
                   borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
@@ -144,10 +144,7 @@ class _EpisodeThumbnail extends StatelessWidget {
                 right: 6,
                 bottom: 6,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4.5,
-                    vertical: 2,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 2),
                   decoration: BoxDecoration(
                     color: const Color(0xDD000000),
                     borderRadius: BorderRadius.circular(3),
@@ -181,3 +178,4 @@ class _EpisodeThumbnail extends StatelessWidget {
     );
   }
 }
+

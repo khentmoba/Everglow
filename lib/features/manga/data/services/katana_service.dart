@@ -62,7 +62,8 @@ class KatanaService {
   }
 
   Uri _proxiedFetch(Uri uri, {String cookie = ''}) {
-    final base = '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}';
+    final base =
+        '$_proxyHtmlUrl?url=${Uri.encodeComponent(uri.toString())}';
     if (cookie.isEmpty) return Uri.parse(base);
     return Uri.parse('$base&cookie=${Uri.encodeComponent(cookie)}');
   }
@@ -77,8 +78,7 @@ class KatanaService {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme) return url;
     final host = uri.host.toLowerCase();
-    final isAllowed =
-        host == 'mangakatana.com' ||
+    final isAllowed = host == 'mangakatana.com' ||
         host.endsWith('.mangakatana.com') ||
         host == 'mangakatana.net' ||
         host.endsWith('.mangakatana.net') ||
@@ -121,6 +121,7 @@ class KatanaService {
     }
     return null;
   }
+
 
   // ── Detail ──────────────────────────────────────────────────────
 
@@ -230,7 +231,9 @@ class KatanaService {
     return result;
   }
 
+
   static String _katanaMangaId(String slug) => 'katana|$slug';
+
 
   // ── Parsers ─────────────────────────────────────────────────────
 
@@ -335,6 +338,7 @@ class KatanaService {
     }
     return chapters;
   }
+
 
   /// Parses "Aug-12-2026" style dates from chapter tables.
   static DateTime? _parseKatanaDate(String raw) {

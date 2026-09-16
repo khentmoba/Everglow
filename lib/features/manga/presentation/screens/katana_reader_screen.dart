@@ -115,11 +115,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     super.initState();
     _chapters = sortChaptersAscending(widget.chapters);
     _chaptersIncomplete = widget.chapters.length < 8;
-    final initial = _chapters
-        .where((c) => c.id == widget.chapterId)
-        .firstOrNull;
-    _chapter =
-        initial ??
+    final initial =
+        _chapters.where((c) => c.id == widget.chapterId).firstOrNull;
+    _chapter = initial ??
         (_chapters.isNotEmpty
             ? _chapters.first
             : KatanaChapter(
@@ -527,7 +525,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   }
 
   Future<void> _reportChapter() async {
-    final url = 'https://mangakatana.com/manga/${widget.slug}/${_chapter.path}';
+    final url =
+        'https://mangakatana.com/manga/${widget.slug}/${_chapter.path}';
     final action = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
@@ -615,7 +614,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                 if (_themeStyle == ReaderThemeStyle.sepia)
                   Positioned.fill(
                     child: IgnorePointer(
-                      child: Container(color: const Color(0x10FF9E0B)),
+                      child: Container(
+                        color: const Color(0x10FF9E0B),
+                      ),
                     ),
                   ),
 
@@ -694,4 +695,5 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       ),
     );
   }
+
 }
