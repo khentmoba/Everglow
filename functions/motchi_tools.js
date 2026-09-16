@@ -67,6 +67,154 @@ const TOOL_NAMES = [
   'get_trips',
 ];
 
+// ── Intent-based tool routing ─────────────────────────────────────
+// Sends Motchi only the tools that match the message intent instead of
+// all 50 schemas every turn. Saves input tokens on every request and
+// cuts mistaken tool calls. Guaranteed by tests: every eval case's
+// expectedTools must be a subset of selectToolNames(message), and every
+// known tool must stay reachable from core + groups.
+
+// Always available: memory writes, mood, recap, web, XP, activity.
+const CORE_TOOLS = [
+  'set_mood',
+  'save_to_starlight_jar',
+  'remember_fact',
+  'read_memories',
+  'get_today_recap',
+  'web_search',
+  'read_web_page',
+  'add_xp',
+  'log_activity',
+];
+
+// Read-only lookups, added only when no intent group matches, so plain
+// chat can still inspect the shared spaces.
+const AWARENESS_TOOLS = [
+  'read_chat_messages',
+  'get_watchlist',
+  'read_starlight_jar',
+  'get_garden',
+  'get_gallery',
+  'get_calendar_events',
+];
+
+// Intent groups: keyword pattern plus the tools that intent needs. All
+// matching groups merge. Keywords stay generous — a spurious group
+// costs ~3 tools, a missed group costs a failed request.
+const TOOL_GROUPS = [
+  {
+    match: /movie|film|cinema|watchlist|watched|\bwatch\b|\btv\b|shows|series|episode|tmdb|netflix|k-?drama/i,
+    tools: ['add_to_watchlist', 'search_movies', 'get_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],
+  },
+  {
+    match: /\bbook\b|books|\bread\b|reading|author|novel|chapter|percent|progress|\blibrary\b/i,
+    tools: ['search_books', 'add_book_to_our_books', 'update_book_progress'],
+  },
+  {
+    match: /anime|manga|jikan|myanimelist/i,
+    tools: ['search_anime'],
+  },
+  {
+    match: /music|song|spotify|playlist|\bplay\b|artist|album|\btrack\b|listen|karaoke|jukebox/i,
+    tools: ['search_spotify'],
+  },
+  {
+    match: /chat|sanctuary|said|\bsay\b|\btell\b|relay|messaged|convo/i,
+    tools: ['read_chat_messages', 'send_sanctuary_message', 'send_note_to_partner'],
+  },
+  {
+    match: /starlight|\bjar\b|grateful|gratitude|thankful|\bnotes?\b/i,
+    tools: ['read_starlight_jar'],
+  },
+  {
+    match: /\bmoods?\b|feeling|\bfeel\b|felt|emotion|happy|sad|stressed|tired|excited|anxious|lonely/i,
+    tools: ['get_relationship_insights'],
+  },
+  {
+    match: /memor|remember|forget|trivia|\bquiz\b/i,
+    tools: ['pin_memory', 'edit_memory', 'delete_memory', 'get_memory_trivia'],
+  },
+  {
+    match: /\bdates?\b|dating|anniversary|romantic|date night|datenight|\bideas?\b/i,
+    tools: ['get_date_ideas', 'plan_date_night'],
+  },
+  {
+    match: /weather|rain|sunny|forecast|temperature|storm|typhoon/i,
+    tools: ['get_weather', 'plan_date_night'],
+  },
+  {
+    match: /remind|reminder|alarm|\bnotify\b/i,
+    tools: ['create_reminder'],
+  },
+  {
+    match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b/i,
+    tools: ['add_calendar_event', 'get_calendar_events'],
+  },
+  {
+    match: /journal|diar|reflect|\bentr(?:y|ies)\b/i,
+    tools: ['create_journal_entry', 'get_journal_entries', 'search_journal_entries', 'read_journal_entry'],
+  },
+  {
+    match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b/i,
+    tools: ['add_bucket_item', 'get_bucket_list'],
+  },
+  {
+    match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
+    tools: ['add_trip', 'add_trip_pin', 'get_trips'],
+  },
+  {
+    match: /habit|streak|workout|\bgym\b|routine/i,
+    tools: ['log_habit', 'complete_habit'],
+  },
+  {
+    match: /photos?|pictures?|gallery|selfie|\bimages?\b/i,
+    tools: ['get_gallery'],
+  },
+  {
+    match: /garden|plants?|flowers?|lily|lilies|bloom/i,
+    tools: ['get_garden'],
+  },
+  {
+    match: /draw|canvas|\bart\b|sketch|paint/i,
+    tools: ['get_canvas'],
+  },
+  {
+    match: /\bxp\b|\blevels?\b|achievement|\branks?\b/i,
+    tools: ['get_xp_stats'],
+  },
+  {
+    match: /recommend|suggest|discover|\bfind\b|looking for|any good/i,
+    tools: ['search_everglow'],
+  },
+  {
+    match: /\bplan\b|planning|surprise|organize/i,
+    tools: ['plan_date_night', 'search_everglow'],
+  },
+];
+
+/** Tool names for a message: core + every matching intent group. */
+function selectToolNames(message) {
+  const text = String(message || '');
+  const picked = new Set(CORE_TOOLS);
+  let matched = 0;
+  for (const group of TOOL_GROUPS) {
+    let hit = false;
+    try {
+      hit = group.match.test(text);
+    } catch (_) {
+      hit = false;
+    }
+    if (hit) {
+      matched++;
+      for (const name of group.tools) picked.add(name);
+    }
+  }
+  if (matched === 0) {
+    for (const name of AWARENESS_TOOLS) picked.add(name);
+  }
+  return [...picked];
+}
+
 function _text(value) {
   return String(value ?? '').trim();
 }
@@ -302,6 +450,10 @@ module.exports = {
   TOOL_TIMEOUT_MS,
   MAX_TOOL_ROUNDS,
   TOOL_NAMES,
+  CORE_TOOLS,
+  AWARENESS_TOOLS,
+  TOOL_GROUPS,
+  selectToolNames,
   validateToolArgs,
   isValidHttpUrl,
   clampWithDefault,

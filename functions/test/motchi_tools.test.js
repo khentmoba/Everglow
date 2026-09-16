@@ -201,6 +201,44 @@ test('isReminderSchedulable mirrors remindAtTs parsing', () => {
   assert.equal(tools.isReminderSchedulable(''), false);
 });
 
+test('tool routing covers every eval case intent', () => {
+  const evalCases = require('./motchi_eval_cases.json');
+  assert.ok(evalCases.length >= 20, 'need eval cases to guard routing');
+  for (const c of evalCases) {
+    const selected = tools.selectToolNames(c.message);
+    for (const t of c.expectedTools || []) {
+      assert.ok(
+        selected.includes(t),
+        `${c.id} ("${c.message}") missing ${t}; selected ${selected.length}`,
+      );
+    }
+  }
+});
+
+test('tool routing stays small', () => {
+  const plain = tools.selectToolNames('today was a long day, just wanted to say hi');
+  assert.ok(plain.length <= 20, `plain chat selected ${plain.length}`);
+  const single = tools.selectToolNames('add Dune to our watchlist');
+  assert.ok(single.length <= 20, `single intent selected ${single.length}`);
+  const multi = tools.selectToolNames('plan our anniversary trip with movies, books and dinner');
+  assert.ok(multi.length <= 32, `multi intent selected ${multi.length}`);
+  assert.ok(multi.length < tools.TOOL_NAMES.length, 'routing must beat all-tools');
+});
+
+test('routing lists only known tools and reaches all of them', () => {
+  const reachable = new Set([
+    ...tools.CORE_TOOLS,
+    ...tools.AWARENESS_TOOLS,
+    ...tools.TOOL_GROUPS.flatMap((g) => g.tools),
+  ]);
+  for (const name of reachable) {
+    assert.ok(tools.TOOL_NAMES.includes(name), `unknown routed tool: ${name}`);
+  }
+  for (const name of tools.TOOL_NAMES) {
+    assert.ok(reachable.has(name), `unreachable tool: ${name}`);
+  }
+});
+
 function validate(name, args) {
   return tools.validateToolArgs(name, args);
 }
