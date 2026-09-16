@@ -58,10 +58,96 @@ Future<void> _pumpTopArea(WidgetTester tester, Size size) async {
 }
 
 void main() {
+  test('top-action gaps are even', () {
+    // The (partner / mood / canvas) row sits one gap left of the chat
+    // circle, so all four gaps read as a single 14px rhythm. A stray
+    // `right: 96` here once made the last gap 18px ("not aligned").
+    expect(kTopActionsSize, 54);
+    expect(kTopActionsGap, 14);
+    expect(kTopActionsRowRight, 24 + kTopActionsSize + kTopActionsGap);
+  });
+
   for (final (name, size) in [
     ('phone', const Size(390, 844)),
     ('tablet', const Size(810, 1080)),
   ]) {
+    testWidgets('top-action circles share one baseline with even gaps ($name)', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(size);
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                // The (partner / mood / canvas) row, positioned exactly
+                // as DashboardOverlays places it.
+                Positioned(
+                  top: kTopActionsInset,
+                  right: kTopActionsRowRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        key: Key('c0'),
+                        width: kTopActionsSize,
+                        height: kTopActionsSize,
+                      ),
+                      SizedBox(width: kTopActionsGap),
+                      SizedBox(
+                        key: Key('c1'),
+                        width: kTopActionsSize,
+                        height: kTopActionsSize,
+                      ),
+                      SizedBox(width: kTopActionsGap),
+                      SizedBox(
+                        key: Key('c2'),
+                        width: kTopActionsSize,
+                        height: kTopActionsSize,
+                      ),
+                    ],
+                  ),
+                ),
+                // The chat circle, positioned exactly as DashboardOverlays.
+                Positioned(
+                  top: kTopActionsInset,
+                  right: 24,
+                  child: SizedBox(
+                    key: Key('c3'),
+                    width: kTopActionsSize,
+                    height: kTopActionsSize,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+
+      final rects = [
+        for (var i = 0; i < 4; i++) tester.getRect(find.byKey(Key('c$i'))),
+      ];
+      // All four circles are 54px and share one top edge: no 6px dip
+      // from a stray bottom margin on some buttons but not others.
+      for (final r in rects) {
+        expect(r.width, kTopActionsSize);
+        expect(r.height, kTopActionsSize);
+        expect(r.top, kTopActionsInset);
+      }
+      // Gaps between neighbours are all exactly one gap.
+      for (var i = 0; i < 3; i++) {
+        expect(
+          rects[i + 1].left - rects[i].right,
+          kTopActionsGap,
+          reason: 'gap $i must match the intra-row gap',
+        );
+      }
+    });
+
     testWidgets('dashboard header starts clear of the pinned buttons ($name)', (
       tester,
     ) async {
