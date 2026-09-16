@@ -120,6 +120,15 @@ class BatoService with ConnectivityAware {
     for (final m in linkRe.allMatches(html)) {
       final href = m.group(1)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
+      // Series pages also link other series' chapters (sidebars and
+      // rails) — only keep /title/ links for the series we asked for.
+      // Bare /chapter/{id} links carry no slug so they can't be
+      // filtered and are kept as-is.
+      if (slug.isNotEmpty &&
+          href.startsWith('/title/') &&
+          !href.contains(slug)) {
+        continue;
+      }
 
       // Try to extract chapter number from the link text
       String chapterNum = '';

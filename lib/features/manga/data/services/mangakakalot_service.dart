@@ -119,6 +119,9 @@ class MangaKakalotService with ConnectivityAware {
       final href = m.group(1)?.trim() ?? '';
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
+      // Detail pages also link other series' chapters (sidebars and
+      // rails) — only keep links for the series we asked for.
+      if (slug.isNotEmpty && !href.contains(slug)) continue;
       final id = href.startsWith('/') ? href.substring(1) : href;
       final numMatch = RegExp(
         r'chapter[_-]?([\d.]+)',

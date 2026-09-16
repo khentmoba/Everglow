@@ -99,7 +99,7 @@ class MangakatanaService with ConnectivityAware {
           .get(_proxiedFetch(uri), headers: headers)
           .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        return _parseChapterList(response.body, slug);
+        return parseChapterList(response.body, slug);
       }
     } catch (e) {
       Logger.e('Mangakatana chapter feed error', error: e);
@@ -107,13 +107,16 @@ class MangakatanaService with ConnectivityAware {
     return [];
   }
 
-  List<MangaChapter> _parseChapterList(String html, String slug) {
+  /// Parses the detail-page chapter list. Public and static so tests
+  /// can pin the slug filter with real row HTML (see
+  /// `katana_scraper_filter_test.dart`).
+  static List<MangaChapter> parseChapterList(String html, String slug) {
     final chapters = <MangaChapter>[];
     // Chapter links look like /manga/{slug}/c413, /manga/{slug}/c528.5
     // or /manga/{slug}/v6c147 — the old `/chapter` regex matched
     // nothing on the live site, so this feed always came back empty.
     final linkReg = RegExp(
-      r'<a[^>]*href="([^"]*?/manga/[^"\s]*?/(?:c[\d.]+|v\d+c[\d.]+|fc))"[^>]*>([^<]*)',
+      r'<a[^>]*href="([^"]*?/manga/[^"\s]*?/(?:(?:v\d+)?c[\d.]+(?:-[^"/]*)?|fc))"[^>]*>([^<]*)',
       caseSensitive: false,
     );
     final matches = linkReg.allMatches(html);
@@ -122,16 +125,24 @@ class MangakatanaService with ConnectivityAware {
       final href = m.group(1)?.trim() ?? '';
       final text = m.group(2)?.trim() ?? '';
       if (href.isEmpty || !seen.add(href)) continue;
+      // The detail page also lists other series (Latest Updates rail,
+      // Hot Manga, recommendations) — only keep links for the series
+      // we asked for, or foreign chapters (e.g. Ch. 1075 from another
+      // series) pollute this series' list with huge gaps.
+      if (slug.isNotEmpty && !href.contains('/manga/$slug/')) continue;
       final id = href;
       // Pull the number out of the id: c413 → 413, v6c147 → 147,
+      // c38-p11 → 38 (part suffix dropped so it sorts numerically),
       // fc (first chapter) → '0' so it sorts first.
       final idPart = id.split('/').last.toLowerCase();
       final cIndex = idPart.lastIndexOf('c');
-      final chapterNum = idPart == 'fc'
+      final rawNum = idPart == 'fc'
           ? '0'
           : (cIndex >= 0 && cIndex < idPart.length - 1
               ? idPart.substring(cIndex + 1)
               : '');
+      final numMatch = RegExp(r'^[\d.]+').firstMatch(rawNum);
+      final chapterNum = numMatch?.group(0) ?? '';
       chapters.add(
         MangaChapter(
           id: id,
