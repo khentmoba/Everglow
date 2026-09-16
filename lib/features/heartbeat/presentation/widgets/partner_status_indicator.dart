@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../data/models/user_mood.dart';
 import '../../data/services/mood_service.dart';
 import '../../../../core/services/auth_service.dart';
@@ -72,30 +73,50 @@ class _MoodHeartState extends State<_MoodHeart>
     final isStressed = widget.score <= 2;
     final isAmazing = widget.score == 5;
 
+    // 54px glass circle: matches kTopActionsSize in dashboard_overlays so
+    // the partner heart sits level with the mood / canvas / chat buttons.
+    // Only the inner emoji pulses — the outer ring never moves.
     return RepaintBoundary(
-      child: ScaleTransition(
-        scale: _pulseAnimation,
-        child: Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              if (isAmazing)
-                const BoxShadow(
-                  color: Colors.pinkAccent,
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-              if (isStressed)
-                BoxShadow(
-                  color: Colors.blue.withValues(alpha: 0.3),
-                  blurRadius: 5,
-                  spreadRadius: 1,
-                ),
-            ],
+      child: Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          color: AppColors.moonlight.withValues(alpha: 0.12),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: AppColors.blushGold.withValues(alpha: 0.55),
+            width: 1.5,
           ),
-          child: Text(
-            widget.emoji,
-            style: TextStyle(fontSize: isAmazing ? 28 : 20),
+          boxShadow: [
+            if (isAmazing)
+              const BoxShadow(
+                color: Colors.pinkAccent,
+                blurRadius: 10,
+                spreadRadius: 2,
+              ),
+            if (isStressed)
+              BoxShadow(
+                color: Colors.blue.withValues(alpha: 0.3),
+                blurRadius: 5,
+                spreadRadius: 1,
+              ),
+            BoxShadow(
+              color: AppColors.deepRose.withValues(alpha: 0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Center(
+          child: ScaleTransition(
+            scale: _pulseAnimation,
+            child: Text(
+              widget.emoji,
+              style: TextStyle(
+                fontSize: isAmazing ? 26 : 22,
+                height: 1.0,
+              ),
+            ),
           ),
         ),
       ),

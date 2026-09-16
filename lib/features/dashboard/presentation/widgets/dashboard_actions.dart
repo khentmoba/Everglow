@@ -84,12 +84,14 @@ class _DashboardActionsState extends State<DashboardActions> {
                   ),
                 ],
               ),
-              child: Icon(
-                isVisible
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                color: AppColors.roseQuartz,
-                size: 26,
+              child: Center(
+                child: Icon(
+                  isVisible
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: AppColors.roseQuartz,
+                  size: 26,
+                ),
               ),
             ),
           ),

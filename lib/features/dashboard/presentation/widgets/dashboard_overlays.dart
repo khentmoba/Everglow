@@ -25,8 +25,13 @@ import '../widgets/dashboard_actions.dart';
 /// the three values in step with the 54px buttons above.
 const double kTopActionsInset = 24; // gap under the status bar / safe area
 const double kTopActionsSize = 54; // button diameter
+const double kTopActionsGap = 14; // even spacing between the circles
 const double kTopActionsReserve =
     kTopActionsInset + kTopActionsSize + 20; // clear of the row's bottom edge
+// Right edge of the (partner / mood / canvas) row: chat sits at right:24
+// with a 54px circle, so the row starts one gap left of it. Keeps all
+// four gaps at exactly 14px instead of 14/14/18.
+const double kTopActionsRowRight = 24 + kTopActionsSize + kTopActionsGap;
 
 /// Top of the mood prompt card: clear of the pinned row *and* of the
 /// header pill, which starts at [kTopActionsReserve].
@@ -119,15 +124,16 @@ class DashboardOverlays extends StatelessWidget {
         // Canvas + Partner status + Actions - top-right
         Positioned(
           top: kTopActionsInset,
-          right: 96,
+          right: kTopActionsRowRight,
           child: AppMotion.reduced
               ? Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const PartnerStatusIndicator(),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: kTopActionsGap),
                     const DashboardActions(),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: kTopActionsGap),
                     _FloatingAction(
                       tooltip: 'Open Everglow Canvas',
                       onTap: () => context.push('/canvas'),
@@ -143,11 +149,12 @@ class DashboardOverlays extends StatelessWidget {
                   delay: const Duration(milliseconds: 1500),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const PartnerStatusIndicator(),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: kTopActionsGap),
                       const DashboardActions(),
-                      const SizedBox(width: 14),
+                      const SizedBox(width: kTopActionsGap),
                       _FloatingAction(
                         tooltip: 'Open Everglow Canvas',
                         onTap: () => context.push('/canvas'),
@@ -255,7 +262,6 @@ class _FloatingActionState extends State<_FloatingAction> {
               curve: AppMotion.easeOutStrong,
               width: kTopActionsSize,
               height: kTopActionsSize,
-              margin: const EdgeInsets.only(bottom: 12),
               transform: Matrix4.identity()
                 ..scaleByDouble(
                   _pressed ? 0.9 : (_hovered ? 1.08 : 1.0),
