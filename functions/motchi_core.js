@@ -169,7 +169,7 @@ const CONTEXT_BLOCK_KEYWORDS = {
   play_zone: ['game', 'games', 'gaming', 'score', 'scores', 'playzone', 'play', 'win', 'won', 'rank', 'ranked'],
   relationship: ['anniversary', 'together', 'relationship', 'couple', 'pattern', 'patterns', 'stats', 'days'],
   activity: ['did', 'today', 'yesterday', 'activity', 'activities', 'been'],
-  sessions: ['remember', 'memory', 'memories', 'history', 'past', 'earlier', 'before', 'yesterday', 'last week', 'recap', 'conversation', 'conversations', 'previously'],
+  sessions: ['remember', 'memory', 'memories', 'history', 'past', 'earlier', 'before', 'yesterday', 'last week', 'recap', 'conversation', 'conversations', 'previously', 'start', 'started', 'beginning'],
   calendar: ['calendar', 'schedule', 'scheduled', 'schedules', 'upcoming', 'coming up', 'tomorrow', 'event', 'events', 'this month', 'this week', 'plan', 'plans', 'planning', 'date', 'dates', 'dating', 'anniversary', 'dinner'],
   journal: ['journal', 'diary', 'diaries', 'reflect', 'reflection', 'entry', 'entries', 'wrote', 'write', 'writing'],
   bucket: ['bucket', 'dream', 'dreams', 'wish', 'wishes', 'goal', 'goals', 'someday'],
