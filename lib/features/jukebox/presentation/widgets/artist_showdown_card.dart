@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -187,66 +188,310 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _ArtistSearch extends StatelessWidget {
+class _ArtistSearch extends StatefulWidget {
   final TextEditingController controller;
   final ValueChanged<String> onSubmit;
   const _ArtistSearch({required this.controller, required this.onSubmit});
 
   @override
+  State<_ArtistSearch> createState() => _ArtistSearchState();
+}
+
+class _ArtistSearchState extends State<_ArtistSearch> {
+  Timer? _debounce;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onChanged(String value) {
+    _query = value;
+    _debounce?.cancel();
+    final showdown = context.read<ArtistShowdownProvider>();
+    if (value.trim().length < 2) {
+      showdown.clearSuggestions();
+      setState(() {});
+      return;
+    }
+    setState(() {});
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      showdown.searchArtists(value);
+    });
+  }
+
+  void _pick(String name) {
+    _debounce?.cancel();
+    _query = '';
+    widget.onSubmit(name);
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      textInputAction: TextInputAction.search,
-      onSubmitted: onSubmit,
-      style: AppTypography.outfitMedium.copyWith(
-        fontSize: 13,
-        color: AppColors.petalWhite,
+    return Consumer<ArtistShowdownProvider>(
+      builder: (context, showdown, _) {
+        final showDropdown =
+            _query.trim().length >= 2 &&
+            (showdown.isSearching || showdown.suggestions.isNotEmpty);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: widget.controller,
+              textInputAction: TextInputAction.search,
+              onChanged: _onChanged,
+              onSubmitted: _pick,
+              style: AppTypography.outfitMedium.copyWith(
+                fontSize: 13,
+                color: AppColors.petalWhite,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Pick an artist… try Lana Del Rey',
+                hintStyle: AppTypography.outfitMedium.copyWith(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: AppColors.roseQuartz,
+                ),
+                suffixIcon: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: AppColors.blushGold,
+                  ),
+                  onPressed: () => _pick(widget.controller.text),
+                ),
+                filled: true,
+                fillColor: AppColors.petalWhite.withValues(alpha: 0.05),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.petalWhite.withValues(alpha: 0.10),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.petalWhite.withValues(alpha: 0.10),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.blushGold.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            ),
+            if (showDropdown) ...[
+              const SizedBox(height: 8),
+              _SuggestionDropdown(
+                showdown: showdown,
+                onPick: _pick,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Autocomplete dropdown under the search box: tap a name to load its
+/// showdown. Solid fill (no blur) and a capped height so it stays cheap
+/// on web and never pushes the card into an unbounded list.
+class _SuggestionDropdown extends StatelessWidget {
+  final ArtistShowdownProvider showdown;
+  final ValueChanged<String> onPick;
+  const _SuggestionDropdown({required this.showdown, required this.onPick});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: AppColors.inkDeep,
+        border: Border.all(
+          color: AppColors.petalWhite.withValues(alpha: 0.12),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.inkDeep.withValues(alpha: 0.5),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      decoration: InputDecoration(
-        hintText: 'Pick an artist… try Lana Del Rey',
-        hintStyle: AppTypography.outfitMedium.copyWith(
-          fontSize: 12,
-          color: AppColors.textMuted,
-        ),
-        prefixIcon: const Icon(
-          Icons.search_rounded,
-          size: 18,
-          color: AppColors.roseQuartz,
-        ),
-        suffixIcon: IconButton(
-          icon: const Icon(
-            Icons.arrow_forward_rounded,
-            size: 18,
-            color: AppColors.blushGold,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 300),
+        child: showdown.isSearching && showdown.suggestions.isEmpty
+            ? const _SearchingRow()
+            : ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                itemCount: showdown.suggestions.length,
+                separatorBuilder: (_, _) => Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  color: AppColors.petalWhite.withValues(alpha: 0.06),
+                ),
+                itemBuilder: (context, i) {
+                  final s = showdown.suggestions[i];
+                  return _SuggestionRow(
+                    name: s.name,
+                    listeners: s.listeners,
+                    imageUrl: s.imageUrl,
+                    onTap: () => onPick(s.name),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _SearchingRow extends StatelessWidget {
+  const _SearchingRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          onPressed: () => onSubmit(controller.text),
-        ),
-        filled: true,
-        fillColor: AppColors.petalWhite.withValues(alpha: 0.05),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: AppColors.petalWhite.withValues(alpha: 0.10),
+          const SizedBox(width: 10),
+          Text(
+            'Searching artists…',
+            style: AppTypography.outfitMedium.copyWith(
+              fontSize: 12,
+              color: AppColors.textMuted,
+            ),
           ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: AppColors.petalWhite.withValues(alpha: 0.10),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: AppColors.blushGold.withValues(alpha: 0.45),
-          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SuggestionRow extends StatelessWidget {
+  final String name;
+  final int listeners;
+  final String? imageUrl;
+  final VoidCallback onTap;
+  const _SuggestionRow({
+    required this.name,
+    required this.listeners,
+    required this.imageUrl,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final art = imageUrl;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.radiusMd,
+                color: AppColors.velvet,
+                border: Border.all(
+                  color: AppColors.petalWhite.withValues(alpha: 0.08),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: AppRadius.radiusMd,
+                child: art == null
+                    ? const Icon(
+                        Icons.person_rounded,
+                        size: 18,
+                        color: AppColors.roseQuartz,
+                      )
+                    : AppNetworkImage(
+                        imageUrl: art,
+                        fit: BoxFit.cover,
+                        cacheWidth: 72,
+                        errorWidget: const Icon(
+                          Icons.person_rounded,
+                          size: 18,
+                          color: AppColors.roseQuartz,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.outfitHeading.copyWith(
+                      fontSize: 13,
+                      color: AppColors.petalWhite,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    listeners > 0
+                        ? '${_formatListeners(listeners)} listeners'
+                        : 'Tap to compare',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.outfitMedium.copyWith(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.north_west_rounded,
+              size: 16,
+              color: AppColors.blushGold,
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  static String _formatListeners(int value) {
+    if (value >= 1000000) {
+      final m = value / 1000000;
+      return '${m.toStringAsFixed(m >= 10 ? 0 : 1)}M';
+    }
+    if (value >= 1000) {
+      final k = value / 1000;
+      return '${k.toStringAsFixed(k >= 100 ? 0 : 1)}K';
+    }
+    return '$value';
   }
 }
 

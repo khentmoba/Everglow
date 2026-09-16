@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:everglow/features/jukebox/data/models/artist_suggestion.dart';
 import 'package:everglow/features/jukebox/data/models/music_status.dart';
 import 'package:everglow/features/jukebox/data/models/top_music_track.dart';
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
@@ -36,10 +37,11 @@ Finder _richTextContaining(String needle) => find.byWidgetPredicate(
 /// filters by artist locally (live `user.gettoptracks` path); quick picks
 /// read the same top-10s directly.
 class _ShowdownFakeSync extends MusicSyncService {
-  _ShowdownFakeSync({required this.topTracks});
+  _ShowdownFakeSync({required this.topTracks, this.suggestions = const []});
 
   /// Last.fm username (lowercased) -> full top tracks.
   final Map<String, List<TopMusicTrack>> topTracks;
+  final List<ArtistSuggestion> suggestions;
 
   @override
   Future<List<TopMusicTrack>> fetchArtistTracks(
@@ -75,6 +77,15 @@ class _ShowdownFakeSync extends MusicSyncService {
     required String track,
     String? mbid,
   }) async => null;
+
+  @override
+  Future<List<ArtistSuggestion>> fetchArtistSuggestions(
+    String query, {
+    int limit = 6,
+  }) async {
+    final q = query.trim().toLowerCase();
+    return suggestions.where((s) => s.name.toLowerCase().contains(q)).toList();
+  }
 }
 
 Future<void> _pumpCard(
@@ -244,6 +255,55 @@ void main() {
 
         expect(find.text('No Ethel Cain plays yet'), findsOneWidget);
         expect(find.text('Play one and take the lead.'), findsOneWidget);
+      } finally {
+        showdown.dispose();
+        stats.dispose();
+      }
+    });
+
+    testWidgets('typing shows suggestions and tapping one loads it', (
+      tester,
+    ) async {
+      const lana = ArtistSuggestion(
+        name: 'Lana Del Rey',
+        listeners: 3264191,
+        url: '',
+      );
+      final sync = _ShowdownFakeSync(
+        topTracks: {
+          'khentsgdz': [
+            _track('Ethel Cain', 'Strangers', 10),
+            _track('Lana Del Rey', 'Video Games', 7),
+          ],
+          'clairjassen': [
+            _track('Ethel Cain', 'Strangers', 5),
+            _track('Lana Del Rey', 'Video Games', 3),
+          ],
+        },
+        suggestions: const [lana],
+      );
+      final showdown = ArtistShowdownProvider(syncService: sync);
+      final stats = MusicStatsProvider(syncService: sync);
+      try {
+        await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+        expect(showdown.artist, 'Ethel Cain');
+
+        await tester.enterText(find.byType(TextField), 'lana del');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(seconds: 1));
+
+        // Dropdown shows the match with a formatted listener count.
+        expect(find.text('Lana Del Rey'), findsWidgets);
+        expect(find.text('3.3M listeners'), findsOneWidget);
+
+        await tester.tap(find.text('3.3M listeners'));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(showdown.artist, 'Lana Del Rey');
+        expect(showdown.suggestions, isEmpty);
+        expect(find.text('Video Games'), findsOneWidget);
       } finally {
         showdown.dispose();
         stats.dispose();

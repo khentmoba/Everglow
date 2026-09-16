@@ -519,6 +519,68 @@ void main() {
       expect(artwork, isNull);
     });
 
+    test('fetchArtistSuggestions parses Last.fm artist.search rows', () async {
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['method'], 'artist.search');
+        expect(request.url.queryParameters['artist'], 'lana del');
+        return _jsonResponse({
+          'results': {
+            'artistmatches': {
+              'artist': [
+                {
+                  'name': 'Lana Del Rey',
+                  'listeners': '3264191',
+                  'mbid': '153c9281-...',
+                  'url': 'https://www.last.fm/music/Lana-Del-Rey',
+                  'image': [
+                    {'#text': '', 'size': 'small'},
+                    {
+                      '#text': 'https://lastfm.example/lana.png',
+                      'size': 'extralarge',
+                    },
+                  ],
+                },
+                {
+                  'name': 'Lana Del Rey & Cedric Gervais',
+                  'listeners': '1200',
+                  'mbid': '',
+                  'url': 'https://www.last.fm/music/x',
+                  'image': [],
+                },
+              ],
+            },
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final results = await service.fetchArtistSuggestions('lana del');
+      expect(results, hasLength(2));
+      expect(results.first.name, 'Lana Del Rey');
+      expect(results.first.listeners, 3264191);
+      expect(results.first.imageUrl, 'https://lastfm.example/lana.png');
+      expect(results.last.imageUrl, isNull);
+    });
+
+    test('fetchArtistSuggestions returns empty for short queries', () async {
+      var called = false;
+      final client = MockClient((_) async {
+        called = true;
+        return _jsonResponse({});
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+      expect(await service.fetchArtistSuggestions(''), isEmpty);
+      expect(await service.fetchArtistSuggestions('a'), isEmpty);
+      expect(called, isFalse);
+    });
+
     test('routes iTunes search through proxyCatalog client', () async {
       final requestedBases = <String>[];
       final requestedPaths = <String>[];

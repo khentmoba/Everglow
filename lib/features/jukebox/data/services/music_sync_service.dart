@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/artist_suggestion.dart';
 import '../models/loved_track.dart';
 import '../models/music_status.dart';
 import '../models/top_album.dart';
@@ -580,6 +581,55 @@ class MusicSyncService {
   /// which make byte-level artist comparison against iTunes unreliable.
   static bool _hasNonAscii(String value) =>
       value.runes.any((rune) => rune > 127);
+
+  /// Searches Last.fm's global artist catalog for autocomplete.
+  ///
+  /// Powers the Artist Showdown search dropdown: type "lana del" and pick
+  /// "Lana Del Rey" instead of guessing the exact spelling. Returns an
+  /// empty list for short/blank queries or on any failure so the UI simply
+  /// shows no dropdown.
+  Future<List<ArtistSuggestion>> fetchArtistSuggestions(
+    String query, {
+    int limit = 6,
+  }) async {
+    final trimmed = query.trim();
+    if (trimmed.length < 2) return const [];
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=artist.search'
+        '&artist=${Uri.encodeComponent(trimmed)}'
+        '&limit=$limit&format=json',
+      );
+      final response = await _getWithAuth(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final artists = _asMapList(
+          data['results']?['artistmatches']?['artist'],
+        );
+        if (artists.isNotEmpty) {
+          return artists
+              .map(ArtistSuggestion.fromJson)
+              .where((a) => a.name.isNotEmpty)
+              .toList();
+        }
+      } else {
+        Logger.e(
+          'Jukebox Service Error (artist search, $trimmed): '
+          '${response.statusCode} - ${response.body}',
+        );
+      }
+    } on TimeoutException {
+      Logger.e(
+        'Jukebox Service Timeout: Artist search for "$trimmed" timed out.',
+      );
+    } catch (e) {
+      Logger.e(
+        'Jukebox Service Exception (artist search, $trimmed)',
+        error: e,
+      );
+    }
+    return const [];
+  }
 
   /// Fetches the user's most-played artists from Last.fm.
   Future<List<TopArtist>> fetchTopArtists(
