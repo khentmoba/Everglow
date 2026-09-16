@@ -11,6 +11,7 @@ import '../../data/services/spotify_resolve_service.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
 import 'spotify_embed_view.dart';
 
 class ListenAlongPopup extends StatefulWidget {
@@ -61,7 +62,9 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
     if (uid == null || uid.isEmpty) return;
     try {
       await XPService().awardPlay(uid);
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Jukebox: play XP award failed', error: e);
+    }
   }
 
   @override

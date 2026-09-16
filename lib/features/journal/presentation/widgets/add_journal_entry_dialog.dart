@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../data/models/journal_entry.dart';
@@ -110,7 +111,9 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
       if (uid != null && uid.isNotEmpty) {
         try {
           await XPService().awardJournal(uid);
-        } catch (_) {}
+        } catch (e) {
+          Logger.e('Journal: XP award failed', error: e);
+        }
       }
     }
     if (mounted) Navigator.pop(context);

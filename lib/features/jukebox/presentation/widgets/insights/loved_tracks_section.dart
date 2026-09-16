@@ -11,6 +11,7 @@ import '../../../data/services/jukebox_dedication_service.dart';
 import '../../../../xp/data/services/xp_service.dart';
 import '../../../data/models/lastfm_image_utils.dart';
 import '../../../../../core/services/auth_service.dart';
+import '../../../../../core/utils/logger.dart';
 
 class LovedTracksSection extends StatefulWidget {
   const LovedTracksSection({super.key});
@@ -534,7 +535,9 @@ class _LovedTracksSectionState extends State<LovedTracksSection> {
                 if (dedicateUid != null && dedicateUid.isNotEmpty) {
                   try {
                     await XPService().awardDedicate(dedicateUid);
-                  } catch (_) {}
+                  } catch (e) {
+                    Logger.e('Jukebox: dedicate XP award failed', error: e);
+                  }
                 }
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) {

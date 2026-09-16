@@ -6,6 +6,7 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/presence_service.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../shared/widgets/partner_doodle_indicator.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../data/services/canvas_service.dart';
@@ -519,8 +520,10 @@ class _CanvasScreenState extends State<CanvasScreen> {
             s.userId == lastStroke.userId &&
             s.points.length == lastStroke.points.length,
       );
-      _canvasService.deleteStroke(actualStroke.id);
-    } catch (_) {}
+      await _canvasService.deleteStroke(actualStroke.id);
+    } catch (e) {
+      Logger.e('Canvas: undo failed to remove stroke', error: e);
+    }
   }
 
   void _redo() {

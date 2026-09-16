@@ -166,7 +166,9 @@ class JukeboxProvider extends ChangeNotifier {
     _lastSyncedTrackKey[lastfmUser] = key;
     try {
       await _persistenceService.saveMusicStatus(status);
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Jukebox: saveMusicStatus failed', error: e);
+    }
     await _awardListenFor(status);
   }
 
@@ -180,7 +182,9 @@ class JukeboxProvider extends ChangeNotifier {
     if (uid == null || uid.isEmpty) return;
     try {
       await award(uid);
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Jukebox: listen XP award failed', error: e);
+    }
   }
 
   static String _trackKey(MusicStatus status) {

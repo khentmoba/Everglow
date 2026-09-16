@@ -214,7 +214,9 @@ class GardenProvider extends ChangeNotifier {
     }
     try {
       await XPService().awardGarden(_userId!);
-    } catch (_) {}
+    } catch (e) {
+      Logger.e('Garden: XP award failed', error: e);
+    }
   }
 
   /// Change the user's plant type.

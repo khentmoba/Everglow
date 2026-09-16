@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/services/starlight_service.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../domain/models/star_note.dart';
@@ -132,7 +133,9 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
       if (starUid != null && starUid.isNotEmpty) {
         try {
           await XPService().awardStar(starUid);
-        } catch (_) {}
+        } catch (e) {
+          Logger.e('Starlight: XP award failed', error: e);
+        }
       }
     }
   }
