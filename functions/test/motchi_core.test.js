@@ -7,6 +7,7 @@ const {
   tokenize,
   parseFactStructure,
   rankMemories,
+  needsEmbeddingBackfill,
   selectContextBlocks,
   selectBlockKeys,
   DEFAULT_CONTEXT_KEYS,
@@ -154,6 +155,15 @@ test('selectBlockKeys pre-selects the blocks a query needs', () => {
   assert.ok(selectBlockKeys('play some Ethel Cain songs').includes('music'));
   assert.ok(selectBlockKeys('log a gym workout streak').includes('wellness'));
   assert.ok(selectBlockKeys('how much did we spend this month').includes('budget'));
+});
+
+test('needsEmbeddingBackfill spots unusable stored vectors', () => {
+  assert.equal(needsEmbeddingBackfill(null), true);
+  assert.equal(needsEmbeddingBackfill(undefined), true);
+  assert.equal(needsEmbeddingBackfill('nope'), true);
+  assert.equal(needsEmbeddingBackfill([0.1, 0.2]), true);
+  assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), true);
+  assert.equal(needsEmbeddingBackfill(new Array(64).fill(0)), false);
 });
 
 test('selectBlockKeys falls back to the awareness set', () => {

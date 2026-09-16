@@ -7,8 +7,51 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
-const { composeTodayRecap } = require('./motchi_core.js');
+const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
+
+/**
+ * Shared recap fetch for the morning/night/weekly digests: one parallel
+ * sweep (moods + activity + starlight + memories, plus watchlist when
+ * asked) mapped into the shape composeTodayRecap wants. Raw snapshots
+ * ride along so callers can run their own quiet-day checks.
+ */
+async function collectRecapData(db, {
+  dateLabel,
+  moodsQuery,
+  activityLimit = 5,
+  starlightLimit = 3,
+  includeWatchlist = true,
+}) {
+  const jobs = [
+    moodsQuery.get(),
+    db.collection('recent_activity').orderBy('timestamp', 'desc').limit(activityLimit).get(),
+    db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(starlightLimit).get(),
+    db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(150).get(),
+  ];
+  if (includeWatchlist) jobs.push(db.collection('our_cinema').limit(5).get());
+  const [moodsSnap, activitySnap, starSnap, memorySnap, watchSnap] = await Promise.all(jobs);
+  return {
+    recapData: {
+      dateLabel,
+      moods: moodsSnap.docs.map((d) => ({
+        uid: d.data().uid || d.data().username || 'someone',
+        mood: d.data().mood || d.data().moodLabel || 'okay',
+      })),
+      activities: activitySnap.docs.map((d) => d.data().activity || d.data().description || '').filter(Boolean),
+      starlight: starSnap.docs.map((d) => d.data().content || '').filter(Boolean),
+      watchlist: watchSnap ? watchSnap.docs.map((d) => d.data().title || '').filter(Boolean) : [],
+      memories: memorySnap.docs.map((d) => {
+        const data = d.data();
+        return {
+          fact: data.fact || '',
+          occurredAt: data.occurredAt?.toDate?.() || null,
+        };
+      }),
+    },
+    snaps: { moodsSnap, activitySnap, starSnap, memorySnap, watchSnap: watchSnap || null },
+  };
+}
 
 // ── Scheduled: Daily Digest (8:00 AM PHT = 00:00 UTC) ───────────
 const motchiDailyDigest = onSchedule({
@@ -22,34 +65,11 @@ const motchiDailyDigest = onSchedule({
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
 
-  const [moodsSnap, activitySnap, starSnap, watchSnap, memorySnap] = await Promise.all([
-    db.collection('moods').where('date', '==', today).get(),
-    db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
-    db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
-    db.collection('our_cinema').limit(5).get(),
-    db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc').limit(150).get(),
-  ]);
-
-  const recapData = {
+  const { recapData, snaps } = await collectRecapData(db, {
     dateLabel: today,
-    moods: moodsSnap.docs.map(d => ({
-      uid: d.data().uid || 'someone',
-      mood: d.data().mood || 'okay',
-    })),
-    activities: activitySnap.docs.map(
-      d => d.data().activity || d.data().description || ''
-    ),
-    starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
-    watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
-    memories: memorySnap.docs.map(d => {
-      const data = d.data();
-      return {
-        fact: data.fact || '',
-        occurredAt: data.occurredAt?.toDate?.() || null,
-      };
-    }),
-  };
+    moodsQuery: db.collection('moods').where('date', '==', today),
+  });
+  const { moodsSnap, activitySnap, starSnap } = snaps;
 
   // Quiet-day skip: no moods, no fresh activity, no starlight — the paid
   // LLM polish would just gush over an empty week. The deterministic
@@ -122,32 +142,13 @@ const motchiNightRecap = onSchedule({
   try {
   const db = getDb();
   const today = new Date().toISOString().slice(0, 10);
-  const [moodSnap, activitySnap, starSnap, memorySnap] = await Promise.all([
-    db.collection('moods').where('date', '==', today).get(),
-    db.collection('recent_activity').orderBy('timestamp', 'desc').limit(5).get(),
-    db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(3).get(),
-    db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc').limit(150).get(),
-  ]);
-
-  const recap = composeTodayRecap({
+  const { recapData } = await collectRecapData(db, {
     dateLabel: today,
-    moods: moodSnap.docs.map(d => ({
-      uid: d.data().uid || 'someone',
-      mood: d.data().mood || 'okay',
-    })),
-    activities: activitySnap.docs.map(
-      d => d.data().activity || d.data().description || ''
-    ),
-    starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
-    memories: memorySnap.docs.map(d => {
-      const data = d.data();
-      return {
-        fact: data.fact || '',
-        occurredAt: data.occurredAt?.toDate?.() || null,
-      };
-    }),
+    moodsQuery: db.collection('moods').where('date', '==', today),
+    includeWatchlist: false,
   });
+
+  const recap = composeTodayRecap(recapData);
 
   await sendFCMToBoth({
     title: '🌙 Motchi\'s Night Recap',
@@ -325,27 +326,13 @@ const motchiWeeklyRecap = onSchedule({
   const todayStr = now.toISOString().slice(0, 10);
   const weekStartStr = weekAgo.toISOString().slice(0, 10);
   try {
-    const [moodsSnap, activitySnap, starSnap, watchSnap, memorySnap] = await Promise.all([
-      db.collection('moods').where('timestamp', '>=', weekAgo).limit(50).get(),
-      db.collection('recent_activity').orderBy('timestamp', 'desc').limit(10).get(),
-      db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(5).get(),
-      db.collection('our_cinema').limit(5).get(),
-      db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(150).get(),
-    ]);
-    const recapData = {
+    const { recapData, snaps } = await collectRecapData(db, {
       dateLabel: `${weekStartStr} to ${todayStr}`,
-      moods: moodsSnap.docs.map(d => ({
-        uid: d.data().uid || d.data().username || 'someone',
-        mood: d.data().mood || d.data().moodLabel || 'okay',
-      })),
-      activities: activitySnap.docs.map(d => d.data().activity || d.data().description || '').filter(Boolean),
-      starlight: starSnap.docs.map(d => d.data().content || '').filter(Boolean),
-      watchlist: watchSnap.docs.map(d => d.data().title || '').filter(Boolean),
-      memories: memorySnap.docs.map(d => ({
-        fact: d.data().fact || '',
-        occurredAt: d.data().occurredAt?.toDate?.() || null,
-      })),
-    };
+      moodsQuery: db.collection('moods').where('timestamp', '>=', weekAgo).limit(50),
+      activityLimit: 10,
+      starlightLimit: 5,
+    });
+    const { moodsSnap, activitySnap, starSnap } = snaps;
     let recap = composeTodayRecap(recapData);
     // Quiet-week skip: same idea as the daily digest — empty weeks get
     // the deterministic recap, no paid polish.
@@ -505,8 +492,21 @@ const motchiMemorySweep = onSchedule({
     const now = Date.now();
     let pruned = 0;
     let updated = 0;
+    let backfilled = 0;
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
+      // Backfill: old facts carry remote-dim (or no) embeddings, which
+      // never match the local query vector — recompute locally so memory
+      // ranking works for them again. Runs for pinned docs too.
+      if (data.fact && needsEmbeddingBackfill(data.embedding)) {
+        try {
+          const emb = simpleEmbedding(String(data.fact), 64);
+          if (emb) {
+            await doc.ref.update({ embedding: emb });
+            backfilled++;
+          }
+        } catch (_) {}
+      }
       if (data.pinned === true) return;
       const last = data.lastAccessed?.toDate?.() ? data.lastAccessed.toDate().getTime() : (data.createdAt?.toDate?.()?.getTime() || now);
       const daysSince = (now - last) / (1000 * 60 * 60 * 24);
@@ -522,7 +522,7 @@ const motchiMemorySweep = onSchedule({
       }
     });
     await Promise.allSettled(jobs);
-    if (pruned > 0 || updated > 0) console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} scanned=${snap.size}`);
+    if (pruned > 0 || updated > 0 || backfilled > 0) console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} scanned=${snap.size}`);
   } catch (e) {
     console.warn('[motchiMemorySweep] failed:', e.message);
   }
@@ -537,4 +537,5 @@ module.exports = {
   motchiSpecialDayNudge,
   motchiReminderChecker,
   motchiMemorySweep,
+  collectRecapData,
 };
