@@ -36,7 +36,7 @@ const {
 } = require('./common.js');
 const { sendFCMToUser, logToolCall } = require('./triggers.js');
 const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./motchi_context.js');
-const { CORE_TOOLS, selectToolNames } = require('./motchi_tools.js');
+const { CORE_TOOLS, selectToolNames, toolListSection } = require('./motchi_tools.js');
 
 const TOOL_INVALIDATIONS = {
   add_to_watchlist: 'watchlist',
@@ -234,57 +234,7 @@ async function handleProxyAI(req, res) {
 - **Celebrate the small things.** A new garden plant, a finished drawing, a good game score, a saved starlight note — these matter. Acknowledge them.
 
 ## Tool Usage — IMPORTANT
-You have access to custom tools:
-- add_to_watchlist — Add movies/shows to shared watchlist (use tmdb_id from search_movies when disambiguating)
-- save_to_starlight_jar — Save gratitude notes
-- set_mood — Log user's current mood
-- search_movies — Search TMDB for movie/show titles
-- get_weather — Get weather for date planning
-- create_reminder — Set reminders
-- log_activity — Log notable activities
-- search_books — Search Open Library for books
-- add_book_to_our_books — Add books to the shared Our Books list (use open_library_key when disambiguating)
-- get_date_ideas — Get date ideas from a curated list
-- read_chat_messages — Read recent Sanctuary chat messages
-- send_sanctuary_message — Send a message to Sanctuary chat as Motchi
-- read_starlight_jar — Read recent Starlight Jar notes
-- get_watchlist — Read the shared cinema watchlist
-- get_xp_stats — Get XP and leveling information
-- search_anime — Search for anime titles
-- remember_fact — Save a personal fact about Khent or Clair to long-term memory
-- read_memories — Browse or search Motchi's long-term memory book
-- pin_memory — Pin/unpin a memory
-- delete_memory — Delete a memory
-- edit_memory — Edit a memory's text
-- mark_watchlist_item_watched — Mark watchlist items as watched
-- update_book_progress — Update reading progress in Our Books
-- add_xp — Award XP for completed activities (levels land every 200 XP)
-- send_note_to_partner — Pass a private note to the other partner
-- get_relationship_insights — Find gentle patterns in moods and activities
-- get_memory_trivia — Make a mini memory game from real facts
-- get_today_recap — Compile today's recap of Everglow
-- get_gallery — Read recent gallery photos
-- get_garden — Read garden plants
-- get_canvas — Read canvas drawings
-- search_spotify — Search Spotify for tracks
-- remove_from_watchlist — Remove from watchlist
-- search_everglow — Unified search across movies/books/anime/music
-- plan_date_night — Plan a full date night with ideas, weather, and watchlist
-- add_calendar_event — Create calendar events
-- create_journal_entry — Write journal entries
-- add_bucket_item — Add to bucket list
-- add_trip — Create trips
-- add_trip_pin — Add pins to trips
-- log_habit — Create habits
-- complete_habit — Complete habits for today
-- get_calendar_events — Read calendar
-- get_bucket_list — Read bucket list
-- get_journal_entries — Read recent journal entries (summaries)
-- search_journal_entries — Search journal entries across all time by keyword, topic, category, author, or tag
-- read_journal_entry — Read the complete, full unabridged text of a specific journal entry by ID or title
-- get_trips — Read trips
-- web_search — Search the web for current info, news, prices, or anything not covered by other tools
-- read_web_page — Fetch and read the full content of a web page (up to 3 URLs)
+%%MOTCHI_TOOL_LIST%%
 
 **When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. Then use read_web_page on the most promising result if the snippets are not enough. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services.
 
@@ -1287,6 +1237,19 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
   // Tools: custom Motchi tools (dynamically pruned for feature and greetings)
   const tools = selectToolsForRequest(feature, lastUserMessage);
+
+  // Render the persona's tool list from the ATTACHED tools, so the prompt
+  // never advertises tools that routing removed. Custom/Firestore
+  // personas carry their own prose and skip this (no placeholder).
+  if (systemPrompt.includes('%%MOTCHI_TOOL_LIST%%')) {
+    systemPrompt = systemPrompt.replace(
+      '%%MOTCHI_TOOL_LIST%%',
+      toolListSection(tools.map((t) => t.function.name)),
+    );
+    // nimMessages captured the placeholder version — point it at the
+    // rendered prompt (the payload guard below still measures the body).
+    if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
+  }
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
   // Agnes uses chat_template_kwargs.enable_thinking instead of reasoning_effort.

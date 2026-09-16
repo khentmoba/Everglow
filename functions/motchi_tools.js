@@ -215,6 +215,20 @@ function selectToolNames(message) {
   return [...picked];
 }
 
+/**
+ * Markdown block naming the tools attached to this request. Names only —
+ * full descriptions already ride with the schemas, so repeating them
+ * would just burn tokens. The fallback persona embeds this per request
+ * so the prompt never advertises tools that were routed out.
+ */
+function toolListSection(toolNames) {
+  const names = [...new Set((toolNames || []).filter((n) => typeof n === 'string' && n))];
+  if (names.length === 0) {
+    return 'No tools are attached to this request — answer directly from context and memory, without calling anything.';
+  }
+  return `You have access to these custom tools right now (and no others):\n${names.map((n) => `- ${n}`).join('\n')}`;
+}
+
 function _text(value) {
   return String(value ?? '').trim();
 }
@@ -454,6 +468,7 @@ module.exports = {
   AWARENESS_TOOLS,
   TOOL_GROUPS,
   selectToolNames,
+  toolListSection,
   validateToolArgs,
   isValidHttpUrl,
   clampWithDefault,
