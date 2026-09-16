@@ -77,7 +77,7 @@ const TOOL_NAMES = [
 
 // ── Intent-based tool routing ─────────────────────────────────────
 // Sends Motchi only the tools that match the message intent instead of
-// all 50 schemas every turn. Saves input tokens on every request and
+// all 58 schemas every turn. Saves input tokens on every request and
 // cuts mistaken tool calls. Guaranteed by tests: every eval case's
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.

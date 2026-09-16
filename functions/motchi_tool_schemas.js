@@ -906,7 +906,7 @@ function selectToolsForRequest(reqFeature, userMsg) {
     return MOTCHI_TOOLS.filter(t => coreAllowed.has(t.function.name));
   }
   // Intent routing: core tools + only the groups the message asks
-  // for (typically 10-15 of 50 schemas). Falls back to full tools if
+  // for (typically 10-15 of 58 schemas). Falls back to full tools if
   // the router ever returns nothing, so Motchi never goes blind.
   try {
     const wanted = new Set(selectToolNames(userMsg));
