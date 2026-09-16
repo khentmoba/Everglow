@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../shared/widgets/glass_container.dart';
-import '../../../../shared/widgets/animated_emblem.dart';
-import '../../../../shared/widgets/bouncy_button.dart';
+import '../../../../shared/widgets/everglow/glass_container.dart';
+import '../../../../shared/widgets/everglow/animated_emblem.dart';
+import '../../../../shared/widgets/everglow/bouncy_button.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class AcademyPortalCard extends StatelessWidget {

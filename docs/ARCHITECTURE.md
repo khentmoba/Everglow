@@ -148,7 +148,7 @@ lib/
   shared/
     utils/                      # feature-agnostic data helpers (proxies, pagination, text, images)
     widgets/everglow/           # global design system (buttons, cards, scaffolds)
-    widgets/shelf/              # cinema/anime-owned shelf UI (posters, carousels, hover previews)
+    widgets/shelf/              # media browsing UI shared by cinema/anime/books (posters, carousels)
 
 functions/
   index.js                      # thin barrel: wires HTTP functions, triggers, schedules
@@ -182,7 +182,7 @@ web/                            # PWA shell, service worker, icons
 - Shared helper? `core/utils/` for app-wide (logging, streams, connectivity);
   `shared/utils/` for data helpers (proxies, pagination, text, images).
 - Shared widget? `shared/widgets/everglow/` for global design system;
-  `shared/widgets/shelf/` is cinema/anime-owned (posters, carousels).
+  `shared/widgets/shelf/` is media browsing UI shared by cinema/anime/books.
 - Colors? `core/theme/app_colors.dart` for UI, `app_art.dart` for
   decorative art (flowers, vinyl, painters). Never hardcode `Color(0x…)`.
 - Server proxy or secret? `functions/` module + export in `index.js`.
