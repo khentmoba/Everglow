@@ -393,14 +393,161 @@ async function exec_cancel_reminder(ctx, args) {
   return JSON.stringify({ success: true, cancelled: preview.map((p) => p.title), count: preview.length });
 }
 
+async function exec_update_calendar_event(ctx, args) {
+  const id = String(args.id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  let ref = id ? ctx.db.collection('calendar_events').doc(id) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection('calendar_events').limit(30).get();
+    const qLower = title.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return JSON.stringify({ error: `No calendar event found for "${title}"` });
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return JSON.stringify({ needs_confirmation: true, message: `Which event? Re-call update_calendar_event with one of these ids: ${cands.map((c) => c.title).join(', ')}.`, candidates: cands });
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return JSON.stringify({ error: `Calendar event ${id} not found` });
+  const update = {};
+  if (args.new_title !== undefined) {
+    const t = String(args.new_title).trim();
+    if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
+    update.title = t;
+  }
+  if (args.description !== undefined) update.description = String(args.description);
+  const rawDate = args.date || args.start_date;
+  if (rawDate !== undefined) {
+    const d = new Date(String(rawDate).trim());
+    if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid date: ${rawDate}` });
+    update.date = ctx.admin.firestore.Timestamp.fromDate(d);
+  }
+  if (args.end_date !== undefined) {
+    const d = new Date(String(args.end_date).trim());
+    if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid end_date: ${args.end_date}` });
+    update.endDate = ctx.admin.firestore.Timestamp.fromDate(d);
+  }
+  if (args.location !== undefined) update.location = String(args.location) || null;
+  if (args.type !== undefined) {
+    const type = String(args.type);
+    if (!['dateNight','anniversary','reminder','custom'].includes(type)) {
+      return JSON.stringify({ error: `Invalid type: ${type}` });
+    }
+    update.type = type;
+  }
+  if (args.is_all_day !== undefined) update.isAllDay = !!args.is_all_day;
+  if (Object.keys(update).length === 0) return JSON.stringify({ error: 'Nothing to update — provide a field to change' });
+  await ref.update(update);
+  return JSON.stringify({ success: true, id: ref.id, title: update.title || snap.data()?.title || '' });
+}
+
+async function exec_delete_calendar_event(ctx, args) {
+  const id = String(args.id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  let ref = id ? ctx.db.collection('calendar_events').doc(id) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection('calendar_events').limit(30).get();
+    const qLower = title.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return JSON.stringify({ error: `No calendar event found for "${title}"` });
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return JSON.stringify({ needs_confirmation: true, message: `Which event? Re-call delete_calendar_event with one of these ids: ${cands.map((c) => c.title).join(', ')}.`, candidates: cands });
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return JSON.stringify({ error: `Calendar event ${id} not found` });
+  const eventTitle = snap.data()?.title || '';
+  if (!args.confirm) {
+    return JSON.stringify({ needs_confirmation: true, message: `Delete the event "${eventTitle}"? Re-call delete_calendar_event with confirm:true to proceed.`, id: ref.id, title: eventTitle });
+  }
+  await ref.delete();
+  return JSON.stringify({ success: true, id: ref.id, title: eventTitle });
+}
+
+async function exec_complete_bucket_item(ctx, args) {
+  const id = String(args.id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  let ref = id ? ctx.db.collection('bucket_list').doc(id) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection('bucket_list').limit(30).get();
+    const qLower = title.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return JSON.stringify({ error: `No bucket item found for "${title}"` });
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return JSON.stringify({ needs_confirmation: true, message: `Which one did you finish? Re-call complete_bucket_item with one of these ids: ${cands.map((c) => c.title).join(', ')}.`, candidates: cands });
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return JSON.stringify({ error: `Bucket item ${id} not found` });
+  if (snap.data()?.status === 'completed') {
+    return JSON.stringify({ success: true, id: ref.id, already_completed: true });
+  }
+  await ref.update({
+    status: 'completed',
+    completedAt: ctx.admin.firestore.Timestamp.now(),
+    completedBy: ctx.callerUid,
+  });
+  return JSON.stringify({ success: true, id: ref.id, title: snap.data()?.title || '' });
+}
+
+async function exec_delete_bucket_item(ctx, args) {
+  const id = String(args.id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  let ref = id ? ctx.db.collection('bucket_list').doc(id) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection('bucket_list').limit(30).get();
+    const qLower = title.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return JSON.stringify({ error: `No bucket item found for "${title}"` });
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return JSON.stringify({ needs_confirmation: true, message: `Which one? Re-call delete_bucket_item with one of these ids: ${cands.map((c) => c.title).join(', ')}.`, candidates: cands });
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return JSON.stringify({ error: `Bucket item ${id} not found` });
+  const itemTitle = snap.data()?.title || '';
+  if (!args.confirm) {
+    return JSON.stringify({ needs_confirmation: true, message: `Delete "${itemTitle}" from the bucket list? Re-call delete_bucket_item with confirm:true to proceed.`, id: ref.id, title: itemTitle });
+  }
+  await ref.delete();
+  return JSON.stringify({ success: true, id: ref.id, title: itemTitle });
+}
+
 module.exports = {
   exec_create_reminder,
   exec_list_reminders,
   exec_cancel_reminder,
   exec_add_calendar_event,
   exec_get_calendar_events,
+  exec_update_calendar_event,
+  exec_delete_calendar_event,
   exec_add_bucket_item,
   exec_get_bucket_list,
+  exec_complete_bucket_item,
+  exec_delete_bucket_item,
   exec_add_trip,
   exec_add_trip_pin,
   exec_get_trips,

@@ -325,6 +325,93 @@ async function exec_read_journal_entry(ctx, args) {
     });
 }
 
+async function exec_edit_journal_entry(ctx, args) {
+  const id = String(args.id || args.entry_id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  let ref = id ? ctx.db.collection('journal_entries').doc(id) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection('journal_entries').limit(20).get();
+    const qLower = title.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return JSON.stringify({ error: `No journal entry found for "${title}"` });
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return JSON.stringify({ needs_confirmation: true, message: `Which entry? Re-call edit_journal_entry with one of these ids: ${cands.map((c) => c.title).join(', ')}.`, candidates: cands });
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return JSON.stringify({ error: `Journal entry ${id} not found` });
+  const update = { updatedAt: ctx.admin.firestore.Timestamp.fromDate(new Date()) };
+  if (args.new_title !== undefined) {
+    const t = String(args.new_title).trim();
+    if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
+    update.title = t;
+  }
+  if (args.content !== undefined) {
+    const c = String(args.content).trim();
+    if (!c) return JSON.stringify({ error: 'content must not be empty' });
+    if (c.length > 5000) return JSON.stringify({ error: 'content too long (max 5000)' });
+    update.content = c;
+    update.wordCount = c.split(/\s+/).filter(Boolean).length;
+  }
+  if (args.category !== undefined) {
+    const cat = String(args.category);
+    if (!['daily','gratitude','memory','letter','dream','idea'].includes(cat)) {
+      return JSON.stringify({ error: `Invalid category: ${cat}` });
+    }
+    update.category = cat;
+  }
+  if (args.tags !== undefined) {
+    update.tags = Array.isArray(args.tags) ? args.tags.map(String).slice(0, 10) : [];
+  }
+  if (args.mood !== undefined) {
+    const moodVal = String(args.mood).trim().toLowerCase();
+    if (!['happy','calm','loved','excited','tired','sad','stressed','neutral'].includes(moodVal)) {
+      return JSON.stringify({ error: `Invalid mood: ${moodVal}` });
+    }
+    update.mood = moodVal;
+  }
+  const finalTitle = update.title || snap.data()?.title || '';
+  const finalContent = update.content || snap.data()?.content || '';
+  update.searchKey = `${finalTitle.toLowerCase()} ${finalContent.toLowerCase().slice(0, 500)}`;
+  await ref.update(update);
+  return JSON.stringify({ success: true, id: ref.id, title: finalTitle });
+}
+
+async function exec_delete_journal_entry(ctx, args) {
+  const id = String(args.id || '').trim();
+  const title = String(args.title || '').trim();
+  if (!id && !title) return JSON.stringify({ error: 'Provide id or title' });
+  let ref = id ? ctx.db.collection('journal_entries').doc(id) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection('journal_entries').limit(20).get();
+    const qLower = title.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return JSON.stringify({ error: `No journal entry found for "${title}"` });
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return JSON.stringify({ needs_confirmation: true, message: `Which entry? Re-call delete_journal_entry with one of these ids: ${cands.map((c) => c.title).join(', ')}.`, candidates: cands });
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return JSON.stringify({ error: `Journal entry ${id} not found` });
+  const entryTitle = snap.data()?.title || '';
+  if (!args.confirm) {
+    return JSON.stringify({ needs_confirmation: true, message: `Delete the journal entry "${entryTitle}"? Re-call delete_journal_entry with confirm:true to proceed.`, id: ref.id, title: entryTitle });
+  }
+  await ref.delete();
+  return JSON.stringify({ success: true, id: ref.id, title: entryTitle });
+}
+
 module.exports = {
   exec_remember_fact,
   exec_read_memories,
@@ -337,4 +424,6 @@ module.exports = {
   exec_get_journal_entries,
   exec_search_journal_entries,
   exec_read_journal_entry,
+  exec_edit_journal_entry,
+  exec_delete_journal_entry,
 };

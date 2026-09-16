@@ -52,7 +52,15 @@ function makeDbStub({ leafDoc = null, added = null } = {}) {
 function makeCtx(dbOverrides) {
   const { db, doc, addedDocs } = makeDbStub(dbOverrides);
   const ctx = {
-    admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+    admin: {
+      firestore: {
+        FieldValue: { serverTimestamp: () => 'TS' },
+        Timestamp: {
+          fromDate: (d) => ({ toDate: () => d }),
+          now: () => ({ toDate: () => new Date() }),
+        },
+      },
+    },
     db,
     callerUid: 'khentsgdz',
     caller: 'khentsgdz',
@@ -287,6 +295,160 @@ test('cancel_reminder by title confirms first, then cancels matches', async () =
   assert.equal(updates[0].id, 'r1');
   const nomatch = JSON.parse(await executeToolCall(ctx, 'cancel_reminder', { title: 'zzz' }));
   assert.match(nomatch.error, /No pending reminder/);
+});
+
+// ── Journal / calendar / bucket cleanup executors ───────────
+
+function makeCollectionCtx(seed) {
+  // seed: { collectionName: [{ id, data }] }
+  const writes = [];
+  const db = {
+    collection: (name) => {
+      const docs = (seed[name] || []).map((d) => ({
+        id: d.id,
+        data: () => d.data,
+        exists: true,
+        ref: {
+          id: d.id,
+          get: async () => ({ exists: true, data: () => d.data }),
+          update: async (patch) => { writes.push({ coll: name, id: d.id, op: 'update', patch }); },
+          delete: async () => { writes.push({ coll: name, id: d.id, op: 'delete' }); },
+        },
+      }));
+      const query = {
+        where: () => query,
+        orderBy: () => query,
+        limit: () => query,
+        get: async () => ({ docs, empty: docs.length === 0, size: docs.length }),
+      };
+      return {
+        ...query,
+        doc: (id) => {
+          const found = docs.find((d) => d.id === id);
+          return found ? found.ref : {
+            id,
+            get: async () => ({ exists: false, data: () => null }),
+            update: async (patch) => { writes.push({ coll: name, id, op: 'update', patch }); },
+            delete: async () => { writes.push({ coll: name, id, op: 'delete' }); },
+          };
+        },
+        add: async (d) => ({ id: 'new1', data: d }),
+      };
+    },
+  };
+  const { ctx } = makeCtx();
+  ctx.db = db;
+  return { ctx, writes };
+}
+
+test('edit_journal_entry updates fields and recomputes search helpers', async () => {
+  const { ctx, writes } = makeCollectionCtx({
+    journal_entries: [{ id: 'j1', data: { title: 'Old title', content: 'old words here' } }],
+  });
+  const out = JSON.parse(await executeToolCall(ctx, 'edit_journal_entry',
+    { id: 'j1', content: 'brand new content words' }));
+  assert.equal(out.success, true);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].patch.content, 'brand new content words');
+  assert.equal(writes[0].patch.wordCount, 4);
+  assert.match(writes[0].patch.searchKey, /brand new/);
+  assert.ok(writes[0].patch.updatedAt);
+});
+
+test('edit_journal_entry resolves single title matches, lists candidates', async () => {
+  const { ctx } = makeCollectionCtx({
+    journal_entries: [
+      { id: 'j1', data: { title: 'Beach day', content: 'x' } },
+      { id: 'j2', data: { title: 'Beach night', content: 'y' } },
+    ],
+  });
+  const multi = JSON.parse(await executeToolCall(ctx, 'edit_journal_entry',
+    { title: 'beach', content: 'z' }));
+  assert.equal(multi.needs_confirmation, true);
+  assert.equal(multi.candidates.length, 2);
+  const single = JSON.parse(await executeToolCall(ctx, 'edit_journal_entry',
+    { title: 'beach day', content: 'z' }));
+  assert.equal(single.success, true);
+  assert.equal(single.id, 'j1');
+  const missing = JSON.parse(await executeToolCall(ctx, 'edit_journal_entry',
+    { title: 'nope', content: 'z' }));
+  assert.match(missing.error, /No journal entry found/);
+  const bad = JSON.parse(await executeToolCall(ctx, 'edit_journal_entry',
+    { id: 'j1', category: 'nope' }));
+  assert.match(bad.error, /Invalid category/);
+});
+
+test('delete_journal_entry confirms, then hard-deletes like the client', async () => {
+  const { ctx, writes } = makeCollectionCtx({
+    journal_entries: [{ id: 'j1', data: { title: 'Goodbye', content: 'x' } }],
+  });
+  const first = JSON.parse(await executeToolCall(ctx, 'delete_journal_entry', { id: 'j1' }));
+  assert.equal(first.needs_confirmation, true);
+  assert.equal(writes.length, 0);
+  const done = JSON.parse(await executeToolCall(ctx, 'delete_journal_entry', { id: 'j1', confirm: true }));
+  assert.equal(done.success, true);
+  assert.deepEqual(writes, [{ coll: 'journal_entries', id: 'j1', op: 'delete' }]);
+});
+
+test('update_calendar_event changes fields and validates dates', async () => {
+  const { ctx, writes } = makeCollectionCtx({
+    calendar_events: [{ id: 'c1', data: { title: 'Dentist' } }],
+  });
+  const out = JSON.parse(await executeToolCall(ctx, 'update_calendar_event',
+    { id: 'c1', date: '2026-10-01', location: 'Cabadbaran' }));
+  assert.equal(out.success, true);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].patch.location, 'Cabadbaran');
+  assert.ok(writes[0].patch.date);
+  const bad = JSON.parse(await executeToolCall(ctx, 'update_calendar_event',
+    { id: 'c1', date: 'not-a-date' }));
+  assert.match(bad.error, /Invalid date/);
+  const empty = JSON.parse(await executeToolCall(ctx, 'update_calendar_event', { id: 'c1' }));
+  assert.match(empty.error, /Nothing to update/);
+});
+
+test('delete_calendar_event confirms first', async () => {
+  const { ctx, writes } = makeCollectionCtx({
+    calendar_events: [{ id: 'c1', data: { title: 'Dentist' } }],
+  });
+  const first = JSON.parse(await executeToolCall(ctx, 'delete_calendar_event', { title: 'dentist' }));
+  assert.equal(first.needs_confirmation, true);
+  assert.equal(first.id, 'c1');
+  assert.equal(writes.length, 0);
+  const done = JSON.parse(await executeToolCall(ctx, 'delete_calendar_event', { id: 'c1', confirm: true }));
+  assert.equal(done.success, true);
+  assert.equal(writes.length, 1);
+});
+
+test('complete_bucket_item completes once, with client-parity fields', async () => {
+  const { ctx, writes } = makeCollectionCtx({
+    bucket_list: [
+      { id: 'b1', data: { title: 'Bohol', status: 'wish' } },
+      { id: 'b2', data: { title: 'Done thing', status: 'completed' } },
+    ],
+  });
+  const out = JSON.parse(await executeToolCall(ctx, 'complete_bucket_item', { title: 'bohol' }));
+  assert.equal(out.success, true);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].patch.status, 'completed');
+  assert.ok(writes[0].patch.completedAt);
+  assert.equal(writes[0].patch.completedBy, 'khentsgdz');
+  const again = JSON.parse(await executeToolCall(ctx, 'complete_bucket_item', { id: 'b2' }));
+  assert.equal(again.success, true);
+  assert.equal(again.already_completed, true);
+  assert.equal(writes.length, 1); // no second write
+});
+
+test('delete_bucket_item confirms first', async () => {
+  const { ctx, writes } = makeCollectionCtx({
+    bucket_list: [{ id: 'b1', data: { title: 'Skydive', status: 'wish' } }],
+  });
+  const first = JSON.parse(await executeToolCall(ctx, 'delete_bucket_item', { id: 'b1' }));
+  assert.equal(first.needs_confirmation, true);
+  assert.equal(writes.length, 0);
+  const done = JSON.parse(await executeToolCall(ctx, 'delete_bucket_item', { id: 'b1', confirm: true }));
+  assert.equal(done.success, true);
+  assert.equal(writes.length, 1);
 });
 
 test('createToolCtx builds a live ctx (smoke: shape only)', () => {

@@ -712,6 +712,41 @@ const MOTCHI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'update_calendar_event',
+      description: 'Update a calendar event by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Event id from get_calendar_events' },
+          title: { type: 'string', description: 'Event title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          date: { type: 'string', description: 'New date (ISO 8601)' },
+          end_date: { type: 'string', description: 'New end date (ISO 8601)' },
+          location: { type: 'string', description: 'New location' },
+          type: { type: 'string', enum: ['dateNight','anniversary','reminder','custom'], description: 'New event type' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_calendar_event',
+      description: 'Delete a calendar event by id or title. Asks for confirmation first (re-call with confirm:true).',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Event id from get_calendar_events' },
+          title: { type: 'string', description: 'Event title to match (when id is not known)' },
+          confirm: { type: 'boolean', description: 'Set true to confirm deletion' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'get_bucket_list',
       description: 'Read the bucket list. Use when they ask about dreams, wishes, or what they want to do together.',
       parameters: {
@@ -719,6 +754,35 @@ const MOTCHI_TOOLS = [
         properties: {
           status: { type: 'string', enum: ['wish','planned','completed','all'], description: 'Filter by status (default all)' },
           limit: { type: 'number', description: 'Max items (default 10, max 20)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'complete_bucket_item',
+      description: 'Mark a bucket list item completed by id or title.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Item id from get_bucket_list' },
+          title: { type: 'string', description: 'Item title to match (when id is not known)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_bucket_item',
+      description: 'Delete a bucket list item by id or title. Asks for confirmation first (re-call with confirm:true).',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Item id from get_bucket_list' },
+          title: { type: 'string', description: 'Item title to match (when id is not known)' },
+          confirm: { type: 'boolean', description: 'Set true to confirm deletion' },
         },
       },
     },
@@ -764,6 +828,40 @@ const MOTCHI_TOOLS = [
         properties: {
           id: { type: 'string', description: 'The Firestore document ID of the journal entry (from search_journal_entries or get_journal_entries)' },
           title: { type: 'string', description: 'The title of the journal entry (fallback if id is not known)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_journal_entry',
+      description: 'Edit a journal entry by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Entry id from get_journal_entries or search_journal_entries' },
+          title: { type: 'string', description: 'Entry title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          content: { type: 'string', description: 'New content (replaces the old text)' },
+          category: { type: 'string', enum: ['daily','gratitude','memory','letter','dream','idea'], description: 'New category' },
+          tags: { type: 'array', items: { type: 'string' }, description: 'New tags (replaces the old list)' },
+          mood: { type: 'string', description: 'New mood' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_journal_entry',
+      description: 'Delete a journal entry by id or title. Asks for confirmation first (re-call with confirm:true).',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Entry id from get_journal_entries or search_journal_entries' },
+          title: { type: 'string', description: 'Entry title to match (when id is not known)' },
+          confirm: { type: 'boolean', description: 'Set true to confirm deletion' },
         },
       },
     },
