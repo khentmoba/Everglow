@@ -344,4 +344,49 @@ Hope it helps!
       expect(parseStudyArtifacts(text).hasHtml, isFalse);
     });
   });
+
+  group('everglow-link blocks (Play Zone doorway)', () {
+    test('parses a chess link with a fixed warm label', () {
+      const text = '''
+Couple Chess is waiting for you two — tap below to play! ♟️
+
+```everglow-link
+{"route": "/play-zone/chess"}
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasLinks, isTrue);
+      expect(artifacts.isEmpty, isFalse);
+      expect(artifacts.links, hasLength(1));
+      expect(artifacts.links.first.route, '/play-zone/chess');
+      expect(artifacts.links.first.label, contains('Chess'));
+    });
+
+    test('accepts a bare route without JSON', () {
+      const text = '```everglow-link\n/play-zone/scribble\n```';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasLinks, isTrue);
+      expect(artifacts.links.first.route, '/play-zone/scribble');
+    });
+
+    test('ignores routes outside the Play Zone allowlist', () {
+      const text = '```everglow-link\n{"route": "/admin/secrets"}\n```';
+      expect(parseStudyArtifacts(text).hasLinks, isFalse);
+    });
+
+    test('strips the block so the bubble stays clean text', () {
+      const text = '''
+Ready to play! ♟️
+```everglow-link
+{"route": "/play-zone/chess"}
+```''';
+      final stripped = stripArtifactBlocks(text);
+      expect(stripped, 'Ready to play! ♟️');
+      expect(stripped, isNot(contains('everglow-link')));
+    });
+
+    test('stripStreamingArtifacts cuts an unterminated link fence', () {
+      const draft = 'One sec!\n```everglow-link\n{"route": "/play-zone/ch';
+      expect(stripStreamingArtifacts(draft), 'One sec!');
+    });
+  });
 }

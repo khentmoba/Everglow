@@ -80,7 +80,7 @@ const { handleProxyAI } = require('./motchi_chat.js');
 // artifacts). The 60s default truncated chess games and web-search answers
 // mid-stream — no closing fence means no Preview button, and a timeout
 // before any content streams means no reply at all. 300s covers slow
-// generations; the client times out at 120s per attempt and retries.
+// generations; artifact builds get 280s end-to-end (120s for chat).
 exports.proxyAI = cappedHttps(10, handleProxyAI, { timeoutSeconds: 300, memory: '512MB' });
 // V2 function on Cloud Run — natively supports SSE streaming.
 exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10, timeoutSeconds: 300, memory: '512MiB' }, handleProxyAI);

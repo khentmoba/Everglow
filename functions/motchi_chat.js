@@ -83,9 +83,9 @@ const PARTNER_UID = {
 function stripArtifactsForChecks(text) {
   let out = String(text || '');
   // Complete fenced blocks.
-  out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[ \t]*\n?[\s\S]*?```/gi, '');
+  out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[ \t]*\n?[\s\S]*?```/gi, '');
   // Trailing unterminated fence (reply cut off mid-artifact).
-  out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[\s\S]*$/gi, '');
+  out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[\s\S]*$/gi, '');
   return out.trim();
 }
 
@@ -232,7 +232,7 @@ async function handleProxyAI(req, res) {
 ## Tool Usage — IMPORTANT
 %%MOTCHI_TOOL_LIST%%
 
-**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. Then use read_web_page on the most promising result if the snippets are not enough. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services.
+**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. It already includes the top page's content — answer from that plus the snippets when enough, and only call read_web_page when you need details or quotes from the other results. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services. When you answer from the web, cite your sources as markdown links.
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:
@@ -285,7 +285,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   [{"front":"...","back":"..."}]
   \`\`\`
   JSON only inside the block.
-- When they ask for something to PLAY or USE — a game (chess, checkers, tic-tac-toe), a little app, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
+- Play Zone first: Everglow already has Couple Chess, Scribble Together, and Table Tennis in the Play Zone. When they ask for chess, scribble, or table tennis, do NOT build an HTML copy — keep the visible reply warm and short ("Couple Chess is waiting for you two — tap below to play! ♟️") and append ONLY this hidden block:
+  \`\`\`everglow-link
+  {"route": "/play-zone/chess"}
+  \`\`\`
+  Routes: /play-zone/chess for chess, /play-zone/scribble for scribble, /play-zone/tt for table tennis. JSON only inside the block. Only build an HTML chess if they explicitly insist on playing inside the chat.
+- When they ask for something to PLAY or USE — a game (checkers, tic-tac-toe, memory match), a little app, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
@@ -310,7 +315,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`
   answer is the 0-based index of the correct option. JSON only inside the block, no commentary inside it.
 - IMPORTANT: this applies even when you quiz THEM (they answer, you grade after — "drop your answers and I'll grade you"). In that case keep the correct answers OUT of the visible text, but STILL append the hidden quiz-json block with the real answers. The hidden block is what opens the tappable interactive quiz; without it there is no button.
-- When they ask for something to PLAY or USE — a game (chess, checkers, tic-tac-toe), a little app, a website, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
+- Play Zone first: Everglow already has Couple Chess, Scribble Together, and Table Tennis in the Play Zone. When they ask for chess, scribble, or table tennis, do NOT build an HTML copy — keep the visible reply warm and short ("Couple Chess is waiting for you two — tap below to play! ♟️") and append ONLY this hidden block:
+  \`\`\`everglow-link
+  {"route": "/play-zone/chess"}
+  \`\`\`
+  Routes: /play-zone/chess for chess, /play-zone/scribble for scribble, /play-zone/tt for table tennis. JSON only inside the block. Only build an HTML chess if they explicitly insist on playing inside the chat.
+- When they ask for something to PLAY or USE — a game (checkers, tic-tac-toe, memory match), a little app, a website, a tool: build it as ONE self-contained HTML file (inline <style> and <script> only — no external files, no CDN links, no localStorage, no network calls), then append it as a hidden block:
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
@@ -640,7 +650,11 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
                 stream: true,
                 ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
               }),
-              signal: AbortSignal.timeout(120000),
+              // Artifact builds (games, quizzes) stream far longer than
+              // chat — 280s sits inside the 300s function budget so a slow
+              // generation still lands its closing fence (no fence = no
+              // Preview button). Everyday chat keeps the 120s cap.
+              signal: AbortSignal.timeout(wantsArtifact ? 280000 : 120000),
             });
 
             if (streamResp.ok) break; // success
@@ -802,9 +816,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
           // The client already got the full result above for its cards;
           // the model only needs a bounded copy. Long search/journal
-          // payloads would otherwise multiply across tool rounds.
-          const llmResult = result.length > 3000
-            ? result.slice(0, 3000) + '…[trimmed]'
+          // payloads would otherwise multiply across tool rounds. Web
+          // tools keep more: web_search already carries the top page's
+          // content so one round is usually enough to answer.
+          const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
+          const llmResult = result.length > llmLimit
+            ? result.slice(0, llmLimit) + '…[trimmed]'
             : result;
           return {
             toolMsg: {
@@ -877,7 +894,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           stream: false,
           ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
         }),
-        signal: AbortSignal.timeout(60000),
+        // Same artifact headroom as the streaming path (280s < 300s budget).
+        signal: AbortSignal.timeout(wantsArtifact ? 280000 : 60000),
       },
     );
     return resp;
@@ -960,8 +978,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
         }
       } catch (_) {}
-      const llmResult = result.length > 3000
-        ? result.slice(0, 3000) + '…[trimmed]'
+      const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
+      const llmResult = result.length > llmLimit
+        ? result.slice(0, llmLimit) + '…[trimmed]'
         : result;
       return {
         toolMsg: { role: 'tool', tool_call_id: tc.id, name: fnName, content: llmResult },

@@ -39,6 +39,22 @@ test('non-streaming answers run the agent loop (Undo restores)', () => {
   assert.match(src, /Non-streaming mode: bounded agent loop/);
 });
 
+test('chess asks route to the Play Zone instead of an HTML copy', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // The model must send chess/scribble/table-tennis to the real games
+  // via an everglow-link block — a rushed HTML clone can never match
+  // Couple Chess, and long generations lose their closing fence.
+  assert.ok(src.includes('everglow-link'));
+  assert.ok(src.includes('/play-zone/chess'));
+  assert.ok(src.includes('/play-zone/scribble'));
+  assert.ok(src.includes('/play-zone/tt'));
+});
+
+test('artifact stripping hides everglow-link blocks from text checks', () => {
+  const reply = 'Couple Chess is waiting! ♟️\n```everglow-link\n{"route": "/play-zone/chess"}\n```';
+  assert.equal(chat.stripArtifactsForChecks(reply), 'Couple Chess is waiting! ♟️');
+});
+
 test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',
