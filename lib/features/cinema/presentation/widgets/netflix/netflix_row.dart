@@ -46,7 +46,6 @@ class _NetflixRowState extends State<NetflixRow> {
   OverlayEntry? _previewEntry;
   MediaItem? _previewItem;
   Timer? _previewTimer;
-  bool _pointerInPreview = false;
   bool _hovering = false;
   bool _canLeft = false;
   bool _canRight = false;
@@ -92,10 +91,12 @@ class _NetflixRowState extends State<NetflixRow> {
   void _onCardHover(bool hovered, Rect rect, MediaItem item) {
     final generation = ++_hoverGeneration;
     if (!hovered) {
+      // A card exit only cancels a pending show. It never dismisses the
+      // open preview: the preview covers the card, so the card underneath
+      // fires exit/enter while the overlay settles — removing here kills
+      // the preview the same frame it appears. Dismissal belongs to the
+      // preview's own hover region, or to hovering another card.
       _previewTimer?.cancel();
-      // Only the row owns the popover: when the pointer leaves a card but is
-      // inside the popover, keep it until the popover's own MouseRegion fires.
-      if (!_pointerInPreview || _previewItem != item) _removePreview();
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
@@ -105,6 +106,9 @@ class _NetflixRowState extends State<NetflixRow> {
     _previewTimer?.cancel();
     _previewTimer = Timer(const Duration(milliseconds: 260), () {
       if (!mounted || generation != _hoverGeneration) return;
+      // The covered card re-fires enter while the overlay settles; the
+      // preview for this card is already open, so there is nothing to do.
+      if (_previewItem == item) return;
       _removePreview();
       _showPreview(rect, item);
     });
@@ -128,9 +132,9 @@ class _NetflixRowState extends State<NetflixRow> {
         top: offset.dy,
         width: width,
         child: MouseRegion(
-          onEnter: (_) => _pointerInPreview = true,
+          // The preview owns its own dismissal (see _onCardHover):
+          // leaving it is the only pointer path that closes it.
           onExit: (_) {
-            _pointerInPreview = false;
             _previewTimer?.cancel();
             _removePreview();
           },
@@ -157,16 +161,14 @@ class _NetflixRowState extends State<NetflixRow> {
     _previewEntry?.remove();
     _previewEntry = null;
     _previewItem = null;
-    _pointerInPreview = false;
   }
 
   void _onRowExit() {
     _hovering = false;
     setState(() {});
     _previewTimer?.cancel();
-    // Removes immediately when the pointer is not inside the popover; the
-    // popover's own MouseRegion.onExit handles the keep-while-hovered case.
-    if (!_pointerInPreview) _removePreview();
+    // Never dismisses the open preview: it can overhang the row, so this
+    // fires while reaching for the overhang. The preview closes itself.
   }
 
   @override
@@ -292,7 +294,6 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
   OverlayEntry? _previewEntry;
   MediaItem? _previewItem;
   Timer? _previewTimer;
-  bool _pointerInPreview = false;
   int _hoverGeneration = 0;
 
   @override
@@ -306,10 +307,9 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
   void _onCardHover(bool hovered, Rect rect, MediaItem item) {
     final generation = ++_hoverGeneration;
     if (!hovered) {
+      // A card exit only cancels a pending show, never the open preview
+      // (it covers the card and owns its own dismissal — see NetflixRow).
       _previewTimer?.cancel();
-      // Only the row owns the popover: keep it while the pointer is inside
-      // the popover and the popover belongs to this card, otherwise remove.
-      if (!_pointerInPreview || _previewItem != item) _removePreview();
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
@@ -318,6 +318,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
     _previewTimer?.cancel();
     _previewTimer = Timer(const Duration(milliseconds: 260), () {
       if (!mounted || generation != _hoverGeneration) return;
+      if (_previewItem == item) return;
       _removePreview();
       final overlay = Overlay.of(context);
       final screen = MediaQuery.sizeOf(context);
@@ -335,9 +336,9 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
           top: offset.dy,
           width: width,
           child: MouseRegion(
-            onEnter: (_) => _pointerInPreview = true,
+            // The preview owns its own dismissal: leaving it is the
+            // only pointer path that closes it.
             onExit: (_) {
-              _pointerInPreview = false;
               _previewTimer?.cancel();
               if (_previewItem == item) _removePreview();
             },
@@ -366,7 +367,6 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
     _previewEntry?.remove();
     _previewEntry = null;
     _previewItem = null;
-    _pointerInPreview = false;
   }
 
   @override
@@ -397,10 +397,9 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
         SizedBox(
           height: rowHeight,
           child: MouseRegion(
-            onExit: (_) {
-              _previewTimer?.cancel();
-              if (!_pointerInPreview) _removePreview();
-            },
+            // Only cancels a pending show; the open preview overhangs
+            // the row and dismisses itself on its own exit.
+            onExit: (_) => _previewTimer?.cancel(),
             child: ListView.separated(
               controller: _controller,
               scrollDirection: Axis.horizontal,

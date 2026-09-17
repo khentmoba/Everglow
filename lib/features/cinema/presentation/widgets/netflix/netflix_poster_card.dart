@@ -67,7 +67,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
   bool _pressed = false;
   OverlayEntry? _previewEntry;
   Timer? _previewTimer;
-  bool _pointerInPreview = false;
 
   bool get _isDesktop => MediaQuery.sizeOf(context).width >= 1024;
 
@@ -82,8 +81,9 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     if (widget.selfPreview) {
       setState(() => _hovered = hovered);
       if (!hovered) {
+        // A card exit only cancels a pending show, never the open
+        // preview: it covers the card and dismisses itself on exit.
         _previewTimer?.cancel();
-        if (!_pointerInPreview) _removeSelfPreview();
         return;
       }
       if (!_isDesktop) return;
@@ -134,9 +134,8 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
         top: offset.dy,
         width: width,
         child: MouseRegion(
-          onEnter: (_) => _pointerInPreview = true,
+          // The preview owns its own dismissal: leaving it closes it.
           onExit: (_) {
-            _pointerInPreview = false;
             _previewTimer?.cancel();
             _removeSelfPreview();
           },
@@ -162,7 +161,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
   void _removeSelfPreview() {
     _previewEntry?.remove();
     _previewEntry = null;
-    _pointerInPreview = false;
   }
 
   void _showTouchPreview() {
