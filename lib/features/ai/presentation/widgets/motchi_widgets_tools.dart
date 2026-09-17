@@ -264,6 +264,18 @@ class _ToolResultCards extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: results.map((r) {
           final tool = r['tool'] as String? ?? 'tool';
+          // Web tools render tappable source rows instead of the generic
+          // card — Clair can open what Motchi actually read.
+          if (tool == 'web_search' || tool == 'read_web_page') {
+            final webSources = AIService.webSourcesFromToolResults([r]);
+            if (webSources.isNotEmpty) {
+              return _WebSourcesCard(
+                sources: webSources,
+                query: tool == 'web_search' ? r['query'] as String? : null,
+              );
+            }
+            // Empty/error falls through to the generic card below.
+          }
           final success = r['success'] == true;
           final needsConfirm = r['needs_confirmation'] == true;
           final title =
@@ -384,6 +396,186 @@ class _ToolResultCards extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Tappable web sources — shown live while Motchi searches and persisted
+/// under her finished reply. Same card language as [_ToolResultCards].
+class _WebSourcesCard extends StatelessWidget {
+  final List<Map<String, String>> sources; // {title, url, site}
+  final String? query;
+  const _WebSourcesCard({required this.sources, this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    if (sources.isEmpty) return const SizedBox.shrink();
+    const accent = AppColors.auroraTeal;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(11, 10, 11, 5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.inkDeep.withValues(alpha: 0.90),
+            AppColors.velvet.withValues(alpha: 0.72),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.28),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.public_rounded, size: 14, color: accent),
+              const SizedBox(width: 6),
+              Text(
+                'Sources',
+                style: AppTypography.bodySmall().copyWith(
+                  fontSize: 10.5,
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              if (query != null && query!.trim().isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    '· ${query!.trim()}',
+                    style: AppTypography.bodySmall().copyWith(
+                      fontSize: 10.5,
+                      color: AppColors.textMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (var i = 0; i < sources.length; i++)
+            _WebSourceRow(
+              index: i + 1,
+              title: sources[i]['title'] ?? '',
+              url: sources[i]['url'] ?? '',
+              site: sources[i]['site'] ?? '',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WebSourceRow extends StatelessWidget {
+  final int index;
+  final String title;
+  final String url;
+  final String site;
+  const _WebSourceRow({
+    required this.index,
+    required this.title,
+    required this.url,
+    required this.site,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = title.isNotEmpty ? title : (site.isNotEmpty ? site : url);
+    final sub = site.isNotEmpty && title.isNotEmpty ? site : null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          _openWebSource(url);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          child: Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.auroraTeal.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  '$index',
+                  style: AppTypography.bodySmall().copyWith(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.auroraTeal,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTypography.bodySmall().copyWith(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.petalWhite,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (sub != null)
+                      Text(
+                        sub,
+                        style: AppTypography.bodySmall().copyWith(
+                          fontSize: 10.5,
+                          color: AppColors.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Icons.open_in_new_rounded,
+                size: 14,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Opens a source link outside Everglow. Failures stay silent — a dead
+/// link is not worth an error banner in the middle of Clair's chat.
+Future<void> _openWebSource(String url) async {
+  final uri = Uri.tryParse(url.trim());
+  if (uri == null || !(uri.isScheme('http') || uri.isScheme('https'))) return;
+  try {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {}
 }
 
 /// Animated placeholder shown while Motchi is thinking before any text or

@@ -232,7 +232,7 @@ async function handleProxyAI(req, res) {
 ## Tool Usage — IMPORTANT
 %%MOTCHI_TOOL_LIST%%
 
-**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. Then use read_web_page on the most promising result if the snippets are not enough. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services.
+**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. It already includes the top page's content — answer from that plus the snippets when enough, and only call read_web_page when you need details or quotes from the other results. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services. When you answer from the web, name your sources by site so Clair knows where it came from.
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:
@@ -802,9 +802,12 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
           // The client already got the full result above for its cards;
           // the model only needs a bounded copy. Long search/journal
-          // payloads would otherwise multiply across tool rounds.
-          const llmResult = result.length > 3000
-            ? result.slice(0, 3000) + '…[trimmed]'
+          // payloads would otherwise multiply across tool rounds. Web
+          // tools keep more: web_search already carries the top page's
+          // content so one round is usually enough to answer.
+          const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
+          const llmResult = result.length > llmLimit
+            ? result.slice(0, llmLimit) + '…[trimmed]'
             : result;
           return {
             toolMsg: {
@@ -960,8 +963,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
           logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
         }
       } catch (_) {}
-      const llmResult = result.length > 3000
-        ? result.slice(0, 3000) + '…[trimmed]'
+      const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
+      const llmResult = result.length > llmLimit
+        ? result.slice(0, llmLimit) + '…[trimmed]'
         : result;
       return {
         toolMsg: { role: 'tool', tool_call_id: tc.id, name: fnName, content: llmResult },

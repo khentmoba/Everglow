@@ -4,12 +4,16 @@ class AIMessage {
   final String content;
   final DateTime timestamp;
   final List<String> imageUrls; // optional image URLs for vision tasks
+  /// Tappable web sources on assistant replies (from web_search /
+  /// read_web_page). Each entry: {title, url, site}. Empty otherwise.
+  final List<Map<String, String>> sources;
 
   AIMessage({
     required this.role,
     required this.content,
     DateTime? timestamp,
     this.imageUrls = const [],
+    this.sources = const [],
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -17,6 +21,7 @@ class AIMessage {
     'content': content,
     'timestamp': timestamp.toIso8601String(),
     if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
+    if (sources.isNotEmpty) 'sources': sources,
   };
 
   factory AIMessage.fromJson(Map<String, dynamic> json) => AIMessage(
@@ -26,6 +31,15 @@ class AIMessage {
         ? DateTime.parse(json['timestamp'])
         : DateTime.now(),
     imageUrls: (json['imageUrls'] as List?)?.cast<String>() ?? [],
+    sources:
+        (json['sources'] as List?)
+            ?.map(
+              (s) => (s as Map).map(
+                (k, v) => MapEntry(k.toString(), v.toString()),
+              ),
+            )
+            .toList() ??
+        [],
   );
 
   /// Returns the payload for the Agnes API.

@@ -343,7 +343,7 @@ const MOTCHI_TOOLS = [
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Search the web for current information, news, prices, facts, or anything not covered by other tools. Use when they ask about recent events, current info, or topics outside Everglow\'s own data. Returns ranked results with titles, snippets, and URLs.',
+      description: 'Search the web for current information, news, prices, facts, or anything not covered by other tools. Use when they ask about recent events, current info, or topics outside Everglow\'s own data. Returns 5 ranked results with titles, snippets, URLs, plus the top page\'s content — answer from these when enough and only call read_web_page for details from the other results. Name sources by site in your answer.',
       parameters: {
         type: 'object',
         properties: {
