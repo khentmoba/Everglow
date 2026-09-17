@@ -55,6 +55,23 @@ test('artifact stripping hides everglow-link blocks from text checks', () => {
   assert.equal(chat.stripArtifactsForChecks(reply), 'Couple Chess is waiting! ♟️');
 });
 
+test('hasCompleteArtifact spots complete vs missing blocks', () => {
+  assert.equal(chat.hasCompleteArtifact('Made you checkers!\n```html-artifact\n<html></html>\n```'), true);
+  assert.equal(chat.hasCompleteArtifact('```quiz-json\n[]\n```'), true);
+  assert.equal(chat.hasCompleteArtifact('```everglow-link\n{}\n```'), true);
+  assert.equal(chat.hasCompleteArtifact('Made you a game!'), false);
+  assert.equal(chat.hasCompleteArtifact('Making it!\n```html-artifact\n<html>'), false);
+  assert.equal(chat.hasCompleteArtifact(''), false);
+});
+
+test('missing-block repair is wired on both answer paths', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Nudge const + streaming use + non-streaming use.
+  const uses = src.split('ARTIFACT_REPAIR_NUDGE').length - 1;
+  assert.ok(uses >= 3, `expected nudge const + 2 uses, saw ${uses}`);
+  assert.match(src, /didArtifactRepair/);
+});
+
 test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',

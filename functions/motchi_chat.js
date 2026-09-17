@@ -89,6 +89,18 @@ function stripArtifactsForChecks(text) {
   return out.trim();
 }
 
+const ARTIFACT_FENCE_RE = /```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link|app-link)[ \t]*\n?[\s\S]*?```/i;
+
+/** True when the reply carries at least one complete artifact block. */
+function hasCompleteArtifact(text) {
+  return ARTIFACT_FENCE_RE.test(String(text || ''));
+}
+
+// Strict follow-up when an artifact ask yields words but no fenced block
+// (no block = no button). The reply streams after the warm text, so the
+// client parses both halves together and the button appears.
+const ARTIFACT_REPAIR_NUDGE = 'Your last reply had no hidden fenced block, so the chat shows no button. Reply again with ONLY the single fenced block for what they asked for (```quiz-json, ```flashcards-json, ```html-artifact, or ```everglow-link) — no visible text, no explanation, just the block.';
+
 async function handleProxyAI(req, res) {
   // V1 fallback — kept for non-streaming compatibility.
   // V2 equivalent (proxyAIv2) below supports true SSE streaming.
@@ -170,6 +182,9 @@ async function handleProxyAI(req, res) {
   // Explicit artifact ask — wins over the Canvas toggle (see above). Used
   // both for the prompt gate and the output-budget tier below.
   const wantsArtifact = /quiz|flashcards?|flash cards?|trivia|\bgame\b|chess|checkers|tic-?tac|html|artifact|\bapp\b|website/i.test(lastUserMessage || '');
+  // True when the canvas prompt section rode along (mirrors the two
+  // section gates below) — the repair nudge only makes sense then.
+  const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
   // Server context is a nice-to-have: if Firestore hiccups on a cold
   // cache, answer without it rather than failing Clair's whole chat.
   let serverContext = '';
@@ -270,6 +285,19 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   // The Study screen renders these hidden blocks as tappable UI (quiz
   // options, flippable cards) — Claude-Artifacts style. The visible text
   // stays warm and human; the JSON block powers the interactive canvas.
+  // Shared mini-game build guide (study + main chat). Phone-first: Clair
+  // plays on phone/tablet, so every game must be fully tappable — no
+  // keyboard-only controls. The skeleton grounds the model so games work
+  // first try instead of arriving half-broken.
+  const HTML_GAME_GUIDE = `## Building Mini-Games (phone-first)
+- They play on a PHONE and TABLET (usually portrait) with fingers — never a keyboard. Every control is a big tappable button/area (48px+ targets, generous spacing). No keyboard-only input, no tiny text (14px+).
+- If the ask is vague ("build us a tiny game"), pick a proven tiny game yourself (memory match, snake with swipe + arrows, catch-the-falling-things, reaction tap, guess-the-number) and name it in your reply.
+- Start from this skeleton and extend it — keep its viewport, full-viewport layout, touch handling, and loop:
+  <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>GAME NAME</title><style>html,body{margin:0;height:100%;background:#14121f;color:#fff;font-family:system-ui,sans-serif}#app{height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}#hud{font-size:20px;font-weight:700}button{font-size:20px;padding:14px 30px;border:0;border-radius:16px;background:#e5486f;color:#fff}canvas{touch-action:none;border-radius:12px}</style></head><body><div id="app"><div id="hud">Score: 0</div><canvas id="c"></canvas><button id="restart">Restart</button></div><script>const c=document.getElementById('c'),g=c.getContext('2d');function fit(){c.width=Math.min(innerWidth-32,480);c.height=Math.min(innerHeight-230,480)}addEventListener('resize',fit);fit();let S=0;const H=document.getElementById('hud');c.addEventListener('pointerdown',e=>{const r=c.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;});document.getElementById('restart').onclick=()=>{S=0;H.textContent='Score: 0';};(function loop(){g.clearRect(0,0,c.width,c.height);requestAnimationFrame(loop)})();</script></body></html>
+- Every game needs a visible score/progress, a Restart button, and a clear end moment. No dead ends: every screen has a tappable way forward.
+- Keep it LEAN (under ~12KB — short CSS, compact JS, no verbose comments). A huge file gets cut off mid-stream and the Preview button never appears. If the dream is bigger than fits, build the fun CORE LOOP first (playable in 60 seconds), then offer to add more.
+- When they ask to CHANGE a game you already made, return the FULL updated HTML file in the block — never a patch or snippet.\n- They can KEEP a game with the Save button in the preview — saved games live in Motchi's Minis in the Play Zone. When they love one, say so.`;
+
   if (feature === 'study' && canvasOn) {
     systemPrompt += `
 ## Study Mode — grounded + interactive
@@ -294,7 +322,8 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
-  Keep it LEAN (under ~12KB — short CSS, compact JS, no verbose comments) and fully working from the single file. A huge file gets cut off mid-stream and the Preview button never appears, so smaller is better. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block. The visible reply stays warm and short ("Made you chess — tap Preview to play!").`;
+  HTML only inside the block. The visible reply stays warm and short ("Made you checkers — tap Preview to play!").
+${HTML_GAME_GUIDE}`;
   }
 
   // ── Main Motchi chat: same interactive canvas (Canvas / Artifacts style) ──
@@ -324,13 +353,14 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   \`\`\`html-artifact
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
-  Keep it LEAN (under ~12KB — short CSS, compact JS, no verbose comments) and fully working from the single file. A huge file gets cut off mid-stream and the Preview button never appears, so smaller is better: simple but complete beats fancy but truncated. Put a <title> with its name. Design it to fill the whole preview: responsive full-viewport layout that uses the full width and height (no narrow fixed-width centered column). HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you chess — tap Preview to play!").
+  HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you checkers — tap Preview to play!").
+${HTML_GAME_GUIDE}
 - When they ask for flashcards or study cards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block (10 cards max):
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
   \`\`\`
   JSON only inside the block, no commentary inside it.
-- Use those exact fence names (quiz-json, flashcards-json, html-artifact) with valid JSON/HTML inside — the chat turns each block into a tappable Preview / Try-it button. Only emit a block when they asked for that kind of thing (quiz/test/trivia, cards, or something to play/use); a summary or explanation stays plain text.`;
+- Use those exact fence names (quiz-json, flashcards-json, html-artifact, everglow-link) with valid JSON/HTML inside — the chat turns each block into a tappable Preview / Try-it button. Only emit a block when they asked for that kind of thing (quiz/test/trivia, cards, or something to play/use); a summary or explanation stays plain text.`;
   }
 
   // ── System prompt size guard ────────────────────────────
@@ -613,6 +643,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
+      let didArtifactRepair = false; // missing-block nudge: at most once
       let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
@@ -745,6 +776,17 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
         // If no tool calls, we're done — stream completed naturally
         if (collectedToolCalls.length === 0) {
+          // Missing-block repair: an artifact ask with no fenced block
+          // means no button. Nudge once for just the block (it streams
+          // after the warm text, so the client parses both together).
+          if (!didArtifactRepair && canvasSectionOn && wantsArtifact && !hasCompleteArtifact(_streamedFinalReply)) {
+            didArtifactRepair = true;
+            if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
+            currentMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
+            sendEvent({ tool_status: 'repairing' });
+            fullContent = '';
+            continue;
+          }
           break;
         }
 
@@ -992,6 +1034,21 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
     if (visionMsg) nsMessages.push(visionMsg);
   }
 
+  // Missing-block repair (mirror of the streaming path): one strict
+  // follow-up call when an artifact ask yielded no fenced block.
+  if (canvasSectionOn && wantsArtifact && !hasCompleteArtifact(nsReply)) {
+    if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
+    nsMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
+    try {
+      const repairResp = await callAgnesOnce(nsMessages);
+      if (repairResp && repairResp.ok) {
+        const repairData = await repairResp.json();
+        const repairMsg = repairData.choices?.[0]?.message || {};
+        if (repairMsg.content) nsReply += repairMsg.content;
+      }
+    } catch (_) {}
+  }
+
   const reply = nsReply.trim();
   res.json({ reply, reasoning: nsReasoning, model: nsModel });
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
@@ -1007,4 +1064,5 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 module.exports = {
   handleProxyAI,
   stripArtifactsForChecks,
+  hasCompleteArtifact,
 };

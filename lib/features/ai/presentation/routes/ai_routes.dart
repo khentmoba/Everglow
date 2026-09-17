@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/deferred_route.dart';
 import '../screens/memory_book_screen.dart';
 import '../screens/memory_trivia_screen.dart';
+import '../screens/motchi_minis_screen.dart';
 import '../screens/motchi_today_screen.dart';
 import '../screens/study_screen.dart' deferred as study_lib;
 import '../widgets/motchi_screen.dart';
@@ -13,6 +14,7 @@ final List<GoRoute> aiRoutes = [
   GoRoute(path: '/motchi-memory', builder: (_, _) => const MemoryBookScreen()),
   GoRoute(path: '/motchi-trivia', builder: (_, _) => const MemoryTriviaScreen()),
   GoRoute(path: '/motchi-today', builder: (_, _) => const MotchiTodayScreen()),
+  GoRoute(path: '/motchi-minis', builder: (_, _) => const MotchiMinisScreen()),
   // Study screen pulls syncfusion PDF (~10MB) via StudyDocService — split
   // it out of the initial bundle with a deferred import.
   GoRoute(

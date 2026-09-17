@@ -186,6 +186,30 @@ class _PlayZoneHubScreenState extends State<PlayZoneHubScreen> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: AppSpacing.lg),
+                            PlayZoneGameCard(
+                              title: "Motchi's Minis",
+                              subtitle:
+                                  'Tiny games Motchi built just for you two — saved from chat, ready to replay anytime.',
+                              badge: 'MOTCHI MADE · SAVED GAMES',
+                              icon: Icons.sports_esports_rounded,
+                              accent: AppColors.auroraLilac,
+                              tags: const [
+                                'Made For Two',
+                                'Replay Anytime',
+                                'From Chat',
+                              ],
+                              actions: [
+                                EverglowButton(
+                                  label: 'Open Minis',
+                                  icon: Icons.play_circle_fill_rounded,
+                                  backgroundColor: AppColors.auroraLilac,
+                                  foregroundColor: AppColors.inkDeep,
+                                  onPressed: () =>
+                                      context.push('/motchi-minis'),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: AppSpacing.x2),
                             _buildFooterNote(),
                           ],
