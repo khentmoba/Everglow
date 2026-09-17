@@ -78,15 +78,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   // First-screen load veil: a full-screen EVERGLOW loader with a REAL
   // percent. Each first-screen card marks its DashboardLoadTracker signal
   // when its own load settles, so the number only climbs on real progress.
-  // Shown once per app run; later dashboard visits stay instant. Two
-  // anti-annoyance guards: a 250ms grace (fast loads never flash a veil)
-  // and a 3s safety (slow network never traps Clair behind it).
+  // Shown once per app run; later dashboard visits stay instant. The veil
+  // stays until 100% — no timer cuts it short. A 250ms grace keeps fast
+  // loads from flashing a veil, and a Skip button lets Clair step past
+  // it herself on a slow network instead of waiting.
   static bool _loadVeilShown = false;
   final DashboardLoadTracker _loadTracker = DashboardLoadTracker();
   bool _showLoadVeil = false;
   bool _authMarked = false;
   Timer? _veilGrace;
-  Timer? _veilSafety;
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _sectionKeys = {
     'zone-today': GlobalKey(),
@@ -113,14 +113,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     WidgetsBinding.instance.addObserver(this);
     _lifecycle.install(_setOfflineFromHeartbeat);
     _loadTracker.addListener(_onLoadProgress);
-    // Grace: only veil a load slow enough to need reassurance. Safety:
-    // never hold Clair longer than 3s no matter what is still pending.
+    // Grace: only veil a load slow enough to need reassurance. No
+    // safety timer: the veil lifts at 100% or on Skip, never by itself.
     _veilGrace = Timer(const Duration(milliseconds: 250), () {
       if (!mounted || _loadVeilShown || _loadTracker.isComplete) return;
       setState(() => _showLoadVeil = true);
-    });
-    _veilSafety = Timer(const Duration(seconds: 3), () {
-      if (mounted) _dismissLoadVeil();
     });
 
     Future.microtask(() {
@@ -203,7 +200,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _veilGrace?.cancel();
-    _veilSafety?.cancel();
     _loadTracker.removeListener(_onLoadProgress);
     _loadTracker.dispose();
     _scrollController.dispose();
@@ -281,8 +277,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _dismissLoadVeil() {
     _veilGrace?.cancel();
     _veilGrace = null;
-    _veilSafety?.cancel();
-    _veilSafety = null;
     _loadTracker.removeListener(_onLoadProgress);
     _loadVeilShown = true;
     if (mounted && _showLoadVeil) {
@@ -777,9 +771,12 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
           ),
           // First-screen load veil: real percent while Today's cards
-          // report ready (see _loadTracker). Fades on complete or the
-          // 3s safety; once per app run, later visits skip it entirely.
-          DashboardLoadVeil(visible: _showLoadVeil),
+          // report ready (see _loadTracker). Fades at 100% or on Skip;
+          // once per app run, later visits skip it entirely.
+          DashboardLoadVeil(
+            visible: _showLoadVeil,
+            onSkip: _dismissLoadVeil,
+          ),
         ],
       ),
       ),
