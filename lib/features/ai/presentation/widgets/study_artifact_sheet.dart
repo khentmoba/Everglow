@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -110,6 +111,17 @@ class StudyArtifactEntry extends StatelessWidget {
             icon: Icons.play_circle_fill_rounded,
             label: 'Preview 🔍 · ${app.title}',
             onTap: () => openCanvasPreview(context, app),
+          ),
+        );
+      }
+    }
+    if (artifacts.hasLinks) {
+      for (final link in artifacts.links) {
+        buttons.add(
+          _LaunchButton(
+            icon: Icons.sports_esports_rounded,
+            label: link.label,
+            onTap: () => context.push(link.route),
           ),
         );
       }

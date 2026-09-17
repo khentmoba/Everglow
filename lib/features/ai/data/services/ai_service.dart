@@ -12,6 +12,7 @@ import 'ai_conversation_repo.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
 import '../../domain/repositories/ai_conversation_repo_interface.dart';
 import 'sse_streamer.dart';
+import 'study_artifact.dart';
 
 /// Core service for all AI interactions in Everglow.
 ///
@@ -256,6 +257,10 @@ class AIService extends ChangeNotifier {
 
       final shouldThink =
           enableThinking ?? const MotchiQuality().shouldAutoThink(message);
+      // Big artifact builds (games, quizzes) stream far longer than chat —
+      // give them a roomier timeout so a slow generation still lands its
+      // closing fence (no fence = no Preview button).
+      final artifactExpected = motchiWantsArtifact(message);
 
       String reply;
       var webSources = <Map<String, String>>[];
@@ -300,6 +305,7 @@ class AIService extends ChangeNotifier {
           },
           enableThinking: shouldThink,
           canvasEnabled: canvasEnabled,
+          artifactExpected: artifactExpected,
         );
         // Superseded by cancelCurrentReply() or a newer request: that path
         // already published its own state, so leave it untouched.
@@ -539,6 +545,7 @@ class AIService extends ChangeNotifier {
         },
         enableThinking: enableThinking,
         canvasEnabled: canvasEnabled,
+        artifactExpected: motchiWantsArtifact(question),
       );
 
       _isLoading = false;
@@ -751,6 +758,7 @@ class AIService extends ChangeNotifier {
     void Function(String error)? onError,
     bool enableThinking = true,
     bool canvasEnabled = true,
+    bool artifactExpected = false,
   }) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -768,6 +776,7 @@ class AIService extends ChangeNotifier {
           onError,
           enableThinking: enableThinking,
           canvasEnabled: canvasEnabled,
+          artifactExpected: artifactExpected,
         );
       } catch (e) {
         final isTransient =
@@ -799,6 +808,7 @@ class AIService extends ChangeNotifier {
     void Function(String error)? onError, {
     bool enableThinking = true,
     bool canvasEnabled = true,
+    bool artifactExpected = false,
   }) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -824,7 +834,11 @@ class AIService extends ChangeNotifier {
       onToolStatus: onToolStatus,
       onToolResult: onToolResult,
       onError: onError,
-      timeout: const Duration(seconds: 120),
+      // Artifact builds get 280s (inside the server's 300s function
+      // budget); everyday chat keeps the snappy 120s cap.
+      timeout: artifactExpected
+          ? const Duration(seconds: 280)
+          : const Duration(seconds: 120),
     );
   }
 

@@ -65,22 +65,38 @@ class HtmlArtifact {
   const HtmlArtifact({required this.title, required this.html});
 }
 
+/// A one-tap doorway into the app — e.g. Couple Chess in the Play Zone.
+///
+/// When Motchi is asked for something Everglow already has (chess,
+/// scribble, table tennis), she answers warmly and appends a hidden
+/// ```everglow-link block with the route. The bubble strips the block and
+/// shows a Play button instead of rebuilding a worse copy inside chat.
+class AppLink {
+  final String route;
+  final String label;
+
+  const AppLink({required this.route, required this.label});
+}
+
 /// What an assistant reply contains, after parsing.
 class StudyArtifacts {
   final List<QuizQuestion> quiz;
   final List<Flashcard> flashcards;
   final List<HtmlArtifact> html;
+  final List<AppLink> links;
 
   const StudyArtifacts({
     this.quiz = const [],
     this.flashcards = const [],
     this.html = const [],
+    this.links = const [],
   });
 
   bool get hasQuiz => quiz.isNotEmpty;
   bool get hasFlashcards => flashcards.isNotEmpty;
   bool get hasHtml => html.isNotEmpty;
-  bool get isEmpty => !hasQuiz && !hasFlashcards && !hasHtml;
+  bool get hasLinks => links.isNotEmpty;
+  bool get isEmpty => !hasQuiz && !hasFlashcards && !hasHtml && !hasLinks;
 }
 
 /// Max items kept per artifact (prompts ask 5 quiz / 10 cards; room to spare).
@@ -91,6 +107,19 @@ const int kMaxFlashcards = 20;
 /// Oversize blocks are dropped so a runaway reply can't flood the chat.
 const int kMaxHtmlChars = 30000;
 const int kMaxHtmlArtifacts = 3;
+
+/// Routes Motchi may deep-link into, with their fixed warm button labels.
+/// Anything else inside an everglow-link block is ignored, so a confused
+/// model can never send Clair somewhere strange.
+const Map<String, String> kAppLinkLabels = {
+  '/play-zone': 'Open the Play Zone 🕹️',
+  '/play-zone/chess': 'Play Couple Chess ♟️',
+  '/play-zone/scribble': 'Play Scribble Together ✏️',
+  '/play-zone/tt': 'Play Table Tennis 🏓',
+  '/play-zone/tt/lobby': 'Open the Table Tennis Lobby 🏓',
+};
+
+const int kMaxAppLinks = 3;
 
 /// Parse every artifact in [text]. Never throws — bad blocks are skipped.
 ///
@@ -117,6 +146,7 @@ StudyArtifacts parseStudyArtifacts(String text) {
     html: _parseHtmlArtifactBlocks(
       text,
     ).take(kMaxHtmlArtifacts).toList(),
+    links: _parseAppLinkBlocks(text).take(kMaxAppLinks).toList(),
   );
 }
 
@@ -262,7 +292,7 @@ String stripStreamingArtifacts(String draft) {
 /// their closing fence, so no Preview button is lost by cutting).
 String _withoutTrailingOpenFence(String text) {
   final open = RegExp(
-    r'```\s*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html)[\s\S]*$',
+    r'```\s*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[\s\S]*$',
     caseSensitive: false,
   ).firstMatch(text);
   if (open != null) {
@@ -298,6 +328,12 @@ String _normTag(String tag) {
       t == 'html') {
     return 'html-artifact';
   }
+  if (t == 'everglow-link' ||
+      t == 'everglowlink' ||
+      t == 'app-link' ||
+      t == 'applink') {
+    return 'everglow-link';
+  }
   return t;
 }
 
@@ -305,7 +341,8 @@ String _withoutFencedBlocks(String text) {
   return text.replaceAllMapped(_fencePattern, (m) {
     if (_normTag(m.group(1)!) == 'quiz-json' ||
         _normTag(m.group(1)!) == 'flashcards-json' ||
-        _normTag(m.group(1)!) == 'html-artifact') {
+        _normTag(m.group(1)!) == 'html-artifact' ||
+        _normTag(m.group(1)!) == 'everglow-link') {
       return '';
     }
     return m.group(0)!;
@@ -576,6 +613,23 @@ String _escapeHtml(String s) {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;');
+}
+
+/// One-tap doorways into the Play Zone. The model may emit JSON
+/// ({"route": "/play-zone/chess"}) or bare text — either way only an
+/// allowlisted route becomes a button; anything else is ignored.
+List<AppLink> _parseAppLinkBlocks(String text) {
+  final out = <AppLink>[];
+  final seen = <String>{};
+  for (final body in _fencedBodies(text, 'everglow-link')) {
+    final route = RegExp(r'/play-zone(?:/[a-z]+)*').firstMatch(body)?.group(0) ?? '';
+    if (route.isEmpty || seen.contains(route)) continue;
+    final label = kAppLinkLabels[route];
+    if (label == null) continue;
+    seen.add(route);
+    out.add(AppLink(route: route, label: label));
+  }
+  return out;
 }
 
 /// Title for the Preview button: <title> first, then an optional
