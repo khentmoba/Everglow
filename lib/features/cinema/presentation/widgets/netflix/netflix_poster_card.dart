@@ -143,6 +143,7 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
           child: NetflixHoverPreview(
             item: widget.item,
             width: width,
+            anchorWidth: rect.width,
             inList: widget.isInList?.call(widget.item) ?? false,
             onTap: () {
               _removeSelfPreview();

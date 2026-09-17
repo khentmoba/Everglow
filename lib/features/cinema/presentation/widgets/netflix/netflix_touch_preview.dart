@@ -7,8 +7,8 @@ import 'netflix_hover_preview.dart';
 /// Shows the hover preview as a centered dialog for touch screens.
 ///
 /// Desktop gets [NetflixHoverPreview] on mouse hover; phones and tablets
-/// have no hover, so a long-press opens the same card (art, actions,
-/// metadata) in a dialog instead. No video — just art + info + buttons.
+/// have no hover, so a long-press opens the same card (art, trailer,
+/// actions, metadata) in a dialog instead.
 Future<void> showTouchPreview({
   required BuildContext context,
   required MediaItem item,

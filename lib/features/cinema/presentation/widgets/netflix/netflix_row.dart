@@ -137,6 +137,7 @@ class _NetflixRowState extends State<NetflixRow> {
           child: NetflixHoverPreview(
             item: item,
             width: width,
+            anchorWidth: rect.width,
             inList: widget.isInList?.call(item) ?? false,
             onTap: () {
               _removePreview();
@@ -343,6 +344,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
             child: NetflixHoverPreview(
               item: item,
               width: width,
+              anchorWidth: rect.width,
               inList: widget.isInList?.call(item) ?? false,
               onTap: () {
                 _removePreview();
