@@ -19,8 +19,8 @@ import 'dashboard_load_tracker.dart';
 /// [DashboardLoadTracker.progress] climbs only as each first-screen card
 /// reports its own load settled (data, cache, or settled error).
 /// [DashboardScreen] owns dismissal: the moment the tracker completes
-/// (100%), or when Clair taps Skip — never on a timer, so a slow
-/// network never cuts her story short and never traps her either.
+/// (100%), when Clair taps Skip, or on a generous failsafe so a wedged
+/// stream can never trap her — cards keep loading underneath.
 class DashboardLoadVeil extends StatelessWidget {
   const DashboardLoadVeil({super.key, required this.visible, this.onSkip});
 

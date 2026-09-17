@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_network_image.dart';
@@ -38,7 +40,14 @@ class _OnThisDayCardState extends State<OnThisDayCard>
 
   Future<void> _load() async {
     try {
-      final memories = await _service.getAllMemories();
+      // Bounded: the `.get()` reads inside have no timeout of their own,
+      // and a hung WebChannel would otherwise stall the dashboard load
+      // veil (memories signal) forever. Empty still counts as settled —
+      // the card hides and the veil moves on.
+      final memories = await _service.getAllMemories().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => <OnThisDayMemory>[],
+      );
       if (!mounted) return;
       setState(() {
         _memories = memories;
