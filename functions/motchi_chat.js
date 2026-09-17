@@ -232,7 +232,7 @@ async function handleProxyAI(req, res) {
 ## Tool Usage — IMPORTANT
 %%MOTCHI_TOOL_LIST%%
 
-**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. It already includes the top page's content — answer from that plus the snippets when enough, and only call read_web_page when you need details or quotes from the other results. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services. When you answer from the web, cite your sources as markdown links.
+**When to use web_search:** If a question needs current or recent information (news, prices, schedules, release dates, restaurant hours, anything that changes), use web_search rather than guessing from training knowledge. It already includes the top page's content — answer from that plus the snippets when enough, and only call read_web_page when you need details or quotes from the other results. Prefer the other custom tools (TMDB, Open Library, Jikan, Spotify) when the question maps to those services. When you answer from the web, name your sources by site so Clair knows where it came from.
 
 ## Image Understanding
 You can analyze images sent by the user. When you receive images:

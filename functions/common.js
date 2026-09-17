@@ -140,6 +140,7 @@ const _EXTERNAL_CACHE_TTLS = {
   anime: 10 * 60 * 1000,
   trending: 10 * 60 * 1000,
   web_search: 15 * 60 * 1000,
+  web_search_long: 60 * 60 * 1000,
   web_page: 30 * 60 * 1000,
 };
 function _getExternalCache(key, ttlMs) {

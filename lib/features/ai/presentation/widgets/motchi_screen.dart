@@ -6,6 +6,7 @@ import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/services/ai_service.dart';
@@ -654,7 +655,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 }
                 final msg = allMsgs[i];
                 final isUserMsg = msg.role == 'user';
-                final bubble = _MessageBubble(
+                Widget bubble = _MessageBubble(
                   key: ValueKey(
                     'msg_${msg.timestamp.millisecondsSinceEpoch}_$i',
                   ),
@@ -669,6 +670,19 @@ class _MotchiScreenState extends State<MotchiScreen> {
                   imageUrls: msg.imageUrls,
                   senderName: isUserMsg ? callerName : null,
                 );
+                // Web answers keep their tappable sources under the
+                // finished bubble (persisted on the message).
+                if (!isUserMsg && msg.sources.isNotEmpty) {
+                  bubble = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      bubble,
+                      const SizedBox(height: 6),
+                      _WebSourcesCard(sources: msg.sources),
+                    ],
+                  );
+                }
                 if (!centered) return bubble;
                 return Center(
                   child: ConstrainedBox(

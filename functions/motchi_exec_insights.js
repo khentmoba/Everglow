@@ -134,16 +134,28 @@ async function exec_web_search(ctx, args) {
     if (args.before_date && /^\d{4}-\d{2}-\d{2}$/.test(String(args.before_date))) params.set('before_date', String(args.before_date));
     if (args.include_domains) params.set('include_domains', String(args.include_domains));
     if (args.exclude_domains) params.set('exclude_domains', String(args.exclude_domains));
+    // Fresh asks (news, recency, date filters) cache briefly; everything
+    // else reuses results for an hour so repeat asks answer instantly.
+    const wantsFresh = String(args.domain_type || '') === 'news' ||
+      args.recency_minutes || args.after_date || args.before_date;
+    const searchTtl = wantsFresh
+      ? ctx.cacheTTLs.web_search
+      : (ctx.cacheTTLs.web_search_long || ctx.cacheTTLs.web_search);
     const searchKey = `websearch:${params.toString()}`;
     let searchData;
-    const cachedSearch = ctx.cacheGet(searchKey, ctx.cacheTTLs.web_search);
+    const cachedSearch = ctx.cacheGet(searchKey, searchTtl);
     if (cachedSearch) {
       searchData = cachedSearch;
     } else {
-      const searchRes = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
-        headers: { 'X-API-Key': apiKey },
-        signal: AbortSignal.timeout(15000),
-      });
+      let searchRes;
+      try {
+        searchRes = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
+          headers: { 'X-API-Key': apiKey },
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch (_) {
+        return JSON.stringify({ error: 'Web search timed out — answer from what you know and say the web was slow.' });
+      }
       if (searchRes.status === 401 || searchRes.status === 403) return JSON.stringify({ error: 'Web search API key is invalid or forbidden.' });
       if (searchRes.status === 402) return JSON.stringify({ error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' });
       if (searchRes.status === 429) return JSON.stringify({ error: 'Web search rate limit hit — try again in a minute.' });
@@ -151,14 +163,47 @@ async function exec_web_search(ctx, args) {
       searchData = await searchRes.json();
       ctx.cacheSet(searchKey, searchData);
     }
-    const results = (searchData.results || []).slice(0, 8).map(r => ({
+    const results = (searchData.results || []).slice(0, 5).map(r => ({
       title: r.title || '',
       url: r.url || '',
-      snippet: (r.snippet || '').slice(0, 300),
+      snippet: (r.snippet || '').slice(0, 280),
       site: r.site_name || '',
       date: r.date || null,
     }));
-    return JSON.stringify({ query, results, total: searchData.total_results || results.length });
+    // One-round answers: fetch the top hit's content right here (best
+    // effort, cached) so Motchi usually needs no second read_web_page
+    // round — that saved LLM round is the biggest speed win.
+    let topPage = null;
+    const topUrl = results.length > 0 ? results[0].url : '';
+    if (/^https?:\/\//i.test(topUrl || '')) {
+      const topKey = `webpage:top:${topUrl}`;
+      const cachedTop = ctx.cacheGet(topKey, ctx.cacheTTLs.web_page);
+      if (cachedTop && cachedTop.text) {
+        topPage = { url: topUrl, title: results[0].title || '', content: String(cachedTop.text).slice(0, 1800) };
+      } else {
+        try {
+          const topRes = await fetch('https://api.fetch.tinyfish.ai', {
+            method: 'POST',
+            headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls: [topUrl], format: 'markdown' }),
+            signal: AbortSignal.timeout(8000),
+          });
+          if (topRes.ok) {
+            const topData = await topRes.json();
+            const first = (topData.results || [])[0];
+            if (first && first.text) {
+              ctx.cacheSet(topKey, { text: String(first.text).slice(0, 1800) });
+              topPage = { url: topUrl, title: first.title || results[0].title || '', content: String(first.text).slice(0, 1800) };
+            }
+          }
+        } catch (_) {
+          // Top-page fetch is a bonus — snippets alone still answer.
+        }
+      }
+    }
+    // top_page first: the model's trimmed copy keeps the most useful
+    // content when the payload is long.
+    return JSON.stringify({ query, top_page: topPage, results, total: searchData.total_results || results.length });
 }
 
 async function exec_read_web_page(ctx, args) {
@@ -173,12 +218,17 @@ async function exec_read_web_page(ctx, args) {
     if (cachedPage) {
       fetchData = cachedPage;
     } else {
-      const fetchRes = await fetch('https://api.fetch.tinyfish.ai', {
-        method: 'POST',
-        headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls, format: 'markdown' }),
-        signal: AbortSignal.timeout(20000),
-      });
+      let fetchRes;
+      try {
+        fetchRes = await fetch('https://api.fetch.tinyfish.ai', {
+          method: 'POST',
+          headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls, format: 'markdown' }),
+          signal: AbortSignal.timeout(12000),
+        });
+      } catch (_) {
+        return JSON.stringify({ error: 'Reading the page timed out — answer from the search snippets and say the page was slow.' });
+      }
       if (fetchRes.status === 401 || fetchRes.status === 403) return JSON.stringify({ error: 'Web page reading API key is invalid or forbidden.' });
       if (fetchRes.status === 429) return JSON.stringify({ error: 'Web page reading rate limit hit — try again in a minute.' });
       if (!fetchRes.ok) return JSON.stringify({ error: `Web page reading failed (HTTP ${fetchRes.status}).` });
@@ -188,7 +238,7 @@ async function exec_read_web_page(ctx, args) {
     const pages = (fetchData.results || []).map(r => ({
       url: r.url || '',
       title: r.title || '',
-      content: (r.text || '').slice(0, 6000),
+      content: (r.text || '').slice(0, 4000),
     }));
     const pageErrors = (fetchData.errors || []).map(e => ({ url: e.url || '', error: e.error || 'unknown' }));
     return JSON.stringify({ pages, errors: pageErrors });

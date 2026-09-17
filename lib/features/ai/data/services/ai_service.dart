@@ -120,6 +120,55 @@ class AIService extends ChangeNotifier {
     if (!changed) return payloads;
     return out.reversed.toList();
   }
+
+  /// Pulls tappable web sources out of this turn's tool results so they
+  /// can ride on the finished assistant message (and survive reloads).
+  /// Dedups by URL, caps at 5. Pure so the rule is unit-testable.
+  static List<Map<String, String>> webSourcesFromToolResults(
+    List<Map<String, dynamic>> toolResults,
+  ) {
+    final seen = <String>{};
+    final out = <Map<String, String>>[];
+    void add(String title, String url, String site) {
+      final u = url.trim();
+      if (u.isEmpty || !u.startsWith('http') || !seen.add(u)) return;
+      if (out.length >= 5) return;
+      out.add({'title': title.trim(), 'url': u, 'site': site.trim()});
+    }
+
+    for (final r in toolResults) {
+      if (r['tool'] == 'web_search') {
+        final results = r['results'];
+        if (results is List) {
+          for (final s in results) {
+            if (s is Map) {
+              add('${s['title'] ?? ''}', '${s['url'] ?? ''}', '${s['site'] ?? ''}');
+            }
+          }
+        }
+      } else if (r['tool'] == 'read_web_page') {
+        final pages = r['pages'];
+        if (pages is List) {
+          for (final p in pages) {
+            if (p is Map) {
+              final url = '${p['url'] ?? ''}';
+              add('${p['title'] ?? ''}', url, _hostOf(url));
+            }
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  static String _hostOf(String url) {
+    try {
+      return Uri.parse(url).host.replaceFirst('www.', '');
+    } catch (_) {
+      return '';
+    }
+  }
+
   String get toolStatus => _toolStatus;
 
   void _resetDraftState() {
@@ -214,6 +263,7 @@ class AIService extends ChangeNotifier {
       final artifactExpected = motchiWantsArtifact(message);
 
       String reply;
+      var webSources = <Map<String, String>>[];
 
       if (stream) {
         // ── Streaming mode ─────────────────────────────
@@ -260,6 +310,9 @@ class AIService extends ChangeNotifier {
         // Superseded by cancelCurrentReply() or a newer request: that path
         // already published its own state, so leave it untouched.
         if (myRequest != _activeRequest) return reply;
+        // Keep web sources before the draft state (and tool results)
+        // is cleared — they persist on the finished reply below.
+        webSources = webSourcesFromToolResults(_toolResults);
         _resetDraftState();
       } else {
         // ── Non-streaming mode ─────────────────────────
@@ -287,7 +340,7 @@ class AIService extends ChangeNotifier {
       // starts right at the first real line instead of a visible gap.
       final cleaned = reply.trimLeft();
       conversation.messages.add(
-        AIMessage(role: 'assistant', content: cleaned),
+        AIMessage(role: 'assistant', content: cleaned, sources: webSources),
       );
 
       // Publish the finished reply to the UI immediately so the loading
