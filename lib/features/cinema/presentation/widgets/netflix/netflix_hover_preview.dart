@@ -5,11 +5,17 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/services/tmdb_service.dart';
+import '../trailer_player.dart';
 import 'netflix_colors.dart';
 
 /// In-memory cache of TMDB detail maps keyed by `tmdbId:mediaType` so the
 /// hover popover only fetches each title once per session.
 final Map<String, Map<String, dynamic>> _netflixDetailCache = {};
+
+/// Session cache of YouTube trailer keys (`tmdbId:mediaType` -> key).
+/// A stored null means "looked up, has no trailer" so repeat hovers
+/// never re-request titles without videos.
+final Map<String, String?> _netflixTrailerCache = {};
 
 /// Estimated popover height for a given width. Kept in one place so the
 /// row, grid card, and position helper agree.
@@ -17,31 +23,26 @@ double netflixPreviewHeight(double width) => width * 0.5625 + 232;
 
 /// Computes a viewport-safe top-left position for the hover popover.
 ///
-/// Prefers floating above the anchored card (Netflix behavior). When there
-/// is not enough room above (first rail, near the billboard) it drops
-/// below the card instead of clamping over the hero text.
+/// Netflix-style: the preview grows centered over the anchored card,
+/// covering it, clamped inside the viewport with a small margin.
 Offset positionHoverPreview({
   required Rect anchor,
   required Size previewSize,
   required Size screen,
 }) {
-  var left = anchor.center.dx - previewSize.width / 2;
-  final maxLeft =
-      (screen.width - previewSize.width - 12).clamp(12.0, screen.width)
-          .toDouble();
-  left = left.clamp(12.0, maxLeft);
-
-  const topChrome = 76.0;
-  final above = anchor.top - previewSize.height - 10;
-  final below = anchor.bottom + 10;
-  double top;
-  if (above >= topChrome) {
-    top = above;
-  } else if (below + previewSize.height <= screen.height - 8) {
-    top = below;
-  } else {
-    top = (screen.height - previewSize.height - 8).clamp(8.0, screen.height);
-  }
+  const margin = 12.0;
+  final maxLeft = (screen.width - previewSize.width - margin)
+      .clamp(margin, screen.width)
+      .toDouble();
+  final left = (anchor.center.dx - previewSize.width / 2)
+      .clamp(margin, maxLeft)
+      .toDouble();
+  final maxTop = (screen.height - previewSize.height - margin)
+      .clamp(margin, screen.height)
+      .toDouble();
+  final top = (anchor.center.dy - previewSize.height / 2)
+      .clamp(margin, maxTop)
+      .toDouble();
   return Offset(left, top);
 }
 
@@ -54,6 +55,11 @@ Offset positionHoverPreview({
 class NetflixHoverPreview extends StatefulWidget {
   final MediaItem item;
   final double width;
+
+  /// On-screen width of the card this preview grows out of. Sets the
+  /// entrance scale so the popover starts at roughly card size. Null
+  /// (touch dialog) keeps a subtle centered pop.
+  final double? anchorWidth;
   final VoidCallback? onTap;
   final VoidCallback? onPlay;
   final ValueChanged<bool>? onToggleList;
@@ -64,6 +70,7 @@ class NetflixHoverPreview extends StatefulWidget {
     super.key,
     required this.item,
     required this.width,
+    this.anchorWidth,
     this.onTap,
     this.onPlay,
     this.onToggleList,
@@ -77,6 +84,9 @@ class NetflixHoverPreview extends StatefulWidget {
 
 class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
   Map<String, dynamic>? _details;
+  String? _trailerKey;
+  bool _trailerVisible = false;
+  bool _muted = true;
   late bool _inList = widget.inList;
   late double? _rating = widget.item.userRating;
 
@@ -89,6 +99,11 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
       _details = _netflixDetailCache[_cacheKey];
     } else if (widget.item.synopsis.isEmpty) {
       _loadDetails();
+    }
+    if (_netflixTrailerCache.containsKey(_cacheKey)) {
+      _trailerKey = _netflixTrailerCache[_cacheKey];
+    } else {
+      _loadTrailer();
     }
   }
 
@@ -105,6 +120,20 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
     }
     _netflixDetailCache[_cacheKey] = result;
     if (mounted) setState(() => _details = result);
+  }
+
+  Future<void> _loadTrailer() async {
+    String? key;
+    try {
+      key = await TMDBService().fetchTrailerKey(
+        widget.item.tmdbId,
+        widget.item.mediaType,
+      );
+    } catch (_) {
+      key = null;
+    }
+    _netflixTrailerCache[_cacheKey] = key;
+    if (mounted) setState(() => _trailerKey = key);
   }
 
   String get _backdropUrl {
@@ -179,15 +208,25 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
 
   @override
   Widget build(BuildContext context) {
+    // Netflix grow: the preview starts at roughly the card's size and
+    // expands to full size, centered over the card (the overlay position
+    // keeps the centers aligned, so scaling from the center reads as
+    // growing out of the poster itself).
+    final anchorWidth = widget.anchorWidth;
+    final begin =
+        (anchorWidth == null || anchorWidth <= 0 || widget.width <= 0
+                ? 0.92
+                : (anchorWidth / widget.width).clamp(0.45, 0.8))
+            .toDouble();
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.96, end: 1.0),
-      duration: const Duration(milliseconds: 160),
+      tween: Tween(begin: begin, end: 1.0),
+      duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       builder: (context, scale, child) => Transform.scale(
         scale: scale,
         alignment: Alignment.center,
         child: Opacity(
-          opacity: ((scale - 0.96) / 0.04).clamp(0.0, 1.0),
+          opacity: ((scale - begin) / (1.0 - begin)).clamp(0.0, 1.0),
           child: child,
         ),
       ),
@@ -240,6 +279,25 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         )
                       else
                         Container(color: NetflixColors.surface),
+                      // Muted trailer fades in over the still once it is
+                      // ready, Netflix-style. The still stays mounted
+                      // underneath as the loading/fallback frame.
+                      if (_trailerKey != null)
+                        AnimatedOpacity(
+                          opacity: _trailerVisible ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 450),
+                          child: TrailerPlayer(
+                            videoKey: _trailerKey!,
+                            muted: _muted,
+                            autoplay: true,
+                            loop: true,
+                            onLoaded: () {
+                              if (mounted) {
+                                setState(() => _trailerVisible = true);
+                              }
+                            },
+                          ),
+                        ),
                       // Blend image into the body so there is no hard cut.
                       DecoratedBox(
                         decoration: BoxDecoration(
@@ -258,27 +316,44 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           ),
                         ),
                       ),
-                      // Title treatment over the art, like Netflix.
+                      // Title treatment over the art, like Netflix. Steps
+                      // aside once the trailer fades in.
                       Positioned(
                         left: 14,
                         right: 14,
                         bottom: 10,
-                        child: Text(
-                          widget.item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitHeading.copyWith(
-                            fontSize: 16,
-                            letterSpacing: 0.2,
-                            shadows: const [
-                              Shadow(
-                                color: Color(0xCC000000),
-                                blurRadius: 12,
-                              ),
-                            ],
+                        child: AnimatedOpacity(
+                          opacity: _trailerVisible ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 300),
+                          child: Text(
+                            widget.item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitHeading.copyWith(
+                              fontSize: 16,
+                              letterSpacing: 0.2,
+                              shadows: const [
+                                Shadow(
+                                  color: Color(0xCC000000),
+                                  blurRadius: 12,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
+                      if (_trailerKey != null && _trailerVisible)
+                        Positioned(
+                          right: 10,
+                          bottom: 10,
+                          child: _HoverActionButton(
+                            icon: _muted
+                                ? Icons.volume_off_rounded
+                                : Icons.volume_up_rounded,
+                            tooltip: _muted ? 'Unmute' : 'Mute',
+                            onTap: () => setState(() => _muted = !_muted),
+                          ),
+                        ),
                     ],
                   ),
                 ),
