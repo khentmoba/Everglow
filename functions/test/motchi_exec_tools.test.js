@@ -46,6 +46,12 @@ function makeDbStub({ leafDoc = null, added = null } = {}) {
   const chain = {
     doc: () => ({ ...terminal, collection: () => chain }),
     collection: () => chain,
+    // Query-chain no-ops returning empty results, so the split-injury guard
+    // below can run read executors (orderBy/limit/get) without a real DB.
+    where: () => chain,
+    orderBy: () => chain,
+    limit: () => chain,
+    get: async () => ({ docs: [], empty: true, size: 0 }),
     add: async (d) => { addedDocs.push(d); return { id: 'new1' }; },
   };
   return { db: { collection: () => chain }, doc, addedDocs };
@@ -518,5 +524,98 @@ test('createToolCtx builds a live ctx (smoke: shape only)', () => {
     'phtDateString', 'getTmdbKey', 'sendFCMToUser', 'getSpotifyAppToken',
     'cacheGet', 'cacheSet', 'cacheTTLs']) {
     assert.ok(ctx[key] !== undefined, `ctx missing: ${key}`);
+  }
+});
+
+test('every tool runs without ReferenceError (split-injury guard)', async () => {
+  // The motchi_chat.js -> motchi_exec_*.js split moved executors without
+  // their helpers (parseFactStructure, rankMemories, getEmbedding,
+  // PARTNER_UID), so remember_fact and friends threw on every call while
+  // Motchi told Khent the memory book had a hiccup. This guard runs all
+  // 58 tools with validation-passing args against both a missing and an
+  // existing doc; any 'X is not defined' fails loudly. Other errors are
+  // fine — stubs have no network or real data.
+  const realFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: false, status: 500, json: async () => ({}), text: async () => '',
+  });
+  try {
+    const argsByTool = {
+      add_to_watchlist: { title: 'x' },
+      save_to_starlight_jar: { note: 'x' },
+      set_mood: { mood: 'happy' },
+      search_movies: { query: 'x' },
+      get_weather: {},
+      create_reminder: { title: 'x' },
+      list_reminders: {},
+      cancel_reminder: { id: 'x' },
+      log_activity: { activity: 'x' },
+      search_books: { query: 'x' },
+      get_date_ideas: {},
+      read_chat_messages: {},
+      send_sanctuary_message: { text: 'hi' },
+      get_xp_stats: {},
+      search_anime: { query: 'x' },
+      add_book_to_our_books: { query: 'x' },
+      read_starlight_jar: {},
+      get_watchlist: {},
+      remember_fact: { fact: 'Clair loves lilies' },
+      read_memories: {},
+      pin_memory: { memory_id: 'x' },
+      delete_memory: { memory_id: 'x' },
+      edit_memory: { memory_id: 'x', fact: 'y' },
+      web_search: { query: 'x' },
+      read_web_page: { urls: ['https://example.com'] },
+      mark_watchlist_item_watched: { title: 'x' },
+      update_book_progress: { title: 'x', progress: 10 },
+      add_xp: { amount: 10 },
+      send_note_to_partner: { note: 'hi' },
+      get_relationship_insights: {},
+      get_memory_trivia: {},
+      get_today_recap: {},
+      get_gallery: {},
+      get_garden: {},
+      get_canvas: {},
+      search_spotify: { query: 'x' },
+      remove_from_watchlist: { title: 'x' },
+      search_everglow: { query: 'x' },
+      plan_date_night: {},
+      add_calendar_event: { title: 'x', date: '2026-10-01' },
+      create_journal_entry: { title: 't', content: 'c' },
+      add_bucket_item: { title: 'x' },
+      add_trip: { title: 'x', start_date: '2026-10-01', end_date: '2026-10-05' },
+      add_trip_pin: { title: 'x' },
+      log_habit: { title: 'x' },
+      complete_habit: {},
+      get_calendar_events: {},
+      get_bucket_list: {},
+      get_journal_entries: {},
+      search_journal_entries: { query: 'x' },
+      read_journal_entry: { id: 'x' },
+      get_trips: {},
+      edit_journal_entry: { id: 'x', content: 'y' },
+      delete_journal_entry: { id: 'x' },
+      update_calendar_event: { id: 'x', location: 'y' },
+      delete_calendar_event: { id: 'x' },
+      complete_bucket_item: { id: 'x' },
+      delete_bucket_item: { id: 'x' },
+    };
+    for (const name of tools.TOOL_NAMES) {
+      for (const exists of [false, true]) {
+        const { ctx } = makeCtx({
+          leafDoc: makeDocStub({
+            exists,
+            data: { fact: 'seed fact', title: 'seed title', category: 'fact' },
+          }),
+        });
+        const out = await executeToolCall(ctx, name, argsByTool[name] || {});
+        assert.ok(
+          !/is not defined/.test(out),
+          `${name} (exists=${exists}): ${String(out).slice(0, 200)}`,
+        );
+      }
+    }
+  } finally {
+    global.fetch = realFetch;
   }
 });

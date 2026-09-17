@@ -75,7 +75,8 @@ async function exec_send_sanctuary_message(ctx, args) {
 async function exec_send_note_to_partner(ctx, args) {
     const note = (args.note || '').trim();
     if (!note) return JSON.stringify({ error: 'No note provided' });
-    const partnerUid = PARTNER_UID[ctx.callerUid];
+    const partnerMap = { khentsgdz: 'clairjassen', clairjassen: 'khentsgdz' };
+    const partnerUid = partnerMap[(ctx.callerUid || '').toLowerCase()];
     if (!partnerUid) return JSON.stringify({ error: 'Unknown partner for this user' });
     await ctx.db.collection('motchi_notes').add({
       from: ctx.callerUid,
