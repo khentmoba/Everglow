@@ -56,6 +56,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   List<MediaItem> _trendingCarousel = [];
   List<MediaItem> _trendingGlobal = [];
+  List<MediaItem> _topTenToday = [];
   List<MediaItem> _topRatedMovies = [];
   List<MediaItem> _popularTVShows = [];
   List<MediaItem> _nowShowing = [];
@@ -152,10 +153,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _deepRowsStarted = false;
     _deepRowsFallbackTimer?.cancel();
 
-    // Open pays for 5 visible rows only: billboard + trending, top rated,
-    // popular series, now showing, new releases. Genre + discovery rails
-    // wait for the first scroll (see _startDeepRows) so Claire's phone
-    // isn't opening 13+ authenticated proxy calls at once.
+    // Open pays for 6 visible rows only: billboard + trending, top 10 PH,
+    // top rated, popular series, now showing, new releases. Genre +
+    // discovery rails wait for the first scroll (see _startDeepRows) so
+    // Claire's phone isn't opening 13+ authenticated proxy calls at once.
     final currentYear = DateTime.now().year;
     await Future.wait([
       _loadRow(
@@ -165,6 +166,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
           _trendingCarousel = items.take(5).toList();
         },
         dismissShimmer: true,
+      ),
+      _loadRow(
+        _tmdbService.fetchTrendingByCountry(countryCode: 'PH'),
+        (items) => _topTenToday = items,
       ),
       _loadRow(
         _tmdbService.fetchTopRatedMovies(),
@@ -535,6 +540,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   watchingList: _watchingList,
                   watchedList: _watchedList,
                   trendingGlobal: _trendingGlobal,
+                  topTenToday: _topTenToday,
                   onRefresh: _fetchHomeData,
                   onMediaTap: _showMediaDetails,
                   onPlay: _playNow,
