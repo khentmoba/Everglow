@@ -6,6 +6,9 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
+const { parseFactStructure, rankMemories } = require('./motchi_core.js');
+const { getEmbedding } = require('./motchi_memory.js');
+
 async function exec_remember_fact(ctx, args) {
     const fact = (args.fact || '').trim();
     if (!fact) return JSON.stringify({ error: 'No fact provided' });
