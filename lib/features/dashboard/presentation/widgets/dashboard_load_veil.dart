@@ -14,15 +14,20 @@ import 'dashboard_load_tracker.dart';
 /// and Clair always sees how far along her story is instead of an endless
 /// spinner.
 ///
-/// The veil is purely visual: it fades out via [visible] and ignores input
-/// once hidden. The number is honest — [DashboardLoadTracker.progress]
-/// climbs only as each first-screen card reports its own load settled
-/// (data, cache, or settled error). [DashboardScreen] owns dismissal:
-/// the moment the tracker completes, or a 3s safety net, whichever first.
+/// The veil is purely visual except for its Skip button: it fades out via
+/// [visible] and ignores input once hidden. The number is honest —
+/// [DashboardLoadTracker.progress] climbs only as each first-screen card
+/// reports its own load settled (data, cache, or settled error).
+/// [DashboardScreen] owns dismissal: the moment the tracker completes
+/// (100%), or when Clair taps Skip — never on a timer, so a slow
+/// network never cuts her story short and never traps her either.
 class DashboardLoadVeil extends StatelessWidget {
-  const DashboardLoadVeil({super.key, required this.visible});
+  const DashboardLoadVeil({super.key, required this.visible, this.onSkip});
 
   final bool visible;
+
+  /// Called when Clair taps Skip. Null hides the button (tests).
+  final VoidCallback? onSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +118,35 @@ class DashboardLoadVeil extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (onSkip != null) ...[
+                    const SizedBox(height: 22),
+                    TextButton(
+                      onPressed: onSkip,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.petalWhite.withValues(
+                          alpha: 0.7,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          side: BorderSide(
+                            color: AppColors.blushGold.withValues(alpha: 0.3),
+                          ),
+                        ),
+                      ),
+                      child: const Text(
+                        'Skip',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
