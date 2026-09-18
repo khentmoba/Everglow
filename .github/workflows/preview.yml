@@ -1,0 +1,77 @@
+# PR preview: every pull request gets a temporary live link so Khent can
+# open the fix on phone/tablet before merging to main (which auto-deploys
+# to Clair). The Firebase hosting action posts the preview URL as a PR
+# comment by itself — no extra bot code needed.
+#
+# Safety notes:
+# - Same-repo branches only: forks can't read our secrets, so they skip
+#   instead of failing red.
+# - Preview uses the same Firebase project but boots logged-out, so no
+#   couple-only data ever shows without a login. Never screenshot
+#   logged-in pages into a public PR.
+# - Channels expire after 12 hours: long enough to check on your
+#   phone, short enough to never pile up.
+name: Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    # Same-repo branches only (Khent's one-branch-per-fix flow). Fork PRs
+    # skip quietly: secrets aren't available to them.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Prepare local env asset
+        run: |
+          if [ ! -f assets/env.txt ]; then
+            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
+          fi
+
+      - name: Generate cache-busting service worker
+        run: dart tool/generate_sw.dart
+
+      - name: Build web
+        env:
+          FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        run: |
+          ARGS=(--release --no-source-maps)
+          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
+            VAL="${!KEY}"
+            if [ -n "$VAL" ]; then
+              ARGS+=(--dart-define="$KEY=$VAL")
+            fi
+          done
+          dart tool/build_web.dart -- "${ARGS[@]}"
+
+      - name: Deploy preview channel
+        uses: FirebaseExtended/action-hosting-deploy@v0.9.0
+        env:
+          NODE_OPTIONS: '--no-warnings'
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
+          projectId: everglow-1c6db
+          expires: 12h
