@@ -428,5 +428,13 @@
     "expectedTools": [
       "delete_bucket_item"
     ]
+  },
+  {
+    "id": "journal-remember",
+    "message": "read the journal motchi so that you can remember some things about us",
+    "expectedTools": [
+      "get_journal_entries",
+      "remember_fact"
+    ]
   }
 ]

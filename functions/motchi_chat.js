@@ -101,6 +101,22 @@ function hasCompleteArtifact(text) {
 // client parses both halves together and the button appears.
 const ARTIFACT_REPAIR_NUDGE = 'Your last reply had no hidden fenced block, so the chat shows no button. Reply again with ONLY the single fenced block for what they asked for (```quiz-json, ```flashcards-json, ```html-artifact, or ```everglow-link) — no visible text, no explanation, just the block.';
 
+// Dangling-list follow-up: when Motchi's pre-tool preamble promises a
+// list or a save ("Let me save the standouts:") but the post-tool reply
+// comes back empty, the chat shows a broken colon with nothing after it.
+// This nudge runs at most once per message and asks for just the list.
+const DANGLING_REPLY_NUDGE = 'Your reply ends with ":" but no list followed it. Continue in visible text right now: write the list you promised (what you saved or found), warmly and concisely. Do not call any more tools.';
+
+/**
+ * True when a reply ends mid-promise: trailing ":" with nothing after
+ * it (whitespace aside). A complete reply never ends this way, so it is
+ * safe to spend one continuation call finishing the thought.
+ */
+function endsWithDanglingColon(text) {
+  const trimmed = String(text || '').replace(/\s+$/, '');
+  return trimmed.length > 0 && trimmed.endsWith(':');
+}
+
 async function handleProxyAI(req, res) {
   // V1 fallback — kept for non-streaming compatibility.
   // V2 equivalent (proxyAIv2) below supports true SSE streaming.
@@ -274,6 +290,7 @@ You can analyze images sent by the user. When you receive images:
 
 **Rules:**
 - After executing a tool, acknowledge the result naturally — don't show raw JSON.
+- Always finish the thought in visible text: if your pre-tool message promised a list or a save ("Let me save the standouts:"), the reply after the tool calls MUST name what you saved or found. A preamble ending with ":" and no list after it is a broken reply — never leave one hanging.
 - You can call multiple tools in sequence if needed.
 - Do NOT use tools for simple conversational replies or when the answer is already in your context.
 
@@ -659,6 +676,7 @@ ${HTML_GAME_GUIDE}
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
       let didArtifactRepair = false; // missing-block nudge: at most once
+      let didDanglingRepair = false; // dangling-colon nudge: at most once
       let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
@@ -798,6 +816,18 @@ ${HTML_GAME_GUIDE}
             didArtifactRepair = true;
             if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
             currentMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
+            sendEvent({ tool_status: 'repairing' });
+            fullContent = '';
+            continue;
+          }
+          // Dangling-list repair: a preamble ending with ":" and no
+          // post-tool text means the promised list never arrived — nudge
+          // once to write it (it streams after the preamble, so the
+          // client parses both together as one finished reply).
+          if (!didDanglingRepair && endsWithDanglingColon(_streamedFinalReply)) {
+            didDanglingRepair = true;
+            if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
+            currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
             sendEvent({ tool_status: 'repairing' });
             fullContent = '';
             continue;
@@ -1064,6 +1094,21 @@ ${HTML_GAME_GUIDE}
     } catch (_) {}
   }
 
+  // Dangling-list repair (mirror of the streaming path): one strict
+  // follow-up call when the reply ends with ":" and no list after it.
+  if (endsWithDanglingColon(nsReply)) {
+    if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
+    nsMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
+    try {
+      const danglingResp = await callAgnesOnce(nsMessages);
+      if (danglingResp && danglingResp.ok) {
+        const danglingData = await danglingResp.json();
+        const danglingMsg = danglingData.choices?.[0]?.message || {};
+        if (danglingMsg.content) nsReply += danglingMsg.content;
+      }
+    } catch (_) {}
+  }
+
   const reply = nsReply.trim();
   res.json({ reply, reasoning: nsReasoning, model: nsModel });
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
@@ -1080,4 +1125,5 @@ module.exports = {
   handleProxyAI,
   stripArtifactsForChecks,
   hasCompleteArtifact,
+  endsWithDanglingColon,
 };

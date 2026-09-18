@@ -29,6 +29,13 @@ test('fallback persona renders its tool list from attached tools', () => {
   assert.ok(!src.includes('- get_trips — Read trips'));
 });
 
+test('fallback persona forbids dangling preambles after tool calls', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Motchi once left "Let me save the standouts:" hanging with no
+  // post-tool list — the persona must demand the finished summary.
+  assert.ok(src.includes('never leave one hanging'));
+});
+
 test('non-streaming answers run the agent loop (Undo restores)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
   // Both answer paths must execute tools — dropping non-streaming tool
@@ -62,6 +69,24 @@ test('hasCompleteArtifact spots complete vs missing blocks', () => {
   assert.equal(chat.hasCompleteArtifact('Made you a game!'), false);
   assert.equal(chat.hasCompleteArtifact('Making it!\n```html-artifact\n<html>'), false);
   assert.equal(chat.hasCompleteArtifact(''), false);
+});
+
+test('endsWithDanglingColon spots a promised list that never arrived', () => {
+  assert.equal(chat.endsWithDanglingColon('Let me save the standout details I found:'), true);
+  assert.equal(chat.endsWithDanglingColon('Let me save the standout details I found:\n  \n'), true);
+  assert.equal(chat.endsWithDanglingColon('Saved: morning walks, lilies, ramen nights.'), false);
+  assert.equal(chat.endsWithDanglingColon('Here are your 3: 1. one'), false);
+  assert.equal(chat.endsWithDanglingColon(''), false);
+  assert.equal(chat.endsWithDanglingColon(null), false);
+});
+
+test('dangling-list repair is wired on both answer paths', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Nudge const + streaming use + non-streaming use.
+  const uses = src.split('DANGLING_REPLY_NUDGE').length - 1;
+  assert.ok(uses >= 3, `expected nudge const + 2 uses, saw ${uses}`);
+  assert.match(src, /didDanglingRepair/);
+  assert.match(src, /endsWithDanglingColon/);
 });
 
 test('missing-block repair is wired on both answer paths', () => {
