@@ -18,7 +18,6 @@ import '../../../../core/utils/connectivity_service.dart';
 import '../../../../core/utils/logger.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
-import '../widgets/reveal_loader.dart';
 import '../widgets/petal_shower.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -652,10 +651,53 @@ class _GatewayPageState extends State<GatewayPage> {
                     showPetals: false,
                   ),
                 ),
-                Center(child: GatewayRevealLoader()),
+                Center(child: _GatewayRevealMark()),
               ],
             )
           : const SizedBox.shrink(),
+    );
+  }
+}
+
+/// Quiet mark shown behind the door while it swings open (~1s).
+///
+/// Deliberately has NO percent: the reveal is a fixed animation, not a
+/// measured load, so any number here would be fake — and it used to hit a
+/// fake 100% right before the dashboard's REAL percent started over from
+/// the bottom. The dashboard veil is the one honest loader.
+class _GatewayRevealMark extends StatelessWidget {
+  const _GatewayRevealMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.favorite_rounded,
+          color: AppColors.auroraRose,
+          size: 26,
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'EVERGLOW',
+          style: TextStyle(
+            color: AppColors.petalWhite.withValues(alpha: 0.85),
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 4.0,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          'opening your story…',
+          style: TextStyle(
+            color: AppColors.petalWhite.withValues(alpha: 0.45),
+            fontSize: 10,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ],
     );
   }
 }

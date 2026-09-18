@@ -8,11 +8,14 @@ import 'dashboard_load_tracker.dart';
 /// Full-screen loading veil with a REAL percent, shown briefly on cold
 /// start while the dashboard's first screen reports ready.
 ///
-/// Matches the web splash (`web/index.html`) and the gateway reveal copy —
-/// heart, `EVERGLOW`, determinate bar, big percent, warm status line — so
-/// going from the door to the dashboard feels like one continuous handoff,
-/// and Clair always sees how far along her story is instead of an endless
-/// spinner.
+/// Matches the web splash (`web/index.html`) — heart, `EVERGLOW`,
+/// determinate bar, big percent, warm status line — so going from the
+/// door to the dashboard feels like one continuous handoff, and Clair
+/// always sees how far along her story is instead of an endless spinner.
+///
+/// This is the ONE percent loader in the app: the gateway reveal behind
+/// the door shows no number on purpose (a fixed animation has nothing
+/// honest to count), so the percent here never resets backwards.
 ///
 /// The veil is purely visual except for its Skip button: it fades out via
 /// [visible] and ignores input once hidden. The number is honest —
