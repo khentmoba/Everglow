@@ -106,7 +106,10 @@ class WatchPartyService {
   /// One-shot fetch — used to decide whether the dashboard "Watch
   /// Together" card should show "Resume Party" vs "Start a Party".
   Future<WatchPartyRoom?> getRoom(String roomId) async {
-    final snap = await _db.collection(_collection).doc(roomId).get();
+    final snap = await withGetTimeout(
+      _db.collection(_collection).doc(roomId).get(),
+      label: 'watch party room',
+    );
     if (!snap.exists) return null;
     return WatchPartyRoom.fromFirestore(snap);
   }

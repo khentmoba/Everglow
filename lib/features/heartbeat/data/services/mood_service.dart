@@ -10,12 +10,12 @@ class MoodSource {
     required String username,
     required int score,
     required String emoji,
-  }) =>
-      throw UnimplementedError();
+  }) => throw UnimplementedError();
 
   Future<bool> hasSubmittedToday(String username) => throw UnimplementedError();
 
-  Future<UserMood?> getLatestMood(String username) => throw UnimplementedError();
+  Future<UserMood?> getLatestMood(String username) =>
+      throw UnimplementedError();
 
   Stream<UserMood?> watchLatestMood(String username) =>
       throw UnimplementedError();
@@ -64,13 +64,16 @@ class MoodService implements MoodSource {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
 
-    final snapshot = await _db
-        .collection('moods')
-        .where('username', isEqualTo: username)
-        .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
+    final snapshot = await withGetTimeout(
+      _db
+          .collection('moods')
+          .where('username', isEqualTo: username)
+          .where('timestamp', isGreaterThanOrEqualTo: startOfDay)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get(),
+      label: 'mood today check',
+    );
 
     return snapshot.docs.isNotEmpty;
   }
@@ -80,13 +83,15 @@ class MoodService implements MoodSource {
   @override
   Future<UserMood?> getLatestMood(String username) async {
     try {
-      final snapshot = await _db
-          .collection('moods')
-          .where('username', isEqualTo: username)
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .get()
-          .timeout(const Duration(seconds: 8));
+      final snapshot = await withGetTimeout(
+        _db
+            .collection('moods')
+            .where('username', isEqualTo: username)
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get(),
+        label: 'mood latest',
+      );
       if (snapshot.docs.isEmpty) return null;
       return UserMood.fromFirestore(snapshot.docs.first.data());
     } catch (e) {

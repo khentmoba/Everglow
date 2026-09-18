@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Scrapes mangakakalot.com for chapter data and page images. Catalog
@@ -199,11 +200,14 @@ class MangaKakalotService with ConnectivityAware {
     if (userName.isEmpty) return;
     try {
       final collection = _firestore.collection('manga_library');
-      final existing = await collection
-          .where('mangaId', isEqualTo: item.mangaId)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('mangaId', isEqualTo: item.mangaId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'manga save lookup',
+      );
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update({
           'libraryStatus': libraryStatus,
@@ -229,11 +233,14 @@ class MangaKakalotService with ConnectivityAware {
     if (userName.isEmpty) return;
     try {
       final collection = _firestore.collection('manga_library');
-      final existing = await collection
-          .where('mangaId', isEqualTo: mangaId)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('mangaId', isEqualTo: mangaId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'manga remove lookup',
+      );
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).delete();
       }
@@ -251,11 +258,14 @@ class MangaKakalotService with ConnectivityAware {
     if (userName.isEmpty) return;
     try {
       final collection = _firestore.collection('manga_library');
-      final existing = await collection
-          .where('mangaId', isEqualTo: mangaId)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('mangaId', isEqualTo: mangaId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'manga progress save lookup',
+      );
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update({
           'lastReadChapterId': chapterId,

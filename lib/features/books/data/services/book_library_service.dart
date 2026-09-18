@@ -26,16 +26,17 @@ class BookLibraryService {
     }
     try {
       final collection = _firestore.collection('book_favorites');
-      final existing = await collection
-          .where('workKey', isEqualTo: item.workKey)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('workKey', isEqualTo: item.workKey)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'book favorite lookup',
+      );
       if (existing.docs.isNotEmpty) return;
       await collection.add(
-        item
-            .copyWith(status: 'favorite', userName: userName)
-            .toFirestore(),
+        item.copyWith(status: 'favorite', userName: userName).toFirestore(),
       );
       Logger.i('Favorited book: ${item.title} ($userName)');
     } catch (e) {
@@ -47,11 +48,14 @@ class BookLibraryService {
     if (userName.isEmpty) return;
     try {
       final collection = _firestore.collection('book_favorites');
-      final existing = await collection
-          .where('workKey', isEqualTo: workKey)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('workKey', isEqualTo: workKey)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'book favorite remove lookup',
+      );
       for (final doc in existing.docs) {
         await collection.doc(doc.id).delete();
       }
@@ -71,7 +75,8 @@ class BookLibraryService {
             (snapshot) =>
                 snapshot.docs
                     .map((doc) => BookItem.fromFirestore(doc.data(), doc.id))
-                    .toList()..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
+                    .toList()
+                  ..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
           ),
       label: 'book-favorites-$userName',
     );
@@ -89,12 +94,15 @@ class BookLibraryService {
     if (!isCoupleUser(userName)) return;
     try {
       final collection = _firestore.collection('book_download_history');
-      final existing = await collection
-          .where('workKey', isEqualTo: item.workKey)
-          .where('userName', isEqualTo: userName)
-          .where('format', isEqualTo: format)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('workKey', isEqualTo: item.workKey)
+            .where('userName', isEqualTo: userName)
+            .where('format', isEqualTo: format)
+            .limit(1)
+            .get(),
+        label: 'book download lookup',
+      );
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update({
           'addedAt': Timestamp.now(),
@@ -125,7 +133,8 @@ class BookLibraryService {
             (snapshot) =>
                 snapshot.docs
                     .map((doc) => BookItem.fromFirestore(doc.data(), doc.id))
-                    .toList()..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
+                    .toList()
+                  ..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
           ),
       label: 'book-download-history-$userName',
     );

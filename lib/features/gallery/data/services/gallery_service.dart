@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import '../../domain/models/memory_photo.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class GalleryService {
@@ -234,11 +235,14 @@ class GalleryService {
   /// doesn't re-query on every remote write).
   Future<List<MemoryPhoto>> searchPhotos(String query) async {
     final lowerQuery = query.toLowerCase();
-    final snapshot = await _db
-        .collection(_collection)
-        .orderBy('uploadedAt', descending: true)
-        .limit(50)
-        .get();
+    final snapshot = await withGetTimeout(
+      _db
+          .collection(_collection)
+          .orderBy('uploadedAt', descending: true)
+          .limit(50)
+          .get(),
+      label: 'gallery search',
+    );
     return snapshot.docs
         .map((doc) => MemoryPhoto.fromFirestore(doc))
         .where(
@@ -257,20 +261,26 @@ class GalleryService {
 
     try {
       final monthDay = _monthDay(now);
-      var snapshot = await _db
-          .collection(_collection)
-          .where('monthDay', isEqualTo: monthDay)
-          .limit(100)
-          .get();
+      var snapshot = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .where('monthDay', isEqualTo: monthDay)
+            .limit(100)
+            .get(),
+        label: 'gallery on-this-day',
+      );
 
       // Legacy photos predate the monthDay field; bound the fallback so it
       // never grows with the full album.
       if (snapshot.docs.isEmpty) {
-        snapshot = await _db
-            .collection(_collection)
-            .orderBy('uploadedAt', descending: true)
-            .limit(200)
-            .get();
+        snapshot = await withGetTimeout(
+          _db
+              .collection(_collection)
+              .orderBy('uploadedAt', descending: true)
+              .limit(200)
+              .get(),
+          label: 'gallery on-this-day fallback',
+        );
       }
 
       final results = <MemoryPhoto>[];
@@ -298,11 +308,14 @@ class GalleryService {
     final today = DateTime(now.year, now.month, now.day);
     if (_thisWeekDay == today && _thisWeekCache != null) return _thisWeekCache!;
     try {
-      final all = await _db
-          .collection(_collection)
-          .orderBy('uploadedAt', descending: true)
-          .limit(100)
-          .get();
+      final all = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .orderBy('uploadedAt', descending: true)
+            .limit(100)
+            .get(),
+        label: 'gallery this-week',
+      );
       final photos = all.docs.map((d) => MemoryPhoto.fromFirestore(d)).toList();
       final results = photos.where((p) {
         if (p.uploadedAt.year == now.year) return false;
@@ -335,11 +348,14 @@ class GalleryService {
 
   Future<List<MemoryPhoto>> getPhotosWithLocation({int limit = 200}) async {
     try {
-      final snap = await _db
-          .collection(_collection)
-          .orderBy('uploadedAt', descending: true)
-          .limit(limit)
-          .get();
+      final snap = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .orderBy('uploadedAt', descending: true)
+            .limit(limit)
+            .get(),
+        label: 'gallery located photos',
+      );
       return snap.docs
           .map((d) => MemoryPhoto.fromFirestore(d))
           .where((p) => p.hasLocation)

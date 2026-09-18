@@ -21,7 +21,9 @@ class OurBooksService {
 
   Stream<List<OurBooksItem>> getOurBooksStream({int limit = 300}) {
     return withFirestoreTimeout(
-      _firestore.collection(_collection).limit(limit).snapshots().map((snapshot) {
+      _firestore.collection(_collection).limit(limit).snapshots().map((
+        snapshot,
+      ) {
         final items = snapshot.docs
             .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
             .toList();
@@ -150,10 +152,10 @@ class OurBooksService {
     }
     try {
       final collection = _firestore.collection(_collection);
-      final existing = await collection
-          .where('workKey', isEqualTo: item.workKey)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection.where('workKey', isEqualTo: item.workKey).limit(1).get(),
+        label: 'our-books duplicate check',
+      );
       if (existing.docs.isNotEmpty) {
         return OurBooksItem.fromFirestore(
           existing.docs.first.data(),
@@ -193,10 +195,10 @@ class OurBooksService {
     final field = userName == 'khentsgdz' ? 'khentReadAt' : 'clairReadAt';
     try {
       final collection = _firestore.collection(_collection);
-      final existing = await collection
-          .where('workKey', isEqualTo: workKey)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection.where('workKey', isEqualTo: workKey).limit(1).get(),
+        label: 'our-books read flag lookup',
+      );
       if (existing.docs.isEmpty) return;
       await collection.doc(existing.docs.first.id).update({
         field: read ? Timestamp.now() : null,
@@ -209,10 +211,10 @@ class OurBooksService {
   Future<void> removeFromOurBooks(String workKey) async {
     try {
       final collection = _firestore.collection(_collection);
-      final existing = await collection
-          .where('workKey', isEqualTo: workKey)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection.where('workKey', isEqualTo: workKey).limit(1).get(),
+        label: 'our-books remove lookup',
+      );
       if (existing.docs.isEmpty) return;
       await collection.doc(existing.docs.first.id).delete();
     } catch (e) {

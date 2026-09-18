@@ -19,6 +19,7 @@ import '../../../../core/theme/app_elevation.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_card.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -82,10 +83,13 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     try {
       // Skip in widget tests / before Firebase init.
       if (Firebase.apps.isEmpty) return;
-      final snapshot = await FirebaseFirestore.instance
-          .collection('academy_questions')
-          .limit(1)
-          .get();
+      final snapshot = await withGetTimeout(
+        FirebaseFirestore.instance
+            .collection('academy_questions')
+            .limit(1)
+            .get(),
+        label: 'academy seed check',
+      );
       if (snapshot.docs.isEmpty) {
         await _academyService.seedQuestions();
       }
@@ -180,7 +184,9 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.deepRose),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.deepRose,
+            ),
             child: Text(
               'Play Solo',
               style: AppTypography.outfitWhite.copyWith(
@@ -363,9 +369,8 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                               const SizedBox(height: AppSpacing.xl),
                               Center(
                                 child: TextButton(
-                                  onPressed: () => setState(
-                                    () => _isSearching = false,
-                                  ),
+                                  onPressed: () =>
+                                      setState(() => _isSearching = false),
                                   child: Text(
                                     'Cancel Search',
                                     style: AppTypography.outfitWhite.copyWith(
@@ -444,9 +449,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.x2),
-        border: Border.all(
-          color: AppColors.blushGold.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,9 +511,7 @@ class AcademyModeCard extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: accent.withValues(alpha: 0.14),
-              border: Border.all(
-                color: accent.withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: accent.withValues(alpha: 0.35)),
             ),
             child: Icon(icon, size: 24, color: accent),
           ),
@@ -529,9 +530,7 @@ class AcademyModeCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(AppRadius.full),
-                      border: Border.all(
-                        color: accent.withValues(alpha: 0.3),
-                      ),
+                      border: Border.all(color: accent.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       badge!,

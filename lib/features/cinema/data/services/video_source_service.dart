@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/video_source_config.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 
 /// Singleton service that provides the ordered list of video embed sources.
 ///
@@ -119,10 +120,13 @@ class VideoSourceService extends ChangeNotifier {
     _loading = true;
 
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('config')
-          .doc('video_sources')
-          .get();
+      final doc = await withGetTimeout(
+        FirebaseFirestore.instance
+            .collection('config')
+            .doc('video_sources')
+            .get(),
+        label: 'video sources config',
+      );
 
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;

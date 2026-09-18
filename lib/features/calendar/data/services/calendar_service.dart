@@ -22,6 +22,7 @@ class CalendarService {
   List<CalendarEvent>? get cachedUpcoming => _cachedUpcoming;
 
   final Map<int, _SharedUpcomingStream> _sharedUpcoming = {};
+
   /// Stream of events for a specific month.
   ///
   /// Re-attaches once when the first snapshot is slow: cold dashboard
@@ -34,7 +35,10 @@ class CalendarService {
 
       return _db
           .collection(_collection)
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+          .where(
+            'date',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
+          )
           .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
           .orderBy('date', descending: false)
           .limit(50)
@@ -161,12 +165,18 @@ class CalendarService {
     final endOfDay = DateTime(day.year, day.month, day.day, 23, 59, 59);
 
     try {
-      final snapshot = await _db
-          .collection(_collection)
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay))
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-          .orderBy('date', descending: false)
-          .get();
+      final snapshot = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .where(
+              'date',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
+            )
+            .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
+            .orderBy('date', descending: false)
+            .get(),
+        label: 'calendar events for day',
+      );
 
       return snapshot.docs
           .map((doc) => CalendarEvent.fromFirestore(doc))

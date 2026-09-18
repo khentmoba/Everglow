@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/config/env_config.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Handles Spotify OAuth (Authorization Code + PKCE) for Everglow Duo.
@@ -66,19 +67,17 @@ class SpotifyAuthService extends ChangeNotifier {
 
   void _listenToTokenDoc(String uid) {
     _sub?.cancel();
-    _sub = _firestore
-        .collection('spotify_tokens')
-        .doc(uid)
-        .snapshots()
-        .listen((doc) {
-          final data = doc.data();
-          final was = _linked;
-          final wasId = _spotifyUserId;
-          _linked = doc.exists && data != null && (data['access_token'] != null);
-          _spotifyUserId = data?['spotify_user_id'] as String?;
-          _displayName = data?['spotify_display_name'] as String?;
-          if (was != _linked || wasId != _spotifyUserId) notifyListeners();
-        }, onError: (_) {});
+    _sub = _firestore.collection('spotify_tokens').doc(uid).snapshots().listen((
+      doc,
+    ) {
+      final data = doc.data();
+      final was = _linked;
+      final wasId = _spotifyUserId;
+      _linked = doc.exists && data != null && (data['access_token'] != null);
+      _spotifyUserId = data?['spotify_user_id'] as String?;
+      _displayName = data?['spotify_display_name'] as String?;
+      if (was != _linked || wasId != _spotifyUserId) notifyListeners();
+    }, onError: (_) {});
   }
 
   /// Starts listening to link status for current Firebase user.
@@ -234,11 +233,20 @@ class SpotifyAuthService extends ChangeNotifier {
   }
 
   /// Reads stored access_token (client-side cache) - prefer server proxy for now.
+  /// Never throws: callers treat null as "link Spotify first".
   Future<String?> getStoredAccessToken() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
-    final doc = await _firestore.collection('spotify_tokens').doc(uid).get();
-    return doc.data()?['access_token'] as String?;
+    try {
+      final doc = await withGetTimeout(
+        _firestore.collection('spotify_tokens').doc(uid).get(),
+        label: 'spotify stored token',
+      );
+      return doc.data()?['access_token'] as String?;
+    } catch (e) {
+      Logger.e('Spotify stored token read failed', error: e);
+      return null;
+    }
   }
 
   /// Proxies currently-playing via Cloud Function (keeps token server-side).

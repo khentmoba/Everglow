@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/logger.dart';
 import 'canvas_point_utils.dart';
 
 class CanvasService {
@@ -57,16 +58,24 @@ class CanvasService {
   }
 
   Future<void> clearAllStrokes() async {
-    await _deleteInBatches(
-      (await _db.collection(_collection).get()).docs
-          .map((doc) => doc.reference)
-          .toList(),
-    );
-    await _deleteInBatches(
-      (await _db.collection('live_canvas').get()).docs
-          .map((doc) => doc.reference)
-          .toList(),
-    );
+    // Fire-and-forget from a dialog with no await: failures must log,
+    // not surface as unhandled async errors.
+    try {
+      await _deleteInBatches(
+        (await withGetTimeout(
+          _db.collection(_collection).get(),
+          label: 'canvas clear strokes',
+        )).docs.map((doc) => doc.reference).toList(),
+      );
+      await _deleteInBatches(
+        (await withGetTimeout(
+          _db.collection('live_canvas').get(),
+          label: 'canvas clear live',
+        )).docs.map((doc) => doc.reference).toList(),
+      );
+    } catch (e) {
+      Logger.e('Canvas clearAllStrokes failed', error: e);
+    }
   }
 
   Future<void> _deleteInBatches(

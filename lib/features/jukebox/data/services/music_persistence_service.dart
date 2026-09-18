@@ -25,10 +25,10 @@ class MusicPersistenceService {
 
   Future<MusicStatus?> getMusicStatus(String username) async {
     try {
-      final doc = await _firestore
-          .collection(_collectionPath)
-          .doc(username)
-          .get();
+      final doc = await withGetTimeout(
+        _firestore.collection(_collectionPath).doc(username).get(),
+        label: 'jukebox music status',
+      );
       if (doc.exists && doc.data() != null) {
         return MusicStatus.fromMap(doc.data()!);
       }

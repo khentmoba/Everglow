@@ -106,14 +106,16 @@ void main() {
         label: 'hang-then-ok',
       ).toList();
 
-      expect(result, equals([
-        [1, 2],
-      ]));
+      expect(
+        result,
+        equals([
+          [1, 2],
+        ]),
+      );
       expect(calls, 2);
     });
 
-    test('re-attaches when the first attempt errors before any data',
-        () async {
+    test('re-attaches when the first attempt errors before any data', () async {
       var calls = 0;
       Stream<List<int>> factory() {
         calls++;
@@ -131,9 +133,12 @@ void main() {
         label: 'error-then-ok',
       ).toList();
 
-      expect(result, equals([
-        [7],
-      ]));
+      expect(
+        result,
+        equals([
+          [7],
+        ]),
+      );
       expect(calls, 2);
     });
 
@@ -241,20 +246,51 @@ void main() {
       );
       expect(
         firestoreErrorHint(
-          FirebaseException(
-            plugin: 'cloud_firestore',
-            code: 'unavailable',
-          ),
+          FirebaseException(plugin: 'cloud_firestore', code: 'unavailable'),
         ),
         'Network hiccup',
       );
       expect(
-        firestoreErrorHint(
-          Exception('SocketException: Failed host lookup'),
-        ),
+        firestoreErrorHint(Exception('SocketException: Failed host lookup')),
         'You may be offline',
       );
       expect(firestoreErrorHint(Exception('kaboom')), 'Could not load');
+    });
+  });
+
+  group('withGetTimeout', () {
+    test('passes the read result through when fast', () async {
+      final result = await withGetTimeout(
+        Future.value('ok'),
+        duration: const Duration(seconds: 2),
+        label: 'test-read',
+      );
+      expect(result, 'ok');
+    });
+
+    test('throws TimeoutException when the read stalls', () async {
+      await expectLater(
+        withGetTimeout(
+          Completer<String>().future,
+          duration: const Duration(milliseconds: 50),
+          label: 'stalled-read',
+        ),
+        throwsA(isA<TimeoutException>()),
+      );
+    });
+
+    test('forwards read errors untouched', () async {
+      final error = FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+      );
+      await expectLater(
+        withGetTimeout(
+          Future<String>.error(error),
+          duration: const Duration(seconds: 2),
+        ),
+        throwsA(same(error)),
+      );
     });
   });
 }

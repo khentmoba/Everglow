@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import '../state/gateway_state.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
@@ -58,7 +59,8 @@ class _GatewayPageState extends State<GatewayPage> {
     _didCheckLocalDev = true;
 
     if (kIsWeb) {
-      final devParam = Uri.base.queryParameters['dev']?.toLowerCase() ??
+      final devParam =
+          Uri.base.queryParameters['dev']?.toLowerCase() ??
           Uri.base.queryParameters['user']?.toLowerCase();
       if (devParam == 'khent' || devParam == 'khentsgdz') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -94,10 +96,10 @@ class _GatewayPageState extends State<GatewayPage> {
 
       Future<void> seedIfMissing(String title, Milestone data) async {
         try {
-          final snap = await db
-              .collection('milestones')
-              .where('title', isEqualTo: title)
-              .get();
+          final snap = await withGetTimeout(
+            db.collection('milestones').where('title', isEqualTo: title).get(),
+            label: 'gateway milestone seed check',
+          );
           if (snap.docs.isEmpty) {
             await db.collection('milestones').add(data.toFirestore());
             Logger.i("Seeded: $title");
@@ -243,13 +245,17 @@ class _GatewayPageState extends State<GatewayPage> {
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
 
       Future<void> authTask;
-      final isBreyan = EnvConfig.breyanPasscode.isNotEmpty &&
+      final isBreyan =
+          EnvConfig.breyanPasscode.isNotEmpty &&
           passcode == EnvConfig.breyanPasscode;
-      final isOctagram = EnvConfig.octagramPasscode.isNotEmpty &&
+      final isOctagram =
+          EnvConfig.octagramPasscode.isNotEmpty &&
           passcode == EnvConfig.octagramPasscode;
-      final isClair = EnvConfig.clairPasscode.isNotEmpty &&
+      final isClair =
+          EnvConfig.clairPasscode.isNotEmpty &&
           passcode == EnvConfig.clairPasscode;
-      final isKhent = EnvConfig.khentPasscode.isNotEmpty &&
+      final isKhent =
+          EnvConfig.khentPasscode.isNotEmpty &&
           passcode == EnvConfig.khentPasscode;
       if (isBreyan) {
         authTask = authService.loginWithPasscode('breyan');
@@ -270,38 +276,44 @@ class _GatewayPageState extends State<GatewayPage> {
         authTask = authService.ensureAuthenticated();
       }
 
-      unawaited(authTask.then((_) {
-        unawaited(TMDBService().migrateWatchListOwnership().catchError((e) {
-          Logger.e('Watchlist migration background error', error: e);
-          return 0;
-        }));
-        unawaited(_seedDataOnce().catchError((e) {
-          Logger.e('Seeding background error', error: e);
-        }));
-      }).catchError((e) {
-        Logger.e('Error during passcode login', error: e);
-        unawaited(authService.ensureAuthenticated().catchError((_) {}));
-      }).whenComplete(() {
-        if (authService.lastAuthError != null && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                authService.lastAuthError!,
-                style: const TextStyle(color: AppColors.petalWhite),
-              ),
-              backgroundColor: Colors.orange.shade700,
-              duration: const Duration(seconds: 4),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }));
+      unawaited(
+        authTask
+            .then((_) {
+              unawaited(
+                TMDBService().migrateWatchListOwnership().catchError((e) {
+                  Logger.e('Watchlist migration background error', error: e);
+                  return 0;
+                }),
+              );
+              unawaited(
+                _seedDataOnce().catchError((e) {
+                  Logger.e('Seeding background error', error: e);
+                }),
+              );
+            })
+            .catchError((e) {
+              Logger.e('Error during passcode login', error: e);
+              unawaited(authService.ensureAuthenticated().catchError((_) {}));
+            })
+            .whenComplete(() {
+              if (authService.lastAuthError != null && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      authService.lastAuthError!,
+                      style: const TextStyle(color: AppColors.petalWhite),
+                    ),
+                    backgroundColor: Colors.orange.shade700,
+                    duration: const Duration(seconds: 4),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            }),
+      );
 
       final navDelay = Future.delayed(const Duration(milliseconds: 900));
-      Future.wait([
-        navDelay,
-        authTask.catchError((_) {}),
-      ]).then((_) {
+      Future.wait([navDelay, authTask.catchError((_) {})]).then((_) {
         if (!mounted || _hasNavigated) return;
         // Never enter the app without a real Firebase session: without
         // one — or with an anonymous one, which firestore.rules blocks on
@@ -478,10 +490,8 @@ class _GatewayPageState extends State<GatewayPage> {
                             child: PasscodeInput(
                               input: _notifier.currentInput,
                               isError: state == GatewayState.error,
-                              isVerifying:
-                                  state == GatewayState.evaluating,
-                              failureReason:
-                                  _notifier.lastFailureReason,
+                              isVerifying: state == GatewayState.evaluating,
+                              failureReason: _notifier.lastFailureReason,
                               onDigitPressed: _notifier.appendDigit,
                               onBackspace: _notifier.backspace,
                             ),
@@ -528,11 +538,7 @@ class _GatewayPageState extends State<GatewayPage> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.bolt_rounded,
-            color: AppColors.auroraGold,
-            size: 16,
-          ),
+          const Icon(Icons.bolt_rounded, color: AppColors.auroraGold, size: 16),
           const SizedBox(width: 6),
           Text(
             'Dev Login:',
@@ -562,9 +568,7 @@ class _GatewayPageState extends State<GatewayPage> {
         decoration: BoxDecoration(
           color: AppColors.inkDeep.withValues(alpha: 0.8),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.blushGold.withValues(alpha: 0.3),
-          ),
+          border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.3)),
         ),
         child: Text(
           label,

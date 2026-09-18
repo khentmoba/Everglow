@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/guardian_message.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class GuardianService {
@@ -60,19 +61,17 @@ class GuardianService {
 
   Future<void> _initializeOnce(int attempt) async {
     try {
-      final snapshot = await _db
-          .collection('guardian_messages')
-          .limit(_maxCached)
-          .get()
-          .timeout(const Duration(seconds: 15));
+      final snapshot = await withGetTimeout(
+        _db.collection('guardian_messages').limit(_maxCached).get(),
+        label: 'guardian messages init',
+      );
       var docs = snapshot.docs;
       if (docs.isEmpty) {
         await seedMessages();
-        final seeded = await _db
-            .collection('guardian_messages')
-            .limit(_maxCached)
-            .get()
-            .timeout(const Duration(seconds: 15));
+        final seeded = await withGetTimeout(
+          _db.collection('guardian_messages').limit(_maxCached).get(),
+          label: 'guardian messages reload after seed',
+        );
         docs = seeded.docs;
       }
       _cachedMessages = docs

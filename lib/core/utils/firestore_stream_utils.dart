@@ -68,10 +68,7 @@ class _FirstEventGuard<T> {
     required this.maxAttempts,
     required this.retryDelay,
   }) : _pendingSource = firstStream {
-    _controller = StreamController<T>(
-      onListen: _onListen,
-      onCancel: _onCancel,
-    );
+    _controller = StreamController<T>(onListen: _onListen, onCancel: _onCancel);
   }
 
   final Duration duration;
@@ -322,4 +319,38 @@ String firestoreErrorHint(Object? error) {
     return 'Timed out';
   }
   return 'Could not load';
+}
+
+/// Bounds a one-shot Firestore read (`.get()` on a doc or query) so a
+/// stalled WebChannel can't hang a card on its skeleton forever.
+///
+/// Rule: every `.get()` in app code goes through here. Raw `.timeout()`
+/// works but scatters budgets; this keeps one web-aware floor (cold
+/// starts on web routinely need ~25s, same as [withFirestoreTimeout])
+/// and one log line per stall so slow reads show up in release logs.
+///
+/// Throws [TimeoutException] on expiry — callers already catch errors
+/// from reads (permission-denied, offline), so this is one more caught
+/// error their retry/empty states handle.
+Future<T> withGetTimeout<T>(
+  Future<T> read, {
+  Duration duration = const Duration(seconds: 10),
+  String? label,
+}) {
+  final effective = kIsWeb && duration < const Duration(seconds: 25)
+      ? const Duration(seconds: 25)
+      : duration;
+  return read.timeout(
+    effective,
+    onTimeout: () {
+      Logger.w(
+        '[GetTimeout] ${label ?? 'firestore read'} '
+        'timed out after ${effective.inSeconds}s',
+      );
+      throw TimeoutException(
+        'Firestore read timed out after ${effective.inSeconds}s',
+        effective,
+      );
+    },
+  );
 }

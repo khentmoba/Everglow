@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/date_idea.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class DateIdeaService {
@@ -17,12 +18,18 @@ class DateIdeaService {
   /// on every dashboard open) was pure cold-start fuel.
   Future<void> initialize({int limit = 50}) async {
     if (_cachedIdeas.isNotEmpty) return;
-    final snapshot = await _db.collection('date_ideas').limit(limit).get();
+    final snapshot = await withGetTimeout(
+      _db.collection('date_ideas').limit(limit).get(),
+      label: 'date ideas load',
+    );
 
     if (snapshot.docs.isEmpty) {
       await seedIdeas();
       // Fetch again after seeding
-      final seededSnapshot = await _db.collection('date_ideas').limit(limit).get();
+      final seededSnapshot = await withGetTimeout(
+        _db.collection('date_ideas').limit(limit).get(),
+        label: 'date ideas reload after seed',
+      );
       _cachedIdeas = seededSnapshot.docs
           .map((doc) => DateIdea.fromFirestore(doc.data(), doc.id))
           .toList();
