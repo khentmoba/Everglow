@@ -42,6 +42,7 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 - Keep it tiny: one topic per PR. No giant mixed PRs (routes + AI + voice + design in one go).
 - Before every PR: run `flutter analyze`, run `flutter test`, run the regression guards (`dart tool/ci/check_*.dart`), and open the app in Chrome (`flutter run -d chrome`) to look at what you changed. CI enforces all of these plus a release web build on every PR.
 - If functions or hosting checks fail, stop and fix. Do not add `continue-on-error` or hide failures.
+- Every PR shows proof: attach a screenshot of just the changed screen, and check the auto-posted preview link (expires in 7 days). Repo is public, so never screenshot logged-in couple-only pages.
 - Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
 
 ## Releases — keep the version, README, and GitHub in sync
