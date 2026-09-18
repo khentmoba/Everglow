@@ -74,7 +74,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     final embedUrl = _buildEmbedUrl(widget.videoKey);
 
     _iframe = web.HTMLIFrameElement()
-      ..src = embedUrl
       ..allow = 'autoplay; encrypted-media'
       ..setAttribute('frameborder', '0')
       ..setAttribute('scrolling', 'no')
@@ -147,6 +146,11 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       }
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
+
+    // Set src only after the load listener is attached — setting it in
+    // the constructor chain could miss a fast cached load, leaving the
+    // hover preview stuck on the still frame with the trailer hidden.
+    _iframe.src = embedUrl;
 
     ui_web.platformViewRegistry.registerViewFactory(
       _viewType,

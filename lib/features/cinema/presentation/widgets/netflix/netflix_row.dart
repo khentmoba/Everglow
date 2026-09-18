@@ -99,6 +99,9 @@ class _NetflixRowState extends State<NetflixRow> {
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
+    // Start the trailer lookup immediately — the card already prefetches
+    // too, but this covers focus/keyboard hovers that bypass the card.
+    unawaited(prefetchNetflixPreview(item));
     // Hovering a different card should immediately retire the previous
     // popover instead of letting overlapping entries trap each other.
     if (_previewItem != item) _removePreview();
@@ -313,6 +316,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
       return;
     }
     if (!AppBreakpoint.isDesktop(context)) return;
+    unawaited(prefetchNetflixPreview(item));
     // Hovering a different card immediately retires the previous popover.
     if (_previewItem != item) _removePreview();
     _previewTimer?.cancel();

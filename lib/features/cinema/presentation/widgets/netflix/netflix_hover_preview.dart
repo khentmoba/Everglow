@@ -17,6 +17,43 @@ final Map<String, Map<String, dynamic>> _netflixDetailCache = {};
 /// never re-request titles without videos.
 final Map<String, String?> _netflixTrailerCache = {};
 
+/// Starts fetching the trailer + details for [item] before the preview
+/// opens, so hover feels instant. Safe to call repeatedly — cached
+/// titles return immediately. Rows and cards call this on hover-enter
+/// (before the 260ms popover delay) so the preview usually opens with
+/// the key already cached.
+Future<void> prefetchNetflixPreview(MediaItem item) async {
+  final key = '${item.tmdbId}:${item.mediaType}';
+  // Anime items already carry their YouTube id — no TMDB lookup needed.
+  final embedded = item.trailerYoutubeId;
+  if (embedded != null && embedded.isNotEmpty) {
+    _netflixTrailerCache[key] = embedded;
+  } else if (!_netflixTrailerCache.containsKey(key)) {
+    try {
+      final trailerKey = await TMDBService().fetchTrailerKey(
+        item.tmdbId,
+        item.mediaType,
+      );
+      // Only cache when the preview hasn't already stored a result —
+      // a concurrent _loadTrailer may have finished first.
+      _netflixTrailerCache.putIfAbsent(key, () => trailerKey);
+    } catch (_) {
+      // Leave uncached so the preview itself can retry.
+    }
+  }
+  if (item.synopsis.isEmpty && !_netflixDetailCache.containsKey(key)) {
+    try {
+      final details = await TMDBService().fetchMediaDetails(
+        item.tmdbId,
+        item.mediaType,
+      );
+      _netflixDetailCache.putIfAbsent(key, () => details ?? {});
+    } catch (_) {
+      // Preview falls back to the row payload when details miss.
+    }
+  }
+}
+
 /// Estimated popover height for a given width. Kept in one place so the
 /// row, grid card, and position helper agree.
 double netflixPreviewHeight(double width) => width * 0.5625 + 232;
@@ -100,7 +137,12 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
     } else if (widget.item.synopsis.isEmpty) {
       _loadDetails();
     }
-    if (_netflixTrailerCache.containsKey(_cacheKey)) {
+    // Anime rows already know their YouTube id — play instantly.
+    final embedded = widget.item.trailerYoutubeId;
+    if (embedded != null && embedded.isNotEmpty) {
+      _trailerKey = embedded;
+      _netflixTrailerCache[_cacheKey] = embedded;
+    } else if (_netflixTrailerCache.containsKey(_cacheKey)) {
       _trailerKey = _netflixTrailerCache[_cacheKey];
     } else {
       _loadTrailer();
@@ -123,6 +165,12 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
   }
 
   Future<void> _loadTrailer() async {
+    final embedded = widget.item.trailerYoutubeId;
+    if (embedded != null && embedded.isNotEmpty) {
+      _netflixTrailerCache[_cacheKey] = embedded;
+      if (mounted) setState(() => _trailerKey = embedded);
+      return;
+    }
     String? key;
     try {
       key = await TMDBService().fetchTrailerKey(

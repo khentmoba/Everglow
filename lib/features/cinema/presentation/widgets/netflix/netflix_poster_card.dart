@@ -87,6 +87,8 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
         return;
       }
       if (!_isDesktop) return;
+      // Start the trailer lookup now so the popover opens with it ready.
+      unawaited(prefetchNetflixPreview(widget.item));
       _previewTimer?.cancel();
       _previewTimer = Timer(const Duration(milliseconds: 260), () {
         if (!mounted) return;
@@ -103,6 +105,8 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     if (hovered == _hovered) return;
     setState(() => _hovered = hovered);
     if (hovered) {
+      // Prefetch before the row's 260ms delay so the trailer is ready.
+      unawaited(prefetchNetflixPreview(widget.item));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final box = context.findRenderObject() as RenderBox?;
         if (!mounted || box == null || !box.hasSize) return;
@@ -267,7 +271,12 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
       onShowHoverHighlight: isDesktop ? _onHover : null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
+        onTapDown: (_) {
+          setState(() => _pressed = true);
+          // Touch has no hover — start the trailer lookup at press-down
+          // so a long-press preview opens with video ready.
+          unawaited(prefetchNetflixPreview(widget.item));
+        },
         onTapUp: (_) {
           setState(() => _pressed = false);
           widget.onTap?.call();
@@ -370,6 +379,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
     if (hovered == _hovered) return;
     setState(() => _hovered = hovered);
     if (hovered) {
+      unawaited(prefetchNetflixPreview(widget.item));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final box = context.findRenderObject() as RenderBox?;
         if (!mounted || box == null || !box.hasSize) return;
@@ -412,6 +422,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
+          onTapDown: (_) => unawaited(prefetchNetflixPreview(widget.item)),
           onLongPress: _showTouchPreview,
           child: AnimatedContainer(
             duration: AppMotion.orZero(const Duration(milliseconds: 220)),
