@@ -63,7 +63,7 @@ class AnimeXTopHeader extends StatelessWidget {
             maxWidth: AnimeXTokens.pageMaxWidth,
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: isDesktop ? 16 : 12),
             child: Row(
               children: [
                 if (isCoupleUser) ...[
@@ -81,7 +81,10 @@ class AnimeXTopHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                 ],
-                _Logo(onTap: () => controller.goTo(AnimexPage.home)),
+                _Logo(
+                  onTap: () => controller.goTo(AnimexPage.home),
+                  compact: !isDesktop,
+                ),
                 if (isDesktop) ...[
                   const SizedBox(width: 8),
                   for (final (page, label, _) in items) ...[
@@ -93,7 +96,11 @@ class AnimeXTopHeader extends StatelessWidget {
                   ],
                 ],
                 const Spacer(),
-                if (isCinemaOnlyUser) ...[
+                // Mobile (incl. the iPhone PWA at 430px) only keeps search
+                // + profile here. Cinema is redundant with the back arrow
+                // and My List lives in the bottom nav — showing all three
+                // text buttons overflowed the row and clipped the profile.
+                if (isDesktop && isCinemaOnlyUser) ...[
                   AnimeXGhostButton(
                     label: 'Cinema',
                     icon: Icons.movie_outlined,
@@ -107,24 +114,38 @@ class AnimeXTopHeader extends StatelessWidget {
                   tooltip: 'Search',
                   onTap: onSearch,
                 ),
-                const SizedBox(width: 4),
-                AnimeXGhostButton(
-                  label: 'My List',
-                  icon: Icons.bookmark_add_outlined,
-                  color: AnimeXTokens.textPrimary,
-                  onTap: () => controller.goTo(AnimexPage.myList),
-                ),
                 if (isDesktop) ...[
+                  const SizedBox(width: 4),
+                  AnimeXGhostButton(
+                    label: 'My List',
+                    icon: Icons.bookmark_add_outlined,
+                    color: AnimeXTokens.textPrimary,
+                    onTap: () => controller.goTo(AnimexPage.myList),
+                  ),
                   const SizedBox(width: 8),
                   const _SourceToggle(),
                   const SizedBox(width: 8),
                   _TitleLanguageToggle(),
                   const SizedBox(width: 10),
-                ],
-                AnimeXLoginButton(
-                  label: userName.isEmpty ? 'Login' : userName,
-                  icon: Icons.person_outline_rounded,
-                  onTap: () => controller.goTo(AnimexPage.myList),
+                ] else
+                  const SizedBox(width: 4),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    // Reserve space for back + logo + search + gaps so the
+                    // profile pill shrinks (ellipsis) instead of overflowing
+                    // on narrow phones (iPhone SE 375px, Pro Max 430px).
+                    maxWidth: isDesktop
+                        ? 180
+                        : (MediaQuery.sizeOf(context).width - 250).clamp(
+                            90.0,
+                            180.0,
+                          ),
+                  ),
+                  child: AnimeXLoginButton(
+                    label: userName.isEmpty ? 'Login' : userName,
+                    icon: Icons.person_outline_rounded,
+                    onTap: () => controller.goTo(AnimexPage.myList),
+                  ),
                 ),
               ],
             ),
@@ -204,10 +225,12 @@ class AnimeXMobileBottomNav extends StatelessWidget {
 }
 class _Logo extends StatelessWidget {
   final VoidCallback onTap;
-  const _Logo({required this.onTap});
+  final bool compact;
+  const _Logo({required this.onTap, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
+    final size = compact ? 22.0 : 26.0;
     return GestureDetector(
       onTap: onTap,
       child: MouseRegion(
@@ -216,7 +239,7 @@ class _Logo extends StatelessWidget {
           TextSpan(
             text: 'EVER',
             style: bebasStyle(
-              size: 26,
+              size: size,
               color: AnimeXTokens.textPrimary,
               letterSpacing: 0.06,
             ),
@@ -224,7 +247,7 @@ class _Logo extends StatelessWidget {
               TextSpan(
                 text: 'GLOW',
                 style: bebasStyle(
-                  size: 26,
+                  size: size,
                   color: AnimeXTokens.accent,
                   letterSpacing: 0.06,
                 ).copyWith(
@@ -443,6 +466,8 @@ class _MobileItem extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: dmSansStyle(
               size: 9.5,
               color: active ? AnimeXTokens.accent : AnimeXTokens.textMuted,

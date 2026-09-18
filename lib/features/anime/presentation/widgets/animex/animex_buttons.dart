@@ -285,12 +285,16 @@ class AnimeXLoginButton extends StatelessWidget {
           children: [
             Icon(icon, color: AnimeXTokens.bg, size: 14),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: dmSansStyle(
-                size: 13.5,
-                color: const Color(0xFF0F0F13),
-                weight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: dmSansStyle(
+                  size: 13.5,
+                  color: const Color(0xFF0F0F13),
+                  weight: FontWeight.w600,
+                ),
               ),
             ),
           ],
