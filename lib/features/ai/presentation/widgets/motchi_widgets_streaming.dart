@@ -236,7 +236,7 @@ class _ThinkingIndicator extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.asset(
-                'assets/images/motchi_avatar.png',
+                'assets/images/motchi_avatar.webp',
                 width: 32,
                 height: 32,
                 cacheWidth: kIsWeb ? null : 96,

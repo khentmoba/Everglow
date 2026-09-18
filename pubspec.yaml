@@ -58,8 +58,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/logo.png
-    - assets/images/motchi_avatar.png
+    - assets/images/logo.jpg
+    - assets/images/motchi_avatar.webp
     - assets/images/milestones/
     - assets/data/
     - assets/google_fonts/

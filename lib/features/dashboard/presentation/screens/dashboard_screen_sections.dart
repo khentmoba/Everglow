@@ -87,7 +87,7 @@ extension _DashboardScreenSections on _DashboardScreenState {
                 // cacheWidth matches the 108px emblem at 3x DPR: avoids a
                 // full-res logo decode on every header rebuild.
                 child: Image.asset(
-                  'assets/images/logo.png',
+                  'assets/images/logo.jpg',
                   fit: BoxFit.cover,
                   cacheWidth: kIsWeb ? null : 324,
                 ),

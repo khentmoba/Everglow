@@ -65,7 +65,7 @@ class CatVisualsState extends State<CatVisuals> {
             width: widget.size,
             height: widget.size,
             child: Image.asset(
-              'assets/images/motchi_avatar.png',
+              'assets/images/motchi_avatar.webp',
               fit: BoxFit.cover,
             ),
           ),
