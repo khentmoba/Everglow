@@ -10,6 +10,7 @@ import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../../core/config/env_config.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/router/route_helpers.dart';
 import 'package:go_router/go_router.dart';
 import '../state/gateway_state.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
@@ -87,6 +88,16 @@ class _GatewayPageState extends State<GatewayPage> {
     for (final char in passcode.split('')) {
       _notifier.appendDigit(char);
     }
+  }
+
+  /// Where to go after a successful login: back to the deep-linked page
+  /// when the router remembered one (`/?from=...`), else the default home.
+  String _postLoginTarget({
+    required bool cinemaOnly,
+    required String fallback,
+  }) {
+    final uri = GoRouterState.of(context).uri;
+    return deepLinkTarget(uri, cinemaOnly: cinemaOnly) ?? fallback;
   }
 
   Future<void> _seedDataOnce() async {
@@ -333,7 +344,9 @@ class _GatewayPageState extends State<GatewayPage> {
         }
         if (isCinemaOnlyAccess) {
           _hasNavigated = true;
-          context.go('/cinema');
+          context.go(
+            _postLoginTarget(cinemaOnly: true, fallback: '/cinema'),
+          );
         } else {
           _notifier.updateState(GatewayState.revealingSite);
         }
@@ -345,7 +358,9 @@ class _GatewayPageState extends State<GatewayPage> {
     } else if (newState == GatewayState.complete) {
       if (!_hasNavigated) {
         _hasNavigated = true;
-        context.go('/dashboard');
+        context.go(
+          _postLoginTarget(cinemaOnly: false, fallback: '/dashboard'),
+        );
       }
     }
   }
