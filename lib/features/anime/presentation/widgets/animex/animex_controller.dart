@@ -49,9 +49,15 @@ class AnimeXController extends ChangeNotifier {
   void initLibrary(BuildContext context) {
     final auth = context.read<AuthService>();
     final userName = auth.currentUser ?? '';
-    if (userName.isEmpty) return;
+    // Drop the previous profile's subscription AND items immediately so
+    // one profile's My List never flashes for another on the same PWA.
     _watchlistSub?.cancel();
+    _watchlistSub = null;
     _postersRefreshed = false;
+    _library.clear();
+    _libraryLoading = userName.isNotEmpty;
+    notifyListeners();
+    if (userName.isEmpty) return;
     _watchlistSub = _tmdbService.getAnimeWatchListStream(userName).listen((
       items,
     ) async {
