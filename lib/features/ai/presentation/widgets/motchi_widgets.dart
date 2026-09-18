@@ -687,7 +687,11 @@ class _DelayedFadeIn extends StatefulWidget {
   final Widget child;
   final Duration delay;
 
-  const _DelayedFadeIn({required this.child, this.delay = Duration.zero});
+  const _DelayedFadeIn({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+  });
 
   @override
   State<_DelayedFadeIn> createState() => _DelayedFadeInState();
@@ -747,7 +751,6 @@ class _MessageBubble extends StatefulWidget {
   final DateTime? timestamp;
   final bool isStreaming;
   final String? reasoning;
-  final String? toolStatus;
   final List<String> imageUrls;
   final String? senderName;
   // Canvas toggle from the chat bar — when false the bubble stays plain
@@ -767,7 +770,6 @@ class _MessageBubble extends StatefulWidget {
     this.timestamp,
     this.isStreaming = false,
     this.reasoning,
-    this.toolStatus,
     this.imageUrls = const [],
     this.senderName,
     this.showArtifacts = true,

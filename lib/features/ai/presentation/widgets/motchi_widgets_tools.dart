@@ -1,14 +1,104 @@
 part of 'motchi_screen.dart';
 
-/// Compact pill showing which agent action Motchi is performing.
-class _ToolStatusChip extends StatelessWidget {
+/// Live horizontal strip of what Motchi is doing RIGHT NOW.
+///
+/// Each chip vanishes the moment its tool finishes, so the strip never
+/// stacks up or pushes the chat down — concurrent tools simply sit side
+/// by side and the strip follows the newest one.
+class _LiveToolStrip extends StatefulWidget {
+  final AIService ai;
+  const _LiveToolStrip({required this.ai});
+
+  @override
+  State<_LiveToolStrip> createState() => _LiveToolStripState();
+}
+
+class _LiveToolStripState extends State<_LiveToolStrip> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _followNewest() {
+    if (!_scroll.hasClients) return;
+    final max = _scroll.position.maxScrollExtent;
+    if ((_scroll.offset - max).abs() > 1) {
+      _scroll.animateTo(
+        max,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<String>>(
+      valueListenable: widget.ai.activeToolsNotifier,
+      builder: (context, tools, _) {
+        if (tools.isEmpty) return const SizedBox.shrink();
+        WidgetsBinding.instance.addPostFrameCallback((_) => _followNewest());
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: SingleChildScrollView(
+            controller: _scroll,
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (var i = 0; i < tools.length; i++)
+                  Padding(
+                    padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                    child: _DelayedFadeIn(
+                      key: ValueKey(tools[i]),
+                      child: _ToolStatusChip(status: tools[i]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Compact live pill showing one agent action Motchi is performing. The
+/// dot pulses while the tool runs; [_LiveToolStrip] removes the pill the
+/// moment the tool finishes.
+class _ToolStatusChip extends StatefulWidget {
   final String status;
 
   const _ToolStatusChip({required this.status});
 
   @override
+  State<_ToolStatusChip> createState() => _ToolStatusChipState();
+}
+
+class _ToolStatusChipState extends State<_ToolStatusChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final accent = _toolAccent(status);
+    final accent = _toolAccent(widget.status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6.5),
       decoration: BoxDecoration(
@@ -33,16 +123,25 @@ class _ToolStatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+          AnimatedBuilder(
+            animation: _c,
+            builder: (_, _) => Opacity(
+              opacity: 0.45 + 0.55 * _c.value,
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
           ),
           const SizedBox(width: 7),
-          Icon(_toolIcon(status), size: 13, color: accent),
+          Icon(_toolIcon(widget.status), size: 13, color: accent),
           const SizedBox(width: 6),
           Text(
-            _formatToolStatus(status),
+            _formatToolStatus(widget.status),
             style: AppTypography.bodySmall().copyWith(
               fontSize: 11.5,
               color: AppColors.petalWhite,
@@ -249,161 +348,11 @@ class _QuickPillState extends State<_QuickPill> {
   }
 }
 
-/// Inline cards for tool results — rendered below the streaming bubble
-class _ToolResultCards extends StatelessWidget {
-  final List<Map<String, dynamic>> results;
-  final bool centered;
-  const _ToolResultCards({required this.results, this.centered = false});
-
-  @override
-  Widget build(BuildContext context) {
-    if (results.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: results.map((r) {
-          final tool = r['tool'] as String? ?? 'tool';
-          // Web tools render tappable source rows instead of the generic
-          // card — Clair can open what Motchi actually read.
-          if (tool == 'web_search' || tool == 'read_web_page') {
-            final webSources = AIService.webSourcesFromToolResults([r]);
-            if (webSources.isNotEmpty) {
-              return _WebSourcesCard(
-                sources: webSources,
-                query: tool == 'web_search' ? r['query'] as String? : null,
-              );
-            }
-            // Empty/error falls through to the generic card below.
-          }
-          final success = r['success'] == true;
-          final needsConfirm = r['needs_confirmation'] == true;
-          final title =
-              r['title'] as String? ??
-              r['fact'] as String? ??
-              r['id'] as String? ??
-              '';
-          final msg = r['message'] as String? ?? '';
-          Color accent = _toolAccent(tool);
-          IconData icon = _toolIcon(tool);
-          String label = _formatToolStatus(tool);
-          if (needsConfirm) {
-            label = 'Needs confirmation';
-          } else if (success) {
-            label = '$label ✓';
-          } else if (r['error'] != null) {
-            label = 'Failed';
-          }
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.inkDeep.withValues(alpha: 0.90),
-                  AppColors.velvet.withValues(alpha: 0.72),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: accent.withValues(alpha: 0.28),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: accent.withValues(alpha: 0.30),
-                      width: 0.8,
-                    ),
-                  ),
-                  child: Icon(icon, size: 15, color: accent),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: AppTypography.bodySmall().copyWith(
-                          fontSize: 10.5,
-                          color: accent,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      if (title.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          title,
-                          style: AppTypography.bodySmall().copyWith(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.petalWhite,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      if (msg.isNotEmpty && !needsConfirm)
-                        Text(
-                          msg,
-                          style: AppTypography.bodySmall().copyWith(
-                            fontSize: 11.5,
-                            color: AppColors.textMuted,
-                            height: 1.4,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      if (needsConfirm && msg.isNotEmpty)
-                        Text(
-                          msg,
-                          style: AppTypography.bodySmall().copyWith(
-                            fontSize: 11.5,
-                            color: AppColors.textMuted,
-                            fontStyle: FontStyle.italic,
-                            height: 1.4,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-/// Tappable web sources — shown live while Motchi searches and persisted
-/// under her finished reply. Same card language as [_ToolResultCards].
+/// Tappable web sources — persisted under her finished reply so Clair
+/// can open what Motchi actually read.
 class _WebSourcesCard extends StatelessWidget {
   final List<Map<String, String>> sources; // {title, url, site}
-  final String? query;
-  const _WebSourcesCard({required this.sources, this.query});
+  const _WebSourcesCard({required this.sources});
 
   @override
   Widget build(BuildContext context) {
@@ -451,20 +400,6 @@ class _WebSourcesCard extends StatelessWidget {
                   letterSpacing: 0.4,
                 ),
               ),
-              if (query != null && query!.trim().isNotEmpty) ...[
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    '· ${query!.trim()}',
-                    style: AppTypography.bodySmall().copyWith(
-                      fontSize: 10.5,
-                      color: AppColors.textMuted,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 4),

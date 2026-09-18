@@ -39,6 +39,104 @@ void main() {
     });
   });
 
+  group('XPService.computeDailyAward', () {
+    const today = '2026-09-18';
+
+    test('first award seeds counters and totals', () {
+      final out = XPService.computeDailyAward(
+        data: {},
+        action: 'mood',
+        award: XPService.moodAward,
+        today: today,
+      );
+      expect(out, isNotNull);
+      expect(out!.counters, {
+        today: {'mood': 1},
+      });
+      expect(out.newXp, 20);
+      expect(out.newLevel, 1);
+      expect(out.leveledUp, isFalse);
+    });
+
+    test('returns null once the daily cap is reached', () {
+      final out = XPService.computeDailyAward(
+        data: {
+          'xpTotal': 20,
+          'level': 1,
+          'dailyXp': {
+            today: {'mood': 1},
+          },
+        },
+        action: 'mood',
+        award: XPService.moodAward,
+        today: today,
+      );
+      expect(out, isNull);
+    });
+
+    test('increments below the cap and keeps other actions', () {
+      final out = XPService.computeDailyAward(
+        data: {
+          'xpTotal': 100,
+          'level': 1,
+          'dailyXp': {
+            today: {'star': 1, 'mood': 1},
+          },
+        },
+        action: 'star',
+        award: XPService.starAward,
+        today: today,
+      );
+      expect(out, isNotNull);
+      expect(out!.counters[today], {'star': 2, 'mood': 1});
+      expect(out.newXp, 115);
+      expect(out.leveledUp, isFalse);
+    });
+
+    test('a new day starts fresh', () {
+      final out = XPService.computeDailyAward(
+        data: {
+          'xpTotal': 20,
+          'level': 1,
+          'dailyXp': {
+            '2026-09-17': {'mood': 1},
+          },
+        },
+        action: 'mood',
+        award: XPService.moodAward,
+        today: today,
+      );
+      expect(out, isNotNull);
+      expect(out!.counters[today], {'mood': 1});
+      expect(out.newXp, 40);
+    });
+
+    test('corrupt counters are treated as empty', () {
+      final out = XPService.computeDailyAward(
+        data: {'xpTotal': 0, 'dailyXp': 'garbage'},
+        action: 'garden',
+        award: XPService.gardenAward,
+        today: today,
+      );
+      expect(out, isNotNull);
+      expect(out!.counters[today], {'garden': 1});
+      expect(out.newXp, 10);
+    });
+
+    test('detects a level-up (200 XP per level)', () {
+      final out = XPService.computeDailyAward(
+        data: {'xpTotal': 190, 'level': 1},
+        action: 'mood',
+        award: XPService.moodAward,
+        today: today,
+      );
+      expect(out, isNotNull);
+      expect(out!.newXp, 210);
+      expect(out.newLevel, 2);
+      expect(out.leveledUp, isTrue);
+    });
+  });
+
   group('XPService singleton and helpers', () {
     test('singleton returns the same instance', () {
       final a = XPService();

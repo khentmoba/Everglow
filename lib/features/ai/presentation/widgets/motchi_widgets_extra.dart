@@ -389,7 +389,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         ),
                       )
                     else if (widget.isStreaming && cleanBubbleText.isEmpty)
-                      _StreamingPlaceholder(toolStatus: widget.toolStatus ?? '')
+                      const _StreamingPlaceholder()
                     else
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
