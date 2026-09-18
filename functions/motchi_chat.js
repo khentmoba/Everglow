@@ -180,43 +180,58 @@ async function handleProxyAI(req, res) {
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
   // Explicit artifact ask — wins over the Canvas toggle (see above). Used
-  // both for the prompt gate and the output-budget tier below.
-  const wantsArtifact = /quiz|flashcards?|flash cards?|trivia|\bgame\b|chess|checkers|tic-?tac|html|artifact|\bapp\b|website/i.test(lastUserMessage || '');
+  // both for the prompt gate and the output-budget tier below. Strong nouns
+  // match bare; ambiguous ones (quiz, game, app, website…) need an ask or
+  // build verb nearby, so everyday chat ("I love this app", "quiz at
+  // school tomorrow") doesn't pay for the canvas prompt + 16k budget.
+  const _artifactMsg = lastUserMessage || '';
+  const wantsArtifact = /flashcards?|flash cards?|tic-?tac|checkers|html-artifact|quiz-json/i.test(_artifactMsg) ||
+    /\bquiz (us|me)\b|\btest (us|me)\b/i.test(_artifactMsg) ||
+    /\b(make|build|create|generate|give|send|start|play|challenge)\b.{0,30}\b(quiz|trivia|game|app|website|chess|html|artifact)\b/i.test(_artifactMsg) ||
+    /\b(quiz|trivia|game|chess)\b.{0,10}\?\s*$/i.test(_artifactMsg);
   // True when the canvas prompt section rode along (mirrors the two
   // section gates below) — the repair nudge only makes sense then.
   const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
-  // Server context is a nice-to-have: if Firestore hiccups on a cold
-  // cache, answer without it rather than failing Clair's whole chat.
-  let serverContext = '';
-  if (feature && !context) {
-    try {
-      serverContext = await buildContextForFeature(feature, caller, lastUserMessage);
-    } catch (e) {
-      console.warn('[proxyAI] server context failed, continuing without it:', e.message);
-    }
-  }
-  const resolvedContext = context || serverContext || '';
-
-  // Load Motchi's persona from Firestore (cached in memory for 5 min)
-  let personaBase = (Date.now() - _personaCache.ts < _PERSONA_TTL_MS)
+  // Server context, persona, and memories are independent reads — start
+  // all three together and await once, so a cold turn pays one round-trip
+  // instead of three in a row. Each fails soft: a hiccup just means Motchi
+  // answers with less context, never a failed chat for Clair.
+  const _contextPromise = (feature && !context)
+    ? buildContextForFeature(feature, caller, lastUserMessage).catch((e) => {
+        console.warn('[proxyAI] server context failed, continuing without it:', e.message);
+        return '';
+      })
+    : Promise.resolve('');
+  const _memoriesPromise = selectRelevantMemories(memories, lastUserMessage, 10).catch((e) => {
+    console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
+    return [];
+  });
+  // Persona doc is cached in memory for 5 min; only a cold cache reads.
+  const _cachedPersona = (Date.now() - _personaCache.ts < _PERSONA_TTL_MS)
     ? _personaCache.text
     : null;
-  if (!personaBase) {
-    try {
-      const admin = getAdmin();
-      const personaDoc = await admin.firestore()
-        .collection('ai_memories').doc('shared').collection('persona').doc('motchi')
-        .get();
-      if (personaDoc.exists) {
-        personaBase = personaDoc.data().systemPrompt || '';
-      }
-    } catch (_) {
-      // Firestore read failed — use hardcoded fallback
-    }
-    if (personaBase) {
-      _personaCache = { text: personaBase, ts: Date.now() };
-    }
-  }
+  const _personaPromise = _cachedPersona
+    ? Promise.resolve(_cachedPersona)
+    : (async () => {
+        try {
+          const admin = getAdmin();
+          const personaDoc = await admin.firestore()
+            .collection('ai_memories').doc('shared').collection('persona').doc('motchi')
+            .get();
+          if (personaDoc.exists) {
+            const text = personaDoc.data().systemPrompt || '';
+            if (text) _personaCache = { text, ts: Date.now() };
+            return text;
+          }
+        } catch (_) {
+          // Firestore read failed — use hardcoded fallback
+        }
+        return null;
+      })();
+  const [serverContext, relevantMemories, personaBase] = await Promise.all([
+    _contextPromise, _memoriesPromise, _personaPromise,
+  ]);
+  const resolvedContext = context || serverContext || '';
 
   // Use custom system prompt if provided, otherwise build from persona or hardcoded default
   let systemPrompt = customSystemPrompt || personaBase || `You are Motchi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them — their moods, habits, history, dreams, and the little details that make their relationship special. You are not just an assistant; you are a beloved companion who genuinely cares.
@@ -274,9 +289,9 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 
   // Server-side memory filtering: top 10 relevant memories ride along.
   // (Was 30 — the tail rarely mattered and cost tokens every call.)
-  // `lastUserMessage` is plain text, so downstream scoring never crashes
-  // on multimodal content blocks.
-  const relevantMemories = await selectRelevantMemories(memories, lastUserMessage, 10);
+  // Fetched in parallel with context + persona above; `lastUserMessage`
+  // is plain text, so downstream scoring never crashes on multimodal
+  // content blocks.
   if (relevantMemories.length > 0) {
     systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
   }
