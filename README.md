@@ -229,6 +229,7 @@ The workflow:
 | `proxyMangaDex` | CORS proxy for MangaDex catalog API |
 | `proxyComick` | CORS proxy for Comick catalog API |
 | `proxyAnimeImage` | CORS proxy for anime CDN thumbnails (Crunchyroll, Funimation) |
+| `proxyLastfmImage` | CORS proxy for Last.fm album artwork (dashboard leaderboards) |
 | `proxyGalleryImage` | CORS proxy for gallery + Firebase Storage images |
 | `proxyScanlation` / `proxyFetchHtml` / `proxyEmbed` | CORS proxies for scanlation sites + generic HTML/embed fetch |
 | `proxyVideoStream` / `proxyWatchStream` | Video stream proxies with allow-list + SSRF guard |

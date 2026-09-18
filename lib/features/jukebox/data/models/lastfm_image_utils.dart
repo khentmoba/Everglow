@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
+
 /// Last.fm serves a handful of default "no artwork" images instead of real
 /// covers. These are the known placeholder hashes (verified: a light square
 /// with a white star, and a gray disc). Rendering them makes a leaderboard
@@ -13,10 +15,46 @@ bool isLastfmPlaceholderImage(String url) {
 }
 
 /// Returns `null` when [url] is empty or a known Last.fm placeholder,
-/// otherwise returns the URL unchanged.
+/// otherwise returns the URL unchanged (on web, Last.fm CDN artwork is
+/// rewritten to [proxyLastfmImageUrl] so the browser's CORS check passes).
 String? cleanLastfmImageUrl(String? url) {
   if (url == null || url.isEmpty) return null;
-  return isLastfmPlaceholderImage(url) ? null : url;
+  if (isLastfmPlaceholderImage(url)) return null;
+  return _maybeProxyForWeb(url);
+}
+
+/// Re-serves Last.fm artwork with CORS headers (see `proxyLastfmImage`).
+/// Direct `Image.network` loads of the Last.fm CDN fail on Flutter Web
+/// because it sends no `Access-Control-Allow-Origin` header.
+const String _lastfmImageProxyBase =
+    'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyLastfmImage';
+
+/// Test-only override for [kIsWeb] so the web rewrite is pinnable on the VM.
+@visibleForTesting
+bool? debugLastfmImageIsWeb;
+
+bool get _isWeb => debugLastfmImageIsWeb ?? kIsWeb;
+
+/// True when [url] is Last.fm CDN artwork (the only host family that
+/// needs the CORS proxy; iTunes and Spotify art already send CORS headers).
+bool isLastfmImageUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.scheme != 'https') return false;
+  final host = uri.host.toLowerCase();
+  return host == 'lastfm-img.freetls.fastly.net' ||
+      host == 'lastfm.freetls.fastly.net';
+}
+
+/// Rewrites Last.fm CDN artwork to the same-origin CORS proxy.
+/// Idempotent: non-Last.fm and already-proxied URLs pass through unchanged.
+String proxyLastfmImageUrl(String url) {
+  if (!isLastfmImageUrl(url)) return url;
+  return '$_lastfmImageProxyBase?url=${Uri.encodeComponent(url)}';
+}
+
+String? _maybeProxyForWeb(String? url) {
+  if (url == null || !_isWeb) return url;
+  return proxyLastfmImageUrl(url);
 }
 
 /// Preferred Last.fm image sizes, best first.

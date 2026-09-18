@@ -4,6 +4,7 @@ import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../data/models/lastfm_image_utils.dart';
 import '../../data/models/music_status.dart';
 import '../../data/services/spotify_auth_service.dart';
 import '../../data/services/spotify_player_service.dart';
@@ -71,6 +72,9 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
   Widget build(BuildContext context) {
     final isLinked = context.watch<SpotifyAuthService>().isLinked;
     final hasTrack = _status.hasSpotifyTrack;
+    // Clean once: drops Last.fm placeholders and routes CDN art through
+    // the CORS proxy on web (stale pre-proxy Firestore URLs included).
+    final art = cleanLastfmImageUrl(_status.imageUrl);
     return Dialog(
       backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -110,9 +114,9 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
-                          child: _status.imageUrl != null
+                          child: art != null
                               ? AppNetworkImage(
-                                  imageUrl: _status.imageUrl!,
+                                  imageUrl: art,
                                   fit: BoxFit.cover,
                                   cacheWidth: 600,
                                 )
@@ -148,9 +152,9 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    child: _status.imageUrl != null
+                    child: art != null
                         ? AppNetworkImage(
-                            imageUrl: _status.imageUrl!,
+                            imageUrl: art,
                             fit: BoxFit.cover,
                             cacheWidth: 600,
                           )
