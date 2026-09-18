@@ -469,6 +469,79 @@ function shouldExtractMemory(userMessage, motchiReply) {
 // Use ~25% of context for input safety; reserve rest for output + tool loops.
 const AGNES_INPUT_TOKEN_BUDGET = 120000;
 
+/**
+ * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
+ * 8601 plus "today/tonight/tomorrow [at H[:MM] am/pm]", "in N
+ * minutes/hours/days/weeks", and "next week". Clock times are read as
+ * Philippine wall time (the server runs on UTC, but Khent and Clair live
+ * in PHT) — "tomorrow at 3pm" means 3pm in Cabadbaran, not 3pm UTC.
+ * Returns null when nothing parseable is found.
+ */
+function parseReminderDate(raw, nowMs = Date.now()) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  // Phrases first: the lenient Date parser below mangles inputs like
+  // "tonight at 8" into nonsense years, so known relatives win.
+
+  const parseClock = () => {
+    const m = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+    if (!m) return null;
+    let h = parseInt(m[1], 10);
+    const min = m[2] ? parseInt(m[2], 10) : 0;
+    const ap = (m[3] || '').toLowerCase();
+    if (ap === 'pm' && h < 12) h += 12;
+    if (ap === 'am' && h === 12) h = 0;
+    if (h > 23 || min > 59) return null;
+    return { h, min, explicit: ap === 'am' || ap === 'pm' };
+  };
+  // PHT calendar day `dayOffset` from now, at h:min Philippine wall time.
+  const phtWall = (dayOffset, h, min) => {
+    const phtNow = new Date(nowMs + PHT_OFFSET_MS);
+    const utcMidnight = Date.UTC(phtNow.getUTCFullYear(), phtNow.getUTCMonth(), phtNow.getUTCDate());
+    return new Date(utcMidnight + dayOffset * 86400000 + (h * 60 + min) * 60000 - PHT_OFFSET_MS);
+  };
+
+  const rel = lower.match(/in\s+(\d+)\s*(minute|min|hour|hr|day|week)/);
+  if (rel) {
+    const n = parseInt(rel[1], 10);
+    const unit = rel[2].startsWith('min') ? 60000
+      : (rel[2].startsWith('hour') || rel[2] === 'hr') ? 3600000
+      : rel[2].startsWith('week') ? 7 * 86400000 : 86400000;
+    return new Date(nowMs + n * unit);
+  }
+  if (/\btomorrow\b/.test(lower)) {
+    const clock = parseClock();
+    if (clock) return phtWall(1, clock.h, clock.min);
+    return new Date(nowMs + 24 * 3600000);
+  }
+  if (/\btonight\b/.test(lower)) {
+    const clock = parseClock();
+    if (!clock) return phtWall(0, 20, 0);
+    let h = clock.h;
+    // Bare hours at night mean evening: "tonight at 8" is 8pm.
+    if (!clock.explicit) {
+      if (h >= 1 && h <= 11) h += 12;
+      else if (h === 12) h = 0;
+    }
+    return phtWall(0, h, clock.min);
+  }
+  if (/\btoday\b/.test(lower)) {
+    const clock = parseClock();
+    if (clock) {
+      const d = phtWall(0, clock.h, clock.min);
+      // That time already passed today — they mean tomorrow.
+      return d.getTime() <= nowMs ? phtWall(1, clock.h, clock.min) : d;
+    }
+    return new Date(nowMs + 3600000);
+  }
+  if (/next week/.test(lower)) return new Date(nowMs + 7 * 86400000);
+  // Last resort: ISO 8601 and other directly parseable dates.
+  const direct = new Date(text);
+  if (!Number.isNaN(direct.getTime())) return direct;
+  return null;
+}
+
 module.exports = {
   tokenize,
   parseFactStructure,
@@ -490,5 +563,6 @@ module.exports = {
   phtDateString,
   phtDayBounds,
   PHT_OFFSET_MS,
+  parseReminderDate,
   AGNES_INPUT_TOKEN_BUDGET,
 };
