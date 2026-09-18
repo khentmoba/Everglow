@@ -66,4 +66,44 @@ void main() {
     expect(find.textContaining('First point', findRichText: true), findsWidgets);
     expect(find.textContaining('Step one', findRichText: true), findsWidgets);
   });
+
+  testWidgets('consecutive bullets share one grouped card', (tester) async {
+    await pumpMarkdown(tester, '- JD Gaming\n- TYLOO\n- Edward Gaming');
+    expect(find.byType(EverglowBulletGroup), findsOneWidget);
+    expect(find.textContaining('JD Gaming', findRichText: true), findsWidgets);
+    expect(find.textContaining('TYLOO', findRichText: true), findsWidgets);
+    expect(
+      find.textContaining('Edward Gaming', findRichText: true),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('numbered steps share one grouped card', (tester) async {
+    await pumpMarkdown(tester, '1. Step one\n2. Step two\n3. Step three');
+    expect(find.byType(EverglowNumberedGroup), findsOneWidget);
+    expect(find.textContaining('Step two', findRichText: true), findsWidgets);
+  });
+
+  testWidgets('VCT-style reply: headers hug single list cards', (tester) async {
+    await pumpMarkdown(
+      tester,
+      '**VCT China:**\n- JD Gaming (Stage 2 qualifier)\n- TYLOO (Stage 2 qualifier)\n\n**VCT Pacific:**\n- Nongshim RedForce\n- Paper Rex',
+    );
+    expect(find.textContaining('**', findRichText: true), findsNothing);
+    expect(find.byType(EverglowBulletGroup), findsNWidgets(2));
+    expect(find.textContaining('VCT China', findRichText: true), findsWidgets);
+    expect(find.textContaining('Paper Rex', findRichText: true), findsWidgets);
+  });
+
+  testWidgets('flag-led bullets keep their emoji inside the group', (
+    tester,
+  ) async {
+    await pumpMarkdown(tester, '- 🇨🇳 JD Gaming\n- 🇰🇷 Nongshim RedForce');
+    expect(find.byType(EverglowBulletGroup), findsOneWidget);
+    expect(find.textContaining('🇨🇳', findRichText: true), findsWidgets);
+    expect(
+      find.textContaining('Nongshim RedForce', findRichText: true),
+      findsWidgets,
+    );
+  });
 }

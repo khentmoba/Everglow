@@ -15,7 +15,9 @@ import '../../../core/theme/app_typography.dart';
 /// Design language (global — one look everywhere):
 /// - Body 14px / 1.65, high-emphasis text for readability
 /// - Section labels (emoji / ALL-CAPS lines) get a gold dot + hairline
-/// - Bullets & steps are soft glass cards, never bare dots
+/// - Consecutive bullets & steps share ONE grouped glass card with hairline
+///   dividers — never one box per item (16 teams = 1 card, not 16)
+/// - `**Headers:**` are boxless accent-bar titles that hug their list
 /// - Tables WRAP text (no clipped "Shows system comp…" columns)
 /// - Callouts (💡 lines) get a lilac→rose gradient card
 /// - All colors/radii/type come from Dusk Petal tokens — no literals.
@@ -59,10 +61,15 @@ class EverglowMarkdown extends StatelessWidget {
     for (var i = 0; i < blocks.length; i++) {
       out.add(blocks[i]);
       if (i == blocks.length - 1) break;
-      final tight =
-          (blocks[i] is _Bullet || blocks[i] is _Numbered) &&
-          (blocks[i + 1] is _Bullet || blocks[i + 1] is _Numbered);
-      out.add(SizedBox(height: tight ? 6 : paragraphGap));
+      // Headers hug the list/table below them; everything else breathes.
+      final hugsNext =
+          (blocks[i] is _Subhead ||
+              blocks[i] is _SectionLabel ||
+              blocks[i] is _Heading) &&
+          (blocks[i + 1] is EverglowBulletGroup ||
+              blocks[i + 1] is EverglowNumberedGroup ||
+              blocks[i + 1] is _EverglowTable);
+      out.add(SizedBox(height: hugsNext ? 7 : paragraphGap));
     }
     return out;
   }
@@ -148,47 +155,72 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Bullet list item
+      // Bullet list — gather the whole run into ONE grouped card.
       final bullet = RegExp(r'^([-*•])\s+(.*)$').firstMatch(trimmed);
       if (bullet != null) {
-        final content = bullet.group(2) ?? '';
-        final buf = StringBuffer(content);
-        var j = i + 1;
-        while (j < lines.length) {
-          final next = lines[j];
-          if (next.trim().isEmpty) break;
-          if (RegExp(r'^([-*•]|\d+[.)]|#{1,4}|```|\||>)')
-              .hasMatch(next.trim())) {
-            break;
+        final items = <String>[];
+        while (i < lines.length) {
+          final m = RegExp(
+            r'^([-*•])\s+(.*)$',
+          ).firstMatch(lines[i].trim());
+          if (m == null) break;
+          final buf = StringBuffer(m.group(2) ?? '');
+          var j = i + 1;
+          while (j < lines.length) {
+            final next = lines[j];
+            if (next.trim().isEmpty) break;
+            if (RegExp(r'^([-*•]|\d+[.)]|#{1,4}|```|\||>)')
+                .hasMatch(next.trim())) {
+              break;
+            }
+            if (next.startsWith('  ') || next.startsWith('\t')) {
+              buf.write('\n${next.trim()}');
+              j++;
+            } else {
+              break;
+            }
           }
-          if (next.startsWith('  ') || next.startsWith('\t')) {
-            buf.write('\n${next.trim()}');
-            j++;
+          items.add(buf.toString());
+          // A blank line inside a list doesn't split it — peek past.
+          var k = j;
+          while (k < lines.length && lines[k].trim().isEmpty) {
+            k++;
+          }
+          if (k < lines.length &&
+              RegExp(r'^([-*•])\s+').hasMatch(lines[k].trim())) {
+            i = k;
           } else {
+            i = j;
             break;
           }
         }
-        i = j;
-        // A 💡/✨-led bullet is a tip — give it the callout card.
-        if (_startsWithEmoji(content.trim())) {
-          blocks.add(_Callout(text: content.trim(), base: base));
-        } else {
-          blocks.add(_Bullet(content: buf.toString(), base: base));
-        }
+        blocks.add(EverglowBulletGroup(items: items, base: base));
         continue;
       }
 
-      // Numbered list item
+      // Numbered list — same grouping, keeps the model's own numbers.
       final numbered = RegExp(r'^(\d+)[.)]\s+(.*)$').firstMatch(trimmed);
       if (numbered != null) {
-        blocks.add(
-          _Numbered(
-            number: numbered.group(1)!,
-            content: numbered.group(2) ?? '',
-            base: base,
-          ),
-        );
-        i++;
+        final items = <(String, String)>[];
+        while (i < lines.length) {
+          final m = RegExp(
+            r'^(\d+)[.)]\s+(.*)$',
+          ).firstMatch(lines[i].trim());
+          if (m == null) break;
+          items.add((m.group(1)!, m.group(2) ?? ''));
+          var k = i + 1;
+          while (k < lines.length && lines[k].trim().isEmpty) {
+            k++;
+          }
+          if (k < lines.length &&
+              RegExp(r'^\d+[.)]\s+').hasMatch(lines[k].trim())) {
+            i = k;
+          } else {
+            i = i + 1;
+            break;
+          }
+        }
+        blocks.add(EverglowNumberedGroup(items: items, base: base));
         continue;
       }
 
@@ -200,16 +232,19 @@ class EverglowMarkdown extends StatelessWidget {
         continue;
       }
 
-      // Emoji-led single line (💡 Quick hack…, 🧠 …) — callout card.
-      if (_startsWithEmoji(trimmed) && trimmed.length < 220) {
-        blocks.add(_Callout(text: trimmed, base: base));
+      // ALL-CAPS / emoji section label ("🔑 KEY POINTS AT A GLANCE",
+      // "🇨🇳 VCT China") — boxless header, checked BEFORE tips so short
+      // labels never become heavy callout boxes.
+      if (_isSectionLabel(trimmed)) {
+        blocks.add(_SectionLabel(content: trimmed));
         i++;
         continue;
       }
 
-      // ALL-CAPS / emoji section label ("🔑 KEY POINTS AT A GLANCE").
-      if (_isSectionLabel(trimmed)) {
-        blocks.add(_SectionLabel(content: trimmed));
+      // Tip-led single line (💡 Quick hack…) — callout card. Only real
+      // tip markers qualify; other emoji lines stay light paragraphs.
+      if (_isTipLead(trimmed) && trimmed.length < 220) {
+        blocks.add(_Callout(text: trimmed, base: base));
         i++;
         continue;
       }
@@ -239,12 +274,12 @@ class EverglowMarkdown extends StatelessWidget {
         i++;
       }
       final paraText = buf.join('\n').trim();
-      // A short gathered paragraph that turns out to be a label/callout
+      // A short gathered paragraph that turns out to be a label/tip
       // still gets the premium treatment (model often emits these bare).
-      if (_startsWithEmoji(paraText) && paraText.length < 220) {
-        blocks.add(_Callout(text: paraText, base: base));
-      } else if (_isSectionLabel(paraText)) {
+      if (_isSectionLabel(paraText)) {
         blocks.add(_SectionLabel(content: paraText));
+      } else if (_isTipLead(paraText) && paraText.length < 220) {
+        blocks.add(_Callout(text: paraText, base: base));
       } else {
         blocks.add(_paragraph(paraText, base));
       }
@@ -492,7 +527,8 @@ class _Heading extends StatelessWidget {
   }
 }
 
-/// `**Section:**` on its own line — soft gold pill.
+/// `**Section:**` on its own line — boxless accent-bar title that hugs
+/// the list below it. No pill, no border: headers read as headers.
 class _Subhead extends StatelessWidget {
   final String content;
   const _Subhead({required this.content});
@@ -500,24 +536,36 @@ class _Subhead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = AppTypography.bodyMedium().copyWith(
-      fontSize: 14,
+      fontSize: 15,
       fontWeight: FontWeight.w700,
-      color: AppColors.blushGold,
+      color: AppColors.petalWhite,
       height: 1.4,
     );
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.blushGold.withValues(alpha: 0.10),
-        borderRadius: AppRadius.radiusSm,
-        border: Border.all(
-          color: AppColors.blushGold.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Text.rich(
-        TextSpan(children: parseInline(content, style)),
-        style: style,
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 3.5,
+            height: 17,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.blushGold, AppColors.deepRose],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: AppRadius.radiusFull,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Flexible(
+            child: Text.rich(
+              TextSpan(children: parseInline(content, style)),
+              style: style,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -587,44 +635,73 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _Bullet extends StatelessWidget {
-  final String content;
+/// One grouped card for a whole bullet run — rows divided by hairlines.
+/// An emoji-led item (🇨🇳, 💡…) uses its emoji as the marker instead of
+/// the gold dot, so flags and tips read naturally inside the list.
+/// Public so regression tests can lock the grouped (not per-item) look.
+class EverglowBulletGroup extends StatelessWidget {
+  final List<String> items;
   final TextStyle base;
-  const _Bullet({required this.content, required this.base});
+  const EverglowBulletGroup({super.key, required this.items, required this.base});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.moonlight.withValues(alpha: 0.055),
-        borderRadius: AppRadius.radiusSm,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.10),
-        ),
+    return _ListGroupShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const _ListDivider(),
+            _BulletRow(content: items[i], base: base),
+          ],
+        ],
       ),
+    );
+  }
+}
+
+class _BulletRow extends StatelessWidget {
+  final String content;
+  final TextStyle base;
+  const _BulletRow({required this.content, required this.base});
+
+  @override
+  Widget build(BuildContext context) {
+    final split = _splitLeadingEmoji(content);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            margin: const EdgeInsets.only(top: 7, right: 11),
-            decoration: BoxDecoration(
-              color: AppColors.blushGold,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blushGold.withValues(alpha: 0.5),
-                  blurRadius: 6,
-                ),
-              ],
+          if (split != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 1, right: 10),
+              child: Text(split.$1, style: const TextStyle(fontSize: 14)),
+            )
+          else
+            Container(
+              width: 6,
+              height: 6,
+              margin: const EdgeInsets.only(top: 8, right: 11),
+              decoration: BoxDecoration(
+                color: AppColors.blushGold,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.blushGold.withValues(alpha: 0.5),
+                    blurRadius: 6,
+                  ),
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: Text.rich(
-              TextSpan(children: parseInline(content, base)),
+              TextSpan(
+                children: parseInline(
+                  split != null ? split.$2 : content,
+                  base,
+                ),
+              ),
               style: base,
             ),
           ),
@@ -634,73 +711,117 @@ class _Bullet extends StatelessWidget {
   }
 }
 
-class _Numbered extends StatelessWidget {
-  final String number;
-  final String content;
+/// One grouped card for a whole numbered run — same shell as bullets.
+/// Public so regression tests can lock the grouped (not per-item) look.
+class EverglowNumberedGroup extends StatelessWidget {
+  final List<(String, String)> items; // (number, content)
   final TextStyle base;
-  const _Numbered({
-    required this.number,
-    required this.content,
+  const EverglowNumberedGroup({
+    super.key,
+    required this.items,
     required this.base,
   });
 
   @override
   Widget build(BuildContext context) {
+    return _ListGroupShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const _ListDivider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: 9,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    margin: const EdgeInsets.only(right: 11, top: 1),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.blushGold, AppColors.deepRose],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.deepRose.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        items[i].$1,
+                        style: AppTypography.bodySmall().copyWith(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.petalWhite,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 1),
+                      child: Text.rich(
+                        TextSpan(
+                          children: parseInline(items[i].$2, base),
+                        ),
+                        style: base,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shared shell for grouped lists — one soft card, hairline border.
+class _ListGroupShell extends StatelessWidget {
+  final Widget child;
+  const _ListGroupShell({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       decoration: BoxDecoration(
-        color: AppColors.moonlight.withValues(alpha: 0.055),
-        borderRadius: AppRadius.radiusSm,
+        color: AppColors.moonlight.withValues(alpha: 0.045),
+        borderRadius: AppRadius.radiusMd,
         border: Border.all(
           color: AppColors.moonlight.withValues(alpha: 0.10),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            margin: const EdgeInsets.only(right: 11),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.blushGold, AppColors.deepRose],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                number,
-                style: AppTypography.bodySmall().copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.petalWhite,
-                  height: 1.0,
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text.rich(
-                TextSpan(children: parseInline(content, base)),
-                style: base,
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: child,
+    );
+  }
+}
+
+/// Hairline between grouped rows, indented to the text edge.
+class _ListDivider extends StatelessWidget {
+  const _ListDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 0.8,
+      margin: const EdgeInsets.only(left: 30, right: 13),
+      color: AppColors.moonlight.withValues(alpha: 0.08),
     );
   }
 }
@@ -1077,9 +1198,32 @@ bool _startsWithEmoji(String text) {
   // Fast path: the markers Motchi actually emits.
   const markers = '💡🧠✨📌🔑⭐🌙💭🎯📝📚❤️💖🔥✅❌⚠️👉🏷️📦🔹🔸🟣🟢🔵🟡🟠🔴💬🗺️🧭🎓📖📎';
   if (markers.contains(String.fromCharCode(first))) return true;
-  // General ranges: emoticons, pictographs, dingbats, enclosed chars.
+  // General ranges: emoticons, pictographs, dingbats, enclosed chars,
+  // regional-indicator flags (🇨🇳🇰🇷🇺🇸 — common in sports answers).
   return (first >= 0x1F300 && first <= 0x1FAFF) ||
       (first >= 0x2600 && first <= 0x27BF) ||
       (first >= 0x2B00 && first <= 0x2BFF) ||
+      (first >= 0x1F1E6 && first <= 0x1F1FF) ||
       (first >= 0xFE00 && first <= 0xFE0F);
+}
+
+/// True when the text starts with a tip marker (💡 ✨ 📌 …) — the only
+/// emoji that earn the heavy callout card. Flags, hearts, and section
+/// markers stay light (labels, list markers, plain text).
+bool _isTipLead(String text) {
+  final t = text.trimLeft();
+  if (t.isEmpty) return false;
+  const tips = '💡✨📌🔑⭐🎯📝✅⚠️👉💬🧠📚';
+  return tips.contains(String.fromCharCode(t.runes.first));
+}
+
+/// Splits "🇨🇳 VCT China" into ("🇨🇳", "VCT China"). Returns null
+/// when the text doesn't start with an emoji grapheme.
+(String, String)? _splitLeadingEmoji(String text) {
+  final t = text.trimLeft();
+  if (t.isEmpty || !_startsWithEmoji(t)) return null;
+  final first = t.characters.first;
+  final rest = t.substring(first.length).trimLeft();
+  if (rest.isEmpty) return null;
+  return (first, rest);
 }
