@@ -132,6 +132,11 @@ function hlsPlayerHtml({ src, title, tracks, token }) {
     'video{width:100%;height:100%;background:#000}' +
     '.ov{position:fixed;inset:0;display:flex;align-items:center;' +
     'justify-content:center;background:rgba(0,0,0,.72);z-index:5}' +
+    // The `hidden` attribute alone cannot hide these overlays: author-origin
+    // `.ov{display:flex}` beats the UA stylesheet's `[hidden]{display:none}`,
+    // so without this rule the tap-to-play button AND the "stalled" card
+    // paint over the video from the first frame on every episode.
+    '.ov[hidden]{display:none!important}' +
     '.spin{width:44px;height:44px;border:4px solid rgba(255,255,255,.2);' +
     'border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite}' +
     '@keyframes sp{to{transform:rotate(360deg)}}' +

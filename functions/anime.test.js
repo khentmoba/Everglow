@@ -104,6 +104,19 @@ test('hlsPlayerHtml recovers instead of spinning forever', () => {
   assert.ok(!html.includes(NO_SOURCE_MARKER));
 });
 
+test('hlsPlayerHtml hidden overlays stay hidden', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Ep 1',
+    tracks: [],
+  });
+  // Regression: author-origin `.ov{display:flex}` beats the UA
+  // stylesheet's `[hidden]{display:none}`, so without an explicit rule
+  // the tap-to-play button AND the "stalled" card paint over the video
+  // from the first frame on every episode.
+  assert.ok(html.includes('.ov[hidden]{display:none'));
+});
+
 test('hlsPlayerHtml inline script parses', () => {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
