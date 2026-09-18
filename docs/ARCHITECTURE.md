@@ -166,7 +166,7 @@ web/                            # PWA shell, service worker, icons
 
 | Kind | Functions | Responsibility |
 |------|-----------|----------------|
-| HTTP proxy | `proxyBookText`, `proxyManga*`, `proxyComick`, `proxyAnimeImage`, `proxyGalleryImage`, `proxyScanlation`, `proxyFetchHtml`, `proxyEmbed`, `proxyVideoStream`, `proxyWatchStream` | CORS/hotlink bypass with host allow-lists |
+| HTTP proxy | `proxyBookText`, `proxyManga*`, `proxyComick`, `proxyAnimeImage`, `proxyLastfmImage`, `proxyGalleryImage`, `proxyScanlation`, `proxyFetchHtml`, `proxyEmbed`, `proxyVideoStream`, `proxyWatchStream` | CORS/hotlink bypass with host allow-lists |
 | AI | `proxyAI`, `proxyAIv2`, `agnesImage` | SSE streaming, tool execution, image generation |
 | Ops | `health` | public liveness + Firestore reachability |
 | Trigger | `onNewChatMessage`, `onNewMood`, `onNewStarDrop`, `onNewWatchlistItem`, `onNewGalleryPhoto`, `onWatchPartyInvite`, `onNewMilestone` | FCM partner notifications |

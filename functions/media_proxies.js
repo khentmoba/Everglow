@@ -15,6 +15,10 @@ const {
 } = require('./media_proxy_manga.js');
 const { proxyAnimeImage } = require('./media_proxy_anime.js');
 const {
+  proxyLastfmImage,
+  isAllowedLastfmImageUrl,
+} = require('./media_proxy_music.js');
+const {
   proxyGalleryImage,
   cleanupGallery,
   deleteGalleryPhoto,
@@ -44,6 +48,8 @@ module.exports = {
   proxyMangaKatana,
   proxyComick,
   proxyAnimeImage,
+  proxyLastfmImage,
+  isAllowedLastfmImageUrl,
   proxyGalleryImage,
   cleanupGallery,
   deleteGalleryPhoto,
