@@ -196,7 +196,7 @@ class EverglowAssistantBubble extends StatelessWidget {
         Flexible(
           child: Container(
             constraints: BoxConstraints(maxWidth: bubbleMax),
-            padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+            padding: const EdgeInsets.fromLTRB(17, 14, 17, 13),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -295,7 +295,7 @@ class EverglowAssistantBubble extends StatelessWidget {
                     text: text.trimLeft(),
                     baseStyle: AppTypography.bodyMedium().copyWith(
                       color: AppColors.textHigh,
-                      height: 1.6,
+                      height: 1.65,
                       fontSize: 14.5,
                       fontWeight: FontWeight.w500,
                     ),

@@ -119,7 +119,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : '';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: widget.isUser
             ? MainAxisAlignment.end
@@ -182,7 +182,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   maxWidth: MediaQuery.sizeOf(context).width *
                       (widget.isUser ? 0.78 : 0.82),
                 ),
-                padding: const EdgeInsets.fromLTRB(16, 13, 16, 12),
+                padding: const EdgeInsets.fromLTRB(17, 14, 17, 13),
                 decoration: BoxDecoration(
                   gradient: widget.isUser
                       ? const LinearGradient(
@@ -412,7 +412,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               text: cleanBubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
-                                height: 1.6,
+                                height: 1.65,
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w500,
                               ),
