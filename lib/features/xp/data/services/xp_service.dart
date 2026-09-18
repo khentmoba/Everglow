@@ -14,6 +14,22 @@ class XpAward {
   const XpAward(this.amount, this.dailyCap);
 }
 
+/// Result of [XPService.computeDailyAward]: the merged counters and new
+/// totals the transaction should write, plus whether it leveled up.
+class DailyAwardOutcome {
+  final Map<String, dynamic> counters;
+  final int newXp;
+  final int newLevel;
+  final bool leveledUp;
+
+  const DailyAwardOutcome({
+    required this.counters,
+    required this.newXp,
+    required this.newLevel,
+    required this.leveledUp,
+  });
+}
+
 class XPService {
   static final XPService _instance = XPService._internal();
   factory XPService() => _instance;
@@ -37,8 +53,9 @@ class XPService {
       _customFirestore ?? FirebaseFirestore.instance;
 
   /// Serializes progress writes so concurrent awards on boot (e.g. listen
-  /// + garden) execute in FIFO order without overwriting each other or
-  /// contending on Firestore locks.
+  /// + garden) execute in FIFO order without contending on Firestore
+  /// locks. Cross-device safety (Clair's phone + tablet) comes from the
+  /// transactions inside, not this queue.
   Future<void> _lastOp = Future.value();
 
   Future<T> _enqueue<T>(Future<T> Function() task) {
@@ -93,42 +110,84 @@ class XPService {
           .doc('main');
 
       try {
-        final snapshot = await docRef.get().timeout(const Duration(seconds: 8));
-
-        if (!snapshot.exists) {
-          await docRef.set({
-            'xpTotal': amount,
-            'level': UserProgress.levelForXp(amount),
-            'streak': 1,
-            'lastActivity': FieldValue.serverTimestamp(),
-          });
-        } else {
+        // Transaction: phone + tablet awarding at once used to
+        // read-modify-write the same total and lose one award. The
+        // transaction retries on contention, so both awards land.
+        // Sounds stay OUTSIDE: the body may run more than once.
+        final leveledUp = await _firestore
+            .runTransaction<bool?>((txn) async {
+          final snapshot = await txn.get(docRef);
+          if (!snapshot.exists) {
+            txn.set(docRef, {
+              'xpTotal': amount,
+              'level': UserProgress.levelForXp(amount),
+              'streak': 1,
+              'lastActivity': FieldValue.serverTimestamp(),
+            });
+            return null; // Fresh doc: silent, as before.
+          }
           final data = snapshot.data() ?? <String, dynamic>{};
           final rawXp = data['xpTotal'];
           final currentXp =
               rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
           final newXp = currentXp + amount;
           final newLevel = UserProgress.levelForXp(newXp);
-
-          await docRef.update({
+          txn.update(docRef, {
             'xpTotal': newXp,
             'level': newLevel,
             'lastActivity': FieldValue.serverTimestamp(),
           });
-
           final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
-          if (newLevel > storedLevel) {
-            AudioService().playSfx(AudioService.levelUp);
-          } else {
-            AudioService().playSfx(AudioService.sparkle);
-          }
-        }
+          return newLevel > storedLevel;
+        }).timeout(const Duration(seconds: 8));
+        if (leveledUp == null) return;
+        AudioService().playSfx(
+          leveledUp ? AudioService.levelUp : AudioService.sparkle,
+        );
       } on TimeoutException {
         Logger.w('XP addXp timed out');
       } catch (e) {
         Logger.e('XP addXp failed', error: e);
       }
     });
+  }
+
+  /// Pure daily-award math: cap check, counter bump, and new totals.
+  /// The transaction body calls this so the rule unit-tests without
+  /// Firestore. Returns null when the daily cap is already reached.
+  @visibleForTesting
+  static DailyAwardOutcome? computeDailyAward({
+    required Map<String, dynamic> data,
+    required String action,
+    required XpAward award,
+    required String today,
+  }) {
+    final rawCounters = data['dailyXp'];
+    final counters = rawCounters is Map
+        ? Map<String, dynamic>.from(rawCounters)
+        : <String, dynamic>{};
+    final todayEntry = counters[today];
+    final todayCounts = todayEntry is Map
+        ? Map<String, dynamic>.from(todayEntry)
+        : <String, dynamic>{};
+    final used = (todayCounts[action] as num?)?.toInt() ?? 0;
+    if (used >= award.dailyCap) return null;
+
+    todayCounts[action] = used + 1;
+    counters[today] = todayCounts;
+
+    final rawXp = data['xpTotal'];
+    final currentXp =
+        rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
+    final newXp = currentXp + award.amount;
+    final newLevel = UserProgress.levelForXp(newXp);
+    final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
+    return DailyAwardOutcome(
+      counters: counters,
+      newXp: newXp,
+      newLevel: newLevel,
+      leveledUp: newLevel > storedLevel,
+    );
   }
 
   Future<bool> awardDaily(String uid, String action, XpAward award) {
@@ -141,52 +200,45 @@ class XPService {
       final today = _todayKey();
 
       try {
-        final snapshot = await docRef.get().timeout(const Duration(seconds: 8));
-        final data =
-            snapshot.exists ? (snapshot.data() ?? <String, dynamic>{}) : <String, dynamic>{};
-        final rawCounters = data['dailyXp'];
-        final counters = rawCounters is Map
-            ? Map<String, dynamic>.from(rawCounters)
-            : <String, dynamic>{};
-        final todayEntry = counters[today];
-        final todayCounts = todayEntry is Map
-            ? Map<String, dynamic>.from(todayEntry)
-            : <String, dynamic>{};
-        final used = (todayCounts[action] as num?)?.toInt() ?? 0;
-        if (used >= award.dailyCap) return false;
-
-        todayCounts[action] = used + 1;
-        counters[today] = todayCounts;
-
-        final rawXp = data['xpTotal'];
-        final currentXp =
-            rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
-        final newXp = currentXp + award.amount;
-        final newLevel = UserProgress.levelForXp(newXp);
-
-        if (snapshot.exists) {
-          await docRef.update({
-            'xpTotal': newXp,
-            'level': newLevel,
-            'dailyXp': counters,
-            'lastActivity': FieldValue.serverTimestamp(),
-          });
-        } else {
-          await docRef.set({
-            'xpTotal': newXp,
-            'level': newLevel,
-            'streak': 1,
-            'dailyXp': counters,
-            'lastActivity': FieldValue.serverTimestamp(),
-          });
-        }
-
-        final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
-        if (newLevel > storedLevel) {
-          AudioService().playSfx(AudioService.levelUp);
-        } else {
-          AudioService().playSfx(AudioService.sparkle);
-        }
+        // Transaction: two devices awarding the same action at once used
+        // to both pass the cap check and double-award. Inside a
+        // transaction only one wins; the loser re-reads and sees the
+        // spent cap. Sounds stay OUTSIDE (the body may retry).
+        final outcome = await _firestore
+            .runTransaction<DailyAwardOutcome?>((txn) async {
+          final snapshot = await txn.get(docRef);
+          final data = snapshot.exists
+              ? (snapshot.data() ?? <String, dynamic>{})
+              : <String, dynamic>{};
+          final computed = computeDailyAward(
+            data: data,
+            action: action,
+            award: award,
+            today: today,
+          );
+          if (computed == null) return null;
+          if (snapshot.exists) {
+            txn.update(docRef, {
+              'xpTotal': computed.newXp,
+              'level': computed.newLevel,
+              'dailyXp': computed.counters,
+              'lastActivity': FieldValue.serverTimestamp(),
+            });
+          } else {
+            txn.set(docRef, {
+              'xpTotal': computed.newXp,
+              'level': computed.newLevel,
+              'streak': 1,
+              'dailyXp': computed.counters,
+              'lastActivity': FieldValue.serverTimestamp(),
+            });
+          }
+          return computed;
+        }).timeout(const Duration(seconds: 8));
+        if (outcome == null) return false;
+        AudioService().playSfx(
+          outcome.leveledUp ? AudioService.levelUp : AudioService.sparkle,
+        );
         return true;
       } on TimeoutException {
         Logger.w('XP awardDaily timed out ($action)');

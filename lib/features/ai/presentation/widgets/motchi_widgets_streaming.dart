@@ -1,15 +1,12 @@
 part of 'motchi_screen.dart';
 
 class _StreamingPlaceholder extends StatelessWidget {
-  final String toolStatus;
-
-  const _StreamingPlaceholder({required this.toolStatus});
+  const _StreamingPlaceholder();
 
   @override
   Widget build(BuildContext context) {
-    if (_isToolAction(toolStatus)) {
-      return _ToolStatusChip(status: toolStatus);
-    }
+    // Live tool chips render separately in [_LiveToolStrip] below the
+    // bubble — this placeholder only covers the pre-text thinking wait.
     return const Row(
       mainAxisSize: MainAxisSize.min,
       children: [_RotatingThinkingText(), SizedBox(width: 8), _ThreeDots()],
@@ -211,8 +208,7 @@ class _StreamingProgressBar extends StatelessWidget {
 // ─── Thinking indicator ─────────────────────────────────────────
 
 class _ThinkingIndicator extends StatelessWidget {
-  final String toolStatus;
-  const _ThinkingIndicator({this.toolStatus = ''});
+  const _ThinkingIndicator();
 
   @override
   Widget build(BuildContext context) {
@@ -280,21 +276,12 @@ class _ThinkingIndicator extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_isToolAction(toolStatus))
-                  Text(
-                    _formatToolStatus(toolStatus),
-                    style: AppTypography.bodyMedium().copyWith(
-                      color: AppColors.textMuted,
-                      height: 1.0,
-                    ),
-                  )
-                else
-                  const _RotatingThinkingText(),
-                const SizedBox(width: 8),
-                const _ThreeDots(),
+                _RotatingThinkingText(),
+                SizedBox(width: 8),
+                _ThreeDots(),
               ],
             ),
           ),
