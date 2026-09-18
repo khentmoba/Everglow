@@ -85,6 +85,11 @@ test('parseFactStructure infers known patterns', () => {
     relation: null,
     object: null,
   });
+  assert.deepEqual(parseFactStructure('Mama loves lilies'), {
+    subject: 'Mama',
+    relation: 'loves',
+    object: 'lilies',
+  });
 });
 
 test('rankMemories puts the matching fact first', () => {
@@ -208,4 +213,13 @@ test('shouldExtractMemory gates casual chatter and passes durable personal facts
   assert.equal(shouldExtractMemory('Clair dislikes spicy food', 'Noted! Mama prefers mild food.'), true);
   assert.equal(shouldExtractMemory('My birthday is October 26', 'Dada\'s birthday is marked!'), true);
   assert.equal(shouldExtractMemory('I bought a new helmet for my Winner X bike today', 'Stay safe on the road!'), true);
+
+  // Bisaya / Tagalog code-switch passes the same gate
+  assert.equal(shouldExtractMemory('hinumdumi nga gusto nako ang Ilocos Empanada', 'Noted, Mama!'), true);
+  assert.equal(shouldExtractMemory('gusto kaayo nako ang Dubai Chewy Cookies', 'Sweet tooth noted!'), true);
+  assert.equal(shouldExtractMemory('ako paborito kay lilies kaayo', 'Lilies it is!'), true);
+  assert.equal(shouldExtractMemory('nahadlok ko sa horror movies', 'No horror for movie night!'), true);
+  // …while short Bisaya chatter still stays out
+  assert.equal(shouldExtractMemory('kaon ta', 'Sige, kaon ta!'), false);
+  assert.equal(shouldExtractMemory('laag ta unya', 'Enjoy you two!'), false);
 });
