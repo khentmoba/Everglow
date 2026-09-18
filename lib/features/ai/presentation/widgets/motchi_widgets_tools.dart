@@ -266,7 +266,7 @@ class _ToolResultCards extends StatelessWidget {
           final tool = r['tool'] as String? ?? 'tool';
           // Web tools render tappable source rows instead of the generic
           // card — Clair can open what Motchi actually read.
-          if (tool == 'web_search' || tool == 'read_web_page') {
+          if (tool == 'web_search' || tool == 'read_web_page' || tool == 'browse_web') {
             final webSources = AIService.webSourcesFromToolResults([r]);
             if (webSources.isNotEmpty) {
               return _WebSourcesCard(
