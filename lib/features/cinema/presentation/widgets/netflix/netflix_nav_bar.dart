@@ -503,6 +503,14 @@ class _MobileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The Anime entry leaves Cinema for its own section, so it never shows
+    // the active-tab white. Tint it rose so cinema-only profiles can spot
+    // their ride to /anime on the otherwise monochrome bottom bar.
+    final color = active
+        ? Colors.white
+        : (item.isAnimeLink
+              ? NetflixColors.accent
+              : Colors.white.withValues(alpha: 0.55));
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -511,7 +519,7 @@ class _MobileTab extends StatelessWidget {
         children: [
           Icon(
             active ? item.activeIcon : item.icon,
-            color: active ? Colors.white : Colors.white.withValues(alpha: 0.55),
+            color: color,
             size: 23,
           ),
           const SizedBox(height: 3),
@@ -521,9 +529,7 @@ class _MobileTab extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppTypography.outfitHeading.copyWith(
               fontSize: 10.5,
-              color: active
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.55),
+              color: color,
             ),
           ),
         ],
