@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/utils/firestore_stream_utils.dart';
+
 /// One page of a cursor-paginated Firestore list.
 class FirestorePage<T> {
   const FirestorePage({required this.items, required this.nextCursor});
@@ -33,7 +35,7 @@ Future<FirestorePage<T>> fetchFirestorePage<T>({
   if (constrain != null) q = constrain(q);
   q = q.orderBy(orderBy, descending: descending).limit(limit);
   if (cursor != null) q = q.startAfterDocument(cursor);
-  final snap = await q.get();
+  final snap = await withGetTimeout(q.get(), label: 'paginated list page');
   final items = snap.docs.map(fromDoc).toList();
   final next = snap.docs.length < limit ? null : snap.docs.last;
   return FirestorePage(items: items, nextCursor: next);

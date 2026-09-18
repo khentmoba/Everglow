@@ -73,19 +73,25 @@ class ChatService {
 
     try {
       final monthDay = _monthDay(now);
-      var snapshot = await _db
-          .collection('sanctuary_messages')
-          .where('monthDay', isEqualTo: monthDay)
-          .limit(100)
-          .get();
+      var snapshot = await withGetTimeout(
+        _db
+            .collection('sanctuary_messages')
+            .where('monthDay', isEqualTo: monthDay)
+            .limit(100)
+            .get(),
+        label: 'chat on-this-day',
+      );
 
       // Legacy messages predate the monthDay field; bound the fallback.
       if (snapshot.docs.isEmpty) {
-        snapshot = await _db
-            .collection('sanctuary_messages')
-            .orderBy('timestamp', descending: true)
-            .limit(200)
-            .get();
+        snapshot = await withGetTimeout(
+          _db
+              .collection('sanctuary_messages')
+              .orderBy('timestamp', descending: true)
+              .limit(200)
+              .get(),
+          label: 'chat on-this-day fallback',
+        );
       }
 
       final results = <ChatMessage>[];

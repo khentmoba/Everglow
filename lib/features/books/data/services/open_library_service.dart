@@ -57,9 +57,8 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     // Guard against bogus OL import years (e.g. 9999, 2098) that
     // would otherwise render as subtitles like "9981".
     final nowYear = DateTime.now().year;
-    final year = (firstYear != null &&
-            firstYear >= 1400 &&
-            firstYear <= nowYear + 1)
+    final year =
+        (firstYear != null && firstYear >= 1400 && firstYear <= nowYear + 1)
         ? firstYear.toString()
         : '';
 
@@ -404,16 +403,21 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     };
     final isCouple = userName == 'khentsgdz' || userName == 'clairjassen';
     if (!isCouple && coupleStatuses.contains(status)) {
-      Logger.w("saveToReadList: blocked partner status '$status' for $userName");
+      Logger.w(
+        "saveToReadList: blocked partner status '$status' for $userName",
+      );
       return;
     }
     try {
       final collection = _firestore.collection('read_list');
-      final existing = await collection
-          .where('workKey', isEqualTo: item.workKey)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('workKey', isEqualTo: item.workKey)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'read list save lookup',
+      );
 
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).update({
@@ -441,11 +445,14 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
     if (userName.isEmpty) return;
     try {
       final collection = _firestore.collection('read_list');
-      final existing = await collection
-          .where('workKey', isEqualTo: workKey)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        collection
+            .where('workKey', isEqualTo: workKey)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'read list remove lookup',
+      );
       if (existing.docs.isNotEmpty) {
         await collection.doc(existing.docs.first.id).delete();
       }
@@ -707,10 +714,7 @@ class OpenLibraryPage {
 
   const OpenLibraryPage({required this.items, required this.total});
 
-  static const OpenLibraryPage empty = OpenLibraryPage(
-    items: [],
-    total: 0,
-  );
+  static const OpenLibraryPage empty = OpenLibraryPage(items: [], total: 0);
 
   bool get hasMore => items.length < total;
 }

@@ -38,12 +38,15 @@ class TTMultiplayerService {
   }
 
   Future<TTRoom?> findOpenRoom({required String myUid}) async {
-    final snap = await _fs
-        .collection(_collection)
-        .where('status', isEqualTo: 'waiting')
-        .where('hostUid', isNotEqualTo: myUid)
-        .limit(1)
-        .get();
+    final snap = await withGetTimeout(
+      _fs
+          .collection(_collection)
+          .where('status', isEqualTo: 'waiting')
+          .where('hostUid', isNotEqualTo: myUid)
+          .limit(1)
+          .get(),
+      label: 'table tennis open room',
+    );
     if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
     return TTRoom.fromDoc(doc.id, doc.data());
@@ -54,7 +57,10 @@ class TTMultiplayerService {
     required String guestUid,
   }) async {
     final ref = _doc(roomId);
-    final result = await ref.get();
+    final result = await withGetTimeout(
+      ref.get(),
+      label: 'table tennis join room',
+    );
     if (!result.exists) throw StateError('Room not found');
     final current = TTRoom.fromDoc(result.id, result.data());
     if (current.guestUid != null) throw StateError('Room already has a guest');

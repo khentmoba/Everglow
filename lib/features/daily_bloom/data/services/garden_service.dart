@@ -50,7 +50,10 @@ class GardenService implements GardenStatsSource {
         .collection('garden_stats')
         .doc('stats');
 
-    final snapshot = await docRef.get();
+    final snapshot = await withGetTimeout(
+      docRef.get(),
+      label: 'garden record interaction',
+    );
     final now = DateTime.now();
 
     if (!snapshot.exists) {
@@ -147,7 +150,10 @@ class GardenService implements GardenStatsSource {
         .collection('garden_stats')
         .doc('stats');
 
-    final snapshot = await docRef.get();
+    final snapshot = await withGetTimeout(
+      docRef.get(),
+      label: 'garden set plant type',
+    );
     if (snapshot.exists) {
       await docRef.update({'plantType': plantType});
     } else {

@@ -25,7 +25,10 @@ extension KatanaServiceSocial on KatanaService {
   Future<bool> isBookmarked(String slug, String userName) async {
     if (userName.isEmpty || slug.isEmpty) return false;
     try {
-      final doc = await _bookmarks.doc('$userName|$slug').get();
+      final doc = await withGetTimeout(
+        _bookmarks.doc('$userName|$slug').get(),
+        label: 'katana bookmark check',
+      );
       return doc.exists;
     } catch (e) {
       Logger.e('isBookmarked error', error: e);
@@ -90,11 +93,14 @@ extension KatanaServiceSocial on KatanaService {
       // one exists, so the shelf shows "Ch. X • Page Y" without
       // creating entries behind Clair's back.
       try {
-        final existing = await _library
-            .where('mangaId', isEqualTo: KatanaService._katanaMangaId(slug))
-            .where('userName', isEqualTo: userName)
-            .limit(1)
-            .get();
+        final existing = await withGetTimeout(
+          _library
+              .where('mangaId', isEqualTo: KatanaService._katanaMangaId(slug))
+              .where('userName', isEqualTo: userName)
+              .limit(1)
+              .get(),
+          label: 'katana progress save lookup',
+        );
         for (final doc in existing.docs) {
           await doc.reference.set({
             'lastReadChapterId': chapterId,
@@ -122,7 +128,10 @@ extension KatanaServiceSocial on KatanaService {
         : (currentUserName == 'clairjassen' ? 'khentsgdz' : '');
     if (partner.isEmpty) return null;
     try {
-      final doc = await _bookmarks.doc('$partner|$slug').get();
+      final doc = await withGetTimeout(
+        _bookmarks.doc('$partner|$slug').get(),
+        label: 'katana partner progress',
+      );
       if (doc.exists && doc.data() != null) {
         final bookmark = KatanaBookmark.fromFirestore(doc.data()!, doc.id);
         if (bookmark.hasProgress) return bookmark;
@@ -139,7 +148,10 @@ extension KatanaServiceSocial on KatanaService {
   ) async {
     if (currentUserName.isEmpty || slug.isEmpty) return null;
     try {
-      final doc = await _bookmarks.doc('$currentUserName|$slug').get();
+      final doc = await withGetTimeout(
+        _bookmarks.doc('$currentUserName|$slug').get(),
+        label: 'katana recommendation check',
+      );
       if (doc.exists && doc.data() != null) {
         final bookmark = KatanaBookmark.fromFirestore(doc.data()!, doc.id);
         if (bookmark.isRecommended) return bookmark;
@@ -160,7 +172,10 @@ extension KatanaServiceSocial on KatanaService {
     if (partner.isEmpty) return;
     try {
       final ref = _bookmarks.doc('$partner|${manga.slug}');
-      final existing = await ref.get();
+      final existing = await withGetTimeout(
+        ref.get(),
+        label: 'katana recommend lookup',
+      );
       final data = existing.exists
           ? Map<String, dynamic>.from(existing.data()!)
           : KatanaBookmark(
@@ -197,11 +212,14 @@ extension KatanaServiceSocial on KatanaService {
   Future<bool> isReading(String slug, String userName) async {
     if (userName.isEmpty || slug.isEmpty) return false;
     try {
-      final docs = await _library
-          .where('mangaId', isEqualTo: KatanaService._katanaMangaId(slug))
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final docs = await withGetTimeout(
+        _library
+            .where('mangaId', isEqualTo: KatanaService._katanaMangaId(slug))
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'katana reading check',
+      );
       return docs.docs.isNotEmpty;
     } catch (e) {
       Logger.e('isReading error', error: e);
@@ -217,11 +235,14 @@ extension KatanaServiceSocial on KatanaService {
     if (userName.isEmpty || manga.slug.isEmpty) return;
     try {
       final mangaId = KatanaService._katanaMangaId(manga.slug);
-      final existing = await _library
-          .where('mangaId', isEqualTo: mangaId)
-          .where('userName', isEqualTo: userName)
-          .limit(1)
-          .get();
+      final existing = await withGetTimeout(
+        _library
+            .where('mangaId', isEqualTo: mangaId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'katana set reading lookup',
+      );
       if (!reading) {
         for (final doc in existing.docs) {
           await doc.reference.delete();

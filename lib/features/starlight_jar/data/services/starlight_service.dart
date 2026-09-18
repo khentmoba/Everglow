@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/star_note.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class StarlightService {
@@ -66,11 +67,14 @@ class StarlightService {
   /// Get a random star from the jar.
   Future<StarNote?> getRandomStarNote() async {
     try {
-      final snapshot = await _db
-          .collection(_collection)
-          .orderBy('timestamp', descending: true)
-          .limit(20)
-          .get();
+      final snapshot = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .orderBy('timestamp', descending: true)
+            .limit(20)
+            .get(),
+        label: 'starlight random star',
+      );
       if (snapshot.docs.isEmpty) return null;
 
       final docs = snapshot.docs;
@@ -90,19 +94,25 @@ class StarlightService {
 
     try {
       final monthDay = _monthDay(now);
-      var snapshot = await _db
-          .collection(_collection)
-          .where('monthDay', isEqualTo: monthDay)
-          .limit(100)
-          .get();
+      var snapshot = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .where('monthDay', isEqualTo: monthDay)
+            .limit(100)
+            .get(),
+        label: 'starlight on-this-day',
+      );
 
       // Legacy stars predate the monthDay field; bound the fallback.
       if (snapshot.docs.isEmpty) {
-        snapshot = await _db
-            .collection(_collection)
-            .orderBy('timestamp', descending: true)
-            .limit(200)
-            .get();
+        snapshot = await withGetTimeout(
+          _db
+              .collection(_collection)
+              .orderBy('timestamp', descending: true)
+              .limit(200)
+              .get(),
+          label: 'starlight on-this-day fallback',
+        );
       }
 
       final results = <StarNote>[];
@@ -125,11 +135,14 @@ class StarlightService {
   /// doesn't re-query on every remote write).
   Future<List<StarNote>> searchStars(String query) async {
     final lowerQuery = query.toLowerCase();
-    final snapshot = await _db
-        .collection(_collection)
-        .orderBy('timestamp', descending: true)
-        .limit(50)
-        .get();
+    final snapshot = await withGetTimeout(
+      _db
+          .collection(_collection)
+          .orderBy('timestamp', descending: true)
+          .limit(50)
+          .get(),
+      label: 'starlight search',
+    );
     return snapshot.docs
         .map((doc) => StarNote.fromFirestore(doc))
         .where(

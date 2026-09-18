@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/watch_party_server.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 
 /// Data-driven list of self-hosted playback servers for the watch party.
 ///
@@ -112,7 +113,10 @@ class WatchPartyServerService extends ChangeNotifier {
     _loading = true;
 
     try {
-      final doc = await FirebaseFirestore.instance.doc(_firestoreDoc).get();
+      final doc = await withGetTimeout(
+        FirebaseFirestore.instance.doc(_firestoreDoc).get(),
+        label: 'watch party shared servers',
+      );
       final raw = doc.data();
       if (raw != null && raw['servers'] is List) {
         _shared = (raw['servers'] as List)

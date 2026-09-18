@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/temporary_chat_message.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 
 /// Realtime temporary chat between the couple, independent of whether
 /// a watch party room is currently active.
@@ -106,11 +107,14 @@ class TemporaryChatService {
   Future<void> clearMessages(String roomId) async {
     if (roomId.isEmpty) return;
     try {
-      final snap = await _db
-          .collection(_collection)
-          .doc(roomId)
-          .collection(_messagesSubcollection)
-          .get();
+      final snap = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .doc(roomId)
+            .collection(_messagesSubcollection)
+            .get(),
+        label: 'temporary chat clear scan',
+      );
       final batch = _db.batch();
       for (final doc in snap.docs) {
         batch.delete(doc.reference);

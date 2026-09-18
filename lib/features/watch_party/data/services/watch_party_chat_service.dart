@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/watch_party_chat_message.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 
 /// Persists and streams Watch Together chat messages.
 ///
@@ -74,13 +75,16 @@ class WatchPartyChatService {
   /// and for analytics.
   Future<List<WatchPartyChatMessage>> getMessages(String roomId) async {
     if (roomId.isEmpty) return const [];
-    final snap = await _db
-        .collection(_collection)
-        .doc(roomId)
-        .collection(_messagesSubcollection)
-        .orderBy('timestamp', descending: true)
-        .limit(200)
-        .get();
+    final snap = await withGetTimeout(
+      _db
+          .collection(_collection)
+          .doc(roomId)
+          .collection(_messagesSubcollection)
+          .orderBy('timestamp', descending: true)
+          .limit(200)
+          .get(),
+      label: 'watch party chat history',
+    );
     return snap.docs
         .map(WatchPartyChatMessage.fromFirestore)
         .toList()
@@ -131,11 +135,14 @@ class WatchPartyChatService {
   Future<void> clearMessages(String roomId) async {
     if (roomId.isEmpty) return;
     try {
-      final snap = await _db
-          .collection(_collection)
-          .doc(roomId)
-          .collection(_messagesSubcollection)
-          .get();
+      final snap = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .doc(roomId)
+            .collection(_messagesSubcollection)
+            .get(),
+        label: 'watch party chat clear scan',
+      );
       final batch = _db.batch();
       for (final doc in snap.docs) {
         batch.delete(doc.reference);

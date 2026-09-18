@@ -43,7 +43,10 @@ class MilestoneService {
   /// from `.png` to `.jpg`. Rewrites only stale `imageUrls`, leaves every
   /// other field untouched, and returns how many docs were repaired.
   Future<int> repairLegacyAssetPaths() async {
-    final snapshot = await _db.collection('milestones').get();
+    final snapshot = await withGetTimeout(
+      _db.collection('milestones').get(),
+      label: 'milestone legacy repair scan',
+    );
     var repaired = 0;
     for (final doc in snapshot.docs) {
       final data = doc.data();

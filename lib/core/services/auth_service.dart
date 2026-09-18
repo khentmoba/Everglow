@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/dashboard/data/services/letterbox_service.dart';
 import '../../features/xp/data/services/xp_service.dart';
 import '../config/env_config.dart';
+import '../utils/firestore_stream_utils.dart';
 import '../utils/logger.dart';
 
 /// Thrown by [AuthService.verifyCouplePasscode] when no endpoint returned a
@@ -300,11 +301,16 @@ class AuthService extends ChangeNotifier {
   /// fields the rules no longer allow. Returns true when a repair ran.
   /// The doc only holds identity fields, so recreating it loses nothing.
   Future<bool> _repairStaleUserDoc(FirebaseFirestore db, String myUid) async {
-    final doc = await db.collection('users').doc(myUid).get();
+    final doc = await withGetTimeout(
+      db.collection('users').doc(myUid).get(),
+      label: 'auth stale user-doc check',
+    );
     if (!doc.exists) return false;
     final data = doc.data() ?? {};
     if (!needsUserDocRepair(data, _currentUser)) return false;
-    Logger.i('[AuthService] repairing stale users doc for $_currentUser ($myUid)');
+    Logger.i(
+      '[AuthService] repairing stale users doc for $_currentUser ($myUid)',
+    );
     await db.collection('users').doc(myUid).delete();
     await db.collection('users').doc(myUid).set({
       'username': _currentUser,
@@ -346,16 +352,22 @@ class AuthService extends ChangeNotifier {
     try {
       var partnerUser = partnerUsername;
       try {
-        final ownDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_auth.currentUser!.uid)
-            .get();
+        final ownDoc = await withGetTimeout(
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(_auth.currentUser!.uid)
+              .get(),
+          label: 'auth own user-doc read',
+        );
         final storedPartner = ownDoc.data()?['partnerUsername'] as String?;
         if (storedPartner != null && storedPartner.isNotEmpty) {
           partnerUser = storedPartner;
         }
       } catch (e) {
-        Logger.e("AuthService._resolvePartnerInfo own doc read failed", error: e);
+        Logger.e(
+          "AuthService._resolvePartnerInfo own doc read failed",
+          error: e,
+        );
       }
 
       // Cinema-only profiles have no partner; clear decisively.
@@ -371,11 +383,14 @@ class AuthService extends ChangeNotifier {
         // first. Firestore orders such a query by document id, and stray or
         // re-created docs sort ahead of the real account, which used to point
         // the couple at a doc with no garden / presence / chat data.
-        final query = await db
-            .collection('users')
-            .where('username', isEqualTo: partnerUser)
-            .limit(10)
-            .get();
+        final query = await withGetTimeout(
+          db
+              .collection('users')
+              .where('username', isEqualTo: partnerUser)
+              .limit(10)
+              .get(),
+          label: 'auth partner lookup',
+        );
 
         final partnerUid = pickPartnerUid([
           for (final doc in query.docs) (id: doc.id, data: doc.data()),
@@ -454,7 +469,8 @@ class AuthService extends ChangeNotifier {
   /// definitive answer (offline, timeout, 5xx) so the gateway can tell
   /// "wrong code" apart from "couldn't connect".
   Future<String?> verifyCouplePasscode(String passcode) async {
-    final isLocalWeb = kIsWeb &&
+    final isLocalWeb =
+        kIsWeb &&
         (Uri.base.host == 'localhost' ||
             Uri.base.host == '127.0.0.1' ||
             Uri.base.host == '0.0.0.0');
@@ -483,7 +499,9 @@ class AuthService extends ChangeNotifier {
         }
         if (resp.statusCode != 200) {
           lastError = 'HTTP ${resp.statusCode}';
-          Logger.e('verifyCouplePasscode $url -> ${resp.statusCode}: ${resp.body}');
+          Logger.e(
+            'verifyCouplePasscode $url -> ${resp.statusCode}: ${resp.body}',
+          );
           continue;
         }
         final data = jsonDecode(resp.body) as Map<String, dynamic>;

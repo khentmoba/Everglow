@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/jukebox_dedication.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class JukeboxDedicationService {
@@ -50,11 +51,14 @@ class JukeboxDedicationService {
 
   Future<List<JukeboxDedication>> fetchRecent({int limit = 10}) async {
     try {
-      final snap = await _firestore
-          .collection(_collection)
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
+      final snap = await withGetTimeout(
+        _firestore
+            .collection(_collection)
+            .orderBy('createdAt', descending: true)
+            .limit(limit)
+            .get(),
+        label: 'jukebox recent dedications',
+      );
       return snap.docs
           .map((d) => JukeboxDedication.fromMap(d.id, d.data()))
           .toList();

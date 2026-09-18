@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/academy_question.dart';
 import '../models/game_match.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class AcademyService {
@@ -20,10 +21,13 @@ class AcademyService {
     String category, {
     int limit = 10,
   }) async {
-    final query = await _questionsRef
-        .where('category', isEqualTo: category)
-        .limit(limit * 3)
-        .get();
+    final query = await withGetTimeout(
+      _questionsRef
+          .where('category', isEqualTo: category)
+          .limit(limit * 3)
+          .get(),
+      label: 'academy questions',
+    );
 
     final questions = query.docs
         .map((doc) => AcademyQuestion.fromFirestore(doc))
@@ -94,11 +98,14 @@ class AcademyService {
     await _cleanupStaleMatches();
 
     // 2. Try to find a waiting match
-    final waitingMatches = await _matchesRef
-        .where('status', isEqualTo: 'waiting')
-        .where('category', isEqualTo: category)
-        .limit(1)
-        .get();
+    final waitingMatches = await withGetTimeout(
+      _matchesRef
+          .where('status', isEqualTo: 'waiting')
+          .where('category', isEqualTo: category)
+          .limit(1)
+          .get(),
+      label: 'academy waiting match',
+    );
 
     if (waitingMatches.docs.isNotEmpty) {
       final matchDoc = waitingMatches.docs.first;
@@ -210,10 +217,13 @@ class AcademyService {
 
   Future<void> _cleanupStaleMatches() async {
     final staleTime = DateTime.now().subtract(const Duration(minutes: 30));
-    final staleQuery = await _matchesRef
-        .where('createdAt', isLessThan: Timestamp.fromDate(staleTime))
-        .limit(50)
-        .get();
+    final staleQuery = await withGetTimeout(
+      _matchesRef
+          .where('createdAt', isLessThan: Timestamp.fromDate(staleTime))
+          .limit(50)
+          .get(),
+      label: 'academy stale match cleanup',
+    );
 
     var batch = _firestore.batch();
     var pending = 0;

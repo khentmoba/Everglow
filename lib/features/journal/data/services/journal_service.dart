@@ -55,12 +55,15 @@ class JournalService {
     DateTime date, {
     int limit = 20,
   }) async {
-    final snap = await _db
-        .collection(_collection)
-        .orderBy('createdAt', descending: true)
-        .startAfter([Timestamp.fromDate(date)])
-        .limit(limit)
-        .get();
+    final snap = await withGetTimeout(
+      _db
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .startAfter([Timestamp.fromDate(date)])
+          .limit(limit)
+          .get(),
+      label: 'journal older entries',
+    );
     final items = snap.docs.map(JournalEntry.fromFirestore).toList();
     final next = snap.docs.length < limit ? null : snap.docs.last;
     return FirestorePage(items: items, nextCursor: next);
@@ -159,11 +162,14 @@ class JournalService {
   Future<List<JournalEntry>> search(String query) async {
     final q = query.toLowerCase().trim();
     if (q.isEmpty) return const [];
-    final snap = await _db
-        .collection(_collection)
-        .orderBy('createdAt', descending: true)
-        .limit(80)
-        .get();
+    final snap = await withGetTimeout(
+      _db
+          .collection(_collection)
+          .orderBy('createdAt', descending: true)
+          .limit(80)
+          .get(),
+      label: 'journal search',
+    );
     return snap.docs
         .map((d) => JournalEntry.fromFirestore(d))
         .where(
@@ -182,22 +188,28 @@ class JournalService {
     final md =
         '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     try {
-      final snap = await _db
-          .collection(_collection)
-          .where('monthDay', isEqualTo: md)
-          .limit(50)
-          .get();
+      final snap = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .where('monthDay', isEqualTo: md)
+            .limit(50)
+            .get(),
+        label: 'journal on-this-day',
+      );
       final entries = snap.docs
           .map((d) => JournalEntry.fromFirestore(d))
           .where((e) => e.createdAt.year != now.year)
           .toList();
       if (entries.isNotEmpty) return entries;
       // Fallback: client filter
-      final fallback = await _db
-          .collection(_collection)
-          .orderBy('createdAt', descending: true)
-          .limit(200)
-          .get();
+      final fallback = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .orderBy('createdAt', descending: true)
+            .limit(200)
+            .get(),
+        label: 'journal on-this-day fallback',
+      );
       return fallback.docs
           .map((d) => JournalEntry.fromFirestore(d))
           .where(

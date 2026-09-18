@@ -194,7 +194,10 @@ class LetterboxService {
       final diskNotes = await loadDiskCache();
       if (diskNotes.isNotEmpty) return;
 
-      final existing = await _db.collection('notes').limit(1).get();
+      final existing = await withGetTimeout(
+        _db.collection('notes').limit(1).get(),
+        label: 'letterbox seed check',
+      );
       if (existing.docs.isNotEmpty) return;
       final data = {
         'title': 'My Favorite Number',
@@ -213,7 +216,10 @@ class LetterboxService {
   // Seed the collection with sample data
   Future<void> seedInitialNotes() async {
     // 1. Clear existing notes
-    final existingNotes = await _db.collection('notes').get();
+    final existingNotes = await withGetTimeout(
+      _db.collection('notes').get(),
+      label: 'letterbox reseed scan',
+    );
     final deleteBatch = _db.batch();
     for (var doc in existingNotes.docs) {
       deleteBatch.delete(doc.reference);

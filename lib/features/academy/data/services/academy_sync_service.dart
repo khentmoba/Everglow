@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'trivia_api_service.dart';
 import '../models/academy_question.dart';
+import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class AcademySyncService {
@@ -45,11 +46,14 @@ class AcademySyncService {
   }
 
   Future<int> _getUnusedQuestionCount(String category) async {
-    final count = await _firestore
-        .collection('academy_questions')
-        .where('category', isEqualTo: category)
-        .count()
-        .get();
+    final count = await withGetTimeout(
+      _firestore
+          .collection('academy_questions')
+          .where('category', isEqualTo: category)
+          .count()
+          .get(),
+      label: 'academy unused question count',
+    );
 
     return count.count ?? 0;
   }
