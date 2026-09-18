@@ -96,6 +96,7 @@ const {
   exec_search_everglow,
   exec_web_search,
   exec_read_web_page,
+  exec_browse_web,
 } = require('./motchi_exec_insights.js');
 
 // ── XP curve (200 XP per level) ──────────────────────────
@@ -210,6 +211,7 @@ const TOOL_EXECUTORS = {
   search_everglow: exec_search_everglow,
   web_search: exec_web_search,
   read_web_page: exec_read_web_page,
+  browse_web: exec_browse_web,
 };
 
 const _timeout = (ms) =>

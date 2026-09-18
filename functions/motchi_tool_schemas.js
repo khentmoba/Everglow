@@ -381,6 +381,23 @@ const MOTCHI_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'browse_web',
+      description: 'Drive a real browser to read pages that need interaction — search-within-site, filters, buttons, JS-heavy or bot-protected pages where read_web_page returns empty or blocked content. Slower and pricier than web_search/read_web_page, so try those first. In goal, say exactly what to do and demand the JSON shape you want (e.g. \'Find ... and return JSON: {"price": str}\'). If the result status is RUNNING, call again with the same run_id and attempt+1 (up to 5 tries).',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Page to open (required unless resuming with run_id)' },
+          goal: { type: 'string', description: 'What to do on the page + the JSON shape to return (required unless resuming)' },
+          run_id: { type: 'string', description: 'Resume polling a RUNNING browse from a previous result' },
+          attempt: { type: 'number', description: 'Poll counter — increase by 1 on every resume call' },
+          stealth: { type: 'boolean', description: 'Use the hardened browser for bot-protected pages (default false)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'mark_watchlist_item_watched',
       description: 'Mark a movie or show on the shared cinema watchlist as watched. Use when they finish something or ask to update their list.',
       parameters: {
@@ -906,7 +923,7 @@ function selectToolsForRequest(reqFeature, userMsg) {
     return MOTCHI_TOOLS.filter(t => coreAllowed.has(t.function.name));
   }
   // Intent routing: core tools + only the groups the message asks
-  // for (typically 10-15 of 58 schemas). Falls back to full tools if
+  // for (typically a third of the schemas). Falls back to full tools if
   // the router ever returns nothing, so Motchi never goes blind.
   try {
     const wanted = new Set(selectToolNames(userMsg));

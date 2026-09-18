@@ -861,7 +861,7 @@ ${HTML_GAME_GUIDE}
           // payloads would otherwise multiply across tool rounds. Web
           // tools keep more: web_search already carries the top page's
           // content so one round is usually enough to answer.
-          const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
+          const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page' || fnName === 'browse_web') ? 6000 : 3000;
           const llmResult = result.length > llmLimit
             ? result.slice(0, llmLimit) + '…[trimmed]'
             : result;

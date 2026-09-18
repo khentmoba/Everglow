@@ -244,6 +244,103 @@ async function exec_read_web_page(ctx, args) {
     return JSON.stringify({ pages, errors: pageErrors });
 }
 
+// TinyFish browser automation (the "agent" tool). Runs queue async and
+// poll inside the tool's time budget — a sync run takes minutes, far
+// beyond the 25s tool timeout, so the model resumes with run_id while
+// the status is RUNNING. Caps stay small on purpose: each browse costs
+// more than a search, so the schema steers Motchi to web_search and
+// read_web_page first.
+const TINYFISH_AGENT_BASE = 'https://agent.tinyfish.ai';
+const BROWSE_POLL_MS = 3000;
+const BROWSE_BUDGET_MS = 20000;
+
+async function exec_browse_web(ctx, args) {
+    const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
+    if (!apiKey) return JSON.stringify({ error: 'Web browsing is not configured on the server yet.' });
+    const attempt = Math.max(1, Math.floor(Number(args.attempt) || 1));
+    const resumeHint = (runId) =>
+      `Still browsing — call browse_web again with the same url, goal, and run_id, and attempt ${attempt + 1} (up to 5 tries).`;
+    let runId = String(args.run_id || '').trim();
+    let url = String(args.url || '').trim();
+    const goal = String(args.goal || '').trim();
+    let cacheKey = null;
+    if (!runId) {
+      if (!/^https?:\/\//i.test(url)) return JSON.stringify({ error: 'No valid http(s) URL provided' });
+      if (!goal) return JSON.stringify({ error: 'No goal provided' });
+      // Repeat asks answer instantly from cache.
+      cacheKey = `browse:${url}|${goal.slice(0, 200)}`;
+      const cached = ctx.cacheGet(cacheKey, ctx.cacheTTLs.web_page);
+      if (cached) return JSON.stringify(cached);
+      let queueRes;
+      try {
+        queueRes = await fetch(`${TINYFISH_AGENT_BASE}/v1/automation/run-async`, {
+          method: 'POST',
+          headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url,
+            goal,
+            browser_profile: args.stealth === true ? 'stealth' : 'lite',
+            agent_config: { max_steps: 25, max_duration_seconds: 120 },
+            capture_config: { screenshots: false },
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+      } catch (_) {
+        return JSON.stringify({ error: 'Browsing timed out while starting — try again in a moment.' });
+      }
+      if (queueRes.status === 401 || queueRes.status === 403) return JSON.stringify({ error: 'Web browsing API key is invalid or forbidden.' });
+      if (queueRes.status === 402) return JSON.stringify({ error: 'Web browsing account needs a top-up at agent.tinyfish.ai/wallet.' });
+      if (queueRes.status === 429) return JSON.stringify({ error: 'Web browsing rate limit hit — try again in a minute.' });
+      if (!queueRes.ok) return JSON.stringify({ error: `Web browsing failed to start (HTTP ${queueRes.status}).` });
+      const queued = await queueRes.json().catch(() => ({}));
+      runId = String(queued.run_id || '');
+      if (!runId) {
+        const msg = queued.error && queued.error.message ? queued.error.message : 'unknown';
+        return JSON.stringify({ error: `Web browsing failed to start: ${msg}` });
+      }
+    } else if (url && goal) {
+      // Resume calls repeat url+goal so completions land in the same cache.
+      cacheKey = `browse:${url}|${goal.slice(0, 200)}`;
+    }
+    // Poll for completion inside the tool budget.
+    const deadline = Date.now() + BROWSE_BUDGET_MS;
+    for (;;) {
+      let runRes;
+      try {
+        runRes = await fetch(`${TINYFISH_AGENT_BASE}/v1/runs/${encodeURIComponent(runId)}`, {
+          headers: { 'X-API-Key': apiKey },
+          signal: AbortSignal.timeout(8000),
+        });
+      } catch (_) {
+        return JSON.stringify({ status: 'RUNNING', run_id: runId, url, hint: resumeHint(runId) });
+      }
+      if (runRes.status === 401 || runRes.status === 403) return JSON.stringify({ error: 'Web browsing API key is invalid or forbidden.' });
+      if (!runRes.ok) return JSON.stringify({ error: `Web browsing status check failed (HTTP ${runRes.status}).` });
+      const run = await runRes.json().catch(() => ({}));
+      const status = String(run.status || 'RUNNING').toUpperCase();
+      if (status === 'COMPLETED') {
+        const result = run.result && typeof run.result === 'object' ? run.result : {};
+        const keys = Object.keys(result);
+        if (keys.length === 0) {
+          return JSON.stringify({ status: 'COMPLETED', run_id: runId, url, title: '', text: '', note: 'The browse finished but returned no data — try a more specific goal.' });
+        }
+        const title = typeof result.title === 'string' ? result.title.slice(0, 200)
+          : typeof result.name === 'string' ? result.name.slice(0, 200) : '';
+        const done = { status: 'COMPLETED', run_id: runId, url, title, text: JSON.stringify(result).slice(0, 4000) };
+        if (cacheKey) ctx.cacheSet(cacheKey, done);
+        return JSON.stringify(done);
+      }
+      if (status === 'FAILED' || status === 'CANCELLED') {
+        const msg = run.error && run.error.message ? run.error.message : status.toLowerCase();
+        return JSON.stringify({ status, run_id: runId, url, error: `Browse ${status.toLowerCase()}: ${msg}` });
+      }
+      if (Date.now() >= deadline) {
+        return JSON.stringify({ status: 'RUNNING', run_id: runId, url, hint: resumeHint(runId) });
+      }
+      await new Promise((r) => setTimeout(r, BROWSE_POLL_MS));
+    }
+}
+
 module.exports = {
   exec_get_relationship_insights,
   exec_get_memory_trivia,
@@ -251,4 +348,5 @@ module.exports = {
   exec_search_everglow,
   exec_web_search,
   exec_read_web_page,
+  exec_browse_web,
 };
