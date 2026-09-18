@@ -82,6 +82,7 @@ String _formatToolStatus(String status) {
     'get_trips': 'Reading trips',
     'web_search': 'Searching the web',
     'read_web_page': 'Reading web pages',
+    'browse_web': 'Browsing the web',
     'list_reminders': 'Listing reminders',
     'cancel_reminder': 'Cancelling reminder',
     'edit_journal_entry': 'Editing journal',
@@ -196,6 +197,8 @@ IconData _toolIcon(String status) {
       return Icons.public_rounded;
     case 'read_web_page':
       return Icons.article_outlined;
+    case 'browse_web':
+      return Icons.travel_explore_rounded;
     case 'list_reminders':
       return Icons.notifications_outlined;
     case 'cancel_reminder':
@@ -268,6 +271,7 @@ Color _toolAccent(String status) {
       return AppColors.textMuted;
     case 'web_search':
     case 'read_web_page':
+    case 'browse_web':
       return AppColors.auroraTeal;
     case 'edit_journal_entry':
     case 'delete_journal_entry':

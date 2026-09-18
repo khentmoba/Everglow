@@ -32,7 +32,8 @@
 1. Prefer custom tools over `web_search` when the ask maps to an
    Everglow feature (cinema, books, moods, chat, garden, music, …).
 2. `web_search` only for current/external info (news, prices, schedules,
-   release dates); `read_web_page` (max 3 URLs) when snippets are thin.
+   release dates); `read_web_page` (max 3 URLs) when snippets are thin;
+   `browse_web` only when a page needs interaction or reads as blocked.
 3. Complex multi-step asks ("plan our anniversary", "surprise us") run
    ReAct style: decompose → sequence tools (≤8 rounds) → synthesize one
    warm plan, never raw JSON.
@@ -56,7 +57,7 @@
     ask about photo contents; thumbnails attach to the next round as
     image input, never as text.
 
-## Tool inventory (58)
+## Tool inventory (59)
 
 add_to_watchlist, save_to_starlight_jar, set_mood, search_movies,
 get_weather, create_reminder, list_reminders, cancel_reminder,
@@ -65,6 +66,7 @@ send_sanctuary_message, get_xp_stats, search_anime,
 add_book_to_our_books, read_starlight_jar, get_watchlist, remember_fact,
 read_memories, pin_memory, delete_memory, edit_memory, web_search,
 read_web_page, mark_watchlist_item_watched, update_book_progress, add_xp,
+browse_web,
 send_note_to_partner, get_relationship_insights, get_memory_trivia,
 get_today_recap, get_gallery, get_garden, get_canvas, search_spotify,
 remove_from_watchlist, search_everglow, plan_date_night,

@@ -73,11 +73,12 @@ const TOOL_NAMES = [
   'delete_calendar_event',
   'complete_bucket_item',
   'delete_bucket_item',
+  'browse_web',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
 // Sends Motchi only the tools that match the message intent instead of
-// all 58 schemas every turn. Saves input tokens on every request and
+// every schema every turn. Saves input tokens on every request and
 // cuts mistaken tool calls. Guaranteed by tests: every eval case's
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.
@@ -91,6 +92,7 @@ const CORE_TOOLS = [
   'get_today_recap',
   'web_search',
   'read_web_page',
+  'browse_web',
   'add_xp',
   'log_activity',
 ];
@@ -393,6 +395,14 @@ function validateToolArgs(toolName, args = {}) {
       const urls = raw.map((u) => _text(u)).filter((u) => isValidHttpUrl(u)).slice(0, 3);
       if (urls.length === 0) return { ok: false, error: 'No valid http(s) URLs provided', urls };
       return { ok: true, urls };
+    }
+    case 'browse_web': {
+      // Resume path needs only the run_id from a RUNNING result.
+      if (_text(a.run_id)) return { ok: true };
+      if (!isValidHttpUrl(a.url)) return { ok: false, error: 'No valid http(s) URL provided' };
+      if (!_text(a.goal)) return { ok: false, error: 'No goal provided' };
+      if (_text(a.goal).length > 2000) return { ok: false, error: 'Goal too long (max 2000)' };
+      return { ok: true };
     }
     default:
       if (!TOOL_NAMES.includes(toolName)) return { ok: false, error: `Unknown tool: ${toolName}` };

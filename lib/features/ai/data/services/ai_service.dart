@@ -161,6 +161,11 @@ class AIService extends ChangeNotifier {
             }
           }
         }
+      } else if (r['tool'] == 'browse_web' && r['status'] == 'COMPLETED') {
+        // Browsed pages carry a single url+title (RUNNING polls are skipped
+        // — the COMPLETED result in the same turn holds the source).
+        final url = '${r['url'] ?? ''}';
+        add('${r['title'] ?? ''}', url, _hostOf(url));
       }
     }
     return out;

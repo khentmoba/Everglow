@@ -566,6 +566,7 @@ test('every tool runs without ReferenceError (split-injury guard)', async () => 
       edit_memory: { memory_id: 'x', fact: 'y' },
       web_search: { query: 'x' },
       read_web_page: { urls: ['https://example.com'] },
+      browse_web: { url: 'https://example.com', goal: 'Get the price' },
       mark_watchlist_item_watched: { title: 'x' },
       update_book_progress: { title: 'x', progress: 10 },
       add_xp: { amount: 10 },
@@ -617,5 +618,114 @@ test('every tool runs without ReferenceError (split-injury guard)', async () => 
     }
   } finally {
     global.fetch = realFetch;
+  }
+});
+
+test('browse_web needs its API key before touching the network', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  delete process.env.TINYFISH_API_KEY;
+  try {
+    const out = JSON.parse(await executeToolCall(
+      ctx, 'browse_web', { url: 'https://example.com', goal: 'Get the price' },
+    ));
+    assert.match(out.error, /not configured/);
+  } finally {
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('browse_web queues a run and returns the completed result', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  const seen = [];
+  global.fetch = async (url, opts) => {
+    seen.push(String(url));
+    if (String(url).includes('/run-async')) {
+      assert.equal(JSON.parse(opts.body).browser_profile, 'lite');
+      return { ok: true, status: 200, json: async () => ({ run_id: 'run-1', error: null }) };
+    }
+    return {
+      ok: true, status: 200,
+      json: async () => ({
+        run_id: 'run-1', status: 'COMPLETED',
+        result: { title: 'Beans', price: '$9' }, error: null,
+      }),
+    };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(
+      ctx, 'browse_web', { url: 'https://example.com/beans', goal: 'Get the price as JSON' },
+    ));
+    assert.equal(out.status, 'COMPLETED');
+    assert.equal(out.run_id, 'run-1');
+    assert.equal(out.url, 'https://example.com/beans');
+    assert.equal(out.title, 'Beans');
+    assert.match(out.text, /\$9/);
+    assert.ok(seen.some((u) => u.includes('/run-async')), 'queues first');
+    assert.ok(seen.some((u) => u.includes('/v1/runs/run-1')), 'then polls');
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('browse_web sends stealth when asked and stays resumable mid-run', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  global.fetch = async (url, opts) => {
+    if (String(url).includes('/run-async')) {
+      assert.equal(JSON.parse(opts.body).browser_profile, 'stealth');
+      return { ok: true, status: 200, json: async () => ({ run_id: 'run-2', error: null }) };
+    }
+    throw new Error('poll timed out');
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(
+      ctx, 'browse_web',
+      { url: 'https://example.com/gated', goal: 'Read it', stealth: true },
+    ));
+    assert.equal(out.status, 'RUNNING');
+    assert.equal(out.run_id, 'run-2');
+    assert.match(out.hint, /attempt 2/);
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('browse_web resumes by run_id without re-queueing, failures as JSON', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  global.fetch = async (url) => {
+    assert.ok(!String(url).includes('/run-async'), 'resume must not queue');
+    return {
+      ok: true, status: 200,
+      json: async () => ({
+        run_id: 'run-9', status: 'FAILED',
+        result: null, error: { message: 'page blocked', category: 'AGENT_FAILURE' },
+      }),
+    };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(
+      ctx, 'browse_web',
+      { url: 'https://example.com/gated', goal: 'Read it', run_id: 'run-9', attempt: 3 },
+    ));
+    assert.equal(out.status, 'FAILED');
+    assert.match(out.error, /page blocked/);
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
   }
 });

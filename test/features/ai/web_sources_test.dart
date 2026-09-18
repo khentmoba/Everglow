@@ -71,6 +71,30 @@ void main() {
       expect(urls.toSet().length, 5);
     });
 
+    test('takes completed browses, skips running polls', () {
+      final sources = AIService.webSourcesFromToolResults([
+        {
+          'tool': 'browse_web',
+          'status': 'RUNNING',
+          'run_id': 'run-1',
+          'url': 'https://shop.example.com/beans',
+        },
+        {
+          'tool': 'browse_web',
+          'status': 'COMPLETED',
+          'run_id': 'run-1',
+          'url': 'https://shop.example.com/beans',
+          'title': 'Beans',
+        },
+      ]);
+      expect(sources.length, 1);
+      expect(sources[0], {
+        'title': 'Beans',
+        'url': 'https://shop.example.com/beans',
+        'site': 'shop.example.com',
+      });
+    });
+
     test('skips non-http urls and ignores other tools', () {
       final sources = AIService.webSourcesFromToolResults([
         {
