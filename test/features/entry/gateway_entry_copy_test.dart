@@ -24,11 +24,15 @@ void main() {
 
     testWidgets('throwing verifier keeps connection reason after auto-reset',
         (tester) async {
+      // A valid-shaped code (Khent's) with nobody remembered offline: the
+      // server never answered, so it stays a connection problem — never a
+      // wrong code — even after the error shake auto-resets the field.
       final notifier = GatewayNotifier()
         ..verifyCouplePasscode = (_) async {
           throw Exception('offline');
-        };
-      for (final d in ['1', '2', '3', '4']) {
+        }
+        ..tryOfflineUnlock = (_) => null;
+      for (final d in ['0', '9', '3', '8']) {
         notifier.appendDigit(d);
       }
       await tester.pump(const Duration(milliseconds: 1200));

@@ -34,6 +34,7 @@ class AuthService extends ChangeNotifier {
   bool _isResolvingPartner = false;
   bool _isSessionLoaded = false;
   String? _lastAuthError;
+  bool _offlineUnlocked = false;
 
   AuthService() {
     _loadSession();
@@ -125,11 +126,20 @@ class AuthService extends ChangeNotifier {
       'uid=${_auth.currentUser?.uid ?? 'none'} '
       'anonymous=$isAnonymousSession '
       'username=${_currentUser ?? 'none'} '
+      'offlineMode=$_offlineUnlocked '
       'usersDocSynced=$_hasSyncedUserDoc';
+
+  /// True when this session was unlocked offline from the remembered user
+  /// (see [tryOfflineRememberedLogin]). The dashboard shows cached data
+  /// with an offline banner until the next successful online login.
+  bool get isOfflineMode => _offlineUnlocked;
 
   /// True once both Firebase Auth and SharedPreferences have resolved.
   /// Dashboard and partner-dependent features should wait for this.
-  bool get isReady => _user != null && _currentUser != null;
+  /// An offline-remembered session also counts as ready: the dashboard
+  /// renders cached Firestore data instead of spinning forever.
+  bool get isReady =>
+      _currentUser != null && (_user != null || _offlineUnlocked);
 
   /// Dynamically resolved partner UID from the /users collection.
   /// Populated after login via [_syncUserDoc].
@@ -200,6 +210,7 @@ class AuthService extends ChangeNotifier {
       await _saveSession(username);
       unawaited(_syncUserDoc());
       _lastAuthError = null;
+      _offlineUnlocked = false;
       Logger.i(
         "Successfully logged in as $username (UID: ${_auth.currentUser?.uid})",
       );
@@ -523,6 +534,7 @@ class AuthService extends ChangeNotifier {
         await _saveSession(username);
         unawaited(_syncUserDoc());
         _lastAuthError = null;
+        _offlineUnlocked = false;
         notifyListeners();
         return username;
       } catch (e) {
@@ -533,6 +545,51 @@ class AuthService extends ChangeNotifier {
     // No endpoint gave a definitive wrong-code answer and none succeeded:
     // the network or server is at fault, not the code itself.
     throw PasscodeConnectionException(lastError?.toString());
+  }
+
+  /// Offline "remember me" for Khent/Clair when the server is unreachable.
+  ///
+  /// Only the already-remembered user (saved by a previous online login)
+  /// can unlock, and only with their own code — this never switches users
+  /// and never unlocks a fresh device. Returns the username on success.
+  /// Firestore still serves its local cache in this mode, so previously
+  /// opened chats, notes, and garden keep showing until back online.
+  String? tryOfflineRememberedLogin(String passcode) {
+    final remembered = _currentUser;
+    if (!offlineCodeMatches(
+      rememberedUser: remembered,
+      passcode: passcode,
+      clairCode: EnvConfig.clairPasscode,
+      khentCode: EnvConfig.khentPasscode,
+    )) {
+      return null;
+    }
+    _offlineUnlocked = true;
+    _lastAuthError = null;
+    Logger.i('[AuthService] offline remembered login for $remembered');
+    notifyListeners();
+    return remembered;
+  }
+
+  /// Pure rule behind [tryOfflineRememberedLogin]: the typed code must be
+  /// the remembered user's own code. Never switches users, never unlocks
+  /// a fresh device (null remembered user), and empty configured codes
+  /// never match so builds without config can't be bypassed.
+  @visibleForTesting
+  static bool offlineCodeMatches({
+    required String? rememberedUser,
+    required String passcode,
+    required String clairCode,
+    required String khentCode,
+  }) {
+    if (passcode.isEmpty) return false;
+    if (rememberedUser == 'clairjassen') {
+      return clairCode.isNotEmpty && passcode == clairCode;
+    }
+    if (rememberedUser == 'khentsgdz') {
+      return khentCode.isNotEmpty && passcode == khentCode;
+    }
+    return false;
   }
 
   /// Offline fallback for Khent/Clair when verifyPasscode is unreachable.
@@ -577,6 +634,7 @@ class AuthService extends ChangeNotifier {
     _partnerNameResolved = null;
     _isResolvingPartner = false;
     _hasSyncedUserDoc = false;
+    _offlineUnlocked = false;
     await _saveSession(null);
     notifyListeners();
   }
