@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/services/auth_service.dart';
 import '../../../data/services/animex_stores.dart';
 
 import 'animex_browse_page.dart';
@@ -33,13 +34,17 @@ class AnimeXShell extends StatefulWidget {
 
 class _AnimeXShellState extends State<AnimeXShell> {
   final AnimeXController _controller = AnimeXController();
+  String? _lastUser;
 
   @override
   void initState() {
     super.initState();
-    AnimexStores.instance.load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _controller.initLibrary(context);
+      if (!mounted) return;
+      final user = context.read<AuthService>().currentUser;
+      _lastUser = user;
+      AnimexStores.instance.load(username: user);
+      _controller.initLibrary(context);
     });
   }
 
@@ -53,6 +58,18 @@ class _AnimeXShellState extends State<AnimeXShell> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isHeaderDesktop = size.width >= 768;
+    // If the profile changed while the shell is mounted (logout/login on
+    // the same PWA), reload both the per-user history store and the
+    // per-user watchlist stream so no data bleeds across profiles.
+    final authUser = context.watch<AuthService>().currentUser;
+    if (_lastUser != null && _lastUser != authUser) {
+      _lastUser = authUser;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        AnimexStores.instance.switchUser(authUser);
+        _controller.initLibrary(context);
+      });
+    }
 
     return ChangeNotifierProvider.value(
       value: AnimexStores.instance,
