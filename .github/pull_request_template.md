@@ -3,13 +3,16 @@
 
 ## Why it matters for Clair
 
-<!-- Paste a screenshot of the changed screen here (just what changed).
+<!-- Paste screenshot(s) of the changed screen here (just what changed).
      Preview link is posted automatically below by the Preview workflow.
-     Repo is public: never screenshot logged-in couple-only pages
-     (chat, gallery, notes, garden, AI memories). -->
+     Repo is public: for couple-only screens (chat, gallery, notes,
+     garden, AI memories) use FAKE demo data only — never real couple data.
+     Save shots in docs/pr-proof/pr-<number>/ on your branch and embed them:
+     ![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<commit-sha>/docs/pr-proof/pr-<number>/shot.png)
+     Pin to the commit SHA (not the branch name) so pictures survive after merge. -->
 ## Proof
 
-- [ ] Screenshot attached (or N/A for non-UI changes like CI/docs)
+- [ ] Screenshot shows above (or N/A for non-UI changes like CI/docs)
 - [ ] Preview link checked on phone width
 
 ## Checks
