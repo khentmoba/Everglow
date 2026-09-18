@@ -328,10 +328,16 @@ class _DeepThinkPill extends StatelessWidget {
 class _GreetingEmptyState extends StatelessWidget {
   final void Function(String) onTap;
   final bool centered;
-  const _GreetingEmptyState({required this.onTap, this.centered = false});
+  final String? callerName;
+  const _GreetingEmptyState({
+    required this.onTap,
+    this.centered = false,
+    this.callerName,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
     final content = SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: centered ? 40 : 20, vertical: 20),
       child: Column(
@@ -417,7 +423,7 @@ class _GreetingEmptyState extends StatelessWidget {
           _DelayedFadeIn(
             delay: const Duration(milliseconds: 180),
             child: Text(
-              'Ask Motchi anything',
+              motchiGreetingTitle(now, callerName),
               textAlign: TextAlign.center,
               style: AppTypography.titleLarge().copyWith(
                 fontSize: centered ? 30 : 25,
@@ -431,7 +437,7 @@ class _GreetingEmptyState extends StatelessWidget {
           _DelayedFadeIn(
             delay: const Duration(milliseconds: 260),
             child: Text(
-              'Your companion cat who remembers all your special dates, games, movies & thoughts.',
+              motchiGreetingSubtitle(now),
               textAlign: TextAlign.center,
               style: AppTypography.bodyMedium().copyWith(
                 color: AppColors.textMuted,

@@ -19,6 +19,7 @@ import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
+import '../../../../shared/utils/greeting_utils.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_chat_bubble.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
@@ -575,7 +576,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
             final loading = snapshot.$3;
 
             if (allMsgs.isEmpty && !loading) {
-              return _GreetingEmptyState(onTap: _sendQuick, centered: centered);
+              return _GreetingEmptyState(
+                onTap: _sendQuick,
+                centered: centered,
+                callerName: callerName,
+              );
             }
 
             final itemCount = allMsgs.length + (loading ? 1 : 0);
