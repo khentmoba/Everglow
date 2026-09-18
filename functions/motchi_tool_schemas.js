@@ -267,7 +267,7 @@ const MOTCHI_TOOLS = [
     type: 'function',
     function: {
       name: 'remember_fact',
-      description: 'Save a personal fact about Khent or Clair to Motchi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship.',
+      description: 'Save a personal fact about Khent or Clair to Motchi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship — and when they ask you to read the journal, chat, or another space and remember things about them (save each standout detail as its own fact, then name what you saved in your visible reply).',
       parameters: {
         type: 'object',
         properties: {
