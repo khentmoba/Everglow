@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -8,6 +10,19 @@ class AppErrorPage extends StatelessWidget {
   const AppErrorPage({super.key, required this.uri});
 
   final Uri uri;
+
+  /// Where "Go home" should land. Logged-in users go back to their own
+  /// home (dashboard for the couple, cinema for cinema-only profiles) so
+  /// a dead link never drops them at the passcode door. Logged-out users
+  /// go to the gate. Pure so it unit-tests without Firebase.
+
+  static String homeRouteFor({
+    required bool isAuthenticated,
+    required bool isCinemaOnlyUser,
+  }) {
+    if (!isAuthenticated) return '/';
+    return isCinemaOnlyUser ? '/cinema' : '/dashboard';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +55,24 @@ class AppErrorPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () => GoRouter.of(context).go('/'),
+              onPressed: () {
+                var home = '/';
+                try {
+                  final auth = context.read<AuthService>();
+                  // Same "authed" definition as the router redirect:
+                  // a real Firebase session or a persisted offline name.
+                  final authed = auth.isAuthenticated ||
+                      auth.currentUser != null;
+                  home = homeRouteFor(
+                    isAuthenticated: authed,
+                    isCinemaOnlyUser: auth.isCinemaOnlyUser,
+                  );
+                } catch (_) {
+                  // No auth provider above us (tests, odd shells):
+                  // fall back to the gate, which is always safe.
+                }
+                GoRouter.of(context).go(home);
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.deepRose,
                 foregroundColor: AppColors.petalWhite,
