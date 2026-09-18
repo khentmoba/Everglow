@@ -30,7 +30,7 @@ function toDate(value) {
 function parseFactStructure(fact) {
   const trimmed = String(fact || '').trim();
   const match = trimmed.match(
-    /^(Khent and Clair|Clair and Khent|Khent|Clair)\s+(prefers?|loves?|likes?|dislikes?|hates?|wants?|enjoys?|studies?|rides?|plays?|watched?|watches?|read|reads?|went to|visited?|dreams? of|is|was|has|had|works at|started|finished|learned|learnt)\s+(.+)$/i
+    /^(Khent and Clair|Clair and Khent|Khent|Clair|Dada|Mama)\s+(prefers?|loves?|likes?|dislikes?|hates?|wants?|enjoys?|studies?|rides?|plays?|watched?|watches?|read|reads?|went to|visited?|dreams? of|is|was|has|had|works at|started|finished|learned|learnt)\s+(.+)$/i
   );
   if (!match) return { subject: null, relation: null, object: null };
   return { subject: match[1], relation: match[2], object: match[3] };
@@ -437,8 +437,8 @@ function shouldExtractMemory(userMessage, motchiReply) {
 
   const lower = user.toLowerCase();
 
-  // Explicit memory cues always pass
-  if (/remember\b|don't forget|keep in mind|note that|our anniversary|my birthday|her birthday|his birthday/i.test(lower)) {
+  // Explicit memory cues always pass (English + Bisaya + Tagalog)
+  if (/remember\b|don't forget|keep in mind|note that|our anniversary|my birthday|her birthday|his birthday|hinumdumi|tandaan/i.test(lower)) {
     return true;
   }
 
@@ -452,12 +452,14 @@ function shouldExtractMemory(userMessage, motchiReply) {
     return false;
   }
 
-  // Must have a personal subject marker (Khent, Clair, I, my, we, our)
-  const hasSubject = /\b(i|my|i'm|im|i've|ive|i'd|we|our|khent|clair|dada|mama)\b/i.test(lower);
+  // Must have a personal subject marker (Khent, Clair, I, my, we, our,
+  // plus Bisaya/Tagalog pronouns so code-switched chat is remembered too)
+  const hasSubject = /\b(i|my|i'm|im|i've|ive|i'd|we|our|khent|clair|dada|mama|ako|ko|nako|mi|namo|amo|kami|kita|ta|siya|iya|mo|ikaw|ka)\b/i.test(lower);
   if (!hasSubject) return false;
 
   // Must have a durable fact/preference/habit/milestone indicator
-  const hasSignal = /\b(prefer|prefers|preference|love|loves|like|likes|hate|hates|dislike|dislikes|favorite|favourite|always|never|started|finished|bought|studies|study|school|college|csucc|ustp|works?|job|dream|dreams|hope|goals?|habit|habits|gym|bike|rides?|rode|winner x|fuji|camera|coffee|food|allergic|allergy|fears?|scared of)\b/i.test(lower);
+  // (English + Bisaya/Tagalog: gusto, paborito, kanunay, eskwela…)
+  const hasSignal = /\b(prefer|prefers|preference|love|loves|like|likes|hate|hates|dislike|dislikes|favorite|favourite|always|never|started|finished|bought|studies|study|school|college|csucc|ustp|works?|job|dream|dreams|hope|goals?|habit|habits|gym|bike|rides?|rode|winner x|fuji|camera|coffee|food|allergic|allergy|fears?|scared of|miss|missing|gusto|ganahan|paborito|mahal|lami|kanunay|pirme|ayaw|eskwela|trabaho|damgo|hadlok|nahadlok|gimingaw|mingaw|palit|sugod|human)\b/i.test(lower);
 
   if (hasSignal) return true;
 
