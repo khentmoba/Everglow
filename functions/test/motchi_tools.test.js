@@ -123,6 +123,11 @@ test('validateToolArgs checks memory, calendar, trip, and page args', () => {
   assert.equal(validate('read_journal_entry', { title: 'First Date' }).ok, true);
   assert.equal(validate('search_journal_entries', { query: 'beach' }).ok, true);
   assert.equal(validate('search_journal_entries', {}).ok, true);
+  assert.equal(validate('browse_web', {}).ok, false);
+  assert.equal(validate('browse_web', { url: 'notaurl', goal: 'x' }).ok, false);
+  assert.equal(validate('browse_web', { url: 'https://example.com', goal: 'x' }).ok, true);
+  assert.equal(validate('browse_web', { run_id: 'run-1' }).ok, true);
+  assert.equal(validate('browse_web', { url: 'https://example.com', goal: 'x'.repeat(2001) }).ok, false);
 });
 
 test('validateToolArgs passes tools with server-side defaults', () => {

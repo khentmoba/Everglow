@@ -238,6 +238,13 @@
     ]
   },
   {
+    "id": "web-browse-interactive",
+    "message": "this shop page needs clicks to show the price, can you open it and check",
+    "expectedTools": [
+      "browse_web"
+    ]
+  },
+  {
     "id": "chat-plain",
     "message": "hi motchi, we love you",
     "expectedTools": []
