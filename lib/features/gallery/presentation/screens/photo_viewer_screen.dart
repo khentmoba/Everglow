@@ -30,6 +30,22 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _precacheNeighbors(),
+    );
+  }
+
+  /// Warm the browser/HTTP cache for the adjacent full-res photos so
+  /// swiping left/right paints instantly instead of streaming on demand.
+  void _precacheNeighbors() {
+    if (!mounted) return;
+    for (final i in [_currentIndex - 1, _currentIndex + 1]) {
+      if (i < 0 || i >= widget.photos.length) continue;
+      precacheImage(
+        NetworkImage(GalleryService.displayUrl(widget.photos[i].imageUrl)),
+        context,
+      ).ignore();
+    }
   }
 
   @override
@@ -139,7 +155,10 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             child: PageView.builder(
               controller: _pageController,
               itemCount: widget.photos.length,
-              onPageChanged: (i) => setState(() => _currentIndex = i),
+              onPageChanged: (i) {
+                setState(() => _currentIndex = i);
+                _precacheNeighbors();
+              },
               itemBuilder: (context, index) {
                 final photo = widget.photos[index];
                 final decodeWidth =
@@ -147,35 +166,65 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                             MediaQuery.devicePixelRatioOf(context))
                         .round()
                         .clamp(800, 2400);
+                final thumbUrl = photo.thumbUrl;
                 return InteractiveViewer(
                   minScale: 0.5,
                   maxScale: 4.0,
                   child: Center(
-                    child: Image.network(
-                      GalleryService.displayUrl(photo.imageUrl),
-                      fit: BoxFit.contain,
-                      cacheWidth: kIsWeb ? null : decodeWidth,
-                      loadingBuilder: (context, child, progress) {
-                        if (progress == null) return child;
-                        return Center(
-                          child: CircularProgressIndicator(
-                            value: progress.expectedTotalBytes != null
-                                ? progress.cumulativeBytesLoaded /
-                                      progress.expectedTotalBytes!
-                                : null,
-                            color: AppColors.blushGold,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Instant paint: the grid thumbnail is already in the
+                        // image cache, so it shows immediately while the
+                        // full-res photo streams in on top of it.
+                        if (thumbUrl?.isNotEmpty == true)
+                          Image.network(
+                            GalleryService.displayUrl(thumbUrl!),
+                            fit: BoxFit.contain,
+                            gaplessPlayback: true,
+                            excludeFromSemantics: true,
+                            errorBuilder: (context, _, _) =>
+                                const SizedBox.shrink(),
                           ),
-                        );
-                      },
-                      errorBuilder: (context, error, stack) {
-                        return const Center(
-                          child: Icon(
-                            Icons.broken_image_rounded,
-                            color: AppColors.roseQuartz,
-                            size: 48,
-                          ),
-                        );
-                      },
+                        Image.network(
+                          GalleryService.displayUrl(photo.imageUrl),
+                          fit: BoxFit.contain,
+                          cacheWidth: kIsWeb ? null : decodeWidth,
+                          gaplessPlayback: true,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            // Thumbnail underneath stays visible while the
+                            // full photo loads; legacy photos without one
+                            // keep the spinner so the wait is visible.
+                            if (thumbUrl?.isNotEmpty == true) {
+                              return const SizedBox.shrink();
+                            }
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded /
+                                          progress.expectedTotalBytes!
+                                    : null,
+                                color: AppColors.blushGold,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stack) {
+                            // Full-res failed: keep the thumbnail when we
+                            // have one, otherwise show the broken icon.
+                            if (thumbUrl?.isNotEmpty == true) {
+                              return const SizedBox.shrink();
+                            }
+                            return const Center(
+                              child: Icon(
+                                Icons.broken_image_rounded,
+                                color: AppColors.roseQuartz,
+                                size: 48,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 );
