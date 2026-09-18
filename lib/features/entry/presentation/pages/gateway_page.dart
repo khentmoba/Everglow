@@ -13,6 +13,7 @@ import '../../../../core/services/auth_service.dart';
 import 'package:go_router/go_router.dart';
 import '../state/gateway_state.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/connectivity_service.dart';
 import '../../../../core/utils/logger.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
@@ -44,6 +45,8 @@ class _GatewayPageState extends State<GatewayPage> {
     super.didChangeDependencies();
     _notifier.verifyCouplePasscode = (code) =>
         context.read<AuthService>().verifyCouplePasscode(code);
+    _notifier.tryOfflineUnlock =
+        (code) => context.read<AuthService>().tryOfflineRememberedLogin(code);
     _checkLocalDevAutoLogin();
   }
 
@@ -315,11 +318,14 @@ class _GatewayPageState extends State<GatewayPage> {
       final navDelay = Future.delayed(const Duration(milliseconds: 900));
       Future.wait([navDelay, authTask.catchError((_) {})]).then((_) {
         if (!mounted || _hasNavigated) return;
-        // Never enter the app without a real Firebase session: without
-        // one — or with an anonymous one, which firestore.rules blocks on
-        // every read — each stream fails with permission-denied and the
-        // dashboard renders false-empty shelves.
-        if (authService.user == null || authService.isAnonymousSession) {
+        // Never enter the app without a real Firebase session — or an
+        // offline-remembered one (saved user + own code while unreachable),
+        // which renders cached Firestore data with an offline banner.
+        // Without either, every stream fails and the dashboard renders
+        // false-empty shelves.
+        final hasRealSession = authService.user != null &&
+            !authService.isAnonymousSession;
+        if (!hasRealSession && !authService.isOfflineMode) {
           // The code validated but no Firebase session exists (offline or
           // anonymous): a connection problem, never a wrong code.
           _notifier.setFailureReason(GatewayFailureReason.connection);
@@ -487,13 +493,19 @@ class _GatewayPageState extends State<GatewayPage> {
                             state == GatewayState.error)
                         ? Transform.scale(
                             scale: 0.8,
-                            child: PasscodeInput(
-                              input: _notifier.currentInput,
-                              isError: state == GatewayState.error,
-                              isVerifying: state == GatewayState.evaluating,
-                              failureReason: _notifier.lastFailureReason,
-                              onDigitPressed: _notifier.appendDigit,
-                              onBackspace: _notifier.backspace,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                PasscodeInput(
+                                  input: _notifier.currentInput,
+                                  isError: state == GatewayState.error,
+                                  isVerifying: state == GatewayState.evaluating,
+                                  failureReason: _notifier.lastFailureReason,
+                                  onDigitPressed: _notifier.appendDigit,
+                                  onBackspace: _notifier.backspace,
+                                ),
+                                const _OfflineRememberHint(),
+                              ],
                             ),
                           )
                         : const SizedBox.shrink(),
@@ -732,4 +744,50 @@ double _doorScale(BuildContext context) {
     1.0,
     math.min((viewport.width - 24) / 330, (viewport.height - 48) / 560),
   );
+}
+
+/// Quiet reassurance on the gate when offline with a remembered user:
+/// Clair still types her usual code and her saved copy opens.
+/// Hidden whenever online or on a fresh device with nobody remembered.
+class _OfflineRememberHint extends StatelessWidget {
+  const _OfflineRememberHint();
+
+  @override
+  Widget build(BuildContext context) {
+    String? remembered;
+    try {
+      remembered =
+          context.select<AuthService, String?>((a) => a.currentUser);
+    } catch (_) {
+      // No auth provider above us (tests, odd shells): no hint, like the
+      // AppErrorPage fallback. Production always provides AuthService.
+      return const SizedBox.shrink();
+    }
+    final name = remembered == 'clairjassen'
+        ? 'Clair'
+        : remembered == 'khentsgdz'
+            ? 'Khent'
+            : null;
+    if (name == null) return const SizedBox.shrink();
+    return StreamBuilder<bool>(
+      stream: ConnectivityService.instance.onConnectivityChanged,
+      initialData: ConnectivityService.instance.isOnline,
+      builder: (context, snapshot) {
+        if (snapshot.data ?? true) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 10, left: 24, right: 24),
+          child: Text(
+            'No connection \u2014 welcome back, $name. Your code still opens your saved copy.',
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            style: TextStyle(
+              color: AppColors.blushGold.withValues(alpha: 0.92),
+              fontSize: 12,
+              height: 1.25,
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

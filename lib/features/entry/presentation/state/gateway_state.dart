@@ -81,6 +81,11 @@ class GatewayNotifier extends ChangeNotifier {
 
   Future<String?> Function(String passcode)? verifyCouplePasscode;
 
+  /// Offline "remember me", wired by GatewayPage -> AuthService.
+  /// Returns the remembered username when [passcode] is that user's own
+  /// code, null otherwise. Only consulted when the server is unreachable.
+  String? Function(String passcode)? tryOfflineUnlock;
+
   void _validatePasscode() async {
     updateState(GatewayState.evaluating);
 
@@ -113,17 +118,32 @@ class GatewayNotifier extends ChangeNotifier {
         // Server answered definitively: the code is simply wrong.
         _lastFailureReason = GatewayFailureReason.invalidCode;
       } catch (_) {
-        // No definitive answer (offline, timeout, 5xx): this is a
-        // connection problem, not a wrong code.
-        _lastFailureReason = GatewayFailureReason.connection;
+        // No definitive answer (offline, timeout, 5xx). If this device
+        // already remembers Clair/Khent from an online login and the
+        // typed code is theirs, open their saved copy offline.
+        final remembered = tryOfflineUnlock?.call(_currentInput);
+        if (remembered == 'khentsgdz' || remembered == 'clairjassen') {
+          _lastFailureReason = null;
+          _lastEnteredPasscode = _currentInput;
+          updateState(GatewayState.unlocking);
+          return;
+        }
+        // Offline but locally knowable: the code matches nobody's, so it
+        // is wrong regardless of the connection. Otherwise it might be
+        // right (or another user's) and only the network is at fault.
+        final matchesNobody = _currentInput != EnvConfig.clairPasscode &&
+            _currentInput != EnvConfig.khentPasscode &&
+            !clientPasscodes.contains(_currentInput);
+        _lastFailureReason = matchesNobody
+            ? GatewayFailureReason.invalidCode
+            : GatewayFailureReason.connection;
       }
     } else {
       // Verifier not wired (tests only): keep the old wrong-code path.
       _lastFailureReason = GatewayFailureReason.invalidCode;
     }
-    // No offline fallback for couple codes: firestore.rules requires a real
-    // non-anonymous Firebase session, so unlocking the UI locally would only
-    // produce permission-denied shelves. Stay on the gateway and retry.
+    // Still here: no online login and no offline unlock. Stay on the
+    // gateway so a wrong code or a fresh offline device never opens the app.
     updateState(GatewayState.error);
     // Wait for shake animation
     await Future.delayed(const Duration(milliseconds: 500));

@@ -7,6 +7,7 @@ import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/utils/connectivity_service.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
@@ -482,6 +483,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   child: CustomScrollView(
                     controller: _scrollController,
                     slivers: [
+                      // Offline remember-me: saved copy with a quiet banner.
+                      const _OfflineBannerSliver(),
                       // Header. The top padding reserves the pinned
                       // top-action row (see DashboardOverlays): on phones
                       // the anniversary pill is wider than the gap between
@@ -793,4 +796,64 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+}
+
+/// Slim offline banner for remember-me sessions.
+///
+/// Shows only when the gate unlocked from the remembered user while the
+/// server was unreachable AND the device is still offline — it hides
+/// itself on reconnect, when live data takes over again.
+class _OfflineBannerSliver extends StatelessWidget {
+  const _OfflineBannerSliver();
+
+  @override
+  Widget build(BuildContext context) {
+    final offlineMode =
+        context.select<AuthService, bool>((a) => a.isOfflineMode);
+    if (!offlineMode) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return StreamBuilder<bool>(
+      stream: ConnectivityService.instance.onConnectivityChanged,
+      initialData: ConnectivityService.instance.isOnline,
+      builder: (context, snapshot) {
+        if (snapshot.data ?? true) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.auroraGold.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: AppColors.auroraGold.withValues(alpha: 0.30),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.cloud_off_rounded,
+                    color: AppColors.auroraGold,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'You\u2019re offline \u2014 showing your saved copy. New things will sync when you\u2019re back online.',
+                      style: AppTypography.bodySmall().copyWith(
+                        color: AppColors.petalWhite.withValues(alpha: 0.92),
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

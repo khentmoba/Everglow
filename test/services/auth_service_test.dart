@@ -203,4 +203,80 @@ void main() {
       expect(uid, 'aaa');
     });
   });
+
+  group('AuthService.offlineCodeMatches', () {
+    test('remembered user opens with their own code', () {
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: 'clairjassen',
+          passcode: '0221',
+          clairCode: '0221',
+          khentCode: '0938',
+        ),
+        isTrue,
+      );
+    });
+
+    test('wrong code never matches the remembered user', () {
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: 'clairjassen',
+          passcode: '0000',
+          clairCode: '0221',
+          khentCode: '0938',
+        ),
+        isFalse,
+      );
+    });
+
+    test('offline unlock never switches users', () {
+      // Khent's valid code on Clair's remembered phone stays locked:
+      // switching users requires the server.
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: 'clairjassen',
+          passcode: '0938',
+          clairCode: '0221',
+          khentCode: '0938',
+        ),
+        isFalse,
+      );
+    });
+
+    test('fresh device with nobody remembered never unlocks', () {
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: null,
+          passcode: '0221',
+          clairCode: '0221',
+          khentCode: '0938',
+        ),
+        isFalse,
+      );
+    });
+
+    test('cinema-only users cannot offline-unlock the couple app', () {
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: 'breyan',
+          passcode: '9132',
+          clairCode: '0221',
+          khentCode: '0938',
+        ),
+        isFalse,
+      );
+    });
+
+    test('empty configured codes never match', () {
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: 'clairjassen',
+          passcode: '',
+          clairCode: '',
+          khentCode: '',
+        ),
+        isFalse,
+      );
+    });
+  });
 }
