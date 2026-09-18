@@ -26,8 +26,9 @@ class GalleryService {
   /// on web to avoid CORS / auth issues.
   ///
   /// Pass [thumb] for rails, grids, and marquees: it appends `&w=440`
-  /// so the proxy serves a downscaled variant instead of the full-res
-  /// upload. Full resolution stays the default for the photo viewer.
+  /// so the proxy caches the thumbnail URL long-term, independently of
+  /// the short-lived full-res viewer URL. (The proxy does not resize;
+  /// small bytes come from the stored `thumbUrl` files.)
   static String displayUrl(String imageUrl, {bool thumb = false}) {
     if (kIsWeb && imageUrl.contains('firebasestorage.googleapis.com')) {
       final proxied =

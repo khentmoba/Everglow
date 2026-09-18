@@ -1,5 +1,6 @@
 'use strict';
 
+const { Readable } = require('node:stream');
 const { cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
 const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
 
@@ -16,7 +17,8 @@ const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
  * `w` is a client perf hint: when present (e.g. `&w=440` from gallery
  * rails/grids), the response is served with a long immutable-style
  * cache header so the downscaled thumb URL is cached independently of
- * the full-res viewer URL. No server-side resize is performed.
+ * the full-res viewer URL. Generated `_thumb.jpg` files get the same
+ * long cache. No server-side resize is performed.
  *
  * NOTE: Does NOT require Firebase Auth via Authorization header because
  * Flutter Web Image.network cannot send custom headers. The upstream
@@ -69,19 +71,42 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     const contentType =
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
-    // Thumb URLs (&w=) are stable per width: cache them long. Full-res
-    // viewer URLs keep the short TTL so re-uploads surface quickly.
+    // Thumb URLs (&w=) and generated _thumb.jpg files are immutable
+    // (timestamped names, never rewritten): cache them for a year so
+    // repeat gallery visits cost zero bytes. Full-res viewer URLs keep
+    // the short TTL so re-uploads surface quickly.
     const thumbWidth = Array.isArray(req.query.w)
       ? req.query.w[0]
       : req.query.w;
     const thumbPx = typeof thumbWidth === 'string' ? parseInt(thumbWidth, 10) : NaN;
-    if (Number.isFinite(thumbPx) && thumbPx > 0 && thumbPx <= 1600) {
+    const isThumbFile = targetUrl.includes('_thumb.jpg');
+    if ((Number.isFinite(thumbPx) && thumbPx > 0 && thumbPx <= 1600) || isThumbFile) {
       res.set('Cache-Control', 'public, max-age=31536000, immutable');
     } else {
       res.set('Cache-Control', 'public, max-age=3600');
     }
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.status(200).send(buffer);
+    // Stream the upstream bytes straight through instead of buffering
+    // the whole file first: first pixels reach the phone after one
+    // chunk instead of two full trips, and the function holds ~no memory.
+    res.status(200);
+    if (upstream.body != null) {
+      await new Promise((resolve) => {
+        let done = false;
+        const finish = () => { if (!done) { done = true; resolve(); } };
+        try {
+          const nodeStream = Readable.fromWeb(upstream.body);
+          nodeStream.on('error', () => { try { res.end(); } catch (_) {} finish(); });
+          res.on('close', finish);
+          nodeStream.pipe(res);
+        } catch (_) {
+          try { res.end(); } catch (_) {}
+          finish();
+        }
+      });
+    } else {
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.send(buffer);
+    }
   } catch (e) {
     console.warn(`proxyGalleryImage failed (${targetUrl}):`, e.message);
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
