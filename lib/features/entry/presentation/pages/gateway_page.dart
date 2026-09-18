@@ -16,6 +16,7 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
+import '../widgets/reveal_loader.dart';
 import '../widgets/petal_shower.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -596,9 +597,9 @@ class _GatewayPageState extends State<GatewayPage> {
       opacity: isRevealing ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 500),
       child: isRevealing
-          ? Stack(
+          ? const Stack(
               children: [
-                const Positioned.fill(
+                Positioned.fill(
                   child: EverglowBackground(
                     baseColor: AppColors.inkDeep,
                     glows: [
@@ -624,48 +625,7 @@ class _GatewayPageState extends State<GatewayPage> {
                     showPetals: false,
                   ),
                 ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.favorite_rounded,
-                        color: AppColors.auroraRose,
-                        size: 26,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        'EVERGLOW',
-                        style: TextStyle(
-                          color: AppColors.petalWhite.withValues(alpha: 0.85),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 4.0,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: 120,
-                        child: LinearProgressIndicator(
-                          minHeight: 2,
-                          backgroundColor: const Color(0x26F5EFE6),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.blushGold.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'loading your story…',
-                        style: TextStyle(
-                          color: AppColors.petalWhite.withValues(alpha: 0.45),
-                          fontSize: 10,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                Center(child: GatewayRevealLoader()),
               ],
             )
           : const SizedBox.shrink(),
