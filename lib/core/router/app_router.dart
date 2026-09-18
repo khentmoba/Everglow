@@ -47,8 +47,15 @@ GoRouter createAppRouter() => GoRouter(
     // server-side access, but the UI should not bounce.
     final authed = di.authService.isAuthenticated ||
         di.authService.currentUser != null;
-    // Not authed -> bounce to gate
-    if (!authed && !isPublic) return '/';
+    // Not authed -> bounce to gate, remembering where the link pointed
+    // so the gateway can take the user straight there after login
+    // (PR preview deep links like <preview>/cinema).
+    if (!authed && !isPublic) {
+      return Uri(
+        path: '/',
+        queryParameters: {'from': state.uri.toString()},
+      ).toString();
+    }
     // Cinema-only users should not land on couple dashboard
     if (authed &&
         di.authService.isCinemaOnlyUser &&
