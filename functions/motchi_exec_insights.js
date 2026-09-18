@@ -247,9 +247,8 @@ async function exec_read_web_page(ctx, args) {
 // TinyFish browser automation (the "agent" tool). Runs queue async and
 // poll inside the tool's time budget — a sync run takes minutes, far
 // beyond the 25s tool timeout, so the model resumes with run_id while
-// the status is RUNNING. Caps stay small on purpose: each browse costs
-// more than a search, so the schema steers Motchi to web_search and
-// read_web_page first.
+// the status is RUNNING. No agent_config caps: custom max steps are a
+// gated beta and the API 403s without it — server defaults apply.
 const TINYFISH_AGENT_BASE = 'https://agent.tinyfish.ai';
 const BROWSE_POLL_MS = 3000;
 const BROWSE_BUDGET_MS = 20000;
@@ -280,7 +279,6 @@ async function exec_browse_web(ctx, args) {
             url,
             goal,
             browser_profile: args.stealth === true ? 'stealth' : 'lite',
-            agent_config: { max_steps: 25, max_duration_seconds: 120 },
             capture_config: { screenshots: false },
           }),
           signal: AbortSignal.timeout(10000),
