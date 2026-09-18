@@ -39,6 +39,7 @@ class CinemaHomeTab extends StatelessWidget {
   final List<MediaItem> watchingList;
   final List<MediaItem> watchedList;
   final List<MediaItem> trendingGlobal;
+  final List<MediaItem> topTenToday;
   final VoidCallback onRefresh;
   final void Function(MediaItem) onMediaTap;
   final void Function(MediaItem) onPlay;
@@ -66,6 +67,7 @@ class CinemaHomeTab extends StatelessWidget {
     required this.watchingList,
     required this.watchedList,
     required this.trendingGlobal,
+    required this.topTenToday,
     required this.onRefresh,
     required this.onMediaTap,
     required this.onPlay,
@@ -214,7 +216,7 @@ class CinemaHomeTab extends StatelessWidget {
           _row(title: 'Trending Now', items: trendingGlobal),
           _row(
             title: 'Top 10 Today',
-            items: trendingGlobal.take(10).toList(),
+            items: topTenToday.take(10).toList(),
             ranked: true,
           ),
           _row(title: 'New Releases', items: newlyReleased),
