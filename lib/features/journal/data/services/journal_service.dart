@@ -276,24 +276,4 @@ class JournalService {
       Logger.e('Error toggling lock', error: e);
     }
   }
-
-  /// Heatmap data: count per day for last N days
-  Stream<Map<String, int>> watchHeatmap({int days = 90}) {
-    final start = DateTime.now().subtract(Duration(days: days));
-    return _db
-        .collection(_collection)
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .limit(1000)
-        .snapshots()
-        .map((snap) {
-          final map = <String, int>{};
-          for (final doc in snap.docs) {
-            final e = JournalEntry.fromFirestore(doc);
-            final key =
-                '${e.createdAt.year}-${e.createdAt.month.toString().padLeft(2, '0')}-${e.createdAt.day.toString().padLeft(2, '0')}';
-            map[key] = (map[key] ?? 0) + 1;
-          }
-          return map;
-        });
-  }
 }
