@@ -9,7 +9,8 @@
 # - Preview uses the same Firebase project but boots logged-out, so no
 #   couple-only data ever shows without a login. Never screenshot
 #   logged-in pages into a public PR.
-# - Channels expire after 7 days to avoid clutter.
+# - Channels expire after 12 hours: long enough to check on your
+#   phone, short enough to never pile up.
 name: Preview
 
 on:
@@ -73,4 +74,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           projectId: everglow-1c6db
-          expires: 7d
+          expires: 12h
