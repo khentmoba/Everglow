@@ -151,7 +151,7 @@ class EverglowAssistantBubble extends StatelessWidget {
     this.isStreaming = false,
     this.streamingFooter,
     this.leadingReasoning,
-    this.avatarAsset = 'assets/images/motchi_avatar.png',
+    this.avatarAsset = 'assets/images/motchi_avatar.webp',
     this.maxWidth,
   });
 

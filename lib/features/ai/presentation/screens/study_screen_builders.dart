@@ -295,7 +295,7 @@ extension _StudyScreenBuilders on _StudyScreenState {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(22),
                   child: Image.asset(
-                    'assets/images/motchi_avatar.png',
+                    'assets/images/motchi_avatar.webp',
                     width: 76,
                     height: 76,
                     cacheWidth: kIsWeb ? null : 228,

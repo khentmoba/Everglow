@@ -58,7 +58,7 @@ class CatVisualsState extends State<CatVisuals> {
         // Web-relative path (the pubspec asset key gains an extra
         // `assets/` prefix in the compiled web bundle).
         ..setAttribute('src', 'assets/assets/models/chibi_cat.glb')
-        ..setAttribute('poster', 'assets/assets/images/motchi_avatar.png')
+        ..setAttribute('poster', 'assets/assets/images/motchi_avatar.webp')
         ..setAttribute('alt', 'Everglow Guardian Cat')
         ..setAttribute('camera-controls', 'false')
         ..setAttribute('disable-zoom', '')
@@ -138,7 +138,7 @@ class CatVisualsState extends State<CatVisuals> {
     final Widget inner = _ready
         ? HtmlElementView(viewType: _viewType)
         : Image.asset(
-            'assets/images/motchi_avatar.png',
+            'assets/images/motchi_avatar.webp',
             fit: BoxFit.cover,
           );
     final viewer = SizedBox(

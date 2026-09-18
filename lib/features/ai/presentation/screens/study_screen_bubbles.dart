@@ -119,7 +119,7 @@ class _StreamingBubble extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(11),
               child: Image.asset(
-                'assets/images/motchi_avatar.png',
+                'assets/images/motchi_avatar.webp',
                 width: 36,
                 height: 36,
                 cacheWidth: kIsWeb ? null : 108,

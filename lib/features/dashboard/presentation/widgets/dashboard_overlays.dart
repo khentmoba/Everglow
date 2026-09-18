@@ -64,7 +64,7 @@ class DashboardOverlays extends StatelessWidget {
                     onTap: () => context.push('/motchi'),
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/images/motchi_avatar.png',
+                        'assets/images/motchi_avatar.webp',
                         width: 48,
                         height: 48,
                         cacheWidth: kIsWeb ? null : 144,
