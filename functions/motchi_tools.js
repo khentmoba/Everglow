@@ -499,14 +499,20 @@ function needsConfirmation(query, titles) {
 }
 
 /**
- * Whether `create_reminder` would store a usable `remindAtTs`
- * (ISO date or a "tomorrow …" relative phrase).
+ * Whether `create_reminder` would store a usable `remindAtTs`.
+ * Mirrors the executor by delegating to the shared date parser.
  */
-function isReminderSchedulable(raw) {
+function isReminderSchedulable(raw, nowMs = Date.now()) {
   const text = _text(raw);
   if (!text) return false;
-  if (!Number.isNaN(new Date(text).getTime())) return true;
-  return /tomorrow/i.test(text);
+  try {
+    // eslint-disable-next-line global-require
+    const { parseReminderDate } = require('./motchi_core.js');
+    return parseReminderDate(text, nowMs) !== null;
+  } catch (_) {
+    if (!Number.isNaN(new Date(text).getTime())) return true;
+    return /tomorrow/i.test(text);
+  }
 }
 
 module.exports = {

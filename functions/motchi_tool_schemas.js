@@ -92,7 +92,7 @@ const MOTCHI_TOOLS = [
         type: 'object',
         properties: {
           title: { type: 'string', description: 'Short reminder title' },
-          remind_at: { type: 'string', description: 'ISO 8601 datetime or relative description (e.g., "tomorrow at 3pm")' },
+          remind_at: { type: 'string', description: 'When to remind: ISO 8601 datetime or plain words like "tomorrow at 3pm", "tonight at 8", "in 2 hours", "in 30 minutes", "next week". Times mean Philippine time.' },
           note: { type: 'string', description: 'Additional details for the reminder' },
         },
         required: ['title', 'remind_at'],

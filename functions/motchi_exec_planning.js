@@ -6,28 +6,17 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
+const { parseReminderDate } = require('./motchi_core.js');
+
 async function exec_create_reminder(ctx, args) {
     // W1-A2: Parse remind_at into a Firestore Timestamp for the
-    // scheduled checker. Accepts ISO 8601 or common relatives.
+    // scheduled checker. ISO 8601 plus today/tonight/tomorrow, in-N-units,
+    // and next week — clock times read as Philippine wall time.
     let remindAtTs = null;
     const rawRemind = String(args.remind_at || '').trim();
     if (rawRemind) {
-      const parsed = new Date(rawRemind);
-      if (!Number.isNaN(parsed.getTime())) {
-        remindAtTs = ctx.admin.firestore.Timestamp.fromDate(parsed);
-      } else if (/tomorrow/i.test(rawRemind)) {
-        const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        const timeMatch = rawRemind.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
-        if (timeMatch) {
-          let h = parseInt(timeMatch[1], 10);
-          const m = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
-          const ap = (timeMatch[3] || '').toLowerCase();
-          if (ap === 'pm' && h < 12) h += 12;
-          if (ap === 'am' && h === 12) h = 0;
-          d.setHours(h, m, 0, 0);
-        }
-        remindAtTs = ctx.admin.firestore.Timestamp.fromDate(d);
-      }
+      const parsed = parseReminderDate(rawRemind);
+      if (parsed) remindAtTs = ctx.admin.firestore.Timestamp.fromDate(parsed);
     }
     await ctx.db.collection('reminders').add({
       title: args.title,

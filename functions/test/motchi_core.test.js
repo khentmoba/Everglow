@@ -17,6 +17,7 @@ const {
   shouldExtractMemory,
   phtDateString,
   phtDayBounds,
+  parseReminderDate,
 } = require('../motchi_core.js');
 
 const {
@@ -222,4 +223,20 @@ test('shouldExtractMemory gates casual chatter and passes durable personal facts
   // …while short Bisaya chatter still stays out
   assert.equal(shouldExtractMemory('kaon ta', 'Sige, kaon ta!'), false);
   assert.equal(shouldExtractMemory('laag ta unya', 'Enjoy you two!'), false);
+});
+
+test('parseReminderDate reads ISO, relatives, and PHT wall times', () => {
+  // Thu Sep 17 2026, 08:00 PHT (midnight UTC).
+  const now = Date.UTC(2026, 8, 17, 0, 0, 0);
+  assert.equal(parseReminderDate('2026-09-20T15:00:00+08:00', now).toISOString(), '2026-09-20T07:00:00.000Z');
+  // "tomorrow at 3pm" = 3pm in Cabadbaran, not 3pm UTC.
+  assert.equal(parseReminderDate('tomorrow at 3pm', now).toISOString(), '2026-09-18T07:00:00.000Z');
+  assert.equal(parseReminderDate('tonight at 8', now).toISOString(), '2026-09-17T12:00:00.000Z');
+  assert.equal(parseReminderDate('in 2 hours', now).toISOString(), '2026-09-17T02:00:00.000Z');
+  assert.equal(parseReminderDate('in 30 minutes', now).toISOString(), '2026-09-17T00:30:00.000Z');
+  assert.equal(parseReminderDate('next week', now).toISOString(), '2026-09-24T00:00:00.000Z');
+  // 7am already passed today (8am now) — rolls to tomorrow.
+  assert.equal(parseReminderDate('today at 7am', now).toISOString(), '2026-09-17T23:00:00.000Z');
+  assert.equal(parseReminderDate('someday maybe', now), null);
+  assert.equal(parseReminderDate('', now), null);
 });
