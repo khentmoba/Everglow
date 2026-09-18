@@ -41,7 +41,10 @@ class AIService extends ChangeNotifier {
   String? _lastError;
   String _draftResponse = '';
   String _draftReasoning = '';
-  String _toolStatus = '';
+  // Names of the tools Motchi is running RIGHT NOW. A name is added when
+  // its `tool_status` event arrives and removed when its `tool_result`
+  // lands — the chat strip shows only in-flight work, never a history.
+  List<String> _activeTools = [];
 
   /// Per-token notifiers so the streaming bubble can repaint without
   /// rebuilding the whole conversation list on every SSE chunk.
@@ -50,10 +53,12 @@ class AIService extends ChangeNotifier {
   final ValueNotifier<String> draftReasoningNotifier = ValueNotifier<String>(
     '',
   );
-  final ValueNotifier<String> toolStatusNotifier = ValueNotifier<String>('');
+  final ValueNotifier<List<String>> activeToolsNotifier =
+      ValueNotifier<List<String>>(const []);
   final ValueNotifier<List<Map<String, dynamic>>> toolResultsNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
   List<Map<String, dynamic>> _toolResults = [];
   List<Map<String, dynamic>> get toolResults => List.unmodifiable(_toolResults);
+  List<String> get activeTools => List.unmodifiable(_activeTools);
 
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
@@ -169,15 +174,50 @@ class AIService extends ChangeNotifier {
     }
   }
 
-  String get toolStatus => _toolStatus;
+  /// True when a streamed `tool_status` names a real tool call, as opposed
+  /// to a phase marker (`generating`, `executing`, `round_1_done`, ...).
+  /// Pure so the rule is unit-testable.
+  @visibleForTesting
+  static bool isToolActionStatus(String status) {
+    if (status.isEmpty || status.contains(':')) return false;
+    switch (status) {
+      case 'generating':
+      case 'thinking':
+      case 'executing':
+      case 'repairing':
+      case 'done':
+        return false;
+    }
+    if (status.startsWith('round_')) return false;
+    return true;
+  }
+
+  void _trackToolStarted(String status) {
+    if (!isToolActionStatus(status)) {
+      if (status == 'done' && _activeTools.isNotEmpty) {
+        _activeTools = [];
+        activeToolsNotifier.value = const [];
+      }
+      return;
+    }
+    if (_activeTools.contains(status)) return;
+    _activeTools = [..._activeTools, status];
+    activeToolsNotifier.value = List.unmodifiable(_activeTools);
+  }
+
+  void _trackToolFinished(String tool) {
+    if (!_activeTools.contains(tool)) return;
+    _activeTools = _activeTools.where((t) => t != tool).toList();
+    activeToolsNotifier.value = List.unmodifiable(_activeTools);
+  }
 
   void _resetDraftState() {
     _draftResponse = '';
     _draftReasoning = '';
-    _toolStatus = '';
+    _activeTools = [];
     draftResponseNotifier.value = '';
     draftReasoningNotifier.value = '';
-    toolStatusNotifier.value = '';
+    activeToolsNotifier.value = const [];
     _toolResults = [];
     toolResultsNotifier.value = [];
     draftRevisionNotifier.value++;
@@ -188,7 +228,7 @@ class AIService extends ChangeNotifier {
     draftRevisionNotifier.dispose();
     draftResponseNotifier.dispose();
     draftReasoningNotifier.dispose();
-    toolStatusNotifier.dispose();
+    activeToolsNotifier.dispose();
     toolResultsNotifier.dispose();
     super.dispose();
   }
@@ -287,13 +327,14 @@ class AIService extends ChangeNotifier {
           },
           onToolStatus: (status) {
             if (myRequest != _activeRequest) return;
-            _toolStatus = status;
-            toolStatusNotifier.value = status;
+            _trackToolStarted(status);
             draftRevisionNotifier.value++;
           },
           onToolResult: (result) {
             if (myRequest != _activeRequest) return;
             _toolResults.add(result);
+            final tool = result['tool'];
+            if (tool is String && tool.isNotEmpty) _trackToolFinished(tool);
             toolResultsNotifier.value = List.from(_toolResults);
             draftRevisionNotifier.value++;
           },
@@ -530,12 +571,13 @@ class AIService extends ChangeNotifier {
           draftRevisionNotifier.value++;
         },
         onToolStatus: (status) {
-          _toolStatus = status;
-          toolStatusNotifier.value = status;
+          _trackToolStarted(status);
           draftRevisionNotifier.value++;
         },
         onToolResult: (result) {
           _toolResults.add(result);
+          final tool = result['tool'];
+          if (tool is String && tool.isNotEmpty) _trackToolFinished(tool);
           toolResultsNotifier.value = List.from(_toolResults);
           draftRevisionNotifier.value++;
         },

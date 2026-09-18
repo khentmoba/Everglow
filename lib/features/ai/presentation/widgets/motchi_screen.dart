@@ -602,7 +602,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                             final hasStream =
                                 ai.draftResponse.isNotEmpty ||
                                 ai.draftReasoning.isNotEmpty ||
-                                ai.toolStatus.isNotEmpty;
+                                ai.activeTools.isNotEmpty ||
+                                ai.toolResultsNotifier.value.isNotEmpty;
                             if (hasStream) {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,31 +621,16 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                     reasoning: ai.draftReasoning.isNotEmpty
                                         ? ai.draftReasoning
                                         : null,
-                                    toolStatus: ai.toolStatus,
                                   ),
-                                  ValueListenableBuilder<List<Map<String, dynamic>>>(
-                                    valueListenable: ai.toolResultsNotifier,
-                                    builder: (context, results, _) {
-                                      if (results.isEmpty) return const SizedBox.shrink();
-                                      return _ToolResultCards(results: results, centered: centered);
-                                    },
-                                  ),
+                                  _LiveToolStrip(ai: ai),
                                 ],
                               );
                             }
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _ThinkingIndicator(
-                                  toolStatus: ai.toolStatus,
-                                ),
-                                ValueListenableBuilder<List<Map<String, dynamic>>>(
-                                  valueListenable: ai.toolResultsNotifier,
-                                  builder: (context, results, _) {
-                                    if (results.isEmpty) return const SizedBox.shrink();
-                                    return _ToolResultCards(results: results, centered: centered);
-                                  },
-                                ),
+                                const _ThinkingIndicator(),
+                                _LiveToolStrip(ai: ai),
                               ],
                             );
                           },

@@ -289,12 +289,3 @@ Color _toolAccent(String status) {
       return AppColors.blushGold;
   }
 }
-
-bool _isToolAction(String status) {
-  return status.isNotEmpty &&
-      status != 'generating' &&
-      status != 'thinking' &&
-      status != 'executing' &&
-      status != 'done' &&
-      !status.startsWith('round_');
-}
