@@ -1,4 +1,4 @@
-import "package:go_router/go_router.dart";
+import 'package:go_router/go_router.dart';
 import "../../../../core/router/deferred_route.dart";
 import "../../../../core/router/route_helpers.dart";
 
