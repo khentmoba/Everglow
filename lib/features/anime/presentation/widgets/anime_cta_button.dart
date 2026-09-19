@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import 'motion.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/shelf/motion.dart';
 
 /// Anime-themed CTA button with gradient border and hover glow.
 ///

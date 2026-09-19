@@ -4,7 +4,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../../shared/widgets/shelf/shelf_section_header.dart';
-import '../../../../../shared/widgets/shelf/anime_cta_button.dart';
+import '../anime_cta_button.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 // ── Anime palette (subset used by the Library tab) ──────────────

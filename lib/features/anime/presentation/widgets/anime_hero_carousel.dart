@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../utils/responsive_image.dart';
-import '../app_network_image.dart';
+import '../../../../shared/utils/responsive_image.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_typography.dart';
 
 /// Item the [ShelfHeroCarousel] can render.
 class ShelfHeroItem {

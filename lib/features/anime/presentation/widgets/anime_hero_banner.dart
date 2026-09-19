@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import '../../utils/responsive_image.dart';
-import '../app_network_image.dart';
-import '../../../core/theme/app_breakpoints.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import 'shelf_hero_carousel.dart';
-import 'motion.dart';
+import '../../../../shared/utils/responsive_image.dart';
+import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../core/theme/app_breakpoints.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_typography.dart';
+import 'anime_hero_carousel.dart';
+import '../../../../shared/widgets/shelf/motion.dart';
 
 /// WatchPeak-inspired hero banner for the anime screen.
 ///

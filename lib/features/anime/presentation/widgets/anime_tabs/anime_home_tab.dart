@@ -6,14 +6,14 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../../../shared/widgets/shelf/scroll_edge_fade.dart';
-import '../../../../../shared/widgets/shelf/shelf_hero_carousel.dart';
-import '../../../../../shared/widgets/shelf/anime_hero_banner.dart';
+import '../anime_hero_carousel.dart';
+import '../anime_hero_banner.dart';
 import '../../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../../shared/widgets/shelf/staggered_entrance.dart';
-import '../../../../../shared/widgets/shelf/cinema_sections.dart';
+import '../../../../../shared/widgets/shelf/shelf_sections.dart';
 
 import 'anime_models.dart';
 import '../../../../../core/theme/app_typography.dart';

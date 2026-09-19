@@ -5,8 +5,8 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_spotlight.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_tokens.dart';
-import 'package:everglow/shared/widgets/shelf/anime_hero_banner.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_hero_carousel.dart';
+import 'package:everglow/features/anime/presentation/widgets/anime_hero_banner.dart';
+import 'package:everglow/features/anime/presentation/widgets/anime_hero_carousel.dart';
 
 MediaItem _animexItem(int i) {
   return MediaItem(
