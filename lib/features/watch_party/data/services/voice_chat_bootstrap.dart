@@ -1,5 +1,5 @@
-import "incoming_call.dart";
-import "voice_chat_service.dart" deferred as voice_lib;
+import 'incoming_call.dart';
+import 'voice_chat_service.dart' deferred as voice_lib;
 
 /// Lazy entry point to the voice-chat incoming-call watcher.
 ///
