@@ -551,8 +551,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
                   .toList()
                 ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
           // Side effect: Cache the list locally per user (fire-and-forget).
-          // ignore: discarded_futures
-          _cacheService.cacheWatchList(items, userName);
+          unawaited(_cacheService.cacheWatchList(items, userName));
           return items;
         });
   }
