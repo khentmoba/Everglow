@@ -647,17 +647,6 @@ class AIService extends ChangeNotifier {
 
   Future<void> _ensureMemoriesLoaded() => _memoryRepo.load();
 
-  // W1-C10: Deprecated — server now handles extraction via
-  // serverExtractAndSaveMemory in functions/index.js. Kept for manual
-  // testing only; auto-call disabled to save an extra LLM round-trip.
-  // ignore: unused_element
-  Future<void> _extractAndSaveMemories(
-    String userMessage,
-    String aiReply,
-  ) async {
-    return; // no-op: server-side extraction handles this
-  }
-
   Future<void> saveMemory(String fact, {String category = 'fact'}) async {
     await _memoryRepo.save(fact, category: category);
     notifyListeners();
