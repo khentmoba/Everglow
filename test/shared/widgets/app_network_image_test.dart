@@ -213,6 +213,64 @@ void main() {
       expect(second.key, isNot(equals(first.key)));
     });
 
+    testWidgets('onError fires for a failed load so shelves can heal', (
+      tester,
+    ) async {
+      var errors = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppNetworkImage(
+              imageUrl: 'https://example.com/stale-poster.jpg',
+              width: 120,
+              height: 180,
+              cacheManager: _FailingCacheManager(),
+              onError: () => errors++,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+      expect(errors, greaterThanOrEqualTo(1));
+    });
+
+    testWidgets('onError fires for non-empty invalid URLs, not for empty', (
+      tester,
+    ) async {
+      var errors = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppNetworkImage(
+              imageUrl: 'null',
+              width: 100,
+              height: 150,
+              onError: () => errors++,
+            ),
+          ),
+        ),
+      );
+      expect(errors, 1);
+
+      // Empty URL is placeholder-by-design, not a failure — no heal needed.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppNetworkImage(
+              imageUrl: '',
+              width: 100,
+              height: 150,
+              onError: () => errors++,
+            ),
+          ),
+        ),
+      );
+      expect(errors, 1);
+    });
+
     testWidgets('AppPosterImage creates 2:3 aspect ratio AppNetworkImage', (
       tester,
     ) async {

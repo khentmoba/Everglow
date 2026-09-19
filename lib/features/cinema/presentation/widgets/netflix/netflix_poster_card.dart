@@ -70,12 +70,11 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 
   bool get _isDesktop => MediaQuery.sizeOf(context).width >= 1024;
 
-  String get _posterUrl {
-    final url = widget.item.posterUrl;
-    if (url.isNotEmpty) return url;
-    if (widget.item.posterPath.isNotEmpty) return widget.item.posterPath;
-    return '';
-  }
+  // MediaItem.posterUrl already resolves relative TMDB paths and rejects
+  // garbage (blank / stringified-null / whitespace) as ''. No raw fallback:
+  // returning an unusable posterPath here would only feed AppNetworkImage
+  // a URL it rejects anyway.
+  String get _posterUrl => widget.item.posterUrl;
 
   void _onHover(bool hovered) {
     if (widget.selfPreview) {

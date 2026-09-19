@@ -66,6 +66,12 @@ class AppNetworkImage extends StatefulWidget {
   /// a fake to drive the failure path without real network or disk I/O.
   final BaseCacheManager? cacheManager;
 
+  /// Fired when the image fails to load (404, CORS, offline, ...).
+  /// May run on every rebuild while failed — callers that heal (refetch
+  /// a fresh URL) must dedupe, e.g. one attempt per item id per session
+  /// like the manga shelf's `_healAttempted` set.
+  final VoidCallback? onError;
+
   const AppNetworkImage({
     super.key,
     required this.imageUrl,
@@ -81,6 +87,7 @@ class AppNetworkImage extends StatefulWidget {
     this.errorWidget,
     this.filterQuality = FilterQuality.low,
     this.cacheManager,
+    this.onError,
   });
 
   @override
@@ -186,9 +193,22 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
     });
   }
 
+  /// Reports a load failure to [AppNetworkImage.onError] (heal hook) and
+  /// schedules the automatic retry. Error builders can run on every parent
+  /// rebuild while failed — heal callers dedupe (see [onError] docs).
+  void _reportError() {
+    widget.onError?.call();
+    _scheduleRetry();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!AppNetworkImage.isValidUrl(widget.imageUrl)) return _fallback();
+    if (!AppNetworkImage.isValidUrl(widget.imageUrl)) {
+      // Non-empty but unfetchable (e.g. a stringified "null") still needs
+      // a heal; a truly empty URL is placeholder-by-design, not a failure.
+      if (widget.imageUrl.trim().isNotEmpty) widget.onError?.call();
+      return _fallback();
+    }
 
     Widget image;
 
@@ -227,7 +247,7 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
           );
         },
         errorBuilder: (context, _, _) {
-          _scheduleRetry();
+          _reportError();
           return _fallback();
         },
       );
@@ -272,7 +292,7 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
           );
         },
         errorWidget: (context, _, _) {
-          _scheduleRetry();
+          _reportError();
           return _fallback();
         },
       );

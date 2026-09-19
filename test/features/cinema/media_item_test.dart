@@ -194,6 +194,42 @@ void main() {
     });
   });
 
+  group('MediaItem.posterUrl / backdropUrl', () {
+    MediaItem withPoster(String posterPath, [String backdropPath = '']) =>
+        _item(mediaType: 'movie').copyWith(
+          posterPath: posterPath,
+          backdropPath: backdropPath,
+        );
+
+    test('resolves relative TMDB paths against the image CDN', () {
+      final item = withPoster('/abc.jpg', '/b.jpg');
+      expect(item.posterUrl, 'https://image.tmdb.org/t/p/w500/abc.jpg');
+      expect(item.backdropUrl, 'https://image.tmdb.org/t/p/w1280/b.jpg');
+    });
+
+    test('returns full URLs as-is, trimmed', () {
+      const url = 'https://s4.anilist.co/image/large.jpg';
+      expect(withPoster(url).posterUrl, url);
+      expect(withPoster('  $url  ').posterUrl, url);
+    });
+
+    test('restores a stripped leading slash', () {
+      expect(
+        withPoster('abc.jpg').posterUrl,
+        'https://image.tmdb.org/t/p/w500/abc.jpg',
+      );
+    });
+
+    test('garbage poster fields resolve to empty (placeholder, not 404)', () {
+      // Regression: stringified nulls and leaked titles built bogus URLs
+      // (.../w500null) that 404d forever instead of healing.
+      for (final bad in ['', '   ', 'null', 'undefined', 'Yellow Jacket']) {
+        expect(withPoster(bad).posterUrl, isEmpty, reason: bad);
+      }
+      expect(withPoster('/ok.jpg', 'null').backdropUrl, isEmpty);
+    });
+  });
+
   group('MediaItem.resolveCoupleStatus (owner is ground truth)', () {
     MediaItem owned(String status, String userName) => _item(
       mediaType: 'movie',

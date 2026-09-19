@@ -202,25 +202,18 @@ class MediaItem {
   bool get isCinemaItem => !isAnime || isMovie;
 
   /// Always returns a full image URL. If [posterPath] is already absolute
-  /// (starts with `http`), it is returned as-is.  When it is a relative
+  /// (starts with `http`), it is returned as-is. When it is a relative
   /// TMDB path like `/abc.jpg`, the w500 base URL is prepended.
-  static const _tmdbImageBase = TmdbImages.poster;
-  static const _tmdbBackdropBase = TmdbImages.backdropLarge;
-
-  String get posterUrl {
-    if (posterPath.isEmpty) return '';
-    if (posterPath.startsWith('http')) return posterPath;
-    return '$_tmdbImageBase$posterPath';
-  }
+  /// Blank, stringified-null, and whitespace-containing values resolve to
+  /// `''` so callers reliably fall back to the placeholder tile instead of
+  /// fetching a bogus URL. See [TmdbImages.isUsablePath].
+  String get posterUrl => TmdbImages.posterFor(posterPath);
 
   /// Always returns a full backdrop URL, or `''` when none is available.
   /// Mirrors [posterUrl] so relative TMDB paths stored in Firestore (e.g.
   /// `/abc.jpg`) resolve against the image CDN instead of failing to load.
-  String get backdropUrl {
-    if (backdropPath.isEmpty) return '';
-    if (backdropPath.startsWith('http')) return backdropPath;
-    return '$_tmdbBackdropBase$backdropPath';
-  }
+  String get backdropUrl =>
+      TmdbImages.backdropFor(backdropPath, large: true);
 
   bool get isToWatch => _normalizedStatus == 'to-watch';
 

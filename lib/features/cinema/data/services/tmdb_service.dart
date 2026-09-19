@@ -204,6 +204,10 @@ class TMDBService with ConnectivityAware, ErrorAware {
   Future<List<MediaItem>> backfillMissingPosters(List<MediaItem> items) =>
       _poster.backfillMissingPosters(items);
 
+  /// Heals one item's poster (see [TMDBPosterService.healPoster]). Used by
+  /// dashboard shelves when a cover image fails to load.
+  Future<MediaItem?> healPoster(MediaItem item) => _poster.healPoster(item);
+
   Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) =>
       _poster.refreshAnimePosters(items);
 

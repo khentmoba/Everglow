@@ -16,21 +16,41 @@ class TmdbImages {
   static const String backdropLarge = '$_cdn/w1280';
   static const String profile = '$_cdn/w185';
 
-  static String posterFor(String? path) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    return '$poster$path';
+  /// Strings that mean "no image" when stored in Firestore. TMDB returns
+  /// `poster_path: null` for artwork-less titles; if that null ever gets
+  /// stringified on save ("null", "undefined", ...), the shelf would
+  /// otherwise build a bogus `.../w500null` URL that 404s forever instead
+  /// of healing. Matching is case-insensitive on the trimmed value.
+  static const _nullLike = {'null', 'undefined', 'false', 'none', 'nan'};
+
+  /// True when [path] can actually produce a fetchable image URL: not
+  /// blank, not a stringified null, and free of whitespace (TMDB paths
+  /// never contain spaces — a value like "Yellow Jacket" is a title
+  /// that leaked into the poster field, not a path).
+  static bool isUsablePath(String? path) {
+    if (path == null) return false;
+    final trimmed = path.trim();
+    if (trimmed.isEmpty) return false;
+    if (_nullLike.contains(trimmed.toLowerCase())) return false;
+    if (trimmed.contains(RegExp(r'\s'))) return false;
+    return true;
   }
 
-  static String backdropFor(String? path, {bool large = false}) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    return '${large ? backdropLarge : backdrop}$path';
+  static String _resolve(String? path, String base) {
+    if (!isUsablePath(path)) return '';
+    final trimmed = path!.trim();
+    if (trimmed.startsWith('http')) return trimmed;
+    // TMDB paths always start with '/'. If the slash was ever stripped
+    // on save ("abc.jpg"), restoring it beats a guaranteed 404.
+    final relative = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$base$relative';
   }
 
-  static String stillFor(String? path, {bool large = false}) {
-    if (path == null || path.isEmpty) return '';
-    if (path.startsWith('http')) return path;
-    return '${large ? stillLarge : still}$path';
-  }
+  static String posterFor(String? path) => _resolve(path, poster);
+
+  static String backdropFor(String? path, {bool large = false}) =>
+      _resolve(path, large ? backdropLarge : backdrop);
+
+  static String stillFor(String? path, {bool large = false}) =>
+      _resolve(path, large ? stillLarge : still);
 }
