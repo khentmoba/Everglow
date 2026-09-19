@@ -14,9 +14,9 @@ import 'katana_theme.dart';
 
 /// Currently Reading shelf for MangaCelestia.
 ///
-/// Shows the titles the user explicitly marked as "Reading" (the
-/// "Khent Reading" / "Claire Reading" button on the detail page,
-/// stored in `manga_library` with `libraryStatus == 'reading'`),
+/// Shows the titles the user is reading — pinned automatically on
+/// the first page read, or via the "Reading" button on the detail
+/// page (stored in `manga_library` with `libraryStatus == 'reading'`),
 /// enriched with chapter progress from `katana_bookmarks` for Katana
 /// titles so Clair sees "Ch. 12 • Page 5" and a Resume button.
 ///
@@ -403,7 +403,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
           onRemove: _remove,
           onCoverError: _handleCoverError,
           emptyText: _hasPartner
-              ? 'Tap "Reading" on any series to track it here.'
+              ? 'Read anything and it lands here on its own.'
               : null,
         ),
         if (_hasPartner) ...[

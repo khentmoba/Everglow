@@ -9,7 +9,8 @@ import '../../data/models/katana_models.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/services/katana_service.dart';
 import '../../data/services/mangakakalot_service.dart';
-import '../katana/currently_reading_shelf.dart' show CurrentlyReadingShelf;
+import '../katana/currently_reading_shelf.dart'
+    show CurrentlyReadingShelf, mergeReadingWithProgress;
 import '../katana/katana_header.dart' show KatanaNav;
 import '../katana/katana_nav.dart';
 import '../katana/katana_skeleton.dart';
@@ -44,6 +45,7 @@ class _KatanaCurrentlyReadingScreenState
 
   List<MangaItem> _mine = const [];
   List<MangaItem> _partner = const [];
+  List<KatanaBookmark> _bookmarks = const [];
   Map<String, KatanaBookmark> _bookmarksBySlug = const {};
   bool _loading = true;
   bool _showPartner = false;
@@ -98,6 +100,7 @@ class _KatanaCurrentlyReadingScreenState
     _bookmarkSub = _katana.bookmarkStream(user).listen((items) {
       if (mounted) {
         setState(() {
+          _bookmarks = items;
           _bookmarksBySlug = {for (final b in items) b.slug: b};
         });
       }
@@ -112,7 +115,18 @@ class _KatanaCurrentlyReadingScreenState
     super.dispose();
   }
 
-  List<MangaItem> get _visible => _showPartner ? _partner : _mine;
+  List<MangaItem> get _visible {
+    if (_showPartner) return _partner;
+    // Same single resume list as the home shelf: pinned entries plus
+    // titles read before auto-add existed (or opened without
+    // metadata), so nothing resumable hides from this tab.
+    if (_user.isEmpty) return _mine;
+    return mergeReadingWithProgress(
+      reading: _mine,
+      bookmarks: _bookmarks,
+      userName: _user,
+    );
+  }
 
   Future<void> _resume(MangaItem item) async {
     final slug = CurrentlyReadingShelf.katanaSlugOf(item);
@@ -226,7 +240,7 @@ class _KatanaCurrentlyReadingScreenState
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Everything you marked as Reading, with where you left off.',
+                                'Everything you are reading, with where you left off.',
                                 style: KatanaType.small,
                               ),
                               if (_hasPartner) ...[
@@ -242,7 +256,7 @@ class _KatanaCurrentlyReadingScreenState
                                       : 'Nothing in progress yet',
                                   subtitle: _showPartner
                                       ? 'Nothing on their reading list.'
-                                      : 'Open any series and tap "Reading" to pin it here for Clair.',
+                                      : 'Open any series and start reading — it lands here on its own.',
                                 )
                               else
                                 for (final item in _visible) ...[
@@ -254,7 +268,10 @@ class _KatanaCurrentlyReadingScreenState
                                     busy: _busySlug ==
                                         CurrentlyReadingShelf.katanaSlugOf(
                                             item),
-                                    canRemove: !_showPartner,
+                                    // Progress-only entries have no library
+                                    // entry to remove, like on the shelf.
+                                    canRemove:
+                                        !_showPartner && item.isReading,
                                     onResume: () => _resume(item),
                                     onOpen: () => _open(item),
                                     onRemove: () => _remove(item),

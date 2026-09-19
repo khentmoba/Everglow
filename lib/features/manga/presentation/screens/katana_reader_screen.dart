@@ -281,6 +281,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _autoRetried = false;
     });
 
+    // Opening a chapter counts as reading it: pin page 1 at once so
+    // the series lands in Currently Reading before the first turn.
+    _lastSavedPage = 1;
+    _saveProgress(1);
+
     _preloadUpcoming(0);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
