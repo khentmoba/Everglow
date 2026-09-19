@@ -43,6 +43,12 @@ class NetflixPosterCard extends StatefulWidget {
   /// grids). Rows keep [onHover] so they can position previews themselves.
   final bool selfPreview;
 
+  /// Fired when the poster fails to load. Library grids use it to trigger
+  /// one background poster heal per item (see `TMDBPosterService.healPoster`)
+  /// instead of leaving a stale-URL cover on the placeholder forever.
+  /// May fire repeatedly while failed — the caller must dedupe.
+  final VoidCallback? onImageError;
+
   const NetflixPosterCard({
     super.key,
     required this.item,
@@ -56,6 +62,7 @@ class NetflixPosterCard extends StatefulWidget {
     this.rank,
     this.compact = false,
     this.selfPreview = false,
+    this.onImageError,
   });
 
   @override
@@ -231,6 +238,7 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
                   fit: BoxFit.cover,
                   cacheWidth: 420,
                   errorWidget: _PosterFallback(title: widget.item.title),
+                  onError: widget.onImageError,
                 )
               else
                 _PosterFallback(title: widget.item.title),
@@ -341,6 +349,7 @@ class NetflixContinueCard extends StatefulWidget {
   final void Function(MediaItem, bool add)? onToggleList;
   final void Function(MediaItem, double? rating)? onRate;
   final bool Function(MediaItem)? isInList;
+  final VoidCallback? onImageError;
 
   const NetflixContinueCard({
     super.key,
@@ -353,6 +362,7 @@ class NetflixContinueCard extends StatefulWidget {
     this.onToggleList,
     this.onRate,
     this.isInList,
+    this.onImageError,
   });
 
   @override
@@ -366,6 +376,26 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
     final b = widget.item.backdropUrl;
     if (b.isNotEmpty) return b;
     return widget.item.posterUrl;
+  }
+
+  /// When the backdrop 404s but a distinct poster exists, show the poster
+  /// instead of the blank placeholder — a portrait poster cropped to 16:9
+  /// still beats an empty tile.
+  Widget _backdropErrorFallback() {
+    final backdrop = widget.item.backdropUrl;
+    final poster = widget.item.posterUrl;
+    if (backdrop.isNotEmpty &&
+        poster.isNotEmpty &&
+        backdrop != poster) {
+      return AppNetworkImage(
+        imageUrl: poster,
+        fit: BoxFit.cover,
+        cacheWidth: 520,
+        errorWidget: _PosterFallback(title: widget.item.title),
+        onError: widget.onImageError,
+      );
+    }
+    return _PosterFallback(title: widget.item.title);
   }
 
   void _onHover(bool hovered) {
@@ -454,9 +484,8 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
                             imageUrl: _backdropUrl,
                             fit: BoxFit.cover,
                             cacheWidth: 520,
-                            errorWidget: _PosterFallback(
-                              title: widget.item.title,
-                            ),
+                            errorWidget: _backdropErrorFallback(),
+                            onError: widget.onImageError,
                           )
                         else
                           _PosterFallback(title: widget.item.title),

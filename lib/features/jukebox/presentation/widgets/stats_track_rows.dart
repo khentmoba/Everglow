@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/models/lastfm_image_utils.dart';
+import '../providers/music_stats_provider.dart';
 import 'listen_along_popup.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -56,6 +59,9 @@ class TopTrackRow extends StatelessWidget {
             imageUrl: track.imageUrl,
             rank: track.rank,
             isPink: isPink,
+            artistName: track.artistName,
+            trackName: track.trackName,
+            mbid: track.mbid,
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -432,10 +438,16 @@ class _PodiumArtwork extends StatelessWidget {
   final String? imageUrl;
   final int rank;
   final bool isPink;
+  final String? artistName;
+  final String? trackName;
+  final String? mbid;
   const _PodiumArtwork({
     this.imageUrl,
     required this.rank,
     this.isPink = false,
+    this.artistName,
+    this.trackName,
+    this.mbid,
   });
   @override
   Widget build(BuildContext context) {
@@ -477,7 +489,7 @@ class _PodiumArtwork extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             Builder(
-              builder: (_) {
+              builder: (context) {
                 final url = cleanLastfmImageUrl(imageUrl);
                 if (url == null) return const _ArtworkFallback();
                 return AppNetworkImage(
@@ -485,6 +497,29 @@ class _PodiumArtwork extends StatelessWidget {
                   fit: BoxFit.cover,
                   cacheWidth: 200,
                   errorWidget: const _ArtworkFallback(),
+                  onError: () {
+                    // Reactive heal: a present-but-broken Last.fm URL
+                    // (stale CDN, expired proxy) refetches via iTunes /
+                    // Spotify instead of sticking the fallback tile.
+                    // Provider dedupes to one attempt per track per session.
+                    final artist = artistName;
+                    final track = trackName;
+                    if (artist == null || track == null) return;
+                    try {
+                      unawaited(
+                        Provider.of<MusicStatsProvider>(
+                          context,
+                          listen: false,
+                        ).healTopTrackCover(
+                          artist: artist,
+                          track: track,
+                          mbid: mbid,
+                        ),
+                      );
+                    } catch (_) {
+                      // No provider in scope (preview/tests) — fallback stays.
+                    }
+                  },
                 );
               },
             ),
@@ -586,7 +621,11 @@ class RecentTrackRow extends StatelessWidget {
         height: 62,
         child: Row(
           children: [
-            _TrackArtwork(imageUrl: status.imageUrl),
+            _TrackArtwork(
+              imageUrl: status.imageUrl,
+              artistName: status.artistName,
+              trackName: status.trackName,
+            ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -845,8 +884,10 @@ class _PodiumBadge extends StatelessWidget {
 
 class _TrackArtwork extends StatelessWidget {
   final String? imageUrl;
+  final String? artistName;
+  final String? trackName;
 
-  const _TrackArtwork({this.imageUrl});
+  const _TrackArtwork({this.imageUrl, this.artistName, this.trackName});
 
   @override
   Widget build(BuildContext context) {
@@ -870,6 +911,21 @@ class _TrackArtwork extends StatelessWidget {
                 fit: BoxFit.cover,
                 cacheWidth: 200,
                 errorWidget: const _ArtworkFallback(),
+                onError: () {
+                  final artist = artistName;
+                  final track = trackName;
+                  if (artist == null || track == null) return;
+                  try {
+                    unawaited(
+                      Provider.of<MusicStatsProvider>(
+                        context,
+                        listen: false,
+                      ).healRecentTrackCover(artist: artist, track: track),
+                    );
+                  } catch (_) {
+                    // No provider in scope — fallback stays.
+                  }
+                },
               )
             : const _ArtworkFallback(),
       ),

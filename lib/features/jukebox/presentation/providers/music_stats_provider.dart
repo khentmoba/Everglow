@@ -32,6 +32,11 @@ class MusicStatsProvider extends ChangeNotifier {
   final List<TopMusicTrack> _clairTopTracks = [];
   final List<MusicStatus> _clairRecentTracks = [];
   final Map<String, String?> _artworkCache = {};
+  // One reactive heal per track per session: AppNetworkImage.onError fires
+  // on every rebuild while failed, so without this a permanently artless
+  // track would hammer the APIs. Periodic enrichment still retries after
+  // the cooldown, so a transient failure recovers on the next tick.
+  final Set<String> _reactiveHealAttempted = {};
   bool _isLoading = true;
   bool _disposed = false;
 
@@ -303,15 +308,98 @@ class MusicStatsProvider extends ChangeNotifier {
 
   final Duration _artworkRetryCooldown;
 
+  /// Reactive heal for a cover that looks valid but fails to load (stale
+  /// Last.fm CDN URL, expired proxy cache, ...). Called from the row's
+  /// image error builder — bypasses the miss cooldown so the broken tile
+  /// heals immediately instead of waiting up to 10 minutes, and updates
+  /// every matching row in both users' leaderboards. One attempt per
+  /// track per session (AppNetworkImage.onError fires on every rebuild
+  /// while failed); periodic enrichment still retries after the cooldown.
+  Future<void> healTopTrackCover({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    final key = '$artist\u0000$track';
+    if (!_reactiveHealAttempted.add(key)) return;
+    final artwork = await _artworkFor(
+      artist,
+      track,
+      mbid: mbid,
+      bypassCooldown: true,
+    );
+    if (_disposed || artwork == null) return;
+    var changed = false;
+    for (final list in [_topTracks, _clairTopTracks]) {
+      for (var i = 0; i < list.length; i++) {
+        final t = list[i];
+        if (t.artistName == artist &&
+            t.trackName == track &&
+            t.imageUrl != artwork) {
+          list[i] = TopMusicTrack(
+            rank: t.rank,
+            trackName: t.trackName,
+            artistName: t.artistName,
+            playCount: t.playCount,
+            imageUrl: artwork,
+            spotifyUrl: t.spotifyUrl,
+            mbid: t.mbid,
+          );
+          changed = true;
+        }
+      }
+    }
+    if (changed) _safeNotify();
+  }
+
+  /// Same reactive heal as [healTopTrackCover] but for recent scrobbles.
+  Future<void> healRecentTrackCover({
+    required String artist,
+    required String track,
+  }) async {
+    final key = '$artist\u0000$track';
+    if (!_reactiveHealAttempted.add(key)) return;
+    final artwork = await _artworkFor(
+      artist,
+      track,
+      bypassCooldown: true,
+    );
+    if (_disposed || artwork == null) return;
+    var changed = false;
+    for (final list in [_recentTracks, _clairRecentTracks]) {
+      for (var i = 0; i < list.length; i++) {
+        final s = list[i];
+        if (s.artistName == artist &&
+            s.trackName == track &&
+            s.imageUrl != artwork) {
+          list[i] = MusicStatus(
+            username: s.username,
+            trackName: s.trackName,
+            artistName: s.artistName,
+            albumName: s.albumName,
+            imageUrl: artwork,
+            isPlaying: s.isPlaying,
+            spotifyUrl: s.spotifyUrl,
+            timestamp: s.timestamp,
+          );
+          changed = true;
+        }
+      }
+    }
+    if (changed) _safeNotify();
+  }
+
   Future<String?> _artworkFor(
     String artist,
     String track, {
     String? mbid,
+    bool bypassCooldown = false,
   }) async {
     final key = '$artist\u0000$track';
     if (_artworkCache.containsKey(key)) return _artworkCache[key];
     final missAt = _artworkMissAt[key];
-    if (missAt != null &&
+    if (!bypassCooldown &&
+        missAt != null &&
         DateTime.now().difference(missAt) < _artworkRetryCooldown) {
       return null;
     }
