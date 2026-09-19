@@ -92,9 +92,17 @@ tag — if a release is wrong, cut a new patch version instead.
 
 ## Web Search Policy (persistent user preference)
 
-- For ANY web-related searching, fetching, research, docs lookup, current info, source-backed answers, or browser automation, always use the $use-tinyfish skill at C:/Users/Admin/.agents/skills/use-tinyfish/SKILL.md (TinyFish CLI / TinyFish MCP tools).
-- Do NOT use native web search unless TinyFish is unavailable - if fallback happens, explicitly note it.
-- Follow the skill routing: search -> fetch -> agent -> browser, lightest tool first.
+- Use `pi-web-access` + TinyFish together, lightest first. They share the same TinyFish key (`TINYFISH_API_KEY` env for CLI, `tinyfishApiKey` in `~/.pi/web-search.json` for Pi).
+- Default to Pi tools for speed:
+  - Quick search / research / docs / current info: `web_search` with `workflow: "none"`, batch 2-3 `queries` in one call, `includeContent: true` when you need full text.
+  - Read pages: `fetch_content` (`url` or `urls` batch), then `get_search_content` with `findText` instead of re-fetching. Use `mode: "answer"` for grounded Q&A.
+  - Verify a claim: `source_check`.
+  - GitHub repos, PDFs, YouTube / local video, images: `fetch_content` (it clones / extracts / transcribes).
+- Escalate to TinyFish CLI when Pi tools are not enough (see `$use-tinyfish` skill at `~/.agents/skills/use-tinyfish/SKILL.md`):
+  - `fetch_content` returns empty / blocked / JS-heavy: try `tinyfish fetch content get`, then `tinyfish agent run`, then `tinyfish browser session create`.
+  - Need clicks, forms, login, bot-protected pages, or structured JSON extraction: go straight to `tinyfish agent run`.
+  - Need geo-targeted results: `tinyfish search query --location --language`.
+- Efficiency rules: batch in one call, never re-fetch what `responseId` already holds, try `fetch_content` before `agent` (agent is slower / costs more).
 
 ## Rules that matter
 
