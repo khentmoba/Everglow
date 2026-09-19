@@ -89,9 +89,13 @@ extension KatanaServiceSocial on KatanaService {
       await _bookmarks
           .doc('$userName|$slug')
           .set(data, SetOptions(merge: true));
-      // Mirror progress onto the Currently Reading library entry when
-      // one exists, so the shelf shows "Ch. X • Page Y" without
-      // creating entries behind Clair's back.
+      // Auto-add: reading anything pins it to Currently Reading, so
+      // Khent and Clair never have to remember the "Reading" button.
+      // Guarded on title so we never create blank entries when the
+      // reader was opened without metadata; the bookmark above still
+      // saves, and the shelf folds progress-only titles in anyway.
+      // Mirror progress onto the Currently Reading library entry so
+      // the shelf shows "Ch. X • Page Y".
       try {
         final existing = await withGetTimeout(
           _library
@@ -101,12 +105,34 @@ extension KatanaServiceSocial on KatanaService {
               .get(),
           label: 'katana progress save lookup',
         );
-        for (final doc in existing.docs) {
-          await doc.reference.set({
+        if (existing.docs.isEmpty && title.isNotEmpty) {
+          await setReading(
+            KatanaManga(
+              slug: slug,
+              id: slug,
+              title: title,
+              coverUrl: coverUrl,
+            ),
+            userName,
+            reading: true,
+          );
+          // setReading creates a deterministic doc id, so no re-read:
+          // stamp this chapter's progress straight onto it.
+          await _library
+              .doc('$userName|${KatanaService._katanaMangaId(slug)}')
+              .set({
             'lastReadChapterId': chapterId,
             'lastReadChapterTitle': chapterTitle,
             'lastReadPage': page,
           }, SetOptions(merge: true));
+        } else {
+          for (final doc in existing.docs) {
+            await doc.reference.set({
+              'lastReadChapterId': chapterId,
+              'lastReadChapterTitle': chapterTitle,
+              'lastReadPage': page,
+            }, SetOptions(merge: true));
+          }
         }
       } catch (e) {
         Logger.e('saveReadingProgress library mirror error', error: e);
