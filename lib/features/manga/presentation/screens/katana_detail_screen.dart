@@ -52,13 +52,21 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     });
     try {
       final manga = await _service.fetchMangaDetail(widget.slug);
-      if (mounted) {
+      if (!mounted) return;
+      if (manga == null) {
+        // Keep any list-passed preview instead of wiping to a dead
+        // breadcrumb-only page; without one the error UI offers retry.
         setState(() {
-          _manga = manga;
           _loading = false;
+          _error = 'Could not load this manga.';
         });
-        _loadCoupleData();
+        return;
       }
+      setState(() {
+        _manga = manga;
+        _loading = false;
+      });
+      _loadCoupleData();
     } catch (e) {
       if (mounted) {
         setState(() {
