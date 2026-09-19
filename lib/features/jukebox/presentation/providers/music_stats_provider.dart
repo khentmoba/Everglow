@@ -372,16 +372,9 @@ class MusicStatsProvider extends ChangeNotifier {
         if (s.artistName == artist &&
             s.trackName == track &&
             s.imageUrl != artwork) {
-          list[i] = MusicStatus(
-            username: s.username,
-            trackName: s.trackName,
-            artistName: s.artistName,
-            albumName: s.albumName,
-            imageUrl: artwork,
-            isPlaying: s.isPlaying,
-            spotifyUrl: s.spotifyUrl,
-            timestamp: s.timestamp,
-          );
+          // copyWith: preserves resolved Spotify fields (track id, embed
+          // and preview URLs) that a manual rebuild would drop.
+          list[i] = s.copyWith(imageUrl: artwork);
           changed = true;
         }
       }

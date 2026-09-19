@@ -659,14 +659,29 @@ class MusicSyncService {
       ),
       '',
     );
-    // "Be Kind feat. Halsey" / "Be Kind - with Halsey" -> "Be Kind".
+    // "Be Kind feat. Halsey" / "Be Kind - ft. Halsey" -> "Be Kind".
+    // The marker must start on a word boundary after whitespace, a
+    // separator, or string start, so "Defeat the Night" keeps its name.
     base = base.replaceAll(
       RegExp(
-        r'\s*(?:[-–—:]\s*)?(?:feat\.?|ft\.?|featuring|with)\b.*$',
+        r'(?:^|[\s–—:\-]+)(?:feat\.?|ft\.?|featuring)\b.*$',
         caseSensitive: false,
       ),
       '',
     );
+    // Bare "with <artist>" strips only when 2+ words precede it:
+    // "Be Kind with Halsey" -> "Be Kind", but mid-title "with"
+    // ("Be With You") is part of the song name and stays — and so do
+    // version tails ("Be With You (Remix)" never matches the base).
+    // Paren-wrapped "(with X)" is handled by the first rule above.
+    final withMatch = RegExp(
+      r'^(.*\S)\s+with\b(.*)$',
+      caseSensitive: false,
+    ).firstMatch(base);
+    if (withMatch != null &&
+        withMatch.group(1)!.trim().split(RegExp(r'\s+')).length >= 2) {
+      base = withMatch.group(1)!;
+    }
     return _normalizeForMatch(base);
   }
 
