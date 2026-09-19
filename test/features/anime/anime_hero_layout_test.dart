@@ -5,8 +5,6 @@ import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_spotlight.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_tokens.dart';
-import 'package:everglow/shared/widgets/shelf/anime_hero_banner.dart';
-import 'package:everglow/shared/widgets/shelf/shelf_hero_carousel.dart';
 
 MediaItem _animexItem(int i) {
   return MediaItem(
@@ -92,84 +90,6 @@ void main() {
       reason:
           'Hero bottom should not be clipped by the viewport. Got: ${hero.bottom}',
     );
-  });
-
-  testWidgets('AnimeHeroBanner has no overflow on a 360px phone', (
-    WidgetTester tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(360, 640));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final items = List.generate(3, (i) {
-      return ShelfHeroItem(
-        id: 'x$i',
-        title: 'Hero Title Number $i that is quite long',
-        subtitle: '2026',
-        imageUrl: '',
-        posterUrl: '',
-        synopsis:
-            'A fairly long synopsis that will wrap across several lines '
-            'on a small phone screen and used to overflow the action buttons.',
-        episodeCount: 24,
-        format: 'TV',
-        airingStatus: 'Airing',
-        year: '2026',
-        onTap: () {},
-      );
-    });
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: AnimeHeroBanner(
-            items: items,
-            holdDuration: const Duration(seconds: 2),
-          ),
-        ),
-      ),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('AnimeHeroBanner has no overflow on desktop with long content', (
-    WidgetTester tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1440, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final items = List.generate(3, (i) {
-      return ShelfHeroItem(
-        id: 'x$i',
-        title:
-            'A Very Long Anime Hero Title That Wraps Across Two Lines '
-            'On The Desktop Banner',
-        subtitle: '2026',
-        imageUrl: '',
-        posterUrl: '',
-        synopsis:
-            'A long synopsis for the hero banner slide that is '
-            'deliberately quite long so it wraps across multiple lines and '
-            'exercises the bottom-anchored metadata and action button layout '
-            'on a wide desktop screen without causing vertical overflow.',
-        episodeCount: 24,
-        format: 'TV',
-        airingStatus: 'Airing',
-        year: '2026',
-        onTap: () {},
-      );
-    });
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: AnimeHeroBanner(
-            items: items,
-            holdDuration: const Duration(seconds: 2),
-          ),
-        ),
-      ),
-    );
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('AnimeXSpotlight maintains slide visibility and sync when items update', (

@@ -12,7 +12,6 @@ import 'motion.dart';
 /// On desktop hover:
 ///   * Lifts 6px and scales 1.05 (stronger than default)
 ///   * Shows a play icon overlay and brighter accent glow
-///   * After 400ms, shows a rich [ShelfHoverPreview] overlay card
 ///   * Smooth 200ms ease-out transitions
 ///
 /// On mobile / touch:

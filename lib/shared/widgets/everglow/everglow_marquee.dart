@@ -1,6 +1,6 @@
-import "package:flutter/material.dart";
+import 'package:flutter/material.dart';
 
-import "../../../core/theme/app_motion.dart";
+import '../../../core/theme/app_motion.dart';
 
 /// Infinite horizontal marquee — constant-speed, hover-to-pause.
 ///

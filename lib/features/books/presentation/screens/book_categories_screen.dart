@@ -6,6 +6,7 @@ import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/shelf/atmospheric_backdrop.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../widgets/book_categories.dart';
 

@@ -14,7 +14,7 @@ import '../../../../core/theme/app_typography.dart';
 
 /// Bottom sheet for searching the Open Library catalog and adding a
 /// book to either the personal "Mine" list or the shared "Our Books"
-/// couple list. Mirrors `TMDBSearchModal` from the cinema feature.
+/// couple list.
 class OLSearchModal extends StatefulWidget {
   /// Pre-selects the "Mine" / "Ours" scope toggle. Defaults to 'mine'.
   final String initialScope;

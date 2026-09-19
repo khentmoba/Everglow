@@ -10,7 +10,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   final Map<int, List<String>> _paragraphCache = {};
   int _currentChapter = 0;
   double _fontSize = 17.0;
-  ReaderMode _readerMode = ReaderMode.text;
+  BookReaderMode _readerMode = BookReaderMode.text;
   late final String _viewType;
   static int _viewTypeCounter = 0;
   ReaderTheme _theme = ReaderTheme.dark;
@@ -58,7 +58,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
         _registerIframe(resolvedIaId);
         if (!mounted) return;
         setState(() {
-          _readerMode = ReaderMode.embed;
+          _readerMode = BookReaderMode.embed;
           _isLoading = false;
         });
         return;
@@ -88,7 +88,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
           _registerIframe(embedIa);
           if (!mounted) return;
           setState(() {
-            _readerMode = ReaderMode.embed;
+            _readerMode = BookReaderMode.embed;
             _isLoading = false;
           });
           return;
@@ -109,7 +109,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
           _registerIframe(embedIa);
           if (!mounted) return;
           setState(() {
-            _readerMode = ReaderMode.embed;
+            _readerMode = BookReaderMode.embed;
             _isLoading = false;
           });
           return;

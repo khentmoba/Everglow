@@ -33,7 +33,7 @@ part 'reader_screen_state_base.dart';
 ///   4. Render the active chapter with `flutter_html`.
 ///   5. Persist progress in `SharedPreferences` per workKey so the
 ///      next open resumes where the user left off.
-enum ReaderMode { text, embed }
+enum BookReaderMode { text, embed }
 
 class ReaderScreen extends StatefulWidget {
   final BookItem book;
@@ -56,7 +56,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
       body: SafeArea(
         child: _isLoading
             ? _buildLoading()
-            : _readerMode == ReaderMode.embed
+            : _readerMode == BookReaderMode.embed
             ? _buildEmbedReader()
             : (_loadError != null && _chapters.isEmpty
                   ? _buildError()
@@ -292,13 +292,13 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
               ],
             ),
           ),
-          if (_readerMode == ReaderMode.text)
+          if (_readerMode == BookReaderMode.text)
             IconButton(
               tooltip: 'Chapters',
               onPressed: _showChapterSheet,
               icon: Icon(Icons.list_rounded, color: _theme.fg, size: 22),
             ),
-          if (_readerMode == ReaderMode.text) ...[
+          if (_readerMode == BookReaderMode.text) ...[
             IconButton(
               tooltip: 'Listen',
               onPressed: _showListenSheet,
@@ -599,7 +599,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
               ),
             ),
             const SizedBox(height: 20),
-            if (_readerMode == ReaderMode.text) ...[
+            if (_readerMode == BookReaderMode.text) ...[
               Text(
                 'Font size',
                 style: AppTypography.outfitBold.copyWith(

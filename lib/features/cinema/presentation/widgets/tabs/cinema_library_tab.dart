@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
+import '../../../../../core/utils/logger.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/services/tmdb_service.dart';
 import '../netflix/netflix_colors.dart';
 import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_poster_card.dart';
@@ -36,6 +39,24 @@ class CinemaLibraryTab extends StatefulWidget {
 
 class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   _LibraryFilter _filter = _LibraryFilter.all;
+  final TMDBService _service = TMDBService();
+  final Set<String> _healAttempted = {};
+
+  /// Reactive heal: a poster URL that looks valid but 404s (stale TMDB
+  /// artwork) triggers one background heal instead of a permanent
+  /// placeholder tile. The heal writes to Firestore, so the parent's
+  /// watchlist stream picks up the fixed poster automatically. Deduped
+  /// per doc id per session.
+  void _handleImageError(MediaItem item) {
+    if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
+    _healAttempted.add(item.id);
+    unawaited(
+      _service.healPoster(item).catchError((Object e) {
+        Logger.e('Cinema library: poster heal failed', error: e);
+        return null;
+      }),
+    );
+  }
 
   List<MediaItem> get _visible {
     // Every movie (live-action or anime) plus non-anime TV lives here —
@@ -190,6 +211,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                   onToggleList: widget.onToggleListItem,
                   onRate: widget.onRateItem,
                   isInList: (_) => true,
+                  onImageError: () => _handleImageError(item),
                 );
                 final remove = widget.onRemoveProgress;
                 if (remove == null || !item.isCurrentlyWatching) return card;

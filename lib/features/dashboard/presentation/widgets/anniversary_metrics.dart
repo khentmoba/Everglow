@@ -84,7 +84,6 @@ class _AnniversaryMetricsState extends State<AnniversaryMetrics> with WidgetsBin
     } else if (state == AppLifecycleState.resumed) {
       _timer.cancel();
       // recreate timer
-      // ignore: unused_field
       _timer = Timer.periodic(const Duration(seconds: 1), (_) => _emit());
     }
   }

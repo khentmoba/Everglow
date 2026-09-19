@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/shelf/atmospheric_backdrop.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../data/models/book_search_result.dart';
 import '../../data/services/book_catalog_service.dart';

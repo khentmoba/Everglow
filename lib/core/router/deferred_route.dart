@@ -1,4 +1,4 @@
-import "package:flutter/material.dart";
+import 'package:flutter/material.dart';
 
 /// Loading shell for routes split out of the initial bundle with
 /// `deferred as` imports (see docs/PERF_NOTES.md).

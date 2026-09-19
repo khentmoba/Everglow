@@ -1,13 +1,13 @@
-import "package:go_router/go_router.dart";
-import "../../../../core/router/deferred_route.dart";
-import "../../../../core/router/route_helpers.dart";
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/deferred_route.dart';
+import '../../../../core/router/route_helpers.dart';
 
-import "../../data/models/manga_item.dart";
-import "../screens/katana_home_screen.dart";
+import '../../data/models/manga_item.dart';
+import '../screens/katana_home_screen.dart';
 // The reader (35KB+ of paging/zoom/chapter logic) splits out of the initial
 // bundle via a deferred import (see docs/PERF_NOTES.md). Direct pushes from
 // [MangaDetailsDrawer] use the same chunk via their own deferred import.
-import "../screens/manga_reader_screen.dart" deferred as reader_lib;
+import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 
 /// Routes owned by the manga feature.
 final List<GoRoute> mangaRoutes = [

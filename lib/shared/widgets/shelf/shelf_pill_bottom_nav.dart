@@ -4,11 +4,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_colors.dart';
 import 'motion.dart';
 
-/// Floating pill bottom nav shared by Cinema, Anime, Books, and
-/// Manga. Active item shows its label next to the icon; inactive
-/// items render as a single icon. Wrapped in a single rounded
-/// container with the same shadow + border treatment across all
-/// four screens.
+/// Floating pill bottom nav (legacy). Only Books still uses this;
+/// other screens moved to EverglowPillNav. Active item shows its
+/// label next to the icon; inactive items render as a single icon.
 ///
 /// Honours component-forge's nav checklist:
 ///   * Each item is a real `Semantics` button with a label.

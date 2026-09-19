@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../everglow/everglow_background.dart';
 
 
 /// Atmospheric background used by the four inside screens — drops
@@ -64,16 +65,5 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
   }
 }
 
-class RadialGlow {
-  final Color color;
-  final Alignment alignment;
-  final double size;
-  final double opacity;
-
-  const RadialGlow({
-    required this.color,
-    required this.alignment,
-    this.size = 0.8,
-    this.opacity = 0.15,
-  });
-}
+// RadialGlow lives in everglow_background.dart (single definition); this
+// file imports it for the default glow pairs below.

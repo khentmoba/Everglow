@@ -620,6 +620,195 @@ void main() {
       expect(artwork, isNull);
     });
 
+    test('accepts a collab artist when the stored name is one member', () async {
+      // Live regression: Clair's "Be Kind" (stored artist "Marshmello")
+      // stayed on the fallback tile because iTunes lists the artist as
+      // "Marshmello & Halsey" — same song, same cover, must match.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Be Kind',
+              artistName: 'Marshmello & Halsey',
+              artwork: 'https://i.example/bekind/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Marshmello',
+        track: 'Be Kind',
+      );
+      expect(artwork, 'https://i.example/bekind/600x600bb.jpg');
+    });
+
+    test('accepts featured-artist tags in the track title', () async {
+      // "Be Kind (with Halsey)" is the same recording as "Be Kind" —
+      // the feat tag strips before comparing, unlike version words.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Be Kind (with Halsey)',
+              artistName: 'Marshmello',
+              artwork: 'https://j.example/bekind/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Marshmello',
+        track: 'Be Kind',
+      );
+      expect(artwork, 'https://j.example/bekind/600x600bb.jpg');
+    });
+
+    test('still rejects version suffixes after feat stripping', () async {
+      // Guard: feat stripping must not weaken the "Crush" vs
+      // "Crush - Stripped" rejection — "Stripped" is a version.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Crush',
+              artistName: 'Ethel Cain',
+              artwork: 'https://k.example/base/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Ethel Cain',
+        track: 'Crush - Stripped',
+      );
+      expect(artwork, isNull);
+    });
+
+    test('keeps mid-title with and version tails', () async {
+      // "Be With You (Remix)" must not collapse to "Be" and match
+      // plain "Be With You" — mid-title "with" is part of the song
+      // name, and the version tail stays significant.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Be With You (Remix)',
+              artistName: 'Test Artist',
+              artwork: 'https://m.example/remix/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Test Artist',
+        track: 'Be With You',
+      );
+      expect(artwork, isNull);
+    });
+
+    test('strips bare with when two words precede it', () async {
+      // "Be Kind with Halsey" (no separator, no parens) is the same
+      // song as "Be Kind" — the feature strips, the base matches.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Be Kind with Halsey',
+              artistName: 'Marshmello',
+              artwork: 'https://n.example/bekind/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Marshmello',
+        track: 'Be Kind',
+      );
+      expect(artwork, 'https://n.example/bekind/600x600bb.jpg');
+    });
+
+    test('does not strip feat inside ordinary words', () async {
+      // "Defeat" contains "feat" but is not a feature tag — the
+      // marker needs a word boundary, so "Defeat the Night" never
+      // collapses and mismatches its own title.
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _lastfmEmptyArtwork();
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            _itunesResult(
+              trackName: 'Defeat the Night',
+              artistName: 'Test Artist',
+              artwork: 'https://o.example/defeat/100x100bb.jpg',
+            ),
+          ],
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+      final artwork = await service.fetchTrackArtwork(
+        artist: 'Test Artist',
+        track: 'Defeat the Night',
+      );
+      expect(artwork, 'https://o.example/defeat/600x600bb.jpg');
+    });
+
     test('fetchArtistSuggestions parses Last.fm artist.search rows', () async {
       final client = MockClient((request) async {
         expect(request.url.queryParameters['method'], 'artist.search');

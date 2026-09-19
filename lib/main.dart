@@ -13,9 +13,9 @@ import 'core/perf/perf_settings.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
 import 'core/system/app_bootstrap.dart';
+import 'core/system/app_error_widget.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
-import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
 import 'core/utils/connectivity_service.dart';
 import 'core/utils/logger.dart';
@@ -42,122 +42,7 @@ Future<void> _startEverglow() async {
     } catch (_) {}
     Logger.e('[FlutterError at $widgetName]', error: details.exception, stackTrace: details.stack);
   };
-  ErrorWidget.builder = (details) {
-    // Guard the builder itself — if *this* throws, Flutter will recurse
-    // into ErrorWidget again and blow the JS stack (RangeError: Maximum
-    // call stack size exceeded) which is exactly the grey "Something went
-    // dark" overlay seen in the Together zone. Keep it minimal and
-    // non-selectable so it can never throw.
-    String msg;
-    String shortStack;
-    String widgetName = 'widget';
-    try {
-      msg = details.exceptionAsString();
-    } catch (_) {
-      msg = 'Unknown error';
-    }
-    try {
-      final stack = details.stack?.toString() ?? '';
-      shortStack = stack.length > 400 ? stack.substring(0, 400) : stack;
-    } catch (_) {
-      shortStack = '';
-    }
-    try {
-      widgetName = details.context?.toString() ?? 'widget';
-      if (widgetName.length > 50) widgetName = '${widgetName.substring(0, 50)}…';
-    } catch (_) {}
-    if (kDebugMode) {
-      return ErrorWidget(details.exception);
-    }
-    // In release, keep background transparent so dashboard inkDeep shows
-    // through. Never use SelectableText with an unbounded stack trace —
-    // on CanvasKit it can re-enter layout and trigger the same Stack
-    // Overflow. Use plain Text with ellipsis and a constrained scroll.
-    return Material(
-      type: MaterialType.transparency,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360, maxHeight: 340),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.velvet.withValues(alpha: 0.78),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.15)),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.cloud_off_rounded, color: AppColors.roseQuartz, size: 28),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Something went dark — $widgetName — tap to retry',
-                    style: const TextStyle(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    msg.length > 180 ? '${msg.substring(0, 180)}…' : msg,
-                    style: TextStyle(color: AppColors.roseQuartz.withValues(alpha: 0.85), fontSize: 11.5),
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (shortStack.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      shortStack,
-                      style: TextStyle(color: AppColors.petalWhite.withValues(alpha: 0.65), fontSize: 10, height: 1.35),
-                      textAlign: TextAlign.left,
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  GestureDetector(
-                    onTap: () {
-                      // Hard reload on web so Firestore streams are torn down
-                      // and re-created; reassembleApplication is a no-op in
-                      // release web and would leave the same broken stream.
-                      try {
-                        if (kIsWeb) {
-                          // ignore: avoid_web_libraries_in_flutter
-                          // Use `web` package would require import; fallback to
-                          // reassemble for non-web and reload via JS interop.
-                          // For now, try to reload via Uri.
-                          // The simplest cross-platform retry is to reassemble
-                          // and then force a frame.
-                          WidgetsBinding.instance.reassembleApplication();
-                        } else {
-                          WidgetsBinding.instance.reassembleApplication();
-                        }
-                      } catch (_) {}
-                      // As a last resort, schedule a warm-up frame to
-                      // trigger a rebuild of the widget tree.
-                      Future.microtask(() {
-                        try {
-                          WidgetsBinding.instance.scheduleWarmUpFrame();
-                        } catch (_) {}
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: AppColors.deepRose.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text('Retry', style: TextStyle(color: AppColors.petalWhite, fontSize: 13, fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  };
+  ErrorWidget.builder = buildEverglowErrorWidget;
 
   // Initialize connectivity monitoring for offline-aware error handling.
   ConnectivityService.instance.init();
