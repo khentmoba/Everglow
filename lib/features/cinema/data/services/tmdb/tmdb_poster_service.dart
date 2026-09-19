@@ -4,6 +4,7 @@ import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
 import '../../models/media_item.dart';
+import '../../../../../shared/utils/title_matcher.dart';
 import '../ani_zip_service.dart';
 import '../../../../anime/data/services/anilist_service.dart';
 import 'tmdb_base.dart';
@@ -102,33 +103,54 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
   }
 
   /// Details-based heal: tries the stored mediaType, then the alternate
-  /// type when the first lookup misses or the title doesn't match.
+  /// type when the first lookup misses or the title doesn't match. Strict
+  /// [titlesMatch] first; when that fails for both types (e.g. stored
+  /// "Yellow Jacket Television" vs TMDB's "Yellowjackets"), a loose
+  /// substring pass trusts the tmdbId rather than leaving the tile blank.
   Future<MediaItem?> _healByDetails(MediaItem item, int tmdbId) async {
     final primary = item.mediaType.isEmpty ? 'movie' : item.mediaType;
     final alternate = primary == 'movie' ? 'tv' : 'movie';
+    // Fetch once per type, then match strict first, loose second.
+    final fetched = <String, Map<String, dynamic>>{};
     for (final mediaType in [primary, alternate]) {
       final details = await _detailsService.fetchMediaDetails(
         tmdbId,
         mediaType,
       );
-      if (details == null) continue;
-      final tmdbTitle =
-          (details['name'] as String?) ?? (details['title'] as String?) ?? '';
-      if (!titlesMatch(item.title, tmdbTitle)) continue;
+      if (details != null) fetched[mediaType] = details;
+    }
+    for (final loose in [false, true]) {
+      for (final mediaType in [primary, alternate]) {
+        final details = fetched[mediaType];
+        if (details == null) continue;
+        final tmdbTitle =
+            (details['name'] as String?) ??
+            (details['title'] as String?) ??
+            '';
+        final matches = loose
+            ? TitleMatcher.titlesLooselyMatch(item.title, tmdbTitle)
+            : titlesMatch(item.title, tmdbTitle);
+        if (!matches) continue;
       final posterPath = details['poster_path'] as String?;
       if (posterPath == null || posterPath.isEmpty) continue;
       final posterUrl = TmdbImages.posterFor(posterPath);
       if (posterUrl.isEmpty || posterUrl == item.posterPath.trim()) continue;
       // Persist the matched type too: fixes wrong-type docs (movie saved
-      // as tv) and normalizes empty / oddly-cased values.
+      // as tv) and normalizes empty / oddly-cased values. When the match
+      // was loose (stored "Yellow Jacket Television" vs TMDB's
+      // "Yellowjackets"), also correct the stored title so the shelf
+      // shows the canonical name and future heals match strictly.
+      final fixTitle = loose && tmdbTitle.isNotEmpty && tmdbTitle != item.title;
       final healed = item.copyWith(
         posterPath: posterUrl,
         mediaType: mediaType,
+        title: fixTitle ? tmdbTitle : null,
       );
       // Don't block the heal on a single Firestore write.
       if (item.id.isNotEmpty) {
         final patch = <String, dynamic>{'posterPath': posterUrl};
         if (mediaType != item.mediaType) patch['mediaType'] = mediaType;
+        if (fixTitle) patch['title'] = tmdbTitle;
         unawaited(firestore
             .collection('watch_list')
             .doc(item.id)
@@ -136,33 +158,48 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
             .catchError((_) {}));
       }
       return healed;
-    }
+        }
+      }
     return null;
   }
 
   /// Title-search heal for docs without a usable TMDB id. Picks the first
-  /// result whose title matches and actually has artwork.
+  /// result whose title matches and actually has artwork. Strict
+  /// [titlesMatch] first; when nothing matches (stored "Yellow Jacket
+  /// Television" vs TMDB's "Yellowjackets"), a loose substring pass
+  /// trusts TMDB's ranking rather than leaving the tile blank.
   Future<MediaItem?> _healByTitleSearch(MediaItem item) async {
     final title = item.title.trim();
     if (title.isEmpty) return null;
     final results = await _searchService.searchMedia(title);
-    for (final r in results) {
-      if (!TmdbImages.isUsablePath(r.posterPath)) continue;
-      if (!titlesMatch(title, r.title)) continue;
+    for (final loose in [false, true]) {
+      for (final r in results) {
+        if (!TmdbImages.isUsablePath(r.posterPath)) continue;
+        final matches = loose
+            ? TitleMatcher.titlesLooselyMatch(title, r.title)
+            : titlesMatch(title, r.title);
+        if (!matches) continue;
+      // Loose match means the stored title was off ("Yellow Jacket
+      // Television" vs "Yellowjackets") — correct it to TMDB's canonical
+      // title alongside the poster so the shelf shows the right name.
+      final fixTitle = loose && r.title.isNotEmpty && r.title != title;
       final healed = item.copyWith(
         posterPath: r.posterPath,
         tmdbId: r.tmdbId,
         mediaType: r.mediaType,
+        title: fixTitle ? r.title : null,
       );
       if (item.id.isNotEmpty) {
         unawaited(firestore.collection('watch_list').doc(item.id).update({
           'posterPath': r.posterPath,
           'tmdbId': r.tmdbId,
           'mediaType': r.mediaType,
+          if (fixTitle) 'title': r.title,
         }).catchError((_) {}));
       }
       return healed;
-    }
+        }
+      }
     return null;
   }
 

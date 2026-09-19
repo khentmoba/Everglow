@@ -473,7 +473,12 @@ class MusicSyncService {
         track: track,
         artist: artist,
       );
-      if (selected == null && results.isEmpty) {
+      if (selected == null) {
+        // The combined query can return results that still miss (wrong
+        // artist spelling, collab listed differently, iTunes quirk), so
+        // always retry track-only before giving up — the retry still
+        // requires a title match, and for clean ASCII names the artist
+        // must match too (collab-aware, see _artistMatches).
         final retry = await _searchItunes(track);
         selected = _selectItunesResult(
           retry,
@@ -617,6 +622,13 @@ class MusicSyncService {
   /// candidate artist) identify the requested song. Comparison ignores case
   /// and punctuation so "Crush – Stripped" still matches "Crush -
   /// Stripped", but version suffixes and different artists never match.
+  ///
+  /// Collaboration-aware: "Marshmello" matches "Marshmello & Halsey"
+  /// (same song, same cover), while "David Archuleta" never matches
+  /// "Ethel Cain". Featured-artist tags in titles ("Be Kind (with
+  /// Halsey)" vs "Be Kind") are stripped before comparing, but version
+  /// descriptors ("Stripped", "Acoustic", "Remix") stay significant
+  /// so "Crush" never lands on "Crush - Stripped".
   bool _matchesTrack(
     dynamic candidateTrack,
     dynamic candidateArtist, {
@@ -624,12 +636,80 @@ class MusicSyncService {
     String? artist,
   }) {
     if (candidateTrack is! String) return false;
-    if (_normalizeForMatch(candidateTrack) != _normalizeForMatch(track)) {
+    if (_normalizeTrackBase(candidateTrack) != _normalizeTrackBase(track)) {
       return false;
     }
     if (artist == null) return true;
     if (candidateArtist is! String) return false;
-    return _normalizeForMatch(candidateArtist) == _normalizeForMatch(artist);
+    return _artistMatches(artist, candidateArtist);
+  }
+
+  /// Strips featured-artist tags before normalizing, so the same song
+  /// listed with and without its feature still matches. Only feat/ft/
+  /// featuring/with markers are stripped — version words (stripped,
+  /// acoustic, remix, live, demo, sped up, slowed, instrumental, cover,
+  /// tribute) are significant and left intact.
+  static String _normalizeTrackBase(String title) {
+    var base = title;
+    // "Be Kind (feat. Halsey)" / "Be Kind [with Halsey]" -> "Be Kind".
+    base = base.replaceAll(
+      RegExp(
+        r'\s*[\(\[]\s*(?:feat\.?|ft\.?|featuring|with)\b[^\]\)]*[\]\)]',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    // "Be Kind feat. Halsey" / "Be Kind - with Halsey" -> "Be Kind".
+    base = base.replaceAll(
+      RegExp(
+        r'\s*(?:[-–—:]\s*)?(?:feat\.?|ft\.?|featuring|with)\b.*$',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    return _normalizeForMatch(base);
+  }
+
+  /// True when two artist strings identify overlapping artists. Handles
+  /// collaborations ("Marshmello" vs "Marshmello & Halsey"), ordering
+  /// ("Halsey, Marshmello"), and "The" prefixes ("Weeknd" vs
+  /// "The Weeknd") while rejecting genuinely different artists.
+  static bool _artistMatches(String a, String b) {
+    final na = _normalizeForMatch(a);
+    final nb = _normalizeForMatch(b);
+    if (na.isEmpty || nb.isEmpty) return false;
+    if (na == nb) return true;
+    final pa = _splitArtists(a);
+    final pb = _splitArtists(b);
+    for (final x in pa) {
+      for (final y in pb) {
+        if (x == y) return true;
+        // "weeknd" vs "theweeknd", "marshmello" vs "marshmellohalsey"
+        // (when the separator was stripped rather than split).
+        if (x.length >= 4 && y.contains(x)) return true;
+        if (y.length >= 4 && x.contains(y)) return true;
+      }
+    }
+    // Full-string fallback for unsplit forms (min length guards against
+    // short-string false positives like "al" matching "metallica").
+    if (na.length >= 4 && nb.contains(na)) return true;
+    if (nb.length >= 4 && na.contains(nb)) return true;
+    return false;
+  }
+
+  /// Splits an artist string on collaboration separators and normalizes
+  /// each part. "Marshmello & Halsey" -> ["marshmello", "halsey"].
+  static List<String> _splitArtists(String value) {
+    final parts = value.split(
+      RegExp(
+        r'\s*(?:&|,|;|/|\+|×|\bx\b|\band\b|\bfeat\.?\b|\bft\.?\b|\bfeaturing\b|\bwith\b|\bvs\.?\b)+\s*',
+        caseSensitive: false,
+      ),
+    );
+    return parts
+        .map(_normalizeForMatch)
+        .where((p) => p.length >= 2)
+        .toList();
   }
 
   /// Reads a Last.fm artist node, which is normally `{"name": ...}` but
