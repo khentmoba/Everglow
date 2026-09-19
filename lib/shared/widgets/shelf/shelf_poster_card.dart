@@ -72,12 +72,10 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
   bool _canHover(BuildContext context) =>
       MediaQuery.maybeOf(context)?.accessibleNavigation == false && _isDesktop;
 
-  String get _resolvedImageUrl {
-    final url = widget.imageUrl;
-    if (url.isEmpty) return '';
-    if (url.startsWith('http')) return url;
-    return TmdbImages.posterFor(url);
-  }
+  // TmdbImages.posterFor already trims, rejects stringified nulls, and
+  // restores a stripped leading slash — so garbage poster fields resolve
+  // to '' (placeholder) instead of a bogus URL that 404s forever.
+  String get _resolvedImageUrl => TmdbImages.posterFor(widget.imageUrl);
 
   @override
   void dispose() {

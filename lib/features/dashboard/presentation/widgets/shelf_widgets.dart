@@ -334,6 +334,12 @@ class ShelfCard extends StatefulWidget {
   final String? topBadge;
   final VoidCallback? onTap;
 
+  /// Fired when the cover image fails to load. Shelves use it to trigger
+  /// one background poster heal per item (see `TMDBPosterService.healPoster`)
+  /// instead of leaving a stale-URL cover on the placeholder forever.
+  /// May fire repeatedly while failed — the shelf must dedupe.
+  final VoidCallback? onImageError;
+
   const ShelfCard({
     super.key,
     required this.accent,
@@ -342,6 +348,7 @@ class ShelfCard extends StatefulWidget {
     this.subtitle,
     this.topBadge,
     this.onTap,
+    this.onImageError,
   });
 
   @override
@@ -442,6 +449,7 @@ class _ShelfCardState extends State<ShelfCard> {
                     imageUrl: _resolvedImageUrl,
                     fit: BoxFit.cover,
                     cacheWidth: 400,
+                    onError: widget.onImageError,
                     errorWidget: _Placeholder(
                       accent: widget.accent,
                       title: widget.title,

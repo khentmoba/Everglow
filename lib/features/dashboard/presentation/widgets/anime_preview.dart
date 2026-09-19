@@ -224,6 +224,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
   bool _hasLoaded = false;
   bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
+  final Set<String> _healAttempted = {};
 
   @override
   void initState() {
@@ -278,6 +279,28 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
       if (mounted) setState(() => _items = updated);
     } catch (e) {
       Logger.e('Dashboard: shelf poster backfill failed', error: e);
+    }
+  }
+
+  /// Reactive heal: a cover URL that looks valid but 404s (stale artwork)
+  /// triggers one background heal instead of a permanent placeholder tile.
+  /// Deduped per doc id per session.
+  void _handleImageError(MediaItem item) {
+    if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
+    _healAttempted.add(item.id);
+    unawaited(_healOne(item));
+  }
+
+  Future<void> _healOne(MediaItem item) async {
+    try {
+      final healed = await _service.healPoster(item);
+      if (healed == null || !mounted) return;
+      setState(() {
+        final idx = _items.indexWhere((u) => u.id == item.id);
+        if (idx != -1) _items[idx] = healed;
+      });
+    } catch (e) {
+      Logger.e('Dashboard: shelf cover heal failed', error: e);
     }
   }
 
@@ -344,6 +367,7 @@ class _AnimeWatchingShelfState extends State<_AnimeWatchingShelf> {
                   ? 'S${item.displaySeason}E${item.currentEpisode}'
                   : null,
               onTap: () => _openDetails(item),
+              onImageError: () => _handleImageError(item),
             ),
           ),
         )
@@ -407,6 +431,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
   bool _hasLoaded = false;
   bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
+  final Set<String> _healAttempted = {};
 
   @override
   void initState() {
@@ -476,6 +501,28 @@ class _AnimeShelfState extends State<_AnimeShelf> {
     }
   }
 
+  /// Reactive heal: a cover URL that looks valid but 404s (stale artwork)
+  /// triggers one background heal instead of a permanent placeholder tile.
+  /// Deduped per doc id per session.
+  void _handleImageError(MediaItem item) {
+    if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
+    _healAttempted.add(item.id);
+    unawaited(_healOne(item));
+  }
+
+  Future<void> _healOne(MediaItem item) async {
+    try {
+      final healed = await _service.healPoster(item);
+      if (healed == null || !mounted) return;
+      setState(() {
+        final idx = _items.indexWhere((u) => u.id == item.id);
+        if (idx != -1) _items[idx] = healed;
+      });
+    } catch (e) {
+      Logger.e('Dashboard: shelf cover heal failed', error: e);
+    }
+  }
+
   @override
   void dispose() {
     _streamSub?.cancel();
@@ -514,6 +561,7 @@ class _AnimeShelfState extends State<_AnimeShelf> {
               title: item.title,
               subtitle: _subtitleFor(item),
               onTap: () => _openDetails(item),
+              onImageError: () => _handleImageError(item),
             ),
           ),
         )

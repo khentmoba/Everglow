@@ -8,6 +8,7 @@ import '../../../cinema/data/services/tmdb_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../../cinema/presentation/widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/logger.dart';
 import '_partner_label.dart';
 import 'partner_subrow.dart';
 import 'shelf_widgets.dart';
@@ -145,6 +146,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
   bool _hasLoaded = false;
   bool _loadError = false;
   StreamSubscription<List<MediaItem>>? _streamSub;
+  final Set<String> _healAttempted = {};
 
   @override
   void initState() {
@@ -220,6 +222,28 @@ class _CinemaShelfState extends State<_CinemaShelf> {
     }
   }
 
+  /// Reactive heal: a cover URL that looks valid but 404s (stale TMDB
+  /// artwork) triggers one background heal instead of a permanent
+  /// placeholder tile. Deduped per doc id per session.
+  void _handleImageError(MediaItem item) {
+    if (item.id.isEmpty || _healAttempted.contains(item.id)) return;
+    _healAttempted.add(item.id);
+    unawaited(_healOne(item));
+  }
+
+  Future<void> _healOne(MediaItem item) async {
+    try {
+      final healed = await _service.healPoster(item);
+      if (healed == null || !mounted) return;
+      setState(() {
+        final idx = _items.indexWhere((u) => u.id == item.id);
+        if (idx != -1) _items[idx] = healed;
+      });
+    } catch (e) {
+      Logger.e('Dashboard: shelf cover heal failed', error: e);
+    }
+  }
+
   @override
   void dispose() {
     _streamSub?.cancel();
@@ -256,6 +280,7 @@ class _CinemaShelfState extends State<_CinemaShelf> {
               subtitle: _subtitleFor(item),
               topBadge: item.mediaType.toUpperCase() == 'TV' ? 'TV' : null,
               onTap: () => _openDetails(item),
+              onImageError: () => _handleImageError(item),
             ),
           ),
         )
