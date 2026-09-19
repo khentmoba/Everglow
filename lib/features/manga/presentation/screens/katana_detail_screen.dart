@@ -579,13 +579,13 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                           ),
                           const SizedBox(height: 8),
                           if (manga.altNames.isNotEmpty)
-                            _metaRow(
+                            _metaStack(
                               'Alt name(s):',
                               manga.altNames.join(' ; '),
                             ),
                           if (manga.updateText.isNotEmpty)
-                            _metaRow('Update at:', manga.updateText),
-                          _metaRow(
+                            _metaStack('Update at:', manga.updateText),
+                          _metaStack(
                             'Status:',
                             manga.isCompleted ? 'Completed' : 'Ongoing',
                             valueColor: manga.isCompleted
@@ -599,7 +599,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 if (manga.authors.isNotEmpty)
-                  _metaRow(
+                  _metaStack(
                     'Author(s):',
                     [...manga.authors, ...manga.artists].join(', '),
                   ),
@@ -674,6 +674,30 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 Expanded(child: info),
               ],
             ),
+    );
+  }
+
+  /// Phone layout: label above value so long alt names never squeeze
+  /// into a 30px column next to the cover (iPhone vertical-wrap bug).
+  Widget _metaStack(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: KatanaType.small),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: AppTypography.outfitWhite.copyWith(
+              color: valueColor ?? KatanaColors.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
