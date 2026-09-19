@@ -16,6 +16,7 @@ import 'book_list_screen.dart';
 import '../widgets/zlib_result_row.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/shelf/atmospheric_backdrop.dart';
+import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/shelf/filter_chip.dart';
 import '../../../../shared/widgets/shelf/scroll_edge_fade.dart';
 import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
