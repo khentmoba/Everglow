@@ -1,24 +1,24 @@
-import "package:provider/provider.dart";
-import "package:provider/single_child_widget.dart";
+import 'package:provider/provider.dart';
+import 'package:provider/single_child_widget.dart';
 
-import "../../features/ai/data/services/ai_service.dart";
-import "../../features/books/data/services/our_books_service.dart";
-import "../../features/chat/data/services/chat_service.dart";
-import "../../features/daily_bloom/presentation/providers/garden_provider.dart";
-import "../../features/date_randomizer/data/services/date_idea_service.dart";
-import "../../features/guardian/data/services/guardian_service.dart";
-import "../../features/guardian/presentation/controllers/guardian_controller.dart";
-import "../../features/heartbeat/data/services/mood_service.dart";
-import "../../features/heartbeat/presentation/controllers/mood_controller.dart";
-import "../../features/xp/data/services/xp_service.dart";
-import "../../features/jukebox/data/services/spotify_auth_service.dart";
-import "../../features/jukebox/data/services/spotify_player_service.dart";
-import "../../features/jukebox/presentation/providers/artist_showdown_provider.dart";
-import "../../features/jukebox/presentation/providers/jukebox_provider.dart";
-import "../../features/jukebox/presentation/providers/music_stats_provider.dart";
-import "../services/auth_service.dart";
-import "../services/presence_service.dart";
-import "../services/storage_service.dart";
+import '../../features/ai/data/services/ai_service.dart';
+import '../../features/books/data/services/our_books_service.dart';
+import '../../features/chat/data/services/chat_service.dart';
+import '../../features/daily_bloom/presentation/providers/garden_provider.dart';
+import '../../features/date_randomizer/data/services/date_idea_service.dart';
+import '../../features/guardian/data/services/guardian_service.dart';
+import '../../features/guardian/presentation/controllers/guardian_controller.dart';
+import '../../features/heartbeat/data/services/mood_service.dart';
+import '../../features/heartbeat/presentation/controllers/mood_controller.dart';
+import '../../features/xp/data/services/xp_service.dart';
+import '../../features/jukebox/data/services/spotify_auth_service.dart';
+import '../../features/jukebox/data/services/spotify_player_service.dart';
+import '../../features/jukebox/presentation/providers/artist_showdown_provider.dart';
+import '../../features/jukebox/presentation/providers/jukebox_provider.dart';
+import '../../features/jukebox/presentation/providers/music_stats_provider.dart';
+import '../services/auth_service.dart';
+import '../services/presence_service.dart';
+import '../services/storage_service.dart';
 
 /// Eager: the router (`app_router.dart`) uses this synchronously as its
 /// `refreshListenable` at import time, so it must exist before `runApp`.
