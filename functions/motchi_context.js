@@ -42,7 +42,7 @@ async function getCachedBlock(key, ttlMs, fetcher) {
   }
 }
 
-async function buildContextForFeature(feature, callerUid, userMessage = '') {
+async function buildContextForFeature(feature, _callerUid, userMessage = '') {
   try {
     let result;
     switch (feature) {
@@ -293,7 +293,7 @@ async function getRecentChatContext() {
     const lines = snapshot.docs.map(doc => {
       const d = doc.data();
       return `${d.username || 'user'}: ${d.text || d.content || ''}`;
-    }).reverse();
+    }).toReversed();
     // Slim: newest 12 lines + earlier-count (was: 30 full lines).
     return formatChatContext(lines);
   } catch (_) { return ''; }

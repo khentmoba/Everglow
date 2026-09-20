@@ -216,7 +216,7 @@ const motchiMoodCheckIn = onSchedule({
       const d = doc.data();
       const m = String(d.mood || d.moodEmoji || d.moodLabel || '').toLowerCase();
       const uid = String(d.uid || d.username || '').toLowerCase();
-      if (negative.has(m) && byUser.hasOwnProperty(uid)) byUser[uid]++;
+      if (negative.has(m) && Object.hasOwn(byUser, uid)) byUser[uid]++;
     });
     for (const [uid, count] of Object.entries(byUser)) {
       if (count >= 3) {
@@ -485,6 +485,7 @@ const motchiReminderChecker = onSchedule({
         firedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
       });
       firedCount++;
+      return null; // map-to-promises: values unused, allSettled joins only
     });
     await Promise.allSettled(jobs);
     if (firedCount > 0) console.log(`[motchiReminderChecker] fired ${firedCount}/${snap.size}`);
@@ -543,6 +544,7 @@ const motchiMemorySweep = onSchedule({
         await doc.ref.update({ confidence: decayed });
         updated++;
       }
+      return null; // map-to-promises: values unused, allSettled joins only
     });
     await Promise.allSettled(jobs);
     if (pruned > 0 || updated > 0 || backfilled > 0) console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} scanned=${snap.size}`);

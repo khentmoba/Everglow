@@ -5,13 +5,7 @@
 // This is the largest unit; future splits should carve tool handlers
 // and prompt builders out of handleProxyAI without changing its contract.
 
-const functions = require('firebase-functions/v1');
-
 const {
-  parseFactStructure,
-  rankMemories,
-  generateTrivia,
-  computeInsights,
   composeTodayRecap,
   getMessageText,
   estimateTokens,
@@ -20,7 +14,6 @@ const {
   AGNES_INPUT_TOKEN_BUDGET,
 } = require('./motchi_core.js');
 const {
-  getEmbedding,
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,
@@ -31,14 +24,11 @@ const {
   enforceRateLimit,
   checkDailyCap,
   getVerifiedUsername,
-  _getExternalCache,
-  _setExternalCache,
-  _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
-const { sendFCMToUser, logToolCall } = require('./triggers.js');
-const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./motchi_context.js');
-const { CORE_TOOLS, selectToolNames, toolListSection, MAX_TOOL_ROUNDS, matchFastPath } = require('./motchi_tools.js');
-const { MOTCHI_TOOLS, selectToolsForRequest } = require('./motchi_tool_schemas.js');
+const { logToolCall } = require('./triggers.js');
+const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
+const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath } = require('./motchi_tools.js');
+const { selectToolsForRequest } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 
 const TOOL_INVALIDATIONS = {
@@ -70,12 +60,6 @@ const TOOL_INVALIDATIONS = {
 /** In-memory cache for Motchi's persona document (5 min TTL). */
 let _personaCache = { text: null, ts: 0 };
 const _PERSONA_TTL_MS = 5 * 60 * 1000;
-
-// ── Partner UID helpers (couple-only) ──
-const PARTNER_UID = {
-  khentsgdz: "clairjassen",
-  clairjassen: "khentsgdz",
-};
 
 /**
  * Strips hidden artifact blocks (quiz/flashcards/html) from a reply so
@@ -200,7 +184,7 @@ async function handleProxyAI(req, res) {
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
   // Previous assistant text powers follow-through routing: a bare yes
   // keeps the write tools only when Motchi just offered a plan.
-  const prevAssistantText = getMessageText([...messages].reverse().find(m => m.role === 'assistant')?.content);
+  const prevAssistantText = getMessageText(messages.findLast((m) => m?.role === 'assistant')?.content);
   // Explicit artifact ask — wins over the Canvas toggle (see above). Used
   // both for the prompt gate and the output-budget tier below. Strong nouns
   // match bare; ambiguous ones (quiz, game, app, website…) need an ask or
@@ -636,24 +620,30 @@ ${HTML_GAME_GUIDE}
     }
     // Phase 2: If still too large, trim system prompt content
     if (agnesBodyBytes > 8 * 1024 * 1024 && nimMessages[0]?.content) {
+      // Parse our own payload once (guarded) and measure trims against it.
+      let agnesBase = null;
+      try { agnesBase = JSON.parse(agnesBody); } catch (_) { agnesBase = null; }
+      const byteSizeWith = (content) => {
+        const body = agnesBase
+          ? JSON.stringify({ ...agnesBase, messages: [{ role: 'system', content }, ...nimMessages.slice(1)] })
+          : JSON.stringify({ model, messages: [{ role: 'system', content }, ...nimMessages.slice(1)], tools, max_tokens: maxTokens });
+        return Buffer.byteLength(body, 'utf8');
+      };
       let sysContent = nimMessages[0].content;
       const pcIdx = sysContent.indexOf('## Previous Conversations');
       if (pcIdx !== -1) {
         const nextSec = sysContent.indexOf('\n## ', pcIdx + 1);
-        sysContent = sysContent.substring(0, pcIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
+        sysContent = sysContent.slice(0, pcIdx) + (nextSec !== -1 ? sysContent.slice(nextSec) : '');
       }
-      const testPayload = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
-      if (Buffer.byteLength(testPayload, 'utf8') > 8 * 1024 * 1024) {
+      if (byteSizeWith(sysContent) > 8 * 1024 * 1024) {
         const ssIdx = sysContent.indexOf('## Past Session Summaries');
         if (ssIdx !== -1) {
           const nextSec = sysContent.indexOf('\n## ', ssIdx + 1);
-          sysContent = sysContent.substring(0, ssIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
+          sysContent = sysContent.slice(0, ssIdx) + (nextSec !== -1 ? sysContent.slice(nextSec) : '');
         }
       }
-      let hardTrimTest = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
-      while (Buffer.byteLength(hardTrimTest, 'utf8') > 8 * 1024 * 1024 && sysContent.length > 2000) {
-        sysContent = sysContent.substring(0, Math.floor(sysContent.length * 0.8)) + '\n… [context trimmed for size]';
-        hardTrimTest = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      while (byteSizeWith(sysContent) > 8 * 1024 * 1024 && sysContent.length > 2000) {
+        sysContent = sysContent.slice(0, Math.floor(sysContent.length * 0.8)) + '\n… [context trimmed for size]';
       }
       nimMessages[0].content = sysContent;
       const finalBody = JSON.stringify({
@@ -800,7 +790,6 @@ ${HTML_GAME_GUIDE}
         // Collect the full response while streaming to client
         let fullContent = '';
         let collectedToolCalls = [];
-        let currentToolCall = null;
 
         const reader = streamResp.body.getReader();
         const decoder = new TextDecoder();

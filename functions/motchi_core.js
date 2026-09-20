@@ -357,11 +357,6 @@ function computeInsights({ moods = [], activities = [] } = {}) {
   return insights;
 }
 
-function firstDateOf(value) {
-  const date = toDate(value);
-  return date ? date.toISOString().slice(0, 10) : '';
-}
-
 /**
  * Compose a warm, data-grounded "today" recap. Used by the Motchi Today
  * tool and as the fallback body when the scheduled LLM digest fails.
