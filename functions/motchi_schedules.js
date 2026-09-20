@@ -436,8 +436,20 @@ const motchiReminderChecker = onSchedule({
   const db = getDb();
   try {
     const now = getAdmin().firestore.Timestamp.now();
-    // Query equality only to avoid composite index; filter timestamp in code.
-    const snap = await db.collection('reminders').where('fired', '==', false).limit(100).get();
+    // Indexed due query (reminders/fired+remindAtTs in firestore.indexes.json)
+    // so the 10-minute tick reads only what's due instead of scanning up
+    // to 100 pending docs. Falls back to the old scan when the index is
+    // still building — reminders must never silently stop firing.
+    let snap;
+    try {
+      snap = await db.collection('reminders')
+        .where('fired', '==', false)
+        .where('remindAtTs', '<=', now)
+        .limit(100).get();
+    } catch (e) {
+      console.warn('[motchiReminderChecker] indexed query failed, falling back to scan:', e.message);
+      snap = await db.collection('reminders').where('fired', '==', false).limit(100).get();
+    }
     if (snap.empty) return;
     let firedCount = 0;
     const jobs = snap.docs.map(async (doc) => {

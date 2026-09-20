@@ -725,6 +725,7 @@ ${HTML_GAME_GUIDE}
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
+      let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
       let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
@@ -939,6 +940,11 @@ ${HTML_GAME_GUIDE}
             }
           } catch (_) {}
 
+          // A successful explicit save makes auto-extraction redundant.
+          if (fnName === 'remember_fact') {
+            try { if (JSON.parse(result).success) _rememberSaved = true; } catch (_) {}
+          }
+
           // Send rich tool result to client for inline cards
           try {
             const parsed = JSON.parse(result);
@@ -995,7 +1001,7 @@ ${HTML_GAME_GUIDE}
       // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
       if (_streamedFinalReply.trim()) {
         const checkText = stripArtifactsForChecks(_streamedFinalReply);
-        if (checkText && shouldExtractMemory(lastUserMessage, checkText)) {
+        if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
           serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
         }
         if (checkText) checkHallucinations(checkText).catch(() => {});
@@ -1062,6 +1068,7 @@ ${HTML_GAME_GUIDE}
   const nsSeen = new Set(); // loop guard, same rule as streaming
   let nsReply = '';
   let nsReasoning = '';
+  let _nsRememberSaved = false; // skip auto-extract when remember_fact already saved
   let nsModel = model;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     let response;
@@ -1115,6 +1122,10 @@ ${HTML_GAME_GUIDE}
           logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
         }
       } catch (_) {}
+      // A successful explicit save makes auto-extraction redundant.
+      if (fnName === 'remember_fact') {
+        try { if (JSON.parse(result).success) _nsRememberSaved = true; } catch (_) {}
+      }
       const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
       const llmResult = result.length > llmLimit
         ? result.slice(0, llmLimit) + '…[trimmed]'
@@ -1164,7 +1175,7 @@ ${HTML_GAME_GUIDE}
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
     const checkText = stripArtifactsForChecks(reply);
-    if (checkText && shouldExtractMemory(lastUserMessage, checkText)) {
+    if (checkText && !_nsRememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
       serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
     }
     if (checkText) checkHallucinations(checkText).catch(() => {});

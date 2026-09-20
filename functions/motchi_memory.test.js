@@ -85,3 +85,16 @@ test('getEmbedding falls back to a local 64-dim vector', async () => {
     if (saved !== undefined) process.env.AGNES_API_KEY = saved;
   }
 });
+
+test('checkHallucinations samples telemetry and caps title checks', async () => {
+  const realFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => { calls++; throw new Error('network touched'); };
+  try {
+    // Skipped sample never touches the network, even for media replies.
+    await mem.checkHallucinations('Watch "Galactic Hamsters 9" tonight, it is great!', () => 0.99);
+    assert.equal(calls, 0);
+  } finally {
+    global.fetch = realFetch;
+  }
+});

@@ -186,12 +186,15 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
   }
 }
 
-async function checkHallucinations(replyText) {
+async function checkHallucinations(replyText, rand = Math.random) {
   try {
     if (!replyText || replyText.length < 20) return;
     // Only media replies can hallucinate titles — skip the TMDB lookups
     // for journal quotes, chat quotes, and everyday chatter.
     if (!/recommend|watch|movie|film|\bshow\b|series|anime|cinema|episode/i.test(replyText)) return;
+    // Sampled telemetry: this only feeds the review log, so checking
+    // half the replies still surfaces systemic invention at half price.
+    if (rand() >= 0.5) return;
     const apiKey = getTmdbKey();
     if (!apiKey) return;
     // Extract candidate titles: double-quoted, single-quoted, or **bold**
@@ -203,8 +206,8 @@ async function checkHallucinations(replyText) {
     const bold = replyText.matchAll(/\*\*([^*]{3,60})\*\*/g);
     for (const m of bold) candidates.add(m[1].trim());
     // Also consider Title Case phrases after trigger words like "watch", "recommend", "try"
-    // Keep set small — max 5 checks to bound TMDB calls.
-    const list = Array.from(candidates).filter(t => t.split(/\s+/).length >= 1 && t.split(/\s+/).length <= 6).slice(0, 5);
+    // Keep set small — max 3 checks to bound TMDB calls.
+    const list = Array.from(candidates).filter(t => t.split(/\s+/).length >= 1 && t.split(/\s+/).length <= 6).slice(0, 3);
     if (list.length === 0) return;
     const hallucinated = [];
     for (const title of list) {
