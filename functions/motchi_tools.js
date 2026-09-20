@@ -74,6 +74,10 @@ const TOOL_NAMES = [
   'complete_bucket_item',
   'delete_bucket_item',
   'browse_web',
+  'edit_bucket_item',
+  'edit_habit',
+  'edit_reminder',
+  'edit_trip',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -154,7 +158,7 @@ const TOOL_GROUPS = [
   },
   {
     match: /remind|reminder|alarm|\bnotify\b/i,
-    tools: ['create_reminder', 'list_reminders', 'cancel_reminder'],
+    tools: ['create_reminder', 'list_reminders', 'cancel_reminder', 'edit_reminder'],
   },
   {
     match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon/i,
@@ -166,15 +170,15 @@ const TOOL_GROUPS = [
   },
   {
     match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b|\bcomplet\w*\b|\bfinish\w*\b/i,
-    tools: ['add_bucket_item', 'get_bucket_list', 'complete_bucket_item', 'delete_bucket_item'],
+    tools: ['add_bucket_item', 'get_bucket_list', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
-    tools: ['add_trip', 'add_trip_pin', 'get_trips'],
+    tools: ['add_trip', 'add_trip_pin', 'get_trips', 'edit_trip'],
   },
   {
     match: /habit|streak|workout|\bgym\b|routine/i,
-    tools: ['log_habit', 'complete_habit'],
+    tools: ['log_habit', 'complete_habit', 'edit_habit'],
   },
   {
     match: /photos?|pictures?|gallery|selfie|\bimages?\b/i,
@@ -378,6 +382,19 @@ function validateToolArgs(toolName, args = {}) {
     case 'complete_bucket_item':
       if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
       return { ok: true };
+    case 'edit_bucket_item':
+    case 'edit_habit':
+    case 'edit_trip':
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
+      return { ok: true };
+    case 'edit_reminder': {
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
+      const when = a.remind_at;
+      if (when !== undefined && !String(when).trim()) {
+        return { ok: false, error: 'remind_at must not be empty' };
+      }
+      return { ok: true };
+    }
     case 'add_trip':
       if (!_text(a.title)) return { ok: false, error: 'title required' };
       if (!_isValidDateString(a.start_date) || !_isValidDateString(a.end_date)) {

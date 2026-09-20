@@ -897,6 +897,79 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_bucket_item',
+      description: 'Edit a bucket list item by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Item id from get_bucket_list' },
+          title: { type: 'string', description: 'Item title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          category: { type: 'string', enum: ['travel','experience','food','adventure','milestone','other'], description: 'New category' },
+          priority: { type: 'string', enum: ['low','medium','high','urgent'], description: 'New priority' },
+          due_date: { type: 'string', description: 'New due date (ISO 8601)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_habit',
+      description: 'Edit a wellness habit by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Habit id' },
+          title: { type: 'string', description: 'Habit title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          category: { type: 'string', enum: ['health','fitness','mindfulness','learning','social','other'], description: 'New category' },
+          frequency: { type: 'string', enum: ['daily','weekly','custom'], description: 'New frequency' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_reminder',
+      description: 'Edit a pending reminder by id or title. Only the provided fields change; editing the time reschedules it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Reminder id from list_reminders' },
+          title: { type: 'string', description: 'Reminder title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          note: { type: 'string', description: 'New note' },
+          remind_at: { type: 'string', description: 'New time: ISO 8601 or plain words like "tomorrow at 3pm". Times mean Philippine time.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_trip',
+      description: 'Edit a trip by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Trip id from get_trips' },
+          title: { type: 'string', description: 'Trip title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          start_date: { type: 'string', description: 'New start date (ISO 8601 YYYY-MM-DD)' },
+          end_date: { type: 'string', description: 'New end date (ISO 8601 YYYY-MM-DD)' },
+          budget: { type: 'number', description: 'New budget estimate' },
+        },
+      },
+    },
+  },
 ];
 
 function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '') {

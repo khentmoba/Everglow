@@ -525,6 +525,159 @@ async function exec_delete_bucket_item(ctx, args) {
   return JSON.stringify({ success: true, id: ref.id, title: itemTitle });
 }
 
+async function _lookupByIdOrTitle(ctx, collection, id, title, label) {
+  const cleanId = String(id || '').trim();
+  const cleanTitle = String(title || '').trim();
+  if (!cleanId && !cleanTitle) return { error: 'Provide id or title' };
+  let ref = cleanId ? ctx.db.collection(collection).doc(cleanId) : null;
+  if (!ref) {
+    const snap = await ctx.db.collection(collection).limit(30).get();
+    const qLower = cleanTitle.toLowerCase();
+    const matches = snap.docs.filter((d) => {
+      const t = (d.data().title || '').toLowerCase();
+      return t.includes(qLower) || qLower.includes(t);
+    });
+    if (matches.length === 0) return { error: `No ${label} found for "${cleanTitle}"` };
+    if (matches.length > 1) {
+      const cands = matches.slice(0, 5).map((d) => ({ id: d.id, title: d.data().title || '' }));
+      return { needsConfirmation: true, candidates: cands };
+    }
+    ref = matches[0].ref;
+  }
+  const snap = await ref.get();
+  if (!snap.exists) return { error: `${label} ${cleanId} not found` };
+  return { ref, snap };
+}
+
+async function exec_edit_bucket_item(ctx, args) {
+  const found = await _lookupByIdOrTitle(ctx, 'bucket_list', args.id, args.title, 'Bucket item');
+  if (found.error) return JSON.stringify({ error: found.error });
+  if (found.needsConfirmation) {
+    return JSON.stringify({ needs_confirmation: true, message: `Which item? Re-call edit_bucket_item with one of these ids: ${found.candidates.map((c) => c.title).join(', ')}.`, candidates: found.candidates });
+  }
+  const update = {};
+  if (args.new_title !== undefined) {
+    const t = String(args.new_title).trim();
+    if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
+    update.title = t;
+  }
+  if (args.description !== undefined) update.description = String(args.description);
+  if (args.category !== undefined) {
+    const c = String(args.category);
+    if (!['travel','experience','food','adventure','milestone','other'].includes(c)) {
+      return JSON.stringify({ error: `Invalid category: ${c}` });
+    }
+    update.category = c;
+  }
+  if (args.priority !== undefined) {
+    const p = String(args.priority);
+    if (!['low','medium','high','urgent'].includes(p)) {
+      return JSON.stringify({ error: `Invalid priority: ${p}` });
+    }
+    update.priority = p;
+  }
+  if (args.due_date !== undefined) {
+    const d = new Date(String(args.due_date).trim());
+    if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid due_date: ${args.due_date}` });
+    update.dueDate = ctx.admin.firestore.Timestamp.fromDate(d);
+  }
+  if (Object.keys(update).length === 0) return JSON.stringify({ error: 'Nothing to update — provide a field to change' });
+  await found.ref.update(update);
+  return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
+}
+
+async function exec_edit_habit(ctx, args) {
+  const found = await _lookupByIdOrTitle(ctx, 'habits', args.id, args.title, 'Habit');
+  if (found.error) return JSON.stringify({ error: found.error });
+  if (found.needsConfirmation) {
+    return JSON.stringify({ needs_confirmation: true, message: `Which habit? Re-call edit_habit with one of these ids: ${found.candidates.map((c) => c.title).join(', ')}.`, candidates: found.candidates });
+  }
+  const update = {};
+  if (args.new_title !== undefined) {
+    const t = String(args.new_title).trim();
+    if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
+    update.title = t;
+  }
+  if (args.description !== undefined) update.description = String(args.description);
+  if (args.category !== undefined) {
+    const c = String(args.category);
+    if (!['health','fitness','mindfulness','learning','social','other'].includes(c)) {
+      return JSON.stringify({ error: `Invalid category: ${c}` });
+    }
+    update.category = c;
+  }
+  if (args.frequency !== undefined) {
+    const f = String(args.frequency);
+    if (!['daily','weekly','custom'].includes(f)) {
+      return JSON.stringify({ error: `Invalid frequency: ${f}` });
+    }
+    update.frequency = f;
+  }
+  if (Object.keys(update).length === 0) return JSON.stringify({ error: 'Nothing to update — provide a field to change' });
+  await found.ref.update(update);
+  return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
+}
+
+async function exec_edit_reminder(ctx, args) {
+  const found = await _lookupByIdOrTitle(ctx, 'reminders', args.id, args.title, 'Reminder');
+  if (found.error) return JSON.stringify({ error: found.error });
+  if (found.needsConfirmation) {
+    return JSON.stringify({ needs_confirmation: true, message: `Which reminder? Re-call edit_reminder with one of these ids: ${found.candidates.map((c) => c.title).join(', ')}.`, candidates: found.candidates });
+  }
+  const update = {};
+  if (args.new_title !== undefined) {
+    const t = String(args.new_title).trim();
+    if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
+    update.title = t;
+  }
+  if (args.note !== undefined) update.note = String(args.note) || null;
+  if (args.remind_at !== undefined) {
+    const parsed = parseReminderDate(String(args.remind_at));
+    if (!parsed) return JSON.stringify({ error: `Could not understand time: ${args.remind_at}` });
+    update.remindAt = String(args.remind_at);
+    update.remindAtTs = ctx.admin.firestore.Timestamp.fromDate(parsed);
+    update.fired = false;
+  }
+  if (Object.keys(update).length === 0) return JSON.stringify({ error: 'Nothing to update — provide a field to change' });
+  await found.ref.update(update);
+  return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
+}
+
+async function exec_edit_trip(ctx, args) {
+  const found = await _lookupByIdOrTitle(ctx, 'travel_trips', args.id, args.title, 'Trip');
+  if (found.error) return JSON.stringify({ error: found.error });
+  if (found.needsConfirmation) {
+    return JSON.stringify({ needs_confirmation: true, message: `Which trip? Re-call edit_trip with one of these ids: ${found.candidates.map((c) => c.title).join(', ')}.`, candidates: found.candidates });
+  }
+  const update = {};
+  if (args.new_title !== undefined) {
+    const t = String(args.new_title).trim();
+    if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
+    update.title = t;
+  }
+  if (args.description !== undefined) update.description = String(args.description);
+  if (args.start_date !== undefined) {
+    const d = new Date(String(args.start_date).trim());
+    if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid start_date: ${args.start_date}` });
+    update.startDate = ctx.admin.firestore.Timestamp.fromDate(d);
+  }
+  if (args.end_date !== undefined) {
+    const d = new Date(String(args.end_date).trim());
+    if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid end_date: ${args.end_date}` });
+    update.endDate = ctx.admin.firestore.Timestamp.fromDate(d);
+  }
+  if (args.budget !== undefined) update.budgetEstimate = Number(args.budget) || 0;
+  if (Object.keys(update).length === 0) return JSON.stringify({ error: 'Nothing to update — provide a field to change' });
+  if (update.title !== undefined || update.description !== undefined) {
+    const data = found.snap.data() || {};
+    const title = update.title !== undefined ? update.title : (data.title || '');
+    const desc = update.description !== undefined ? update.description : (data.description || '');
+    update.searchKey = `${title.toLowerCase()} ${desc.toLowerCase()}`;
+  }
+  await found.ref.update(update);
+  return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
+}
+
 module.exports = {
   exec_create_reminder,
   exec_list_reminders,
@@ -537,6 +690,10 @@ module.exports = {
   exec_get_bucket_list,
   exec_complete_bucket_item,
   exec_delete_bucket_item,
+  exec_edit_bucket_item,
+  exec_edit_habit,
+  exec_edit_reminder,
+  exec_edit_trip,
   exec_add_trip,
   exec_add_trip_pin,
   exec_get_trips,

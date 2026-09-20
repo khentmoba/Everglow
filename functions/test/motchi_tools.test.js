@@ -336,3 +336,13 @@ test('follow-through beats the smalltalk core-only set', () => {
   const narrow = selectToolsForRequest('assistant', 'ok', 'nice weather today').map((t) => t.function.name);
   assert.ok(!narrow.includes('create_journal_entry'));
 });
+
+test('edit tools validate id-or-title plus their fields', () => {
+  for (const tool of ['edit_bucket_item', 'edit_habit', 'edit_reminder', 'edit_trip']) {
+    assert.equal(tools.validateToolArgs(tool, {}).ok, false);
+    assert.equal(tools.validateToolArgs(tool, { id: 'x' }).ok, true);
+    assert.equal(tools.validateToolArgs(tool, { title: 'x' }).ok, true);
+  }
+  assert.equal(tools.validateToolArgs('edit_reminder', { id: 'x', remind_at: '  ' }).ok, false);
+  assert.equal(tools.validateToolArgs('edit_reminder', { id: 'x', remind_at: 'tomorrow at 3pm' }).ok, true);
+});

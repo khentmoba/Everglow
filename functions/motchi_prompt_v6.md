@@ -15,7 +15,10 @@
 > skip the context + memory reads, pre-execute the tool, and answer
 > from the result with no tools attached (one Firestore read + one
 > LLM call). Trivia stays out on purpose: "quiz us" deserves the
-> interactive canvas. Bump to `motchi_prompt_v7.md` (and update
+> interactive canvas. Follow-through routing keeps plan write tools
+> on a bare yes to an offer. Four edit tools close the gaps:
+> `edit_bucket_item`, `edit_habit`, `edit_reminder`, `edit_trip`
+> (63 tools total). Bump to `motchi_prompt_v7.md` (and update
 > `eval_gate.js` `EXPECTED_PROMPT_VERSION`) when the persona or
 > routing policy changes.
 
@@ -47,7 +50,7 @@
    `delete_calendar_event`, `delete_bucket_item` with `confirm:true`).
 7. Intent routing: every request sends the 10 core tools plus only the
    intent groups whose keywords match the message (typically 10-15 of
-   59 schemas). Pure greetings send none; unmatched messages add the
+   63 schemas). Pure greetings send none; unmatched messages add the
    read-only awareness set. Every eval case's expectedTools must stay
    a subset of `selectToolNames(message)`.
 8. Loop guard: a repeated tool+args pair in one message ends the tool
@@ -71,7 +74,7 @@
     message shows an offer (`hasOffer`) — so "yes" executes the
     plan using details Motchi already named, and never asks twice.
 
-## Tool inventory (59)
+## Tool inventory (63)
 
 add_to_watchlist, save_to_starlight_jar, set_mood, search_movies,
 get_weather, create_reminder, list_reminders, cancel_reminder,
@@ -89,4 +92,5 @@ add_trip_pin, log_habit, complete_habit, get_calendar_events,
 get_bucket_list, get_journal_entries, search_journal_entries,
 read_journal_entry, get_trips, edit_journal_entry, delete_journal_entry,
 update_calendar_event, delete_calendar_event, complete_bucket_item,
-delete_bucket_item
+delete_bucket_item, edit_bucket_item, edit_habit, edit_reminder,
+edit_trip

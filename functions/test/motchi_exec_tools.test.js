@@ -600,6 +600,10 @@ test('every tool runs without ReferenceError (split-injury guard)', async () => 
       delete_calendar_event: { id: 'x' },
       complete_bucket_item: { id: 'x' },
       delete_bucket_item: { id: 'x' },
+      edit_bucket_item: { id: 'x', new_title: 'y' },
+      edit_habit: { id: 'x', new_title: 'y' },
+      edit_reminder: { id: 'x', note: 'y' },
+      edit_trip: { id: 'x', new_title: 'y' },
     };
     for (const name of tools.TOOL_NAMES) {
       for (const exists of [false, true]) {
@@ -778,4 +782,80 @@ test('remember_fact adds fresh facts with no contradiction', async () => {
   assert.equal(res.updated, undefined);
   assert.equal(added.length, 1);
   assert.equal(added[0].fact, 'Clair loves dachshunds');
+});
+
+test('edit executors patch by title and reject bad fields', async () => {
+  const planning = require('../motchi_exec_planning.js');
+  const updates = [];
+  const mkCtx = (docs) => {
+    const col = {
+      limit: () => ({
+        get: async () => ({
+          docs: docs.map((d) => ({
+            id: d.id,
+            data: () => d.data,
+            ref: { id: d.id, get: async () => ({ exists: true, data: () => d.data }), update: async (u) => { updates.push({ id: d.id, patch: u }); } },
+          })),
+        }),
+      }),
+      doc: () => ({
+        get: async () => ({ exists: false }),
+      }),
+    };
+    return {
+      admin: { firestore: { Timestamp: { fromDate: (d) => ({ _d: d }) } } },
+      db: { collection: () => col },
+      callerUid: 'khentsgdz',
+    };
+  };
+  // Bucket: title lookup + patch + enum guard.
+  let out = JSON.parse(await planning.exec_edit_bucket_item(
+    mkCtx([{ id: 'b1', data: { title: 'Siargao surfing' } }]),
+    { title: 'Siargao', priority: 'high' },
+  ));
+  assert.equal(out.success, true);
+  assert.equal(updates[0].patch.priority, 'high');
+  out = JSON.parse(await planning.exec_edit_bucket_item(mkCtx([]), { title: 'nowhere' }));
+  assert.ok(out.error);
+  out = JSON.parse(await planning.exec_edit_bucket_item(
+    mkCtx([{ id: 'b1', data: { title: 'Siargao surfing' } }]),
+    { title: 'Siargao', priority: 'extreme' },
+  ));
+  assert.ok(/Invalid priority/.test(out.error));
+  out = JSON.parse(await planning.exec_edit_bucket_item(
+    mkCtx([{ id: 'b1', data: { title: 'Siargao surfing' } }]),
+    { title: 'Siargao' },
+  ));
+  assert.ok(/Nothing to update/.test(out.error));
+  // Habit: ambiguity asks for confirmation.
+  out = JSON.parse(await planning.exec_edit_habit(
+    mkCtx([{ id: 'h1', data: { title: 'morning run' } }, { id: 'h2', data: { title: 'morning pages' } }]),
+    { title: 'morning', frequency: 'weekly' },
+  ));
+  assert.equal(out.needs_confirmation, true);
+  assert.equal(out.candidates.length, 2);
+  // Reminder: rescheduling parses PHT time and re-arms.
+  updates.length = 0;
+  out = JSON.parse(await planning.exec_edit_reminder(
+    mkCtx([{ id: 'r1', data: { title: 'water plants' } }]),
+    { title: 'plants', remind_at: 'tomorrow at 3pm' },
+  ));
+  assert.equal(out.success, true);
+  assert.equal(updates[0].patch.fired, false);
+  assert.ok(updates[0].patch.remindAtTs);
+  out = JSON.parse(await planning.exec_edit_reminder(
+    mkCtx([{ id: 'r1', data: { title: 'water plants' } }]),
+    { title: 'plants', remind_at: 'someday maybe' },
+  ));
+  assert.ok(/Could not understand/.test(out.error));
+  // Trip: dates + searchKey refresh on rename.
+  updates.length = 0;
+  out = JSON.parse(await planning.exec_edit_trip(
+    mkCtx([{ id: 't1', data: { title: 'Cebu trip', description: 'beaches' } }]),
+    { title: 'Cebu', new_title: 'Bohol trip', start_date: '2026-03-01', end_date: '2026-03-05' },
+  ));
+  assert.equal(out.success, true);
+  assert.equal(updates[0].patch.title, 'Bohol trip');
+  assert.ok(updates[0].patch.startDate);
+  assert.ok(updates[0].patch.searchKey.includes('bohol trip'));
 });

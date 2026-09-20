@@ -56,10 +56,13 @@ const TOOL_INVALIDATIONS = {
   add_bucket_item: 'bucket',
   complete_bucket_item: 'bucket',
   delete_bucket_item: 'bucket',
+  edit_bucket_item: 'bucket',
   add_trip: 'travel',
   add_trip_pin: 'travel',
+  edit_trip: 'travel',
   log_habit: 'wellness',
   complete_habit: 'wellness',
+  edit_habit: 'wellness',
   add_book_to_our_books: 'books',
   update_book_progress: 'books',
 };
