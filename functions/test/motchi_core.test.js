@@ -240,3 +240,50 @@ test('parseReminderDate reads ISO, relatives, and PHT wall times', () => {
   assert.equal(parseReminderDate('someday maybe', now), null);
   assert.equal(parseReminderDate('', now), null);
 });
+
+test('formatChatContext keeps newest lines plus an earlier-count', () => {
+  const { formatChatContext } = require('../motchi_core.js');
+  assert.equal(formatChatContext([]), '');
+  assert.equal(formatChatContext(null), '');
+  const lines = Array.from({ length: 20 }, (_, i) => `user: msg${i}`);
+  const out = formatChatContext(lines);
+  assert.ok(out.startsWith('Recent sanctuary chat:'));
+  assert.ok(out.includes('…plus 8 earlier messages'));
+  assert.ok(out.includes('user: msg19'));
+  assert.ok(!out.includes('user: msg0\n'));
+  // Short chats get no count line.
+  const short = formatChatContext(['a: hi', 'b: hello']);
+  assert.ok(!short.includes('…plus'));
+  assert.ok(short.includes('a: hi'));
+  // Long lines truncate.
+  const long = formatChatContext([`a: ${'x'.repeat(500)}`]);
+  assert.ok(long.includes('… [truncated]'));
+});
+
+test('formatSessionContext bounds summaries, blocks, and chars', () => {
+  const { formatSessionContext } = require('../motchi_core.js');
+  assert.equal(formatSessionContext([], []), '');
+  const sums = Array.from({ length: 10 }, (_, i) => `summary${i}`);
+  const sessions = Array.from({ length: 5 }, (_, i) => [
+    { role: 'user', content: `q${i}` },
+    { role: 'assistant', content: `a${i}` },
+  ]);
+  const out = formatSessionContext(sums, sessions);
+  assert.ok(out.includes('## Past Session Summaries'));
+  assert.ok(out.includes('summary0') && out.includes('summary5'));
+  assert.ok(!out.includes('summary6'));
+  assert.ok(out.includes('## Previous Conversations'));
+  assert.ok(out.includes('--- Session 3 ---'));
+  assert.ok(!out.includes('--- Session 4 ---'));
+  // Char cap wins over block count for huge sessions.
+  const huge = formatSessionContext([], [
+    [{ role: 'user', content: 'z'.repeat(20000) }],
+    [{ role: 'user', content: 'second' }],
+  ], { charLimit: 100 });
+  assert.ok(!huge.includes('second'));
+  // Per-message truncation marks.
+  const trunc = formatSessionContext([], [
+    [{ role: 'user', content: 'z'.repeat(20000) }],
+  ]);
+  assert.ok(trunc.includes('… [truncated]'));
+});

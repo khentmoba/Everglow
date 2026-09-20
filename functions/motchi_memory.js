@@ -240,13 +240,21 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
   // decay and rank with the same pure scorer used by tests.
   try {
     const db = getDb();
-    const snapshot = await db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc')
-      .limit(150)
-      .get();
+    // Slim: 60 freshest + pinned top-up (was: 150 freshest). Pinned facts
+    // ride their own tiny query so an old pin can never fall off the
+    // tail when the book grows past the fresh window.
+    const factsCol = db.collection('ai_memories').doc('shared').collection('facts');
+    const [snapshot, pinnedSnap] = await Promise.all([
+      factsCol.orderBy('createdAt', 'desc').limit(60).get(),
+      factsCol.where('pinned', '==', true).limit(20).get(),
+    ]);
 
     const memories = [];
-    snapshot.forEach(doc => {
+    const seenIds = new Set();
+    for (const snap of [snapshot, pinnedSnap]) {
+    snap.forEach(doc => {
+      if (seenIds.has(doc.id)) return;
+      seenIds.add(doc.id);
       const data = doc.data();
       memories.push({
         id: doc.id,
@@ -262,6 +270,7 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
         lastAccessed: data.lastAccessed?.toDate?.() || null,
       });
     });
+    }
 
     // Decay: halve confidence if not accessed in 90 days
     const now = new Date();
