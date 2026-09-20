@@ -435,8 +435,15 @@ async function exec_delete_journal_entry(ctx, args) {
   if (!args.confirm) {
     return JSON.stringify({ needs_confirmation: true, message: `Delete the journal entry "${entryTitle}"? Re-call delete_journal_entry with confirm:true to proceed.`, id: ref.id, title: entryTitle });
   }
+  const en = snap.data() || {};
   await ref.delete();
-  return JSON.stringify({ success: true, id: ref.id, title: entryTitle });
+  return JSON.stringify({ success: true, id: ref.id, title: entryTitle, deleted: {
+    title: en.title || entryTitle,
+    content: en.content || '',
+    category: en.category || 'daily',
+    mood: en.mood || null,
+    tags: en.tags || [],
+  } });
 }
 
 module.exports = {

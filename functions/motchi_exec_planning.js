@@ -460,8 +460,18 @@ async function exec_delete_calendar_event(ctx, args) {
   if (!args.confirm) {
     return JSON.stringify({ needs_confirmation: true, message: `Delete the event "${eventTitle}"? Re-call delete_calendar_event with confirm:true to proceed.`, id: ref.id, title: eventTitle });
   }
+  const ev = snap.data() || {};
+  const ts = (v) => (v && typeof v.toDate === 'function' ? v.toDate().toISOString() : null);
   await ref.delete();
-  return JSON.stringify({ success: true, id: ref.id, title: eventTitle });
+  return JSON.stringify({ success: true, id: ref.id, title: eventTitle, deleted: {
+    title: ev.title || eventTitle,
+    description: ev.description || '',
+    date: ts(ev.date),
+    end_date: ts(ev.endDate),
+    type: ev.type || 'custom',
+    location: ev.location || null,
+    is_all_day: !!ev.isAllDay,
+  } });
 }
 
 async function exec_complete_bucket_item(ctx, args) {
@@ -521,8 +531,16 @@ async function exec_delete_bucket_item(ctx, args) {
   if (!args.confirm) {
     return JSON.stringify({ needs_confirmation: true, message: `Delete "${itemTitle}" from the bucket list? Re-call delete_bucket_item with confirm:true to proceed.`, id: ref.id, title: itemTitle });
   }
+  const it = snap.data() || {};
   await ref.delete();
-  return JSON.stringify({ success: true, id: ref.id, title: itemTitle });
+  return JSON.stringify({ success: true, id: ref.id, title: itemTitle, deleted: {
+    title: it.title || itemTitle,
+    description: it.description || '',
+    category: it.category || 'other',
+    priority: it.priority || 'medium',
+    status: it.status || 'wish',
+    due_date: (it.dueDate && typeof it.dueDate.toDate === 'function') ? it.dueDate.toDate().toISOString() : null,
+  } });
 }
 
 async function _lookupByIdOrTitle(ctx, collection, id, title, label) {

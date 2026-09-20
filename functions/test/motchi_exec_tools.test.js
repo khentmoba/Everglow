@@ -859,3 +859,43 @@ test('edit executors patch by title and reject bad fields', async () => {
   assert.ok(updates[0].patch.startDate);
   assert.ok(updates[0].patch.searchKey.includes('bohol trip'));
 });
+
+test('deletes return restorable data for undo', async () => {
+  const planning = require('../motchi_exec_planning.js');
+  const memory = require('../motchi_exec_memory.js');
+  const mkCtx = (data) => {
+    const ref = {
+      id: 'd1',
+      get: async () => ({ exists: true, data: () => data }),
+      delete: async () => {},
+    };
+    return {
+      admin: { firestore: {} },
+      db: { collection: () => ({ doc: () => ref }) },
+      callerUid: 'khentsgdz',
+    };
+  };
+  const ts = (iso) => ({ toDate: () => new Date(iso) });
+  let out = JSON.parse(await planning.exec_delete_calendar_event(
+    mkCtx({ title: 'Anniversary dinner', description: 'fancy', date: ts('2026-02-14T19:00:00.000Z'), type: 'dateNight', location: 'Cabadbaran', isAllDay: false }),
+    { id: 'd1', confirm: true },
+  ));
+  assert.equal(out.success, true);
+  assert.equal(out.deleted.title, 'Anniversary dinner');
+  assert.equal(out.deleted.date, '2026-02-14T19:00:00.000Z');
+  assert.equal(out.deleted.type, 'dateNight');
+  out = JSON.parse(await memory.exec_delete_journal_entry(
+    mkCtx({ title: 'Beach day', content: 'Sunset was perfect.', category: 'memory', mood: 'happy', tags: ['beach'] }),
+    { id: 'd1', confirm: true },
+  ));
+  assert.equal(out.success, true);
+  assert.equal(out.deleted.content, 'Sunset was perfect.');
+  assert.deepEqual(out.deleted.tags, ['beach']);
+  out = JSON.parse(await planning.exec_delete_bucket_item(
+    mkCtx({ title: 'Siargao surfing', category: 'adventure', priority: 'high', status: 'planned' }),
+    { id: 'd1', confirm: true },
+  ));
+  assert.equal(out.success, true);
+  assert.equal(out.deleted.priority, 'high');
+  assert.equal(out.deleted.status, 'planned');
+});

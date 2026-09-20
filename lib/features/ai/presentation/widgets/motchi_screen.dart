@@ -124,13 +124,46 @@ class _MotchiScreenState extends State<MotchiScreen> {
     }
   }
 
+    static const _undoableDeleteTools = {
+      'delete_memory',
+      'remove_from_watchlist',
+      'delete_calendar_event',
+      'delete_journal_entry',
+      'delete_bucket_item',
+    };
+
+    String _restoreMessage(Map<String, dynamic> last) {
+      final tool = last['tool'] as String? ?? '';
+      if (tool == 'delete_memory') {
+        return 'Please remember this again: ${last['fact'] ?? ''}';
+      }
+      if (tool == 'remove_from_watchlist') {
+        final title = last['title'] ?? '';
+        return 'Please add "$title" back to our watchlist';
+      }
+      final deleted = last['deleted'];
+      final detail = deleted is Map
+          ? deleted.entries
+                .where((e) => e.value != null && '${e.value}'.isNotEmpty)
+                .map((e) => '${e.key}: ${e.value}')
+                .join(', ')
+          : '${last['title'] ?? ''}';
+      if (tool == 'delete_calendar_event') {
+        return 'Please recreate this calendar event ($detail)';
+      }
+      if (tool == 'delete_journal_entry') {
+        return 'Please recreate this journal entry ($detail)';
+      }
+      return 'Please add this back to our bucket list ($detail)';
+    }
+
     void _onToolResults() {
     if (!mounted) return;
     final ai = context.read<AIService>();
     final results = ai.toolResultsNotifier.value;
     if (results.isEmpty) return;
     final last = results.last;
-    if (last['success'] == true && (last['tool'] == 'delete_memory' || last['tool'] == 'remove_from_watchlist')) {
+    if (last['success'] == true && _undoableDeleteTools.contains(last['tool'])) {
       final title = last['fact'] as String? ?? last['title'] as String? ?? 'item';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -144,13 +177,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
             label: 'Undo',
             textColor: AppColors.blushGold,
             onPressed: () {
-              final fact = last['fact'] as String? ?? last['title'] as String? ?? '';
-              if (fact.isNotEmpty) {
-                if (last['tool'] == 'delete_memory') {
-                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please remember this again: $fact');
-                } else {
-                  context.read<AIService>().sendMessage(feature: 'assistant', message: 'Please add "$fact" back to our watchlist');
-                }
+              final message = _restoreMessage(last);
+              if (message.isNotEmpty) {
+                context.read<AIService>().sendMessage(feature: 'assistant', message: message);
               }
             },
           ),
