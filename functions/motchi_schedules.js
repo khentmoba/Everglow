@@ -9,6 +9,11 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { getAdmin, getDb } = require('./common.js');
 const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
+const { getRemoteEmbedding } = require('./motchi_memory.js');
+
+// Cap on remote embedding calls per nightly sweep. Local vectors are
+// free and unbounded; remote ones cost time + money, so the first 25
+// invalid facts per night upgrade and the rest wait their turn.
 
 /**
  * Shared recap fetch for the morning/night/weekly digests: one parallel
@@ -211,7 +216,7 @@ const motchiMoodCheckIn = onSchedule({
       const d = doc.data();
       const m = String(d.mood || d.moodEmoji || d.moodLabel || '').toLowerCase();
       const uid = String(d.uid || d.username || '').toLowerCase();
-      if (negative.has(m) && byUser.hasOwnProperty(uid)) byUser[uid]++;
+      if (negative.has(m) && Object.hasOwn(byUser, uid)) byUser[uid]++;
     });
     for (const [uid, count] of Object.entries(byUser)) {
       if (count >= 3) {
@@ -431,8 +436,20 @@ const motchiReminderChecker = onSchedule({
   const db = getDb();
   try {
     const now = getAdmin().firestore.Timestamp.now();
-    // Query equality only to avoid composite index; filter timestamp in code.
-    const snap = await db.collection('reminders').where('fired', '==', false).limit(100).get();
+    // Indexed due query (reminders/fired+remindAtTs in firestore.indexes.json)
+    // so the 10-minute tick reads only what's due instead of scanning up
+    // to 100 pending docs. Falls back to the old scan when the index is
+    // still building — reminders must never silently stop firing.
+    let snap;
+    try {
+      snap = await db.collection('reminders')
+        .where('fired', '==', false)
+        .where('remindAtTs', '<=', now)
+        .limit(100).get();
+    } catch (e) {
+      console.warn('[motchiReminderChecker] indexed query failed, falling back to scan:', e.message);
+      snap = await db.collection('reminders').where('fired', '==', false).limit(100).get();
+    }
     if (snap.empty) return;
     let firedCount = 0;
     const jobs = snap.docs.map(async (doc) => {
@@ -468,6 +485,7 @@ const motchiReminderChecker = onSchedule({
         firedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
       });
       firedCount++;
+      return null; // map-to-promises: values unused, allSettled joins only
     });
     await Promise.allSettled(jobs);
     if (firedCount > 0) console.log(`[motchiReminderChecker] fired ${firedCount}/${snap.size}`);
@@ -492,14 +510,21 @@ const motchiMemorySweep = onSchedule({
     let pruned = 0;
     let updated = 0;
     let backfilled = 0;
+    let remoteBudget = 25;
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
-      // Backfill: old facts carry remote-dim (or no) embeddings, which
-      // never match the local query vector — recompute locally so memory
-      // ranking works for them again. Runs for pinned docs too.
+      // Backfill: invalid embeddings (missing, malformed, odd dims)
+      // recompute remote-first within budget, else locally. Runs for
+      // pinned docs too. (Check-and-decrement is sync, so the budget
+      // holds exactly even though the jobs run concurrently.)
       if (data.fact && needsEmbeddingBackfill(data.embedding)) {
         try {
-          const emb = simpleEmbedding(String(data.fact), 64);
+          let emb = null;
+          if (remoteBudget > 0) {
+            remoteBudget--;
+            emb = await getRemoteEmbedding(String(data.fact));
+          }
+          if (!emb) emb = simpleEmbedding(String(data.fact), 64);
           if (emb) {
             await doc.ref.update({ embedding: emb });
             backfilled++;
@@ -519,6 +544,7 @@ const motchiMemorySweep = onSchedule({
         await doc.ref.update({ confidence: decayed });
         updated++;
       }
+      return null; // map-to-promises: values unused, allSettled joins only
     });
     await Promise.allSettled(jobs);
     if (pruned > 0 || updated > 0 || backfilled > 0) console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} scanned=${snap.size}`);

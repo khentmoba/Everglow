@@ -9,7 +9,7 @@ const {
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
-const { selectBlockKeys } = require('./motchi_core.js');
+const { selectBlockKeys, formatChatContext, formatSessionContext } = require('./motchi_core.js');
 
 /**
  * In-memory cache for individual feature context blocks.
@@ -42,7 +42,7 @@ async function getCachedBlock(key, ttlMs, fetcher) {
   }
 }
 
-async function buildContextForFeature(feature, callerUid, userMessage = '') {
+async function buildContextForFeature(feature, _callerUid, userMessage = '') {
   try {
     let result;
     switch (feature) {
@@ -287,14 +287,15 @@ async function getRecentChatContext() {
     const db = getDb();
     const snapshot = await db.collection('sanctuary_messages')
       .orderBy('timestamp', 'desc')
-      .limit(30)
+      .limit(20)
       .get();
     if (snapshot.empty) return '';
-    const msgs = snapshot.docs.map(doc => {
+    const lines = snapshot.docs.map(doc => {
       const d = doc.data();
       return `${d.username || 'user'}: ${d.text || d.content || ''}`;
-    }).reverse().join('\n');
-    return `Recent sanctuary chat:\n${msgs}`;
+    }).toReversed();
+    // Slim: newest 12 lines + earlier-count (was: 30 full lines).
+    return formatChatContext(lines);
   } catch (_) { return ''; }
 }
 
@@ -401,7 +402,7 @@ async function getSessionHistoryContext() {
       .doc('shared')
       .collection('sessions')
       .orderBy('createdAt', 'desc')
-      .limit(20)
+      .limit(12)
       .get();
     if (snapshot.empty) return '';
 
@@ -416,38 +417,8 @@ async function getSessionHistoryContext() {
       }
     }
 
-    const parts = [];
-    if (summaries.length > 0) {
-      parts.push(`## Past Session Summaries\n${summaries.slice(0, 10).map((s, i) => `Session ${i + 1}: ${s}`).join('\n')}`);
-    }
-    if (recentSessions.length > 0) {
-      // Bounded: recent turns already carry the live conversation, so
-      // archived sessions only need to jog Motchi's longer memory.
-      const CHAR_LIMIT = 15_000;
-      let totalChars = 0;
-      const sessionBlocks = [];
-      for (let si = 0; si < Math.min(recentSessions.length, 4); si++) {
-        const msgs = recentSessions[si];
-        const lines = [];
-        for (const m of msgs) {
-          const who = m.role === 'user' ? 'User' : 'Motchi';
-          const content = (m.content || '').length > 3000
-            ? (m.content || '').substring(0, 3000) + '… [truncated]'
-            : (m.content || '');
-          lines.push(`${who}: ${content}`);
-        }
-        const block = `--- Session ${si + 1} ---\n${lines.join('\n')}`;
-        if (totalChars + block.length > CHAR_LIMIT && sessionBlocks.length > 0) {
-          break;
-        }
-        totalChars += block.length;
-        sessionBlocks.push(block);
-      }
-      if (sessionBlocks.length > 0) {
-        parts.push(`## Previous Conversations\n${sessionBlocks.join('\n\n')}`);
-      }
-    }
-    return parts.join('\n\n');
+    // Slim: 6 summaries + 3 blocks capped at 8k chars (was 10 + 4/15k).
+    return formatSessionContext(summaries, recentSessions);
   } catch (_) { return ''; }
 }
 

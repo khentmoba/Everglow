@@ -74,6 +74,10 @@ const TOOL_NAMES = [
   'complete_bucket_item',
   'delete_bucket_item',
   'browse_web',
+  'edit_bucket_item',
+  'edit_habit',
+  'edit_reminder',
+  'edit_trip',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -154,7 +158,7 @@ const TOOL_GROUPS = [
   },
   {
     match: /remind|reminder|alarm|\bnotify\b/i,
-    tools: ['create_reminder', 'list_reminders', 'cancel_reminder'],
+    tools: ['create_reminder', 'list_reminders', 'cancel_reminder', 'edit_reminder'],
   },
   {
     match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon/i,
@@ -166,15 +170,15 @@ const TOOL_GROUPS = [
   },
   {
     match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b|\bcomplet\w*\b|\bfinish\w*\b/i,
-    tools: ['add_bucket_item', 'get_bucket_list', 'complete_bucket_item', 'delete_bucket_item'],
+    tools: ['add_bucket_item', 'get_bucket_list', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
-    tools: ['add_trip', 'add_trip_pin', 'get_trips'],
+    tools: ['add_trip', 'add_trip_pin', 'get_trips', 'edit_trip'],
   },
   {
     match: /habit|streak|workout|\bgym\b|routine/i,
-    tools: ['log_habit', 'complete_habit'],
+    tools: ['log_habit', 'complete_habit', 'edit_habit'],
   },
   {
     match: /photos?|pictures?|gallery|selfie|\bimages?\b/i,
@@ -203,9 +207,15 @@ const TOOL_GROUPS = [
 ];
 
 /** Tool names for a message: core + every matching intent group. */
-function selectToolNames(message) {
+function selectToolNames(message, prevAssistantText = '') {
   const text = String(message || '');
   const picked = new Set(CORE_TOOLS);
+  // Follow-through first: a bare yes to an offered plan keeps the
+  // write tools (normal keyword routing would starve it).
+  if (isBareYes(text) && hasOffer(prevAssistantText)) {
+    for (const name of FOLLOW_THROUGH_TOOLS) picked.add(name);
+    return [...picked];
+  }
   let matched = 0;
   for (const group of TOOL_GROUPS) {
     let hit = false;
@@ -372,6 +382,19 @@ function validateToolArgs(toolName, args = {}) {
     case 'complete_bucket_item':
       if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
       return { ok: true };
+    case 'edit_bucket_item':
+    case 'edit_habit':
+    case 'edit_trip':
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
+      return { ok: true };
+    case 'edit_reminder': {
+      if (!_text(a.id) && !_text(a.title)) return { ok: false, error: 'id or title required' };
+      const when = a.remind_at;
+      if (when !== undefined && !String(when).trim()) {
+        return { ok: false, error: 'remind_at must not be empty' };
+      }
+      return { ok: true };
+    }
     case 'add_trip':
       if (!_text(a.title)) return { ok: false, error: 'title required' };
       if (!_isValidDateString(a.start_date) || !_isValidDateString(a.end_date)) {
@@ -515,10 +538,99 @@ function isReminderSchedulable(raw, nowMs = Date.now()) {
   }
 }
 
+// ── Fast-path single-tool intents ─────────────────────────────────
+// Zero-arg, read-only asks whose tool result IS the answer. When the
+// whole message matches, the chat handler pre-executes the tool and
+// lets the model answer from the result with no tools attached — one
+// Firestore read + one LLM call instead of ~7 block reads + memory
+// select + a tool loop. Deliberately narrow: anchored patterns,
+// conjunction + multi-sentence + length guards reject anything
+// compound, which falls through to the normal loop. Trivia is NOT
+// here on purpose: "quiz us" deserves the interactive canvas, not
+// a text answer.
+const FAST_PATH_INTENTS = [
+  {
+    match: /^(what('s| is) (our|my|the) (level|xp|rank)|what level are we( on| at)?|show (our|my|the) (level|xp|rank)|how much xp do (we|i) have)[?!\s.]*$/i,
+    tool: 'get_xp_stats',
+  },
+  {
+    match: /^give (us|me) (today's|todays) recap[?!\s.]*$/i,
+    tool: 'get_today_recap',
+  },
+  {
+    match: /^(today's|todays) recap[?!\s.]*$|^recap (of |for )?today[?!\s.]*$/i,
+    tool: 'get_today_recap',
+  },
+  {
+    match: /^(list|show|what are) (my|our|all|the) reminders[?!\s.]*$/i,
+    tool: 'list_reminders',
+  },
+  {
+    match: /^what patterns do you see in our moods[?!\s.]*$/i,
+    tool: 'get_relationship_insights',
+  },
+];
+
+const FAST_PATH_BLOCKERS = /\b(and|then|also|plus|after that|followed by|before that)\b|[;+]|\n/i;
+
+// ── Plan follow-through ─────────────────────────────────────────
+// When Motchi presents a plan with an offer ("want me to add this to
+// the calendar?"), a bare yes means EXECUTE — but "yes" carries no
+// keywords, so normal routing would send core tools only and the model
+// couldn't act. With the previous assistant text showing an offer, a
+// bare affirmation keeps the write tools its plan may need.
+const FOLLOW_THROUGH_TOOLS = [
+  'add_calendar_event',
+  'update_calendar_event',
+  'get_calendar_events',
+  'create_reminder',
+  'list_reminders',
+  'add_bucket_item',
+  'create_journal_entry',
+  'add_trip',
+  'log_habit',
+  'add_to_watchlist',
+  'send_sanctuary_message',
+  'send_note_to_partner',
+];
+
+const BARE_YES_RE = /^(yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|sounds good|perfect|yes please|yes do it|yeah do it|ok do it|let'?s do it)[!.,\s]*$/i;
+const BARE_YES_BLOCKERS = /\b(and|but|also|then|plus|except|instead|later)\b/i;
+const OFFER_MARKERS_RE = /calendar|schedul|remind|bucket|journal|trip|habit|watchlist|sanctuary|tell (her|him|them|clair|khent)|shall i|want me to|should i|i('ll| can) (add|create|save|book|plan|schedule|remind|send)/i;
+
+function isBareYes(message) {
+  const text = String(message || '').trim();
+  if (!text || text.length > 40) return false;
+  if (BARE_YES_BLOCKERS.test(text)) return false;
+  return BARE_YES_RE.test(text);
+}
+
+function hasOffer(prevAssistantText) {
+  return OFFER_MARKERS_RE.test(String(prevAssistantText || ''));
+}
+
+/** Whole-message fast-path match, or null to use the normal loop. */
+function matchFastPath(message) {
+  const text = String(message || '').trim();
+  if (!text || text.length > 120) return null;
+  if (FAST_PATH_BLOCKERS.test(text)) return null;
+  // A second sentence means a second ask.
+  if (/[.!?]\s*[A-Za-z]/.test(text)) return null;
+  for (const intent of FAST_PATH_INTENTS) {
+    if (intent.match.test(text)) return { tool: intent.tool, args: {} };
+  }
+  return null;
+}
+
 module.exports = {
   TOOL_TIMEOUT_MS,
   MAX_TOOL_ROUNDS,
   TOOL_NAMES,
+  FAST_PATH_INTENTS,
+  matchFastPath,
+  FOLLOW_THROUGH_TOOLS,
+  isBareYes,
+  hasOffer,
   CORE_TOOLS,
   AWARENESS_TOOLS,
   TOOL_GROUPS,

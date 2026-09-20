@@ -170,8 +170,11 @@ test('needsEmbeddingBackfill spots unusable stored vectors', () => {
   assert.equal(needsEmbeddingBackfill(undefined), true);
   assert.equal(needsEmbeddingBackfill('nope'), true);
   assert.equal(needsEmbeddingBackfill([0.1, 0.2]), true);
-  assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), true);
+  assert.equal(needsEmbeddingBackfill(new Array(100).fill(0)), true);
+  // Both known spaces are valid: local 64-dim and remote (hundreds+).
   assert.equal(needsEmbeddingBackfill(new Array(64).fill(0)), false);
+  assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), false);
+  assert.equal(needsEmbeddingBackfill(new Array(256).fill(0)), false);
 });
 
 test('phtDateString keys late-night entries to the PHT day', () => {
@@ -239,4 +242,96 @@ test('parseReminderDate reads ISO, relatives, and PHT wall times', () => {
   assert.equal(parseReminderDate('today at 7am', now).toISOString(), '2026-09-17T23:00:00.000Z');
   assert.equal(parseReminderDate('someday maybe', now), null);
   assert.equal(parseReminderDate('', now), null);
+});
+
+test('formatChatContext keeps newest lines plus an earlier-count', () => {
+  const { formatChatContext } = require('../motchi_core.js');
+  assert.equal(formatChatContext([]), '');
+  assert.equal(formatChatContext(null), '');
+  const lines = Array.from({ length: 20 }, (_, i) => `user: msg${i}`);
+  const out = formatChatContext(lines);
+  assert.ok(out.startsWith('Recent sanctuary chat:'));
+  assert.ok(out.includes('…plus 8 earlier messages'));
+  assert.ok(out.includes('user: msg19'));
+  assert.ok(!out.includes('user: msg0\n'));
+  // Short chats get no count line.
+  const short = formatChatContext(['a: hi', 'b: hello']);
+  assert.ok(!short.includes('…plus'));
+  assert.ok(short.includes('a: hi'));
+  // Long lines truncate.
+  const long = formatChatContext([`a: ${'x'.repeat(500)}`]);
+  assert.ok(long.includes('… [truncated]'));
+});
+
+test('formatSessionContext bounds summaries, blocks, and chars', () => {
+  const { formatSessionContext } = require('../motchi_core.js');
+  assert.equal(formatSessionContext([], []), '');
+  const sums = Array.from({ length: 10 }, (_, i) => `summary${i}`);
+  const sessions = Array.from({ length: 5 }, (_, i) => [
+    { role: 'user', content: `q${i}` },
+    { role: 'assistant', content: `a${i}` },
+  ]);
+  const out = formatSessionContext(sums, sessions);
+  assert.ok(out.includes('## Past Session Summaries'));
+  assert.ok(out.includes('summary0') && out.includes('summary5'));
+  assert.ok(!out.includes('summary6'));
+  assert.ok(out.includes('## Previous Conversations'));
+  assert.ok(out.includes('--- Session 3 ---'));
+  assert.ok(!out.includes('--- Session 4 ---'));
+  // Char cap wins over block count for huge sessions.
+  const huge = formatSessionContext([], [
+    [{ role: 'user', content: 'z'.repeat(20000) }],
+    [{ role: 'user', content: 'second' }],
+  ], { charLimit: 100 });
+  assert.ok(!huge.includes('second'));
+  // Per-message truncation marks.
+  const trunc = formatSessionContext([], [
+    [{ role: 'user', content: 'z'.repeat(20000) }],
+  ]);
+  assert.ok(trunc.includes('… [truncated]'));
+});
+
+test('rankMemories compares each fact in its shared space', () => {
+  // Remote query vector (fake 4-dim space): fact A matches it closely,
+  // fact B carries a local 64-dim vector, fact C carries nothing.
+  const remoteQuery = [1, 0, 0, 0];
+  const facts = [
+    { fact: 'Clair adores lilies more than roses', embedding: [0.9, 0.1, 0, 0] },
+    { fact: 'Clair adores lilies daily forever', embedding: new Array(64).fill(0.01) },
+    { fact: 'zzz qqq xxx', createdAt: new Date('2020-01-01') },
+  ];
+  const ranked = rankMemories(facts, 'lilies', 3, new Date(), remoteQuery);
+  // A wins via remote cosine even though B shares more tokens.
+  assert.equal(ranked[0].fact, facts[0].fact);
+  // Without the remote vector, everything still ranks (local fallback).
+  const local = rankMemories(facts, 'lilies', 3, new Date());
+  assert.equal(local.length, 3);
+  // Dimension mismatch never crashes and never matches.
+  const odd = rankMemories(
+    [{ fact: 'unrelated words here', embedding: [1, 2, 3] }],
+    'lilies', 3, new Date(), [1, 2],
+  );
+  assert.equal(odd.length, 1);
+});
+
+test('findContradiction spots same-subject same-relation updates', () => {
+  const { findContradiction, parseFactStructure } = require('../motchi_core.js');
+  const cands = [
+    { id: 'a', fact: 'Khent prefers black coffee' },
+    { id: 'b', fact: 'Clair loves lilies' },
+    { id: 'c', fact: 'Khent rides a Honda Winner X' },
+  ];
+  // Same subject + relation, different object -> conflict.
+  const hit = findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', cands);
+  assert.equal(hit && hit.id, 'a');
+  // Same subject, different relation -> no conflict.
+  assert.equal(findContradiction(parseFactStructure('Khent hates black coffee'), 'Khent hates black coffee', cands), null);
+  // Different subject -> no conflict.
+  assert.equal(findContradiction(parseFactStructure('Clair prefers black coffee'), 'Clair prefers black coffee', cands), null);
+  // Near-duplicate rephrase -> not a contradiction (dedupe owns it).
+  assert.equal(findContradiction(parseFactStructure('Khent prefers black coffee!'), 'Khent prefers black coffee!', cands), null);
+  // Unparseable newcomer -> no conflict.
+  assert.equal(findContradiction(parseFactStructure('hello there'), 'hello there', cands), null);
+  assert.equal(findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', []), null);
+  assert.equal(findContradiction(null, 'x', cands), null);
 });

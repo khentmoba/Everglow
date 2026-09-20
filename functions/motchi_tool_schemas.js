@@ -6,7 +6,7 @@
  * selectToolsForRequest prunes it per feature/greeting/intent.
  */
 
-const { CORE_TOOLS, selectToolNames } = require('./motchi_tools.js');
+const { CORE_TOOLS, selectToolNames, FOLLOW_THROUGH_TOOLS, isBareYes, hasOffer } = require('./motchi_tools.js');
 
 const MOTCHI_TOOLS = [
   {
@@ -267,7 +267,7 @@ const MOTCHI_TOOLS = [
     type: 'function',
     function: {
       name: 'remember_fact',
-      description: 'Save a personal fact about Khent or Clair to Motchi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship — and when they ask you to read the journal, chat, or another space and remember things about them (save each standout detail as its own fact, then name what you saved in your visible reply).',
+      description: 'Save a personal fact about Khent or Clair to Motchi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship — and when they ask you to read the journal, chat, or another space and remember things about them (save each standout detail as its own fact, then name what you saved in your visible reply). If the new fact contradicts a stored one (same person, same topic, different detail), the old fact is updated automatically — no need to delete first.',
       parameters: {
         type: 'object',
         properties: {
@@ -897,9 +897,82 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_bucket_item',
+      description: 'Edit a bucket list item by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Item id from get_bucket_list' },
+          title: { type: 'string', description: 'Item title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          category: { type: 'string', enum: ['travel','experience','food','adventure','milestone','other'], description: 'New category' },
+          priority: { type: 'string', enum: ['low','medium','high','urgent'], description: 'New priority' },
+          due_date: { type: 'string', description: 'New due date (ISO 8601)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_habit',
+      description: 'Edit a wellness habit by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Habit id' },
+          title: { type: 'string', description: 'Habit title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          category: { type: 'string', enum: ['health','fitness','mindfulness','learning','social','other'], description: 'New category' },
+          frequency: { type: 'string', enum: ['daily','weekly','custom'], description: 'New frequency' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_reminder',
+      description: 'Edit a pending reminder by id or title. Only the provided fields change; editing the time reschedules it.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Reminder id from list_reminders' },
+          title: { type: 'string', description: 'Reminder title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          note: { type: 'string', description: 'New note' },
+          remind_at: { type: 'string', description: 'New time: ISO 8601 or plain words like "tomorrow at 3pm". Times mean Philippine time.' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_trip',
+      description: 'Edit a trip by id or title. Only the provided fields change.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: 'Trip id from get_trips' },
+          title: { type: 'string', description: 'Trip title to match (when id is not known)' },
+          new_title: { type: 'string', description: 'New title' },
+          description: { type: 'string', description: 'New description' },
+          start_date: { type: 'string', description: 'New start date (ISO 8601 YYYY-MM-DD)' },
+          end_date: { type: 'string', description: 'New end date (ISO 8601 YYYY-MM-DD)' },
+          budget: { type: 'number', description: 'New budget estimate' },
+        },
+      },
+    },
+  },
 ];
 
-function selectToolsForRequest(reqFeature, userMsg) {
+function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '') {
   if (reqFeature === 'guardian') {
     const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
@@ -909,6 +982,12 @@ function selectToolsForRequest(reqFeature, userMsg) {
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
   }
   const trimmed = String(userMsg || '').trim().toLowerCase();
+  // Follow-through beats smalltalk: "ok" to an offered plan must keep
+  // the write tools, not the core-only smalltalk set.
+  if (hasOffer(prevAssistantText) && isBareYes(trimmed)) {
+    const wanted = new Set([...CORE_TOOLS, ...FOLLOW_THROUGH_TOOLS]);
+    return MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
+  }
   const isPureGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i.test(trimmed);
   if (isPureGreeting) {
     // A bare greeting never needs tools — answer warm and free.
@@ -926,7 +1005,7 @@ function selectToolsForRequest(reqFeature, userMsg) {
   // for (typically a third of the schemas). Falls back to full tools if
   // the router ever returns nothing, so Motchi never goes blind.
   try {
-    const wanted = new Set(selectToolNames(userMsg));
+    const wanted = new Set(selectToolNames(userMsg, prevAssistantText));
     const routed = MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
     if (routed.length > 0) return routed;
   } catch (_) {}

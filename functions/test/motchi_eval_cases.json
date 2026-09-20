@@ -436,5 +436,33 @@
       "get_journal_entries",
       "remember_fact"
     ]
+  },
+  {
+    "id": "bucket-edit",
+    "message": "edit our Siargao bucket item to high priority",
+    "expectedTools": [
+      "edit_bucket_item"
+    ]
+  },
+  {
+    "id": "habit-edit",
+    "message": "rename our reading habit to morning pages",
+    "expectedTools": [
+      "edit_habit"
+    ]
+  },
+  {
+    "id": "remind-edit",
+    "message": "change my plant reminder to 5pm",
+    "expectedTools": [
+      "edit_reminder"
+    ]
+  },
+  {
+    "id": "trip-edit",
+    "message": "move our Cebu trip to March",
+    "expectedTools": [
+      "edit_trip"
+    ]
   }
 ]

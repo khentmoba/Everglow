@@ -13,6 +13,7 @@ const {
 } = require('./common.js');
 const {
   parseFactStructure,
+  findContradiction,
   rankMemories,
   simpleEmbedding,
   isNearDuplicate,
@@ -20,33 +21,38 @@ const {
 } = require('./motchi_core.js');
 const { getTmdbKey } = require('./motchi_context.js');
 
-// ── W4-C9: Embedding scaffold (hybrid retrieval) ────────────────
-// Placeholder for future vector search. Stores null for now, keeps
-// memory schema forward-compatible. When AGNES embeddings are enabled,
-// getEmbedding(text) will return a float[] and rankMemories can use
-// cosine similarity alongside token scoring.
-async function getEmbedding(text) {
+// ── Embeddings (hybrid retrieval) ───────────────────────────────
+// Remote Agnes vectors when the endpoint answers, local 64-dim hash
+// vectors otherwise. Stored facts may carry either space; rankMemories
+// compares each fact in the space it shares with the query vector.
+async function getRemoteEmbedding(text) {
   const normalized = String(text||'').trim();
   if (!normalized) return null;
   const apiKey = process.env.AGNES_API_KEY;
-  if (apiKey) {
-    try {
-      const resp = await fetch('https://apihub.agnes-ai.com/v1/embeddings', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        const emb = data.data?.[0]?.embedding || data.embedding;
-        if (Array.isArray(emb) && emb.length > 0) {
-          const norm = Math.sqrt(emb.reduce((s,v)=>s+v*v,0));
-          return norm ? emb.map(v=>v/norm) : emb;
-        }
-      }
-    } catch (_) {}
+  if (!apiKey) return null;
+  try {
+    const resp = await fetch('https://apihub.agnes-ai.com/v1/embeddings', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const emb = data.data?.[0]?.embedding || data.embedding;
+    if (!Array.isArray(emb) || emb.length === 0) return null;
+    const norm = Math.sqrt(emb.reduce((s,v)=>s+v*v,0));
+    return norm ? emb.map(v=>v/norm) : emb;
+  } catch (_) {
+    return null;
   }
+}
+
+async function getEmbedding(text) {
+  const normalized = String(text||'').trim();
+  if (!normalized) return null;
+  const remote = await getRemoteEmbedding(normalized);
+  if (remote) return remote;
   try { return simpleEmbedding(normalized, 64); } catch (_) { return null; }
 }
 
@@ -108,10 +114,10 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     const db = getDb();
     // Fetch recent facts for semantic dedupe (last 30 — extraction only
     // needs the fresh window; older dupes are harmless).
-    let recentFacts = [];
+    let recentDocs = [];
     try {
       const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt','desc').limit(30).get();
-      recentFacts = snap.docs.map(d => d.data().fact || '').filter(Boolean);
+      recentDocs = snap.docs.map(d => ({ id: d.id, fact: d.data().fact || '' })).filter(x => x.fact);
     } catch (_) {}
     for (const line of lines) {
       let fact = line.trim();
@@ -126,20 +132,36 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       if (!fact) continue;
       // Semantic dedupe
       let isDup = false;
-      for (const existing of recentFacts) {
-        if (existing.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
-        try { if (isNearDuplicate(existing, fact, 0.85)) { isDup = true; break; } } catch (_) {}
+      for (const existing of recentDocs) {
+        if (existing.fact.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
+        try { if (isNearDuplicate(existing.fact, fact, 0.85)) { isDup = true; break; } } catch (_) {}
       }
       if (isDup) continue;
       // (No exact-match query: the semantic pass above already skips
       // case-insensitive duplicates, saving a read per candidate.)
       const parsed = parseFactStructure(fact);
-      // Local-only embedding: rankMemories compares against a local
-      // query vector, so a remote vector would never match dimensions
-      // anyway. Skips an API call per fact and keeps ranking working.
+      // Contradiction: same subject + relation, different object —
+      // update the stale fact instead of adding a twin.
+      const hit = findContradiction(parsed, fact, recentDocs);
+      if (hit && hit.id) {
+        try {
+          await db.collection('ai_memories').doc('shared').collection('facts').doc(hit.id).update({
+            fact,
+            category,
+            object: parsed.object || null,
+            confidence: 1.0,
+            updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (_) {}
+        hit.fact = fact;
+        continue;
+      }
+      // Remote-first embedding (local fallback): rankMemories compares
+      // each fact in the space it shares with the query vector.
       let embedding = null;
-      try { embedding = simpleEmbedding(fact, 64); } catch (_) {}
-      await db.collection('ai_memories').doc('shared').collection('facts').add({
+      try { embedding = await getEmbedding(fact); } catch (_) {}
+      try {
+        const ref = await db.collection('ai_memories').doc('shared').collection('facts').add({
         fact,
         category,
         subject: parsed.subject || null,
@@ -153,20 +175,26 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         pinned: false,
         source: callerUsername || 'motchi',
         embedding,
-      });
-      recentFacts.unshift(fact);
+        });
+        recentDocs.unshift({ id: ref.id, fact });
+      } catch (_) {
+        recentDocs.unshift({ id: null, fact });
+      }
     }
   } catch (e) {
     console.warn('[memoryExtract] failed:', e.message);
   }
 }
 
-async function checkHallucinations(replyText) {
+async function checkHallucinations(replyText, rand = Math.random) {
   try {
     if (!replyText || replyText.length < 20) return;
     // Only media replies can hallucinate titles — skip the TMDB lookups
     // for journal quotes, chat quotes, and everyday chatter.
     if (!/recommend|watch|movie|film|\bshow\b|series|anime|cinema|episode/i.test(replyText)) return;
+    // Sampled telemetry: this only feeds the review log, so checking
+    // half the replies still surfaces systemic invention at half price.
+    if (rand() >= 0.5) return;
     const apiKey = getTmdbKey();
     if (!apiKey) return;
     // Extract candidate titles: double-quoted, single-quoted, or **bold**
@@ -178,8 +206,8 @@ async function checkHallucinations(replyText) {
     const bold = replyText.matchAll(/\*\*([^*]{3,60})\*\*/g);
     for (const m of bold) candidates.add(m[1].trim());
     // Also consider Title Case phrases after trigger words like "watch", "recommend", "try"
-    // Keep set small — max 5 checks to bound TMDB calls.
-    const list = Array.from(candidates).filter(t => t.split(/\s+/).length >= 1 && t.split(/\s+/).length <= 6).slice(0, 5);
+    // Keep set small — max 3 checks to bound TMDB calls.
+    const list = Array.from(candidates).filter(t => t.split(/\s+/).length >= 1 && t.split(/\s+/).length <= 6).slice(0, 3);
     if (list.length === 0) return;
     const hallucinated = [];
     for (const title of list) {
@@ -240,13 +268,21 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
   // decay and rank with the same pure scorer used by tests.
   try {
     const db = getDb();
-    const snapshot = await db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc')
-      .limit(150)
-      .get();
+    // Slim: 60 freshest + pinned top-up (was: 150 freshest). Pinned facts
+    // ride their own tiny query so an old pin can never fall off the
+    // tail when the book grows past the fresh window.
+    const factsCol = db.collection('ai_memories').doc('shared').collection('facts');
+    const [snapshot, pinnedSnap] = await Promise.all([
+      factsCol.orderBy('createdAt', 'desc').limit(60).get(),
+      factsCol.where('pinned', '==', true).limit(20).get(),
+    ]);
 
     const memories = [];
-    snapshot.forEach(doc => {
+    const seenIds = new Set();
+    for (const snap of [snapshot, pinnedSnap]) {
+    snap.forEach(doc => {
+      if (seenIds.has(doc.id)) return;
+      seenIds.add(doc.id);
       const data = doc.data();
       memories.push({
         id: doc.id,
@@ -262,6 +298,7 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
         lastAccessed: data.lastAccessed?.toDate?.() || null,
       });
     });
+    }
 
     // Decay: halve confidence if not accessed in 90 days
     const now = new Date();
@@ -275,7 +312,12 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
       return m;
     }).filter(m => m.confidence >= 0.15);
 
-    const ranked = rankMemories(decayed, userMessage || '', maxResults);
+    // One remote query vector per turn when the endpoint answers;
+    // facts stored in the remote space then match semantically instead
+    // of by hash overlap. Fails soft to local-only ranking.
+    let remoteQueryEmb = null;
+    try { remoteQueryEmb = await getRemoteEmbedding(userMessage || ''); } catch (_) {}
+    const ranked = rankMemories(decayed, userMessage || '', maxResults, undefined, remoteQueryEmb);
     // W3-C12: bump accessCount/lastAccessed for the memories that were injected (fire-and-forget)
     if (ranked.length > 0) {
       const idsToBump = ranked.map(m => m.id).filter(Boolean).slice(0, 15);
@@ -302,6 +344,7 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
 
 module.exports = {
   getEmbedding,
+  getRemoteEmbedding,
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,

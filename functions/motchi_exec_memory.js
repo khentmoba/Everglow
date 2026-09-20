@@ -6,13 +6,37 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
-const { parseFactStructure, rankMemories } = require('./motchi_core.js');
+const { parseFactStructure, rankMemories, findContradiction } = require('./motchi_core.js');
 const { getEmbedding } = require('./motchi_memory.js');
 
 async function exec_remember_fact(ctx, args) {
     const fact = (args.fact || '').trim();
     if (!fact) return JSON.stringify({ error: 'No fact provided' });
     const parsed = parseFactStructure(fact);
+    // Contradiction: same subject + relation with a different object
+    // updates the stale fact instead of stacking a twin ("I hate
+    // coffee now" replaces "loves coffee", it doesn't join it).
+    if (parsed.subject && parsed.relation) {
+      try {
+        const factsCol = ctx.db.collection('ai_memories').doc('shared').collection('facts');
+        const snap = await factsCol.where('subject', '==', parsed.subject).limit(15).get();
+        const cands = (snap.docs || []).map((d) => {
+          const v = (d.data && d.data()) || {};
+          return { id: d.id, fact: v.fact || '', category: v.category || 'fact' };
+        });
+        const hit = findContradiction(parsed, fact, cands);
+        if (hit && hit.id) {
+          await factsCol.doc(hit.id).update({
+            fact,
+            category: args.category || hit.category || 'fact',
+            object: parsed.object || null,
+            confidence: 1.0,
+            updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return JSON.stringify({ success: true, updated: true, id: hit.id, fact, previous: hit.fact });
+        }
+      } catch (_) {}
+    }
     const emb = await getEmbedding(fact).catch(() => null);
     await ctx.db.collection('ai_memories').doc('shared').collection('facts').add({
       fact,
@@ -411,8 +435,15 @@ async function exec_delete_journal_entry(ctx, args) {
   if (!args.confirm) {
     return JSON.stringify({ needs_confirmation: true, message: `Delete the journal entry "${entryTitle}"? Re-call delete_journal_entry with confirm:true to proceed.`, id: ref.id, title: entryTitle });
   }
+  const en = snap.data() || {};
   await ref.delete();
-  return JSON.stringify({ success: true, id: ref.id, title: entryTitle });
+  return JSON.stringify({ success: true, id: ref.id, title: entryTitle, deleted: {
+    title: en.title || entryTitle,
+    content: en.content || '',
+    category: en.category || 'daily',
+    mood: en.mood || null,
+    tags: en.tags || [],
+  } });
 }
 
 module.exports = {

@@ -87,6 +87,32 @@ function scoreMemory(rawFact, tokens, now) {
   return score;
 }
 
+/**
+ * Finds a stored fact that `parsed` contradicts: same subject + same
+ * relation (case-insensitive), but a materially different object.
+ * Near-duplicates are NOT contradictions — dedupe owns those.
+ * Returns the conflicting candidate or null.
+ */
+function findContradiction(parsed, factText, candidates) {
+  const subject = String((parsed && parsed.subject) || '').trim().toLowerCase();
+  const relation = String((parsed && parsed.relation) || '').trim().toLowerCase();
+  const object = String((parsed && parsed.object) || '').trim();
+  if (!subject || !relation || !object) return null;
+  for (const cand of candidates || []) {
+    if (!cand || !cand.fact) continue;
+    const cp = parseFactStructure(cand.fact);
+    if (!cp.subject || !cp.relation || !cp.object) continue;
+    if (cp.subject.trim().toLowerCase() !== subject) continue;
+    if (cp.relation.trim().toLowerCase() !== relation) continue;
+    if (cp.object.trim().toLowerCase() === object.toLowerCase()) continue;
+    try {
+      if (isNearDuplicate(cand.fact, factText, 0.85)) continue;
+    } catch (_) {}
+    return cand;
+  }
+  return null;
+}
+
 function hashToken(token) {
   let h = 2166136261;
   for (let i = 0; i < token.length; i++) {
@@ -118,7 +144,7 @@ function cosineSimilarity(a, b) {
   return dot;
 }
 
-function rankMemories(facts, query, maxResults = 30, now = new Date()) {
+function rankMemories(facts, query, maxResults = 30, now = new Date(), remoteQueryEmb = null) {
   const tokens = tokenize(query);
   const current = now || new Date();
   const queryEmb = simpleEmbedding(query);
@@ -127,11 +153,21 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
     .map((fact) => {
       let score = scoreMemory(fact, tokens, current);
       try {
-        const factEmb = fact.embedding ? fact.embedding : simpleEmbedding(fact.fact || '');
-        if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
-          const cos = cosineSimilarity(queryEmb, factEmb);
+        const stored = Array.isArray(fact.embedding) ? fact.embedding : null;
+        // Remote space wins when both sides share it; otherwise local.
+        if (remoteQueryEmb && stored && stored.length === remoteQueryEmb.length) {
+          const cos = cosineSimilarity(remoteQueryEmb, stored);
           score += cos * 2;
           fact._cos = cos;
+        } else {
+          const factEmb = stored && queryEmb && stored.length === queryEmb.length
+            ? stored
+            : simpleEmbedding(fact.fact || '');
+          if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
+            const cos = cosineSimilarity(queryEmb, factEmb);
+            score += cos * 2;
+            fact._cos = cos;
+          }
         }
       } catch (_) {}
       return { fact, score };
@@ -141,12 +177,14 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
 }
 
 /**
- * True when a stored memory embedding can't match the local query
- * vector (missing, malformed, or built with other dimensions, e.g. the
- * retired remote vectors). The nightly sweep recomputes those locally.
+ * True when a stored memory embedding matches no known query space:
+ * missing, malformed, or an odd dimension. Valid spaces are local
+ * 64-dim hash vectors and remote vectors (hundreds of dims). The
+ * nightly sweep recomputes the invalid ones, remote-first.
  */
-function needsEmbeddingBackfill(embedding, dim = 64) {
-  return !Array.isArray(embedding) || embedding.length !== dim;
+function needsEmbeddingBackfill(embedding) {
+  if (!Array.isArray(embedding)) return true;
+  return embedding.length !== 64 && embedding.length < 256;
 }
 
 function isNearDuplicate(a, b, threshold = 0.88) {
@@ -317,11 +355,6 @@ function computeInsights({ moods = [], activities = [] } = {}) {
     });
   }
   return insights;
-}
-
-function firstDateOf(value) {
-  const date = toDate(value);
-  return date ? date.toISOString().slice(0, 10) : '';
 }
 
 /**
@@ -544,9 +577,87 @@ function parseReminderDate(raw, nowMs = Date.now()) {
   return null;
 }
 
+// ── Context-block trimming (C1: slim prompt) ────────────────────
+// Pure formatters for the two biggest context blocks (sanctuary chat
+// history and archived sessions). The live conversation already carries
+// recent turns, so these blocks keep a short tail + a count line
+// instead of full history — roughly half the tokens, same awareness.
+const CHAT_CONTEXT_SHOWN = 12;
+const CHAT_MESSAGE_CHARS = 400;
+const SESSION_SUMMARY_SHOWN = 6;
+const SESSION_SUMMARY_CHARS = 600;
+const SESSION_BLOCKS_SHOWN = 3;
+const SESSION_CHAR_LIMIT = 8000;
+const SESSION_MESSAGE_CHARS = 1500;
+
+function truncateText(text, max) {
+  const s = String(text || '');
+  if (s.length <= max) return s;
+  return s.slice(0, max) + '… [truncated]';
+}
+
+/**
+ * Formats sanctuary chat lines (chronological "who: text" strings).
+ * Keeps the newest `shown` lines, capped per line, plus a count of the
+ * older messages Motchi can still pull via read_chat_messages.
+ */
+function formatChatContext(lines, shown = CHAT_CONTEXT_SHOWN, perMessage = CHAT_MESSAGE_CHARS) {
+  const list = (lines || []).filter((l) => String(l || '').trim());
+  if (list.length === 0) return '';
+  const tail = list.slice(-shown).map((l) => truncateText(l, perMessage));
+  const older = list.length - tail.length;
+  const head = older > 0 ? `…plus ${older} earlier messages (use read_chat_messages for more)\n` : '';
+  return `Recent sanctuary chat:\n${head}${tail.join('\n')}`;
+}
+
+/**
+ * Formats archived session summaries + raw session blocks with hard
+ * bounds. Summaries are cheapest (one line each); raw blocks are
+ * capped by count, chars, and per-message length.
+ */
+function formatSessionContext(summaries, sessions, opts = {}) {
+  const {
+    summaryShown = SESSION_SUMMARY_SHOWN,
+    summaryChars = SESSION_SUMMARY_CHARS,
+    blocksShown = SESSION_BLOCKS_SHOWN,
+    charLimit = SESSION_CHAR_LIMIT,
+    perMessage = SESSION_MESSAGE_CHARS,
+  } = opts;
+  const parts = [];
+  const sums = (summaries || []).filter((s) => String(s || '').trim());
+  if (sums.length > 0) {
+    const lines = sums.slice(0, summaryShown).map(
+      (s, i) => `Session ${i + 1}: ${truncateText(s, summaryChars)}`
+    );
+    parts.push(`## Past Session Summaries\n${lines.join('\n')}`);
+  }
+  const blocks = [];
+  let totalChars = 0;
+  for (const msgs of (sessions || []).slice(0, blocksShown)) {
+    const lines = (msgs || []).map((m) => {
+      const who = m && m.role === 'user' ? 'User' : 'Motchi';
+      return `${who}: ${truncateText(m && m.content, perMessage)}`;
+    });
+    const block = `--- Session ${blocks.length + 1} ---\n${lines.join('\n')}`;
+    if (totalChars + block.length > charLimit && blocks.length > 0) break;
+    totalChars += block.length;
+    blocks.push(block);
+  }
+  if (blocks.length > 0) {
+    parts.push(`## Previous Conversations\n${blocks.join('\n\n')}`);
+  }
+  return parts.join('\n\n');
+}
+
 module.exports = {
   tokenize,
   parseFactStructure,
+  findContradiction,
+  truncateText,
+  formatChatContext,
+  formatSessionContext,
+  CHAT_CONTEXT_SHOWN,
+  SESSION_BLOCKS_SHOWN,
   scoreMemory,
   rankMemories,
   simpleEmbedding,

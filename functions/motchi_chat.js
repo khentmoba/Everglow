@@ -5,13 +5,7 @@
 // This is the largest unit; future splits should carve tool handlers
 // and prompt builders out of handleProxyAI without changing its contract.
 
-const functions = require('firebase-functions/v1');
-
 const {
-  parseFactStructure,
-  rankMemories,
-  generateTrivia,
-  computeInsights,
   composeTodayRecap,
   getMessageText,
   estimateTokens,
@@ -20,7 +14,6 @@ const {
   AGNES_INPUT_TOKEN_BUDGET,
 } = require('./motchi_core.js');
 const {
-  getEmbedding,
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,
@@ -31,14 +24,11 @@ const {
   enforceRateLimit,
   checkDailyCap,
   getVerifiedUsername,
-  _getExternalCache,
-  _setExternalCache,
-  _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
-const { sendFCMToUser, logToolCall } = require('./triggers.js');
-const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./motchi_context.js');
-const { CORE_TOOLS, selectToolNames, toolListSection, MAX_TOOL_ROUNDS } = require('./motchi_tools.js');
-const { MOTCHI_TOOLS, selectToolsForRequest } = require('./motchi_tool_schemas.js');
+const { logToolCall } = require('./triggers.js');
+const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
+const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath } = require('./motchi_tools.js');
+const { selectToolsForRequest } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 
 const TOOL_INVALIDATIONS = {
@@ -56,10 +46,13 @@ const TOOL_INVALIDATIONS = {
   add_bucket_item: 'bucket',
   complete_bucket_item: 'bucket',
   delete_bucket_item: 'bucket',
+  edit_bucket_item: 'bucket',
   add_trip: 'travel',
   add_trip_pin: 'travel',
+  edit_trip: 'travel',
   log_habit: 'wellness',
   complete_habit: 'wellness',
+  edit_habit: 'wellness',
   add_book_to_our_books: 'books',
   update_book_progress: 'books',
 };
@@ -67,12 +60,6 @@ const TOOL_INVALIDATIONS = {
 /** In-memory cache for Motchi's persona document (5 min TTL). */
 let _personaCache = { text: null, ts: 0 };
 const _PERSONA_TTL_MS = 5 * 60 * 1000;
-
-// ── Partner UID helpers (couple-only) ──
-const PARTNER_UID = {
-  khentsgdz: "clairjassen",
-  clairjassen: "khentsgdz",
-};
 
 /**
  * Strips hidden artifact blocks (quiz/flashcards/html) from a reply so
@@ -195,6 +182,9 @@ async function handleProxyAI(req, res) {
     ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
+  // Previous assistant text powers follow-through routing: a bare yes
+  // keeps the write tools only when Motchi just offered a plan.
+  const prevAssistantText = getMessageText(messages.findLast((m) => m?.role === 'assistant')?.content);
   // Explicit artifact ask — wins over the Canvas toggle (see above). Used
   // both for the prompt gate and the output-budget tier below. Strong nouns
   // match bare; ambiguous ones (quiz, game, app, website…) need an ask or
@@ -208,17 +198,26 @@ async function handleProxyAI(req, res) {
   // True when the canvas prompt section rode along (mirrors the two
   // section gates below) — the repair nudge only makes sense then.
   const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
+  // Fast-path: a whole-message zero-arg read-only ask. Skips the context
+  // + memory reads below and pre-executes the tool after the prompt is
+  // built. Assistant-only, never for thinking mode or artifact builds.
+  const fastPath = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact)
+    ? matchFastPath(lastUserMessage)
+    : null;
   // Server context, persona, and memories are independent reads — start
   // all three together and await once, so a cold turn pays one round-trip
   // instead of three in a row. Each fails soft: a hiccup just means Motchi
   // answers with less context, never a failed chat for Clair.
-  const _contextPromise = (feature && !context)
+  const _contextPromise = (feature && !context && !fastPath)
     ? buildContextForFeature(feature, caller, lastUserMessage).catch((e) => {
         console.warn('[proxyAI] server context failed, continuing without it:', e.message);
         return '';
       })
     : Promise.resolve('');
-  const _memoriesPromise = selectRelevantMemories(memories, lastUserMessage, 10).catch((e) => {
+  const _memoriesPromise = (fastPath
+    ? Promise.resolve([])
+    : selectRelevantMemories(memories, lastUserMessage, 10)
+  ).catch((e) => {
     console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
     return [];
   });
@@ -293,6 +292,7 @@ You can analyze images sent by the user. When you receive images:
 - Always finish the thought in visible text: if your pre-tool message promised a list or a save ("Let me save the standouts:"), the reply after the tool calls MUST name what you saved or found. A preamble ending with ":" and no list after it is a broken reply — never leave one hanging.
 - You can call multiple tools in sequence if needed.
 - Do NOT use tools for simple conversational replies or when the answer is already in your context.
+- When you present a plan with an offer ("want me to add this to the calendar?"), a bare yes means EXECUTE: call the tools using the details from YOUR plan message. Never ask for details you already named.
 
 ## Planning — for complex multi-step requests, think ReAct style
 When they say "plan our anniversary", "surprise us", "help us decide", or any layered ask:
@@ -523,7 +523,8 @@ ${HTML_GAME_GUIDE}
 
 
   // Tools: custom Motchi tools (dynamically pruned for feature and greetings)
-  const tools = selectToolsForRequest(feature, lastUserMessage);
+  let tools = selectToolsForRequest(feature, lastUserMessage, prevAssistantText);
+  if (fastPath) tools = []; // pre-executed below; the model only answers
 
   // Render the persona's tool list from the ATTACHED tools, so the prompt
   // never advertises tools that routing removed. Custom/Firestore
@@ -536,6 +537,39 @@ ${HTML_GAME_GUIDE}
     // nimMessages captured the placeholder version — point it at the
     // rendered prompt (the payload guard below still measures the body).
     if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
+  }
+
+  // Fast-path execution: run the zero-arg tool now and append a synthetic
+  // assistant+tool pair, so both answer paths below stream one direct
+  // answer from the result with no tools attached and no extra rounds.
+  if (fastPath) {
+    systemPrompt += '\n## Fast Answer\nA tool result follows below. Answer ONLY from it, warmly and briefly. Do not call any tools.';
+    if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
+    const fpStarted = Date.now();
+    let fpResult;
+    try {
+      fpResult = await executeToolCall(toolCtx, fastPath.tool, fastPath.args);
+    } catch (err) {
+      fpResult = JSON.stringify({ error: (err && err.message) || 'Tool execution failed' });
+    }
+    try {
+      if (typeof logToolCall === 'function') {
+        logToolCall(fastPath.tool, caller, fpResult, Date.now() - fpStarted).catch(() => {});
+      }
+    } catch (_) {}
+    nimMessages.push(
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ id: 'call_fastpath_0', type: 'function', function: { name: fastPath.tool, arguments: JSON.stringify(fastPath.args) } }],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call_fastpath_0',
+        name: fastPath.tool,
+        content: fpResult.length > 6000 ? fpResult.slice(0, 6000) + '…[trimmed]' : fpResult,
+      },
+    );
   }
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
@@ -586,24 +620,30 @@ ${HTML_GAME_GUIDE}
     }
     // Phase 2: If still too large, trim system prompt content
     if (agnesBodyBytes > 8 * 1024 * 1024 && nimMessages[0]?.content) {
+      // Parse our own payload once (guarded) and measure trims against it.
+      let agnesBase = null;
+      try { agnesBase = JSON.parse(agnesBody); } catch (_) { agnesBase = null; }
+      const byteSizeWith = (content) => {
+        const body = agnesBase
+          ? JSON.stringify({ ...agnesBase, messages: [{ role: 'system', content }, ...nimMessages.slice(1)] })
+          : JSON.stringify({ model, messages: [{ role: 'system', content }, ...nimMessages.slice(1)], tools, max_tokens: maxTokens });
+        return Buffer.byteLength(body, 'utf8');
+      };
       let sysContent = nimMessages[0].content;
       const pcIdx = sysContent.indexOf('## Previous Conversations');
       if (pcIdx !== -1) {
         const nextSec = sysContent.indexOf('\n## ', pcIdx + 1);
-        sysContent = sysContent.substring(0, pcIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
+        sysContent = sysContent.slice(0, pcIdx) + (nextSec !== -1 ? sysContent.slice(nextSec) : '');
       }
-      const testPayload = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
-      if (Buffer.byteLength(testPayload, 'utf8') > 8 * 1024 * 1024) {
+      if (byteSizeWith(sysContent) > 8 * 1024 * 1024) {
         const ssIdx = sysContent.indexOf('## Past Session Summaries');
         if (ssIdx !== -1) {
           const nextSec = sysContent.indexOf('\n## ', ssIdx + 1);
-          sysContent = sysContent.substring(0, ssIdx) + (nextSec !== -1 ? sysContent.substring(nextSec) : '');
+          sysContent = sysContent.slice(0, ssIdx) + (nextSec !== -1 ? sysContent.slice(nextSec) : '');
         }
       }
-      let hardTrimTest = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
-      while (Buffer.byteLength(hardTrimTest, 'utf8') > 8 * 1024 * 1024 && sysContent.length > 2000) {
-        sysContent = sysContent.substring(0, Math.floor(sysContent.length * 0.8)) + '\n… [context trimmed for size]';
-        hardTrimTest = JSON.stringify({ ...JSON.parse(agnesBody), messages: [{ role: 'system', content: sysContent }, ...nimMessages.slice(1)] });
+      while (byteSizeWith(sysContent) > 8 * 1024 * 1024 && sysContent.length > 2000) {
+        sysContent = sysContent.slice(0, Math.floor(sysContent.length * 0.8)) + '\n… [context trimmed for size]';
       }
       nimMessages[0].content = sysContent;
       const finalBody = JSON.stringify({
@@ -675,6 +715,7 @@ ${HTML_GAME_GUIDE}
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
+      let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
       let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
@@ -749,7 +790,6 @@ ${HTML_GAME_GUIDE}
         // Collect the full response while streaming to client
         let fullContent = '';
         let collectedToolCalls = [];
-        let currentToolCall = null;
 
         const reader = streamResp.body.getReader();
         const decoder = new TextDecoder();
@@ -889,6 +929,11 @@ ${HTML_GAME_GUIDE}
             }
           } catch (_) {}
 
+          // A successful explicit save makes auto-extraction redundant.
+          if (fnName === 'remember_fact') {
+            try { if (JSON.parse(result).success) _rememberSaved = true; } catch (_) {}
+          }
+
           // Send rich tool result to client for inline cards
           try {
             const parsed = JSON.parse(result);
@@ -945,7 +990,7 @@ ${HTML_GAME_GUIDE}
       // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
       if (_streamedFinalReply.trim()) {
         const checkText = stripArtifactsForChecks(_streamedFinalReply);
-        if (checkText && shouldExtractMemory(lastUserMessage, checkText)) {
+        if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
           serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
         }
         if (checkText) checkHallucinations(checkText).catch(() => {});
@@ -1012,6 +1057,7 @@ ${HTML_GAME_GUIDE}
   const nsSeen = new Set(); // loop guard, same rule as streaming
   let nsReply = '';
   let nsReasoning = '';
+  let _nsRememberSaved = false; // skip auto-extract when remember_fact already saved
   let nsModel = model;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     let response;
@@ -1065,6 +1111,10 @@ ${HTML_GAME_GUIDE}
           logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
         }
       } catch (_) {}
+      // A successful explicit save makes auto-extraction redundant.
+      if (fnName === 'remember_fact') {
+        try { if (JSON.parse(result).success) _nsRememberSaved = true; } catch (_) {}
+      }
       const llmLimit = (fnName === 'web_search' || fnName === 'read_web_page') ? 6000 : 3000;
       const llmResult = result.length > llmLimit
         ? result.slice(0, llmLimit) + '…[trimmed]'
@@ -1114,7 +1164,7 @@ ${HTML_GAME_GUIDE}
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
     const checkText = stripArtifactsForChecks(reply);
-    if (checkText && shouldExtractMemory(lastUserMessage, checkText)) {
+    if (checkText && !_nsRememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
       serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
     }
     if (checkText) checkHallucinations(checkText).catch(() => {});
