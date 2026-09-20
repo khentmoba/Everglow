@@ -300,3 +300,39 @@ test('matchFastPath fires only on whole-message zero-arg asks', () => {
   assert.equal(fp(null), null);
   assert.equal(fp(`what level are we on${'!'.repeat(200)}`), null);
 });
+
+test('follow-through keeps write tools for a bare yes to an offer', () => {
+  const offer = 'I found 3 cozy ideas for Friday. Want me to add the best one to the calendar? 📅';
+  const picked = tools.selectToolNames('yes', offer);
+  for (const t of ['add_calendar_event', 'create_reminder', 'add_bucket_item', 'create_journal_entry', 'add_trip', 'log_habit', 'add_to_watchlist', 'send_sanctuary_message']) {
+    assert.ok(picked.includes(t), `follow-through missing ${t}`);
+  }
+  assert.ok(!picked.includes('search_movies'), 'follow-through must not include lookups');
+  assert.ok(!picked.includes('get_weather'), 'follow-through must not include weather');
+  // No offer, no writes: plain yes stays core + awareness.
+  const plain = tools.selectToolNames('yes', 'just chatting about your day');
+  assert.ok(!plain.includes('add_calendar_event'));
+  assert.ok(!plain.includes('create_reminder'));
+  // Compound yes follows normal routing, not follow-through.
+  const compound = tools.selectToolNames('yes and find movies', offer);
+  assert.ok(compound.includes('search_movies'));
+  assert.ok(!compound.includes('add_calendar_event'));
+  // Bare-yes shapes.
+  assert.equal(tools.isBareYes('yes please'), true);
+  assert.equal(tools.isBareYes('yeah do it'), true);
+  assert.equal(tools.isBareYes("let's do it!"), true);
+  assert.equal(tools.isBareYes('ok'), true);
+  assert.equal(tools.isBareYes('no'), false);
+  assert.equal(tools.isBareYes('yes but later'), false);
+  assert.equal(tools.isBareYes('maybe tomorrow'), false);
+});
+
+test('follow-through beats the smalltalk core-only set', () => {
+  const { selectToolsForRequest } = require('../motchi_tool_schemas.js');
+  const offer = 'Shall I save that to the journal for you two?';
+  const names = selectToolsForRequest('assistant', 'ok', offer).map((t) => t.function.name);
+  assert.ok(names.includes('create_journal_entry'));
+  // Same "ok" with no offer stays smalltalk-narrow.
+  const narrow = selectToolsForRequest('assistant', 'ok', 'nice weather today').map((t) => t.function.name);
+  assert.ok(!narrow.includes('create_journal_entry'));
+});

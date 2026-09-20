@@ -66,6 +66,10 @@
     synthetic assistant+tool pair answered with no tools attached.
     Anchored patterns + conjunction/multi-sentence/length guards;
     anything compound falls through to the normal loop.
+13. Follow-through: a bare affirmation (`isBareYes`) keeps the write
+    set (`FOLLOW_THROUGH_TOOLS`) only when the previous assistant
+    message shows an offer (`hasOffer`) — so "yes" executes the
+    plan using details Motchi already named, and never asks twice.
 
 ## Tool inventory (59)
 

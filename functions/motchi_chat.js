@@ -195,6 +195,9 @@ async function handleProxyAI(req, res) {
     ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
+  // Previous assistant text powers follow-through routing: a bare yes
+  // keeps the write tools only when Motchi just offered a plan.
+  const prevAssistantText = getMessageText([...messages].reverse().find(m => m.role === 'assistant')?.content);
   // Explicit artifact ask — wins over the Canvas toggle (see above). Used
   // both for the prompt gate and the output-budget tier below. Strong nouns
   // match bare; ambiguous ones (quiz, game, app, website…) need an ask or
@@ -302,6 +305,7 @@ You can analyze images sent by the user. When you receive images:
 - Always finish the thought in visible text: if your pre-tool message promised a list or a save ("Let me save the standouts:"), the reply after the tool calls MUST name what you saved or found. A preamble ending with ":" and no list after it is a broken reply — never leave one hanging.
 - You can call multiple tools in sequence if needed.
 - Do NOT use tools for simple conversational replies or when the answer is already in your context.
+- When you present a plan with an offer ("want me to add this to the calendar?"), a bare yes means EXECUTE: call the tools using the details from YOUR plan message. Never ask for details you already named.
 
 ## Planning — for complex multi-step requests, think ReAct style
 When they say "plan our anniversary", "surprise us", "help us decide", or any layered ask:
@@ -532,7 +536,7 @@ ${HTML_GAME_GUIDE}
 
 
   // Tools: custom Motchi tools (dynamically pruned for feature and greetings)
-  let tools = selectToolsForRequest(feature, lastUserMessage);
+  let tools = selectToolsForRequest(feature, lastUserMessage, prevAssistantText);
   if (fastPath) tools = []; // pre-executed below; the model only answers
 
   // Render the persona's tool list from the ATTACHED tools, so the prompt

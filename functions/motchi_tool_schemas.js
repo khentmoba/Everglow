@@ -6,7 +6,7 @@
  * selectToolsForRequest prunes it per feature/greeting/intent.
  */
 
-const { CORE_TOOLS, selectToolNames } = require('./motchi_tools.js');
+const { CORE_TOOLS, selectToolNames, FOLLOW_THROUGH_TOOLS, isBareYes, hasOffer } = require('./motchi_tools.js');
 
 const MOTCHI_TOOLS = [
   {
@@ -899,7 +899,7 @@ const MOTCHI_TOOLS = [
   },
 ];
 
-function selectToolsForRequest(reqFeature, userMsg) {
+function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '') {
   if (reqFeature === 'guardian') {
     const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
@@ -909,6 +909,12 @@ function selectToolsForRequest(reqFeature, userMsg) {
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
   }
   const trimmed = String(userMsg || '').trim().toLowerCase();
+  // Follow-through beats smalltalk: "ok" to an offered plan must keep
+  // the write tools, not the core-only smalltalk set.
+  if (hasOffer(prevAssistantText) && isBareYes(trimmed)) {
+    const wanted = new Set([...CORE_TOOLS, ...FOLLOW_THROUGH_TOOLS]);
+    return MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
+  }
   const isPureGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i.test(trimmed);
   if (isPureGreeting) {
     // A bare greeting never needs tools — answer warm and free.
@@ -926,7 +932,7 @@ function selectToolsForRequest(reqFeature, userMsg) {
   // for (typically a third of the schemas). Falls back to full tools if
   // the router ever returns nothing, so Motchi never goes blind.
   try {
-    const wanted = new Set(selectToolNames(userMsg));
+    const wanted = new Set(selectToolNames(userMsg, prevAssistantText));
     const routed = MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
     if (routed.length > 0) return routed;
   } catch (_) {}

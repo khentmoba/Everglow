@@ -203,9 +203,15 @@ const TOOL_GROUPS = [
 ];
 
 /** Tool names for a message: core + every matching intent group. */
-function selectToolNames(message) {
+function selectToolNames(message, prevAssistantText = '') {
   const text = String(message || '');
   const picked = new Set(CORE_TOOLS);
+  // Follow-through first: a bare yes to an offered plan keeps the
+  // write tools (normal keyword routing would starve it).
+  if (isBareYes(text) && hasOffer(prevAssistantText)) {
+    for (const name of FOLLOW_THROUGH_TOOLS) picked.add(name);
+    return [...picked];
+  }
   let matched = 0;
   for (const group of TOOL_GROUPS) {
     let hit = false;
@@ -550,6 +556,42 @@ const FAST_PATH_INTENTS = [
 
 const FAST_PATH_BLOCKERS = /\b(and|then|also|plus|after that|followed by|before that)\b|[;+]|\n/i;
 
+// ── Plan follow-through ─────────────────────────────────────────
+// When Motchi presents a plan with an offer ("want me to add this to
+// the calendar?"), a bare yes means EXECUTE — but "yes" carries no
+// keywords, so normal routing would send core tools only and the model
+// couldn't act. With the previous assistant text showing an offer, a
+// bare affirmation keeps the write tools its plan may need.
+const FOLLOW_THROUGH_TOOLS = [
+  'add_calendar_event',
+  'update_calendar_event',
+  'get_calendar_events',
+  'create_reminder',
+  'list_reminders',
+  'add_bucket_item',
+  'create_journal_entry',
+  'add_trip',
+  'log_habit',
+  'add_to_watchlist',
+  'send_sanctuary_message',
+  'send_note_to_partner',
+];
+
+const BARE_YES_RE = /^(yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|sounds good|perfect|yes please|yes do it|yeah do it|ok do it|let'?s do it)[!.,\s]*$/i;
+const BARE_YES_BLOCKERS = /\b(and|but|also|then|plus|except|instead|later)\b/i;
+const OFFER_MARKERS_RE = /calendar|schedul|remind|bucket|journal|trip|habit|watchlist|sanctuary|tell (her|him|them|clair|khent)|shall i|want me to|should i|i('ll| can) (add|create|save|book|plan|schedule|remind|send)/i;
+
+function isBareYes(message) {
+  const text = String(message || '').trim();
+  if (!text || text.length > 40) return false;
+  if (BARE_YES_BLOCKERS.test(text)) return false;
+  return BARE_YES_RE.test(text);
+}
+
+function hasOffer(prevAssistantText) {
+  return OFFER_MARKERS_RE.test(String(prevAssistantText || ''));
+}
+
 /** Whole-message fast-path match, or null to use the normal loop. */
 function matchFastPath(message) {
   const text = String(message || '').trim();
@@ -569,6 +611,9 @@ module.exports = {
   TOOL_NAMES,
   FAST_PATH_INTENTS,
   matchFastPath,
+  FOLLOW_THROUGH_TOOLS,
+  isBareYes,
+  hasOffer,
   CORE_TOOLS,
   AWARENESS_TOOLS,
   TOOL_GROUPS,
