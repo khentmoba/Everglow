@@ -21,10 +21,12 @@ import 'dashboard_load_tracker.dart';
 /// [visible] and ignores input once hidden. The number is honest —
 /// [DashboardLoadTracker.progress] climbs only as each first-screen card
 /// reports its own load settled (data, cache, or settled error).
+/// The displayed number eases toward the real number in smooth 1% ticks
+/// (never past it), so Clair sees 34, 35, 36… instead of a jump.
 /// [DashboardScreen] owns dismissal: the moment the tracker completes
 /// (100%), when Clair taps Skip, or on a generous failsafe so a wedged
 /// stream can never trap her — cards keep loading underneath.
-class DashboardLoadVeil extends StatelessWidget {
+class DashboardLoadVeil extends StatefulWidget {
   const DashboardLoadVeil({super.key, required this.visible, this.onSkip});
 
   final bool visible;
@@ -33,18 +35,84 @@ class DashboardLoadVeil extends StatelessWidget {
   final VoidCallback? onSkip;
 
   @override
+  State<DashboardLoadVeil> createState() => _DashboardLoadVeilState();
+}
+
+class _DashboardLoadVeilState extends State<DashboardLoadVeil>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  double _displayed = 0.0;
+  double _target = 0.0;
+  double _from = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..addListener(_onTick);
+  }
+
+  void _onTick() {
+    final t = AppMotion.reduced
+        ? 1.0
+        : Curves.easeOut.transform(_controller.value);
+    setState(() {
+      _displayed = _from + (_target - _from) * t;
+    });
+  }
+
+  /// Eases the shown number toward the real [target], ticking through
+  /// every 1% on the way. Never displays past the real progress.
+  void _animateTo(double target) {
+    if (target == _target) return;
+    if (target < _displayed) {
+      _target = target;
+      _from = target;
+      _controller.stop();
+      setState(() => _displayed = target);
+      return;
+    }
+    _from = _displayed;
+    _target = target;
+    if (AppMotion.reduced) {
+      _controller.stop();
+      setState(() => _displayed = target);
+      return;
+    }
+    // One tracker step (~17%) takes ~600ms, so each 1% ticks about
+    // every 35ms — visible counting without feeling slow.
+    final distance = (target - _from).abs();
+    final ms = (600 * distance / (1 / 6)).clamp(150, 900).round();
+    _controller.duration = Duration(milliseconds: ms);
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final progress = context.select<DashboardLoadTracker, double>(
       (t) => t.progress,
     );
+    if (progress != _target) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _animateTo(progress);
+      });
+    }
     final label = context.select<DashboardLoadTracker, String>(
       (t) => t.currentLabel,
     );
-    final percent = '${(progress * 100).round()}%';
+    final percent = '${(_displayed * 100).round()}%';
     return IgnorePointer(
-      ignoring: !visible,
+      ignoring: !widget.visible,
       child: AnimatedOpacity(
-        opacity: visible ? 1.0 : 0.0,
+        opacity: widget.visible ? 1.0 : 0.0,
         duration: AppMotion.orZero(const Duration(milliseconds: 500)),
         curve: Curves.easeOut,
         child: Container(
@@ -98,7 +166,7 @@ class DashboardLoadVeil extends StatelessWidget {
                       borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
                         minHeight: 2,
-                        value: progress,
+                        value: _displayed,
                         backgroundColor: const Color(0x26F5EFE6),
                         valueColor: const AlwaysStoppedAnimation<Color>(
                           AppColors.blushGold,
@@ -121,10 +189,10 @@ class DashboardLoadVeil extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (onSkip != null) ...[
+                  if (widget.onSkip != null) ...[
                     const SizedBox(height: 22),
                     TextButton(
-                      onPressed: onSkip,
+                      onPressed: widget.onSkip,
                       style: TextButton.styleFrom(
                         foregroundColor: AppColors.petalWhite.withValues(
                           alpha: 0.7,
