@@ -118,7 +118,7 @@ function cosineSimilarity(a, b) {
   return dot;
 }
 
-function rankMemories(facts, query, maxResults = 30, now = new Date()) {
+function rankMemories(facts, query, maxResults = 30, now = new Date(), remoteQueryEmb = null) {
   const tokens = tokenize(query);
   const current = now || new Date();
   const queryEmb = simpleEmbedding(query);
@@ -127,11 +127,21 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
     .map((fact) => {
       let score = scoreMemory(fact, tokens, current);
       try {
-        const factEmb = fact.embedding ? fact.embedding : simpleEmbedding(fact.fact || '');
-        if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
-          const cos = cosineSimilarity(queryEmb, factEmb);
+        const stored = Array.isArray(fact.embedding) ? fact.embedding : null;
+        // Remote space wins when both sides share it; otherwise local.
+        if (remoteQueryEmb && stored && stored.length === remoteQueryEmb.length) {
+          const cos = cosineSimilarity(remoteQueryEmb, stored);
           score += cos * 2;
           fact._cos = cos;
+        } else {
+          const factEmb = stored && queryEmb && stored.length === queryEmb.length
+            ? stored
+            : simpleEmbedding(fact.fact || '');
+          if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
+            const cos = cosineSimilarity(queryEmb, factEmb);
+            score += cos * 2;
+            fact._cos = cos;
+          }
         }
       } catch (_) {}
       return { fact, score };
@@ -141,12 +151,14 @@ function rankMemories(facts, query, maxResults = 30, now = new Date()) {
 }
 
 /**
- * True when a stored memory embedding can't match the local query
- * vector (missing, malformed, or built with other dimensions, e.g. the
- * retired remote vectors). The nightly sweep recomputes those locally.
+ * True when a stored memory embedding matches no known query space:
+ * missing, malformed, or an odd dimension. Valid spaces are local
+ * 64-dim hash vectors and remote vectors (hundreds of dims). The
+ * nightly sweep recomputes the invalid ones, remote-first.
  */
-function needsEmbeddingBackfill(embedding, dim = 64) {
-  return !Array.isArray(embedding) || embedding.length !== dim;
+function needsEmbeddingBackfill(embedding) {
+  if (!Array.isArray(embedding)) return true;
+  return embedding.length !== 64 && embedding.length < 256;
 }
 
 function isNearDuplicate(a, b, threshold = 0.88) {

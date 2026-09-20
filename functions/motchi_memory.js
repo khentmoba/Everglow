@@ -20,33 +20,38 @@ const {
 } = require('./motchi_core.js');
 const { getTmdbKey } = require('./motchi_context.js');
 
-// ── W4-C9: Embedding scaffold (hybrid retrieval) ────────────────
-// Placeholder for future vector search. Stores null for now, keeps
-// memory schema forward-compatible. When AGNES embeddings are enabled,
-// getEmbedding(text) will return a float[] and rankMemories can use
-// cosine similarity alongside token scoring.
-async function getEmbedding(text) {
+// ── Embeddings (hybrid retrieval) ───────────────────────────────
+// Remote Agnes vectors when the endpoint answers, local 64-dim hash
+// vectors otherwise. Stored facts may carry either space; rankMemories
+// compares each fact in the space it shares with the query vector.
+async function getRemoteEmbedding(text) {
   const normalized = String(text||'').trim();
   if (!normalized) return null;
   const apiKey = process.env.AGNES_API_KEY;
-  if (apiKey) {
-    try {
-      const resp = await fetch('https://apihub.agnes-ai.com/v1/embeddings', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        const emb = data.data?.[0]?.embedding || data.embedding;
-        if (Array.isArray(emb) && emb.length > 0) {
-          const norm = Math.sqrt(emb.reduce((s,v)=>s+v*v,0));
-          return norm ? emb.map(v=>v/norm) : emb;
-        }
-      }
-    } catch (_) {}
+  if (!apiKey) return null;
+  try {
+    const resp = await fetch('https://apihub.agnes-ai.com/v1/embeddings', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const emb = data.data?.[0]?.embedding || data.embedding;
+    if (!Array.isArray(emb) || emb.length === 0) return null;
+    const norm = Math.sqrt(emb.reduce((s,v)=>s+v*v,0));
+    return norm ? emb.map(v=>v/norm) : emb;
+  } catch (_) {
+    return null;
   }
+}
+
+async function getEmbedding(text) {
+  const normalized = String(text||'').trim();
+  if (!normalized) return null;
+  const remote = await getRemoteEmbedding(normalized);
+  if (remote) return remote;
   try { return simpleEmbedding(normalized, 64); } catch (_) { return null; }
 }
 
@@ -134,11 +139,10 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       // (No exact-match query: the semantic pass above already skips
       // case-insensitive duplicates, saving a read per candidate.)
       const parsed = parseFactStructure(fact);
-      // Local-only embedding: rankMemories compares against a local
-      // query vector, so a remote vector would never match dimensions
-      // anyway. Skips an API call per fact and keeps ranking working.
+      // Remote-first embedding (local fallback): rankMemories compares
+      // each fact in the space it shares with the query vector.
       let embedding = null;
-      try { embedding = simpleEmbedding(fact, 64); } catch (_) {}
+      try { embedding = await getEmbedding(fact); } catch (_) {}
       await db.collection('ai_memories').doc('shared').collection('facts').add({
         fact,
         category,
@@ -284,7 +288,12 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
       return m;
     }).filter(m => m.confidence >= 0.15);
 
-    const ranked = rankMemories(decayed, userMessage || '', maxResults);
+    // One remote query vector per turn when the endpoint answers;
+    // facts stored in the remote space then match semantically instead
+    // of by hash overlap. Fails soft to local-only ranking.
+    let remoteQueryEmb = null;
+    try { remoteQueryEmb = await getRemoteEmbedding(userMessage || ''); } catch (_) {}
+    const ranked = rankMemories(decayed, userMessage || '', maxResults, undefined, remoteQueryEmb);
     // W3-C12: bump accessCount/lastAccessed for the memories that were injected (fire-and-forget)
     if (ranked.length > 0) {
       const idsToBump = ranked.map(m => m.id).filter(Boolean).slice(0, 15);
@@ -311,6 +320,7 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
 
 module.exports = {
   getEmbedding,
+  getRemoteEmbedding,
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,

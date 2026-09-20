@@ -9,6 +9,11 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { getAdmin, getDb } = require('./common.js');
 const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
+const { getRemoteEmbedding } = require('./motchi_memory.js');
+
+// Cap on remote embedding calls per nightly sweep. Local vectors are
+// free and unbounded; remote ones cost time + money, so the first 25
+// invalid facts per night upgrade and the rest wait their turn.
 
 /**
  * Shared recap fetch for the morning/night/weekly digests: one parallel
@@ -492,14 +497,21 @@ const motchiMemorySweep = onSchedule({
     let pruned = 0;
     let updated = 0;
     let backfilled = 0;
+    let remoteBudget = 25;
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
-      // Backfill: old facts carry remote-dim (or no) embeddings, which
-      // never match the local query vector — recompute locally so memory
-      // ranking works for them again. Runs for pinned docs too.
+      // Backfill: invalid embeddings (missing, malformed, odd dims)
+      // recompute remote-first within budget, else locally. Runs for
+      // pinned docs too. (Check-and-decrement is sync, so the budget
+      // holds exactly even though the jobs run concurrently.)
       if (data.fact && needsEmbeddingBackfill(data.embedding)) {
         try {
-          const emb = simpleEmbedding(String(data.fact), 64);
+          let emb = null;
+          if (remoteBudget > 0) {
+            remoteBudget--;
+            emb = await getRemoteEmbedding(String(data.fact));
+          }
+          if (!emb) emb = simpleEmbedding(String(data.fact), 64);
           if (emb) {
             await doc.ref.update({ embedding: emb });
             backfilled++;

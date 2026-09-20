@@ -62,3 +62,26 @@ test('index still loads with the memory group extracted', () => {
   assert.ok(indexExports.proxyAI);
   assert.ok(indexExports.proxyAIv2);
 });
+
+test('getRemoteEmbedding returns null without an API key', async () => {
+  const saved = process.env.AGNES_API_KEY;
+  delete process.env.AGNES_API_KEY;
+  try {
+    assert.equal(await mem.getRemoteEmbedding('hello'), null);
+    assert.equal(await mem.getRemoteEmbedding(''), null);
+  } finally {
+    if (saved !== undefined) process.env.AGNES_API_KEY = saved;
+  }
+});
+
+test('getEmbedding falls back to a local 64-dim vector', async () => {
+  const saved = process.env.AGNES_API_KEY;
+  delete process.env.AGNES_API_KEY;
+  try {
+    const emb = await mem.getEmbedding('Clair loves lilies');
+    assert.ok(Array.isArray(emb));
+    assert.equal(emb.length, 64);
+  } finally {
+    if (saved !== undefined) process.env.AGNES_API_KEY = saved;
+  }
+});

@@ -170,8 +170,11 @@ test('needsEmbeddingBackfill spots unusable stored vectors', () => {
   assert.equal(needsEmbeddingBackfill(undefined), true);
   assert.equal(needsEmbeddingBackfill('nope'), true);
   assert.equal(needsEmbeddingBackfill([0.1, 0.2]), true);
-  assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), true);
+  assert.equal(needsEmbeddingBackfill(new Array(100).fill(0)), true);
+  // Both known spaces are valid: local 64-dim and remote (hundreds+).
   assert.equal(needsEmbeddingBackfill(new Array(64).fill(0)), false);
+  assert.equal(needsEmbeddingBackfill(new Array(1536).fill(0)), false);
+  assert.equal(needsEmbeddingBackfill(new Array(256).fill(0)), false);
 });
 
 test('phtDateString keys late-night entries to the PHT day', () => {
@@ -286,4 +289,27 @@ test('formatSessionContext bounds summaries, blocks, and chars', () => {
     [{ role: 'user', content: 'z'.repeat(20000) }],
   ]);
   assert.ok(trunc.includes('… [truncated]'));
+});
+
+test('rankMemories compares each fact in its shared space', () => {
+  // Remote query vector (fake 4-dim space): fact A matches it closely,
+  // fact B carries a local 64-dim vector, fact C carries nothing.
+  const remoteQuery = [1, 0, 0, 0];
+  const facts = [
+    { fact: 'Clair adores lilies more than roses', embedding: [0.9, 0.1, 0, 0] },
+    { fact: 'Clair adores lilies daily forever', embedding: new Array(64).fill(0.01) },
+    { fact: 'zzz qqq xxx', createdAt: new Date('2020-01-01') },
+  ];
+  const ranked = rankMemories(facts, 'lilies', 3, new Date(), remoteQuery);
+  // A wins via remote cosine even though B shares more tokens.
+  assert.equal(ranked[0].fact, facts[0].fact);
+  // Without the remote vector, everything still ranks (local fallback).
+  const local = rankMemories(facts, 'lilies', 3, new Date());
+  assert.equal(local.length, 3);
+  // Dimension mismatch never crashes and never matches.
+  const odd = rankMemories(
+    [{ fact: 'unrelated words here', embedding: [1, 2, 3] }],
+    'lilies', 3, new Date(), [1, 2],
+  );
+  assert.equal(odd.length, 1);
 });
