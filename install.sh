@@ -21,7 +21,7 @@ warn()  { echo -e "  ${YELLOW}[!]${NC} $1"; }
 clear 2>/dev/null || true
 
 # ──────────────────────────────────────────────
-#  Adblock recommendation  (mirrors AdblockerGate)
+#  Adblock recommendation (for Cinema/Anime streaming sources)
 # ──────────────────────────────────────────────
 echo -e "${MAGENTA}"
 cat << 'EOF'

@@ -14,7 +14,7 @@ import '../../../../core/theme/app_typography.dart';
 
 /// Bottom sheet for searching the Open Library catalog and adding a
 /// book to either the personal "Mine" list or the shared "Our Books"
-/// couple list. Mirrors `TMDBSearchModal` from the cinema feature.
+/// couple list.
 class OLSearchModal extends StatefulWidget {
   /// Pre-selects the "Mine" / "Ours" scope toggle. Defaults to 'mine'.
   final String initialScope;
@@ -89,11 +89,11 @@ class _OLSearchModalState extends State<OLSearchModal> {
                   borderRadius: BorderRadius.circular(16),
                   child: item.coverUrl.isNotEmpty
                       ? AppNetworkImage(
-                        imageUrl: item.coverUrl,
-                        width: 100,
-                        height: 150,
-                        cacheWidth: 200,
-                      )
+                          imageUrl: item.coverUrl,
+                          width: 100,
+                          height: 150,
+                          cacheWidth: 200,
+                        )
                       : Container(height: 150, color: AppTheme.twilight),
                 ),
                 const SizedBox(height: 16),
@@ -173,7 +173,10 @@ class _OLSearchModalState extends State<OLSearchModal> {
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
-                        label: const Text('Read', style: AppTypography.outfitWhite),
+                        label: const Text(
+                          'Read',
+                          style: AppTypography.outfitWhite,
+                        ),
                         selected: status == 'read',
                         onSelected: (selected) {
                           if (selected) {
