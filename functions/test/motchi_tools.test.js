@@ -276,3 +276,27 @@ test('toolListSection covers all tools and the empty case', () => {
 function validate(name, args) {
   return tools.validateToolArgs(name, args);
 }
+
+test('matchFastPath fires only on whole-message zero-arg asks', () => {
+  const fp = (m) => tools.matchFastPath(m)?.tool ?? null;
+  // Positives: one tool, no args, nothing else.
+  assert.equal(fp('what level are we on'), 'get_xp_stats');
+  assert.equal(fp("What's our XP?"), 'get_xp_stats');
+  assert.equal(fp('show my rank'), 'get_xp_stats');
+  assert.equal(fp("give us today's recap"), 'get_today_recap');
+  assert.equal(fp('recap of today'), 'get_today_recap');
+  assert.equal(fp('list my reminders'), 'list_reminders');
+  assert.equal(fp('what are our reminders?'), 'list_reminders');
+  assert.equal(fp('what patterns do you see in our moods'), 'get_relationship_insights');
+  // Negatives: compounds, multi-sentence, trivia (canvas), chatter.
+  assert.equal(fp('what level are we on and plan a date night'), null);
+  assert.equal(fp('list my reminders then cancel the plant one'), null);
+  assert.equal(fp("give us today's recap plus date ideas"), null);
+  assert.equal(fp('what level are we on? Also how is Clair?'), null);
+  assert.equal(fp('quiz us on our memories'), null);
+  assert.equal(fp('remind me tomorrow at 3pm to water the plants'), null);
+  assert.equal(fp('hi motchi'), null);
+  assert.equal(fp(''), null);
+  assert.equal(fp(null), null);
+  assert.equal(fp(`what level are we on${'!'.repeat(200)}`), null);
+});

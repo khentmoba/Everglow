@@ -515,10 +515,60 @@ function isReminderSchedulable(raw, nowMs = Date.now()) {
   }
 }
 
+// ── Fast-path single-tool intents ─────────────────────────────────
+// Zero-arg, read-only asks whose tool result IS the answer. When the
+// whole message matches, the chat handler pre-executes the tool and
+// lets the model answer from the result with no tools attached — one
+// Firestore read + one LLM call instead of ~7 block reads + memory
+// select + a tool loop. Deliberately narrow: anchored patterns,
+// conjunction + multi-sentence + length guards reject anything
+// compound, which falls through to the normal loop. Trivia is NOT
+// here on purpose: "quiz us" deserves the interactive canvas, not
+// a text answer.
+const FAST_PATH_INTENTS = [
+  {
+    match: /^(what('s| is) (our|my|the) (level|xp|rank)|what level are we( on| at)?|show (our|my|the) (level|xp|rank)|how much xp do (we|i) have)[?!\s.]*$/i,
+    tool: 'get_xp_stats',
+  },
+  {
+    match: /^give (us|me) (today's|todays) recap[?!\s.]*$/i,
+    tool: 'get_today_recap',
+  },
+  {
+    match: /^(today's|todays) recap[?!\s.]*$|^recap (of |for )?today[?!\s.]*$/i,
+    tool: 'get_today_recap',
+  },
+  {
+    match: /^(list|show|what are) (my|our|all|the) reminders[?!\s.]*$/i,
+    tool: 'list_reminders',
+  },
+  {
+    match: /^what patterns do you see in our moods[?!\s.]*$/i,
+    tool: 'get_relationship_insights',
+  },
+];
+
+const FAST_PATH_BLOCKERS = /\b(and|then|also|plus|after that|followed by|before that)\b|[;+]|\n/i;
+
+/** Whole-message fast-path match, or null to use the normal loop. */
+function matchFastPath(message) {
+  const text = String(message || '').trim();
+  if (!text || text.length > 120) return null;
+  if (FAST_PATH_BLOCKERS.test(text)) return null;
+  // A second sentence means a second ask.
+  if (/[.!?]\s*[A-Za-z]/.test(text)) return null;
+  for (const intent of FAST_PATH_INTENTS) {
+    if (intent.match.test(text)) return { tool: intent.tool, args: {} };
+  }
+  return null;
+}
+
 module.exports = {
   TOOL_TIMEOUT_MS,
   MAX_TOOL_ROUNDS,
   TOOL_NAMES,
+  FAST_PATH_INTENTS,
+  matchFastPath,
   CORE_TOOLS,
   AWARENESS_TOOLS,
   TOOL_GROUPS,

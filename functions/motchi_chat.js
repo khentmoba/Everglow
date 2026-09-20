@@ -37,7 +37,7 @@ const {
 } = require('./common.js');
 const { sendFCMToUser, logToolCall } = require('./triggers.js');
 const { buildContextForFeature, getTmdbKey, invalidateContextBlock } = require('./motchi_context.js');
-const { CORE_TOOLS, selectToolNames, toolListSection, MAX_TOOL_ROUNDS } = require('./motchi_tools.js');
+const { CORE_TOOLS, selectToolNames, toolListSection, MAX_TOOL_ROUNDS, matchFastPath } = require('./motchi_tools.js');
 const { MOTCHI_TOOLS, selectToolsForRequest } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 
@@ -208,17 +208,26 @@ async function handleProxyAI(req, res) {
   // True when the canvas prompt section rode along (mirrors the two
   // section gates below) — the repair nudge only makes sense then.
   const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
+  // Fast-path: a whole-message zero-arg read-only ask. Skips the context
+  // + memory reads below and pre-executes the tool after the prompt is
+  // built. Assistant-only, never for thinking mode or artifact builds.
+  const fastPath = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact)
+    ? matchFastPath(lastUserMessage)
+    : null;
   // Server context, persona, and memories are independent reads — start
   // all three together and await once, so a cold turn pays one round-trip
   // instead of three in a row. Each fails soft: a hiccup just means Motchi
   // answers with less context, never a failed chat for Clair.
-  const _contextPromise = (feature && !context)
+  const _contextPromise = (feature && !context && !fastPath)
     ? buildContextForFeature(feature, caller, lastUserMessage).catch((e) => {
         console.warn('[proxyAI] server context failed, continuing without it:', e.message);
         return '';
       })
     : Promise.resolve('');
-  const _memoriesPromise = selectRelevantMemories(memories, lastUserMessage, 10).catch((e) => {
+  const _memoriesPromise = (fastPath
+    ? Promise.resolve([])
+    : selectRelevantMemories(memories, lastUserMessage, 10)
+  ).catch((e) => {
     console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
     return [];
   });
@@ -523,7 +532,8 @@ ${HTML_GAME_GUIDE}
 
 
   // Tools: custom Motchi tools (dynamically pruned for feature and greetings)
-  const tools = selectToolsForRequest(feature, lastUserMessage);
+  let tools = selectToolsForRequest(feature, lastUserMessage);
+  if (fastPath) tools = []; // pre-executed below; the model only answers
 
   // Render the persona's tool list from the ATTACHED tools, so the prompt
   // never advertises tools that routing removed. Custom/Firestore
@@ -536,6 +546,39 @@ ${HTML_GAME_GUIDE}
     // nimMessages captured the placeholder version — point it at the
     // rendered prompt (the payload guard below still measures the body).
     if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
+  }
+
+  // Fast-path execution: run the zero-arg tool now and append a synthetic
+  // assistant+tool pair, so both answer paths below stream one direct
+  // answer from the result with no tools attached and no extra rounds.
+  if (fastPath) {
+    systemPrompt += '\n## Fast Answer\nA tool result follows below. Answer ONLY from it, warmly and briefly. Do not call any tools.';
+    if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
+    const fpStarted = Date.now();
+    let fpResult;
+    try {
+      fpResult = await executeToolCall(toolCtx, fastPath.tool, fastPath.args);
+    } catch (err) {
+      fpResult = JSON.stringify({ error: (err && err.message) || 'Tool execution failed' });
+    }
+    try {
+      if (typeof logToolCall === 'function') {
+        logToolCall(fastPath.tool, caller, fpResult, Date.now() - fpStarted).catch(() => {});
+      }
+    } catch (_) {}
+    nimMessages.push(
+      {
+        role: 'assistant',
+        content: null,
+        tool_calls: [{ id: 'call_fastpath_0', type: 'function', function: { name: fastPath.tool, arguments: JSON.stringify(fastPath.args) } }],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call_fastpath_0',
+        name: fastPath.tool,
+        content: fpResult.length > 6000 ? fpResult.slice(0, 6000) + '…[trimmed]' : fpResult,
+      },
+    );
   }
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
