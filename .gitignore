@@ -89,3 +89,6 @@ web/table_tennis/index.html.bak
 /create_single.py
 /output/
 /Assignment_Datasheet_Ne555_HCSR04_Original.docx
+
+# pi-mesh runtime (agent presence/inbox/feed) - local only, never commit
+.pi/mesh/
