@@ -13,6 +13,7 @@ const {
 } = require('./common.js');
 const {
   parseFactStructure,
+  findContradiction,
   rankMemories,
   simpleEmbedding,
   isNearDuplicate,
@@ -113,10 +114,10 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     const db = getDb();
     // Fetch recent facts for semantic dedupe (last 30 — extraction only
     // needs the fresh window; older dupes are harmless).
-    let recentFacts = [];
+    let recentDocs = [];
     try {
       const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt','desc').limit(30).get();
-      recentFacts = snap.docs.map(d => d.data().fact || '').filter(Boolean);
+      recentDocs = snap.docs.map(d => ({ id: d.id, fact: d.data().fact || '' })).filter(x => x.fact);
     } catch (_) {}
     for (const line of lines) {
       let fact = line.trim();
@@ -131,19 +132,36 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       if (!fact) continue;
       // Semantic dedupe
       let isDup = false;
-      for (const existing of recentFacts) {
-        if (existing.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
-        try { if (isNearDuplicate(existing, fact, 0.85)) { isDup = true; break; } } catch (_) {}
+      for (const existing of recentDocs) {
+        if (existing.fact.toLowerCase() === fact.toLowerCase()) { isDup = true; break; }
+        try { if (isNearDuplicate(existing.fact, fact, 0.85)) { isDup = true; break; } } catch (_) {}
       }
       if (isDup) continue;
       // (No exact-match query: the semantic pass above already skips
       // case-insensitive duplicates, saving a read per candidate.)
       const parsed = parseFactStructure(fact);
+      // Contradiction: same subject + relation, different object —
+      // update the stale fact instead of adding a twin.
+      const hit = findContradiction(parsed, fact, recentDocs);
+      if (hit && hit.id) {
+        try {
+          await db.collection('ai_memories').doc('shared').collection('facts').doc(hit.id).update({
+            fact,
+            category,
+            object: parsed.object || null,
+            confidence: 1.0,
+            updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+          });
+        } catch (_) {}
+        hit.fact = fact;
+        continue;
+      }
       // Remote-first embedding (local fallback): rankMemories compares
       // each fact in the space it shares with the query vector.
       let embedding = null;
       try { embedding = await getEmbedding(fact); } catch (_) {}
-      await db.collection('ai_memories').doc('shared').collection('facts').add({
+      try {
+        const ref = await db.collection('ai_memories').doc('shared').collection('facts').add({
         fact,
         category,
         subject: parsed.subject || null,
@@ -157,8 +175,11 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         pinned: false,
         source: callerUsername || 'motchi',
         embedding,
-      });
-      recentFacts.unshift(fact);
+        });
+        recentDocs.unshift({ id: ref.id, fact });
+      } catch (_) {
+        recentDocs.unshift({ id: null, fact });
+      }
     }
   } catch (e) {
     console.warn('[memoryExtract] failed:', e.message);

@@ -87,6 +87,32 @@ function scoreMemory(rawFact, tokens, now) {
   return score;
 }
 
+/**
+ * Finds a stored fact that `parsed` contradicts: same subject + same
+ * relation (case-insensitive), but a materially different object.
+ * Near-duplicates are NOT contradictions — dedupe owns those.
+ * Returns the conflicting candidate or null.
+ */
+function findContradiction(parsed, factText, candidates) {
+  const subject = String((parsed && parsed.subject) || '').trim().toLowerCase();
+  const relation = String((parsed && parsed.relation) || '').trim().toLowerCase();
+  const object = String((parsed && parsed.object) || '').trim();
+  if (!subject || !relation || !object) return null;
+  for (const cand of candidates || []) {
+    if (!cand || !cand.fact) continue;
+    const cp = parseFactStructure(cand.fact);
+    if (!cp.subject || !cp.relation || !cp.object) continue;
+    if (cp.subject.trim().toLowerCase() !== subject) continue;
+    if (cp.relation.trim().toLowerCase() !== relation) continue;
+    if (cp.object.trim().toLowerCase() === object.toLowerCase()) continue;
+    try {
+      if (isNearDuplicate(cand.fact, factText, 0.85)) continue;
+    } catch (_) {}
+    return cand;
+  }
+  return null;
+}
+
 function hashToken(token) {
   let h = 2166136261;
   for (let i = 0; i < token.length; i++) {
@@ -631,6 +657,7 @@ function formatSessionContext(summaries, sessions, opts = {}) {
 module.exports = {
   tokenize,
   parseFactStructure,
+  findContradiction,
   truncateText,
   formatChatContext,
   formatSessionContext,

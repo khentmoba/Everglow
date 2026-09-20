@@ -267,7 +267,7 @@ const MOTCHI_TOOLS = [
     type: 'function',
     function: {
       name: 'remember_fact',
-      description: 'Save a personal fact about Khent or Clair to Motchi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship — and when they ask you to read the journal, chat, or another space and remember things about them (save each standout detail as its own fact, then name what you saved in your visible reply).',
+      description: 'Save a personal fact about Khent or Clair to Motchi\'s long-term memory. Use when they explicitly tell you something to remember about themselves, each other, or their relationship — and when they ask you to read the journal, chat, or another space and remember things about them (save each standout detail as its own fact, then name what you saved in your visible reply). If the new fact contradicts a stored one (same person, same topic, different detail), the old fact is updated automatically — no need to delete first.',
       parameters: {
         type: 'object',
         properties: {

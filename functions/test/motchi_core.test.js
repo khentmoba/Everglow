@@ -313,3 +313,25 @@ test('rankMemories compares each fact in its shared space', () => {
   );
   assert.equal(odd.length, 1);
 });
+
+test('findContradiction spots same-subject same-relation updates', () => {
+  const { findContradiction, parseFactStructure } = require('../motchi_core.js');
+  const cands = [
+    { id: 'a', fact: 'Khent prefers black coffee' },
+    { id: 'b', fact: 'Clair loves lilies' },
+    { id: 'c', fact: 'Khent rides a Honda Winner X' },
+  ];
+  // Same subject + relation, different object -> conflict.
+  const hit = findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', cands);
+  assert.equal(hit && hit.id, 'a');
+  // Same subject, different relation -> no conflict.
+  assert.equal(findContradiction(parseFactStructure('Khent hates black coffee'), 'Khent hates black coffee', cands), null);
+  // Different subject -> no conflict.
+  assert.equal(findContradiction(parseFactStructure('Clair prefers black coffee'), 'Clair prefers black coffee', cands), null);
+  // Near-duplicate rephrase -> not a contradiction (dedupe owns it).
+  assert.equal(findContradiction(parseFactStructure('Khent prefers black coffee!'), 'Khent prefers black coffee!', cands), null);
+  // Unparseable newcomer -> no conflict.
+  assert.equal(findContradiction(parseFactStructure('hello there'), 'hello there', cands), null);
+  assert.equal(findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', []), null);
+  assert.equal(findContradiction(null, 'x', cands), null);
+});

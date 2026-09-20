@@ -729,3 +729,53 @@ test('browse_web resumes by run_id without re-queueing, failures as JSON', async
     else process.env.TINYFISH_API_KEY = realKey;
   }
 });
+
+test('remember_fact updates a contradicted fact instead of adding a twin', async () => {
+  const { exec_remember_fact } = require('../motchi_exec_memory.js');
+  const updates = [];
+  const added = [];
+  const staleDoc = {
+    id: 'fact1',
+    data: () => ({ fact: 'Khent prefers black coffee', category: 'preference' }),
+  };
+  const factsCol = {
+    where: () => ({ limit: () => ({ get: async () => ({ docs: [staleDoc] }) }) }),
+    doc: (id) => ({
+      update: async (patch) => { updates.push({ id, patch }); },
+    }),
+    add: async (d) => { added.push(d); return { id: 'new1' }; },
+  };
+  const ctx = {
+    admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+    db: { collection: () => ({ doc: () => ({ collection: () => factsCol }) }) },
+    callerUid: 'khentsgdz',
+  };
+  const res = JSON.parse(await exec_remember_fact(ctx, { fact: 'Khent prefers oat lattes' }));
+  assert.equal(res.success, true);
+  assert.equal(res.updated, true);
+  assert.equal(res.id, 'fact1');
+  assert.equal(res.previous, 'Khent prefers black coffee');
+  assert.equal(updates.length, 1);
+  assert.equal(updates[0].patch.fact, 'Khent prefers oat lattes');
+  assert.equal(added.length, 0);
+});
+
+test('remember_fact adds fresh facts with no contradiction', async () => {
+  const { exec_remember_fact } = require('../motchi_exec_memory.js');
+  const added = [];
+  const factsCol = {
+    where: () => ({ limit: () => ({ get: async () => ({ docs: [] }) }) }),
+    doc: () => ({ update: async () => { throw new Error('should not update'); } }),
+    add: async (d) => { added.push(d); return { id: 'new1' }; },
+  };
+  const ctx = {
+    admin: { firestore: { FieldValue: { serverTimestamp: () => 'TS' } } },
+    db: { collection: () => ({ doc: () => ({ collection: () => factsCol }) }) },
+    callerUid: 'khentsgdz',
+  };
+  const res = JSON.parse(await exec_remember_fact(ctx, { fact: 'Clair loves dachshunds' }));
+  assert.equal(res.success, true);
+  assert.equal(res.updated, undefined);
+  assert.equal(added.length, 1);
+  assert.equal(added[0].fact, 'Clair loves dachshunds');
+});
