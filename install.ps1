@@ -17,7 +17,7 @@ function Write-Warn($s) { Write-Host "  [!] $s" -ForegroundColor Yellow }
 Clear-Host
 
 # ──────────────────────────────────────────────
-#  Adblock recommendation  (mirrors AdblockerGate)
+#  Adblock recommendation (for Cinema/Anime streaming sources)
 # ──────────────────────────────────────────────
 Write-Host @"
 

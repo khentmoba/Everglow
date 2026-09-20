@@ -170,8 +170,8 @@ web/                            # PWA shell, service worker, icons
 | AI | `proxyAI`, `proxyAIv2`, `agnesImage` | SSE streaming, tool execution, image generation |
 | Ops | `health` | public liveness + Firestore reachability |
 | Trigger | `onNewChatMessage`, `onNewMood`, `onNewStarDrop`, `onNewWatchlistItem`, `onNewGalleryPhoto`, `onWatchPartyInvite`, `onNewMilestone` | FCM partner notifications |
-| Schedule | `keepWarm`, `motchiDailyDigest`, `motchiNightRecap`, `motchiMoodCheckIn`, `motchiSpecialDayNudge`, `sweepStalePresence` | maintenance + proactive features |
-| Debug/admin | `debugGallery`, `cleanupGallery` | operational tooling (admin-only where destructive) |
+| Schedule | `motchiDailyDigest`, `motchiNightRecap`, `motchiMoodCheckIn`, `motchiSpecialDayNudge`, `sweepStalePresence` | maintenance + proactive features |
+| Debug/admin | `cleanupGallery` | operational tooling (admin-only where destructive) |
 
 ### Agent map — where to put things
 
@@ -336,7 +336,6 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 ### 6.3 Scheduled jobs
 
 - `sweepStalePresence`: every 2 minutes, Firestore-indexed stale sweep.
-- `keepWarm`: every 10 minutes, reduces AI cold starts.
 - `motchiDailyDigest` / `motchiNightRecap` / `motchiMoodCheckIn` /
   `motchiSpecialDayNudge`: Asia/Manila timezone proactive features.
 
