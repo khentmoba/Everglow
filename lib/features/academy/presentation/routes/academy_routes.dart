@@ -22,6 +22,7 @@ final List<GoRoute> academyRoutes = [
           return SoloStudyScreen(
             questions: args.questions,
             category: args.category,
+            topic: args.topic,
           );
         },
       ),
@@ -32,7 +33,7 @@ final List<GoRoute> academyRoutes = [
           if (args == null) return missingExtraPage(state);
           return GameBoardScreen(
             matchId: args.matchId,
-            userId: args.userId,
+            username: args.username,
             questions: args.questions,
           );
         },
@@ -53,19 +54,24 @@ final List<GoRoute> academyRoutes = [
 class SoloStudyArgs {
   final List<AcademyQuestion> questions;
   final String category;
+  final String topic;
 
-  SoloStudyArgs({required this.questions, required this.category});
+  SoloStudyArgs({
+    required this.questions,
+    required this.category,
+    this.topic = '',
+  });
 }
 
 /// Args for [GameBoardScreen].
 class GameBoardArgs {
   final String matchId;
-  final String userId;
+  final String username;
   final List<AcademyQuestion> questions;
 
   GameBoardArgs({
     required this.matchId,
-    required this.userId,
+    required this.username,
     required this.questions,
   });
 }

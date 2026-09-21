@@ -10,6 +10,7 @@ import '../../data/models/game_match.dart';
 import 'package:go_router/go_router.dart';
 import '../routes/academy_routes.dart';
 import '../../data/services/academy_sync_service.dart';
+import '../../data/services/study_set_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -57,10 +58,12 @@ class AcademyHubScreen extends StatefulWidget {
 class _AcademyHubScreenState extends State<AcademyHubScreen> {
   final AcademyService _academyService = AcademyService();
   final AcademySyncService _syncService = AcademySyncService();
+  final StudySetService _studySets = StudySetService();
   bool _isSearching = false;
   String? _statusMessage;
   Timer? _timeoutTimer;
   StreamSubscription<DocumentSnapshot>? _matchSub;
+  String? _pendingMatchId;
 
   static const List<_CategoryData> _categories = [
     _CategoryData('Engineering', Icons.settings_suggest, 'engineering'),
@@ -98,23 +101,56 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     }
   }
 
+  static String _labelFor(String key) {
+    for (final c in _categories) {
+      if (c.key == key) return c.label;
+    }
+    return key;
+  }
+
   void _startMatchmaking(String category) async {
+    final authService = context.read<AuthService>();
+    final uid = authService.uid;
+    final username = authService.currentUser;
+    if (uid == null || username == null) {
+      setState(() {
+        _statusMessage = 'Log in to race your love in 1v1.';
+      });
+      return;
+    }
     setState(() {
       _isSearching = true;
-      _statusMessage = 'Searching for $category match...';
+      _statusMessage = 'Searching for ${_labelFor(category)} match...';
     });
 
     try {
-      final authService = context.read<AuthService>();
-      final userId = authService.currentUser ?? 'guest';
-
-      final match = await _academyService.joinOrCreateMatch(userId, category);
+      final match = await _academyService.joinOrCreateMatch(
+        userUid: uid,
+        username: username,
+        category: category,
+      );
 
       if (match.status == 'active') {
+        // Joined as guest — the host's shared set is ready, no AI spent.
         _goToGame(match);
       } else {
-        _statusMessage = 'Waiting for partner...';
+        _pendingMatchId = match.matchId;
+        if (mounted) {
+          setState(() => _statusMessage = 'Waiting for partner...');
+        }
         _startTimeoutTimer();
+
+        // While waiting, Motchi writes a fresh shared set for the match.
+        // Fail-soft: the cached order stands when she is resting.
+        _studySets
+            .buildMatchSet(category: category)
+            .then(
+              (ids) => _academyService.upgradeWaitingMatchQuestions(
+                matchId: match.matchId,
+                questionIds: ids,
+              ),
+            )
+            .ignore();
 
         _matchSub?.cancel();
         _matchSub = FirebaseFirestore.instance
@@ -129,6 +165,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                 _timeoutTimer?.cancel();
                 _matchSub?.cancel();
                 _matchSub = null;
+                _pendingMatchId = null;
                 _goToGame(updatedMatch);
               }
             });
@@ -143,10 +180,35 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     }
   }
 
+  Future<void> _cancelSearch() async {
+    _timeoutTimer?.cancel();
+    _matchSub?.cancel();
+    _matchSub = null;
+    final pending = _pendingMatchId;
+    _pendingMatchId = null;
+    if (pending != null) {
+      await _academyService.cancelWaitingMatch(pending);
+    }
+    if (mounted) {
+      setState(() {
+        _isSearching = false;
+        _statusMessage = null;
+      });
+    }
+  }
+
   void _startTimeoutTimer() {
     _timeoutTimer?.cancel();
-    _timeoutTimer = Timer(const Duration(seconds: 60), () {
+    _timeoutTimer = Timer(const Duration(seconds: 60), () async {
       if (mounted && _isSearching) {
+        final pending = _pendingMatchId;
+        _pendingMatchId = null;
+        _matchSub?.cancel();
+        _matchSub = null;
+        if (pending != null) {
+          await _academyService.cancelWaitingMatch(pending);
+        }
+        if (!mounted) return;
         setState(() {
           _isSearching = false;
           _statusMessage = 'No partner found. Try Solo Study?';
@@ -183,7 +245,10 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              Navigator.pop(context);
+              _showCategoryPicker(allowTopic: true, onPick: _startSoloStudy);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.deepRose,
             ),
@@ -200,42 +265,58 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     );
   }
 
-  void _showCategoryPicker(ValueChanged<String> onCategorySelected) {
+  void _showCategoryPicker({
+    bool allowTopic = false,
+    required void Function(String category, String topic) onPick,
+  }) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => _CategoryPickerSheet(
         categories: _categories,
-        onCategorySelected: (category) {
+        allowTopic: allowTopic,
+        onPick: (category, topic) {
           Navigator.pop(context);
-          onCategorySelected(category);
+          onPick(category, topic);
         },
       ),
     );
   }
 
-  void _startSoloStudyWithCategory(String category) async {
+  void _startSoloStudy(String category, String topic) async {
     setState(() {
       _isSearching = true;
-      _statusMessage = 'Checking for new study materials...';
+      _statusMessage = topic.isEmpty
+          ? 'Motchi is writing ${_labelFor(category)} questions...'
+          : 'Motchi is writing about "$topic"...';
     });
 
     try {
-      await _syncService.triggerAutoFill(category: category);
-
-      setState(() {
-        _statusMessage = 'Preparing questions...';
-      });
-
-      final questions = await _academyService.getQuestions(category);
-
-      if (mounted) {
-        setState(() => _isSearching = false);
-        context.push(
-          '/academy/solo',
-          extra: SoloStudyArgs(questions: questions, category: category),
-        );
+      final questions = await _studySets.buildSoloSet(
+        category: category,
+        topic: topic,
+      );
+      if (!mounted) return;
+      if (questions.isEmpty) {
+        setState(() {
+          _isSearching = false;
+          _statusMessage = 'No questions right now — try again in a bit.';
+        });
+        return;
+      }
+      setState(() => _isSearching = false);
+      final result = await context.push(
+        '/academy/solo',
+        extra: SoloStudyArgs(
+          questions: questions,
+          category: category,
+          topic: topic,
+        ),
+      );
+      // Solo results can send Clair straight into a 1v1 challenge.
+      if (result == 'challenge' && mounted) {
+        _showCategoryPicker(onPick: (picked, _) => _startMatchmaking(picked));
       }
     } catch (e) {
       if (mounted) {
@@ -249,12 +330,13 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
 
   void _goToGame(GameMatch match) async {
     setState(() {
-      _statusMessage = 'Downloading new study materials...';
+      _statusMessage = 'Loading the shared questions...';
     });
 
     try {
       final authService = context.read<AuthService>();
-      final isHost = match.hostId == authService.currentUser;
+      final username = authService.currentUser ?? 'guest';
+      final isHost = match.hostId == authService.uid;
 
       if (isHost) {
         await _syncService.triggerAutoFill(
@@ -264,18 +346,28 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         );
       }
 
-      final questions = await _academyService.getQuestions(match.category);
+      // Both phones load the SAME snapshotted order. Legacy matches
+      // without one fall back to a fresh random pull (best effort).
+      final questions = match.questionIds.isNotEmpty
+          ? await _academyService.getQuestionsByIds(match.questionIds)
+          : await _academyService.getQuestions(match.category);
 
-      if (mounted) {
-        context.pushReplacement(
-          '/academy/match',
-          extra: GameBoardArgs(
-            matchId: match.matchId,
-            userId: authService.currentUser ?? 'guest',
-            questions: questions,
-          ),
-        );
+      if (!mounted) return;
+      if (questions.isEmpty) {
+        setState(() {
+          _isSearching = false;
+          _statusMessage = 'No questions right now — try again in a bit.';
+        });
+        return;
       }
+      context.pushReplacement(
+        '/academy/match',
+        extra: GameBoardArgs(
+          matchId: match.matchId,
+          username: username,
+          questions: questions,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -291,6 +383,12 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
     _timeoutTimer?.cancel();
     _matchSub?.cancel();
     _matchSub = null;
+    final pending = _pendingMatchId;
+    _pendingMatchId = null;
+    if (pending != null) {
+      // Best effort: don't strand a waiting match we walked away from.
+      _academyService.cancelWaitingMatch(pending).ignore();
+    }
     super.dispose();
   }
 
@@ -369,8 +467,7 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                               const SizedBox(height: AppSpacing.xl),
                               Center(
                                 child: TextButton(
-                                  onPressed: () =>
-                                      setState(() => _isSearching = false),
+                                  onPressed: _cancelSearch,
                                   child: Text(
                                     'Cancel Search',
                                     style: AppTypography.outfitWhite.copyWith(
@@ -387,19 +484,27 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
                                 badge: 'LIVE \u00b7 TOGETHER',
                                 icon: Icons.bolt_rounded,
                                 accent: AppColors.deepRose,
-                                onTap: () =>
-                                    _showCategoryPicker(_startMatchmaking),
+                                onTap: () => _showCategoryPicker(
+                                  onPick: (category, _) =>
+                                      _startMatchmaking(category),
+                                ),
                               ),
                               const SizedBox(height: AppSpacing.md),
-                              AcademyModeCard(
-                                title: 'Solo Study',
-                                subtitle: 'Quiet questions, no timer',
-                                badge: 'CALM PRACTICE',
-                                icon: Icons.menu_book_rounded,
-                                accent: AppColors.auroraGold,
-                                onTap: () => _showCategoryPicker(
-                                  _startSoloStudyWithCategory,
-                                ),
+                              StreamBuilder<SoloStats?>(
+                                stream: _studySets.watchSoloStats(),
+                                builder: (context, snapshot) {
+                                  return AcademyModeCard(
+                                    title: 'Solo Study',
+                                    subtitle: _soloSubtitle(snapshot.data),
+                                    badge: 'CALM PRACTICE',
+                                    icon: Icons.menu_book_rounded,
+                                    accent: AppColors.auroraGold,
+                                    onTap: () => _showCategoryPicker(
+                                      allowTopic: true,
+                                      onPick: _startSoloStudy,
+                                    ),
+                                  );
+                                },
                               ),
                               const SizedBox(height: AppSpacing.md),
                               AcademyModeCard(
@@ -434,6 +539,14 @@ class _AcademyHubScreenState extends State<AcademyHubScreen> {
         ],
       ),
     );
+  }
+
+  String _soloSubtitle(SoloStats? stats) {
+    final last = stats?.lastCategory;
+    if (last == null) return 'Quiet questions, no timer';
+    final best = stats!.bestByCategory[last];
+    if (best == null) return '${_labelFor(last)} · Quiet, no timer';
+    return '${_labelFor(last)} · Best $best';
   }
 
   Widget _buildWelcome() {
@@ -605,11 +718,13 @@ class _CategoryData {
 
 class _CategoryPickerSheet extends StatefulWidget {
   final List<_CategoryData> categories;
-  final ValueChanged<String> onCategorySelected;
+  final bool allowTopic;
+  final void Function(String category, String topic) onPick;
 
   const _CategoryPickerSheet({
     required this.categories,
-    required this.onCategorySelected,
+    required this.onPick,
+    this.allowTopic = false,
   });
 
   @override
@@ -621,6 +736,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
   late AnimationController _animController;
   late List<Animation<double>> _fadeAnimations;
   late List<Animation<Offset>> _slideAnimations;
+  final TextEditingController _topicController = TextEditingController();
 
   @override
   void initState() {
@@ -673,6 +789,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
 
   @override
   void dispose() {
+    _topicController.dispose();
     _animController.dispose();
     super.dispose();
   }
@@ -696,38 +813,91 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet>
           topRight: Radius.circular(AppRadius.x3),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildDragHandle(),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Choose Category',
-            style: AppTypography.cormorantBold.copyWith(fontSize: 26),
-          ),
-          const SizedBox(height: AppSpacing.x2),
-          GridView.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: AppSpacing.lg,
-            crossAxisSpacing: AppSpacing.lg,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1 / 0.85,
-            children: List.generate(widget.categories.length, (index) {
-              final category = widget.categories[index];
-              return FadeTransition(
-                opacity: _fadeAnimations[index],
-                child: SlideTransition(
-                  position: _slideAnimations[index],
-                  child: _CategoryCard(
-                    data: category,
-                    onTap: () => widget.onCategorySelected(category.key),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDragHandle(),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Choose Category',
+              style: AppTypography.cormorantBold.copyWith(fontSize: 26),
+            ),
+            if (widget.allowTopic) ...[
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: _topicController,
+                textInputAction: TextInputAction.done,
+                maxLength: 60,
+                style: AppTypography.outfitWhite.copyWith(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Ask Motchi about... (optional)',
+                  hintStyle: AppTypography.outfitWhite.copyWith(
+                    fontSize: 13,
+                    color: AppColors.petalWhite.withValues(alpha: 0.4),
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 18,
+                    color: AppColors.auroraGold,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.moonlight.withValues(alpha: 0.07),
+                  counterText: '',
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.radiusLg,
+                    borderSide: BorderSide(
+                      color: AppColors.auroraGold.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.radiusLg,
+                    borderSide: BorderSide(
+                      color: AppColors.auroraGold.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: AppRadius.radiusLg,
+                    borderSide: const BorderSide(
+                      color: AppColors.auroraGold,
+                      width: 1.4,
+                    ),
                   ),
                 ),
-              );
-            }),
-          ),
-        ],
+              ),
+            ],
+            const SizedBox(height: AppSpacing.x2),
+            GridView.count(
+              crossAxisCount: 2,
+              mainAxisSpacing: AppSpacing.lg,
+              crossAxisSpacing: AppSpacing.lg,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 1 / 0.85,
+              children: List.generate(widget.categories.length, (index) {
+                final category = widget.categories[index];
+                return FadeTransition(
+                  opacity: _fadeAnimations[index],
+                  child: SlideTransition(
+                    position: _slideAnimations[index],
+                    child: _CategoryCard(
+                      data: category,
+                      onTap: () => widget.onPick(
+                        category.key,
+                        _topicController.text.trim(),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }

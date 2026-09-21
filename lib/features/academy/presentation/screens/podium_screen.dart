@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../shared/utils/text_utils.dart';
 import '../../data/models/game_match.dart';
 
 class PodiumScreen extends StatefulWidget {
@@ -174,7 +175,10 @@ class _PodiumScreenState extends State<PodiumScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _buildScoreDisplay('Khent', widget.match.khentScore),
+        _buildScoreDisplay(
+          displayNameFor(widget.match.hostUsername),
+          widget.match.hostScore,
+        ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 30),
           child: Text(
@@ -186,7 +190,10 @@ class _PodiumScreenState extends State<PodiumScreen>
             ),
           ),
         ),
-        _buildScoreDisplay('Clair', widget.match.clairScore),
+        _buildScoreDisplay(
+          displayNameFor(widget.match.participantUsername),
+          widget.match.guestScore,
+        ),
       ],
     );
   }

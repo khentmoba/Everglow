@@ -16,13 +16,13 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 
 class GameBoardScreen extends StatefulWidget {
   final String matchId;
-  final String userId;
+  final String username;
   final List<AcademyQuestion> questions;
 
   const GameBoardScreen({
     super.key,
     required this.matchId,
-    required this.userId,
+    required this.username,
     required this.questions,
   });
 
@@ -42,10 +42,9 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
 
     if (isCorrect) {
       await _academyService.submitAnswer(
-        widget.matchId,
-        widget.userId,
-        question.id,
-        true,
+        matchId: widget.matchId,
+        username: widget.username,
+        questionId: question.id,
       );
     } else {
       setState(() => _isLocked = true);
@@ -114,10 +113,16 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                 );
               }
 
-              final currentQuestion = widget.questions.firstWhere(
-                (q) => q.id == match.currentQuestionId,
-                orElse: () => widget.questions.first,
-              );
+              // Both phones loaded the same ordered list, so the shared
+              // index IS the current question — never a wrong fallback.
+              final total = widget.questions.length;
+              final inRange =
+                  total > 0 &&
+                  match.questionIndex >= 0 &&
+                  match.questionIndex < total;
+              final currentQuestion = inRange
+                  ? widget.questions[match.questionIndex]
+                  : null;
 
               return Stack(
                 children: [
@@ -125,9 +130,12 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                     child: Column(
                       children: [
                         ScoreTracker(
-                          khentScore: match.khentScore,
-                          clairScore: match.clairScore,
+                          hostName: match.hostUsername,
+                          guestName: match.participantUsername,
+                          hostScore: match.hostScore,
+                          guestScore: match.guestScore,
                           questionIndex: match.questionIndex,
+                          totalQuestions: total == 0 ? 1 : total,
                         ),
                         Expanded(
                           child: Padding(
@@ -136,7 +144,7 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  'Question ${match.questionIndex + 1}/10',
+                                  'Question ${(match.questionIndex + 1).clamp(1, total == 0 ? 1 : total)}/${total == 0 ? '–' : total}',
                                   style: AppTypography.outfitBold.copyWith(
                                     fontSize: 18,
                                     color: AppColors.auroraRose,
@@ -177,7 +185,8 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                                     ],
                                   ),
                                   child: Text(
-                                    currentQuestion.questionText,
+                                    currentQuestion?.questionText ??
+                                        'Waiting for the next question...',
                                     textAlign: TextAlign.center,
                                     style: AppTypography.outfitWhite.copyWith(
                                       fontSize: 22,
@@ -187,14 +196,18 @@ class _GameBoardScreenState extends State<GameBoardScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 32),
-                                ...List.generate(4, (index) {
-                                  return AnswerButton(
-                                    text: currentQuestion.options[index],
-                                    isLocked: _isLocked,
-                                    onTap: () =>
-                                        _handleAnswer(currentQuestion, index),
-                                  );
-                                }),
+                                if (currentQuestion != null)
+                                  ...List.generate(
+                                    currentQuestion.options.length,
+                                    (index) {
+                                      final q = currentQuestion;
+                                      return AnswerButton(
+                                        text: q.options[index],
+                                        isLocked: _isLocked,
+                                        onTap: () => _handleAnswer(q, index),
+                                      );
+                                    },
+                                  ),
                                 if (_isLocked)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 20),
