@@ -90,13 +90,15 @@ class _DailyBloomState extends State<DailyBloom> {
         final coupleAuth = auth;
 
         final stats = provider.stats;
-        // First-screen progress: the garden has settled (stats or final
-        // error), so the load veil can count us. Reported post-frame —
-        // notifyListeners must not fire during build — and retried each
-        // build until a tracker accepts it (cards can render in tests
-        // or routes without one). Own stats settle the veil; the partner
-        // stream may lag a beat behind without holding first paint.
-        if (!_gardenReported && (stats != null || provider.hasError)) {
+        // First-screen progress: the garden has settled (stats or a final,
+        // retries-exhausted error), so the load veil can count us. A
+        // transient error with a retry still scheduled counts for
+        // nothing — the percent only moves on real events. Reported
+        // post-frame — notifyListeners must not fire during build — and
+        // retried each build until a tracker accepts it (cards can render
+        // in tests or routes without one). Own stats settle the veil;
+        // the partner stream may lag a beat behind without holding paint.
+        if (!_gardenReported && (stats != null || provider.hasSettledError)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted || _gardenReported) return;
             try {

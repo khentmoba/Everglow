@@ -26,7 +26,16 @@ import 'dashboard_load_tracker.dart';
 /// replace the bar.
 class XpProgressSection extends StatefulWidget {
   final String? uid;
-  const XpProgressSection({super.key, required this.uid});
+
+  /// Test seam for the XP stream. Production always uses
+  /// `XPService().watchProgress`, which needs Firestore.
+  final Stream<UserProgress?> Function(String uid)? watchProgress;
+
+  const XpProgressSection({
+    super.key,
+    required this.uid,
+    this.watchProgress,
+  });
 
   @override
   State<XpProgressSection> createState() => _XpProgressSectionState();
@@ -55,16 +64,10 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   void initState() {
     super.initState();
     _bind();
-    // Optimistic first paint: the bar renders on the very first frame
-    // (cache or zero-state), so we count as ready immediately. Reported
-    // post-frame since notifyListeners must not fire during initState's
-    // build pass.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      try {
-        context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.stars);
-      } catch (_) {}
-    });
+    // No mark here on purpose: the optimistic zero-state bar is a
+    // placeholder, not readiness. Stars count only when XP truly
+    // settles — a cache hit, a real snapshot, or exhausted retries —
+    // so the veil percent never climbs on a guess.
   }
 
   @override
@@ -90,13 +93,27 @@ class _XpProgressSectionState extends State<XpProgressSection> {
 
     if (uid == null || uid.isEmpty) {
       _progress = null;
+      // Settled: with no uid there is nothing to load and the card
+      // renders empty, so the veil must not wait on us.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reportLoaded();
+      });
       return;
     }
 
     // Optimistic paint: show cached progress — or a zero-state bar —
     // synchronously so first paint never waits on Firestore.
-    _progress = _cache[uid] ?? _zero(uid);
+    final cached = _cache[uid];
+    _progress = cached ?? _zero(uid);
     if (mounted) setState(() {});
+    // A cache hit paints real data, so it counts — reported post-frame
+    // since notifyListeners must not fire during initState's build pass.
+    // A zero-state paint counts for nothing: the stream below must answer.
+    if (cached != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reportLoaded();
+      });
+    }
 
     _subscribe(uid);
   }
@@ -104,13 +121,18 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   void _subscribe(String uid) {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _service.watchProgress(uid).map((p) {
+    final source = widget.watchProgress?.call(uid) ??
+        _service.watchProgress(uid);
+    _sub = source.map((p) {
       if (p != null) _cache[uid] = p;
       return p;
     }).listen(
       (data) {
         if (!mounted || _boundUid != uid) return;
         _retryCount = 0;
+        // First answer from Firestore — real data or a genuine "no doc"
+        // (null) — so the veil can count us.
+        _reportLoaded();
         if (data == null) {
           // Doc doesn't exist yet — keep the optimistic zero-state visible
           // and seed in the background (fire-and-forget with its own timeout).
@@ -154,7 +176,20 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       // Retries exhausted: keep the optimistic bar, just flag for the
       // optional inline retry affordance (never replaces the bar).
       setState(() => _hasError = true);
+      // The error state is final, so the veil can stop waiting on us
+      // even though no XP arrived.
+      _reportLoaded();
     }
+  }
+
+  /// First-screen progress: XP has settled (cache hit, real snapshot,
+  /// or final error), so the load veil can count us. Marking is
+  /// idempotent — cache hits, snapshots, and exhausted retries all
+  /// funnel here safely. Safe outside the dashboard (no tracker).
+  void _reportLoaded() {
+    try {
+      context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.stars);
+    } catch (_) {}
   }
 
   void _retry() {
