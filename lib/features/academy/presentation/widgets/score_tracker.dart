@@ -3,17 +3,24 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/utils/text_utils.dart';
 
 class ScoreTracker extends StatelessWidget {
-  final int khentScore;
-  final int clairScore;
+  final String? hostName;
+  final String? guestName;
+  final int hostScore;
+  final int guestScore;
   final int questionIndex;
+  final int totalQuestions;
 
   const ScoreTracker({
     super.key,
-    required this.khentScore,
-    required this.clairScore,
+    this.hostName,
+    this.guestName,
+    required this.hostScore,
+    required this.guestScore,
     required this.questionIndex,
+    this.totalQuestions = 10,
   });
 
   @override
@@ -43,7 +50,11 @@ class ScoreTracker extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildPlayerScore('Khent', khentScore, AppColors.softLavender),
+          _buildPlayerScore(
+            displayNameFor(hostName),
+            hostScore,
+            AppColors.softLavender,
+          ),
           Column(
             children: [
               Text(
@@ -64,7 +75,9 @@ class ScoreTracker extends StatelessWidget {
                 ),
                 child: FractionallySizedBox(
                   alignment: Alignment.centerLeft,
-                  widthFactor: (questionIndex / 10).clamp(0.0, 1.0),
+                  widthFactor: totalQuestions <= 0
+                      ? 0.0
+                      : (questionIndex / totalQuestions).clamp(0.0, 1.0),
                   child: Container(
                     decoration: BoxDecoration(
                       gradient: AppTheme.roseGoldGradient,
@@ -81,7 +94,11 @@ class ScoreTracker extends StatelessWidget {
               ),
             ],
           ),
-          _buildPlayerScore('Clair', clairScore, AppColors.auroraRose),
+          _buildPlayerScore(
+            displayNameFor(guestName),
+            guestScore,
+            AppColors.auroraRose,
+          ),
         ],
       ),
     );

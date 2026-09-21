@@ -16,6 +16,10 @@ class AcademyService {
       _firestore.collection('active_matches');
   CollectionReference get _usersRef => _firestore.collection('users');
 
+  /// Match length for 1v1. The shared [GameMatch.questionIds] order decides
+  /// the real length; this is the snapshot size at creation.
+  static const int matchLength = 10;
+
   // Fetch random questions for a category
   Future<List<AcademyQuestion>> getQuestions(
     String category, {
@@ -35,6 +39,55 @@ class AcademyService {
 
     questions.shuffle();
     return questions.take(limit).toList();
+  }
+
+  /// Random questions for a category, skipping [excludeIds] (already seen).
+  /// Falls back to the full pool when everything was seen.
+  Future<List<AcademyQuestion>> getQuestionsExcluding(
+    String category, {
+    int limit = 10,
+    Set<String> excludeIds = const {},
+  }) async {
+    final query = await withGetTimeout(
+      _questionsRef
+          .where('category', isEqualTo: category)
+          .limit(limit * 5)
+          .get(),
+      label: 'academy questions excluding seen',
+    );
+
+    final questions =
+        query.docs.map((doc) => AcademyQuestion.fromFirestore(doc)).toList()
+          ..shuffle();
+
+    if (excludeIds.isEmpty) return questions.take(limit).toList();
+    final fresh = questions.where((q) => !excludeIds.contains(q.id)).toList();
+    if (fresh.length >= limit) return fresh.take(limit).toList();
+    // Not enough fresh ones — mix fresh first, then repeats.
+    final rest = questions.where((q) => excludeIds.contains(q.id));
+    return [...fresh, ...rest].take(limit).toList();
+  }
+
+  /// Loads questions by doc ID, in [ids] order. Skips missing docs.
+  /// Used for 1v1 shared sets so both phones see identical questions.
+  Future<List<AcademyQuestion>> getQuestionsByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final found = <String, AcademyQuestion>{};
+    // whereIn caps at 10 ids per query — chunk larger sets.
+    for (var i = 0; i < ids.length; i += 10) {
+      final chunk = ids.skip(i).take(10).toList();
+      final query = await withGetTimeout(
+        _questionsRef.where(FieldPath.documentId, whereIn: chunk).get(),
+        label: 'academy questions by id',
+      );
+      for (final doc in query.docs) {
+        found[doc.id] = AcademyQuestion.fromFirestore(doc);
+      }
+    }
+    return [
+      for (final id in ids)
+        if (found[id] != null) found[id]!,
+    ];
   }
 
   // Update Study Points for a user
@@ -92,8 +145,19 @@ class AcademyService {
     }
   }
 
-  // 1v1 Matchmaking logic
-  Future<GameMatch> joinOrCreateMatch(String userId, String category) async {
+  // 1v1 Matchmaking logic.
+  //
+  // [userUid] is the Firebase Auth UID (what security rules check);
+  // [username] is the profile name (what scoring + display use).
+  // The host snapshots the shared question order at creation so both
+  // phones play identical questions — callers should pass Motchi-fresh
+  // ids when available, otherwise we snapshot from the cached pool.
+  Future<GameMatch> joinOrCreateMatch({
+    required String userUid,
+    required String username,
+    required String category,
+    List<String>? questionIds,
+  }) async {
     // 1. Cleanup stale matches
     await _cleanupStaleMatches();
 
@@ -111,12 +175,14 @@ class AcademyService {
       final matchDoc = waitingMatches.docs.first;
       return await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(matchDoc.reference);
+        if (!snapshot.exists) throw Exception('Match no longer available');
         final match = GameMatch.fromFirestore(snapshot);
 
-        if (match.status == 'waiting' && match.hostId != userId) {
+        if (match.status == 'waiting' && match.hostId != userUid) {
           final updatedMatch = match.copyWith(
             status: 'active',
-            participantId: userId,
+            participantId: userUid,
+            participantUsername: username,
           );
           transaction.update(matchDoc.reference, updatedMatch.toMap());
           return updatedMatch;
@@ -125,20 +191,28 @@ class AcademyService {
       });
     }
 
-    // 3. Create new match
-    final questions = await getQuestions(category);
-    if (questions.isEmpty) throw Exception('No questions found for category');
+    // 3. Create new match with a snapshotted question order.
+    final ids = (questionIds != null && questionIds.isNotEmpty)
+        ? questionIds.take(matchLength).toList()
+        : (await getQuestions(
+            category,
+            limit: matchLength,
+          )).map((q) => q.id).toList();
+    if (ids.isEmpty) throw Exception('No questions found for category');
 
     final newMatchDoc = _matchesRef.doc();
     final newMatch = GameMatch(
       matchId: newMatchDoc.id,
-      hostId: userId,
+      hostId: userUid,
       participantId: null,
-      khentScore: 0,
-      clairScore: 0,
+      hostUsername: username,
+      participantUsername: null,
+      hostScore: 0,
+      guestScore: 0,
       status: 'waiting',
-      currentQuestionId: questions.first.id,
+      currentQuestionId: ids.first,
       questionIndex: 0,
+      questionIds: ids,
       category: category,
       createdAt: DateTime.now(),
     );
@@ -147,71 +221,121 @@ class AcademyService {
     return newMatch;
   }
 
-  // Submit Answer transactional logic
-  Future<bool> submitAnswer(
-    String matchId,
-    String userId,
-    String questionId,
-    bool isCorrect,
-  ) async {
+  /// Swaps a still-waiting match to a fresher question order (the host's
+  /// Motchi set). Returns false when a guest already joined — the
+  /// original cached order stands so the game stays in sync.
+  Future<bool> upgradeWaitingMatchQuestions({
+    required String matchId,
+    required List<String> questionIds,
+  }) async {
+    if (questionIds.isEmpty) return false;
+    try {
+      return await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(_matchesRef.doc(matchId));
+        if (!snapshot.exists) return false;
+        final match = GameMatch.fromFirestore(snapshot);
+        if (match.status != 'waiting') return false;
+        final ids = questionIds.take(matchLength).toList();
+        transaction.update(
+          _matchesRef.doc(matchId),
+          match
+              .copyWith(
+                questionIds: ids,
+                currentQuestionId: ids.first,
+                questionIndex: 0,
+              )
+              .toMap(),
+        );
+        return true;
+      });
+    } catch (e) {
+      Logger.e('Error upgrading waiting match questions', error: e);
+      return false;
+    }
+  }
+
+  /// Deletes a still-waiting match (host cancelled search). Finished or
+  /// active matches are left alone.
+  Future<void> cancelWaitingMatch(String matchId) async {
+    try {
+      final doc = await withGetTimeout(
+        _matchesRef.doc(matchId).get(),
+        label: 'academy cancel match check',
+      );
+      if (!doc.exists) return;
+      final match = GameMatch.fromFirestore(doc);
+      if (match.status == 'waiting') {
+        await _matchesRef.doc(matchId).delete();
+      }
+    } catch (e) {
+      Logger.e('Error cancelling waiting match', error: e);
+    }
+  }
+
+  /// Records a correct 1v1 answer (fastest finger wins the point).
+  /// Returns true when this call advanced the match; false when the
+  /// question was already answered or the match is over.
+  ///
+  /// Transaction-safe: reads + writes the match doc only, never fetches
+  /// the question pool mid-transaction. The next question comes from the
+  /// snapshotted [GameMatch.questionIds] order.
+  Future<bool> submitAnswer({
+    required String matchId,
+    required String username,
+    required String questionId,
+  }) async {
     final matchRef = _matchesRef.doc(matchId);
 
     return await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(matchRef);
+      if (!snapshot.exists) return false;
       final match = GameMatch.fromFirestore(snapshot);
 
       if (match.status != 'active' || match.currentQuestionId != questionId) {
         return false; // Question already answered or match over
       }
 
-      if (isCorrect) {
-        final isHost = match.hostId == userId;
-        final nextIndex = match.questionIndex + 1;
+      final isHost = (match.hostUsername ?? match.hostId) == username;
+      final nextIndex = match.questionIndex + 1;
+      // Legacy docs (pre-refresh) have no snapshotted order — score this
+      // answer and finish rather than stranding the match mid-game.
+      final isFinished = match.questionIds.isEmpty
+          ? true
+          : nextIndex >= match.questionIds.length;
+      final nextQuestionId = isFinished ? '' : match.questionIds[nextIndex];
 
-        // Bound against the 10-question match length; finish when the pool
-        // is exhausted instead of indexing past the end.
-        final isFinished = nextIndex >= 10;
-        String nextQuestionId = '';
-        if (!isFinished) {
-          final questions = await getQuestions(match.category);
-          if (nextIndex >= questions.length) {
-            final exhausted = match.copyWith(
-              khentScore: isHost ? match.khentScore + 10 : match.khentScore,
-              clairScore: !isHost ? match.clairScore + 10 : match.clairScore,
-              questionIndex: nextIndex,
-              currentQuestionId: '',
-              status: 'finished',
-              winnerId: _calculateWinner(match, isHost),
-            );
-            transaction.update(matchRef, exhausted.toMap());
-            return true;
-          }
-          nextQuestionId = questions[nextIndex].id;
-        }
+      final hostScore = match.hostScore + (isHost ? 10 : 0);
+      final guestScore = match.guestScore + (!isHost ? 10 : 0);
 
-        final updatedMatch = match.copyWith(
-          khentScore: isHost ? match.khentScore + 10 : match.khentScore,
-          clairScore: !isHost ? match.clairScore + 10 : match.clairScore,
-          questionIndex: nextIndex,
-          currentQuestionId: nextQuestionId,
-          status: isFinished ? 'finished' : 'active',
-          winnerId: isFinished ? _calculateWinner(match, isHost) : null,
-        );
+      final updatedMatch = match.copyWith(
+        hostScore: hostScore,
+        guestScore: guestScore,
+        questionIndex: nextIndex,
+        currentQuestionId: isFinished ? '' : nextQuestionId,
+        status: isFinished ? 'finished' : 'active',
+        winnerId: isFinished
+            ? _calculateWinner(
+                hostScore: hostScore,
+                guestScore: guestScore,
+                hostUsername: match.hostUsername,
+                guestUsername: match.participantUsername,
+              )
+            : null,
+      );
 
-        transaction.update(matchRef, updatedMatch.toMap());
-        return true;
-      }
-      return false; // Incorrect answers don't advance the match in 1v1 fastest-finger
+      transaction.update(matchRef, updatedMatch.toMap());
+      return true;
     });
   }
 
-  String _calculateWinner(GameMatch match, bool isHostWinner) {
-    // Recalculate based on final scores
-    int khent = match.khentScore + (isHostWinner ? 10 : 0);
-    int clair = match.clairScore + (!isHostWinner ? 10 : 0);
-
-    if (khent > clair) return 'khent';
-    if (clair > khent) return 'clair';
+  String _calculateWinner({
+    required int hostScore,
+    required int guestScore,
+    required String? hostUsername,
+    required String? guestUsername,
+  }) {
+    if (hostScore > guestScore) return hostUsername ?? 'draw';
+    if (guestScore > hostScore) return guestUsername ?? 'draw';
     return 'draw';
   }
 

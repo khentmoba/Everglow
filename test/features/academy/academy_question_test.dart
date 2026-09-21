@@ -37,6 +37,25 @@ void main() {
 
       expect(q.options, ['A', '2', 'null']);
       expect(q.correctOptionIndex, 1);
+      expect(q.explanation, isNull);
+    });
+
+    test('fromMap reads explanation, ignores odd types', () {
+      final q = AcademyQuestion.fromMap({
+        'questionText': 'Q',
+        'options': ['A', 'B'],
+        'correctOptionIndex': 0,
+        'explanation': 'Mars is red because of rust.',
+      }, 'doc4');
+      expect(q.explanation, 'Mars is red because of rust.');
+
+      final odd = AcademyQuestion.fromMap({
+        'questionText': 'Q',
+        'options': ['A', 'B'],
+        'correctOptionIndex': 0,
+        'explanation': 42,
+      }, 'doc5');
+      expect(odd.explanation, isNull);
     });
   });
 }

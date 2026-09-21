@@ -42,3 +42,21 @@ List<String> extractTitles(String text) {
   }
   return titles;
 }
+
+/// Pretty profile name for a username (`khentsgdz` → `Khent`).
+/// Unknown names are capitalized; null/empty becomes `Love`.
+String displayNameFor(String? username) {
+  switch (username) {
+    case 'khentsgdz':
+      return 'Khent';
+    case 'clairjassen':
+      return 'Clair';
+    case 'breyan':
+      return 'Breyan';
+    case 'octagram':
+      return 'Octagram';
+    default:
+      if (username == null || username.isEmpty) return 'Love';
+      return username[0].toUpperCase() + username.substring(1);
+  }
+}
