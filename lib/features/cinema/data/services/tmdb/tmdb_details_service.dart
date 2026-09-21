@@ -8,6 +8,23 @@ import 'tmdb_base.dart';
 /// TMDB detail endpoints: credits, reviews, similar titles, TV show
 /// season/episode data, and generic media details.
 class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
+  /// IDs that 404'd on BOTH movie and tv lookups (stale/dead TMDB ids).
+  /// Process-wide so the billboard, hover cards, and episode drawer share
+  /// one memory of dead ids instead of re-404ing on every rotation.
+  static final Set<String> _deadIds = <String>{};
+
+  /// Requested-type -> resolved-type corrections, keyed `"$type:$id"`.
+  /// E.g. `tv:1714066` -> `movie` for "Yellow Jacket Televison", a movie
+  /// mistagged as tv in user data. Repeat opens fetch the right type
+  /// first (one request, no 404) instead of probing the wrong type again.
+  static final Map<String, String> _typeFixes = <String, String>{};
+
+  /// Test helper: statics persist across tests in one file.
+  static void resetDetailsCacheForTests() {
+    _deadIds.clear();
+    _typeFixes.clear();
+  }
+
   /// Fetch cast (credits) for a movie or TV show
   Future<List<Map<String, dynamic>>> fetchCredits(
     int id,
@@ -126,7 +143,10 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
   ) async {
     // Certifications ride along so the billboard can show an age chip
     // without a second round trip (the proxy passes query params through).
-    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id').replace(
+    final key = '$mediaType:$id';
+    if (_deadIds.contains(key)) return null;
+    final firstType = _typeFixes[key] ?? mediaType;
+    final url = Uri.parse('$tmdbBaseUrl/$firstType/$id').replace(
       queryParameters: {'append_to_response': 'release_dates,content_ratings'},
     );
     try {
@@ -137,9 +157,9 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
       // On 404, check the alternate mediaType in case a movie was tagged tv
       // or vice-versa (e.g. titles with "Televison" tagged as tv).
       if (response.statusCode == 404) {
-        final altType = mediaType == 'tv'
+        final altType = firstType == 'tv'
             ? 'movie'
-            : (mediaType == 'movie' ? 'tv' : null);
+            : (firstType == 'movie' ? 'tv' : null);
         if (altType != null) {
           final altUrl = Uri.parse('$tmdbBaseUrl/$altType/$id').replace(
             queryParameters: {
@@ -148,9 +168,15 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
           );
           final altResponse = await tmdbGet(altUrl);
           if (altResponse.statusCode == 200) {
+            // Remember the correction so repeat opens skip the 404 probe.
+            _typeFixes[key] = altType;
             return json.decode(altResponse.body);
           }
         }
+        // Both types 404'd: remember the dead id so rotations and
+        // hovers stop re-requesting it for the rest of the session.
+        // Other statuses (5xx/429) are transient and stay retryable.
+        _deadIds.add(key);
       }
     } catch (e) {
       Logger.e('TMDB Details Error', error: e);
