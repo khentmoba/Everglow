@@ -84,15 +84,18 @@ void main() {
       expect(await service.fetchTopTracks('khentsgdz'), isEmpty);
     });
 
-    test('fetchRecentTracks returns empty on an HTTP-200 error payload', () async {
-      final service = _service(
-        () async => _jsonResponse({
-          'error': 16,
-          'message': 'There was a temporary error processing your request',
-        }),
-      );
-      expect(await service.fetchRecentTracks('khentsgdz'), isEmpty);
-    });
+    test(
+      'fetchRecentTracks returns empty on an HTTP-200 error payload',
+      () async {
+        final service = _service(
+          () async => _jsonResponse({
+            'error': 16,
+            'message': 'There was a temporary error processing your request',
+          }),
+        );
+        expect(await service.fetchRecentTracks('khentsgdz'), isEmpty);
+      },
+    );
 
     test('fetchTopTracks marks the user invalid only on 404', () async {
       final notFound = _service(
@@ -110,5 +113,39 @@ void main() {
       expect(await rateLimited.fetchTopTracks('khentsgdz'), isEmpty);
       expect(rateLimited.isUserInvalid('khentsgdz'), isFalse);
     });
+
+    test(
+      'fetchTopTracks retries with limit=200 on HTTP 500 if limit > 200',
+      () async {
+        var callCount = 0;
+        final requestedLimits = <String>[];
+        final service = MusicSyncService(
+          client: MockClient((request) async {
+            callCount++;
+            final limit = request.url.queryParameters['limit'] ?? '';
+            requestedLimits.add(limit);
+            if (limit == '1000') {
+              return _jsonResponse({
+                'error': 8,
+                'message':
+                    'Operation failed - Most likely the backend service failed.',
+              }, status: 500);
+            }
+            return _jsonResponse({
+              'toptracks': {'track': _topTrackEntry()},
+            });
+          }),
+          signUrl: (url) async => url.replace(
+            queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+          ),
+        );
+
+        final tracks = await service.fetchTopTracks('khentsgdz', limit: 1000);
+        expect(callCount, 2);
+        expect(requestedLimits, ['1000', '200']);
+        expect(tracks, hasLength(1));
+        expect(tracks.first.trackName, 'Only Song');
+      },
+    );
   });
 }

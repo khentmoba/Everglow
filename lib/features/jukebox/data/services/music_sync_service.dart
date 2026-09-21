@@ -148,9 +148,7 @@ class MusicSyncService {
         final tracks = _asMapList(data['recenttracks']?['track']);
         if (tracks.isNotEmpty) {
           return tracks
-              .map(
-                (track) => MusicStatus.fromTrackJson(track, username),
-              )
+              .map((track) => MusicStatus.fromTrackJson(track, username))
               .toList();
         } else {
           _warnOnLastfmError(data, 'tracks', username);
@@ -232,6 +230,11 @@ class MusicSyncService {
         Logger.w(
           'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
         );
+      } else if (response.statusCode == 500 && limit > 200) {
+        Logger.w(
+          'Jukebox Service: Last.fm returned 500 for limit=$limit on "$username". Retrying with limit=200...',
+        );
+        return await fetchTopTracks(username, limit: 200, period: period);
       } else {
         Logger.e(
           'Jukebox Service Error (top tracks, $username): Status ${response.statusCode} - ${response.body}',
@@ -311,7 +314,10 @@ class MusicSyncService {
         'Jukebox Service Timeout: Artist tracks API call for $username timed out after 10s.',
       );
     } catch (e) {
-      Logger.e('Jukebox Service Exception (artist tracks, $username)', error: e);
+      Logger.e(
+        'Jukebox Service Exception (artist tracks, $username)',
+        error: e,
+      );
     }
     return [];
   }
@@ -406,16 +412,13 @@ class MusicSyncService {
       return lastfmMeta;
     }
 
-    final itunesMeta = await _fetchItunesMetadata(
-      artist: artist,
-      track: track,
-    );
+    final itunesMeta = await _fetchItunesMetadata(artist: artist, track: track);
     if (itunesMeta != null) {
       final combinedArtwork = lastfmMeta?.artworkUrl ?? itunesMeta.artworkUrl;
       final combinedAlbum =
           (lastfmMeta?.albumName != null && lastfmMeta!.albumName!.isNotEmpty)
-              ? lastfmMeta.albumName
-              : itunesMeta.albumName;
+          ? lastfmMeta.albumName
+          : itunesMeta.albumName;
       if (combinedArtwork != null &&
           combinedAlbum != null &&
           combinedAlbum.isNotEmpty) {
@@ -437,11 +440,10 @@ class MusicSyncService {
           spotifyMeta.artworkUrl;
       final combinedAlbum =
           (lastfmMeta?.albumName != null && lastfmMeta!.albumName!.isNotEmpty)
-              ? lastfmMeta.albumName
-              : (itunesMeta?.albumName != null &&
-                    itunesMeta!.albumName!.isNotEmpty)
-              ? itunesMeta.albumName
-              : spotifyMeta.albumName;
+          ? lastfmMeta.albumName
+          : (itunesMeta?.albumName != null && itunesMeta!.albumName!.isNotEmpty)
+          ? itunesMeta.albumName
+          : spotifyMeta.albumName;
       return TrackMetadata(
         artworkUrl: combinedArtwork,
         albumName: combinedAlbum,
@@ -453,8 +455,8 @@ class MusicSyncService {
         artworkUrl: lastfmMeta?.artworkUrl ?? itunesMeta.artworkUrl,
         albumName:
             (lastfmMeta?.albumName != null && lastfmMeta!.albumName!.isNotEmpty)
-                ? lastfmMeta.albumName
-                : itunesMeta.albumName,
+            ? lastfmMeta.albumName
+            : itunesMeta.albumName,
       );
     }
 
@@ -522,12 +524,11 @@ class MusicSyncService {
             )) {
           final album = trackNode['album'];
           if (album is Map) {
-            final picked = pickLastfmImageUrl(
-              album['image'] as List<dynamic>?,
-            );
+            final picked = pickLastfmImageUrl(album['image'] as List<dynamic>?);
             final title = (album['title'] as String?)?.trim();
-            final validTitle =
-                (title != null && title.isNotEmpty) ? title : null;
+            final validTitle = (title != null && title.isNotEmpty)
+                ? title
+                : null;
             if (picked != null || validTitle != null) {
               return TrackMetadata(artworkUrl: picked, albumName: validTitle);
             }
@@ -574,10 +575,7 @@ class MusicSyncService {
     required String artist,
     required String track,
   }) async {
-    final meta = await _fetchItunesMetadata(
-      artist: artist,
-      track: track,
-    );
+    final meta = await _fetchItunesMetadata(artist: artist, track: track);
     return meta?.artworkUrl;
   }
 
@@ -587,11 +585,7 @@ class MusicSyncService {
   }) async {
     try {
       final results = await _searchItunes('$artist $track');
-      var selected = _selectItunesResult(
-        results,
-        track: track,
-        artist: artist,
-      );
+      var selected = _selectItunesResult(results, track: track, artist: artist);
       if (selected == null) {
         // The combined query can return results that still miss (wrong
         // artist spelling, collab listed differently, iTunes quirk), so
@@ -610,8 +604,9 @@ class MusicSyncService {
       if (selected == null) return null;
       final artwork = selected['artworkUrl100'];
       final albumName = (selected['collectionName'] as String?)?.trim();
-      final validAlbum =
-          (albumName != null && albumName.isNotEmpty) ? albumName : null;
+      final validAlbum = (albumName != null && albumName.isNotEmpty)
+          ? albumName
+          : null;
       final validArtwork = (artwork is String && artwork.isNotEmpty)
           ? artwork.replaceFirst('/100x100bb.jpg', '/600x600bb.jpg')
           : null;
@@ -647,10 +642,7 @@ class MusicSyncService {
     required String artist,
     required String track,
   }) async {
-    final meta = await _fetchSpotifyMetadata(
-      artist: artist,
-      track: track,
-    );
+    final meta = await _fetchSpotifyMetadata(artist: artist, track: track);
     return meta?.artworkUrl;
   }
 
@@ -724,9 +716,9 @@ class MusicSyncService {
         timeout: const Duration(seconds: 8),
       );
     } else {
-      final uri = Uri.parse('https://itunes.apple.com/search').replace(
-        queryParameters: query,
-      );
+      final uri = Uri.parse(
+        'https://itunes.apple.com/search',
+      ).replace(queryParameters: query);
       response = await _client.get(uri).timeout(const Duration(seconds: 8));
     }
     if (response.statusCode != 200) return const [];
@@ -862,10 +854,7 @@ class MusicSyncService {
         caseSensitive: false,
       ),
     );
-    return parts
-        .map(_normalizeForMatch)
-        .where((p) => p.length >= 2)
-        .toList();
+    return parts.map(_normalizeForMatch).where((p) => p.length >= 2).toList();
   }
 
   /// Reads a Last.fm artist node, which is normally `{"name": ...}` but
@@ -925,10 +914,7 @@ class MusicSyncService {
         'Jukebox Service Timeout: Artist search for "$trimmed" timed out.',
       );
     } catch (e) {
-      Logger.e(
-        'Jukebox Service Exception (artist search, $trimmed)',
-        error: e,
-      );
+      Logger.e('Jukebox Service Exception (artist search, $trimmed)', error: e);
     }
     return const [];
   }
@@ -957,9 +943,7 @@ class MusicSyncService {
         }
       }
     } on TimeoutException {
-      Logger.e(
-        'Jukebox Service Timeout: Artist photo for "$name" timed out.',
-      );
+      Logger.e('Jukebox Service Timeout: Artist photo for "$name" timed out.');
     } catch (e) {
       Logger.e('Jukebox Service Exception (artist photo, $name)', error: e);
     }
@@ -1089,9 +1073,9 @@ class MusicSyncService {
       final response = await _getWithAuth(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final tracks = _asMapList(data['recenttracks']?['track'])
-            .where((t) => t['date'] != null)
-            .toList();
+        final tracks = _asMapList(
+          data['recenttracks']?['track'],
+        ).where((t) => t['date'] != null).toList();
         if (tracks.isNotEmpty) {
           return tracks
               .map((t) => MusicStatus.fromTrackJson(t, username))
