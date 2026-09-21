@@ -9,9 +9,12 @@ import '../models/music_status.dart';
 import '../models/top_album.dart';
 import '../models/top_artist.dart';
 import '../models/top_music_track.dart';
+import '../models/track_metadata.dart';
 import '../models/lastfm_image_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/catalog_proxy_client.dart';
+
+export '../models/track_metadata.dart';
 
 class MusicSyncService {
   MusicSyncService({
@@ -349,7 +352,7 @@ class MusicSyncService {
     return 0;
   }
 
-  /// Looks up real album artwork for a single track via `track.getinfo`.
+  /// Looks up real album artwork and metadata for a single track via `track.getinfo`.
   ///
   /// `user.gettoptracks` frequently returns Last.fm's default placeholder
   /// image (or no image at all), so the dashboard enriches missing covers
@@ -385,7 +388,107 @@ class MusicSyncService {
     return _fetchSpotifyArtwork(artist: artist, track: track);
   }
 
+  /// Looks up metadata (artwork URL and album name) for a track.
+  Future<TrackMetadata?> fetchTrackMetadata({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    final lastfmMeta = await _fetchLastfmTrackMetadata(
+      artist: artist,
+      track: track,
+      mbid: mbid,
+    );
+    if (lastfmMeta != null &&
+        lastfmMeta.artworkUrl != null &&
+        lastfmMeta.albumName != null &&
+        lastfmMeta.albumName!.isNotEmpty) {
+      return lastfmMeta;
+    }
+
+    final itunesMeta = await _fetchItunesMetadata(
+      artist: artist,
+      track: track,
+    );
+    if (itunesMeta != null) {
+      final combinedArtwork = lastfmMeta?.artworkUrl ?? itunesMeta.artworkUrl;
+      final combinedAlbum =
+          (lastfmMeta?.albumName != null && lastfmMeta!.albumName!.isNotEmpty)
+              ? lastfmMeta.albumName
+              : itunesMeta.albumName;
+      if (combinedArtwork != null &&
+          combinedAlbum != null &&
+          combinedAlbum.isNotEmpty) {
+        return TrackMetadata(
+          artworkUrl: combinedArtwork,
+          albumName: combinedAlbum,
+        );
+      }
+    }
+
+    final spotifyMeta = await _fetchSpotifyMetadata(
+      artist: artist,
+      track: track,
+    );
+    if (spotifyMeta != null) {
+      final combinedArtwork =
+          lastfmMeta?.artworkUrl ??
+          itunesMeta?.artworkUrl ??
+          spotifyMeta.artworkUrl;
+      final combinedAlbum =
+          (lastfmMeta?.albumName != null && lastfmMeta!.albumName!.isNotEmpty)
+              ? lastfmMeta.albumName
+              : (itunesMeta?.albumName != null &&
+                    itunesMeta!.albumName!.isNotEmpty)
+              ? itunesMeta.albumName
+              : spotifyMeta.albumName;
+      return TrackMetadata(
+        artworkUrl: combinedArtwork,
+        albumName: combinedAlbum,
+      );
+    }
+
+    if (itunesMeta != null) {
+      return TrackMetadata(
+        artworkUrl: lastfmMeta?.artworkUrl ?? itunesMeta.artworkUrl,
+        albumName:
+            (lastfmMeta?.albumName != null && lastfmMeta!.albumName!.isNotEmpty)
+                ? lastfmMeta.albumName
+                : itunesMeta.albumName,
+      );
+    }
+
+    return lastfmMeta;
+  }
+
+  /// Looks up real album title for a track.
+  Future<String?> fetchTrackAlbum({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    final meta = await fetchTrackMetadata(
+      artist: artist,
+      track: track,
+      mbid: mbid,
+    );
+    return meta?.albumName;
+  }
+
   Future<String?> _fetchLastfmTrackArtwork({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    final meta = await _fetchLastfmTrackMetadata(
+      artist: artist,
+      track: track,
+      mbid: mbid,
+    );
+    return meta?.artworkUrl;
+  }
+
+  Future<TrackMetadata?> _fetchLastfmTrackMetadata({
     required String artist,
     required String track,
     String? mbid,
@@ -422,7 +525,12 @@ class MusicSyncService {
             final picked = pickLastfmImageUrl(
               album['image'] as List<dynamic>?,
             );
-            if (picked != null) return picked;
+            final title = (album['title'] as String?)?.trim();
+            final validTitle =
+                (title != null && title.isNotEmpty) ? title : null;
+            if (picked != null || validTitle != null) {
+              return TrackMetadata(artworkUrl: picked, albumName: validTitle);
+            }
           }
         } else {
           Logger.d(
@@ -466,6 +574,17 @@ class MusicSyncService {
     required String artist,
     required String track,
   }) async {
+    final meta = await _fetchItunesMetadata(
+      artist: artist,
+      track: track,
+    );
+    return meta?.artworkUrl;
+  }
+
+  Future<TrackMetadata?> _fetchItunesMetadata({
+    required String artist,
+    required String track,
+  }) async {
     try {
       final results = await _searchItunes('$artist $track');
       var selected = _selectItunesResult(
@@ -490,11 +609,17 @@ class MusicSyncService {
       }
       if (selected == null) return null;
       final artwork = selected['artworkUrl100'];
-      if (artwork is! String || artwork.isEmpty) return null;
+      final albumName = (selected['collectionName'] as String?)?.trim();
+      final validAlbum =
+          (albumName != null && albumName.isNotEmpty) ? albumName : null;
+      final validArtwork = (artwork is String && artwork.isNotEmpty)
+          ? artwork.replaceFirst('/100x100bb.jpg', '/600x600bb.jpg')
+          : null;
 
-      // artworkUrl100 is 100x100; bump it to 600x600 so covers stay crisp in
-      // the large listen-along dialog and the dashboard rows.
-      return artwork.replaceFirst('/100x100bb.jpg', '/600x600bb.jpg');
+      if (validArtwork != null || validAlbum != null) {
+        return TrackMetadata(artworkUrl: validArtwork, albumName: validAlbum);
+      }
+      return null;
     } on TimeoutException {
       Logger.e(
         'Jukebox Service Timeout: iTunes artwork lookup timed out for '
@@ -522,6 +647,17 @@ class MusicSyncService {
     required String artist,
     required String track,
   }) async {
+    final meta = await _fetchSpotifyMetadata(
+      artist: artist,
+      track: track,
+    );
+    return meta?.artworkUrl;
+  }
+
+  Future<TrackMetadata?> _fetchSpotifyMetadata({
+    required String artist,
+    required String track,
+  }) async {
     try {
       final url = Uri.parse(
         '$_spotifyBaseUrl?artist=${Uri.encodeComponent(artist)}'
@@ -538,7 +674,12 @@ class MusicSyncService {
               artist: artist,
             )) {
           final img = data['imageUrl'];
-          if (img is String && img.isNotEmpty) return img;
+          final album = (data['albumName'] as String?)?.trim();
+          final validImg = (img is String && img.isNotEmpty) ? img : null;
+          final validAlbum = (album != null && album.isNotEmpty) ? album : null;
+          if (validImg != null || validAlbum != null) {
+            return TrackMetadata(artworkUrl: validImg, albumName: validAlbum);
+          }
         } else {
           Logger.d(
             'Jukebox Service: Spotify match rejected for '

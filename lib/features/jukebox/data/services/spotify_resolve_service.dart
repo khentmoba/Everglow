@@ -12,9 +12,14 @@ import '../models/music_status.dart';
 /// not need to have linked Spotify. Returns a copy of [status] with
 /// `spotifyTrackId`/`spotifyEmbedUrl` populated, or the original status on failure.
 class SpotifyResolveService {
-  SpotifyResolveService({http.Client? client})
-    : _client = client ?? http.Client();
+  SpotifyResolveService({
+    http.Client? client,
+    Future<String?> Function()? idTokenProvider,
+  })  : _client = client ?? http.Client(),
+        _idTokenProvider = idTokenProvider;
+
   final http.Client _client;
+  final Future<String?> Function()? _idTokenProvider;
 
   // Generic Cloud Function base — falls back to hosting rewrite when emulator not used.
   String get _base {
@@ -25,13 +30,18 @@ class SpotifyResolveService {
 
   /// Resolves via GET /proxySpotifySearch?artist=&track=
   Future<MusicStatus> resolve(MusicStatus status) async {
-    // Already resolved or empty sentinel
-    if (status.hasSpotifyTrack || status.trackName == 'Silent Night') {
+    // Already fully resolved or empty sentinel
+    final hasValidAlbum =
+        status.albumName.isNotEmpty && status.albumName != 'No Album';
+    if ((status.hasSpotifyTrack && hasValidAlbum) ||
+        status.trackName == 'Silent Night') {
       return status;
     }
     if (status.artistName.isEmpty || status.trackName.isEmpty) return status;
     try {
-      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      final token = _idTokenProvider != null
+          ? await _idTokenProvider()
+          : await FirebaseAuth.instance.currentUser?.getIdToken();
       if (token == null) return status;
       final uri = Uri.parse('$_base/proxySpotifySearch').replace(
         queryParameters: {
@@ -77,6 +87,12 @@ class SpotifyResolveService {
     if (data is! Map) return s;
     final id = data['trackId'] as String?;
     if (id == null || id.isEmpty) return s;
+    final resolvedAlbum = (data['albumName'] as String?)?.trim();
+    final bool currentAlbumValid =
+        s.albumName.isNotEmpty && s.albumName != 'No Album';
+    final String albumToUse = (resolvedAlbum != null && resolvedAlbum.isNotEmpty)
+        ? (currentAlbumValid ? s.albumName : resolvedAlbum)
+        : (currentAlbumValid ? s.albumName : '');
     return s.copyWith(
       spotifyTrackId: id,
       spotifyEmbedUrl: data['embedUrl'] as String?,
@@ -84,6 +100,7 @@ class SpotifyResolveService {
       spotifyUrl: data['spotifyUrl'] as String?,
       // Prefer Spotify artwork if Last.fm was missing
       imageUrl: s.imageUrl ?? data['imageUrl'] as String?,
+      albumName: albumToUse,
     );
   }
 }

@@ -951,4 +951,90 @@ void main() {
       expect(requestedPaths.first, contains('term=IV+Of+Spades'));
     });
   });
+
+  group('MusicSyncService.fetchTrackMetadata and fetchTrackAlbum', () {
+    test('extracts album name and artwork from Last.fm track.getinfo', () async {
+      final client = MockClient((request) async {
+        return _jsonResponse({
+          'track': {
+            'name': 'American Teenager',
+            'artist': {'name': 'Ethel Cain'},
+            'album': {
+              'title': 'Preacher\'s Daughter',
+              'image': [
+                {'#text': '', 'size': 'small'},
+                {'#text': 'https://lastfm-img.freetls.fastly.net/i/u/300x300/real.png', 'size': 'extralarge'},
+              ],
+            },
+          },
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+
+      final meta = await service.fetchTrackMetadata(
+        artist: 'Ethel Cain',
+        track: 'American Teenager',
+      );
+      expect(meta, isNotNull);
+      expect(meta?.albumName, 'Preacher\'s Daughter');
+      expect(meta?.artworkUrl, 'https://lastfm-img.freetls.fastly.net/i/u/300x300/real.png');
+
+      final album = await service.fetchTrackAlbum(
+        artist: 'Ethel Cain',
+        track: 'American Teenager',
+      );
+      expect(album, 'Preacher\'s Daughter');
+    });
+
+    test('extracts collectionName from iTunes when Last.fm has no album', () async {
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'track.getinfo') {
+          return _jsonResponse({
+            'track': {
+              'name': 'Cruel Summer',
+              'artist': {'name': 'Taylor Swift'},
+            },
+          });
+        }
+        return _jsonResponse({
+          'resultCount': 1,
+          'results': [
+            {
+              'trackName': 'Cruel Summer',
+              'artistName': 'Taylor Swift',
+              'collectionName': 'Lover',
+              'artworkUrl100': 'https://is1-ssl.mzstatic.com/image/thumb/cover.jpg/100x100bb.jpg',
+            },
+          ],
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+
+      final meta = await service.fetchTrackMetadata(
+        artist: 'Taylor Swift',
+        track: 'Cruel Summer',
+      );
+      expect(meta, isNotNull);
+      expect(meta?.albumName, 'Lover');
+      expect(meta?.artworkUrl, 'https://is1-ssl.mzstatic.com/image/thumb/cover.jpg/600x600bb.jpg');
+
+      final album = await service.fetchTrackAlbum(
+        artist: 'Taylor Swift',
+        track: 'Cruel Summer',
+      );
+      expect(album, 'Lover');
+    });
+  });
 }
