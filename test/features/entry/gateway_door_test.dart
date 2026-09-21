@@ -1,3 +1,4 @@
+import 'package:everglow/features/dashboard/presentation/widgets/dashboard_load_veil.dart';
 import 'package:everglow/features/entry/presentation/pages/gateway_page.dart';
 import 'package:everglow/features/entry/presentation/state/gateway_state.dart';
 import 'package:everglow/features/entry/presentation/widgets/passcode_input.dart';
@@ -53,5 +54,13 @@ void main() {
     }
     await tester.pump(const Duration(milliseconds: 700));
     expect(notifier.currentState, GatewayState.unlocking);
+  });
+
+  testWidgets('DashboardLoadVeil request is not set until passcode unlocks', (
+    tester,
+  ) async {
+    DashboardLoadVeil.resetPasscodeLoaderRequest();
+    expect(DashboardLoadVeil.hasPendingPasscodeLoaderRequest, isFalse);
+    expect(DashboardLoadVeil.consumePasscodeLoaderRequest(), isFalse);
   });
 }
