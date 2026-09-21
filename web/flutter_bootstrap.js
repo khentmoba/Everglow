@@ -18,6 +18,23 @@ try {
 } catch (_) {
   try { window.Intl.v8BreakIterator = undefined; } catch (__) {}
 }
+
+// Hook Dart's deferred library loader so part files carry the build version
+// query parameter, matching main.dart.js and preventing stale CDN/browser cache hits.
+if (typeof window !== 'undefined') {
+  window.dartDeferredLibraryLoader = function (uri, successCallback, errorCallback) {
+    var script = document.createElement('script');
+    script.type = 'text/javascript';
+    var src = uri;
+    if (window.__EVERGLOW_BUILD__ && src.indexOf('?v=') === -1 && src.indexOf('&v=') === -1) {
+      src += (src.indexOf('?') === -1 ? '?v=' : '&v=') + encodeURIComponent(window.__EVERGLOW_BUILD__);
+    }
+    script.src = src;
+    script.onload = successCallback;
+    script.onerror = errorCallback;
+    document.body.appendChild(script);
+  };
+}
 {{flutter_js}}
 {{flutter_build_config}}
 _flutter.loader.load({
