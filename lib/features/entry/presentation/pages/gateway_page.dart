@@ -16,6 +16,7 @@ import '../state/gateway_state.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/connectivity_service.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../dashboard/presentation/widgets/dashboard_load_veil.dart';
 import '../widgets/animated_door.dart';
 import '../widgets/passcode_input.dart';
 import '../widgets/petal_shower.dart';
@@ -257,6 +258,9 @@ class _GatewayPageState extends State<GatewayPage> {
         if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
       };
       final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
+      if (!isCinemaOnlyAccess) {
+        DashboardLoadVeil.requestPasscodeLoader();
+      }
 
       Future<void> authTask;
       final isBreyan =

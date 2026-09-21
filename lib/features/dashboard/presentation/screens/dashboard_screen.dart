@@ -76,20 +76,12 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _heartbeatRetryCount = 0;
   static const int _maxHeartbeatRetries = 5;
   String? _lastGardenUid;
-  // First-screen load veil: a full-screen EVERGLOW loader with a REAL
-  // percent. Each first-screen card marks its DashboardLoadTracker signal
-  // when its own load settles, so the number only climbs on real progress.
-  // Shown once per app run; later dashboard visits stay instant. Three
-  // guards: a 250ms grace (fast loads never flash a veil), a Skip button
-  // (Clair can step past it herself), and a 10s failsafe (a wedged stream
-  // can never trap her behind it — cards keep loading underneath with
-  // their own skeletons). The veil lifts at 100%, on Skip, or on the
-  // failsafe, whichever comes first.
-  static bool _loadVeilShown = false;
+  // First-screen load veil: shown strictly after passcode entry for
+  // Khent or Clair at the gateway door (see DashboardLoadVeil).
+  // Initial site open, reloads, and returning sessions show no veil.
   final DashboardLoadTracker _loadTracker = DashboardLoadTracker();
   bool _showLoadVeil = false;
   bool _authMarked = false;
-  Timer? _veilGrace;
   Timer? _veilFailsafe;
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _sectionKeys = {
@@ -117,16 +109,17 @@ class _DashboardScreenState extends State<DashboardScreen>
     WidgetsBinding.instance.addObserver(this);
     _lifecycle.install(_setOfflineFromHeartbeat);
     _loadTracker.addListener(_onLoadProgress);
-    // Grace: only veil a load slow enough to need reassurance. Failsafe:
-    // never hold Clair longer than 10s no matter what is still pending —
-    // a hung Firestore listener must not trap her (the 33%-forever bug).
-    _veilGrace = Timer(const Duration(milliseconds: 250), () {
-      if (!mounted || _loadVeilShown || _loadTracker.isComplete) return;
-      setState(() => _showLoadVeil = true);
-    });
-    _veilFailsafe = Timer(const Duration(seconds: 10), () {
-      if (mounted) _dismissLoadVeil();
-    });
+    // The 1% incremental load veil only appears if requested by a fresh
+    // passcode login on the gateway door.
+    final shouldShowVeil = DashboardLoadVeil.consumePasscodeLoaderRequest();
+    if (shouldShowVeil) {
+      _showLoadVeil = true;
+      _veilFailsafe = Timer(const Duration(seconds: 10), () {
+        if (mounted) _dismissLoadVeil();
+      });
+    } else {
+      _showLoadVeil = false;
+    }
 
     Future.microtask(() {
       if (mounted) {
@@ -207,7 +200,6 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   void dispose() {
-    _veilGrace?.cancel();
     _veilFailsafe?.cancel();
     _loadTracker.removeListener(_onLoadProgress);
     _loadTracker.dispose();
@@ -276,20 +268,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     _syncGarden(uid);
   }
 
-  /// Fires on every tracker mark: the moment the first screen is fully
-  /// reported ready, lift the veil (the fade itself takes ~500ms, so
-  /// Clair still glimpses 100% before her story appears).
   void _onLoadProgress() {
-    if (_loadTracker.isComplete) _dismissLoadVeil();
+    // Signals continue to report readiness for cards underneath.
   }
 
   void _dismissLoadVeil() {
-    _veilGrace?.cancel();
-    _veilGrace = null;
     _veilFailsafe?.cancel();
     _veilFailsafe = null;
-    _loadTracker.removeListener(_onLoadProgress);
-    _loadVeilShown = true;
     if (mounted && _showLoadVeil) {
       setState(() => _showLoadVeil = false);
     }
@@ -783,12 +768,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               ],
             ),
           ),
-          // First-screen load veil: real percent while Today's cards
-          // report ready (see _loadTracker). Fades at 100%, on Skip, or
-          // on the 10s failsafe; once per app run, later visits skip it.
+          // First-screen load veil: 1% incremental progress after passcode
+          // entry (see DashboardLoadVeil). Fades at 100% or on Skip.
           DashboardLoadVeil(
             visible: _showLoadVeil,
             onSkip: _dismissLoadVeil,
+            onComplete: _dismissLoadVeil,
           ),
         ],
       ),
