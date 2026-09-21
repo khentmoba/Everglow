@@ -100,6 +100,9 @@ service cloud.firestore {
           data.correctOptionIndex >= 0 &&
           data.correctOptionIndex < data.options.size() &&
           data.category is string &&
+          (!('explanation' in data) ||
+            (data.explanation is string &&
+              data.explanation.size() < 2000)) &&
           data.size() < 8192;
     }
 
@@ -118,6 +121,12 @@ service cloud.firestore {
           data.questionIndex >= 0 &&
           data.questionIndex <= 10 &&
           data.currentQuestionId is string &&
+          (!('questionIds' in data) ||
+            (data.questionIds is list &&
+              data.questionIds.size() <= 20)) &&
+          (!('hostUsername' in data) || data.hostUsername is string) &&
+          (!('participantUsername' in data) ||
+            data.participantUsername is string) &&
           data.size() < 8192;
     }
 
@@ -306,11 +315,18 @@ service cloud.firestore {
         request.resource.data.status == 'waiting' &&
         isValidMatchShape(request.resource.data);
       allow update: if isAppUser() &&
-        (request.auth.uid == resource.data.hostId ||
-         request.auth.uid == resource.data.participantId) &&
         isValidMatchShape(request.resource.data) &&
         request.resource.data.hostId == resource.data.hostId &&
-        request.resource.data.category == resource.data.category;
+        request.resource.data.category == resource.data.category &&
+        (
+          // Guest joining a waiting match: claims the empty seat.
+          (resource.data.status == 'waiting' &&
+           request.resource.data.status == 'active' &&
+           request.resource.data.participantId == request.auth.uid) ||
+          // Host or joined guest playing their match.
+          (request.auth.uid == resource.data.hostId ||
+           request.auth.uid == resource.data.participantId)
+        );
       allow delete: if isAppUser() &&
         request.auth.uid == resource.data.hostId;
     }
