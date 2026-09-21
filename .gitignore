@@ -92,3 +92,4 @@ web/table_tennis/index.html.bak
 
 # pi-mesh runtime (agent presence/inbox/feed) - local only, never commit
 .pi/mesh/
+.pi/tasks/
