@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
 import '../../../../../core/theme/app_motion.dart';
@@ -218,6 +219,7 @@ class _NetflixRowState extends State<NetflixRow> {
                   controller: _controller,
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(350),
                   padding: horizontalPad,
                   clipBehavior: Clip.none,
                   itemCount: widget.items.length,
@@ -408,6 +410,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
               controller: _controller,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(350),
               padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
               clipBehavior: Clip.none,
               itemCount: widget.items.length,

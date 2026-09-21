@@ -25,13 +25,16 @@ class DashboardAmbience extends StatefulWidget {
 }
 
 class _DashboardAmbienceState extends State<DashboardAmbience>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   AnimationController? _controller;
   _AmbiencePainter? _painter;
+  Animation<double>? _secondaryAnimation;
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (!AppMotion.reduced) {
       _controller = AnimationController(
         vsync: this,
@@ -42,7 +45,51 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncRouteSecondaryAnimation();
+    _updateTickerState();
+  }
+
+  void _syncRouteSecondaryAnimation() {
+    final route = ModalRoute.of(context);
+    final secAnim = route?.secondaryAnimation;
+    if (secAnim != _secondaryAnimation) {
+      _secondaryAnimation?.removeStatusListener(_onRouteAnimationStatus);
+      _secondaryAnimation = secAnim;
+      _secondaryAnimation?.addStatusListener(_onRouteAnimationStatus);
+    }
+  }
+
+  void _onRouteAnimationStatus(AnimationStatus status) {
+    _updateTickerState();
+  }
+
+  void _updateTickerState() {
+    final c = _controller;
+    if (c == null) return;
+    final route = ModalRoute.of(context);
+    final isRouteVisible = route == null || route.isCurrent;
+    final isAppVisible = _lifecycleState == AppLifecycleState.resumed;
+    final shouldRun = isRouteVisible && isAppVisible;
+
+    if (shouldRun && !c.isAnimating) {
+      c.repeat();
+    } else if (!shouldRun && c.isAnimating) {
+      c.stop();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    _updateTickerState();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _secondaryAnimation?.removeStatusListener(_onRouteAnimationStatus);
     _controller?.dispose();
     super.dispose();
   }
@@ -544,8 +591,9 @@ class _AmbiencePainter extends CustomPainter {
   }
 
   void _paintPetals(Canvas canvas, Size size, double t) {
+    final maxTrails = size.width < 600 ? 1 : 3;
     for (final petal in _petals) {
-      for (var g = 0; g < 3; g++) {
+      for (var g = 0; g < maxTrails; g++) {
         final dt = g == 0 ? 0.0 : (g == 1 ? 0.006 : 0.013);
         final p = _frac(t * petal.speed + petal.phase - dt);
         final y = size.height * (1 - p) - petal.size;

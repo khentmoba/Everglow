@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
 
@@ -65,6 +66,7 @@ class _AnimeXPosterRowState extends State<AnimeXPosterRow> {
               controller: _ctrl,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(350),
               padding: const EdgeInsets.symmetric(horizontal: 24),
               itemCount: widget.items.length,
               separatorBuilder: (_, _) => const SizedBox(width: 16),

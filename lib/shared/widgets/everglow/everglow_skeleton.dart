@@ -1,8 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_typography.dart';
+
+/// Ambient shimmer controller shared across ALL skeletons in the app.
+///
+/// Instead of every skeleton running its own 60fps [AnimationController]
+/// (which previously meant dozens of discordant tickers and gradient allocations
+/// when loading shelves or search results), this single ref-counted ticker runs
+/// only when at least one active skeleton is mounted.
+///
+/// All skeletons pulse in unified harmony, and frame overhead drops to near zero.
+class EverglowShimmerScope {
+  EverglowShimmerScope._();
+
+  static final _AmbientShimmerTickerProvider _tickerProvider =
+      const _AmbientShimmerTickerProvider();
+  static AnimationController? _controller;
+  static int _activeCount = 0;
+
+  @visibleForTesting
+  static int get activeCount => _activeCount;
+
+  static Listenable attach() {
+    _activeCount++;
+    if (_controller == null && !AppMotion.reduced) {
+      _controller = AnimationController(
+        vsync: _tickerProvider,
+        duration: const Duration(milliseconds: 1300),
+      )..repeat();
+    }
+    return _controller ?? const AlwaysStoppedAnimation<double>(0.0);
+  }
+
+  static void detach() {
+    _activeCount--;
+    if (_activeCount <= 0) {
+      _activeCount = 0;
+      _controller?.stop();
+      _controller?.dispose();
+      _controller = null;
+    }
+  }
+
+  static double get value => _controller?.value ?? 0.0;
+  static AnimationController? get controller => _controller;
+
+  @visibleForTesting
+  static void resetForTesting() {
+    _controller?.stop();
+    _controller?.dispose();
+    _controller = null;
+    _activeCount = 0;
+  }
+}
+
+class _AmbientShimmerTickerProvider implements TickerProvider {
+  const _AmbientShimmerTickerProvider();
+
+  @override
+  Ticker createTicker(TickerCallback onTick) {
+    return Ticker(onTick, debugLabel: 'kEverglowShimmerTicker');
+  }
+}
 
 /// Unified skeleton/loading placeholder.
 ///
@@ -28,30 +90,28 @@ class EverglowSkeleton extends StatefulWidget {
   State<EverglowSkeleton> createState() => _EverglowSkeletonState();
 }
 
-class _EverglowSkeletonState extends State<EverglowSkeleton>
-    with SingleTickerProviderStateMixin {
-  AnimationController? _controller;
+class _EverglowSkeletonState extends State<EverglowSkeleton> {
+  Listenable? _shimmer;
 
   @override
   void initState() {
     super.initState();
     if (!AppMotion.reduced) {
-      _controller = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 1300),
-      )..repeat();
+      _shimmer = EverglowShimmerScope.attach();
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    if (!AppMotion.reduced) {
+      EverglowShimmerScope.detach();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (AppMotion.reduced || _controller == null) {
+    if (AppMotion.reduced || _shimmer == null) {
       return Container(
         width: widget.width,
         height: widget.height,
@@ -63,27 +123,62 @@ class _EverglowSkeletonState extends State<EverglowSkeleton>
     }
 
     return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: _controller!,
-        builder: (_, _) => Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.radius),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * _controller!.value, 0),
-              end: Alignment(-0.5 + 2.0 * _controller!.value, 0),
-              colors: const [
-                AppColors.shimmerBase,
-                AppColors.shimmerHighlight,
-                AppColors.shimmerBase,
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ),
+      child: SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: CustomPaint(
+          painter: _EverglowSkeletonPainter(
+            shimmer: _shimmer!,
+            radius: widget.radius,
+            baseColor: AppColors.shimmerBase,
+            highlightColor: AppColors.shimmerHighlight,
           ),
         ),
       ),
     );
+  }
+}
+
+class _EverglowSkeletonPainter extends CustomPainter {
+  _EverglowSkeletonPainter({
+    required this.shimmer,
+    required this.radius,
+    required this.baseColor,
+    required this.highlightColor,
+  }) : super(repaint: shimmer);
+
+  final Listenable shimmer;
+  final double radius;
+  final Color baseColor;
+  final Color highlightColor;
+
+  final Paint _paint = Paint();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final rect = Offset.zero & size;
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    final t = shimmer is Animation<double>
+        ? (shimmer as Animation<double>).value
+        : EverglowShimmerScope.value;
+
+    final gradient = LinearGradient(
+      begin: Alignment(-1.0 + 2.0 * t, 0),
+      end: Alignment(-0.5 + 2.0 * t, 0),
+      colors: [baseColor, highlightColor, baseColor],
+      stops: const [0.0, 0.5, 1.0],
+    );
+
+    _paint.shader = gradient.createShader(rect);
+    canvas.drawRRect(rrect, _paint);
+  }
+
+  @override
+  bool shouldRepaint(_EverglowSkeletonPainter oldDelegate) {
+    return oldDelegate.radius != radius ||
+        oldDelegate.baseColor != baseColor ||
+        oldDelegate.highlightColor != highlightColor;
   }
 }
 
