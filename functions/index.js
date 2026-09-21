@@ -86,6 +86,11 @@ exports.proxyAI = cappedHttps(10, handleProxyAI, { timeoutSeconds: 300, memory: 
 // V2 function on Cloud Run — natively supports SSE streaming.
 exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10, timeoutSeconds: 300, memory: '512MiB' }, handleProxyAI);
 
+// Motchi study-set generator for Academy Solo + 1v1. Plain JSON (no
+// streaming): one call per set, well inside a 90s budget.
+const { handleGenerateStudySet } = require('./motchi_study.js');
+exports.generateStudySet = cappedHttps(10, handleGenerateStudySet, { timeoutSeconds: 90, memory: '256MB' });
+
 // Motchi schedules live in motchi_schedules.js.
 // Re-exported at the top of this file to keep the deploy surface identical.
 
