@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../../manga/data/models/manga_item.dart';
-import '../../../manga/data/services/mangadex_service.dart';
+import '../../../manga/data/services/manga_cover_proxy.dart';
 import '../../../manga/data/services/mangakakalot_service.dart';
 import '../../../manga/presentation/katana/katana_nav.dart';
 import '../../../manga/presentation/widgets/manga_details_drawer.dart';
@@ -30,10 +30,13 @@ class MangaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName =
-        context.select<AuthService, String>((a) => a.currentUser ?? '');
+    final userName = context.select<AuthService, String>(
+      (a) => a.currentUser ?? '',
+    );
     final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
-    final partner = context.select<AuthService, String?>((a) => a.partnerUsername);
+    final partner = context.select<AuthService, String?>(
+      (a) => a.partnerUsername,
+    );
     final partnerLabel = partnerEyebrowLabelFor(userName);
 
     return Padding(
@@ -212,16 +215,7 @@ class _MangaShelfState extends State<_MangaShelf> {
     return '$author • ${item.contentType}';
   }
 
-  String _proxyCoverUrl(String url) {
-    if (url.isEmpty) return url;
-    if (url.startsWith('http')) {
-      if (url.contains('proxyMangaImage')) return url;
-      if (url.contains('mangadex.org') || url.contains('mangadex.network')) {
-        return MangaDexService().proxiedImageUrl(url);
-      }
-    }
-    return url;
-  }
+  String _proxyCoverUrl(String url) => proxyMangaCoverUrl(url);
 
   List<Widget> _buildCards() {
     return _items
@@ -258,10 +252,7 @@ class _MangaShelfState extends State<_MangaShelf> {
           message: 'No manga in your library yet. Find your next read!',
         );
       }
-      return EverglowMarquee(
-        height: 194,
-        children: cards.take(12).toList(),
-      );
+      return EverglowMarquee(height: 194, children: cards.take(12).toList());
     }
     return PartnerSubrow(
       label: widget.label!,
