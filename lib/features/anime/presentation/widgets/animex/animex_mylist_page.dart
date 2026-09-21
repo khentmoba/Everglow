@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
-import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
 
 import 'animex_controller.dart';
@@ -22,13 +21,12 @@ class AnimeXMyListPage extends StatefulWidget {
 }
 
 class _AnimeXMyListPageState extends State<AnimeXMyListPage> {
-  final TMDBService _tmdb = TMDBService();
   int _source = 0;
 
   Future<void> _remove(MediaItem item) async {
     final userName = context.read<AuthService>().currentUser ?? '';
     if (userName.isEmpty) return;
-    await _tmdb.removeFromWatchList(item.tmdbId, userName);
+    await widget.controller.optimisticRemoveFromLibrary(item, userName);
   }
 
   void _showSyncHint(String label) {

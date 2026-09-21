@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/media_item.dart';
 import '../../data/services/tmdb_service.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import '../widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_breakpoints.dart';
@@ -49,6 +50,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
   bool _desktopScrolled = false;
 
   StreamSubscription<List<MediaItem>>? _watchlistSubscription;
+
+  final OptimisticSet<int> _optimisticWatchlist = OptimisticSet<int>();
+  final Map<int, MediaItem> _optimisticAddedItems = {};
 
   List<MediaItem> _watchlist = [];
   List<MediaItem> _watchedList = [];
@@ -125,13 +129,28 @@ class _CinemaScreenState extends State<CinemaScreen> {
       items,
     ) async {
       if (!mounted) return;
+      _optimisticWatchlist.reconcile(items.map((e) => e.tmdbId));
+      _optimisticAddedItems.removeWhere(
+        (id, _) => !_optimisticWatchlist.isAdded(id),
+      );
+
+      final effective = items
+          .where((m) => !_optimisticWatchlist.isRemoved(m.tmdbId))
+          .toList();
+      for (final id in _optimisticWatchlist.added) {
+        if (!effective.any((m) => m.tmdbId == id) &&
+            _optimisticAddedItems.containsKey(id)) {
+          effective.add(_optimisticAddedItems[id]!);
+        }
+      }
+
       setState(() {
-        _watchlist = items;
+        _watchlist = effective;
         _splitWatchlists();
       });
       // Poster healing runs after paint so the list shows instantly; each
       // pass only touches items still missing art.
-      var refreshed = await _tmdbService.backfillMissingPosters(items);
+      var refreshed = await _tmdbService.backfillMissingPosters(effective);
       refreshed = await _tmdbService.refreshAnimePosters(refreshed);
       if (!mounted) return;
       setState(() {
@@ -159,14 +178,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
     // Claire's phone isn't opening 13+ authenticated proxy calls at once.
     final currentYear = DateTime.now().year;
     await Future.wait([
-      _loadRow(
-        _tmdbService.fetchTrending(region: 'all', timeWindow: 'week'),
-        (items) {
-          _trendingGlobal = items;
-          _trendingCarousel = items.take(5).toList();
-        },
-        dismissShimmer: true,
-      ),
+      _loadRow(_tmdbService.fetchTrending(region: 'all', timeWindow: 'week'), (
+        items,
+      ) {
+        _trendingGlobal = items;
+        _trendingCarousel = items.take(5).toList();
+      }, dismissShimmer: true),
       _loadRow(
         _tmdbService.fetchTrendingByCountry(countryCode: 'PH'),
         (items) => _topTenToday = items,
@@ -199,10 +216,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
     if (_isLoadingHome) setState(() => _isLoadingHome = false);
     // Below-the-fold rails load on first scroll (see _onScrollNotification);
     // the timer covers screens where nothing scrolls.
-    _deepRowsFallbackTimer = Timer(
-      const Duration(seconds: 12),
-      _startDeepRows,
-    );
+    _deepRowsFallbackTimer = Timer(const Duration(seconds: 12), _startDeepRows);
   }
 
   /// Awaits one home request and paints its rail on arrival. Anime is filtered
@@ -233,11 +247,13 @@ class _CinemaScreenState extends State<CinemaScreen> {
     if (_deepRowsStarted || !mounted) return;
     _deepRowsStarted = true;
     _deepRowsFallbackTimer?.cancel();
-    unawaited(_fetchMidRows().then((_) {
-      if (!mounted) return;
-      unawaited(_fetchGenreLists());
-      unawaited(_fetchDiscoveryRows());
-    }));
+    unawaited(
+      _fetchMidRows().then((_) {
+        if (!mounted) return;
+        unawaited(_fetchGenreLists());
+        unawaited(_fetchDiscoveryRows());
+      }),
+    );
   }
 
   Future<void> _fetchMidRows() async {
@@ -246,18 +262,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
         _tmdbService.fetchPopularMovies(),
         (items) => _popularMovies = items,
       ),
-      _loadRow(
-        _tmdbService.fetchTopRatedTV(),
-        (items) => _topRatedTV = items,
-      ),
+      _loadRow(_tmdbService.fetchTopRatedTV(), (items) => _topRatedTV = items),
       _loadRow(
         _tmdbService.fetchAiringToday(),
         (items) => _airingToday = items,
       ),
-      _loadRow(
-        _tmdbService.fetchOnTheAir(),
-        (items) => _onTheAir = items,
-      ),
+      _loadRow(_tmdbService.fetchOnTheAir(), (items) => _onTheAir = items),
     ]);
   }
 
@@ -348,20 +358,25 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
     if (!mounted) return;
     setState(() {
-      _discoveryRows['korean_dramas'] =
-          rows[0].where((m) => !m.isAnime).toList();
-      _discoveryRows['bollywood'] =
-          rows[1].where((m) => !m.isAnime).toList();
-      _discoveryRows['spanish_cinema'] =
-          rows[2].where((m) => !m.isAnime).toList();
-      _discoveryRows['french_cinema'] =
-          rows[3].where((m) => !m.isAnime).toList();
-      _discoveryRows['decade_2010s'] =
-          rows[4].where((m) => !m.isAnime).toList();
-      _discoveryRows['decade_2000s'] =
-          rows[5].where((m) => !m.isAnime).toList();
-      _discoveryRows['classic_films'] =
-          rows[6].where((m) => !m.isAnime).toList();
+      _discoveryRows['korean_dramas'] = rows[0]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['bollywood'] = rows[1].where((m) => !m.isAnime).toList();
+      _discoveryRows['spanish_cinema'] = rows[2]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['french_cinema'] = rows[3]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['decade_2010s'] = rows[4]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['decade_2000s'] = rows[5]
+          .where((m) => !m.isAnime)
+          .toList();
+      _discoveryRows['classic_films'] = rows[6]
+          .where((m) => !m.isAnime)
+          .toList();
     });
   }
 
@@ -442,44 +457,161 @@ class _CinemaScreenState extends State<CinemaScreen> {
   Future<void> _toggleListItem(MediaItem item, bool add) async {
     final userName = context.read<AuthService>().currentUser ?? '';
     if (userName.isEmpty) return;
-    try {
-      await _tmdbService.setListMembership(item, userName, add: add);
-    } catch (e) {
-      debugPrint('[Cinema] Failed to update list membership: $e');
-    }
+
+    HapticFeedback.selectionClick();
+
+    await OptimisticAction.run(
+      apply: () {
+        if (!mounted) return;
+        setState(() {
+          if (add) {
+            _optimisticWatchlist.markAdded(item.tmdbId);
+            final optimisticItem = item.copyWith(
+              status: 'to-watch',
+              userName: userName,
+            );
+            _optimisticAddedItems[item.tmdbId] = optimisticItem;
+            if (!_watchlist.any((w) => w.tmdbId == item.tmdbId)) {
+              _watchlist = [..._watchlist, optimisticItem];
+            }
+          } else {
+            _optimisticWatchlist.markRemoved(item.tmdbId);
+            _optimisticAddedItems.remove(item.tmdbId);
+            _watchlist = _watchlist
+                .where((w) => w.tmdbId != item.tmdbId)
+                .toList();
+          }
+          _splitWatchlists();
+        });
+      },
+      action: () => _tmdbService.setListMembership(item, userName, add: add),
+      rollback: () {
+        if (!mounted) return;
+        setState(() {
+          if (add) {
+            _optimisticWatchlist.rollbackAdd(item.tmdbId);
+            _optimisticAddedItems.remove(item.tmdbId);
+            _watchlist = _watchlist
+                .where((w) => w.tmdbId != item.tmdbId)
+                .toList();
+          } else {
+            _optimisticWatchlist.rollbackRemove(item.tmdbId);
+            if (!_watchlist.any((w) => w.tmdbId == item.tmdbId)) {
+              _watchlist = [..._watchlist, item];
+            }
+          }
+          _splitWatchlists();
+        });
+      },
+      onError: (e, _) {
+        debugPrint('[Cinema] Failed to update list membership: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Could not update "${item.title}" in your list. Reverted.',
+                ),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
+      },
+    );
   }
 
   Future<void> _removeProgress(MediaItem item) async {
     final userName = context.read<AuthService>().currentUser ?? '';
     if (userName.isEmpty) return;
     HapticFeedback.lightImpact();
-    try {
-      await _tmdbService.clearWatchProgress(item.tmdbId, userName);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              'Removed "${item.title}" from Continue Watching',
+
+    final previousWatching = List<MediaItem>.of(_watchingList);
+
+    await OptimisticAction.run(
+      apply: () {
+        if (!mounted) return;
+        setState(() {
+          _watchingList = _watchingList
+              .where((w) => w.tmdbId != item.tmdbId)
+              .toList();
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Removed "${item.title}" from Continue Watching'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
             ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-    } catch (e) {
-      debugPrint('[Cinema] Failed to clear watch progress: $e');
-    }
+          );
+      },
+      action: () => _tmdbService.clearWatchProgress(item.tmdbId, userName),
+      rollback: () {
+        if (!mounted) return;
+        setState(() {
+          _watchingList = previousWatching;
+        });
+      },
+      onError: (e, _) {
+        debugPrint('[Cinema] Failed to clear watch progress: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text('Failed to remove "${item.title}". Restored.'),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+        }
+      },
+    );
   }
 
   Future<void> _rateItem(MediaItem item, double? rating) async {
     final userName = context.read<AuthService>().currentUser ?? '';
     if (userName.isEmpty) return;
-    try {
-      await _tmdbService.setUserRating(item, userName, rating: rating);
-    } catch (e) {
-      debugPrint('[Cinema] Failed to save title rating: $e');
-    }
+    HapticFeedback.selectionClick();
+
+    final previousWatchlist = List<MediaItem>.of(_watchlist);
+
+    await OptimisticAction.run(
+      apply: () {
+        if (!mounted) return;
+        setState(() {
+          final index = _watchlist.indexWhere((w) => w.tmdbId == item.tmdbId);
+          if (index >= 0) {
+            final copy = List<MediaItem>.of(_watchlist);
+            copy[index] = _watchlist[index].copyWith(userRating: rating);
+            _watchlist = copy;
+          } else {
+            _watchlist = [
+              ..._watchlist,
+              item.copyWith(
+                status: 'to-watch',
+                userName: userName,
+                userRating: rating,
+              ),
+            ];
+          }
+          _splitWatchlists();
+        });
+      },
+      action: () => _tmdbService.setUserRating(item, userName, rating: rating),
+      rollback: () {
+        if (!mounted) return;
+        setState(() {
+          _watchlist = previousWatchlist;
+          _splitWatchlists();
+        });
+      },
+      onError: (e, _) {
+        debugPrint('[Cinema] Failed to save title rating: $e');
+      },
+    );
   }
 
   void _onNavSelect(int tab, String? browseOptionId) {
@@ -707,9 +839,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
         // Cinema-only profiles get Anime instead of Together here — it is
         // their only ride to `/anime` on mobile (no dashboard, and the
         // floating button is their logout).
-        mobileItems: cinemaMobileNavItems(
-          isCinemaOnlyUser: isCinemaOnlyUser,
-        ),
+        mobileItems: cinemaMobileNavItems(isCinemaOnlyUser: isCinemaOnlyUser),
         onSelect: _onNavSelect,
         onAnimeTap: () => GoRouter.of(context).go('/anime'),
       ),

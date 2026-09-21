@@ -17,6 +17,10 @@ class ChatBubble extends StatelessWidget {
   final String sender;
   final DateTime timestamp;
   final bool showSender;
+  final bool isOptimistic;
+  final bool isFailed;
+  final VoidCallback? onRetry;
+  final VoidCallback? onDismiss;
 
   const ChatBubble({
     super.key,
@@ -25,6 +29,10 @@ class ChatBubble extends StatelessWidget {
     required this.sender,
     required this.timestamp,
     this.showSender = true,
+    this.isOptimistic = false,
+    this.isFailed = false,
+    this.onRetry,
+    this.onDismiss,
   });
 
   @override
@@ -49,9 +57,7 @@ class ChatBubble extends StatelessWidget {
           duration: const Duration(seconds: 1),
           backgroundColor: AppColors.velvet,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppRadius.radiusLg,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
           margin: const EdgeInsets.all(16),
         ),
       );
@@ -62,8 +68,9 @@ class ChatBubble extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4.0),
         child: Column(
-          crossAxisAlignment:
-              isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             if (!isMe && showSender)
               Padding(
@@ -76,18 +83,14 @@ class ChatBubble extends StatelessWidget {
                       height: 6,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [
-                            AppColors.blushGold,
-                            AppColors.deepRose,
-                          ],
+                          colors: [AppColors.blushGold, AppColors.deepRose],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                AppColors.blushGold.withValues(alpha: 0.5),
+                            color: AppColors.blushGold.withValues(alpha: 0.5),
                             blurRadius: 6,
                           ),
                         ],
@@ -117,14 +120,23 @@ class ChatBubble extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   gradient: isMe
-                      ? const LinearGradient(
-                          colors: [
-                            AppColors.deepRose,
-                            AppColors.roseDepths,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
+                      ? (isFailed
+                            ? LinearGradient(
+                                colors: [
+                                  AppColors.roseQuartz.withValues(alpha: 0.25),
+                                  AppColors.roseDepths,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : const LinearGradient(
+                                colors: [
+                                  AppColors.deepRose,
+                                  AppColors.roseDepths,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ))
                       : LinearGradient(
                           colors: [
                             AppColors.moonlight.withValues(alpha: 0.13),
@@ -152,9 +164,7 @@ class ChatBubble extends StatelessWidget {
                   boxShadow: [
                     ...AppElevation.e2,
                     BoxShadow(
-                      color: (isMe
-                              ? AppColors.deepRose
-                              : AppColors.auroraLilac)
+                      color: (isMe ? AppColors.deepRose : AppColors.auroraLilac)
                           .withValues(alpha: isMe ? 0.30 : 0.10),
                       blurRadius: 18,
                       offset: const Offset(0, 6),
@@ -168,9 +178,7 @@ class ChatBubble extends StatelessWidget {
                     SelectableText(
                       text,
                       style: AppTypography.bodyMedium().copyWith(
-                        color: isMe
-                            ? AppColors.petalWhite
-                            : AppColors.textHigh,
+                        color: isMe ? AppColors.petalWhite : AppColors.textHigh,
                         height: 1.55,
                         fontSize: 14,
                       ),
@@ -179,35 +187,103 @@ class ChatBubble extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        if (isFailed) ...[
+                          GestureDetector(
+                            onTap: onRetry,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline_rounded,
+                                  size: 11,
+                                  color: AppColors.roseQuartz,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'Retry',
+                                  style: AppTypography.bodySmall().copyWith(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.roseQuartz,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (onDismiss != null) ...[
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: onDismiss,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.close_rounded,
+                                    size: 11,
+                                    color: AppColors.petalWhite.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Delete',
+                                    style: AppTypography.bodySmall().copyWith(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.petalWhite.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: 6),
+                        ],
                         Text(
                           isToday ? timeStr : '$dateStr, $timeStr',
                           style: AppTypography.bodySmall().copyWith(
                             fontSize: 10,
                             fontWeight: FontWeight.w500,
                             color: isMe
-                                ? AppColors.petalWhite
-                                    .withValues(alpha: 0.65)
-                                : AppColors.textMuted
-                                    .withValues(alpha: 0.7),
+                                ? AppColors.petalWhite.withValues(
+                                    alpha: isOptimistic ? 0.45 : 0.65,
+                                  )
+                                : AppColors.textMuted.withValues(alpha: 0.7),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        InkWell(
-                          onTap: copy,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4),
+                        if (isOptimistic)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 2),
                             child: Icon(
-                              Icons.copy_rounded,
-                              size: 11,
-                              color: isMe
-                                  ? AppColors.petalWhite
-                                      .withValues(alpha: 0.55)
-                                  : AppColors.textDisabled
-                                      .withValues(alpha: 0.7),
+                              Icons.schedule_rounded,
+                              size: 10,
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.55,
+                              ),
+                            ),
+                          )
+                        else
+                          InkWell(
+                            onTap: copy,
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.copy_rounded,
+                                size: 11,
+                                color: isMe
+                                    ? AppColors.petalWhite.withValues(
+                                        alpha: 0.55,
+                                      )
+                                    : AppColors.textDisabled.withValues(
+                                        alpha: 0.7,
+                                      ),
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],

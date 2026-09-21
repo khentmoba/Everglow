@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/services/journal_service.dart';
@@ -39,8 +41,21 @@ class JournalDetailSheet extends StatefulWidget {
 
 class _JournalDetailSheetState extends State<JournalDetailSheet> {
   bool _revealed = false;
+  late JournalEntry _entry;
 
-  JournalEntry get _entry => widget.entry;
+  @override
+  void initState() {
+    super.initState();
+    _entry = widget.entry;
+  }
+
+  @override
+  void didUpdateWidget(covariant JournalDetailSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.entry != widget.entry) {
+      _entry = widget.entry;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,13 +150,36 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
                   icon: _entry.isPinned
                       ? Icons.push_pin_rounded
                       : Icons.push_pin_outlined,
-                  onPressed: () async {
-                    await JournalService().togglePin(
-                      _entry.id,
-                      !_entry.isPinned,
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    final next = !_entry.isPinned;
+                    OptimisticAction.run(
+                      apply: () {
+                        if (mounted) {
+                          setState(
+                            () => _entry = _entry.copyWith(isPinned: next),
+                          );
+                        }
+                      },
+                      action: () => JournalService().togglePin(_entry.id, next),
+                      rollback: () {
+                        if (mounted) {
+                          setState(
+                            () => _entry = _entry.copyWith(isPinned: !next),
+                          );
+                        }
+                      },
+                      onError: (e, _) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to update pin. Reverted.'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
                     );
-                    if (!context.mounted) return;
-                    Navigator.pop(context);
                   },
                   semanticLabel: _entry.isPinned ? 'Unpin entry' : 'Pin entry',
                   tooltip: _entry.isPinned ? 'Unpin' : 'Pin',
@@ -244,13 +282,39 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await JournalService().toggleLock(
-                        _entry.id,
-                        !_entry.isLocked,
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      final next = !_entry.isLocked;
+                      OptimisticAction.run(
+                        apply: () {
+                          if (mounted) {
+                            setState(
+                              () => _entry = _entry.copyWith(isLocked: next),
+                            );
+                          }
+                        },
+                        action: () =>
+                            JournalService().toggleLock(_entry.id, next),
+                        rollback: () {
+                          if (mounted) {
+                            setState(
+                              () => _entry = _entry.copyWith(isLocked: !next),
+                            );
+                          }
+                        },
+                        onError: (e, _) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Failed to update lock. Reverted.',
+                                ),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
                       );
-                      if (!context.mounted) return;
-                      Navigator.pop(context);
                     },
                     icon: Icon(
                       _entry.isLocked
@@ -296,9 +360,7 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
         backgroundColor: AppColors.velvet,
         title: Text(
           'Delete entry?',
-          style: AppTypography.outfitBold.copyWith(
-            color: AppColors.petalWhite,
-          ),
+          style: AppTypography.outfitBold.copyWith(color: AppColors.petalWhite),
         ),
         content: Text(
           'This cannot be undone.',
@@ -322,9 +384,13 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
       ),
     );
     if (confirm == true) {
-      await JournalService().delete(_entry.id);
       if (!context.mounted) return;
       Navigator.pop(context);
+      OptimisticAction.run(
+        apply: () {},
+        action: () => JournalService().delete(_entry.id),
+        rollback: () {},
+      );
     }
   }
 }
@@ -340,9 +406,7 @@ class _LockedBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.inkDeep.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: AppColors.warmAmber.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: AppColors.warmAmber.withValues(alpha: 0.22)),
       ),
       child: Column(
         children: [

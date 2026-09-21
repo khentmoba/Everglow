@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/logger.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
@@ -24,15 +27,15 @@ class PhotoViewerScreen extends StatefulWidget {
 class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
   late PageController _pageController;
   late int _currentIndex;
+  late List<MemoryPhoto> _photos;
 
   @override
   void initState() {
     super.initState();
+    _photos = List<MemoryPhoto>.of(widget.photos);
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _precacheNeighbors(),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _precacheNeighbors());
   }
 
   /// Warm the browser/HTTP cache for the adjacent full-res photos so
@@ -40,9 +43,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
   void _precacheNeighbors() {
     if (!mounted) return;
     for (final i in [_currentIndex - 1, _currentIndex + 1]) {
-      if (i < 0 || i >= widget.photos.length) continue;
+      if (i < 0 || i >= _photos.length) continue;
       precacheImage(
-        NetworkImage(GalleryService.displayUrl(widget.photos[i].imageUrl)),
+        NetworkImage(GalleryService.displayUrl(_photos[i].imageUrl)),
         context,
       ).ignore();
     }
@@ -81,21 +84,51 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
             ),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(context); // Close dialog
-              await GalleryService().deletePhoto(photo);
-              if (context.mounted) {
-                if (widget.photos.length <= 1) {
-                  Navigator.pop(context);
-                } else {
+              HapticFeedback.lightImpact();
+
+              final removedIndex = _currentIndex;
+              final removedPhoto = photo;
+              final isLastPhoto = _photos.length <= 1;
+
+              if (isLastPhoto) {
+                Navigator.pop(context);
+                GalleryService().deletePhoto(removedPhoto).catchError((
+                  Object e,
+                ) {
+                  Logger.e('Photo delete failed', error: e);
+                });
+                return;
+              }
+
+              OptimisticAction.run(
+                apply: () {
                   setState(() {
-                    widget.photos.removeAt(_currentIndex);
-                    if (_currentIndex >= widget.photos.length) {
-                      _currentIndex = widget.photos.length - 1;
+                    _photos.removeAt(removedIndex);
+                    if (_currentIndex >= _photos.length) {
+                      _currentIndex = _photos.length - 1;
                     }
                   });
-                }
-              }
+                },
+                action: () => GalleryService().deletePhoto(removedPhoto),
+                rollback: () {
+                  if (mounted) {
+                    setState(() {
+                      _photos.insert(
+                        removedIndex.clamp(0, _photos.length),
+                        removedPhoto,
+                      );
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to delete photo. Restored.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              );
             },
             child: Text(
               'Delete',
@@ -128,7 +161,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           ),
         ),
         title: Text(
-          '${_currentIndex + 1} / ${widget.photos.length}',
+          '${_currentIndex + 1} / ${_photos.length}',
           style: AppTypography.outfitWhite.copyWith(
             color: AppColors.petalWhite,
             fontSize: 14,
@@ -136,10 +169,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         ),
         centerTitle: true,
         actions: [
-          if (widget.photos.isNotEmpty &&
-              widget.photos[_currentIndex].uploadedBy == myUid)
+          if (_photos.isNotEmpty && _photos[_currentIndex].uploadedBy == myUid)
             IconButton(
-              onPressed: () => _showDeleteDialog(widget.photos[_currentIndex]),
+              onPressed: () => _showDeleteDialog(_photos[_currentIndex]),
               icon: const Icon(
                 Icons.delete_outline_rounded,
                 color: AppColors.deepRose,
@@ -154,13 +186,13 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           Expanded(
             child: PageView.builder(
               controller: _pageController,
-              itemCount: widget.photos.length,
+              itemCount: _photos.length,
               onPageChanged: (i) {
                 setState(() => _currentIndex = i);
                 _precacheNeighbors();
               },
               itemBuilder: (context, index) {
-                final photo = widget.photos[index];
+                final photo = _photos[index];
                 final decodeWidth =
                     (MediaQuery.sizeOf(context).width *
                             MediaQuery.devicePixelRatioOf(context))
@@ -233,7 +265,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           ),
 
           // Caption bar
-          if (widget.photos.isNotEmpty)
+          if (_photos.isNotEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
@@ -248,9 +280,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.photos[_currentIndex].caption.isNotEmpty)
+                  if (_photos[_currentIndex].caption.isNotEmpty)
                     Text(
-                      widget.photos[_currentIndex].caption,
+                      _photos[_currentIndex].caption,
                       style: AppTypography.cormorantRegular.copyWith(
                         fontSize: 18,
                         fontStyle: FontStyle.italic,
@@ -260,7 +292,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   Row(
                     children: [
                       Text(
-                        '📸 ${widget.photos[_currentIndex].uploadedBy}',
+                        ' ${_photos[_currentIndex].uploadedBy}',
                         style: AppTypography.outfitBold.copyWith(
                           fontSize: 12,
                           color: AppColors.blushGold,
@@ -268,7 +300,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '${widget.photos[_currentIndex].uploadedAt.month}/${widget.photos[_currentIndex].uploadedAt.day}/${widget.photos[_currentIndex].uploadedAt.year}',
+                        '${_photos[_currentIndex].uploadedAt.month}/${_photos[_currentIndex].uploadedAt.day}/${_photos[_currentIndex].uploadedAt.year}',
                         style: AppTypography.outfitWhite.copyWith(
                           fontSize: 12,
                           color: AppColors.petalWhite.withValues(alpha: 0.65),
@@ -276,11 +308,11 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                       ),
                     ],
                   ),
-                  if (widget.photos[_currentIndex].tags.isNotEmpty) ...[
+                  if (_photos[_currentIndex].tags.isNotEmpty) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
-                      children: widget.photos[_currentIndex].tags
+                      children: _photos[_currentIndex].tags
                           .map(
                             (tag) => Container(
                               padding: const EdgeInsets.symmetric(

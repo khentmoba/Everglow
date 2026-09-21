@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/models/chapter_num.dart';
@@ -14,6 +15,7 @@ import '../katana/katana_theme.dart';
 import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 
 /// Bottom-sheet details for a manga / manhwa / manhua, opened from the
@@ -337,23 +339,52 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   Future<void> _updateLibraryStatus(String status) async {
     final user = context.read<AuthService>().currentUser ?? '';
     if (user.isEmpty) return;
-    await _kakalotService.saveToLibrary(_item, status, user);
-    setState(() {
-      _item = _item.copyWith(libraryStatus: status);
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          status == 'none'
-              ? 'Removed from your library'
-              : 'Set to ${_item.libraryDisplay}',
-          style: AppTypography.outfitWhite,
-        ),
-        backgroundColor: KatanaColors.headerDark,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
+
+    HapticFeedback.selectionClick();
+    final previousStatus = _item.libraryStatus;
+
+    await OptimisticAction.run(
+      apply: () {
+        if (!mounted) return;
+        setState(() {
+          _item = _item.copyWith(libraryStatus: status);
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                status == 'none'
+                    ? 'Removed from your library'
+                    : 'Set to ${_item.libraryDisplay}',
+                style: AppTypography.outfitWhite,
+              ),
+              backgroundColor: KatanaColors.headerDark,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      },
+      action: () => _kakalotService.saveToLibrary(_item, status, user),
+      rollback: () {
+        if (!mounted) return;
+        setState(() {
+          _item = _item.copyWith(libraryStatus: previousStatus);
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Failed to update library. Reverted.',
+                style: AppTypography.outfitWhite,
+              ),
+              backgroundColor: KatanaColors.headerDark,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+      },
     );
   }
 
@@ -471,9 +502,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(
-                child: Text('Details', style: KatanaType.small),
-              ),
+              Expanded(child: Text('Details', style: KatanaType.small)),
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: Container(
@@ -601,10 +630,10 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           label: _isLoadingChapters
               ? 'Loading…'
               : target == null
-                  ? 'No chapters yet'
-                  : _hasStarted
-                      ? 'Continue ${target.shortLabel}'
-                      : 'Start ${target.shortLabel}',
+              ? 'No chapters yet'
+              : _hasStarted
+              ? 'Continue ${target.shortLabel}'
+              : 'Start ${target.shortLabel}',
           icon: Icons.play_arrow_rounded,
           onTap: target == null ? null : () => _openReader(target),
         ),
@@ -636,9 +665,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text('My Library', style: KatanaType.section),
-              ),
+              Expanded(child: Text('My Library', style: KatanaType.section)),
               if (_item.isInLibrary)
                 GestureDetector(
                   onTap: () => _updateLibraryStatus('none'),
@@ -689,9 +716,8 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           ),
           if (text.length > 220)
             GestureDetector(
-              onTap: () => setState(
-                () => _synopsisExpanded = !_synopsisExpanded,
-              ),
+              onTap: () =>
+                  setState(() => _synopsisExpanded = !_synopsisExpanded),
               child: Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
@@ -762,9 +788,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                child: CircularProgressIndicator(
-                  color: KatanaColors.accent,
-                ),
+                child: CircularProgressIndicator(color: KatanaColors.accent),
               ),
             )
           else if (_chapterError != null && _chapters.isEmpty)
@@ -811,8 +835,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     _DrawerChapterRow(
                       chapter: chapters[i],
                       highlight: i % 2 == 1,
-                      isLastRead:
-                          _item.lastReadChapterId == chapters[i].id,
+                      isLastRead: _item.lastReadChapterId == chapters[i].id,
                       onTap: () => _openReader(chapters[i]),
                     ),
                 ],
@@ -869,24 +892,18 @@ class _DrawerChapterRow extends StatelessWidget {
           color: isLastRead
               ? KatanaColors.accent.withValues(alpha: 0.14)
               : highlight
-                  ? KatanaColors.surfaceAlt
-                  : KatanaColors.surface,
+              ? KatanaColors.surfaceAlt
+              : KatanaColors.surface,
           border: isLastRead
-              ? Border.all(
-                  color: KatanaColors.accent.withValues(alpha: 0.45),
-                )
+              ? Border.all(color: KatanaColors.accent.withValues(alpha: 0.45))
               : null,
         ),
         child: Row(
           children: [
             Icon(
-              isLastRead
-                  ? Icons.bookmark_rounded
-                  : Icons.menu_book_rounded,
+              isLastRead ? Icons.bookmark_rounded : Icons.menu_book_rounded,
               size: 16,
-              color: isLastRead
-                  ? KatanaColors.accent
-                  : KatanaColors.textLight,
+              color: isLastRead ? KatanaColors.accent : KatanaColors.textLight,
             ),
             const SizedBox(width: 10),
             Expanded(
