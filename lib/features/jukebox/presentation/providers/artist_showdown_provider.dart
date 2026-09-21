@@ -55,9 +55,9 @@ class ArtistShowdownProvider extends ChangeNotifier {
   static const String defaultArtist = 'Ethel Cain';
 
   /// How many top tracks per user to pull for filtering. Last.fm caps
-  /// `user.gettoptracks` at 1000 per request — plenty for a head-to-head
-  /// over one artist.
-  static const int _topTracksLimit = 1000;
+  /// `user.gettoptracks` at 1000 per request, but 1000 frequently times
+  /// out with backend error 500 for active accounts. 200 is reliable.
+  static const int _topTracksLimit = 200;
 
   final MusicSyncService _sync;
   late final String _khentUser;
@@ -247,7 +247,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
   /// Fills in missing covers for the current showdown without blocking the
   /// table. Each hit updates the live list and the per-artist cache so
   /// switching away and back keeps the artwork.
-  Future<void> _enrichArtwork(int request, String cacheKey, String artist) async {
+  Future<void> _enrichArtwork(
+    int request,
+    String cacheKey,
+    String artist,
+  ) async {
     for (var i = 0; i < _tracks.length; i++) {
       if (_disposed || request != _requestId) return;
       final current = _tracks[i];
@@ -290,10 +294,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
     String artist,
   ) async {
     final wanted = artist.trim().toLowerCase();
-    final top = await _sync.fetchTopTracks(
-      username,
-      limit: _topTracksLimit,
-    );
+    final top = await _sync.fetchTopTracks(username, limit: _topTracksLimit);
     return top
         .where((t) => t.artistName.trim().toLowerCase() == wanted)
         .toList();

@@ -126,13 +126,31 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
   ) async {
     // Certifications ride along so the billboard can show an age chip
     // without a second round trip (the proxy passes query params through).
-    final url = Uri.parse(
-      '$tmdbBaseUrl/$mediaType/$id',
-    ).replace(queryParameters: {'append_to_response': 'release_dates,content_ratings'});
+    final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id').replace(
+      queryParameters: {'append_to_response': 'release_dates,content_ratings'},
+    );
     try {
       final response = await tmdbGet(url);
       if (response.statusCode == 200) {
         return json.decode(response.body);
+      }
+      // On 404, check the alternate mediaType in case a movie was tagged tv
+      // or vice-versa (e.g. titles with "Televison" tagged as tv).
+      if (response.statusCode == 404) {
+        final altType = mediaType == 'tv'
+            ? 'movie'
+            : (mediaType == 'movie' ? 'tv' : null);
+        if (altType != null) {
+          final altUrl = Uri.parse('$tmdbBaseUrl/$altType/$id').replace(
+            queryParameters: {
+              'append_to_response': 'release_dates,content_ratings',
+            },
+          );
+          final altResponse = await tmdbGet(altUrl);
+          if (altResponse.statusCode == 200) {
+            return json.decode(altResponse.body);
+          }
+        }
       }
     } catch (e) {
       Logger.e('TMDB Details Error', error: e);

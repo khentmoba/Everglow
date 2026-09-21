@@ -65,7 +65,8 @@ Future<void> main(List<String> args) async {
 /// build loudly when the expected reference is missing: a silent miss
 /// here would mean silently stale updates.
 void _stampCoreShell() {
-  final busted = 'main.dart.js?v=${buildStamp()}';
+  final stamp = buildStamp();
+  final busted = 'main.dart.js?v=$stamp';
   var bootstrapHits = 0;
   for (final path in [
     "build/web/flutter_bootstrap.js",
@@ -79,11 +80,16 @@ void _stampCoreShell() {
       throw StateError("[build_web] missing $path; cannot stamp core shell.");
     }
     final src = file.readAsStringSync();
+    var updated = src;
     final hits = '"main.dart.js"'.allMatches(src).length;
     if (hits > 0) {
-      file.writeAsStringSync(src.replaceAll('"main.dart.js"', '"$busted"'));
+      updated = updated.replaceAll('"main.dart.js"', '"$busted"');
     }
-    if (path.endsWith("flutter_bootstrap.js")) bootstrapHits = hits;
+    if (path.endsWith("flutter_bootstrap.js")) {
+      bootstrapHits = hits;
+      updated = 'window.__EVERGLOW_BUILD__ = "$stamp";\n$updated';
+    }
+    file.writeAsStringSync(updated);
   }
   if (bootstrapHits == 0) {
     throw StateError(

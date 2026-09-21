@@ -49,7 +49,10 @@ mixin TMDBBase {
   final String imageBaseUrl = TmdbImages.poster;
   final String imageBaseBackdrop = TmdbImages.backdrop;
   final String profileBaseUrl = TmdbImages.profile;
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+  /// Lazy on purpose: an eager `FirebaseFirestore.instance` field crashes
+  /// unit tests (no Firebase app), while every caller only needs it lazily.
+  FirebaseFirestore get firestore => FirebaseFirestore.instance;
 
   /// Sends a signed TMDB request. [http.get] cannot be used directly because
   /// the Authorization header makes browsers issue an authenticated CORS call.

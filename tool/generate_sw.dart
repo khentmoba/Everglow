@@ -13,7 +13,8 @@ void main() {
   // alone.
   final coreUrl = "main.dart.js?v=$buildConst";
 
-  final sw = """
+  final sw =
+      """
 // BUILD=$buildConst
 // Everglow service worker: app-shell + asset caching + push.
 //
@@ -68,11 +69,17 @@ function isCore(path) {
   return path.endsWith("main.dart.js");
 }
 function isImmutable(url) {
-  const p = new URL(url).pathname;
+  let p;
+  try {
+    p = new URL(url).pathname;
+  } catch {
+    return false;
+  }
   if (isNoStore(p)) return false;
+  if (p.endsWith(".part.js")) return false;
   if (p.startsWith("/canvaskit/")) return true;
   if (p.startsWith("/assets/") || p.startsWith("/icons/")) return true;
-  return /\\.(wasm|ttf|otf|woff2|glb|gltf|bin|data|mp3|js|css)\$/.test(p);
+  return /\\.(wasm|ttf|otf|woff2|glb|gltf|bin|data|mp3)\$/.test(p);
 }
 async function trimRuntime(cacheName, maxEntries) {
   try {
@@ -80,7 +87,7 @@ async function trimRuntime(cacheName, maxEntries) {
     const keys = await c.keys();
     const excess = keys.length - maxEntries;
     for (let i = 0; i < excess; i++) await c.delete(keys[i]);
-  } catch (_) {}
+  } catch {}
 }
 async function trimCore() {
   try {
@@ -89,7 +96,7 @@ async function trimCore() {
     const shells = keys.filter((k) => new URL(k.url).pathname.endsWith("main.dart.js"));
     // Keep current + previous: an offline deploy-day still boots.
     while (shells.length > 2) await c.delete(shells.shift());
-  } catch (_) {}
+  } catch {}
 }
 async function newestCoreEntry() {
   try {
@@ -98,7 +105,7 @@ async function newestCoreEntry() {
     for (let i = keys.length - 1; i >= 0; i--) {
       if (new URL(keys[i].url).pathname.endsWith("main.dart.js")) return keys[i];
     }
-  } catch (_) {}
+  } catch {}
   return null;
 }
 self.addEventListener("install", (e) => {
@@ -115,12 +122,29 @@ self.addEventListener("activate", (e) => {
       .then((ks) => Promise.all(
         ks.filter((k) => k !== SHELL && k !== IMMUTABLE && k !== CORE).map((k) => caches.delete(k)),
       ))
+      .then(async () => {
+        try {
+          const imm = await caches.open(IMMUTABLE);
+          const keys = await imm.keys();
+          for (const req of keys) {
+            const u = req.url.split("?")[0];
+            if (u.endsWith(".part.js") || (u.endsWith(".js") && u.indexOf("/canvaskit/") === -1)) {
+              await imm.delete(req);
+            }
+          }
+        } catch {}
+      })
       .then(() => self.clients.claim()),
   );
 });
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-  const url = new URL(e.request.url);
+  let url;
+  try {
+    url = new URL(e.request.url);
+  } catch {
+    return;
+  }
   // Only handle same-origin; CDN media (jsdelivr/googleapis/gstatic)
   // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
   if (url.origin !== self.location.origin) return;
@@ -143,7 +167,7 @@ self.addEventListener("fetch", (e) => {
         });
         return net;
       }
-    } catch (_) {}
+    } catch {}
     return Response.error();
   };
   if (isNoStore(path)) {
@@ -262,7 +286,7 @@ try {
       tag: data.type || "everglow",
     });
   });
-} catch (_) {
+} catch {
   // Push unavailable (offline at install, or blocked CDN) — caching unaffected.
 }
 // When the user taps the notification, focus or open the app.
@@ -282,8 +306,8 @@ self.addEventListener("notificationclick", function(event) {
 """;
 
   File("web/sw.js").writeAsStringSync(sw);
-  File("web/version.json").writeAsStringSync(
-    '{"build": "$buildConst", "core": "$coreUrl"}\n',
-  );
+  File(
+    "web/version.json",
+  ).writeAsStringSync('{"build": "$buildConst", "core": "$coreUrl"}\n');
   print("sw.js written with BUILD = $buildConst");
 }
