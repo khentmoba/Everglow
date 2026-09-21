@@ -1,3 +1,4 @@
+import '../../../../core/utils/logger.dart';
 import 'incoming_call.dart';
 import 'voice_chat_service.dart' deferred as voice_lib;
 
@@ -26,9 +27,20 @@ class VoiceChatBootstrap {
   /// Ensures the voice-chat chunk is loaded. Concurrent callers share one load.
   static Future<void> ensureLoaded() {
     if (_loaded) return Future.value();
-    return _inflight ??= voice_lib.loadLibrary().then((_) {
-      _loaded = true;
-    });
+    return _inflight ??= voice_lib
+        .loadLibrary()
+        .then((_) {
+          _loaded = true;
+        })
+        .catchError((Object e, StackTrace st) {
+          _inflight = null;
+          Logger.e(
+            'VoiceChatBootstrap: failed to load voice library chunk',
+            error: e,
+            stackTrace: st,
+          );
+          throw e;
+        });
   }
 
   /// Starts (or reuses) the global incoming-call watcher. Safe to call
@@ -37,11 +49,17 @@ class VoiceChatBootstrap {
     required String myUid,
     required String? partnerUid,
   }) async {
-    await ensureLoaded();
-    voice_lib.VoiceChatService.watchIncoming(
-      myUid: myUid,
-      partnerUid: partnerUid,
-    );
+    try {
+      await ensureLoaded();
+      voice_lib.VoiceChatService.watchIncoming(
+        myUid: myUid,
+        partnerUid: partnerUid,
+      );
+    } catch (e) {
+      Logger.w(
+        'VoiceChatBootstrap: cannot watch incoming calls (chunk load failed: $e)',
+      );
+    }
   }
 
   /// Stops the watcher. No-op until the chunk has loaded.

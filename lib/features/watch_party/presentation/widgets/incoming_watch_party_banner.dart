@@ -46,11 +46,15 @@ class _IncomingWatchPartyBannerState extends State<IncomingWatchPartyBanner> {
   }
 
   Future<void> _attachVoice() async {
-    await VoiceChatBootstrap.ensureLoaded();
-    if (!mounted) return;
-    _incomingSub = VoiceChatBootstrap.incomingStream.listen(_onIncoming);
-    final latest = VoiceChatBootstrap.latestIncoming;
-    if (latest != null && mounted) setState(() => _current = latest);
+    try {
+      await VoiceChatBootstrap.ensureLoaded();
+      if (!mounted) return;
+      _incomingSub = VoiceChatBootstrap.incomingStream.listen(_onIncoming);
+      final latest = VoiceChatBootstrap.latestIncoming;
+      if (latest != null && mounted) setState(() => _current = latest);
+    } catch (_) {
+      // Chunk loading failed; banner remains silent until voice chunk loads
+    }
   }
 
   @override
