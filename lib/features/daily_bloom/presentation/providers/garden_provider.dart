@@ -28,6 +28,12 @@ class GardenProvider extends ChangeNotifier {
   Object? _lastPartnerError;
   bool _disposed = false;
 
+  /// True only when the own-garden stream has failed AND the retry budget
+  /// is spent. Unlike [hasError] — which also covers a transient blip
+  /// with a retry already scheduled — this means the failure is final,
+  /// so the dashboard load veil can count the garden as settled.
+  bool _exhausted = false;
+
   GardenProvider({GardenStatsSource? service})
     : _service = service ?? GardenService();
 
@@ -39,6 +45,12 @@ class GardenProvider extends ChangeNotifier {
   /// The UI uses this to offer a manual retry instead of a blank section.
   bool get hasError => _lastError != null && _stats == null;
 
+  /// True when the own-garden failure is final: retries are exhausted
+  /// and no stats ever arrived. The load veil waits for this (not
+  /// [hasError]) so its percent never climbs while a retry is still
+  /// in flight.
+  bool get hasSettledError => _exhausted && _stats == null;
+
   /// True when the partner-garden stream failed and no partner stats arrived yet.
   bool get hasPartnerError => _lastPartnerError != null && _partnerStats == null;
 
@@ -49,6 +61,7 @@ class GardenProvider extends ChangeNotifier {
     _retryTimer?.cancel();
     _retryCount = 0;
     _lastError = null;
+    _exhausted = false;
     _userId = userId;
 
     if (_userId != null && _userId!.isNotEmpty) {
@@ -67,6 +80,7 @@ class GardenProvider extends ChangeNotifier {
       (newStats) {
         _stats = newStats;
         _lastError = null;
+        _exhausted = false;
         _retryCount = 0;
         _retryTimer?.cancel();
         if (!_disposed) notifyListeners();
@@ -91,6 +105,7 @@ class GardenProvider extends ChangeNotifier {
     _lastError = error;
     if (_retryCount >= _maxRetries) {
       Logger.e('Garden stats retries exhausted ($_maxRetries)');
+      _exhausted = true;
       if (!_disposed) notifyListeners();
       return;
     }
@@ -108,6 +123,7 @@ class GardenProvider extends ChangeNotifier {
     if (_userId == null || _userId!.isEmpty || _disposed) return;
     _retryTimer?.cancel();
     _retryCount = 0;
+    _exhausted = false;
     _subscribe();
   }
 
