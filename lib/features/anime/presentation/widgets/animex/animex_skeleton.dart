@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/theme/app_motion.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import 'animex_tokens.dart';
 
 /// Shimmer loading placeholder matching the reference skeleton look.
@@ -160,35 +162,40 @@ class _Shimmer extends StatefulWidget {
   State<_Shimmer> createState() => _ShimmerState();
 }
 
-class _ShimmerState extends State<_Shimmer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
+class _ShimmerState extends State<_Shimmer> {
+  Listenable? _shimmer;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
+    if (!AppMotion.reduced) {
+      _shimmer = EverglowShimmerScope.attach();
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    if (!AppMotion.reduced) {
+      EverglowShimmerScope.detach();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final shimmer = _shimmer;
+    if (shimmer == null || AppMotion.reduced) {
+      return widget.child;
+    }
     return AnimatedBuilder(
-      animation: _ctrl,
+      animation: shimmer,
       child: widget.child,
       builder: (context, child) {
         return ShaderMask(
           blendMode: BlendMode.srcATop,
           shaderCallback: (bounds) {
-            final dx = (_ctrl.value * 2 - 1) * bounds.width * 2;
+            final t = EverglowShimmerScope.value;
+            final dx = (t * 2 - 1) * bounds.width * 2;
             return LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
