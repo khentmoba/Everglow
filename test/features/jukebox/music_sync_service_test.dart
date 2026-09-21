@@ -1037,4 +1037,154 @@ void main() {
       expect(album, 'Lover');
     });
   });
+
+  group('MusicSyncService.fetchTrackScrobbles and fetchArtistHistory', () {
+    test('fetchTrackScrobbles parses track scrobbles with timestamps and album', () async {
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['method'], 'user.gettrackscrobbles');
+        expect(request.url.queryParameters['artist'], 'Ethel Cain');
+        expect(request.url.queryParameters['track'], 'American Teenager');
+        return _jsonResponse({
+          'trackscrobbles': {
+            'track': [
+              {
+                'name': 'American Teenager',
+                'artist': {'#text': 'Ethel Cain'},
+                'album': {'#text': 'Preacher\'s Daughter'},
+                'image': [
+                  {'#text': 'https://lastfm.example/art.jpg', 'size': 'large'},
+                ],
+                'date': {'uts': '1689000000', '#text': '10 Jul 2023, 14:40'},
+              },
+              {
+                'name': 'American Teenager',
+                'artist': {'#text': 'Ethel Cain'},
+                'album': {'#text': 'Preacher\'s Daughter'},
+                'date': {'uts': '1688000000', '#text': '29 Jun 2023, 14:40'},
+              },
+            ],
+          },
+        });
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+
+      final scrobbles = await service.fetchTrackScrobbles(
+        'khentsgdz',
+        artist: 'Ethel Cain',
+        track: 'American Teenager',
+      );
+
+      expect(scrobbles.length, 2);
+      expect(scrobbles.first.trackName, 'American Teenager');
+      expect(scrobbles.first.artistName, 'Ethel Cain');
+      expect(scrobbles.first.albumName, 'Preacher\'s Daughter');
+      expect(scrobbles.first.imageUrl, 'https://lastfm.example/art.jpg');
+      expect(
+        scrobbles.first.timestamp,
+        DateTime.fromMillisecondsSinceEpoch(1689000000 * 1000),
+      );
+    });
+
+    test('fetchTrackScrobbles returns empty on invalid inputs or 404', () async {
+      final client = MockClient((request) async => _jsonResponse({}, status: 404));
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      expect(await service.fetchTrackScrobbles('', artist: 'A', track: 'T'), isEmpty);
+      expect(await service.fetchTrackScrobbles('u', artist: '', track: 'T'), isEmpty);
+      expect(await service.fetchTrackScrobbles('u', artist: 'A', track: ''), isEmpty);
+      expect(await service.fetchTrackScrobbles('u', artist: 'A', track: 'T'), isEmpty);
+    });
+
+    test('fetchArtistHistory aggregates tracks + recent, deduplicates and sorts newest first', () async {
+      final client = MockClient((request) async {
+        final method = request.url.queryParameters['method'];
+        if (method == 'user.gettrackscrobbles') {
+          final track = request.url.queryParameters['track'];
+          if (track == 'American Teenager') {
+            return _jsonResponse({
+              'trackscrobbles': {
+                'track': [
+                  {
+                    'name': 'American Teenager',
+                    'artist': {'#text': 'Ethel Cain'},
+                    'album': {'#text': 'Preacher\'s Daughter'},
+                    'date': {'uts': '1690000000'}, // older
+                  },
+                ],
+              },
+            });
+          }
+          if (track == 'Strangers') {
+            return _jsonResponse({
+              'trackscrobbles': {
+                'track': [
+                  {
+                    'name': 'Strangers',
+                    'artist': {'#text': 'Ethel Cain'},
+                    'album': {'#text': 'Preacher\'s Daughter'},
+                    'date': {'uts': '1695000000'}, // newer
+                  },
+                ],
+              },
+            });
+          }
+        } else if (method == 'user.getrecenttracks') {
+          return _jsonResponse({
+            'recenttracks': {
+              'track': [
+                // Duplicate of Strangers scrobble at 1695000000
+                {
+                  'name': 'Strangers',
+                  'artist': {'#text': 'Ethel Cain'},
+                  'album': {'#text': 'Preacher\'s Daughter'},
+                  'date': {'uts': '1695000000'},
+                },
+                // Brand new recent play at 1700000000
+                {
+                  'name': 'Sun Bleached Flies',
+                  'artist': {'#text': 'Ethel Cain'},
+                  'album': {'#text': 'Preacher\'s Daughter'},
+                  'date': {'uts': '1700000000'},
+                },
+                // Different artist - should be filtered out
+                {
+                  'name': 'Cardigan',
+                  'artist': {'#text': 'Taylor Swift'},
+                  'album': {'#text': 'Folklore'},
+                  'date': {'uts': '1700000001'},
+                },
+              ],
+            },
+          });
+        }
+        return _jsonResponse({}, status: 400);
+      });
+
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      final history = await service.fetchArtistHistory(
+        'khentsgdz',
+        artist: 'Ethel Cain',
+        knownTracks: ['American Teenager', 'Strangers'],
+      );
+
+      // Total 3 unique: Sun Bleached Flies (1700000000), Strangers (1695000000), American Teenager (1690000000)
+      expect(history.length, 3);
+      expect(history[0].trackName, 'Sun Bleached Flies');
+      expect(history[1].trackName, 'Strangers');
+      expect(history[2].trackName, 'American Teenager');
+    });
+  });
 }

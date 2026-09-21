@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/jukebox/data/models/artist_suggestion.dart';
+import 'package:everglow/features/jukebox/data/models/music_status.dart';
 import 'package:everglow/features/jukebox/data/models/top_music_track.dart';
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
 import 'package:everglow/features/jukebox/presentation/providers/artist_showdown_provider.dart';
@@ -21,6 +22,7 @@ class _FakeSync extends MusicSyncService {
     this.artworkByTrack = const {},
     this.suggestions = const [],
     this.artistImages = const {},
+    this.historyByUser = const {},
   });
 
   /// Last.fm username -> full all-time top tracks (provider filters by
@@ -29,10 +31,12 @@ class _FakeSync extends MusicSyncService {
   final Map<String, String?> artworkByTrack;
   final List<ArtistSuggestion> suggestions;
   final Map<String, String?> artistImages;
+  final Map<String, List<MusicStatus>> historyByUser;
   int calls = 0;
   int artworkCalls = 0;
   int suggestionCalls = 0;
   int artistImageCalls = 0;
+  int historyCalls = 0;
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -71,6 +75,19 @@ class _FakeSync extends MusicSyncService {
     final key = artistName.trim().toLowerCase();
     if (artistImages.containsKey(key)) return artistImages[key];
     return null;
+  }
+
+  @override
+  Future<List<MusicStatus>> fetchArtistHistory(
+    String username, {
+    required String artist,
+    List<String> knownTracks = const [],
+    int maxTracks = 12,
+    int scrobblesPerTrack = 50,
+    bool includeRecent = true,
+  }) async {
+    historyCalls++;
+    return historyByUser[username] ?? const [];
   }
 }
 
@@ -384,6 +401,69 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       expect(provider.suggestions.first.imageUrl, isNull);
       expect(sync.artistImageCalls, 1);
+      provider.dispose();
+    });
+
+    test('loadArtistHistory fetches and caches history for Khent and Clair', () async {
+      final khentScrobble = MusicStatus(
+        username: 'khentsgdz',
+        trackName: 'American Teenager',
+        artistName: 'Ethel Cain',
+        albumName: 'Preacher\'s Daughter',
+        isPlaying: false,
+        spotifyUrl: 'https://spotify/american',
+        timestamp: DateTime(2026, 9, 20, 10, 30),
+      );
+      final clairScrobble = MusicStatus(
+        username: 'clairjassen',
+        trackName: 'Strangers',
+        artistName: 'Ethel Cain',
+        albumName: 'Preacher\'s Daughter',
+        isPlaying: false,
+        spotifyUrl: 'https://spotify/strangers',
+        timestamp: DateTime(2026, 9, 21, 14, 15),
+      );
+
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('American Teenager', 10)],
+          'clairjassen': [_track('Strangers', 8)],
+        },
+        artworkByTrack: {
+          'American Teenager': 'https://itunes/american.png',
+        },
+        historyByUser: {
+          'khentsgdz': [khentScrobble],
+          'clairjassen': [clairScrobble],
+        },
+      );
+
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      expect(provider.hasHistory, isFalse);
+      expect(provider.isLoadingHistory, isFalse);
+
+      await provider.loadArtistHistory();
+
+      expect(provider.isLoadingHistory, isFalse);
+      expect(provider.hasHistory, isTrue);
+      expect(provider.khentHistory, hasLength(1));
+      expect(provider.clairHistory, hasLength(1));
+      // Enriched artwork from showdown tracks is attached to khent's scrobble:
+      expect(provider.khentHistory.first.imageUrl, 'https://itunes/american.png');
+      expect(provider.khentHistory.first.timestamp, DateTime(2026, 9, 20, 10, 30));
+      expect(provider.clairHistory.first.timestamp, DateTime(2026, 9, 21, 14, 15));
+      expect(sync.historyCalls, 2);
+
+      // Subsequent call uses cache
+      await provider.loadArtistHistory();
+      expect(sync.historyCalls, 2);
+
+      // forceRefresh bypasses cache
+      await provider.loadArtistHistory(forceRefresh: true);
+      expect(sync.historyCalls, 4);
+
       provider.dispose();
     });
   });

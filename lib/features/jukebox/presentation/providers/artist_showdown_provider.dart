@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/config/env_config.dart';
 import '../../data/models/artist_suggestion.dart';
+import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/services/music_sync_service.dart';
 
@@ -79,6 +80,12 @@ class ArtistShowdownProvider extends ChangeNotifier {
   final Map<String, List<ArtistSuggestion>> _suggestionCache = {};
   final Map<String, String?> _artistImageCache = {};
 
+  bool _isLoadingHistory = false;
+  List<MusicStatus> _khentHistory = const [];
+  List<MusicStatus> _clairHistory = const [];
+  int _historyRequestId = 0;
+  final Map<String, _CachedArtistHistory> _historyCache = {};
+
   String get artist => _artist;
   bool get isLoading => _isLoading;
   int get khentTotal => _khentTotal;
@@ -87,6 +94,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
   bool get hasData => _khentTotal > 0 || _clairTotal > 0;
   List<ArtistSuggestion> get suggestions => _suggestions;
   bool get isSearching => _isSearching;
+
+  bool get isLoadingHistory => _isLoadingHistory;
+  List<MusicStatus> get khentHistory => _khentHistory;
+  List<MusicStatus> get clairHistory => _clairHistory;
+  bool get hasHistory => _khentHistory.isNotEmpty || _clairHistory.isNotEmpty;
 
   /// 'khent' | 'clair' | null when tied or empty.
   String? get leader {
@@ -185,6 +197,17 @@ class ArtistShowdownProvider extends ChangeNotifier {
     clearSuggestions();
     if (artist.isEmpty || artist == _artist) return;
     final key = artist.toLowerCase();
+    final cachedHist = _historyCache[key];
+    if (cachedHist != null) {
+      _khentHistory = cachedHist.khentHistory;
+      _clairHistory = cachedHist.clairHistory;
+      _isLoadingHistory = false;
+    } else {
+      _khentHistory = const [];
+      _clairHistory = const [];
+      _isLoadingHistory = false;
+    }
+
     final cached = _cache[key];
     if (cached != null) {
       _artist = artist;
@@ -328,6 +351,80 @@ class ArtistShowdownProvider extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  /// Fetches listening history (scrobbles with dates and times) for the current
+  /// artist for both Khent and Clair. Caches per artist so re-opening is instant.
+  Future<void> loadArtistHistory({bool forceRefresh = false}) async {
+    final artist = _artist.trim();
+    if (artist.isEmpty) return;
+    final key = artist.toLowerCase();
+
+    if (!forceRefresh && _historyCache.containsKey(key)) {
+      final cached = _historyCache[key]!;
+      _khentHistory = cached.khentHistory;
+      _clairHistory = cached.clairHistory;
+      _isLoadingHistory = false;
+      _safeNotify();
+      return;
+    }
+
+    final request = ++_historyRequestId;
+    _isLoadingHistory = true;
+    _safeNotify();
+
+    final khentTracks = _tracks
+        .where((t) => t.khentPlays > 0)
+        .map((t) => t.trackName)
+        .toList();
+    final clairTracks = _tracks
+        .where((t) => t.clairPlays > 0)
+        .map((t) => t.trackName)
+        .toList();
+
+    final results = await Future.wait([
+      _sync.fetchArtistHistory(
+        _khentUser,
+        artist: artist,
+        knownTracks: khentTracks,
+      ),
+      _sync.fetchArtistHistory(
+        _clairUser,
+        artist: artist,
+        knownTracks: clairTracks,
+      ),
+    ]);
+
+    if (_disposed || request != _historyRequestId) return;
+
+    // Attach enriched artwork from _tracks if available and missing on scrobble
+    final trackArtworks = <String, String>{};
+    for (final t in _tracks) {
+      if (t.imageUrl != null && t.imageUrl!.isNotEmpty) {
+        trackArtworks[t.trackName.trim().toLowerCase()] = t.imageUrl!;
+      }
+    }
+
+    List<MusicStatus> attachCovers(List<MusicStatus> list) {
+      return list.map((s) {
+        if (s.imageUrl != null && s.imageUrl!.isNotEmpty) return s;
+        final matchingArt = trackArtworks[s.trackName.trim().toLowerCase()];
+        if (matchingArt != null) {
+          return s.copyWith(imageUrl: matchingArt);
+        }
+        return s;
+      }).toList();
+    }
+
+    _khentHistory = attachCovers(results[0]);
+    _clairHistory = attachCovers(results[1]);
+
+    _historyCache[key] = _CachedArtistHistory(
+      khentHistory: _khentHistory,
+      clairHistory: _clairHistory,
+    );
+    _isLoadingHistory = false;
+    _safeNotify();
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -354,4 +451,13 @@ class _CachedShowdown {
   final int khentTotal;
   final int clairTotal;
   final List<ShowdownTrack> tracks;
+}
+
+class _CachedArtistHistory {
+  const _CachedArtistHistory({
+    required this.khentHistory,
+    required this.clairHistory,
+  });
+  final List<MusicStatus> khentHistory;
+  final List<MusicStatus> clairHistory;
 }
