@@ -25,7 +25,7 @@ function buildTmdbUpstream(path, query = {}, apiKey = '') {
 }
 
 const LASTFM_METHOD_PATTERN =
-  /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|info)|track\.getinfo|artist\.search)$/;
+  /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|trackscrobbles|info)|track\.getinfo|artist\.search)$/i;
 
 function isAllowedLastfmMethod(method) {
   return LASTFM_METHOD_PATTERN.test(String(method || ''));

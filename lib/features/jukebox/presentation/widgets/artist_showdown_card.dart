@@ -12,6 +12,7 @@ import '../../data/models/lastfm_image_utils.dart';
 import '../../data/models/music_status.dart';
 import '../providers/artist_showdown_provider.dart';
 import '../providers/music_stats_provider.dart';
+import 'artist_showdown_history_sheet.dart';
 import 'listen_along_popup.dart';
 
 /// Khent vs Clair for any artist: a head-to-head total plus the song-by-song
@@ -69,7 +70,13 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _Header(artist: showdown.artist),
+              _Header(
+                artist: showdown.artist,
+                onOpenHistory: () => showArtistShowdownHistory(
+                  context,
+                  showdown: showdown,
+                ),
+              ),
               const SizedBox(height: AppSpacing.lg),
               _ArtistSearch(
                 controller: _search,
@@ -101,6 +108,14 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
                     ),
                   ),
                 _VersusTotal(showdown: showdown),
+                const SizedBox(height: AppSpacing.md),
+                _ShowdownHistoryButton(
+                  artist: showdown.artist,
+                  onTap: () => showArtistShowdownHistory(
+                    context,
+                    showdown: showdown,
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.lg),
                 _SongTable(
                   showdown: showdown,
@@ -135,7 +150,8 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
 
 class _Header extends StatelessWidget {
   final String artist;
-  const _Header({required this.artist});
+  final VoidCallback? onOpenHistory;
+  const _Header({required this.artist, this.onOpenHistory});
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +199,40 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
+        if (onOpenHistory != null)
+          InkWell(
+            onTap: onOpenHistory,
+            borderRadius: BorderRadius.circular(99),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                color: AppColors.petalWhite.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.history_rounded,
+                    size: 14,
+                    color: AppColors.blushGold,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'History',
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 11,
+                      letterSpacing: 0.5,
+                      color: AppColors.blushGold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1052,6 +1102,114 @@ class _ShowdownSkeleton extends StatelessWidget {
         SizedBox(height: 10),
         EverglowSkeleton(width: 200, height: 13, radius: 6),
       ],
+    );
+  }
+}
+
+class _ShowdownHistoryButton extends StatelessWidget {
+  final String artist;
+  final VoidCallback onTap;
+
+  const _ShowdownHistoryButton({
+    required this.artist,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: AppColors.petalWhite.withValues(alpha: 0.05),
+          border: Border.all(
+            color: AppColors.blushGold.withValues(alpha: 0.28),
+          ),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              AppColors.blushGold.withValues(alpha: 0.08),
+              AppColors.petalWhite.withValues(alpha: 0.03),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.blushGold.withValues(alpha: 0.16),
+                border: Border.all(
+                  color: AppColors.blushGold.withValues(alpha: 0.35),
+                ),
+              ),
+              child: const Icon(
+                Icons.schedule_rounded,
+                size: 16,
+                color: AppColors.blushGold,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LISTENING HISTORY',
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 10,
+                      letterSpacing: 1.4,
+                      color: AppColors.blushGold,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    'When Khent & Clair played $artist',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.outfitMedium.copyWith(
+                      fontSize: 12,
+                      color: AppColors.petalWhite,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                color: AppColors.blushGold.withValues(alpha: 0.14),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'View timeline',
+                    style: AppTypography.outfitBold.copyWith(
+                      fontSize: 11,
+                      color: AppColors.blushGold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 12,
+                    color: AppColors.blushGold,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

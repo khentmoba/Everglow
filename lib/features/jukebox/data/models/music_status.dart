@@ -54,9 +54,15 @@ class MusicStatus {
     Map<String, dynamic> track,
     String username,
   ) {
-    final name = track['name'] as String;
-    final artist = track['artist']['#text'] as String;
-    final album = track['album']['#text'] as String;
+    final name = (track['name'] as String?) ?? '';
+    final rawArtist = track['artist'];
+    final artist = rawArtist is Map
+        ? (rawArtist['#text'] as String? ?? '')
+        : (rawArtist as String? ?? '');
+    final rawAlbum = track['album'];
+    final album = rawAlbum is Map
+        ? (rawAlbum['#text'] as String? ?? '')
+        : (rawAlbum as String? ?? '');
 
     final imgUrl = pickLastfmImageUrl(track['image'] as List<dynamic>?);
 

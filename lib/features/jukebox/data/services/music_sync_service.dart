@@ -1114,6 +1114,165 @@ class MusicSyncService {
     return [];
   }
 
+  /// Fetches individual scrobbles for a specific [track] by [artist] for [username],
+  /// including timestamps, album, and artwork via `user.getTrackScrobbles`.
+  Future<List<MusicStatus>> fetchTrackScrobbles(
+    String username, {
+    required String artist,
+    required String track,
+    int limit = 50,
+    int page = 1,
+  }) async {
+    if (username.isEmpty ||
+        artist.isEmpty ||
+        track.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return [];
+    }
+
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=user.gettrackscrobbles&user=$username'
+        '&artist=${Uri.encodeComponent(artist)}'
+        '&track=${Uri.encodeComponent(track)}'
+        '&limit=$limit&page=$page&format=json',
+      );
+
+      final response = await _getWithAuth(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final trackNode = data['trackscrobbles']?['track'];
+        final tracks = _asMapList(trackNode);
+        if (tracks.isNotEmpty) {
+          return tracks
+              .where((t) => t['date'] != null)
+              .map((t) => MusicStatus.fromTrackJson(t, username))
+              .toList();
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+      } else {
+        Logger.w(
+          'Jukebox Service: Track scrobbles ($username, $artist - $track) status ${response.statusCode}',
+        );
+      }
+    } on TimeoutException {
+      Logger.w(
+        'Jukebox Service Timeout: Track scrobbles for "$artist - $track" ($username) timed out.',
+      );
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service Exception (track scrobbles, $artist - $track, $username)',
+        error: e,
+      );
+    }
+    return [];
+  }
+
+  /// Fetches scrobbles for [artist] by [username], with dates and times.
+  ///
+  /// Gathers scrobbles across known tracks by calling `user.getTrackScrobbles`,
+  /// plus recent scrobbles matching [artist] (`user.getrecenttracks`).
+  /// All returned scrobbles are deduplicated and sorted newest first.
+  Future<List<MusicStatus>> fetchArtistHistory(
+    String username, {
+    required String artist,
+    List<String> knownTracks = const [],
+    int maxTracks = 12,
+    int scrobblesPerTrack = 50,
+    bool includeRecent = true,
+  }) async {
+    final trimmedArtist = artist.trim();
+    if (username.isEmpty ||
+        trimmedArtist.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return [];
+    }
+
+    final wantedArtist = trimmedArtist.toLowerCase();
+    final allScrobbles = <MusicStatus>[];
+
+    // Filter and deduplicate known track names
+    final uniqueTracks = <String>[];
+    final seenTracks = <String>{};
+    for (final t in knownTracks) {
+      final name = t.trim();
+      final key = name.toLowerCase();
+      if (name.isNotEmpty && seenTracks.add(key)) {
+        uniqueTracks.add(name);
+        if (uniqueTracks.length >= maxTracks) break;
+      }
+    }
+
+    // Prepare futures: fetch track scrobbles for each known track
+    final trackFutures = uniqueTracks.map(
+      (track) => fetchTrackScrobbles(
+        username,
+        artist: trimmedArtist,
+        track: track,
+        limit: scrobblesPerTrack,
+      ),
+    );
+
+    // Also fetch recent scrobbles as immediate fallback / supplement
+    Future<List<MusicStatus>> recentFuture =
+        Future.value(const <MusicStatus>[]);
+    if (includeRecent) {
+      recentFuture = fetchRecentTracks(username, limit: 200).then(
+        (recent) => recent
+            .where(
+              (t) =>
+                  t.artistName.trim().toLowerCase() == wantedArtist &&
+                  t.timestamp != null,
+            )
+            .toList(),
+      );
+    }
+
+    try {
+      final trackResults = await Future.wait(trackFutures);
+      for (final list in trackResults) {
+        allScrobbles.addAll(list);
+      }
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service: Error fetching track scrobbles for artist $trimmedArtist',
+        error: e,
+      );
+    }
+
+    try {
+      final recentMatches = await recentFuture;
+      allScrobbles.addAll(recentMatches);
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service: Error fetching recent tracks for artist $trimmedArtist',
+        error: e,
+      );
+    }
+
+    // Deduplicate scrobbles: trackName (lowercase) + timestamp (ms)
+    final deduplicated = <MusicStatus>[];
+    final seenScrobbles = <String>{};
+    for (final s in allScrobbles) {
+      final ts = s.timestamp?.millisecondsSinceEpoch ?? 0;
+      final key = '${s.trackName.trim().toLowerCase()}|$ts';
+      if (seenScrobbles.add(key)) {
+        deduplicated.add(s);
+      }
+    }
+
+    // Sort newest first
+    deduplicated.sort((a, b) {
+      final aTs = a.timestamp?.millisecondsSinceEpoch ?? 0;
+      final bTs = b.timestamp?.millisecondsSinceEpoch ?? 0;
+      return bTs.compareTo(aTs);
+    });
+
+    return deduplicated;
+  }
+
   // Alias for provider compatibility (older name).
   Future<List<LovedTrack>> fetchLovedTracksLegacyAlias(
     String u, {
