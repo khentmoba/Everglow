@@ -177,6 +177,7 @@ class _DreamColumn extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
                 itemCount: sorted.length,
                 itemBuilder: (context, idx) => BucketItemCard(
+                  key: ValueKey(sorted[idx].id),
                   item: sorted[idx],
                   currentUsername: currentUsername,
                   enableSwipe: false,

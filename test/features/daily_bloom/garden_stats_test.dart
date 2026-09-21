@@ -22,7 +22,10 @@ void main() {
     test('effectiveStage never exceeds the final stage', () {
       expect(PlantType.fromId('lily').effectiveStage(3), 3);
       expect(PlantType.fromId('rose').effectiveStage(5), 5);
-      expect(PlantType.fromId('rose').effectiveStage(0), greaterThanOrEqualTo(0));
+      expect(
+        PlantType.fromId('rose').effectiveStage(0),
+        greaterThanOrEqualTo(0),
+      );
     });
   });
 
@@ -64,6 +67,20 @@ void main() {
       expect(stats.streakCount, 3);
       expect(stats.totalInteractions, 10);
       expect(stats.plantType, 'lily');
+    });
+
+    test('calculateStage maps interactions to milestone stages accurately', () {
+      expect(GardenStats.calculateStage(0), equals(0));
+      expect(GardenStats.calculateStage(1), equals(1));
+      expect(GardenStats.calculateStage(4), equals(1));
+      expect(GardenStats.calculateStage(5), equals(2));
+      expect(GardenStats.calculateStage(9), equals(2));
+      expect(GardenStats.calculateStage(10), equals(3));
+      expect(GardenStats.calculateStage(19), equals(3));
+      expect(GardenStats.calculateStage(20), equals(4));
+      expect(GardenStats.calculateStage(29), equals(4));
+      expect(GardenStats.calculateStage(30), equals(5));
+      expect(GardenStats.calculateStage(100), equals(5));
     });
   });
 

@@ -80,7 +80,7 @@ class GardenService implements GardenStatsSource {
     // If it's today, streak stays the same (already incremented for today)
 
     final newTotalInteractions = currentStats.totalInteractions + 1;
-    final newStage = _calculateStage(newTotalInteractions);
+    final newStage = GardenStats.calculateStage(newTotalInteractions);
 
     final updatedStats = currentStats.copyWith(
       currentStage: newStage,
@@ -103,15 +103,6 @@ class GardenService implements GardenStatsSource {
     return lastVisit.year == yesterday.year &&
         lastVisit.month == yesterday.month &&
         lastVisit.day == yesterday.day;
-  }
-
-  int _calculateStage(int interactions) {
-    if (interactions >= 30) return 5;
-    if (interactions >= 20) return 4;
-    if (interactions >= 10) return 3;
-    if (interactions >= 5) return 2;
-    if (interactions >= 1) return 1;
-    return 0;
   }
 
   /// Watch partner's garden stats for the shared garden view.

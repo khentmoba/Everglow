@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -30,6 +31,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late Stream<List<ChatMessage>> _messagesStream;
+  final List<ChatMessage> _optimisticMessages = [];
   bool _showScrollButton = false;
   bool _authChecked = false;
   String? _authError;
@@ -90,12 +92,16 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
 
     // Ensure user doc in background — do not block chat connection on write ACK.
     unawaited(
-      FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'username': authService.currentUser,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)).catchError((Object e) {
-        Logger.e("Sanctuary: failed to ensure user doc", error: e);
-      }),
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({
+            'username': authService.currentUser,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true))
+          .catchError((Object e) {
+            Logger.e("Sanctuary: failed to ensure user doc", error: e);
+          }),
     );
 
     // Self-heal a stuck partner link: if the one-shot background resolve in
@@ -141,15 +147,124 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     final authService = context.read<AuthService>();
     final chatService = context.read<ChatService>();
     final currentUser = authService.currentUser ?? 'unknown';
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
 
-    if (_messageController.text.trim().isNotEmpty) {
-      chatService.sendMessage(
-        _messageController.text,
-        currentUser,
-        authService.uid ?? 'anonymous',
-      );
-      _messageController.clear();
+    final tempId = 'optimistic_${DateTime.now().millisecondsSinceEpoch}';
+    final localMsg = ChatMessage(
+      id: tempId,
+      sender: currentUser,
+      senderUid: authService.uid ?? 'anonymous',
+      text: text,
+      timestamp: DateTime.now(),
+      isOptimistic: true,
+    );
+
+    // 1. Render now (assume success)
+    setState(() {
+      _optimisticMessages.add(localMsg);
+    });
+    _messageController.clear();
+    HapticFeedback.lightImpact();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+
+    // 2. Reconcile with Firestore in background
+    chatService
+        .sendMessage(text, currentUser, authService.uid ?? 'anonymous')
+        .catchError((error) {
+          // 3. Mark as failed if server write fails
+          if (mounted) {
+            setState(() {
+              final idx = _optimisticMessages.indexWhere((m) => m.id == tempId);
+              if (idx >= 0) {
+                _optimisticMessages[idx] = _optimisticMessages[idx].copyWith(
+                  isFailed: true,
+                  isOptimistic: false,
+                );
+              }
+            });
+          }
+        });
+  }
+
+  void _retryMessage(ChatMessage msg) {
+    final authService = context.read<AuthService>();
+    final chatService = context.read<ChatService>();
+    setState(() {
+      final idx = _optimisticMessages.indexWhere((m) => m.id == msg.id);
+      if (idx >= 0) {
+        _optimisticMessages[idx] = _optimisticMessages[idx].copyWith(
+          isFailed: false,
+          isOptimistic: true,
+        );
+      }
+    });
+    chatService
+        .sendMessage(msg.text, msg.sender, authService.uid ?? 'anonymous')
+        .catchError((error) {
+          if (mounted) {
+            setState(() {
+              final idx = _optimisticMessages.indexWhere((m) => m.id == msg.id);
+              if (idx >= 0) {
+                _optimisticMessages[idx] = _optimisticMessages[idx].copyWith(
+                  isFailed: true,
+                  isOptimistic: false,
+                );
+              }
+            });
+          }
+        });
+  }
+
+  void _dismissFailedMessage(ChatMessage msg) {
+    setState(() {
+      _optimisticMessages.removeWhere((m) => m.id == msg.id);
+    });
+  }
+
+  List<ChatMessage> _mergeMessages(List<ChatMessage> serverMessages) {
+    if (_optimisticMessages.isEmpty) return serverMessages;
+
+    // Filter out optimistic messages confirmed by Firestore using 1-to-1 matching.
+    // Tracking matched server IDs ensures duplicate messages ("I love you" sent twice)
+    // are only reconciled one at a time as each server confirmation arrives.
+    final matchedServerIds = <String>{};
+    final remainingOptimistic = <ChatMessage>[];
+
+    for (final opt in _optimisticMessages) {
+      if (opt.isFailed) {
+        remainingOptimistic.add(opt);
+        continue;
+      }
+      var matched = false;
+      for (final srv in serverMessages) {
+        if (matchedServerIds.contains(srv.id)) continue;
+        if (srv.sender == opt.sender &&
+            srv.text == opt.text &&
+            srv.timestamp.difference(opt.timestamp).abs().inSeconds < 45) {
+          matchedServerIds.add(srv.id);
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        remainingOptimistic.add(opt);
+      }
     }
+
+    if (remainingOptimistic.length != _optimisticMessages.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _optimisticMessages
+            ..clear()
+            ..addAll(remainingOptimistic);
+        }
+      });
+    }
+
+    final combined = [...serverMessages, ...remainingOptimistic];
+    combined.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return combined;
   }
 
   @override
@@ -287,7 +402,11 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                               );
                             }
 
-                            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                            final serverMessages =
+                                snapshot.data ?? const <ChatMessage>[];
+                            final messages = _mergeMessages(serverMessages);
+
+                            if (messages.isEmpty) {
                               return Center(
                                 child: FadeInUp(
                                   duration: const Duration(milliseconds: 250),
@@ -340,8 +459,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                               );
                             }
 
-                            final messages = snapshot.data!;
-
                             // Auto-scroll logic
                             WidgetsBinding.instance.addPostFrameCallback(
                               (_) => _scrollToBottom(),
@@ -362,24 +479,54 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                                   final message = messages[index];
                                   final isMe = message.sender == currentUser;
 
-                                                                    final prev = index > 0 ? messages[index - 1] : null;
-                                  final isGrouped = prev != null && prev.sender == message.sender && message.timestamp.difference(prev.timestamp).inMinutes < 5;
+                                  final prev = index > 0
+                                      ? messages[index - 1]
+                                      : null;
+                                  final isGrouped =
+                                      prev != null &&
+                                      prev.sender == message.sender &&
+                                      message.timestamp
+                                              .difference(prev.timestamp)
+                                              .inMinutes <
+                                          5;
                                   final showSender = !isGrouped;
-                                  final showDayHeader = prev == null || !_isSameDay(message.timestamp, prev.timestamp);
+                                  final showDayHeader =
+                                      prev == null ||
+                                      !_isSameDay(
+                                        message.timestamp,
+                                        prev.timestamp,
+                                      );
                                   return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      if (showDayHeader) Semantics(header: true, child: _DayHeader(date: message.timestamp)),
+                                      if (showDayHeader)
+                                        Semantics(
+                                          header: true,
+                                          child: _DayHeader(
+                                            date: message.timestamp,
+                                          ),
+                                        ),
                                       Padding(
-                                        padding: EdgeInsets.only(top: isGrouped ? 2 : 8),
+                                        padding: EdgeInsets.only(
+                                          top: isGrouped ? 2 : 8,
+                                        ),
                                         child: Align(
-                                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                                          alignment: isMe
+                                              ? Alignment.centerRight
+                                              : Alignment.centerLeft,
                                           child: ChatBubble(
                                             text: message.text,
                                             isMe: isMe,
                                             sender: message.sender,
                                             timestamp: message.timestamp,
                                             showSender: showSender,
+                                            isOptimistic: message.isOptimistic,
+                                            isFailed: message.isFailed,
+                                            onRetry: () =>
+                                                _retryMessage(message),
+                                            onDismiss: () =>
+                                                _dismissFailedMessage(message),
                                           ),
                                         ),
                                       ),
@@ -429,7 +576,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     );
   }
 
-  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   Widget _buildInputArea() {
     return Container(
@@ -734,8 +882,21 @@ class _DayHeader extends StatelessWidget {
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: AppColors.moonlight.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(999), border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10))),
-          child: Text(label, style: AppTypography.labelSmall().copyWith(color: AppColors.textMuted, fontSize: 10, letterSpacing: 0.6)),
+          decoration: BoxDecoration(
+            color: AppColors.moonlight.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: AppColors.moonlight.withValues(alpha: 0.10),
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.labelSmall().copyWith(
+              color: AppColors.textMuted,
+              fontSize: 10,
+              letterSpacing: 0.6,
+            ),
+          ),
         ),
       ),
     );

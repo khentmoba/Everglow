@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import '../../data/services/starlight_service.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../domain/models/star_note.dart';
@@ -29,6 +30,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   final StarlightService _service = StarlightService();
   late final Stream<List<StarNote>> _starNotesStream;
   StreamSubscription<List<StarNote>>? _starNotesSub;
+  List<StarNote> _serverNotes = const [];
+  final List<StarNote> _optimisticNotes = [];
   List<StarNote> _notes = const [];
   late AnimationController _shakeController;
   late AnimationController _idleController;
@@ -60,6 +63,17 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   // Confetti for surprise reveal
   late final ConfettiController _surpriseConfetti;
 
+  void _rebuildEffectiveNotes() {
+    _optimisticNotes.removeWhere(
+      (opt) => _serverNotes.any(
+        (srv) =>
+            srv.content == opt.content &&
+            srv.author.toLowerCase() == opt.author.toLowerCase(),
+      ),
+    );
+    _notes = [..._optimisticNotes, ..._serverNotes];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -67,7 +81,10 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     _starNotesSub = _starNotesStream.listen(
       (notes) {
         if (!mounted) return;
-        setState(() => _notes = notes);
+        setState(() {
+          _serverNotes = notes;
+          _rebuildEffectiveNotes();
+        });
       },
       onError: (Object e) {
         if (mounted) setState(() => _notes = const []);
@@ -121,22 +138,46 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     if (result != null && result.content.trim().isNotEmpty && mounted) {
       final auth = context.read<AuthService>();
       final author = auth.currentUser ?? 'unknown';
+      final starUid = auth.uid;
 
       _startDropAnimation(result.content, author);
-      await _service.addStar(
-        result.content,
-        author,
-        category: result.category,
-        tags: result.tags,
+
+      unawaited(
+        OptimisticAction.run(
+          apply: () {},
+          action: () async {
+            await _service.addStar(
+              result.content,
+              author,
+              category: result.category,
+              tags: result.tags,
+            );
+            if (starUid != null && starUid.isNotEmpty) {
+              try {
+                await XPService().awardStar(starUid);
+              } catch (e) {
+                Logger.e('Starlight: XP award failed', error: e);
+              }
+            }
+          },
+          rollback: () {
+            if (mounted) {
+              setState(() {
+                _optimisticNotes.removeWhere(
+                  (n) => n.content == result.content,
+                );
+                _rebuildEffectiveNotes();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Failed to save star. Please try again.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        ),
       );
-      final starUid = auth.uid;
-      if (starUid != null && starUid.isNotEmpty) {
-        try {
-          await XPService().awardStar(starUid);
-        } catch (e) {
-          Logger.e('Starlight: XP award failed', error: e);
-        }
-      }
     }
   }
 
@@ -167,9 +208,19 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     );
 
     _dropController!.forward().then((_) {
-      setState(() {
-        _droppingStar = null;
-      });
+      if (mounted) {
+        setState(() {
+          _droppingStar = null;
+          final optNote = StarNote(
+            id: 'optimistic_${DateTime.now().millisecondsSinceEpoch}',
+            content: content,
+            author: author.toLowerCase(),
+            timestamp: DateTime.now(),
+          );
+          _optimisticNotes.add(optNote);
+          _rebuildEffectiveNotes();
+        });
+      }
     });
 
     setState(() {});
@@ -279,258 +330,255 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   Widget build(BuildContext context) {
     return Stack(
       children: [
-          // Confetti for surprise reveal
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _surpriseConfetti,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                AppColors.blushGold,
-                AppColors.roseQuartz,
-                AppColors.softLavender,
-                AppColors.petalWhite,
-                Color(0xFFFFF176),
-                Color(0xFF80DEEA),
-              ],
-              emissionFrequency: 0.06,
-              numberOfParticles: 20,
-            ),
+        // Confetti for surprise reveal
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _surpriseConfetti,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            colors: const [
+              AppColors.blushGold,
+              AppColors.roseQuartz,
+              AppColors.softLavender,
+              AppColors.petalWhite,
+              Color(0xFFFFF176),
+              Color(0xFF80DEEA),
+            ],
+            emissionFrequency: 0.06,
+            numberOfParticles: 20,
           ),
+        ),
 
-          Column(
-            children: [
-              // ── Header ──
-              const EverglowFeatureHeader(
-                title: 'Starlight Jar',
-                subtitle: 'gratitude under the stars',
-                icon: Icons.auto_awesome_rounded,
-                hue: AppColors.blushGold,
-              ),
+        Column(
+          children: [
+            // ── Header ──
+            const EverglowFeatureHeader(
+              title: 'Starlight Jar',
+              subtitle: 'gratitude under the stars',
+              icon: Icons.auto_awesome_rounded,
+              hue: AppColors.blushGold,
+            ),
 
-              // ── On This Day Banner ──
-              if (_showOnThisDay && _onThisDayNotes.isNotEmpty)
-                Semantics(
-                  label: 'On This Day memory from the past. Tap to view.',
-                  button: true,
-                  child: GestureDetector(
-                    onTap: () {
-                      final note = _onThisDayNotes.first;
-                      _showNoteDialog(note);
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 6,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppColors.blushGold.withValues(alpha: 0.15),
-                            AppColors.deepRose.withValues(alpha: 0.15),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.blushGold.withValues(alpha: 0.65),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Text('📅', style: TextStyle(fontSize: 18)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'On This Day',
-                                  style: AppTypography.outfitWhite.copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.blushGold,
-                                  ),
-                                ),
-                                Text(
-                                  _onThisDayNotes.first.content,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.outfitWhite.copyWith(
-                                    fontSize: 11,
-                                    color: AppColors.petalWhite.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            Icons.chevron_right,
-                            color: AppColors.blushGold.withValues(alpha: 0.65),
-                            size: 20,
-                          ),
+            // ── On This Day Banner ──
+            if (_showOnThisDay && _onThisDayNotes.isNotEmpty)
+              Semantics(
+                label: 'On This Day memory from the past. Tap to view.',
+                button: true,
+                child: GestureDetector(
+                  onTap: () {
+                    final note = _onThisDayNotes.first;
+                    _showNoteDialog(note);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 6,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.blushGold.withValues(alpha: 0.15),
+                          AppColors.deepRose.withValues(alpha: 0.15),
                         ],
                       ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.65),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text('📅', style: TextStyle(fontSize: 18)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'On This Day',
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.blushGold,
+                                ),
+                              ),
+                              Text(
+                                _onThisDayNotes.first.content,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  fontSize: 11,
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: AppColors.blushGold.withValues(alpha: 0.65),
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-
-              // ── Search & Filter Bar ──
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 6,
-                ),
-                child: Column(
-                  children: [
-                    // Search field
-                    TextField(
-                      controller: _searchController,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: AppColors.petalWhite,
-                        fontSize: 13,
-                      ),
-                      onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                      decoration: InputDecoration(
-                        hintText: "Search stars…",
-                        hintStyle: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.petalWhite.withValues(alpha: 0.55),
-                          fontSize: 13,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: AppColors.blushGold,
-                          size: 18,
-                        ),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() => _searchQuery = '');
-                                },
-                                icon: Icon(
-                                  Icons.clear,
-                                  color: AppColors.petalWhite.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                  size: 16,
-                                ),
-                              )
-                            : null,
-                        isDense: true,
-                        filled: true,
-                        fillColor: AppColors.twilight,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(
-                            color: AppColors.blushGold.withValues(alpha: 0.15),
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: AppColors.blushGold,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Category filter chips
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildCategoryChip(null, 'All'),
-                          ...starCategories.map(
-                            (cat) => _buildCategoryChip(
-                              cat,
-                              starCategoryInfo[cat]?.$2 ?? cat,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
               ),
 
-              const SizedBox(height: 4),
-
-              // ── Jar + Stars ──
-              // The jar glass and the star layer share the exact same
-              // 280x350 box at the same offset, so the glass is never
-              // clipped and the stars always sit inside the glass.
-              SizedBox(
-                height: 390,
-                child: Center(
-                  child: SizedBox(
-                    width: 280,
-                    height: 370,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        // The Jar — with scale animation on tap
-                        Positioned(
-                          top: 20,
-                          left: 0,
-                          child: GestureDetector(
-                            onTap: _onJarTap,
-                            child: AnimatedScale(
-                              scale: _tapScale,
-                              duration: const Duration(milliseconds: 150),
-                              curve: Curves.easeOutExpo,
-                              child: GlassJar(
-                                shakeAnimation: _shakeController.drive(
-                                  TweenSequence<double>([
-                                    TweenSequenceItem(
-                                      tween: Tween(begin: 0.0, end: 0.12),
-                                      weight: 1,
-                                    ),
-                                    TweenSequenceItem(
-                                      tween: Tween(begin: 0.12, end: -0.12),
-                                      weight: 2,
-                                    ),
-                                    TweenSequenceItem(
-                                      tween: Tween(begin: -0.12, end: 0.08),
-                                      weight: 2,
-                                    ),
-                                    TweenSequenceItem(
-                                      tween: Tween(begin: 0.08, end: -0.05),
-                                      weight: 2,
-                                    ),
-                                    TweenSequenceItem(
-                                      tween: Tween(begin: -0.05, end: 0.0),
-                                      weight: 1,
-                                    ),
-                                  ]),
+            // ── Search & Filter Bar ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              child: Column(
+                children: [
+                  // Search field
+                  TextField(
+                    controller: _searchController,
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppColors.petalWhite,
+                      fontSize: 13,
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v.trim()),
+                    decoration: InputDecoration(
+                      hintText: "Search stars…",
+                      hintStyle: AppTypography.outfitWhite.copyWith(
+                        color: AppColors.petalWhite.withValues(alpha: 0.55),
+                        fontSize: 13,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.blushGold,
+                        size: 18,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                              icon: Icon(
+                                Icons.clear,
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.4,
                                 ),
+                                size: 16,
+                              ),
+                            )
+                          : null,
+                      isDense: true,
+                      filled: true,
+                      fillColor: AppColors.twilight,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(
+                          color: AppColors.blushGold.withValues(alpha: 0.15),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: AppColors.blushGold,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Category filter chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildCategoryChip(null, 'All'),
+                        ...starCategories.map(
+                          (cat) => _buildCategoryChip(
+                            cat,
+                            starCategoryInfo[cat]?.$2 ?? cat,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 4),
+
+            // ── Jar + Stars ──
+            // The jar glass and the star layer share the exact same
+            // 280x350 box at the same offset, so the glass is never
+            // clipped and the stars always sit inside the glass.
+            SizedBox(
+              height: 390,
+              child: Center(
+                child: SizedBox(
+                  width: 280,
+                  height: 370,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      // The Jar — with scale animation on tap
+                      Positioned(
+                        top: 20,
+                        left: 0,
+                        child: GestureDetector(
+                          onTap: _onJarTap,
+                          child: AnimatedScale(
+                            scale: _tapScale,
+                            duration: const Duration(milliseconds: 150),
+                            curve: Curves.easeOutExpo,
+                            child: GlassJar(
+                              shakeAnimation: _shakeController.drive(
+                                TweenSequence<double>([
+                                  TweenSequenceItem(
+                                    tween: Tween(begin: 0.0, end: 0.12),
+                                    weight: 1,
+                                  ),
+                                  TweenSequenceItem(
+                                    tween: Tween(begin: 0.12, end: -0.12),
+                                    weight: 2,
+                                  ),
+                                  TweenSequenceItem(
+                                    tween: Tween(begin: -0.12, end: 0.08),
+                                    weight: 2,
+                                  ),
+                                  TweenSequenceItem(
+                                    tween: Tween(begin: 0.08, end: -0.05),
+                                    weight: 2,
+                                  ),
+                                  TweenSequenceItem(
+                                    tween: Tween(begin: -0.05, end: 0.0),
+                                    weight: 1,
+                                  ),
+                                ]),
                               ),
                             ),
                           ),
                         ),
+                      ),
 
-                        // Star Count Badge
-                        Positioned(
-                          top: 22,
-                          left: 0,
-                          right: 0,
-                          // IgnorePointer so taps on the badge still reach the jar.
-                          child: IgnorePointer(
-                            child: Center(
-                              child: _notes.isEmpty
-                                  ? const SizedBox.shrink()
-                                  : Container(
+                      // Star Count Badge
+                      Positioned(
+                        top: 22,
+                        left: 0,
+                        right: 0,
+                        // IgnorePointer so taps on the badge still reach the jar.
+                        child: IgnorePointer(
+                          child: Center(
+                            child: _notes.isEmpty
+                                ? const SizedBox.shrink()
+                                : Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 4,
@@ -559,148 +607,146 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                       ),
                                     ),
                                   ),
-                            ),
                           ),
                         ),
+                      ),
 
-                        // Stars clipped to jar body — ClipRRect+RepaintBoundary
-                        // is cheaper than ClipPath+Path on SkWasm and isolates
-                        // the per-frame star tick (see DeferredSection fix).
-                        // Positioned at the same top:20 offset as the glass so
-                        // the two layers always line up.
-                        Positioned(
-                          top: 20,
-                          left: 0,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(28),
-                            child: RepaintBoundary(
-                              child: SizedBox(
-                                width: 280,
-                                height: 350,
-                                child: Stack(
-                                  children: [
-                                    // Idle floating stars
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: AnimatedBuilder(
-                                          animation: _idleController,
-                                          builder: (context, _) => CustomPaint(
-                                            painter: _JarStarFieldPainter(
-                                              notes: _filterNotes(_notes),
-                                              t: _idleController.value,
-                                              motionCache: _motionCache,
-                                            ),
-                                            isComplex: true,
-                                            willChange: true,
+                      // Stars clipped to jar body — ClipRRect+RepaintBoundary
+                      // is cheaper than ClipPath+Path on SkWasm and isolates
+                      // the per-frame star tick (see DeferredSection fix).
+                      // Positioned at the same top:20 offset as the glass so
+                      // the two layers always line up.
+                      Positioned(
+                        top: 20,
+                        left: 0,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: RepaintBoundary(
+                            child: SizedBox(
+                              width: 280,
+                              height: 350,
+                              child: Stack(
+                                children: [
+                                  // Idle floating stars
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _idleController,
+                                        builder: (context, _) => CustomPaint(
+                                          painter: _JarStarFieldPainter(
+                                            notes: _filterNotes(_notes),
+                                            t: _idleController.value,
+                                            motionCache: _motionCache,
                                           ),
+                                          isComplex: true,
+                                          willChange: true,
                                         ),
                                       ),
                                     ),
+                                  ),
 
-                                    // The Animating "Drop" Star
-                                    if (_droppingStar != null &&
-                                        _dropAnimation != null)
-                                      IgnorePointer(
-                                        child: AnimatedBuilder(
-                                          animation: _dropAnimation!,
-                                          builder: (context, child) {
-                                            return Stack(
-                                              children: [
-                                                StarWidget(
-                                                  color: AppColors.blushGold,
-                                                  position:
-                                                      _dropAnimation!.value,
-                                                  rotation:
-                                                      _dropController!.value *
-                                                      pi *
-                                                      2,
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        ),
+                                  // The Animating "Drop" Star
+                                  if (_droppingStar != null &&
+                                      _dropAnimation != null)
+                                    IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _dropAnimation!,
+                                        builder: (context, child) {
+                                          return Stack(
+                                            children: [
+                                              StarWidget(
+                                                color: AppColors.blushGold,
+                                                position: _dropAnimation!.value,
+                                                rotation:
+                                                    _dropController!.value *
+                                                    pi *
+                                                    2,
+                                              ),
+                                            ],
+                                          );
+                                        },
                                       ),
+                                    ),
 
-                                    // The Animating "Float Out" Star
-                                    if (_floatingStar != null &&
-                                        _floatAnimation != null)
-                                      IgnorePointer(
-                                        child: AnimatedBuilder(
-                                          animation: _floatAnimation!,
-                                          builder: (context, child) {
-                                            // Jar-box relative: rise from
-                                            // inside the jar to just above it.
-                                            const end = Offset(128, 60);
-                                            const start = Offset(128, 250);
-                                            final currentPos = Offset.lerp(
-                                              start,
-                                              end,
-                                              _floatAnimation!.value,
-                                            )!;
+                                  // The Animating "Float Out" Star
+                                  if (_floatingStar != null &&
+                                      _floatAnimation != null)
+                                    IgnorePointer(
+                                      child: AnimatedBuilder(
+                                        animation: _floatAnimation!,
+                                        builder: (context, child) {
+                                          // Jar-box relative: rise from
+                                          // inside the jar to just above it.
+                                          const end = Offset(128, 60);
+                                          const start = Offset(128, 250);
+                                          final currentPos = Offset.lerp(
+                                            start,
+                                            end,
+                                            _floatAnimation!.value,
+                                          )!;
 
-                                            return Stack(
-                                              children: [
-                                                StarWidget(
-                                                  color: AppColors.deepRose,
-                                                  position: currentPos,
-                                                  size:
-                                                      24 +
-                                                      (16 *
-                                                          _floatAnimation!
-                                                              .value),
-                                                  rotation:
-                                                      _floatController!.value *
-                                                      pi,
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        ),
+                                          return Stack(
+                                            children: [
+                                              StarWidget(
+                                                color: AppColors.deepRose,
+                                                position: currentPos,
+                                                size:
+                                                    24 +
+                                                    (16 *
+                                                        _floatAnimation!.value),
+                                                rotation:
+                                                    _floatController!.value *
+                                                    pi,
+                                              ),
+                                            ],
+                                          );
+                                        },
                                       ),
-                                  ],
-                                ),
+                                    ),
+                                ],
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
+            ),
+          ],
+        ),
+
+        // ── FABs ──
+        Positioned(
+          right: 20,
+          bottom: 24,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Surprise Reveal FAB (smaller)
+              FloatingActionButton(
+                onPressed: _surpriseReveal,
+                heroTag: 'surprise',
+                backgroundColor: AppColors.blushGold,
+                foregroundColor: AppColors.velvet,
+                mini: true,
+                child: const Icon(Icons.casino_rounded, size: 20),
+              ),
+              const SizedBox(height: 10),
+              // Drop Star FAB (main)
+              FloatingActionButton(
+                onPressed: _showDropDialog,
+                heroTag: 'drop',
+                backgroundColor: AppColors.deepRose,
+                foregroundColor: AppColors.petalWhite,
+                child: const Icon(Icons.star, color: AppColors.petalWhite),
+              ),
             ],
           ),
-
-          // ── FABs ──
-          Positioned(
-            right: 20,
-            bottom: 24,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Surprise Reveal FAB (smaller)
-                FloatingActionButton(
-                  onPressed: _surpriseReveal,
-                  heroTag: 'surprise',
-                  backgroundColor: AppColors.blushGold,
-                  foregroundColor: AppColors.velvet,
-                  mini: true,
-                  child: const Icon(Icons.casino_rounded, size: 20),
-                ),
-                const SizedBox(height: 10),
-                // Drop Star FAB (main)
-                FloatingActionButton(
-                  onPressed: _showDropDialog,
-                  heroTag: 'drop',
-                  backgroundColor: AppColors.deepRose,
-                  foregroundColor: AppColors.petalWhite,
-                  child: const Icon(Icons.star, color: AppColors.petalWhite),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 
   // ── Helpers ──
@@ -856,7 +902,9 @@ class _JarStarFieldPainter extends CustomPainter {
 
       final paint = Paint()
         ..color = m.color.withValues(alpha: opacity)
-        ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 4);
+        ..maskFilter = kIsWeb
+            ? null
+            : const MaskFilter.blur(BlurStyle.normal, 4);
 
       canvas.save();
       canvas.translate(dx, dy);

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/models/chapter_num.dart';
@@ -15,6 +16,7 @@ import '../katana/katana_theme.dart';
 import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 
 /// Bottom-sheet details for a manga / manhwa / manhua, opened from the
@@ -338,23 +340,52 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
   Future<void> _updateLibraryStatus(String status) async {
     final user = context.read<AuthService>().currentUser ?? '';
     if (user.isEmpty) return;
-    await _kakalotService.saveToLibrary(_item, status, user);
-    setState(() {
-      _item = _item.copyWith(libraryStatus: status);
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          status == 'none'
-              ? 'Removed from your library'
-              : 'Set to ${_item.libraryDisplay}',
-          style: AppTypography.outfitWhite,
-        ),
-        backgroundColor: KatanaColors.headerDark,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
+
+    HapticFeedback.selectionClick();
+    final previousStatus = _item.libraryStatus;
+
+    await OptimisticAction.run(
+      apply: () {
+        if (!mounted) return;
+        setState(() {
+          _item = _item.copyWith(libraryStatus: status);
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                status == 'none'
+                    ? 'Removed from your library'
+                    : 'Set to ${_item.libraryDisplay}',
+                style: AppTypography.outfitWhite,
+              ),
+              backgroundColor: KatanaColors.headerDark,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      },
+      action: () => _kakalotService.saveToLibrary(_item, status, user),
+      rollback: () {
+        if (!mounted) return;
+        setState(() {
+          _item = _item.copyWith(libraryStatus: previousStatus);
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Failed to update library. Reverted.',
+                style: AppTypography.outfitWhite,
+              ),
+              backgroundColor: KatanaColors.headerDark,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+      },
     );
   }
 

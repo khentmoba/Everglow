@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/optimistic_action.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_ui.dart';
@@ -14,7 +16,7 @@ import '../widgets/bucket_ui.dart';
 /// Swipe right toggles fulfilled, swipe left deletes (with confirmation).
 /// Set [enableSwipe] to false when nested in the horizontally-scrolling
 /// board so card gestures never fight column scrolling.
-class BucketItemCard extends StatelessWidget {
+class BucketItemCard extends StatefulWidget {
   final BucketItem item;
   final String currentUsername;
   final bool enableSwipe;
@@ -29,15 +31,41 @@ class BucketItemCard extends StatelessWidget {
   });
 
   @override
+  State<BucketItemCard> createState() => _BucketItemCardState();
+}
+
+class _BucketItemCardState extends State<BucketItemCard> {
+  bool? _optimisticCompleted;
+  bool _isToggling = false;
+
+  bool get _isCompleted =>
+      _optimisticCompleted ?? (widget.item.status == BucketStatus.completed);
+
+  BucketStatus get _effectiveStatus => _isCompleted
+      ? BucketStatus.completed
+      : (widget.item.status == BucketStatus.completed
+            ? BucketStatus.wish
+            : widget.item.status);
+
+  @override
+  void didUpdateWidget(covariant BucketItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.status != widget.item.status) {
+      _optimisticCompleted = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isCompleted = item.status == BucketStatus.completed;
+    final isCompleted = _isCompleted;
+    final item = widget.item;
 
     final card = _DreamEntrance(
       id: item.id,
-      delay: entranceDelay,
+      delay: widget.entranceDelay,
       child: Semantics(
         label:
-            '${item.title}, ${item.category.displayName}, ${bucketStatusLabel(item.status)}',
+            '${item.title}, ${item.category.displayName}, ${bucketStatusLabel(_effectiveStatus)}',
         button: true,
         child: GestureDetector(
           onTap: () => _showDetail(context),
@@ -134,7 +162,7 @@ class BucketItemCard extends StatelessWidget {
                                 color: AppColors.error,
                               ),
                             ),
-                          _StatusPill(status: item.status),
+                          _StatusPill(status: _effectiveStatus),
                         ],
                       ),
                       if (item.description.isNotEmpty) ...[
@@ -170,7 +198,7 @@ class BucketItemCard extends StatelessWidget {
       ),
     );
 
-    if (!enableSwipe) {
+    if (!widget.enableSwipe) {
       return Padding(padding: const EdgeInsets.only(bottom: 10), child: card);
     }
 
@@ -225,7 +253,7 @@ class BucketItemCard extends StatelessWidget {
 
   /// Loud priorities get a glowing edge; calm ones stay invisible.
   Color _edgeHue() {
-    switch (item.priority) {
+    switch (widget.item.priority) {
       case BucketPriority.urgent:
         return AppColors.error.withValues(alpha: 0.85);
       case BucketPriority.high:
@@ -236,12 +264,32 @@ class BucketItemCard extends StatelessWidget {
     }
   }
 
-  Future<void> _toggleComplete() {
-    final service = BucketListService();
-    if (item.status == BucketStatus.completed) {
-      return service.markUncomplete(item.id);
+  Future<void> _toggleComplete() async {
+    if (_isToggling) return;
+    _isToggling = true;
+    final nextCompleted = !_isCompleted;
+    HapticFeedback.selectionClick();
+
+    try {
+      await OptimisticAction.run(
+        apply: () {
+          if (mounted) setState(() => _optimisticCompleted = nextCompleted);
+        },
+        action: () {
+          final service = BucketListService();
+          if (nextCompleted) {
+            return service.markComplete(widget.item.id, widget.currentUsername);
+          } else {
+            return service.markUncomplete(widget.item.id);
+          }
+        },
+        rollback: () {
+          if (mounted) setState(() => _optimisticCompleted = null);
+        },
+      );
+    } finally {
+      if (mounted) _isToggling = false;
     }
-    return service.markComplete(item.id, currentUsername);
   }
 
   Future<bool> _confirmDelete(BuildContext context) async {
@@ -251,7 +299,7 @@ class BucketItemCard extends StatelessWidget {
             backgroundColor: AppColors.velvet,
             shape: AppRadius.shapeX2,
             title: Text(
-              'Let go of "${item.title}"?',
+              'Let go of "${widget.item.title}"?',
               style: AppTypography.outfitBold.copyWith(
                 fontSize: 16,
                 color: AppColors.roseQuartz,
@@ -296,8 +344,10 @@ class BucketItemCard extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) =>
-          _DreamDetailSheet(item: item, currentUsername: currentUsername),
+      builder: (ctx) => _DreamDetailSheet(
+        item: widget.item,
+        currentUsername: widget.currentUsername,
+      ),
     );
   }
 }

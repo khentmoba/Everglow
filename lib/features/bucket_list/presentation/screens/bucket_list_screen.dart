@@ -208,6 +208,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
         itemCount: items.length,
         itemBuilder: (context, index) => BucketItemCard(
+          key: ValueKey(items[index].id),
           item: items[index],
           currentUsername: currentUser,
           entranceDelay: Duration(milliseconds: (index.clamp(0, 8)) * 45),
