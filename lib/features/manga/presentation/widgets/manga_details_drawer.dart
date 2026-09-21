@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/models/chapter_num.dart';
 import '../../data/services/comick_service.dart';
+import '../../data/services/manga_cover_proxy.dart';
 import '../../data/services/mangadex_service.dart';
 import '../../data/services/mangakakalot_service.dart';
 import '../../data/services/mangakatana_service.dart';
@@ -471,9 +472,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(
-                child: Text('Details', style: KatanaType.small),
-              ),
+              Expanded(child: Text('Details', style: KatanaType.small)),
               IconButton(
                 onPressed: () => Navigator.pop(context),
                 icon: Container(
@@ -519,9 +518,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                       ),
                     )
                   : AppNetworkImage(
-                      imageUrl: _mangaDexService.proxiedImageUrl(
-                        _item.coverUrl,
-                      ),
+                      imageUrl: proxyMangaCoverUrl(_item.coverUrl),
                       fit: BoxFit.cover,
                       cacheWidth: 400,
                       errorWidget: Container(
@@ -601,10 +598,10 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           label: _isLoadingChapters
               ? 'Loading…'
               : target == null
-                  ? 'No chapters yet'
-                  : _hasStarted
-                      ? 'Continue ${target.shortLabel}'
-                      : 'Start ${target.shortLabel}',
+              ? 'No chapters yet'
+              : _hasStarted
+              ? 'Continue ${target.shortLabel}'
+              : 'Start ${target.shortLabel}',
           icon: Icons.play_arrow_rounded,
           onTap: target == null ? null : () => _openReader(target),
         ),
@@ -636,9 +633,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: Text('My Library', style: KatanaType.section),
-              ),
+              Expanded(child: Text('My Library', style: KatanaType.section)),
               if (_item.isInLibrary)
                 GestureDetector(
                   onTap: () => _updateLibraryStatus('none'),
@@ -689,9 +684,8 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
           ),
           if (text.length > 220)
             GestureDetector(
-              onTap: () => setState(
-                () => _synopsisExpanded = !_synopsisExpanded,
-              ),
+              onTap: () =>
+                  setState(() => _synopsisExpanded = !_synopsisExpanded),
               child: Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
@@ -762,9 +756,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(
-                child: CircularProgressIndicator(
-                  color: KatanaColors.accent,
-                ),
+                child: CircularProgressIndicator(color: KatanaColors.accent),
               ),
             )
           else if (_chapterError != null && _chapters.isEmpty)
@@ -811,8 +803,7 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
                     _DrawerChapterRow(
                       chapter: chapters[i],
                       highlight: i % 2 == 1,
-                      isLastRead:
-                          _item.lastReadChapterId == chapters[i].id,
+                      isLastRead: _item.lastReadChapterId == chapters[i].id,
                       onTap: () => _openReader(chapters[i]),
                     ),
                 ],
@@ -869,24 +860,18 @@ class _DrawerChapterRow extends StatelessWidget {
           color: isLastRead
               ? KatanaColors.accent.withValues(alpha: 0.14)
               : highlight
-                  ? KatanaColors.surfaceAlt
-                  : KatanaColors.surface,
+              ? KatanaColors.surfaceAlt
+              : KatanaColors.surface,
           border: isLastRead
-              ? Border.all(
-                  color: KatanaColors.accent.withValues(alpha: 0.45),
-                )
+              ? Border.all(color: KatanaColors.accent.withValues(alpha: 0.45))
               : null,
         ),
         child: Row(
           children: [
             Icon(
-              isLastRead
-                  ? Icons.bookmark_rounded
-                  : Icons.menu_book_rounded,
+              isLastRead ? Icons.bookmark_rounded : Icons.menu_book_rounded,
               size: 16,
-              color: isLastRead
-                  ? KatanaColors.accent
-                  : KatanaColors.textLight,
+              color: isLastRead ? KatanaColors.accent : KatanaColors.textLight,
             ),
             const SizedBox(width: 10),
             Expanded(
