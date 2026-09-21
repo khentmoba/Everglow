@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/lastfm_image_utils.dart';
 import '../../data/models/music_status.dart';
+import '../../data/services/music_sync_service.dart';
 import '../../data/services/spotify_auth_service.dart';
 import '../../data/services/spotify_player_service.dart';
 import '../../data/services/spotify_resolve_service.dart';
@@ -32,13 +33,30 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
   void initState() {
     super.initState();
     _status = widget.status;
+    final needsAlbum =
+        _status.albumName.isEmpty || _status.albumName == 'No Album';
     // Phase 0: resolve real Spotify ID for embed (no auth needed beyond Firebase)
-    if (!_status.hasSpotifyTrack && _status.trackName != 'Silent Night') {
+    if ((!_status.hasSpotifyTrack || needsAlbum) &&
+        _status.trackName != 'Silent Night') {
       _resolving = true;
-      SpotifyResolveService().resolve(_status).then((resolved) {
+      SpotifyResolveService().resolve(_status).then((resolved) async {
+        if (!mounted) return;
+        var finalStatus = resolved;
+        if (finalStatus.albumName.isEmpty ||
+            finalStatus.albumName == 'No Album') {
+          try {
+            final album = await MusicSyncService().fetchTrackAlbum(
+              artist: finalStatus.artistName,
+              track: finalStatus.trackName,
+            );
+            if (album != null && album.isNotEmpty) {
+              finalStatus = finalStatus.copyWith(albumName: album);
+            }
+          } catch (_) {}
+        }
         if (mounted) {
           setState(() {
-            _status = resolved;
+            _status = finalStatus;
             _resolving = false;
           });
         }
@@ -195,15 +213,18 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                _status.albumName,
-                textAlign: TextAlign.center,
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 13,
-                  color: AppColors.petalWhite.withValues(alpha: 0.7),
+              if (_status.albumName.isNotEmpty &&
+                  _status.albumName != 'No Album') ...[
+                const SizedBox(height: 4),
+                Text(
+                  _status.albumName,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 13,
+                    color: AppColors.petalWhite.withValues(alpha: 0.7),
+                  ),
                 ),
-              ),
+              ],
               const SizedBox(height: 24),
               // Primary: Play in Everglow (Web Playback SDK) - Duo Premium
               if (hasTrack)

@@ -217,13 +217,16 @@ class MusicStatsProvider extends ChangeNotifier {
   }
 
   /// Replaces missing (or placeholder) top-track artwork with the track's
-  /// real album art from `track.getinfo`. Runs in the background so the
-  /// leaderboard renders immediately. Batched with concurrency=4 so 10 tracks
-  /// don't take 10×RTT serially.
+  /// real album art from `track.getinfo` and enriches the track's album name.
+  /// Runs in the background so the leaderboard renders immediately. Batched
+  /// with concurrency=4 so 10 tracks don't take 10×RTT serially.
   Future<void> _enrichTopTrackArtwork(List<TopMusicTrack> tracks) async {
     final indices = <int>[];
     for (var i = 0; i < tracks.length; i++) {
-      if (tracks[i].imageUrl == null) indices.add(i);
+      final t = tracks[i];
+      if (t.imageUrl == null || t.albumName == null || t.albumName!.isEmpty) {
+        indices.add(i);
+      }
     }
     if (indices.isEmpty) return;
     const concurrency = 4;
@@ -232,25 +235,28 @@ class MusicStatsProvider extends ChangeNotifier {
       final chunk = indices.skip(c).take(concurrency).toList();
       final results = await Future.wait(chunk.map((idx) async {
         final track = tracks[idx];
-        final artwork = await _artworkFor(
+        final meta = await _metadataFor(
           track.artistName,
           track.trackName,
           mbid: track.mbid,
         );
-        return (idx: idx, track: track, artwork: artwork);
+        return (idx: idx, track: track, meta: meta);
       }));
       for (final r in results) {
-        if (_disposed || r.artwork == null) continue;
+        if (_disposed || r.meta == null) continue;
         if (!identical(tracks[r.idx], r.track)) continue;
-        if (tracks[r.idx].imageUrl == r.artwork) continue;
-        tracks[r.idx] = TopMusicTrack(
-          rank: r.track.rank,
-          trackName: r.track.trackName,
-          artistName: r.track.artistName,
-          playCount: r.track.playCount,
-          imageUrl: r.artwork,
-          spotifyUrl: r.track.spotifyUrl,
-          mbid: r.track.mbid,
+        final current = tracks[r.idx];
+        final newArt = r.meta!.artworkUrl ?? current.imageUrl;
+        final newAlbum =
+            (r.meta!.albumName != null && r.meta!.albumName!.isNotEmpty)
+                ? r.meta!.albumName
+                : current.albumName;
+        if (current.imageUrl == newArt && current.albumName == newAlbum) {
+          continue;
+        }
+        tracks[r.idx] = current.copyWith(
+          imageUrl: newArt,
+          albumName: newAlbum,
         );
         changed = true;
       }
@@ -322,12 +328,13 @@ class MusicStatsProvider extends ChangeNotifier {
   }) async {
     final key = '$artist\u0000$track';
     if (!_reactiveHealAttempted.add(key)) return;
-    final artwork = await _artworkFor(
+    final meta = await _metadataFor(
       artist,
       track,
       mbid: mbid,
       bypassCooldown: true,
     );
+    final artwork = meta?.artworkUrl;
     if (_disposed || artwork == null) return;
     var changed = false;
     for (final list in [_topTracks, _clairTopTracks]) {
@@ -335,15 +342,11 @@ class MusicStatsProvider extends ChangeNotifier {
         final t = list[i];
         if (t.artistName == artist &&
             t.trackName == track &&
-            t.imageUrl != artwork) {
-          list[i] = TopMusicTrack(
-            rank: t.rank,
-            trackName: t.trackName,
-            artistName: t.artistName,
-            playCount: t.playCount,
+            (t.imageUrl != artwork ||
+                (meta?.albumName != null && t.albumName != meta!.albumName))) {
+          list[i] = t.copyWith(
             imageUrl: artwork,
-            spotifyUrl: t.spotifyUrl,
-            mbid: t.mbid,
+            albumName: meta?.albumName ?? t.albumName,
           );
           changed = true;
         }
@@ -382,14 +385,16 @@ class MusicStatsProvider extends ChangeNotifier {
     if (changed) _safeNotify();
   }
 
-  Future<String?> _artworkFor(
+  final Map<String, TrackMetadata?> _metadataCache = {};
+
+  Future<TrackMetadata?> _metadataFor(
     String artist,
     String track, {
     String? mbid,
     bool bypassCooldown = false,
   }) async {
     final key = '$artist\u0000$track';
-    if (_artworkCache.containsKey(key)) return _artworkCache[key];
+    if (_metadataCache.containsKey(key)) return _metadataCache[key];
     final missAt = _artworkMissAt[key];
     if (!bypassCooldown &&
         missAt != null &&
@@ -401,15 +406,36 @@ class MusicStatsProvider extends ChangeNotifier {
       track: track,
       mbid: mbid,
     );
-    if (artwork != null) {
-      // Only hits are cached: a miss stays retryable so one bad boot (e.g.
-      // a rate-limited enrichment wave) never blanks covers for the session.
-      _artworkCache[key] = artwork;
+    final album = await _syncService.fetchTrackAlbum(
+      artist: artist,
+      track: track,
+      mbid: mbid,
+    );
+    if (artwork != null || (album != null && album.isNotEmpty)) {
+      final meta = TrackMetadata(artworkUrl: artwork, albumName: album);
+      _metadataCache[key] = meta;
+      if (artwork != null) _artworkCache[key] = artwork;
       _artworkMissAt.remove(key);
+      return meta;
     } else {
       _artworkMissAt[key] = DateTime.now();
+      return null;
     }
-    return artwork;
+  }
+
+  Future<String?> _artworkFor(
+    String artist,
+    String track, {
+    String? mbid,
+    bool bypassCooldown = false,
+  }) async {
+    final meta = await _metadataFor(
+      artist,
+      track,
+      mbid: mbid,
+      bypassCooldown: bypassCooldown,
+    );
+    return meta?.artworkUrl;
   }
 
   void _safeNotify() {

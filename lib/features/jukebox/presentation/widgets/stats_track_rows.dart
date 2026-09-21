@@ -242,7 +242,9 @@ class TopTrackRow extends StatelessWidget {
           username: username,
           trackName: track.trackName,
           artistName: track.artistName,
-          albumName: 'No Album',
+          albumName: (track.albumName != null && track.albumName != 'No Album')
+              ? track.albumName!
+              : '',
           imageUrl: track.imageUrl,
           isPlaying: false,
           spotifyUrl: track.spotifyUrl,

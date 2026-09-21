@@ -103,11 +103,14 @@ class MusicStatus {
   }
 
   factory MusicStatus.fromMap(Map<String, dynamic> map) {
+    final rawAlbum = map['albumName'] as String?;
+    final albumName =
+        (rawAlbum != null && rawAlbum != 'No Album') ? rawAlbum : '';
     return MusicStatus(
       username: map['username'] ?? '',
       trackName: map['trackName'] ?? 'Silent Night',
       artistName: map['artistName'] ?? 'Unknown Artist',
-      albumName: map['albumName'] ?? 'No Album',
+      albumName: albumName,
       imageUrl: map['imageUrl'],
       isPlaying: map['isPlaying'] ?? false,
       spotifyUrl: map['spotifyUrl'] ?? '',
@@ -125,28 +128,34 @@ class MusicStatus {
       username: username,
       trackName: 'Silent Night',
       artistName: 'Unknown Artist',
-      albumName: 'No Album',
+      albumName: '',
       isPlaying: false,
       spotifyUrl: 'https://open.spotify.com/search/Unknown%20Artist',
     );
   }
 
   MusicStatus copyWith({
+    String? username,
+    String? trackName,
+    String? artistName,
+    String? albumName,
+    String? imageUrl,
+    bool? isPlaying,
+    String? spotifyUrl,
+    DateTime? timestamp,
     String? spotifyTrackId,
     String? spotifyEmbedUrl,
     String? previewUrl,
-    String? spotifyUrl,
-    String? imageUrl,
   }) {
     return MusicStatus(
-      username: username,
-      trackName: trackName,
-      artistName: artistName,
-      albumName: albumName,
+      username: username ?? this.username,
+      trackName: trackName ?? this.trackName,
+      artistName: artistName ?? this.artistName,
+      albumName: albumName ?? this.albumName,
       imageUrl: imageUrl ?? this.imageUrl,
-      isPlaying: isPlaying,
+      isPlaying: isPlaying ?? this.isPlaying,
       spotifyUrl: spotifyUrl ?? this.spotifyUrl,
-      timestamp: timestamp,
+      timestamp: timestamp ?? this.timestamp,
       spotifyTrackId: spotifyTrackId ?? this.spotifyTrackId,
       spotifyEmbedUrl: spotifyEmbedUrl ?? this.spotifyEmbedUrl,
       previewUrl: previewUrl ?? this.previewUrl,
