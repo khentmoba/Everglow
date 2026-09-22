@@ -45,8 +45,8 @@ GoRouter createAppRouter() => GoRouter(
     // Allow offline fallback (SharedPreferences currentUser) to reach dashboard
     // even when Firebase Auth is still pending; Firestore rules still enforce
     // server-side access, but the UI should not bounce.
-    final authed = di.authService.isAuthenticated ||
-        di.authService.currentUser != null;
+    final authed =
+        di.authService.isAuthenticated || di.authService.currentUser != null;
     // Not authed -> bounce to gate, remembering where the link pointed
     // so the gateway can take the user straight there after login
     // (PR preview deep links like <preview>/cinema).

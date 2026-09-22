@@ -67,36 +67,38 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _calendarService.getUpcomingEvents(days: 60).listen(
-      (data) {
-        if (!mounted) return;
-        _retryCount = 0;
-        setState(() {
-          _events = data;
-          _error = null;
-          _isLoading = false;
-        });
-        _reportLoaded();
-      },
-      onError: (Object error, StackTrace st) {
-        Logger.e(
-          'UpcomingCountdowns: upcoming events stream error',
-          error: error,
-          stackTrace: st,
+    _sub = _calendarService
+        .getUpcomingEvents(days: 60)
+        .listen(
+          (data) {
+            if (!mounted) return;
+            _retryCount = 0;
+            setState(() {
+              _events = data;
+              _error = null;
+              _isLoading = false;
+            });
+            _reportLoaded();
+          },
+          onError: (Object error, StackTrace st) {
+            Logger.e(
+              'UpcomingCountdowns: upcoming events stream error',
+              error: error,
+              stackTrace: st,
+            );
+            if (!mounted) return;
+            _scheduleSilentRetry(error);
+          },
+          onDone: () {
+            // withFirestoreTimeout closes the stream without an error when the
+            // first snapshot never arrives (cold Firestore WebChannel on first
+            // load). Retry silently — the loading row stays up, so the user
+            // never sees a spurious "could not load dates". The error UI only
+            // appears after the retries are exhausted.
+            if (!mounted) return;
+            if (_isLoading && _events == null) _scheduleSilentRetry(_error);
+          },
         );
-        if (!mounted) return;
-        _scheduleSilentRetry(error);
-      },
-      onDone: () {
-        // withFirestoreTimeout closes the stream without an error when the
-        // first snapshot never arrives (cold Firestore WebChannel on first
-        // load). Retry silently — the loading row stays up, so the user
-        // never sees a spurious "could not load dates". The error UI only
-        // appears after the retries are exhausted.
-        if (!mounted) return;
-        if (_isLoading && _events == null) _scheduleSilentRetry(_error);
-      },
-    );
   }
 
   void _scheduleSilentRetry(Object? error) {
@@ -151,123 +153,122 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
     // "could not load dates". The error row only appears after all retries
     // are exhausted, and the manual tap stays as a last resort.
     if (!_isLoading && (_error != null || events == null)) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: FeatureSection(
-              icon: Icons.event_rounded,
-              hue: AppColors.warmAmber,
-              title: 'Coming Up',
-              subtitle: 'could not load dates',
-              trailing: SectionPillLink(
-                label: 'Calendar',
-                hue: AppColors.warmAmber,
-                onTap: () => context.push('/calendar'),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: FeatureSection(
+          icon: Icons.event_rounded,
+          hue: AppColors.warmAmber,
+          title: 'Coming Up',
+          subtitle: 'could not load dates',
+          trailing: SectionPillLink(
+            label: 'Calendar',
+            hue: AppColors.warmAmber,
+            onTap: () => context.push('/calendar'),
+          ),
+          onTap: () => context.push('/calendar'),
+          child: GestureDetector(
+            onTap: _retry,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.refresh_rounded,
+                  color: AppColors.warmAmber,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${firestoreErrorHint(_error)} — tap here to retry.',
+                    style: AppTypography.outfitWhite.copyWith(
+                      fontSize: 12,
+                      color: AppColors.petalWhite.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ),
+                const SectionChevron(hue: AppColors.warmAmber),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Waiting for the first snapshot (or a silent retry) is loading,
+    // not empty — and never an error the user must dismiss by hand.
+    if (events == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: FeatureSection(
+          icon: Icons.event_rounded,
+          hue: AppColors.warmAmber,
+          title: 'Coming Up',
+          subtitle: 'loading dates…',
+          trailing: SectionPillLink(
+            label: 'Calendar',
+            hue: AppColors.warmAmber,
+            onTap: () => context.push('/calendar'),
+          ),
+          onTap: () => context.push('/calendar'),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              onTap: () => context.push('/calendar'),
-              child: GestureDetector(
-                onTap: _retry,
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.refresh_rounded,
-                      color: AppColors.warmAmber,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        '${firestoreErrorHint(_error)} — tap here to retry.',
-                        style: AppTypography.outfitWhite.copyWith(
-                          fontSize: 12,
-                          color: AppColors.petalWhite.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                    const SectionChevron(hue: AppColors.warmAmber),
-                  ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Loading upcoming dates…',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: AppColors.petalWhite.withValues(alpha: 0.6),
+                  ),
                 ),
               ),
-            ),
-          );
-        }
-
-        // Waiting for the first snapshot (or a silent retry) is loading,
-        // not empty — and never an error the user must dismiss by hand.
-        if (events == null) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            child: FeatureSection(
-              icon: Icons.event_rounded,
-              hue: AppColors.warmAmber,
-              title: 'Coming Up',
-              subtitle: 'loading dates…',
-              trailing: SectionPillLink(
-                label: 'Calendar',
-                hue: AppColors.warmAmber,
-                onTap: () => context.push('/calendar'),
-              ),
-              onTap: () => context.push('/calendar'),
-              child: Row(
-                children: [
-                  const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Loading upcoming dates…',
-                      style: AppTypography.outfitWhite.copyWith(
-                        fontSize: 12,
-                        color: AppColors.petalWhite.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final displayEvents = events.take(3).toList();
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          child: FeatureSection(
-            icon: Icons.event_rounded,
-            hue: AppColors.warmAmber,
-            title: 'Coming Up',
-            subtitle: displayEvents.isEmpty
-                ? 'no dates planned yet'
-                : '${displayEvents.length} upcoming '
-                      '${displayEvents.length == 1 ? 'date' : 'dates'}',
-            trailing: SectionPillLink(
-              label: 'Calendar',
-              hue: AppColors.warmAmber,
-              onTap: () => context.push('/calendar'),
-            ),
-            onTap: () => context.push('/calendar'),
-            child: displayEvents.isEmpty
-                ? const _EmptyDatesCta()
-                : SizedBox(
-                    height: 182,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      clipBehavior: Clip.none,
-                      itemCount: displayEvents.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 14),
-                      itemBuilder: (context, index) {
-                        return _CountdownEventCard(
-                          event: displayEvents[index],
-                          index: index,
-                        );
-                      },
-                    ),
-                  ),
+            ],
           ),
-        );
+        ),
+      );
+    }
+
+    final displayEvents = events.take(3).toList();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: FeatureSection(
+        icon: Icons.event_rounded,
+        hue: AppColors.warmAmber,
+        title: 'Coming Up',
+        subtitle: displayEvents.isEmpty
+            ? 'no dates planned yet'
+            : '${displayEvents.length} upcoming '
+                  '${displayEvents.length == 1 ? 'date' : 'dates'}',
+        trailing: SectionPillLink(
+          label: 'Calendar',
+          hue: AppColors.warmAmber,
+          onTap: () => context.push('/calendar'),
+        ),
+        onTap: () => context.push('/calendar'),
+        child: displayEvents.isEmpty
+            ? const _EmptyDatesCta()
+            : SizedBox(
+                height: 182,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  clipBehavior: Clip.none,
+                  itemCount: displayEvents.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, index) {
+                    return _CountdownEventCard(
+                      event: displayEvents[index],
+                      index: index,
+                    );
+                  },
+                ),
+              ),
+      ),
+    );
   }
 }
-

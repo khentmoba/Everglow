@@ -59,6 +59,13 @@ test('Last.fm proxy allows only read-only lookup methods', () => {
   );
   assert.equal(trackScrobbles.searchParams.get('track'), 'American Teenager');
   assert.equal(trackScrobbles.searchParams.get('artist'), 'Ethel Cain');
+  // Exact per-artist playcount: artist.getInfo with the username context.
+  const artistInfo = buildLastfmUpstream(
+    { method: 'artist.getInfo', artist: 'Ethel Cain', username: 'clair' },
+    'server-key',
+  );
+  assert.equal(artistInfo.searchParams.get('method'), 'artist.getInfo');
+  assert.equal(artistInfo.searchParams.get('username'), 'clair');
   assert.throws(() => buildLastfmUpstream({ method: 'artist.addtags' }, 'server-key'));
 });
 

@@ -421,9 +421,9 @@ class ComickService with ConnectivityAware {
         final chapters = body['chapters'] as List? ?? [];
         final total = (body['total'] as num?)?.toInt() ?? 0;
         all.addAll(
-          chapters
-              .whereType<Map<String, dynamic>>()
-              .map((d) => _mapChapter(d, language)),
+          chapters.whereType<Map<String, dynamic>>().map(
+            (d) => _mapChapter(d, language),
+          ),
         );
         if (chapters.length < limit) break;
         if (total > 0 && all.length >= total) break;

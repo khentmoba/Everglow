@@ -40,9 +40,14 @@ class _HistoryFakeSync extends MusicSyncService {
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
+    int page = 1,
     String period = 'overall',
   }) async =>
       topTracks[username.toLowerCase()] ?? const [];
+
+  @override
+  Future<int?> fetchArtistPlayCount(String username, String artist) async =>
+      null;
 
   @override
   Future<List<MusicStatus>> fetchRecentTracks(

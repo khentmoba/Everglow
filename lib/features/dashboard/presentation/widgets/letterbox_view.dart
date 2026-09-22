@@ -76,36 +76,38 @@ class _LetterboxViewState extends State<LetterboxView> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _letterboxService.notesPreview(limit: _previewLimit).listen(
-      (data) {
-        if (!mounted) return;
-        _retryCount = 0;
-        setState(() {
-          _notes = data;
-          _isLoading = false;
-          _hasError = false;
-        });
-        _reportLoaded();
-      },
-      onError: (Object e, StackTrace st) {
-        Logger.e(
-          'LetterboxView: notes preview stream error',
-          error: e,
-          stackTrace: st,
+    _sub = _letterboxService
+        .notesPreview(limit: _previewLimit)
+        .listen(
+          (data) {
+            if (!mounted) return;
+            _retryCount = 0;
+            setState(() {
+              _notes = data;
+              _isLoading = false;
+              _hasError = false;
+            });
+            _reportLoaded();
+          },
+          onError: (Object e, StackTrace st) {
+            Logger.e(
+              'LetterboxView: notes preview stream error',
+              error: e,
+              stackTrace: st,
+            );
+            if (!mounted) return;
+            _scheduleSilentRetry();
+          },
+          onDone: () {
+            // withFirestoreTimeout closes the stream without an error when the
+            // first snapshot never arrives (cold Firestore WebChannel on first
+            // load). Retry silently — the skeleton stays up, so the user never
+            // sees a spurious "Could not load letters". Only surface the error
+            // UI after retries are exhausted.
+            if (!mounted) return;
+            if (_isLoading) _scheduleSilentRetry();
+          },
         );
-        if (!mounted) return;
-        _scheduleSilentRetry();
-      },
-      onDone: () {
-        // withFirestoreTimeout closes the stream without an error when the
-        // first snapshot never arrives (cold Firestore WebChannel on first
-        // load). Retry silently — the skeleton stays up, so the user never
-        // sees a spurious "Could not load letters". Only surface the error
-        // UI after retries are exhausted.
-        if (!mounted) return;
-        if (_isLoading) _scheduleSilentRetry();
-      },
-    );
   }
 
   void _scheduleSilentRetry() {
@@ -181,7 +183,8 @@ class _LetterboxViewState extends State<LetterboxView> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
-              'Okay, I''ll wait! \u{1F338}',
+              'Okay, I'
+              'll wait! \u{1F338}',
               style: AppTypography.outfitWhite.copyWith(
                 color: AppColors.blushGold,
                 fontWeight: FontWeight.bold,
@@ -482,63 +485,63 @@ class _LetterboxError extends StatelessWidget {
           children: [
             const Icon(
               Icons.cloud_off_rounded,
-                size: 32,
-                color: AppColors.roseQuartz,
+              size: 32,
+              color: AppColors.roseQuartz,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Could not load letters',
+              style: AppTypography.outfitBold.copyWith(
+                fontSize: 13,
+                color: AppColors.petalWhite,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Could not load letters',
-                style: AppTypography.outfitBold.copyWith(
-                  fontSize: 13,
-                  color: AppColors.petalWhite,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Check connection and try again',
+              style: AppTypography.outfitWhite.copyWith(
+                fontSize: 11,
+                color: AppColors.petalWhite.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Check connection and try again',
-                style: AppTypography.outfitWhite.copyWith(
-                  fontSize: 11,
-                  color: AppColors.petalWhite.withValues(alpha: 0.6),
-                ),
-              ),
-              const SizedBox(height: 10),
-              GestureDetector(
-                onTap: onRetry,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
+                decoration: BoxDecoration(
+                  color: AppColors.deepRose.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: AppColors.deepRose.withValues(alpha: 0.4),
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.deepRose.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.deepRose.withValues(alpha: 0.4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.refresh_rounded,
+                      size: 14,
+                      color: AppColors.petalWhite,
                     ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.refresh_rounded,
-                        size: 14,
+                    const SizedBox(width: 6),
+                    Text(
+                      'Retry',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 12,
                         color: AppColors.petalWhite,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Retry',
-                        style: AppTypography.outfitBold.copyWith(
-                          fontSize: 12,
-                          color: AppColors.petalWhite,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
     );
   }
 }

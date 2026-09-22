@@ -23,6 +23,43 @@ const {
  * ignored and replaced server-side so the browser bundle never contains it.
  */
 // No minInstances (cost): cold start ~1-2s is fine for metadata lookups.
+/**
+ * Builds the instance-cache key for an upstream URL: path plus its query,
+ * sorted by name and with the server-held `api_key` left out (so one key
+ * covers every caller of the same data). Reads the URL's own params instead
+ * of cloning it, so nothing can throw here and the upstream request URL is
+ * never mutated.
+ */
+function externalCacheKey(prefix, upstream) {
+  const query = [...upstream.searchParams.entries()]
+    .filter(([name]) => name !== 'api_key')
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, value]) => `${name}=${value}`)
+    .join('&');
+  return `${prefix}${upstream.pathname}?${query}`;
+}
+
+/**
+ * Per-method cache TTLs for Last.fm. All-time counters barely move between
+ * listens, so the slow reads (exact per-artist playcounts, all-time top
+ * tracks/artists) are held much longer than the blanket 5-minute default.
+ * Recent charts (7day) and recent scrobbles stay short so the jukebox stays
+ * live, and the showdown's deeper paging never re-pays upstream per open.
+ */
+function lastfmCacheTtlMs(method, period) {
+  const m = String(method || '').toLowerCase();
+  const p = String(period || 'overall').toLowerCase();
+  if (m === 'artist.getinfo') return 30 * 60 * 1000;
+  if (
+    m === 'user.gettoptracks' ||
+    m === 'user.gettopartists' ||
+    m === 'user.gettopalbums'
+  ) {
+    return p === 'overall' ? 30 * 60 * 1000 : _EXTERNAL_CACHE_TTLS.lastfm;
+  }
+  return _EXTERNAL_CACHE_TTLS.lastfm;
+}
+
 const proxyTmdb = cappedHttps(20, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -58,10 +95,7 @@ const proxyTmdb = cappedHttps(20, async (req, res) => {
   // ~30 calls behind one Cinema open (and repeat opens) don't each pay a
   // TMDB round trip. Auth + path validation above still run on every call;
   // only HTTP 200 bodies are cached. TTL lives in common.js (10m for TMDB).
-  const cacheProbe = new URL(upstream.toString());
-  cacheProbe.searchParams.delete('api_key');
-  cacheProbe.searchParams.sort();
-  const cacheKey = `tmdb:proxy:${cacheProbe.pathname}?${cacheProbe.searchParams.toString()}`;
+  const cacheKey = externalCacheKey('tmdb:proxy:', upstream);
   const cached = _getExternalCache(cacheKey, _EXTERNAL_CACHE_TTLS.tmdb);
   if (cached) {
     res.status(cached.status)
@@ -120,12 +154,13 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
 
   // Same instance cache as TMDB: the jukebox polls recent tracks every
   // minute per user, and scrobbles barely move that fast. Only HTTP 200
-  // bodies are cached (5m TTL in common.js) so errors never stick.
-  const cacheProbe = new URL(upstream.toString());
-  cacheProbe.searchParams.delete('api_key');
-  cacheProbe.searchParams.sort();
-  const cacheKey = `lastfm:proxy:${cacheProbe.pathname}?${cacheProbe.searchParams.toString()}`;
-  const cached = _getExternalCache(cacheKey, _EXTERNAL_CACHE_TTLS.lastfm);
+  // bodies are cached (errors never stick), for 30m on all-time reads and
+  // 5m on recent ones — see lastfmCacheTtlMs.
+  const cacheKey = externalCacheKey('lastfm:proxy:', upstream);
+  const cached = _getExternalCache(
+    cacheKey,
+    lastfmCacheTtlMs(req.query.method, req.query.period),
+  );
   if (cached) {
     res.status(cached.status)
       .set('Content-Type', cached.contentType)
@@ -154,4 +189,6 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
 module.exports = {
   proxyTmdb,
   proxyLastfm,
+  lastfmCacheTtlMs,
+  externalCacheKey,
 };

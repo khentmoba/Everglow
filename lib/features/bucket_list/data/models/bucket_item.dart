@@ -87,8 +87,9 @@ class BucketItem {
     return BucketItem(
       id: id,
       title: data['title'] is String ? data['title'] as String : '',
-      description:
-          data['description'] is String ? data['description'] as String : '',
+      description: data['description'] is String
+          ? data['description'] as String
+          : '',
       category: BucketCategory.values.firstWhere(
         (c) => c.name == data['category'],
         orElse: () => BucketCategory.other,
@@ -100,16 +101,18 @@ class BucketItem {
       createdBy: data['createdBy'] is String ? data['createdBy'] : '',
       createdAt: asDate(data['createdAt']) ?? DateTime.now(),
       completedAt: asDate(data['completedAt']),
-      completedBy:
-          data['completedBy'] is String ? data['completedBy'] as String : null,
-      imageUrl:
-          data['imageUrl'] is String ? data['imageUrl'] as String : null,
+      completedBy: data['completedBy'] is String
+          ? data['completedBy'] as String
+          : null,
+      imageUrl: data['imageUrl'] is String ? data['imageUrl'] as String : null,
       notes: data['notes'] is String ? data['notes'] as String : '',
       priority: BucketPriority.values.firstWhere(
         (p) => p.name == data['priority'],
         orElse: () => BucketPriority.medium,
       ),
-      assignedTo: data['assignedTo'] is String ? data['assignedTo'] as String : null,
+      assignedTo: data['assignedTo'] is String
+          ? data['assignedTo'] as String
+          : null,
       dueDate: asDate(data['dueDate']),
     );
   }

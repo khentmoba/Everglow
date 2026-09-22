@@ -46,9 +46,7 @@ class AnimeXTopHeader extends StatelessWidget {
             AnimeXTokens.bg.withValues(alpha: 0.94),
           ],
         ),
-        border: const Border(
-          bottom: BorderSide(color: AnimeXTokens.border),
-        ),
+        border: const Border(bottom: BorderSide(color: AnimeXTokens.border)),
         boxShadow: const [
           BoxShadow(
             color: AppColors.scrimStrong,
@@ -205,24 +203,30 @@ class AnimeXMobileBottomNav extends StatelessWidget {
         color: Color(0xFA0A0A0F),
         border: Border(top: BorderSide(color: Color(0x12FFFFFF))),
       ),
-      child: Row(
-        children: [
-          for (final (page, label, icon, activeIcon) in items)
-            Expanded(
-              child: _MobileItem(
-                label: label,
-                icon: controller.page == page ? activeIcon : icon,
-                active: controller.page == page && !controller.hasDetail,
-                onTap: page == AnimexPage.search
-                    ? onSearch
-                    : () => controller.goTo(page),
-              ),
-            ),
-        ],
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Row(
+            children: [
+              for (final (page, label, icon, activeIcon) in items)
+                Expanded(
+                  child: _MobileItem(
+                    label: label,
+                    icon: controller.page == page ? activeIcon : icon,
+                    active: controller.page == page && !controller.hasDetail,
+                    onTap: page == AnimexPage.search
+                        ? onSearch
+                        : () => controller.goTo(page),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
+
 class _Logo extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
@@ -246,18 +250,19 @@ class _Logo extends StatelessWidget {
             children: [
               TextSpan(
                 text: 'GLOW',
-                style: bebasStyle(
-                  size: size,
-                  color: AnimeXTokens.accent,
-                  letterSpacing: 0.06,
-                ).copyWith(
-                  shadows: [
-                    Shadow(
-                      color: AnimeXTokens.accent.withValues(alpha: 0.55),
-                      blurRadius: 14,
+                style:
+                    bebasStyle(
+                      size: size,
+                      color: AnimeXTokens.accent,
+                      letterSpacing: 0.06,
+                    ).copyWith(
+                      shadows: [
+                        Shadow(
+                          color: AnimeXTokens.accent.withValues(alpha: 0.55),
+                          blurRadius: 14,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -307,9 +312,7 @@ class _NavItemState extends State<_NavItem> {
             borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
             border: Border(
               bottom: BorderSide(
-                color: widget.active
-                    ? AnimeXTokens.accent
-                    : Colors.transparent,
+                color: widget.active ? AnimeXTokens.accent : Colors.transparent,
                 width: 2,
               ),
             ),

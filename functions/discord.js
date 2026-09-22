@@ -38,7 +38,7 @@ function buildEndedPost({ title, hostDisplay }) {
 }
 
 async function verifyDiscordSignature({ publicKeyHex, signatureHex, timestamp, body }) {
-  const sodium = require('libsodium-wrappers');
+  const sodium = require('libsodium-wrappers-sumo');
   await sodium.ready;
   const msg = Buffer.concat([Buffer.from(timestamp, 'utf8'), Buffer.from(body)]);
   return sodium.crypto_sign_verify_detached(

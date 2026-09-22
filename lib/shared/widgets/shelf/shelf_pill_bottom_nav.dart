@@ -31,42 +31,49 @@ class ShelfPillBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        MediaQuery.paddingOf(context).bottom + 12,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.animeCard,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.5),
-            blurRadius: 30,
-            offset: const Offset(0, 10),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Container(
+          margin: EdgeInsets.fromLTRB(
+            20,
+            0,
+            20,
+            MediaQuery.paddingOf(context).bottom + 12,
           ),
-          BoxShadow(
-            color: glowColor.withValues(alpha: 0.08),
-            blurRadius: 30,
-            offset: const Offset(0, -5),
+          decoration: BoxDecoration(
+            color: AppColors.animeCard,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: AppColors.roseQuartz.withValues(alpha: 0.1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: glowColor.withValues(alpha: 0.08),
+                blurRadius: 30,
+                offset: const Offset(0, -5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(items.length, (i) {
-            return Semantics(
-              button: true,
-              selected: i == currentIndex,
-              label: items[i].label,
-              child: _buildItem(items[i], i, i == currentIndex),
-            );
-          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(items.length, (i) {
+                return Semantics(
+                  button: true,
+                  selected: i == currentIndex,
+                  label: items[i].label,
+                  child: _buildItem(items[i], i, i == currentIndex),
+                );
+              }),
+            ),
+          ),
         ),
       ),
     );

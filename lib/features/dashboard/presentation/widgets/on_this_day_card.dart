@@ -74,9 +74,7 @@ class _OnThisDayCardState extends State<OnThisDayCard>
   void _reportLoaded() {
     if (!mounted) return;
     try {
-      context.read<DashboardLoadTracker>().mark(
-        DashboardLoadSignal.memories,
-      );
+      context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.memories);
     } catch (e, st) {
       Logger.e(
         'OnThisDayCard: failed to report memories load signal',
@@ -173,7 +171,6 @@ class _MemoryCard extends StatefulWidget {
 class _MemoryCardState extends State<_MemoryCard> {
   bool _hovered = false;
   bool _pressed = false;
-
 
   IconData get _sourceIcon {
     switch (widget.memory.source) {

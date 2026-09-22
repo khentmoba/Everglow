@@ -46,134 +46,134 @@ class CanvasToolbar extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(32),
         child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.velvet.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.18),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.15),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-              ],
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.velvet.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(
+              color: AppColors.moonlight.withValues(alpha: 0.18),
+              width: 1.5,
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Tool Selection
-                  _ToolButton(
-                    icon: Icons.edit_rounded,
-                    isActive: activeTool == CanvasTool.pen,
-                    onTap: () => onToolChanged(CanvasTool.pen),
-                    semanticLabel: 'Pen tool',
-                  ),
-                  _ToolButton(
-                    icon: Icons.auto_fix_normal_rounded,
-                    isActive: activeTool == CanvasTool.eraser,
-                    onTap: () => onToolChanged(CanvasTool.eraser),
-                    semanticLabel: 'Eraser tool',
-                  ),
-                  _ToolButton(
-                    icon: Icons.text_fields_rounded,
-                    isActive: activeTool == CanvasTool.text,
-                    onTap: () => onToolChanged(CanvasTool.text),
-                    semanticLabel: 'Text tool',
-                  ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.deepRose.withValues(alpha: 0.15),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Tool Selection
+                _ToolButton(
+                  icon: Icons.edit_rounded,
+                  isActive: activeTool == CanvasTool.pen,
+                  onTap: () => onToolChanged(CanvasTool.pen),
+                  semanticLabel: 'Pen tool',
+                ),
+                _ToolButton(
+                  icon: Icons.auto_fix_normal_rounded,
+                  isActive: activeTool == CanvasTool.eraser,
+                  onTap: () => onToolChanged(CanvasTool.eraser),
+                  semanticLabel: 'Eraser tool',
+                ),
+                _ToolButton(
+                  icon: Icons.text_fields_rounded,
+                  isActive: activeTool == CanvasTool.text,
+                  onTap: () => onToolChanged(CanvasTool.text),
+                  semanticLabel: 'Text tool',
+                ),
 
-                  const _VerticalDivider(),
+                const _VerticalDivider(),
 
-                  // History
-                  _ToolButton(
-                    icon: Icons.undo_rounded,
-                    isActive: false,
-                    onTap: onUndo,
-                    color: canUndo
-                        ? AppColors.roseQuartz
-                        : AppColors.petalWhite.withValues(alpha: 0.2),
-                    semanticLabel: 'Undo',
+                // History
+                _ToolButton(
+                  icon: Icons.undo_rounded,
+                  isActive: false,
+                  onTap: onUndo,
+                  color: canUndo
+                      ? AppColors.roseQuartz
+                      : AppColors.petalWhite.withValues(alpha: 0.2),
+                  semanticLabel: 'Undo',
+                ),
+                _ToolButton(
+                  icon: Icons.redo_rounded,
+                  isActive: false,
+                  onTap: onRedo,
+                  color: canRedo
+                      ? AppColors.roseQuartz
+                      : AppColors.petalWhite.withValues(alpha: 0.2),
+                  semanticLabel: 'Redo',
+                ),
+
+                const _VerticalDivider(),
+
+                // Color Palette - Scrollable for mobile
+                ...palette.map(
+                  (hex) => _ColorButton(
+                    hex: hex,
+                    isActive:
+                        activeColor == hex && activeTool == CanvasTool.pen,
+                    onTap: () {
+                      onToolChanged(CanvasTool.pen);
+                      onColorChanged(hex);
+                    },
                   ),
-                  _ToolButton(
-                    icon: Icons.redo_rounded,
-                    isActive: false,
-                    onTap: onRedo,
-                    color: canRedo
-                        ? AppColors.roseQuartz
-                        : AppColors.petalWhite.withValues(alpha: 0.2),
-                    semanticLabel: 'Redo',
-                  ),
+                ),
 
-                  const _VerticalDivider(),
+                const _VerticalDivider(),
 
-                  // Color Palette - Scrollable for mobile
-                  ...palette.map(
-                    (hex) => _ColorButton(
-                      hex: hex,
-                      isActive:
-                          activeColor == hex && activeTool == CanvasTool.pen,
-                      onTap: () {
-                        onToolChanged(CanvasTool.pen);
-                        onColorChanged(hex);
-                      },
-                    ),
-                  ),
-
-                  const _VerticalDivider(),
-
-                  // Stroke Width Slider
-                  Semantics(
-                    label: 'Stroke width: ${strokeWidth.round()}',
-                    child: SizedBox(
-                      width: 80,
-                      // Slider fills its bounded max height in newer Flutter
-                      // versions; pin the height so the toolbar stays compact.
-                      height: 48,
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 3,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 6,
-                          ),
-                          activeTrackColor: AppColors.roseQuartz,
-                          inactiveTrackColor: AppColors.moonlight.withValues(
-                            alpha: 0.15,
-                          ),
-                          thumbColor: AppColors.blushGold,
-                          overlayColor: AppColors.blushGold.withValues(
-                            alpha: 0.1,
-                          ),
+                // Stroke Width Slider
+                Semantics(
+                  label: 'Stroke width: ${strokeWidth.round()}',
+                  child: SizedBox(
+                    width: 80,
+                    // Slider fills its bounded max height in newer Flutter
+                    // versions; pin the height so the toolbar stays compact.
+                    height: 48,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 6,
                         ),
-                        child: Slider(
-                          value: strokeWidth,
-                          min: 1.0,
-                          max: 12.0,
-                          onChanged: onStrokeWidthChanged,
+                        activeTrackColor: AppColors.roseQuartz,
+                        inactiveTrackColor: AppColors.moonlight.withValues(
+                          alpha: 0.15,
                         ),
+                        thumbColor: AppColors.blushGold,
+                        overlayColor: AppColors.blushGold.withValues(
+                          alpha: 0.1,
+                        ),
+                      ),
+                      child: Slider(
+                        value: strokeWidth,
+                        min: 1.0,
+                        max: 12.0,
+                        onChanged: onStrokeWidthChanged,
                       ),
                     ),
                   ),
+                ),
 
-                  const _VerticalDivider(),
+                const _VerticalDivider(),
 
-                  // Clear Button
-                  _ToolButton(
-                    icon: Icons.delete_outline_rounded,
-                    isActive: false,
-                    onTap: onClear,
-                    color: AppColors.error.withValues(alpha: 0.8),
-                    semanticLabel: 'Clear canvas',
-                  ),
-                ],
-              ),
+                // Clear Button
+                _ToolButton(
+                  icon: Icons.delete_outline_rounded,
+                  isActive: false,
+                  onTap: onClear,
+                  color: AppColors.error.withValues(alpha: 0.8),
+                  semanticLabel: 'Clear canvas',
+                ),
+              ],
             ),
           ),
         ),
+      ),
     );
   }
 }
@@ -274,27 +274,31 @@ class _ColorButton extends StatelessWidget {
       label: '${_colorName(hex)} color',
       button: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 28,
-          height: 28,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isActive ? AppColors.roseQuartz : Colors.transparent,
-              width: isActive ? 2.5 : 2,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 28,
+            height: 28,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isActive ? AppColors.roseQuartz : Colors.transparent,
+                width: isActive ? 2.5 : 2,
+              ),
+              boxShadow: [
+                if (isActive)
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.6),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+              ],
             ),
-            boxShadow: [
-              if (isActive)
-                BoxShadow(
-                  color: color.withValues(alpha: 0.6),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
-            ],
           ),
         ),
       ),
