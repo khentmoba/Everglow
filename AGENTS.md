@@ -44,6 +44,30 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 - Every PR shows proof: attach a screenshot of just the changed screen, kept in `docs/pr-proof/` and visible inline in the PR. Repo is public, so couple-only screens use fake demo data only — never real couple data. Also check the auto-posted preview link (alive 12 hours).
 - Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
 
+### Definition of done — proof over confidence
+
+`.pi/extensions/everglow_verify_gate.ts` mechanically blocks three things:
+committing after code edits with no verification run, PRs without a proof
+screenshot in `docs/pr-proof/`, and `dart tool/...` commands for scripts that
+don't exist. It never blocks on green output — CI judges that. The rest is
+judgment the gate cannot check:
+
+- Reproduce a bug before fixing it, then repeat the same steps after. If
+  reproduction is blocked, say what is missing instead of guessing around it.
+- A diagnosis must cite the code you actually read. An untested explanation
+  is a hypothesis — call it one.
+- Match the evidence to the claim: a screenshot proves looks, not behavior.
+  Interaction claims need the steps actually clicked.
+- Copy patterns only after checking they are not obsolete workarounds.
+  Frequency is not correctness. Fix the cause, not the symptom.
+- Keep the task's size: a typo fix does not launch the app, a small fix does
+  not grow into a refactor. Unrelated debt gets a note, not a detour.
+- Finish with the result, the checks you actually ran, where the evidence is,
+  and what is still unverified. Worker-reported success you did not check
+  yourself is not your evidence.
+- When the same mistake keeps coming back, turn it into a lint, a CI guard,
+  or a rule here — not another review comment.
+
 ## Releases — keep the version, README, and GitHub in sync
 
 Releases publish automatically, but ONLY when the version number
