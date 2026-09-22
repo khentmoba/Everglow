@@ -91,11 +91,16 @@ class JournalEntry {
     return DateTime.now();
   }
 
-  factory JournalEntry.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? const {};
+  factory JournalEntry.fromFirestore(DocumentSnapshot doc) =>
+      JournalEntry.fromMap(
+        doc.data() as Map<String, dynamic>? ?? const {},
+        doc.id,
+      );
+
+  factory JournalEntry.fromMap(Map<String, dynamic> data, String id) {
     final content = data['content'] ?? '';
     return JournalEntry(
-      id: doc.id,
+      id: id,
       title: data['title'] ?? '',
       content: content,
       author: data['author'] ?? '',

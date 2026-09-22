@@ -13,11 +13,13 @@ import '../../../../core/theme/app_typography.dart';
 class PhotoViewerScreen extends StatefulWidget {
   final List<MemoryPhoto> photos;
   final int initialIndex;
+  final Future<void> Function(MemoryPhoto)? onDelete;
 
   const PhotoViewerScreen({
     super.key,
     required this.photos,
     this.initialIndex = 0,
+    this.onDelete,
   });
 
   @override
@@ -92,11 +94,12 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               final removedPhoto = photo;
               final isLastPhoto = _photos.length <= 1;
 
+              final deleteAction =
+                  widget.onDelete ?? GalleryService().deletePhoto;
+
               if (isLastPhoto) {
                 Navigator.pop(context);
-                GalleryService().deletePhoto(removedPhoto).catchError((
-                  Object e,
-                ) {
+                deleteAction(removedPhoto).catchError((Object e) {
                   Logger.e('Photo delete failed', error: e);
                 });
                 return;
@@ -111,7 +114,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                     }
                   });
                 },
-                action: () => GalleryService().deletePhoto(removedPhoto),
+                action: () => deleteAction(removedPhoto),
                 rollback: () {
                   if (mounted) {
                     setState(() {
@@ -145,7 +148,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final myUid = context.read<AuthService>().uid;
+    final auth = context.read<AuthService>();
+    final myUid = auth.uid;
+    final myUser = auth.currentUser;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -169,7 +174,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
         ),
         centerTitle: true,
         actions: [
-          if (_photos.isNotEmpty && _photos[_currentIndex].uploadedBy == myUid)
+          if (_photos.isNotEmpty &&
+              (_photos[_currentIndex].uploadedBy == myUid ||
+                  _photos[_currentIndex].uploadedBy == myUser))
             IconButton(
               onPressed: () => _showDeleteDialog(_photos[_currentIndex]),
               icon: const Icon(

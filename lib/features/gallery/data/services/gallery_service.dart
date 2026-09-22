@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
@@ -15,10 +15,57 @@ class GalleryService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final String _collection = 'gallery';
 
-  static String _monthDay(DateTime date) {
+  @visibleForTesting
+  static String monthDay(DateTime date) {
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
     return '$m-$d';
+  }
+
+  @visibleForTesting
+  static String sanitizeFileName(String fileName) {
+    return fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  }
+
+  @visibleForTesting
+  static String storageBasePath({
+    required String userId,
+    required String fileName,
+    required int timestamp,
+  }) {
+    final safeName = sanitizeFileName(fileName);
+    return 'gallery/$userId/${timestamp}_$safeName';
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> buildMetadataPayload({
+    required String imageUrl,
+    String? thumbUrl,
+    required String caption,
+    required String uploadedBy,
+    List<String> tags = const [],
+    DateTime? now,
+    double? latitude,
+    double? longitude,
+    String? locationName,
+    DateTime? takenAt,
+    dynamic uploadedAtFieldValue,
+  }) {
+    final effectiveNow = now ?? DateTime.now();
+    return {
+      'imageUrl': imageUrl,
+      'thumbUrl': ?thumbUrl,
+      'caption': caption,
+      'uploadedBy': uploadedBy,
+      'uploadedAt': uploadedAtFieldValue ?? FieldValue.serverTimestamp(),
+      'tags': tags,
+      'monthDay': monthDay(effectiveNow),
+      'latitude': ?latitude,
+      'longitude': ?longitude,
+      if (locationName != null && locationName.isNotEmpty)
+        'locationName': locationName,
+      if (takenAt != null) 'takenAt': Timestamp.fromDate(takenAt),
+    };
   }
 
   /// Returns the URL used for displaying gallery images.
@@ -29,8 +76,9 @@ class GalleryService {
   /// so the proxy caches the thumbnail URL long-term, independently of
   /// the short-lived full-res viewer URL. (The proxy does not resize;
   /// small bytes come from the stored `thumbUrl` files.)
-  static String displayUrl(String imageUrl, {bool thumb = false}) {
-    if (kIsWeb && imageUrl.contains('firebasestorage.googleapis.com')) {
+  static String displayUrl(String imageUrl, {bool thumb = false, bool? isWeb}) {
+    final web = isWeb ?? kIsWeb;
+    if (web && imageUrl.contains('firebasestorage.googleapis.com')) {
       final proxied =
           'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage?url=${Uri.encodeComponent(imageUrl)}';
       return thumb ? '$proxied&w=440' : proxied;
@@ -56,10 +104,13 @@ class GalleryService {
     DateTime? takenAt,
   }) async {
     final stamp = DateTime.now().millisecondsSinceEpoch;
-    final safeName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-    final base = 'gallery/$userId/${stamp}_$safeName';
-    final fullBytes = _resizedJpeg(imageBytes, 1600) ?? imageBytes;
-    final thumbBytes = _resizedJpeg(imageBytes, 400);
+    final base = storageBasePath(
+      userId: userId,
+      fileName: fileName,
+      timestamp: stamp,
+    );
+    final fullBytes = resizedJpeg(imageBytes, 1600) ?? imageBytes;
+    final thumbBytes = resizedJpeg(imageBytes, 400);
 
     Future<String> put(String path, Uint8List bytes) async {
       final ref = _storage.ref().child(path);
@@ -85,20 +136,21 @@ class GalleryService {
     }
 
     // Save metadata to Firestore
-    final docRef = await _db.collection(_collection).add({
-      'imageUrl': downloadUrl,
-      'thumbUrl': ?thumbUrl,
-      'caption': caption,
-      'uploadedBy': uploadedBy,
-      'uploadedAt': FieldValue.serverTimestamp(),
-      'tags': tags,
-      'monthDay': _monthDay(DateTime.now()),
-      'latitude': ?latitude,
-      'longitude': ?longitude,
-      if (locationName != null && locationName.isNotEmpty)
-        'locationName': locationName,
-      if (takenAt != null) 'takenAt': Timestamp.fromDate(takenAt),
-    });
+    final docRef = await _db
+        .collection(_collection)
+        .add(
+          buildMetadataPayload(
+            imageUrl: downloadUrl,
+            thumbUrl: thumbUrl,
+            caption: caption,
+            uploadedBy: uploadedBy,
+            tags: tags,
+            latitude: latitude,
+            longitude: longitude,
+            locationName: locationName,
+            takenAt: takenAt,
+          ),
+        );
 
     Logger.i("Photo uploaded successfully: ${docRef.id}");
 
@@ -119,7 +171,8 @@ class GalleryService {
 
   /// Decode + downscale to [maxSize] longest edge, re-encode JPEG q85.
   /// Returns null when the bytes aren't a decodable image.
-  static Uint8List? _resizedJpeg(Uint8List bytes, int maxSize) {
+  @visibleForTesting
+  static Uint8List? resizedJpeg(Uint8List bytes, int maxSize) {
     try {
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
@@ -261,11 +314,11 @@ class GalleryService {
     final day = now.day;
 
     try {
-      final monthDay = _monthDay(now);
+      final md = monthDay(now);
       var snapshot = await withGetTimeout(
         _db
             .collection(_collection)
-            .where('monthDay', isEqualTo: monthDay)
+            .where('monthDay', isEqualTo: md)
             .limit(100)
             .get(),
         label: 'gallery on-this-day',

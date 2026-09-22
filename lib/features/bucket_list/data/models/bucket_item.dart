@@ -75,12 +75,20 @@ class BucketItem {
     this.dueDate,
   });
 
-  factory BucketItem.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>? ?? const {};
+  factory BucketItem.fromFirestore(DocumentSnapshot doc) => BucketItem.fromMap(
+    doc.data() as Map<String, dynamic>? ?? const {},
+    doc.id,
+  );
+
+  factory BucketItem.fromMap(Map<String, dynamic> data, String id) {
+    // Tolerate missing/odd-typed fields: one malformed doc must never
+    // crash the watchAll stream and take the whole shelf down.
+    DateTime? asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
     return BucketItem(
-      id: doc.id,
-      title: data['title'] ?? '',
-      description: data['description'] ?? '',
+      id: id,
+      title: data['title'] is String ? data['title'] as String : '',
+      description:
+          data['description'] is String ? data['description'] as String : '',
       category: BucketCategory.values.firstWhere(
         (c) => c.name == data['category'],
         orElse: () => BucketCategory.other,
@@ -89,18 +97,20 @@ class BucketItem {
         (s) => s.name == data['status'],
         orElse: () => BucketStatus.wish,
       ),
-      createdBy: data['createdBy'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      completedAt: (data['completedAt'] as Timestamp?)?.toDate(),
-      completedBy: data['completedBy'],
-      imageUrl: data['imageUrl'],
-      notes: data['notes'] ?? '',
+      createdBy: data['createdBy'] is String ? data['createdBy'] : '',
+      createdAt: asDate(data['createdAt']) ?? DateTime.now(),
+      completedAt: asDate(data['completedAt']),
+      completedBy:
+          data['completedBy'] is String ? data['completedBy'] as String : null,
+      imageUrl:
+          data['imageUrl'] is String ? data['imageUrl'] as String : null,
+      notes: data['notes'] is String ? data['notes'] as String : '',
       priority: BucketPriority.values.firstWhere(
         (p) => p.name == data['priority'],
         orElse: () => BucketPriority.medium,
       ),
-      assignedTo: data['assignedTo'] as String?,
-      dueDate: (data['dueDate'] as Timestamp?)?.toDate(),
+      assignedTo: data['assignedTo'] is String ? data['assignedTo'] as String : null,
+      dueDate: asDate(data['dueDate']),
     );
   }
 

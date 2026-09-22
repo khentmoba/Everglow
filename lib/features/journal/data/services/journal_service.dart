@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/firestore_pagination.dart';
@@ -266,12 +267,21 @@ class JournalService {
     }
   }
 
+  @visibleForTesting
+  static Map<String, dynamic> buildToggleLockPayload(
+    bool locked, {
+    Timestamp? timestamp,
+  }) {
+    return {'isLocked': locked, 'updatedAt': timestamp ?? Timestamp.now()};
+  }
+
   Future<void> toggleLock(String id, bool locked) async {
     try {
-      await _db.collection(_collection).doc(id).update({
-        'isLocked': locked,
-        'updatedAt': Timestamp.now(),
-      });
+      await _db
+          .collection(_collection)
+          .doc(id)
+          .update(buildToggleLockPayload(locked));
+      Logger.i('Journal lock toggled: $id -> $locked');
     } catch (e) {
       Logger.e('Error toggling lock', error: e);
     }

@@ -32,8 +32,14 @@ Future<void> showJournalDetailSheet({
 class JournalDetailSheet extends StatefulWidget {
   final JournalEntry entry;
   final VoidCallback? onEdit;
+  final Future<void> Function(String id, bool locked)? onToggleLock;
 
-  const JournalDetailSheet({super.key, required this.entry, this.onEdit});
+  const JournalDetailSheet({
+    super.key,
+    required this.entry,
+    this.onEdit,
+    this.onToggleLock,
+  });
 
   @override
   State<JournalDetailSheet> createState() => _JournalDetailSheetState();
@@ -294,7 +300,8 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
                           }
                         },
                         action: () =>
-                            JournalService().toggleLock(_entry.id, next),
+                            (widget.onToggleLock ??
+                            JournalService().toggleLock)(_entry.id, next),
                         rollback: () {
                           if (mounted) {
                             setState(
