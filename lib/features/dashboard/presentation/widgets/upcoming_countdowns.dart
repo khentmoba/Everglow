@@ -16,6 +16,7 @@ import '../../../calendar/domain/models/calendar_event.dart';
 import '../../../calendar/presentation/widgets/calendar_event_style.dart';
 import 'feature_section.dart';
 import 'dashboard_load_tracker.dart';
+import '../../../../core/utils/logger.dart';
 
 part 'upcoming_countdowns_cards.dart';
 part 'upcoming_countdowns_footer.dart';
@@ -77,7 +78,12 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
         });
         _reportLoaded();
       },
-      onError: (Object error) {
+      onError: (Object error, StackTrace st) {
+        Logger.e(
+          'UpcomingCountdowns: upcoming events stream error',
+          error: error,
+          stackTrace: st,
+        );
         if (!mounted) return;
         _scheduleSilentRetry(error);
       },
@@ -125,9 +131,16 @@ class _UpcomingCountdownsState extends State<UpcomingCountdowns> {
   /// error), so the load veil can count us. Marking is idempotent —
   /// cache hits, snapshots, and manual retries all funnel here safely.
   void _reportLoaded() {
+    if (!mounted) return;
     try {
       context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.dates);
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'UpcomingCountdowns: failed to report dates load signal',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   @override

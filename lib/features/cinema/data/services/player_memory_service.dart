@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/utils/logger.dart';
 
 /// What the player remembers for one title.
 ///
@@ -119,7 +120,12 @@ class PlayerMemoryService {
         return _withGlobalVolume(prefs, null);
       }
       return _withGlobalVolume(prefs, PlayerMemory.fromJson(json));
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'PlayerMemory: load failed for $key (resume point lost)',
+        error: e,
+        stackTrace: st,
+      );
       return const PlayerMemory();
     }
   }
@@ -163,7 +169,12 @@ class PlayerMemoryService {
       if (volume != null) {
         await prefs.setDouble(_globalKey, volume.clamp(0.0, 1.0));
       }
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'PlayerMemory: save failed for $key (resume point not stored)',
+        error: e,
+        stackTrace: st,
+      );
       // Memory is best-effort comfort; never break playback over it.
     }
   }

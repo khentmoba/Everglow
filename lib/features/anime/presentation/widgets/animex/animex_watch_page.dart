@@ -23,6 +23,7 @@ import 'animex_buttons.dart';
 import 'animex_controller.dart';
 import 'animex_footer.dart';
 import 'animex_player.dart';
+import '../../../../../core/utils/logger.dart';
 import 'animex_poster_row.dart';
 import 'animex_section_header.dart';
 import 'animex_tokens.dart';
@@ -310,7 +311,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         aniZipEpisodes = parsedMap;
         episodeSlots = parsedSlots;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'AnimeX: aniZip mappings fetch failed for ${detail?.titleEnglish}',
+        error: e,
+        stackTrace: st,
+      );
+    }
     // ani.zip doesn't know every title (e.g. Drifting Home has no
     // themoviedb_id) — without a TMDB id every TMDB-keyed server hides
     // and Clair is left with a Megavid-only list. Fall back to a strict
@@ -812,7 +819,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             .timeout(const Duration(seconds: 12));
         if (response.statusCode != 200) return 'no playable stream sources';
         return utf8.decode(response.bodyBytes);
-      } catch (_) {}
+      } catch (e, st) {
+        Logger.e(
+          'AnimeX: server probe proxy fallback failed for $url',
+          error: e,
+          stackTrace: st,
+        );
+      }
       return null;
     }
   }

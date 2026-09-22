@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/media_item.dart';
 import '../../data/services/tmdb_service.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../core/utils/optimistic_action.dart';
 import '../widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
@@ -229,7 +230,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
     late final List<MediaItem> items;
     try {
       items = await request;
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e('Cinema: home rail fetch failed', error: e, stackTrace: st);
       return;
     }
     if (!mounted) return;
@@ -288,7 +290,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
               '${genre['name']}',
               items.where((m) => !m.isAnime).toList(),
             );
-          } catch (_) {
+          } catch (e, st) {
+            Logger.e(
+              'Cinema: genre rail fetch failed for ${genre['name']}',
+              error: e,
+              stackTrace: st,
+            );
             return MapEntry('${genre['name']}', <MediaItem>[]);
           }
         }),
@@ -352,7 +359,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
           voteCountGte: 500,
         ),
       ]);
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e('Cinema: discovery rails fetch failed', error: e, stackTrace: st);
       return;
     }
 

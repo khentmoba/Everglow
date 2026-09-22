@@ -182,7 +182,13 @@ extension KatanaServiceSocial on KatanaService {
         final bookmark = KatanaBookmark.fromFirestore(doc.data()!, doc.id);
         if (bookmark.isRecommended) return bookmark;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'KatanaService: failed to read recommendation for $slug',
+        error: e,
+        stackTrace: st,
+      );
+    }
     return null;
   }
 

@@ -67,6 +67,11 @@ jobs:
       # MangaCelestia stays ad-free: no ad SDKs, ad widgets, Hide-Ads
       # flows, or webviews in the manga section.
       - run: dart tool/ci/check_no_ads.dart
+      # Data-path tripwire: no new empty `catch (_) {}` blocks. A silent
+      # catch in a Firestore/network read is the difference between a
+      # diagnosable live break and a 2am guessing game (see AGENTS.md
+      # "If something fails, leave a Logger.e").
+      - run: dart tool/ci/check_silent_catches.dart
 
   # PRs previously merged with a broken web build: quality ran analyze
   # + test but the web build only ran on main push, so hosting/revert

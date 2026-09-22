@@ -276,11 +276,21 @@ class GalleryService {
               .timeout(const Duration(seconds: 10));
           if (resp.statusCode == 200) return;
           Logger.e('deleteGalleryPhoto $url -> ${resp.statusCode}');
-        } catch (_) {
+        } catch (e, st) {
+          Logger.e(
+            'deleteGalleryPhoto attempt failed for $url',
+            error: e,
+            stackTrace: st,
+          );
           // Try the next URL.
         }
       }
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'Gallery: storage cleanup via function failed for $imageUrl',
+        error: e,
+        stackTrace: st,
+      );
       // Best-effort only.
     }
   }

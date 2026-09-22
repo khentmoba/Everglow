@@ -151,11 +151,19 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
         final patch = <String, dynamic>{'posterPath': posterUrl};
         if (mediaType != item.mediaType) patch['mediaType'] = mediaType;
         if (fixTitle) patch['title'] = tmdbTitle;
-        unawaited(firestore
-            .collection('watch_list')
-            .doc(item.id)
-            .update(patch)
-            .catchError((_) {}));
+        unawaited(
+          firestore
+              .collection('watch_list')
+              .doc(item.id)
+              .update(patch)
+              .catchError((Object e, StackTrace st) {
+                Logger.e(
+                  'Poster heal: watch_list patch write failed for ${item.id}',
+                  error: e,
+                  stackTrace: st,
+                );
+              }),
+        );
       }
       return healed;
         }
@@ -190,12 +198,24 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
         title: fixTitle ? r.title : null,
       );
       if (item.id.isNotEmpty) {
-        unawaited(firestore.collection('watch_list').doc(item.id).update({
-          'posterPath': r.posterPath,
-          'tmdbId': r.tmdbId,
-          'mediaType': r.mediaType,
-          if (fixTitle) 'title': r.title,
-        }).catchError((_) {}));
+        unawaited(
+          firestore
+              .collection('watch_list')
+              .doc(item.id)
+              .update({
+                'posterPath': r.posterPath,
+                'tmdbId': r.tmdbId,
+                'mediaType': r.mediaType,
+                if (fixTitle) 'title': r.title,
+              })
+              .catchError((Object e, StackTrace st) {
+                Logger.e(
+                  'Poster resolve: watch_list write failed for ${item.id}',
+                  error: e,
+                  stackTrace: st,
+                );
+              }),
+        );
       }
       return healed;
         }

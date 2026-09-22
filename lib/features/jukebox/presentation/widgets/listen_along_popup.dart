@@ -52,7 +52,14 @@ class _ListenAlongPopupState extends State<ListenAlongPopup> {
             if (album != null && album.isNotEmpty) {
               finalStatus = finalStatus.copyWith(albumName: album);
             }
-          } catch (_) {}
+          } catch (e, st) {
+            Logger.e(
+              'ListenAlong: album lookup failed for '
+              '${finalStatus.artistName} - ${finalStatus.trackName}',
+              error: e,
+              stackTrace: st,
+            );
+          }
         }
         if (mounted) {
           setState(() {

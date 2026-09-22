@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/models/milestone.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../guardian/data/models/guardian_message.dart';
+import '../../../../core/utils/logger.dart';
 import 'milestone_service.dart';
 
 class CreatorService {
@@ -338,7 +339,12 @@ class CreatorService {
       if (response.statusCode != 200) return null;
       final decoded = jsonDecode(response.body);
       return decoded is Map<String, dynamic> ? decoded : null;
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'CreatorService: motchiStats fetch failed',
+        error: e,
+        stackTrace: st,
+      );
       return null;
     }
   }

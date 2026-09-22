@@ -37,7 +37,13 @@ class BatoService with ConnectivityAware {
       if (token != null && token.isNotEmpty) {
         return {..._headers, 'Authorization': 'Bearer $token'};
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'BatoService: failed to get auth token, falling back unsigned',
+        error: e,
+        stackTrace: st,
+      );
+    }
     return _headers;
   }
 

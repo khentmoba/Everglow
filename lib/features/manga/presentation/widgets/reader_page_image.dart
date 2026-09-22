@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+import '../../../../core/utils/logger.dart';
+
 /// Disk cache shared by every manga/manhwa/manhua reader page.
 ///
 /// The default image cache only lives in memory, so once Clair scrolls
@@ -183,8 +185,23 @@ class _ReaderPageImageState extends State<ReaderPageImage>
     _retryTimer?.cancel();
     _retryTimer = null;
     try {
-      widget.cacheManager?.removeFile(widget.imageUrl).catchError((_) {});
-    } catch (_) {}
+      widget.cacheManager?.removeFile(widget.imageUrl).catchError(
+        (Object e, StackTrace st) {
+          Logger.e(
+            'ReaderPageImage: cache eviction failed for page '
+            '${widget.pageNumber}',
+            error: e,
+            stackTrace: st,
+          );
+        },
+      );
+    } catch (e, st) {
+      Logger.e(
+        'ReaderPageImage: cache eviction threw for page ${widget.pageNumber}',
+        error: e,
+        stackTrace: st,
+      );
+    }
     if (!mounted) return;
     setState(() {
       _attempt = 0;
