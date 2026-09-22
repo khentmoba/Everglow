@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../domain/models/ai_conversation.dart';
 import '../../domain/repositories/ai_conversation_repo_interface.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Firestore CRUD for AI conversations and session archives.
 class AIConversationRepository implements IAIConversationRepository {
@@ -283,7 +284,12 @@ class AIConversationRepository implements IAIConversationRepository {
         } else {
           mergedSummary = summaries;
         }
-      } catch (_) {
+      } catch (e, st) {
+        Logger.e(
+          'AIConversationRepo: summary merge call failed, keeping raw summaries',
+          error: e,
+          stackTrace: st,
+        );
         mergedSummary = summaries;
       }
 

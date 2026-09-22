@@ -13,6 +13,7 @@ import '../../../daily_bloom/presentation/providers/garden_provider.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
 
 class LetterboxView extends StatefulWidget {
   const LetterboxView({super.key});
@@ -86,7 +87,12 @@ class _LetterboxViewState extends State<LetterboxView> {
         });
         _reportLoaded();
       },
-      onError: (_) {
+      onError: (Object e, StackTrace st) {
+        Logger.e(
+          'LetterboxView: notes preview stream error',
+          error: e,
+          stackTrace: st,
+        );
         if (!mounted) return;
         _scheduleSilentRetry();
       },
@@ -133,9 +139,16 @@ class _LetterboxViewState extends State<LetterboxView> {
   /// or final error), so the load veil can count us. Marking is
   /// idempotent — every settle path funnels here safely.
   void _reportLoaded() {
+    if (!mounted) return;
     try {
       context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.letters);
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'LetterboxView: failed to report letters load signal',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   void _handleNoteTap(HiddenNote note) {

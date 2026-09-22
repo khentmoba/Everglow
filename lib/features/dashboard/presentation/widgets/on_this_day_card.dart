@@ -11,6 +11,7 @@ import '../../../../core/theme/app_radius.dart';
 import 'feature_section.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 import 'dashboard_load_tracker.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Dashboard card surfacing spontaneous nostalgia from Gallery, Cinema,
 /// and Chat. Hidden entirely when nothing matches.
@@ -56,20 +57,33 @@ class _OnThisDayCardState extends State<OnThisDayCard>
       if (memories.isNotEmpty) {
         _staggerController.forward();
       }
+    } catch (e, st) {
+      Logger.e(
+        'OnThisDayCard: failed to load on-this-day memories',
+        error: e,
+        stackTrace: st,
+      );
     } finally {
       _reportLoaded();
     }
   }
 
   /// First-screen progress: memories have settled (data or empty), so the
-  /// load veil can count us. Safe outside the dashboard (no tracker) and
-  /// after dispose — both just no-op.
+  /// load veil can count us. After dispose this is a no-op; a missing
+  /// tracker is a wiring bug, so it logs instead of hiding.
   void _reportLoaded() {
+    if (!mounted) return;
     try {
       context.read<DashboardLoadTracker>().mark(
         DashboardLoadSignal.memories,
       );
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'OnThisDayCard: failed to report memories load signal',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   @override

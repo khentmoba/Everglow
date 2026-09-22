@@ -297,7 +297,12 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
         mangaTitle: item.title,
         coverUrl: item.coverUrl,
       );
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'CurrentlyReadingShelf: failed to open reader for $slug',
+        error: e,
+        stackTrace: st,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

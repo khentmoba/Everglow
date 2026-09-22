@@ -16,6 +16,7 @@ import '../katana/chapter_picker_sheet.dart';
 import '../katana/katana_theme.dart';
 import '../katana/reader_settings_sheet.dart';
 import '../widgets/reader_page_image.dart';
+import '../../../../core/utils/logger.dart';
 
 part 'katana_reader_viewers.dart';
 part 'katana_reader_chrome.dart';
@@ -182,7 +183,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           _fitHeight = fitHeightVal;
         }
       });
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'KatanaReaderScreen: failed to load reader preferences',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> _savePreferences() async {
@@ -193,7 +200,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       await prefs.setDouble('katana_reader_brightness', _brightness);
       await prefs.setBool('katana_reader_two_page', _twoPage);
       await prefs.setBool('katana_reader_fit_height', _fitHeight);
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'KatanaReaderScreen: failed to save reader preferences',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   Future<void> _loadBookmark() async {
@@ -222,7 +235,12 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           if (match != null) _chapter = match;
         }
       });
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'KatanaReaderScreen: failed to load full chapter list for ${widget.slug}',
+        error: e,
+        stackTrace: st,
+      );
       // Navigation stays on the short list; reading still works.
     }
   }

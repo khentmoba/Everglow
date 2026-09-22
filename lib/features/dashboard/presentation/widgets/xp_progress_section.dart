@@ -185,11 +185,19 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   /// First-screen progress: XP has settled (cache hit, real snapshot,
   /// or final error), so the load veil can count us. Marking is
   /// idempotent — cache hits, snapshots, and exhausted retries all
-  /// funnel here safely. Safe outside the dashboard (no tracker).
+  /// funnel here safely. After dispose this is a no-op; a missing
+  /// tracker is a wiring bug, so it logs instead of hiding.
   void _reportLoaded() {
+    if (!mounted) return;
     try {
       context.read<DashboardLoadTracker>().mark(DashboardLoadSignal.stars);
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        '[XpProgressSection] failed to report stars load signal',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   void _retry() {

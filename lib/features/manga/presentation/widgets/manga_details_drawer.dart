@@ -18,6 +18,7 @@ import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/optimistic_action.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Bottom-sheet details for a manga / manhwa / manhua, opened from the
 /// dashboard "Reading" shelf.
@@ -209,7 +210,13 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
               .getChapterFeedFromAll(slugs)
               .timeout(timeout, onTimeout: () => <MangaChapter>[]);
         }
-      } catch (_) {}
+      } catch (e, st) {
+        Logger.e(
+          'MangaDetailsDrawer: scanlation chapter fetch failed for ${_item.title}',
+          error: e,
+          stackTrace: st,
+        );
+      }
     }
 
     if (!mounted) return;
@@ -296,7 +303,13 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
       if (slugs.isNotEmpty && mounted) {
         setState(() => _scanlationSlugs = slugs);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'MangaDetailsDrawer: scanlation slug discovery failed for ${_item.title}',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   /// Chapters in display order (newest first by default, like the

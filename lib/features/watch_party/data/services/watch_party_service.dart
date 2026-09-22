@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../core/utils/logger.dart';
 
 import '../models/watch_party_room.dart';
 
@@ -156,8 +157,12 @@ class WatchPartyService {
         'updatedAt': Timestamp.fromDate(DateTime.now()),
         'updatedBy': updatedBy,
       });
-    } catch (_) {
-      // Best effort.
+    } catch (e, st) {
+      Logger.e(
+        'WatchParty: heartbeat write failed for $roomId',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 

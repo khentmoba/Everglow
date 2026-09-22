@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../models/chapter_num.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Scrapes scanlation-group websites for chapter lists and page images.
 /// Each supported site is defined as a [_ScanSite] with URL patterns
@@ -39,7 +40,13 @@ class ScanlationService with ConnectivityAware {
       if (token != null && token.isNotEmpty) {
         return {..._headers, 'Authorization': 'Bearer $token'};
       }
-    } catch (_) {}
+    } catch (e, st) {
+      Logger.e(
+        'ScanlationService: failed to get auth token, falling back unsigned',
+        error: e,
+        stackTrace: st,
+      );
+    }
     return _headers;
   }
 
@@ -201,7 +208,13 @@ class ScanlationService with ConnectivityAware {
         filenames: proxied,
         expiresAt: DateTime.now().add(const Duration(minutes: 14)),
       );
-    } catch (_) {
+    } catch (e, st) {
+      Logger.e(
+        'ScanlationService: failed to resolve chapter pages for '
+        '$siteName $chapterUrl',
+        error: e,
+        stackTrace: st,
+      );
       return null;
     }
   }

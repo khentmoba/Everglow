@@ -77,7 +77,13 @@ class SpotifyAuthService extends ChangeNotifier {
       _spotifyUserId = data?['spotify_user_id'] as String?;
       _displayName = data?['spotify_display_name'] as String?;
       if (was != _linked || wasId != _spotifyUserId) notifyListeners();
-    }, onError: (_) {});
+    }, onError: (Object e, StackTrace st) {
+      Logger.e(
+        'SpotifyAuth: token doc stream error for $uid',
+        error: e,
+        stackTrace: st,
+      );
+    });
   }
 
   /// Starts listening to link status for current Firebase user.
