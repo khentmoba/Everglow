@@ -36,6 +36,7 @@ part 'animex_episodes_mobile.dart';
 part 'animex_watch_page_config.dart';
 part 'animex_watch_page_sections.dart';
 
+
 class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final AniListService _aniList = AniListService();
   final AniZipService _aniZip = AniZipService();
@@ -398,8 +399,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       final azJaTitle = azTitles?['ja'] as String?;
 
       final baseTitle = base?.title;
-      final title =
-          (baseTitle != null &&
+      final title = (baseTitle != null &&
               baseTitle.isNotEmpty &&
               !baseTitle.toLowerCase().startsWith('episode $i'))
           ? baseTitle
@@ -411,8 +411,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       final synopsis = (baseSynopsis != null && baseSynopsis.isNotEmpty)
           ? baseSynopsis
           : ((az?['overview'] as String?)?.isNotEmpty == true
-                ? (az?['overview'] as String?)
-                : (az?['summary'] as String?));
+              ? (az?['overview'] as String?)
+              : (az?['summary'] as String?));
 
       final baseThumb = base?.thumbnail;
       final thumbnail = (baseThumb != null && baseThumb.isNotEmpty)
@@ -420,8 +420,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           : (az?['image'] as String?);
 
       final rawDuration = az?['runtime'] ?? az?['length'];
-      final duration =
-          base?.duration ??
+      final duration = base?.duration ??
           (rawDuration is num ? rawDuration.toInt() : null) ??
           detail?.duration;
 
@@ -603,7 +602,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         : null;
 
     final status = _watchingStatusFor(userName);
-    final effectiveTmdbId = _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+    final effectiveTmdbId =
+        _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
     if (effectiveTmdbId <= 0) return;
 
     final mediaItem = MediaItem(
@@ -611,9 +611,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       tmdbId: effectiveTmdbId,
       title: _item.title,
       mediaType: _item.mediaType.isNotEmpty ? _item.mediaType : 'tv',
-      posterPath: _item.posterPath.isNotEmpty
-          ? _item.posterPath
-          : _item.posterUrl,
+      posterPath:
+          _item.posterPath.isNotEmpty ? _item.posterPath : _item.posterUrl,
       backdropPath: _item.backdropPath,
       year: _item.year,
       status: status,
@@ -658,9 +657,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       if (!mounted) return;
       final userName = _currentUserName();
       if (userName.isEmpty) return;
-      final effectiveTmdbId = _item.tmdbId > 0
-          ? _item.tmdbId
-          : (_anilistId ?? 0);
+      final effectiveTmdbId =
+          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
       if (effectiveTmdbId <= 0) return;
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
@@ -684,9 +682,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       if (!mounted) return;
       final userName = _currentUserName();
       if (userName.isEmpty) return;
-      final effectiveTmdbId = _item.tmdbId > 0
-          ? _item.tmdbId
-          : (_anilistId ?? 0);
+      final effectiveTmdbId =
+          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
       if (effectiveTmdbId <= 0) return;
       _tmdbService.heartbeatProgress(
         effectiveTmdbId,
@@ -699,12 +696,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         ),
         episode: _item.isMovie ? null : _selectedEpisode,
         timestamp: _playbackPosition?.round(),
-        durationSeconds: (_detail?.duration != null && _detail!.duration! > 0)
-            ? _detail!.duration! * 60
-            : null,
+        durationSeconds:
+            (_detail?.duration != null && _detail!.duration! > 0)
+                ? _detail!.duration! * 60
+                : null,
       );
     });
   }
+
+
 
   String get _playerUrl {
     if (_servers.isEmpty) return '';
@@ -802,7 +802,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {
@@ -838,9 +840,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _probingServer = true);
     try {
       final body = await _fetchProbeBody(Uri.parse(url));
-      if (body != null &&
-          AnimeXWatchPage.isProviderErrorPage(body) &&
-          mounted) {
+      if (body != null && AnimeXWatchPage.isProviderErrorPage(body) && mounted) {
         if (autoAdvance) {
           _handleContentError();
         } else {
@@ -924,7 +924,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   height: 38,
                   decoration: BoxDecoration(
                     color: const Color(0x990A0A0F),
-                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+                    borderRadius: BorderRadius.circular(
+                      AnimeXTokens.radiusLg,
+                    ),
                     border: Border.all(color: AnimeXTokens.borderStrong),
                   ),
                   child: const Icon(
@@ -976,15 +978,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 7,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(
-                        AnimeXTokens.radiusSm,
-                      ),
+                      borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
                       border: Border.all(color: AnimeXTokens.border),
                     ),
                     child: Row(
@@ -1230,7 +1227,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   color: _serverIndex == i
                       ? AnimeXTokens.accent.withValues(alpha: 0.18)
                       : Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                  borderRadius: BorderRadius.circular(
+                    AnimeXTokens.radiusSm,
+                  ),
                   border: Border.all(
                     color: _serverIndex == i
                         ? AnimeXTokens.accent.withValues(alpha: 0.45)
@@ -1287,4 +1286,5 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       ],
     );
   }
+
 }

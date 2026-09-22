@@ -1232,7 +1232,11 @@ class MusicSyncService {
       List<MusicStatus> scrobbles,
       int rawCount, {
       int? totalPages,
-    }) => (scrobbles: scrobbles, rawCount: rawCount, totalPages: totalPages);
+    }) => (
+      scrobbles: scrobbles,
+      rawCount: rawCount,
+      totalPages: totalPages,
+    );
 
     try {
       final url = Uri.parse(
@@ -1382,9 +1386,8 @@ class MusicSyncService {
     }
 
     // Also fetch recent scrobbles as immediate fallback / supplement
-    Future<List<MusicStatus>> recentFuture = Future.value(
-      const <MusicStatus>[],
-    );
+    Future<List<MusicStatus>> recentFuture =
+        Future.value(const <MusicStatus>[]);
     if (includeRecent) {
       recentFuture = fetchRecentTracks(username, limit: 200).then(
         (recent) => recent

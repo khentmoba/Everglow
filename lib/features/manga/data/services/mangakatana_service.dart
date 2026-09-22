@@ -145,8 +145,8 @@ class MangakatanaService with ConnectivityAware {
       final rawNum = idPart == 'fc'
           ? '0'
           : (cIndex >= 0 && cIndex < idPart.length - 1
-                ? idPart.substring(cIndex + 1)
-                : '');
+              ? idPart.substring(cIndex + 1)
+              : '');
       final numMatch = RegExp(r'^[\d.]+').firstMatch(rawNum);
       final chapterNum = numMatch?.group(0) ?? '';
       chapters.add(

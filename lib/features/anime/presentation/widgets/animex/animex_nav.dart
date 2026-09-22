@@ -46,7 +46,9 @@ class AnimeXTopHeader extends StatelessWidget {
             AnimeXTokens.bg.withValues(alpha: 0.94),
           ],
         ),
-        border: const Border(bottom: BorderSide(color: AnimeXTokens.border)),
+        border: const Border(
+          bottom: BorderSide(color: AnimeXTokens.border),
+        ),
         boxShadow: const [
           BoxShadow(
             color: AppColors.scrimStrong,
@@ -221,7 +223,6 @@ class AnimeXMobileBottomNav extends StatelessWidget {
     );
   }
 }
-
 class _Logo extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
@@ -245,19 +246,18 @@ class _Logo extends StatelessWidget {
             children: [
               TextSpan(
                 text: 'GLOW',
-                style:
-                    bebasStyle(
-                      size: size,
-                      color: AnimeXTokens.accent,
-                      letterSpacing: 0.06,
-                    ).copyWith(
-                      shadows: [
-                        Shadow(
-                          color: AnimeXTokens.accent.withValues(alpha: 0.55),
-                          blurRadius: 14,
-                        ),
-                      ],
+                style: bebasStyle(
+                  size: size,
+                  color: AnimeXTokens.accent,
+                  letterSpacing: 0.06,
+                ).copyWith(
+                  shadows: [
+                    Shadow(
+                      color: AnimeXTokens.accent.withValues(alpha: 0.55),
+                      blurRadius: 14,
                     ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -307,7 +307,9 @@ class _NavItemState extends State<_NavItem> {
             borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
             border: Border(
               bottom: BorderSide(
-                color: widget.active ? AnimeXTokens.accent : Colors.transparent,
+                color: widget.active
+                    ? AnimeXTokens.accent
+                    : Colors.transparent,
                 width: 2,
               ),
             ),

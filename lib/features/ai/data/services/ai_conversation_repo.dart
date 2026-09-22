@@ -455,7 +455,9 @@ class AIConversationRepository implements IAIConversationRepository {
       .orderBy('createdAt', descending: true)
       .limit(limit);
 
-  AISession _sessionFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+  AISession _sessionFromDoc(
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? {};
     final messages = data['messages'] as List? ?? [];
     final hasSummary = data['hasSummary'] as bool? ?? true;
@@ -509,9 +511,9 @@ class AIConversationRepository implements IAIConversationRepository {
   @override
   Stream<List<AISession>> watchSessions({int limit = 50}) {
     try {
-      return _sessionsQuery(limit: limit).snapshots().map(
-        (snapshot) => snapshot.docs.map(_sessionFromDoc).toList(),
-      );
+      return _sessionsQuery(
+        limit: limit,
+      ).snapshots().map((snapshot) => snapshot.docs.map(_sessionFromDoc).toList());
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to watch sessions: $e');
       return Stream.value(const []);

@@ -87,48 +87,45 @@ class _NavItem extends StatelessWidget {
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
               child: AnimatedContainer(
-                duration: AppMotion.orZero(AppMotion.medium),
-                curve: AppMotion.easeOutStrong,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? AppColors.deepRose.withValues(alpha: 0.15)
-                      : Colors.transparent,
-                  borderRadius: AppRadius.radiusFull,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: AppMotion.orZero(AppMotion.fast),
-                      child: Icon(
-                        selected ? item.activeIcon : item.icon,
-                        key: ValueKey(selected),
-                        size: 22,
-                        color: selected
-                            ? AppColors.roseQuartz
-                            : AppColors.textMuted,
-                      ),
+              duration: AppMotion.orZero(AppMotion.medium),
+              curve: AppMotion.easeOutStrong,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.deepRose.withValues(alpha: 0.15)
+                    : Colors.transparent,
+                borderRadius: AppRadius.radiusFull,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnimatedSwitcher(
+                    duration: AppMotion.orZero(AppMotion.fast),
+                    child: Icon(
+                      selected ? item.activeIcon : item.icon,
+                      key: ValueKey(selected),
+                      size: 22,
+                      color: selected
+                          ? AppColors.roseQuartz
+                          : AppColors.textMuted,
                     ),
-                    if (selected) ...[
-                      const SizedBox(width: 8),
-                      AnimatedSize(
-                        duration: AppMotion.orZero(AppMotion.medium),
-                        curve: AppMotion.easeOutExpo,
-                        child: Text(
-                          item.label,
-                          style: AppTypography.labelLarge().copyWith(
-                            color: AppColors.roseQuartz,
-                            fontSize: 12,
-                          ),
+                  ),
+                  if (selected) ...[
+                    const SizedBox(width: 8),
+                    AnimatedSize(
+                      duration: AppMotion.orZero(AppMotion.medium),
+                      curve: AppMotion.easeOutExpo,
+                      child: Text(
+                        item.label,
+                        style: AppTypography.labelLarge().copyWith(
+                          color: AppColors.roseQuartz,
+                          fontSize: 12,
                         ),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
+              ),
               ),
             ),
           ),

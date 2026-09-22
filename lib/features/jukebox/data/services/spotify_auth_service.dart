@@ -67,29 +67,23 @@ class SpotifyAuthService extends ChangeNotifier {
 
   void _listenToTokenDoc(String uid) {
     _sub?.cancel();
-    _sub = _firestore
-        .collection('spotify_tokens')
-        .doc(uid)
-        .snapshots()
-        .listen(
-          (doc) {
-            final data = doc.data();
-            final was = _linked;
-            final wasId = _spotifyUserId;
-            _linked =
-                doc.exists && data != null && (data['access_token'] != null);
-            _spotifyUserId = data?['spotify_user_id'] as String?;
-            _displayName = data?['spotify_display_name'] as String?;
-            if (was != _linked || wasId != _spotifyUserId) notifyListeners();
-          },
-          onError: (Object e, StackTrace st) {
-            Logger.e(
-              'SpotifyAuth: token doc stream error for $uid',
-              error: e,
-              stackTrace: st,
-            );
-          },
-        );
+    _sub = _firestore.collection('spotify_tokens').doc(uid).snapshots().listen((
+      doc,
+    ) {
+      final data = doc.data();
+      final was = _linked;
+      final wasId = _spotifyUserId;
+      _linked = doc.exists && data != null && (data['access_token'] != null);
+      _spotifyUserId = data?['spotify_user_id'] as String?;
+      _displayName = data?['spotify_display_name'] as String?;
+      if (was != _linked || wasId != _spotifyUserId) notifyListeners();
+    }, onError: (Object e, StackTrace st) {
+      Logger.e(
+        'SpotifyAuth: token doc stream error for $uid',
+        error: e,
+        stackTrace: st,
+      );
+    });
   }
 
   /// Starts listening to link status for current Firebase user.

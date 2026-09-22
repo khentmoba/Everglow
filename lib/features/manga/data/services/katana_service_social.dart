@@ -107,7 +107,12 @@ extension KatanaServiceSocial on KatanaService {
         );
         if (existing.docs.isEmpty && title.isNotEmpty) {
           await setReading(
-            KatanaManga(slug: slug, id: slug, title: title, coverUrl: coverUrl),
+            KatanaManga(
+              slug: slug,
+              id: slug,
+              title: title,
+              coverUrl: coverUrl,
+            ),
             userName,
             reading: true,
           );
@@ -116,10 +121,10 @@ extension KatanaServiceSocial on KatanaService {
           await _library
               .doc('$userName|${KatanaService._katanaMangaId(slug)}')
               .set({
-                'lastReadChapterId': chapterId,
-                'lastReadChapterTitle': chapterTitle,
-                'lastReadPage': page,
-              }, SetOptions(merge: true));
+            'lastReadChapterId': chapterId,
+            'lastReadChapterTitle': chapterTitle,
+            'lastReadPage': page,
+          }, SetOptions(merge: true));
         } else {
           for (final doc in existing.docs) {
             await doc.reference.set({
