@@ -178,6 +178,14 @@ class _ArtistShowdownHistorySheetState
                 totalCount: khentScrobbles.length + clairScrobbles.length,
                 onSelectUser: (f) => setState(() => _userFilter = f),
               ),
+              // The pills count the scrobbles we managed to list. Say so when
+              // that is less than the exact all-time totals, so nobody reads
+              // a partial timeline as the whole story.
+              if (khentScrobbles.isNotEmpty || clairScrobbles.isNotEmpty)
+                _HistoryCoverageNote(
+                  listedPlays: khentScrobbles.length + clairScrobbles.length,
+                  exactPlays: showdown.khentTotal + showdown.clairTotal,
+                ),
               if (allTracks.length > 1) ...[
                 const SizedBox(height: 6),
                 _TrackFilterChips(
@@ -223,6 +231,53 @@ class _ScrobbleItem {
   final MusicStatus scrobble;
   final bool isKhent;
   const _ScrobbleItem({required this.scrobble, required this.isKhent});
+}
+
+/// One-line honesty check under the filter pills: the timeline can only show
+/// the scrobbles Last.fm gave us for the songs we know about, while the
+/// headline numbers are the exact all-time counts. When those disagree we
+/// say so plainly rather than letting the shorter list look like the truth.
+class _HistoryCoverageNote extends StatelessWidget {
+  final int listedPlays;
+  final int exactPlays;
+  const _HistoryCoverageNote({
+    required this.listedPlays,
+    required this.exactPlays,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final complete = exactPlays <= 0 || listedPlays >= exactPlays;
+    final format = NumberFormat.decimalPattern();
+    final text = complete
+        ? 'Every play shown — ${format.format(listedPlays)} in total'
+        : 'Showing ${format.format(listedPlays)} of '
+              '${format.format(exactPlays)} all-time plays';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+      child: Row(
+        children: [
+          Icon(
+            complete
+                ? Icons.check_circle_rounded
+                : Icons.info_outline_rounded,
+            size: 13,
+            color: complete ? AppColors.auroraTeal : AppColors.textMuted,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.outfitMedium.copyWith(
+                fontSize: 11,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SheetHeader extends StatelessWidget {
