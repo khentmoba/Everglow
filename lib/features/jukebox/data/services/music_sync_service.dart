@@ -184,6 +184,7 @@ class MusicSyncService {
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
+    int page = 1,
     String period = 'overall',
   }) async {
     if (username.isEmpty || _invalidUsers.contains(username)) {
@@ -193,7 +194,7 @@ class MusicSyncService {
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.gettoptracks&user=$username&period=$period'
-        '&limit=$limit&format=json',
+        '&limit=$limit&page=$page&format=json',
       );
 
       final response = await _getWithAuth(url);
@@ -234,7 +235,12 @@ class MusicSyncService {
         Logger.w(
           'Jukebox Service: Last.fm returned 500 for limit=$limit on "$username". Retrying with limit=200...',
         );
-        return await fetchTopTracks(username, limit: 200, period: period);
+        return await fetchTopTracks(
+          username,
+          limit: 200,
+          page: page,
+          period: period,
+        );
       } else {
         Logger.e(
           'Jukebox Service Error (top tracks, $username): Status ${response.statusCode} - ${response.body}',
@@ -248,6 +254,91 @@ class MusicSyncService {
       Logger.e('Jukebox Service Exception (top tracks, $username)', error: e);
     }
     return [];
+  }
+
+  /// Walks the all-time top-track chart page by page.
+  ///
+  /// A single `user.gettoptracks` request accepts up to 1000 rows, but that
+  /// size 500s (Last.fm error 8) for active accounts, so a 200-row page is
+  /// the reliable unit. One page is not enough to be exact: any track below
+  /// the page size silently drops out for the artist, which is how the
+  /// showdown under-counted plays. Pages stop at the first short page (the
+  /// end of the chart) and are capped by [maxPages].
+  Future<List<TopMusicTrack>> fetchTopTracksPaged(
+    String username, {
+    int pageSize = 200,
+    int maxPages = 5,
+    String period = 'overall',
+  }) async {
+    final all = <TopMusicTrack>[];
+    for (var page = 1; page <= maxPages; page++) {
+      final rows = await fetchTopTracks(
+        username,
+        limit: pageSize,
+        page: page,
+        period: period,
+      );
+      all.addAll(rows);
+      // A short page (or none at all) means we reached the end of the chart,
+      // or the request failed and there is no point paging further.
+      if (rows.length < pageSize) break;
+      if (_invalidUsers.contains(username)) break;
+    }
+    return all;
+  }
+
+  /// Exact number of times [username] has played [artist], any track.
+  ///
+  /// `artist.getInfo` with the `username` context reports the user's own
+  /// all-time playcount (`stats.userplaycount`) in one request. Unlike
+  /// summing a top-track chart this can never drift or miss a song, which is
+  /// why the showdown headline numbers use it. Returns null when Last.fm
+  /// cannot answer (no key, unknown artist, error payload, offline) so the
+  /// caller can fall back to summing top-track rows.
+  Future<int?> fetchArtistPlayCount(String username, String artist) async {
+    final trimmedArtist = artist.trim();
+    if (username.isEmpty ||
+        trimmedArtist.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return null;
+    }
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=artist.getinfo'
+        '&artist=${Uri.encodeComponent(trimmedArtist)}'
+        '&username=$username&autocorrect=1&format=json',
+      );
+      final response = await _getWithAuth(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final artistNode = data['artist'];
+        final stats = artistNode is Map ? artistNode['stats'] : null;
+        final raw = stats is Map ? stats['userplaycount']?.toString() : null;
+        final parsed = int.tryParse(raw ?? '');
+        if (parsed != null) return parsed;
+        _warnOnLastfmError(data, 'artist playcount', username);
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+        Logger.w(
+          'Jukebox Service: Last.fm user "$username" not found (artist.getInfo).',
+        );
+      } else {
+        Logger.w(
+          'Jukebox Service: Artist playcount ($username, $trimmedArtist) status ${response.statusCode}',
+        );
+      }
+    } on TimeoutException {
+      Logger.w(
+        'Jukebox Service Timeout: Artist playcount for "$trimmedArtist" ($username) timed out.',
+      );
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service Exception (artist playcount, $trimmedArtist, $username)',
+        error: e,
+      );
+    }
+    return null;
   }
 
   /// Deprecated: `user.getartisttracks` was deprecated by Last.fm in 2019
@@ -1107,12 +1198,45 @@ class MusicSyncService {
     int limit = 50,
     int page = 1,
   }) async {
+    final result = await _fetchTrackScrobblesPage(
+      username,
+      artist: artist,
+      track: track,
+      limit: limit,
+      page: page,
+    );
+    return result.scrobbles;
+  }
+
+  /// One page of `user.getTrackScrobbles`, plus the raw row count and the
+  /// reported total page count so a caller can tell "end of list" from
+  /// "rows dropped by the display filter" (a now-playing-style row with no
+  /// date shrinks the parsed list without meaning the list is over).
+  Future<({List<MusicStatus> scrobbles, int rawCount, int? totalPages})>
+  _fetchTrackScrobblesPage(
+    String username, {
+    required String artist,
+    required String track,
+    int limit = 50,
+    int page = 1,
+  }) async {
+    const empty = (scrobbles: <MusicStatus>[], rawCount: 0, totalPages: null);
     if (username.isEmpty ||
         artist.isEmpty ||
         track.isEmpty ||
         _invalidUsers.contains(username)) {
-      return [];
+      return empty;
     }
+
+    ({List<MusicStatus> scrobbles, int rawCount, int? totalPages}) done(
+      List<MusicStatus> scrobbles,
+      int rawCount, {
+      int? totalPages,
+    }) => (
+      scrobbles: scrobbles,
+      rawCount: rawCount,
+      totalPages: totalPages,
+    );
 
     try {
       final url = Uri.parse(
@@ -1126,13 +1250,21 @@ class MusicSyncService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final trackNode = data['trackscrobbles']?['track'];
-        final tracks = _asMapList(trackNode);
+        final node = data['trackscrobbles'];
+        final sections = node is Map ? node['@attr'] : null;
+        final totalPages = sections is Map
+            ? int.tryParse(sections['totalPages']?.toString() ?? '')
+            : null;
+        final tracks = _asMapList(node is Map ? node['track'] : null);
         if (tracks.isNotEmpty) {
-          return tracks
-              .where((t) => t['date'] != null)
-              .map((t) => MusicStatus.fromTrackJson(t, username))
-              .toList();
+          return done(
+            tracks
+                .where((t) => t['date'] != null)
+                .map((t) => MusicStatus.fromTrackJson(t, username))
+                .toList(),
+            tracks.length,
+            totalPages: totalPages,
+          );
         }
       } else if (response.statusCode == 404) {
         _invalidUsers.add(username);
@@ -1151,7 +1283,44 @@ class MusicSyncService {
         error: e,
       );
     }
-    return [];
+    return empty;
+  }
+
+  /// Every scrobble of one [track] by [username], oldest pages included.
+  ///
+  /// A single page stops at [pageSize] (200 is the practical per-request
+  /// ceiling), so a song played 300 times used to report only its first
+  /// page's worth. Pages are walked until the reported `totalPages` is
+  /// reached, or until a short page means the list ended, with
+  /// [maxScrobbles] as a hard stop so one track can never run away.
+  Future<List<MusicStatus>> fetchTrackScrobblesAll(
+    String username, {
+    required String artist,
+    required String track,
+    int pageSize = 200,
+    int maxScrobbles = 2000,
+  }) async {
+    final all = <MusicStatus>[];
+    final maxPages = (maxScrobbles / pageSize).ceil();
+    for (var page = 1; page <= maxPages; page++) {
+      final result = await _fetchTrackScrobblesPage(
+        username,
+        artist: artist,
+        track: track,
+        limit: pageSize,
+        page: page,
+      );
+      all.addAll(result.scrobbles);
+      if (_invalidUsers.contains(username)) break;
+      final totalPages = result.totalPages;
+      if (totalPages != null) {
+        if (page >= totalPages) break;
+        continue;
+      }
+      // No page metadata (older response shape): a short page is the end.
+      if (result.rawCount < pageSize) break;
+    }
+    return all;
   }
 
   /// Fetches scrobbles for [artist] by [username], with dates and times.
@@ -1159,6 +1328,12 @@ class MusicSyncService {
   /// Gathers scrobbles across known tracks by calling `user.getTrackScrobbles`,
   /// plus recent scrobbles matching [artist] (`user.getrecenttracks`).
   /// All returned scrobbles are deduplicated and sorted newest first.
+  ///
+  /// Every known track is walked through *all* of its scrobble pages (see
+  /// [fetchTrackScrobblesAll]) so the timeline and its counts cover the whole
+  /// history instead of the first 50 plays of the dozen busiest songs. Track
+  /// requests run in small batches to stay polite to Last.fm, and [maxTracks]
+  /// caps how many songs one artist may contribute.
   Future<List<MusicStatus>> fetchArtistHistory(
     String username, {
     required String artist,
@@ -1185,19 +1360,30 @@ class MusicSyncService {
       final key = name.toLowerCase();
       if (name.isNotEmpty && seenTracks.add(key)) {
         uniqueTracks.add(name);
-        if (uniqueTracks.length >= maxTracks) break;
+        if (maxTracks > 0 && uniqueTracks.length >= maxTracks) break;
       }
     }
 
-    // Prepare futures: fetch track scrobbles for each known track
-    final trackFutures = uniqueTracks.map(
-      (track) => fetchTrackScrobbles(
-        username,
-        artist: trimmedArtist,
-        track: track,
-        limit: scrobblesPerTrack,
-      ),
-    );
+    // Walk each track's full scrobble list in small batches so a 20-song
+    // artist does not fire 20 parallel requests at Last.fm at once.
+    const batchSize = 5;
+    for (var i = 0; i < uniqueTracks.length; i += batchSize) {
+      if (_invalidUsers.contains(username)) break;
+      final batch = uniqueTracks.skip(i).take(batchSize);
+      final results = await Future.wait(
+        batch.map(
+          (track) => fetchTrackScrobblesAll(
+            username,
+            artist: trimmedArtist,
+            track: track,
+            pageSize: scrobblesPerTrack,
+          ),
+        ),
+      );
+      for (final list in results) {
+        allScrobbles.addAll(list);
+      }
+    }
 
     // Also fetch recent scrobbles as immediate fallback / supplement
     Future<List<MusicStatus>> recentFuture =
@@ -1211,18 +1397,6 @@ class MusicSyncService {
                   t.timestamp != null,
             )
             .toList(),
-      );
-    }
-
-    try {
-      final trackResults = await Future.wait(trackFutures);
-      for (final list in trackResults) {
-        allScrobbles.addAll(list);
-      }
-    } catch (e) {
-      Logger.w(
-        'Jukebox Service: Error fetching track scrobbles for artist $trimmedArtist',
-        error: e,
       );
     }
 
