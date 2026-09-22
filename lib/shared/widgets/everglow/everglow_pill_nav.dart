@@ -33,36 +33,28 @@ class EverglowPillNav extends StatelessWidget {
       left: 16 + leftInset,
       right: 16 + rightInset,
       bottom: bottomPadding + 12,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 500),
-          child: SizedBox(
-            width: double.infinity,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.shimmerBase,
-                borderRadius: AppRadius.radiusX3,
-                boxShadow: AppElevation.floating,
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(items.length, (i) {
-                  final item = items[i];
-                  final selected = i == currentIndex;
-                  return _NavItem(
-                    item: item,
-                    selected: selected,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      onTap(i);
-                    },
-                  );
-                }),
-              ),
-            ),
-          ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.shimmerBase,
+          borderRadius: AppRadius.radiusX3,
+          boxShadow: AppElevation.floating,
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(items.length, (i) {
+            final item = items[i];
+            final selected = i == currentIndex;
+            return _NavItem(
+              item: item,
+              selected: selected,
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onTap(i);
+              },
+            );
+          }),
         ),
       ),
     );

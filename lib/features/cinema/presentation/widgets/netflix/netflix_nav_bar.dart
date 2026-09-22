@@ -462,30 +462,25 @@ class _NetflixBottomNav extends StatelessWidget {
         top: false,
         child: SizedBox(
           height: 62,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 540),
-              child: Row(
-                children: [
-                  for (final item in items)
-                    Expanded(
-                      child: _MobileTab(
-                        item: item,
-                        // The Anime entry leaves Cinema, so it never shows as
-                        // the active tab.
-                        active: !item.isAnimeLink && item.tab == currentIndex,
-                        onTap: () {
-                          if (item.isAnimeLink) {
-                            onAnimeTap?.call();
-                          } else {
-                            onSelect(item.tab, item.browseOptionId);
-                          }
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          child: Row(
+            children: [
+              for (final item in items)
+                Expanded(
+                  child: _MobileTab(
+                    item: item,
+                    // The Anime entry leaves Cinema, so it never shows as
+                    // the active tab.
+                    active: !item.isAnimeLink && item.tab == currentIndex,
+                    onTap: () {
+                      if (item.isAnimeLink) {
+                        onAnimeTap?.call();
+                      } else {
+                        onSelect(item.tab, item.browseOptionId);
+                      }
+                    },
+                  ),
+                ),
+            ],
           ),
         ),
       ),

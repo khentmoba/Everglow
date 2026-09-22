@@ -203,25 +203,20 @@ class AnimeXMobileBottomNav extends StatelessWidget {
         color: Color(0xFA0A0A0F),
         border: Border(top: BorderSide(color: Color(0x12FFFFFF))),
       ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Row(
-            children: [
-              for (final (page, label, icon, activeIcon) in items)
-                Expanded(
-                  child: _MobileItem(
-                    label: label,
-                    icon: controller.page == page ? activeIcon : icon,
-                    active: controller.page == page && !controller.hasDetail,
-                    onTap: page == AnimexPage.search
-                        ? onSearch
-                        : () => controller.goTo(page),
-                  ),
-                ),
-            ],
-          ),
-        ),
+      child: Row(
+        children: [
+          for (final (page, label, icon, activeIcon) in items)
+            Expanded(
+              child: _MobileItem(
+                label: label,
+                icon: controller.page == page ? activeIcon : icon,
+                active: controller.page == page && !controller.hasDetail,
+                onTap: page == AnimexPage.search
+                    ? onSearch
+                    : () => controller.goTo(page),
+              ),
+            ),
+        ],
       ),
     );
   }

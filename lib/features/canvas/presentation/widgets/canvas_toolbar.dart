@@ -274,31 +274,27 @@ class _ColorButton extends StatelessWidget {
       label: '${_colorName(hex)} color',
       button: true,
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 28,
-            height: 28,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isActive ? AppColors.roseQuartz : Colors.transparent,
-                width: isActive ? 2.5 : 2,
-              ),
-              boxShadow: [
-                if (isActive)
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.6),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-              ],
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 28,
+          height: 28,
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isActive ? AppColors.roseQuartz : Colors.transparent,
+              width: isActive ? 2.5 : 2,
             ),
+            boxShadow: [
+              if (isActive)
+                BoxShadow(
+                  color: color.withValues(alpha: 0.6),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                ),
+            ],
           ),
         ),
       ),
