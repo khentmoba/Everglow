@@ -30,7 +30,6 @@ dependencies:
   html_unescape: ^2.0.0
   crypto: ^3.0.3
   shared_preferences: ^2.2.0
-  marquee: ^2.3.0
   url_launcher: ^6.3.2
   flutter_dotenv: ^6.0.1
   just_audio: ^0.9.41
@@ -54,6 +53,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
+  webview_flutter_platform_interface: any
 flutter:
   uses-material-design: true
 

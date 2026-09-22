@@ -6,11 +6,9 @@ import '../providers/jukebox_provider.dart';
 import 'music_card.dart';
 import '../../data/models/music_status.dart';
 
-import 'package:marquee/marquee.dart';
 import 'package:confetti/confetti.dart';
 import 'vinyl_record.dart';
 import 'spotify_connect_card.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -55,7 +53,8 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
     super.dispose();
   }
 
-  bool _shouldTrigger(MusicStatus s) => s.isPlaying && s.artistName.toLowerCase() == 'ethel cain';
+  bool _shouldTrigger(MusicStatus s) =>
+      s.isPlaying && s.artistName.toLowerCase() == 'ethel cain';
 
   void _triggerHearts(MusicStatus status) {
     if (status.isPlaying && status.artistName.toLowerCase() == 'ethel cain') {
@@ -212,38 +211,6 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                                   vinylWidget: VinylRecord(
                                     isPlaying: status.isPlaying,
                                   ),
-                                  marqueeWidget:
-                                      status.trackName.length > 999 &&
-                                          status.isPlaying
-                                      ? SizedBox(
-                                          height: 24,
-                                          child: Marquee(
-                                            text: status.trackName,
-                                            style: const TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppTheme.petalWhite,
-                                              letterSpacing: -0.2,
-                                            ),
-                                            scrollAxis: Axis.horizontal,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            blankSpace: 32.0,
-                                            velocity: 28.0,
-                                            pauseAfterRound: const Duration(
-                                              seconds: 1,
-                                            ),
-                                            accelerationDuration:
-                                                const Duration(seconds: 1),
-                                            accelerationCurve: Curves.linear,
-                                            decelerationDuration:
-                                                const Duration(
-                                                  milliseconds: 500,
-                                                ),
-                                            decelerationCurve: Curves.easeOut,
-                                          ),
-                                        )
-                                      : null,
                                 ),
                               );
                             }
