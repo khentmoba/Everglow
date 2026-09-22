@@ -7,19 +7,37 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Wraps the whole app and shows a warm "fresh version" banner when
-/// [AppUpdateService] has a new build downloaded and ready.
+/// Wraps the whole app and displays a warm, gentle notification banner when
+/// [AppUpdateService] detects that a new build is downloaded and ready.
 ///
-/// The switch itself is automatic: background tabs reload silently, tabs in
-/// use count down a few seconds first. The banner is just the visible face
-/// of that — "Switch now" hurries it, "Later" snoozes it for 30 minutes.
+/// The app never restarts forcefully on its own:
+/// - Users can tap "Restart" to apply the update immediately.
+/// - Users can tap the close button to dismiss the notification and reload
+///   manually on their own time without any interruptions.
 class AppUpdatePrompt extends StatelessWidget {
   final Widget child;
+  final AppUpdateService? service;
 
-  const AppUpdatePrompt({super.key, required this.child});
+  const AppUpdatePrompt({super.key, required this.child, this.service});
 
   @override
   Widget build(BuildContext context) {
+    if (service != null) {
+      return ChangeNotifierProvider<AppUpdateService>.value(
+        value: service!,
+        child: Stack(
+          children: [
+            child,
+            const Positioned(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              bottom: 92,
+              child: _UpdateBanner(),
+            ),
+          ],
+        ),
+      );
+    }
     return ChangeNotifierProvider(
       create: (_) => AppUpdateService()..start(),
       child: Stack(
@@ -44,55 +62,57 @@ class _UpdateBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final service = context.watch<AppUpdateService>();
     if (!service.updateAvailable) return const SizedBox.shrink();
-    final countdown = service.countdownSeconds;
-    final message = countdown != null
-        ? 'A fresh Everglow just landed — switching in ${countdown}s…'
-        : 'A fresh Everglow is ready — it’ll switch when you step away.';
+
     return SafeArea(
       top: false,
-      child: Material(
-        elevation: 8,
-        borderRadius: AppRadius.radiusLg,
-        color: AppColors.deepRose,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
-          child: Row(
-            children: [
-              const Text('💗', style: TextStyle(fontSize: 20)),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  message,
-                  style: AppTypography.bodyMedium().copyWith(
-                    color: AppColors.petalWhite,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Material(
+            elevation: 8,
+            borderRadius: AppRadius.radiusLg,
+            color: AppColors.deepRose,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  const Text('✨', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'A fresh Everglow update is ready',
+                      style: AppTypography.bodyMedium().copyWith(
+                        color: AppColors.petalWhite,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              TextButton(
-                onPressed: service.applyNow,
-                child: Text(
-                  'Switch now',
-                  style: AppTypography.bodyMedium().copyWith(
-                    color: AppColors.blushGold,
-                    fontWeight: FontWeight.w700,
+                  TextButton(
+                    onPressed: service.applyNow,
+                    child: Text(
+                      'Restart',
+                      style: AppTypography.bodyMedium().copyWith(
+                        color: AppColors.blushGold,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
+                  IconButton(
+                    onPressed: service.dismiss,
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: AppColors.petalWhite,
+                    ),
+                    tooltip: 'Dismiss',
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
               ),
-              IconButton(
-                onPressed: service.snooze,
-                icon: const Icon(
-                  Icons.close_rounded,
-                  size: 18,
-                  color: AppColors.petalWhite,
-                ),
-                tooltip: 'Later',
-                constraints: const BoxConstraints(),
-                padding: EdgeInsets.zero,
-              ),
-            ],
+            ),
           ),
         ),
       ),
