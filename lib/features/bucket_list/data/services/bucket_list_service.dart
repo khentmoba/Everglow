@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/bucket_item.dart';
 import '../../../../core/utils/logger.dart';
@@ -116,13 +117,24 @@ class BucketListService {
   }
 
   /// Mark an item as completed.
+  @visibleForTesting
+  static Map<String, dynamic> buildMarkCompletePayload(
+    String completedBy, {
+    Timestamp? timestamp,
+  }) {
+    return {
+      'status': BucketStatus.completed.name,
+      'completedAt': timestamp ?? Timestamp.now(),
+      'completedBy': completedBy,
+    };
+  }
+
   Future<void> markComplete(String id, String completedBy) async {
     try {
-      await _db.collection(_collection).doc(id).update({
-        'status': BucketStatus.completed.name,
-        'completedAt': Timestamp.now(),
-        'completedBy': completedBy,
-      });
+      await _db
+          .collection(_collection)
+          .doc(id)
+          .update(buildMarkCompletePayload(completedBy));
       Logger.i('Marked bucket item $id as completed by $completedBy');
     } catch (e) {
       Logger.e('Error completing bucket item', error: e);
@@ -130,13 +142,21 @@ class BucketListService {
   }
 
   /// Mark an item as uncomplete (back to wish).
+  @visibleForTesting
+  static Map<String, dynamic> buildMarkUncompletePayload() {
+    return {
+      'status': BucketStatus.wish.name,
+      'completedAt': FieldValue.delete(),
+      'completedBy': FieldValue.delete(),
+    };
+  }
+
   Future<void> markUncomplete(String id) async {
     try {
-      await _db.collection(_collection).doc(id).update({
-        'status': BucketStatus.wish.name,
-        'completedAt': FieldValue.delete(),
-        'completedBy': FieldValue.delete(),
-      });
+      await _db
+          .collection(_collection)
+          .doc(id)
+          .update(buildMarkUncompletePayload());
       Logger.i('Marked bucket item $id as uncomplete');
     } catch (e) {
       Logger.e('Error uncompleting bucket item', error: e);
@@ -156,21 +176,33 @@ class BucketListService {
   }
 
   /// Move item to any status (Kanban drag).
+  @visibleForTesting
+  static Map<String, dynamic> buildMoveStatusPayload(
+    BucketStatus status, {
+    String? completedBy,
+    Timestamp? timestamp,
+  }) {
+    final data = <String, dynamic>{'status': status.name};
+    if (status == BucketStatus.completed) {
+      data['completedAt'] = timestamp ?? Timestamp.now();
+      if (completedBy != null) data['completedBy'] = completedBy;
+    } else {
+      data['completedAt'] = FieldValue.delete();
+      data['completedBy'] = FieldValue.delete();
+    }
+    return data;
+  }
+
   Future<void> moveStatus(
     String id,
     BucketStatus status, {
     String? completedBy,
   }) async {
     try {
-      final data = <String, dynamic>{'status': status.name};
-      if (status == BucketStatus.completed) {
-        data['completedAt'] = Timestamp.now();
-        if (completedBy != null) data['completedBy'] = completedBy;
-      } else {
-        data['completedAt'] = FieldValue.delete();
-        data['completedBy'] = FieldValue.delete();
-      }
-      await _db.collection(_collection).doc(id).update(data);
+      await _db
+          .collection(_collection)
+          .doc(id)
+          .update(buildMoveStatusPayload(status, completedBy: completedBy));
       Logger.i('Moved bucket item $id -> ${status.name}');
     } catch (e) {
       Logger.e('Error moving bucket item', error: e);
@@ -178,17 +210,20 @@ class BucketListService {
   }
 
   /// Assign / unassign.
+  @visibleForTesting
+  static Map<String, dynamic> buildAssignPayload(String? username) {
+    if (username == null) {
+      return {'assignedTo': FieldValue.delete()};
+    }
+    return {'assignedTo': username};
+  }
+
   Future<void> assign(String id, String? username) async {
     try {
-      if (username == null) {
-        await _db.collection(_collection).doc(id).update({
-          'assignedTo': FieldValue.delete(),
-        });
-      } else {
-        await _db.collection(_collection).doc(id).update({
-          'assignedTo': username,
-        });
-      }
+      await _db
+          .collection(_collection)
+          .doc(id)
+          .update(buildAssignPayload(username));
       Logger.i('Assigned bucket item $id to ${username ?? "none"}');
     } catch (e) {
       Logger.e('Error assigning bucket item', error: e);
@@ -208,17 +243,20 @@ class BucketListService {
   }
 
   /// Update due date (null clears).
+  @visibleForTesting
+  static Map<String, dynamic> buildSetDueDatePayload(DateTime? dueDate) {
+    if (dueDate == null) {
+      return {'dueDate': FieldValue.delete()};
+    }
+    return {'dueDate': Timestamp.fromDate(dueDate)};
+  }
+
   Future<void> setDueDate(String id, DateTime? dueDate) async {
     try {
-      if (dueDate == null) {
-        await _db.collection(_collection).doc(id).update({
-          'dueDate': FieldValue.delete(),
-        });
-      } else {
-        await _db.collection(_collection).doc(id).update({
-          'dueDate': Timestamp.fromDate(dueDate),
-        });
-      }
+      await _db
+          .collection(_collection)
+          .doc(id)
+          .update(buildSetDueDatePayload(dueDate));
       Logger.i('Set dueDate $id -> $dueDate');
     } catch (e) {
       Logger.e('Error setting dueDate', error: e);
