@@ -13,10 +13,9 @@ import 'app_update_browser.dart';
 typedef LiveBuild = ({String build, String? core});
 
 /// Watches `/version.json` (written by `tool/generate_sw.dart` at build time)
-/// and moves the tab to the new build by itself, without Clair tapping
-/// anything.
+/// and informs the user with a gentle notification when a new build is ready.
 ///
-/// Slow-internet friendly by design:
+/// Slow-internet friendly and user-controlled by design:
 /// - The check itself is tiny, skipped while offline, and also fires the
 ///   moment the tab becomes visible or the network returns — so the wait is
 ///   never longer than it has to be.
@@ -24,17 +23,10 @@ typedef LiveBuild = ({String build, String? core});
 ///   background (a plain fetch the service worker caches) while Clair keeps
 ///   using the old app. The reload after that is instant from cache instead
 ///   of a long splash on a slow line.
-/// - Every build's shell URL is distinct (`?v=`), so a reload always boots
-///   genuinely fresh bytes no matter which worker is active — the old
-///   stable-filename setup could silently boot stale code after a deploy.
-///
-/// Switching policy ("silent when away, gentle when here"):
-/// - Tab hidden (she switched apps — the common phone case): reloads in the
-///   background. She just returns to the fresh app.
-/// - Tab visible: a warm banner counts down 30s, then switches. "Later"
-///   snoozes for 30 minutes.
-/// - A playing `<video>` pauses the countdown entirely: movie night is never
-///   interrupted. The tab still switches itself once hidden.
+/// - Never forcefully restarts! No auto-switch timers, no sudden reloads while
+///   watching anime or typing, and no background reloads when switching tabs.
+/// - The user sees a warm notification banner where they can tap "Restart" to
+///   switch right away, or tap dismiss and reload manually whenever they like.
 ///
 /// All browser access goes through [AppUpdateBrowser] (real on web, no-op
 /// stub elsewhere), so this file stays unit-testable on the VM.
@@ -49,15 +41,12 @@ class AppUpdateService extends ChangeNotifier {
   /// How often to re-check while the tab stays open.
   static const pollInterval = Duration(minutes: 15);
 
-  /// How long "Later" hides the banner (and pauses every auto path).
-  static const snoozeDuration = Duration(minutes: 30);
-
   /// Upper bound for the background shell download (slow phones on slow
   /// lines). Past this the tab switches anyway and streams like a first
   /// visit.
   static const warmTimeout = Duration(seconds: 150);
 
-  /// Seconds of visible countdown before a tab in use switches itself.
+  /// Retained for backwards compatibility.
   final int countdownTotal;
 
   final AppUpdateBrowser _browser;
@@ -66,13 +55,11 @@ class AppUpdateService extends ChangeNotifier {
   bool _started = false;
   bool _checking = false;
   Timer? _pollTimer;
-  Timer? _tickTimer;
   String? _bootBuild;
   String? _latestBuild;
+  String? _dismissedBuild;
   bool _warming = false;
   bool _ready = false;
-  int? _countdown;
-  DateTime? _snoozedUntil;
   bool _applied = false;
   void Function()? _cancelListen;
 
@@ -82,22 +69,28 @@ class AppUpdateService extends ChangeNotifier {
   /// The newest build seen on the server (null until the first fetch lands).
   String? get latestBuild => _latestBuild;
 
+  /// The build dismissed by the user, if any.
+  String? get dismissedBuild => _dismissedBuild;
+
   /// True while the new shell downloads silently in the background.
   bool get warming => _warming;
 
   /// True once a newer build is downloaded and ready to switch to.
   bool get ready => _ready;
 
-  /// Seconds left on the visible countdown, or null when the banner is
-  /// static (video playing) or hidden.
-  int? get countdownSeconds => _countdown;
+  /// True if the user dismissed the notification for the newest build.
+  bool get isDismissed =>
+      _dismissedBuild != null && _dismissedBuild == _latestBuild;
 
-  bool get snoozed =>
-      _snoozedUntil != null && DateTime.now().isBefore(_snoozedUntil!);
+  /// Retained for backwards compatibility; returns null since countdowns are removed.
+  int? get countdownSeconds => null;
 
-  /// True when the banner should show: newer build ready, not snoozed,
+  /// Retained for backwards compatibility; mirrors [isDismissed].
+  bool get snoozed => isDismissed;
+
+  /// True when the banner should show: newer build ready, not dismissed,
   /// not already switching.
-  bool get updateAvailable => _ready && !snoozed && !_applied;
+  bool get updateAvailable => _ready && !isDismissed && !_applied;
 
   /// Starts polling. Safe to call more than once; later calls are ignored.
   /// No-op where the browser bridge is unsupported (native, VM tests
@@ -106,10 +99,13 @@ class AppUpdateService extends ChangeNotifier {
     if (!_browser.supported || _started) return;
     _started = true;
     _cancelListen = _browser.listen(
-      onHidden: _maybeApplyInBackground,
+      onHidden: () {
+        // Tab hidden: never auto-reload, so movies, anime, music, or forms
+        // are never interrupted.
+      },
       onVisible: () {
         // Returning to the tab: a deploy may have landed while away.
-        unawaited(checkNow().then((_) => _evaluateAutoApply()));
+        unawaited(checkNow());
       },
       onOnline: () => unawaited(checkNow()),
     );
@@ -147,49 +143,27 @@ class AppUpdateService extends ChangeNotifier {
     }
   }
 
-  /// One step of the visible countdown. Called every second while counting;
-  /// also the seam tests use instead of waiting on real timers.
-  void tick() {
-    final left = _countdown;
-    if (left == null || _applied) return;
-    if (snoozed || _browser.isVideoPlaying) {
-      // She tapped Later, or pressed play mid-countdown: hold quietly.
-      _stopCountdown();
-      notifyListeners();
-      return;
-    }
-    if (_browser.isHidden) {
-      _stopCountdown();
-      applyNow();
-      return;
-    }
-    if (left <= 1) {
-      _stopCountdown();
-      applyNow();
-      return;
-    }
-    _countdown = left - 1;
-    notifyListeners();
-  }
+  /// Retained for backwards compatibility (no-op since auto-countdown is removed).
+  void tick() {}
 
   /// Switches to the new build right now.
   void applyNow() {
     if (_applied) return;
     _applied = true;
-    _stopCountdown();
     _pollTimer?.cancel();
     notifyListeners();
     _browser.reload();
   }
 
-  /// Hides the banner for [snoozeDuration], pausing every auto path —
-  /// including the background switch — until it expires. A still-newer
-  /// build arriving later re-arms the prompt automatically.
-  void snooze() {
-    _snoozedUntil = DateTime.now().add(snoozeDuration);
-    _stopCountdown();
+  /// Dismisses the notification for the current update.
+  /// The user can continue using the site undisturbed and reload manually on their own.
+  void dismiss() {
+    _dismissedBuild = _latestBuild;
     notifyListeners();
   }
+
+  /// Alias for [dismiss] for backwards compatibility.
+  void snooze() => dismiss();
 
   /// Reads `/version.json`, bypassing every cache layer. Returns null when
   /// offline or when the response is not parseable.
@@ -237,10 +211,7 @@ class AppUpdateService extends ChangeNotifier {
   /// streams like a first visit.
   Future<void> _warmAndReady(String? core) async {
     if (_warming || _applied) return;
-    // A newer build re-arms the prompt even after a snooze.
-    _snoozedUntil = null;
     _ready = false;
-    _stopCountdown();
     _warming = true;
     notifyListeners();
     var warmed = false;
@@ -258,7 +229,6 @@ class AppUpdateService extends ChangeNotifier {
       _ready = true;
       Logger.i('Everglow update ready ($_latestBuild, pre-warmed: $warmed)');
     }
-    _evaluateAutoApply();
     notifyListeners();
   }
 
@@ -271,61 +241,19 @@ class AppUpdateService extends ChangeNotifier {
     }
   }
 
-  /// Decides what a ready tab does right now: background tabs switch at
-  /// once, visible tabs count down unless a video is playing.
-  void _evaluateAutoApply() {
-    if (!_ready || snoozed || _applied) {
-      _stopCountdown();
-      notifyListeners();
-      return;
-    }
-    if (_browser.isHidden) {
-      _maybeApplyInBackground();
-      return;
-    }
-    if (_browser.isVideoPlaying) {
-      // Movie night: hold the countdown; the tab switches once hidden.
-      _stopCountdown();
-      notifyListeners();
-      return;
-    }
-    _startCountdown();
-    notifyListeners();
-  }
-
-  void _maybeApplyInBackground() {
-    if (_ready && !snoozed && !_applied && _browser.isHidden) applyNow();
-  }
-
-  void _startCountdown() {
-    if (_countdown != null) return;
-    _countdown = countdownTotal;
-    // The 1s ticker only exists while counting: no idle battery drain on
-    // phones the other 99.9% of the time.
-    _tickTimer ??= Timer.periodic(const Duration(seconds: 1), (_) => tick());
-  }
-
-  void _stopCountdown() {
-    _countdown = null;
-    _tickTimer?.cancel();
-    _tickTimer = null;
-  }
-
   void _resetUpdateState() {
     _ready = false;
-    _stopCountdown();
     notifyListeners();
   }
 
   @visibleForTesting
-  void debugExpireSnooze() {
-    _snoozedUntil = null;
+  void debugResetDismissal() {
+    _dismissedBuild = null;
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
-    _tickTimer?.cancel();
     try {
       _cancelListen?.call();
     } catch (_) {

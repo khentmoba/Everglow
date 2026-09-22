@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 /// Fake browser bridge: drives visibility, playback, and reloads without a
-/// page, so the auto-update state machine is testable on the VM.
+/// page, so the update notification state machine is testable on the VM.
 class FakeUpdateBrowser implements AppUpdateBrowser {
   bool hidden = false;
   bool offline = false;
@@ -81,10 +81,10 @@ void main() {
     expect(AppUpdateService.parseCore('not json'), isNull);
   });
 
-  group('auto-update state machine', () {
-    test('new build readies, counts down, then reloads', () async {
+  group('update notification state machine', () {
+    test('new build readies, shows update available, and never auto-reloads', () async {
       final browser = FakeUpdateBrowser();
-      final service = AppUpdateService(browser: browser, countdownTotal: 3);
+      final service = AppUpdateService(browser: browser);
       addTearDown(service.dispose);
 
       await service.start();
@@ -99,72 +99,68 @@ void main() {
       await service.noteLiveBuild('b');
       expect(service.ready, isTrue);
       expect(service.updateAvailable, isTrue);
-      expect(service.countdownSeconds, 3);
+      expect(browser.reloaded, isFalse);
 
+      // Even if tab is hidden, tick occurs, or time passes: NEVER auto-reload!
+      browser.hidden = true;
+      browser.onHidden!();
       service.tick();
-      expect(service.countdownSeconds, 2);
-      service.tick();
-      service.tick();
+      expect(browser.reloaded, isFalse);
+      expect(service.updateAvailable, isTrue);
 
+      // Only manual user action applies the reload
+      service.applyNow();
       expect(browser.reloaded, isTrue);
       expect(service.updateAvailable, isFalse);
     });
 
-    test('hidden tab switches at once, with no countdown', () async {
-      final browser = FakeUpdateBrowser()..hidden = true;
-      final service = AppUpdateService(browser: browser, countdownTotal: 30);
-      addTearDown(service.dispose);
-
-      await service.start();
-      await service.noteLiveBuild('a');
-      await service.noteLiveBuild('b');
-
-      expect(browser.reloaded, isTrue);
-      expect(service.countdownSeconds, isNull);
-    });
-
-    test('playing video holds the countdown until the tab hides', () async {
-      final browser = FakeUpdateBrowser()..videoPlaying = true;
-      final service = AppUpdateService(browser: browser, countdownTotal: 30);
-      addTearDown(service.dispose);
-
-      await service.start();
-      await service.noteLiveBuild('a');
-      await service.noteLiveBuild('b');
-
-      // Banner shows, but movie night is never interrupted.
-      expect(service.updateAvailable, isTrue);
-      expect(service.countdownSeconds, isNull);
-
-      browser
-        ..videoPlaying = false
-        ..hidden = true;
-      browser.onHidden!();
-
-      expect(browser.reloaded, isTrue);
-    });
-
-    test('pressing play mid-countdown pauses it', () async {
+    test('dismiss hides the notification without reloading', () async {
       final browser = FakeUpdateBrowser();
-      final service = AppUpdateService(browser: browser, countdownTotal: 30);
+      final service = AppUpdateService(browser: browser);
       addTearDown(service.dispose);
 
       await service.start();
       await service.noteLiveBuild('a');
       await service.noteLiveBuild('b');
-      expect(service.countdownSeconds, 30);
+      expect(service.updateAvailable, isTrue);
+      expect(service.isDismissed, isFalse);
 
-      browser.videoPlaying = true;
-      service.tick();
+      service.dismiss();
+      expect(service.isDismissed, isTrue);
+      expect(service.snoozed, isTrue);
+      expect(service.updateAvailable, isFalse);
+      expect(browser.reloaded, isFalse);
 
-      expect(service.countdownSeconds, isNull);
+      // Tab switching or hiding while dismissed still does not reload
+      browser.hidden = true;
+      browser.onHidden!();
+      expect(browser.reloaded, isFalse);
+    });
+
+    test('subsequent newer build re-arms the notification after dismissal', () async {
+      final browser = FakeUpdateBrowser();
+      final service = AppUpdateService(browser: browser);
+      addTearDown(service.dispose);
+
+      await service.start();
+      await service.noteLiveBuild('a');
+      await service.noteLiveBuild('b');
+      expect(service.updateAvailable, isTrue);
+
+      service.dismiss();
+      expect(service.updateAvailable, isFalse);
+
+      // Server later reports build 'c'
+      await service.noteLiveBuild('c');
+      expect(service.latestBuild, 'c');
+      expect(service.isDismissed, isFalse);
       expect(service.updateAvailable, isTrue);
       expect(browser.reloaded, isFalse);
     });
 
-    test('snooze pauses every auto path until it expires', () async {
+    test('snooze alias acts as dismiss', () async {
       final browser = FakeUpdateBrowser();
-      final service = AppUpdateService(browser: browser, countdownTotal: 30);
+      final service = AppUpdateService(browser: browser);
       addTearDown(service.dispose);
 
       await service.start();
@@ -173,21 +169,11 @@ void main() {
       expect(service.updateAvailable, isTrue);
 
       service.snooze();
-      expect(service.snoozed, isTrue);
+      expect(service.isDismissed, isTrue);
       expect(service.updateAvailable, isFalse);
-      expect(service.countdownSeconds, isNull);
-
-      // Even hiding the tab respects the snooze.
-      browser.hidden = true;
-      browser.onHidden!();
-      expect(browser.reloaded, isFalse);
-
-      service.debugExpireSnooze();
-      browser.onHidden!();
-      expect(browser.reloaded, isTrue);
     });
 
-    test('checkNow picks up a deploy end to end', () async {
+    test('checkNow picks up a deploy end to end without auto-reloading', () async {
       var live = 'a';
       final client = MockClient((request) async {
         if (request.url.path == '/version.json') {
@@ -202,7 +188,6 @@ void main() {
       final service = AppUpdateService(
         browser: browser,
         httpClient: client,
-        countdownTotal: 2,
       );
       addTearDown(service.dispose);
 
@@ -214,19 +199,19 @@ void main() {
       await service.checkNow();
 
       expect(service.ready, isTrue);
-      expect(service.countdownSeconds, 2);
-      service.tick();
-      service.tick();
+      expect(service.updateAvailable, isTrue);
+      expect(browser.reloaded, isFalse);
+
+      service.applyNow();
       expect(browser.reloaded, isTrue);
     });
 
-    test('failed warm still readies: the reload streams instead', () async {
+    test('failed warm still readies: user can still choose to restart', () async {
       final client = MockClient((_) async => http.Response('nope', 500));
       final browser = FakeUpdateBrowser();
       final service = AppUpdateService(
         browser: browser,
         httpClient: client,
-        countdownTotal: 1,
       );
       addTearDown(service.dispose);
 
@@ -235,8 +220,8 @@ void main() {
       await service.noteLiveBuild('b', 'main.dart.js?v=b');
 
       expect(service.ready, isTrue);
-      service.tick();
-      expect(browser.reloaded, isTrue);
+      expect(service.updateAvailable, isTrue);
+      expect(browser.reloaded, isFalse);
     });
 
     test('same build means no update', () async {
