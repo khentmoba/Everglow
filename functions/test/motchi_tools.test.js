@@ -34,7 +34,7 @@ test('every executor names a known tool, and every tool has an executor', () => 
     .join('\n');
   const dispatch = fs.readFileSync(path.join(__dirname, '..', 'motchi_exec_tools.js'), 'utf8');
   const fns = [...execSrc.matchAll(/async function exec_([a-z_]+)\(ctx/g)].map((m) => m[1]);
-  const mapped = [...dispatch.matchAll(/^  ([a-z_]+): exec_/gm)].map((m) => m[1]);
+  const mapped = [...dispatch.matchAll(/^ {2}([a-z_]+): exec_/gm)].map((m) => m[1]);
   for (const name of fns) {
     assert.ok(tools.TOOL_NAMES.includes(name), `executor without tool: ${name}`);
   }

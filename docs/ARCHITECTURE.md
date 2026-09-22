@@ -570,7 +570,7 @@ the *core foundation every feature depends on*, implemented now:
 ```text
 flutter analyze
 flutter test
-cd functions && npm test
+cd functions && npm run lint && npm test
 ```
 
 ## 13. Runbook Cheat Sheet
@@ -580,6 +580,7 @@ cd functions && npm test
 | Local app | `flutter run -d chrome` |
 | Analyze | `flutter analyze` |
 | Tests | `flutter test` |
+| Functions lint | `cd functions && npm run lint` (CI adds `-- --max-warnings=25`) |
 | Functions tests | `cd functions && npm test` |
 | Health check | `curl https://everglow-1c6db.web.app/api/health` |
 | Deploy everything | `deploy.ps1` |

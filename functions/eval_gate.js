@@ -69,7 +69,7 @@ check('tools.pinned-in-declared', tools.TOOL_NAMES.every((n) => declaredSet.has(
 
 const nonTools = new Set(['assistant', 'guardian', 'recommendations', 'date_ideas']);
 const execFns = [...execSrc.matchAll(/async function exec_([a-z_]+)\(ctx/g)].map((m) => m[1]);
-const mapped = [...dispatchSrc.matchAll(/^  ([a-z_]+): exec_/gm)].map((m) => m[1]);
+const mapped = [...dispatchSrc.matchAll(/^ {2}([a-z_]+): exec_/gm)].map((m) => m[1]);
 const orphanExecs = execFns.filter((n) => !nonTools.has(n) && !tools.TOOL_NAMES.includes(n));
 check('tools.cases-covered', orphanExecs.length === 0, orphanExecs.join(','));
 check('tools.executors-complete',

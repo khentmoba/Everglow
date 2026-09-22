@@ -209,7 +209,7 @@ async function handleGenerateStudySet(req, res) {
   ];
 
   // One generation attempt + one strict-JSON repair attempt at most.
-  let reply = '';
+  let reply;
   try {
     reply = await callAgnes({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
   } catch (e) {

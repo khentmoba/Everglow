@@ -443,8 +443,8 @@ const proxyEmbed = cappedHttps(10, async (req, res) => {
     var style = (node.getAttribute('style') || '').toLowerCase();
     if (tag === 'IFRAME') {
       if (/ad|sponsor|promo|click|track|pixel|beacon|popup|banner|traffic/i.test(src + ' ' + cls)) return true;
-      if (/z-index:\s*[89]\d{3,}/.test(style)) return true;
-      if (/display:\s*none|visibility:\s*hidden|width:\s*0|height:\s*0/.test(style) && /track|pixel|beacon/i.test(src + ' ' + cls)) return true;
+      if (/z-index:\\s*[89]\\d{3,}/.test(style)) return true;
+      if (/display:\\s*none|visibility:\\s*hidden|width:\\s*0|height:\\s*0/.test(style) && /track|pixel|beacon/i.test(src + ' ' + cls)) return true;
     }
     if (tag === 'SCRIPT') {
       if (/googlesyndication|doubleclick|adservice|adserver|adskeeper|juicyads|popads|exoclick|trafficjunky|hilltopads|propellerads|adsterra|clickadu|mgid|outbrain|taboola|pagead|google-analytics|adsbygoogle|googleads|popunder|onclick/i.test(src)) return true;

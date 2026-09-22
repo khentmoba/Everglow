@@ -14,7 +14,12 @@ function isAllowedTmdbPath(value) {
 
 function buildTmdbUpstream(path, query = {}, apiKey = '') {
   if (!isAllowedTmdbPath(path)) throw new Error('Invalid TMDB path');
-  const upstream = new URL(`https://api.themoviedb.org/3/${normalizeTmdbPath(path)}`);
+  let upstream;
+  try {
+    upstream = new URL(`https://api.themoviedb.org/3/${normalizeTmdbPath(path)}`);
+  } catch (err) {
+    throw new Error('Invalid TMDB path', { cause: err });
+  }
   for (const [key, value] of Object.entries(query)) {
     const name = key.toLowerCase();
     if (name === 'api_key' || name === 'access_token' || name === '__auth') continue;
@@ -35,7 +40,12 @@ function buildLastfmUpstream(query = {}, apiKey = '') {
   if (!isAllowedLastfmMethod(query.method)) {
     throw new Error('Last.fm method not allowed');
   }
-  const upstream = new URL('https://ws.audioscrobbler.com/2.0/');
+  let upstream;
+  try {
+    upstream = new URL('https://ws.audioscrobbler.com/2.0/');
+  } catch (err) {
+    throw new Error('Failed to create Last.fm upstream URL', { cause: err });
+  }
   for (const [key, value] of Object.entries(query)) {
     if (key.toLowerCase() === 'api_key' || key.toLowerCase() === '__auth') continue;
     upstream.searchParams.set(key, String(value));
@@ -58,8 +68,8 @@ function resolveGalleryDeletePath(imageUrl) {
   let parsed;
   try {
     parsed = new URL(imageUrl);
-  } catch (_) {
-    throw new Error('Invalid imageUrl');
+  } catch (err) {
+    throw new Error('Invalid imageUrl', { cause: err });
   }
   if (parsed.hostname !== 'firebasestorage.googleapis.com') {
     throw new Error('URL must be from the project Storage bucket');

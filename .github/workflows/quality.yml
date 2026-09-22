@@ -100,6 +100,14 @@ jobs:
           cache-dependency-path: functions/package-lock.json
       - working-directory: functions
         run: npm ci
+      # Lint runs before the tests so a trivial slip (typo'd identifier,
+      # dead assignment, an unbalanced template) reports in seconds instead
+      # of after a 20s suite. max-len is a warning for legacy lines, so
+      # --max-warnings is the ratchet: NEW long lines fail here, and the
+      # number only ever goes down as modules get cleaned. Raising 25 is a
+      # deliberate regression and needs a reason in the PR description.
+      - working-directory: functions
+        run: npm run lint -- --max-warnings=25
       - working-directory: functions
         run: npm test
       # Syntax-check every top-level function module, not just index.js:

@@ -36,7 +36,7 @@ test('cleanStudyItem rejects bad shapes', () => {
 });
 
 test('cleanStudyItem tolerates a missing explanation', () => {
-  const { explanation, ...rest } = goodItem;
+  const { explanation: _explanation, ...rest } = goodItem;
   assert.equal(study.cleanStudyItem(rest).explanation, '');
 });
 

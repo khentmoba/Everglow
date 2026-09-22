@@ -136,7 +136,10 @@ async function handleProxyAI(req, res) {
   // Per-minute brake: humans chat far slower than this; bots don't.
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
-  const { messages, context, systemPrompt: customSystemPrompt, memories, feature, caller: clientCaller, enableThinking, canvas } = req.body;
+  const {
+    messages, context, systemPrompt: customSystemPrompt, memories, feature,
+    caller: clientCaller, enableThinking, canvas,
+  } = req.body;
   // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
   // never makes artifacts proactively — but an explicit ask ("make chess",
   // "quiz us") always wins and still builds the artifact. Defaults ON so
@@ -325,7 +328,39 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
 - They play on a PHONE and TABLET (usually portrait) with fingers — never a keyboard. Every control is a big tappable button/area (48px+ targets, generous spacing). No keyboard-only input, no tiny text (14px+).
 - If the ask is vague ("build us a tiny game"), pick a proven tiny game yourself (memory match, snake with swipe + arrows, catch-the-falling-things, reaction tap, guess-the-number) and name it in your reply.
 - Start from this skeleton and extend it — keep its viewport, full-viewport layout, touch handling, and loop:
-  <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>GAME NAME</title><style>html,body{margin:0;height:100%;background:#14121f;color:#fff;font-family:system-ui,sans-serif}#app{height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}#hud{font-size:20px;font-weight:700}button{font-size:20px;padding:14px 30px;border:0;border-radius:16px;background:#e5486f;color:#fff}canvas{touch-action:none;border-radius:12px}</style></head><body><div id="app"><div id="hud">Score: 0</div><canvas id="c"></canvas><button id="restart">Restart</button></div><script>const c=document.getElementById('c'),g=c.getContext('2d');function fit(){c.width=Math.min(innerWidth-32,480);c.height=Math.min(innerHeight-230,480)}addEventListener('resize',fit);fit();let S=0;const H=document.getElementById('hud');c.addEventListener('pointerdown',e=>{const r=c.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;});document.getElementById('restart').onclick=()=>{S=0;H.textContent='Score: 0';};(function loop(){g.clearRect(0,0,c.width,c.height);requestAnimationFrame(loop)})();</script></body></html>
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>GAME NAME</title>
+    <style>
+      html,body{margin:0;height:100%;background:#14121f;color:#fff;font-family:system-ui,sans-serif}
+      #app{height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+      #hud{font-size:20px;font-weight:700}
+      button{font-size:20px;padding:14px 30px;border:0;border-radius:16px;background:#e5486f;color:#fff}
+      canvas{touch-action:none;border-radius:12px}
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="hud">Score: 0</div>
+      <canvas id="c"></canvas>
+      <button id="restart">Restart</button>
+    </div>
+    <script>
+      const c=document.getElementById('c'),g=c.getContext('2d');
+      function fit(){c.width=Math.min(innerWidth-32,480);c.height=Math.min(innerHeight-230,480)}
+      addEventListener('resize',fit);
+      fit();
+      let S=0;
+      const H=document.getElementById('hud');
+      c.addEventListener('pointerdown',e=>{const r=c.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;});
+      document.getElementById('restart').onclick=()=>{S=0;H.textContent='Score: 0';};
+      (function loop(){g.clearRect(0,0,c.width,c.height);requestAnimationFrame(loop)})();
+    </script>
+  </body>
+  </html>
 - Every game needs a visible score/progress, a Restart button, and a clear end moment. No dead ends: every screen has a tappable way forward.
 - Keep it LEAN (under ~12KB — short CSS, compact JS, no verbose comments). A huge file gets cut off mid-stream and the Preview button never appears. If the dream is bigger than fits, build the fun CORE LOOP first (playable in 60 seconds), then offer to add more.
 - When they ask to CHANGE a game you already made, return the FULL updated HTML file in the block — never a patch or snippet.\n- They can KEEP a game with the Save button in the preview — saved games live in Motchi's Minis in the Play Zone. When they love one, say so.`;
@@ -453,7 +488,9 @@ ${HTML_GAME_GUIDE}
     const msgs = [...messages]; // mutable copy
     while (inputTokens > AGNES_INPUT_TOKEN_BUDGET && msgs.length > 2) {
       const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
-      inputTokens -= estimateTokens(getMessageText(removed[0]?.content)) + estimateTokens(getMessageText(removed[1]?.content));
+      inputTokens -= removed
+        .map((m) => estimateTokens(getMessageText(m?.content)))
+        .reduce((a, b) => a + b, 0);
     }
     if (msgs.length < messages.length) {
       console.log('[proxyAI] Dropped', messages.length - msgs.length, 'oldest messages to fit TPM budget. Remaining tokens:', inputTokens);
@@ -775,7 +812,11 @@ ${HTML_GAME_GUIDE}
         if (!streamResp || !streamResp.ok) {
           console.warn(`proxyAI Agnes fetch failed after retries: ${lastFetchError || streamResp?.status}`);
           try {
-            const fallback = composeTodayRecap({ dateLabel: phtDateString(), moods: [], activities: [], watchlist: [], starlight: [], memories: [], insights: [] });
+            const fallback = composeTodayRecap({
+              dateLabel: phtDateString(),
+              moods: [], activities: [], watchlist: [], starlight: [],
+              memories: [], insights: [],
+            });
             sendEvent({ content: fallback + " 🍡 Motchi is a little sleepy right now, but I'm still here. Try again in a moment?" });
             sendEvent({ tool_status: 'done' });
             sendEvent('[DONE]');
