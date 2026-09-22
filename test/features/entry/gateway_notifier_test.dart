@@ -1,8 +1,24 @@
 import 'package:everglow/features/entry/presentation/state/gateway_state.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('GatewayNotifier', () {
+  group('GatewayNotifier with configured passcodes', () {
+    setUp(() {
+      dotenv.loadFromString(
+        envString: '''
+OCTAGRAM_PASSCODE=8080
+BREYAN_PASSCODE=9132
+CLAIR_PASSCODE=0221
+KHENT_PASSCODE=0938
+''',
+      );
+    });
+
+    tearDown(() {
+      dotenv.clean();
+    });
+
     test('starts in awaitingInput', () {
       final notifier = GatewayNotifier();
       expect(notifier.currentState, GatewayState.awaitingInput);
@@ -136,6 +152,41 @@ void main() {
         }
         ..tryOfflineUnlock = (_) => null;
       for (final d in ['0', '9', '3', '8']) {
+        notifier.appendDigit(d);
+      }
+      await tester.pump(const Duration(milliseconds: 1200));
+      expect(notifier.currentState, GatewayState.awaitingInput);
+      expect(notifier.lastFailureReason, GatewayFailureReason.connection);
+    });
+  });
+
+  group('GatewayNotifier without configured environment passcodes', () {
+    setUp(() {
+      dotenv.clean();
+    });
+
+    tearDown(() {
+      dotenv.clean();
+    });
+
+    testWidgets('unconfigured cinema code does not unlock locally', (tester) async {
+      final notifier = GatewayNotifier();
+      for (final d in ['8', '0', '8', '0']) {
+        notifier.appendDigit(d);
+      }
+      await tester.pump(const Duration(milliseconds: 1200));
+      expect(notifier.currentState, GatewayState.awaitingInput);
+    });
+
+    testWidgets('server unreachable reports connection error when codes unconfigured', (
+      tester,
+    ) async {
+      final notifier = GatewayNotifier()
+        ..verifyCouplePasscode = (_) async {
+          throw Exception('offline');
+        }
+        ..tryOfflineUnlock = (_) => null;
+      for (final d in ['9', '9', '9', '9']) {
         notifier.appendDigit(d);
       }
       await tester.pump(const Duration(milliseconds: 1200));

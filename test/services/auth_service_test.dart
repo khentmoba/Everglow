@@ -278,5 +278,17 @@ void main() {
         isFalse,
       );
     });
+
+    test('empty configured codes never match even with non-empty input', () {
+      expect(
+        AuthService.offlineCodeMatches(
+          rememberedUser: 'clairjassen',
+          passcode: '0221',
+          clairCode: '',
+          khentCode: '',
+        ),
+        isFalse,
+      );
+    });
   });
 }

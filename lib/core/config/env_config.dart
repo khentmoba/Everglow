@@ -3,10 +3,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// Runtime configuration for Everglow.
 ///
 /// Values are supplied at build time via --dart-define, or at run time via
-/// a locally provided .env file. The four gateway passcodes are documented
-/// in AGENTS.md, and Breyan/Octagram are intentionally public cinema-only
-/// profiles, so those values keep source-level fallbacks. Khent/Clair email
-/// and password credentials are never committed.
+/// a locally provided .env file. Passcodes and account credentials have no
+/// literal fallbacks in source code: builds must pass them via --dart-define
+/// or .env, or the field is empty and that profile cannot log in. Server
+/// stays the only source of truth for Khent/Clair. Breyan/Octagram cinema-only
+/// profiles stay client-verified.
 class EnvConfig {
   static const Map<String, String> _compileTimeEnv = {
     'BREYAN_EMAIL': String.fromEnvironment('BREYAN_EMAIL'),
@@ -36,24 +37,18 @@ class EnvConfig {
 
   static String get breyanEmail =>
       _from('BREYAN_EMAIL', fallback: 'breyan@scrapbook.local');
-  static String get breyanPassword =>
-      _from('BREYAN_PASSWORD', fallback: '91329132');
+  static String get breyanPassword => _from('BREYAN_PASSWORD');
   static String get octagramEmail =>
       _from('OCTAGRAM_EMAIL', fallback: 'octagram@scrapbook.local');
-  static String get octagramPassword =>
-      _from('OCTAGRAM_PASSWORD', fallback: '80808080');
+  static String get octagramPassword => _from('OCTAGRAM_PASSWORD');
 
-  // Gateway passcodes: server-verified in prod when possible, but keep
-  // client fallbacks so offline/debug and server-outage don't brick login.
-  // 0221/0938 are documented in AGENTS.md and not considered secrets.
-  static String get clairPasscode =>
-      _from('CLAIR_PASSCODE', fallback: '0221');
-  static String get khentPasscode =>
-      _from('KHENT_PASSCODE', fallback: '0938');
-  static String get breyanPasscode =>
-      _from('BREYAN_PASSCODE', fallback: '9132');
-  static String get octagramPasscode =>
-      _from('OCTAGRAM_PASSCODE', fallback: '8080');
+  // Gateway passcodes: server-verified for Khent/Clair; Breyan/Octagram are
+  // client-verified cinema-only profiles. Passcodes and passwords must be
+  // passed via --dart-define or .env; no hardcoded literal fallbacks in source.
+  static String get clairPasscode => _from('CLAIR_PASSCODE');
+  static String get khentPasscode => _from('KHENT_PASSCODE');
+  static String get breyanPasscode => _from('BREYAN_PASSCODE');
+  static String get octagramPasscode => _from('OCTAGRAM_PASSCODE');
 
   static String get lastfmUserKhent =>
       _from('LASTFM_USER_KHENT', fallback: 'khentsgdz');

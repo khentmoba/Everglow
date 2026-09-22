@@ -128,12 +128,20 @@ class GatewayNotifier extends ChangeNotifier {
           updateState(GatewayState.unlocking);
           return;
         }
-        // Offline but locally knowable: the code matches nobody's, so it
-        // is wrong regardless of the connection. Otherwise it might be
-        // right (or another user's) and only the network is at fault.
-        final matchesNobody = _currentInput != EnvConfig.clairPasscode &&
-            _currentInput != EnvConfig.khentPasscode &&
-            !clientPasscodes.contains(_currentInput);
+        // Offline but locally knowable: if the build configured couple codes,
+        // we can tell whether the code matches someone. If passcodes are not
+        // in this build, the server is the sole source of truth and any
+        // server failure is a connection issue.
+        final hasConfiguredCoupleCodes =
+            EnvConfig.clairPasscode.isNotEmpty ||
+            EnvConfig.khentPasscode.isNotEmpty;
+        final matchesKnownCoupleCode =
+            (EnvConfig.clairPasscode.isNotEmpty &&
+                _currentInput == EnvConfig.clairPasscode) ||
+            (EnvConfig.khentPasscode.isNotEmpty &&
+                _currentInput == EnvConfig.khentPasscode);
+        final matchesNobody =
+            hasConfiguredCoupleCodes && !matchesKnownCoupleCode;
         _lastFailureReason = matchesNobody
             ? GatewayFailureReason.invalidCode
             : GatewayFailureReason.connection;
