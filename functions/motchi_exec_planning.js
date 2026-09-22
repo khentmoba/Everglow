@@ -217,8 +217,8 @@ async function exec_log_habit(ctx, args) {
 async function exec_complete_habit(ctx, args) {
     const title = String(args.title||'').trim();
     const hid = String(args.habit_id||'').trim();
-    let docRef = null;
-    let docSnap = null;
+    let docRef;
+    let docSnap;
     if (hid) {
       docRef = ctx.db.collection('habits').doc(hid);
       docSnap = await docRef.get();
@@ -316,7 +316,7 @@ async function exec_get_weather(ctx, args) {
     return JSON.stringify({ location: args.location, weather: trimmed });
 }
 
-async function exec_list_reminders(ctx, args) {
+async function exec_list_reminders(ctx, _args) {
   // Equality-only query (no composite index); due-soonest sort in code.
   const snap = await ctx.db.collection('reminders').where('fired', '==', false).limit(20).get();
   const items = snap.docs.map((d) => {

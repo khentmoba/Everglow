@@ -216,11 +216,11 @@ async function initWasm() {
   // Polyfills needed by script.js (Node.js adaptation)
   const enosys = () => { const e = new Error('not implemented'); e.code = 'ENOSYS'; return e; };
   if (!globalThis.fs) {
-    let outputBuf = '';
+    let _outputBuf = '';
     globalThis.fs = {
       constants: { O_WRONLY: -1, O_RDWR: -1, O_CREAT: -1, O_TRUNC: -1, O_APPEND: -1, O_EXCL: -1 },
       writeSync(fd, buf) {
-        outputBuf += new TextDecoder('utf-8').decode(buf);
+        _outputBuf += new TextDecoder('utf-8').decode(buf);
         return buf.length;
       },
       write(fd, buf, offset, length, position, callback) {
@@ -378,7 +378,7 @@ async function initWasm() {
             const n = this.mem.getInt32(sp + 24, true);
             globalThis.fs.writeSync(fd, new Uint8Array(this._inst.exports.mem.buffer, p, n));
           },
-          'runtime.resetMemoryDataView': (sp) => { sp >>>= 0; this.mem = new DataView(this._inst.exports.mem.buffer); },
+          'runtime.resetMemoryDataView': (_sp) => { this.mem = new DataView(this._inst.exports.mem.buffer); },
           'runtime.nanotime1': (sp) => { sp >>>= 0; setInt64(sp + 8, (timeOrigin + performance.now()) * 1000000); },
           'runtime.walltime': (sp) => {
             sp >>>= 0;

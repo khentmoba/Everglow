@@ -256,7 +256,7 @@ async function exec_add_book_to_our_books(ctx, args) {
     }
     const docs = (searchData.docs || []).filter(d => d.title);
     if (docs.length === 0) return JSON.stringify({ error: `No book found for "${queryRaw}"` });
-    let book = null;
+    let book;
     if (providedKey) {
       const normKey = String(providedKey).trim();
       book = docs.find(d => d.key === normKey) || docs[0];

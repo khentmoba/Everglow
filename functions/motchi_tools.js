@@ -218,7 +218,7 @@ function selectToolNames(message, prevAssistantText = '') {
   }
   let matched = 0;
   for (const group of TOOL_GROUPS) {
-    let hit = false;
+    let hit;
     try {
       hit = group.match.test(text);
     } catch (_) {
@@ -529,7 +529,6 @@ function isReminderSchedulable(raw, nowMs = Date.now()) {
   const text = _text(raw);
   if (!text) return false;
   try {
-    // eslint-disable-next-line global-require
     const { parseReminderDate } = require('./motchi_core.js');
     return parseReminderDate(text, nowMs) !== null;
   } catch (_) {

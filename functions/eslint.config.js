@@ -53,4 +53,21 @@ module.exports = [
       }],
     },
   },
+  {
+    // Ratchet: modules that already pass max-len are pinned to 'error' so
+    // they cannot drift back. Burn the warning list down one module at a
+    // time and add each to `files` as it goes quiet. Cheapest next: pass
+    // `npm run lint` and take the module with the fewest findings.
+    files: ['motchi_chat.js'],
+    rules: {
+      'max-len': ['error', {
+        code: 120,
+        ignoreStrings: true,
+        ignoreTemplateLiterals: true,
+        ignoreRegExpLiterals: true,
+        ignoreUrls: true,
+        ignoreComments: true,
+      }],
+    },
+  },
 ];

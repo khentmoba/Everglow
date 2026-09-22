@@ -64,7 +64,7 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
   const code=String((req.body&&req.body.passcode)||'').trim();
   if(!code||!isValidPasscodeFormat(code)){res.status(400).json({error:'passcode required'});return;}
   const clair=(process.env.CLAIR_PASSCODE||'').trim();const khent=(process.env.KHENT_PASSCODE||'').trim();
-  let username=null;
+  let username;
   if(_passcodeMatches(code, clair))username='clairjassen';
   else if(_passcodeMatches(code, khent))username='khentsgdz';
   else{

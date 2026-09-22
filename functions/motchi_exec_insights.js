@@ -8,7 +8,7 @@
 
 const { computeInsights, generateTrivia, composeTodayRecap } = require('./motchi_core.js');
 
-async function exec_get_relationship_insights(ctx, args) {
+async function exec_get_relationship_insights(ctx, _args) {
     const [moodSnap, activitySnap] = await Promise.all([
       ctx.db.collection('moods').orderBy('timestamp', 'desc').limit(100).get(),
       ctx.db.collection('recent_activity').orderBy('timestamp', 'desc').limit(20).get(),
@@ -41,7 +41,7 @@ async function exec_get_memory_trivia(ctx, args) {
     return JSON.stringify({ questions });
 }
 
-async function exec_get_today_recap(ctx, args) {
+async function exec_get_today_recap(ctx, _args) {
     const today = ctx.phtDateString();
     const [moodSnap, activitySnap, watchSnap, starSnap, memorySnap] = await Promise.all([
       ctx.db.collection('moods').where('date', '==', today).get(),
@@ -257,7 +257,7 @@ async function exec_browse_web(ctx, args) {
     const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
     if (!apiKey) return JSON.stringify({ error: 'Web browsing is not configured on the server yet.' });
     const attempt = Math.max(1, Math.floor(Number(args.attempt) || 1));
-    const resumeHint = (runId) =>
+    const resumeHint = (_runId) =>
       `Still browsing — call browse_web again with the same url, goal, and run_id, and attempt ${attempt + 1} (up to 5 tries).`;
     let runId = String(args.run_id || '').trim();
     let url = String(args.url || '').trim();

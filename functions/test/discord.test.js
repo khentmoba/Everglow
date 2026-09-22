@@ -38,7 +38,7 @@ const { postToWebhook } = require('../discord');
 describe('postToWebhook', () => {
   it('appends wait=true and returns parsed id', async () => {
     const calls = [];
-    const fakeFetch = async (url, opts) => {
+    const fakeFetch = async (url, _opts) => {
       calls.push(url);
       return { ok: true, status: 200, json: async () => ({ id: 'msg1' }) };
     };
