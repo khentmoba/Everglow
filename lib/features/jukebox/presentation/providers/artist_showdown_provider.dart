@@ -38,7 +38,16 @@ class ShowdownTrack {
 /// table. Results are cached per artist for the session so switching back
 /// and forth never refetches.
 ///
-/// Built on `user.gettoptracks` (limit 1000) filtered locally by artist.
+/// Headline totals come from `artist.getInfo`'s per-user `userplaycount`
+/// (`fetchArtistPlayCount`) — the exact, whole-history number for that artist.
+/// They used to be summed from a single top-track page, which silently lost
+/// plays once a song fell below that page, so totals only ever shrank.
+///
+/// The song table is built from the paged all-time top-track charts, filtered
+/// locally by artist. Rows can never cover every track a person scrobbled, so
+/// [khentOtherPlays] / [clairOtherPlays] report the difference between the
+/// exact total and the rows shown.
+///
 /// The older `user.getartisttracks` endpoint is deprecated since 2019 and
 /// returns individual scrobbles without playcounts from a stale backend,
 /// so it always collapsed to "No plays yet" live.
@@ -54,10 +63,17 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
   static const String defaultArtist = 'Ethel Cain';
 
-  /// How many top tracks per user to pull for filtering. Last.fm caps
-  /// `user.gettoptracks` at 1000 per request, but 1000 frequently times
-  /// out with backend error 500 for active accounts. 200 is reliable.
-  static const int _topTracksLimit = 200;
+  /// Page size for `user.gettoptracks`. Last.fm caps a request at 1000 rows
+  /// but 500s (error 8) on that size for active accounts; 200 is reliable.
+  static const int _topTracksPageSize = 200;
+
+  /// How many 200-row pages to walk (up to 1000 rows per person). Deep enough
+  /// that an artist's songs stop falling off the chart, bounded so one
+  /// showdown never becomes an unbounded crawl.
+  static const int _topTracksMaxPages = 5;
+
+  /// Most songs of one artist to ask Last.fm about for the history timeline.
+  static const int _historyMaxTracks = 25;
 
   final MusicSyncService _sync;
   late final String _khentUser;
@@ -107,6 +123,23 @@ class ArtistShowdownProvider extends ChangeNotifier {
     if (_clairTotal > _khentTotal) return 'clair';
     return null;
   }
+
+  /// Plays of the current artist by Khent that are counted in the headline
+  /// total but have no row in the song table (songs outside the fetched top
+  /// tracks). Zero when the table already covers everything.
+  int get khentOtherPlays =>
+      (_khentTotal - _rowsPlays(khent: true)).clamp(0, _khentTotal);
+
+  /// Same as [khentOtherPlays] for Clair.
+  int get clairOtherPlays =>
+      (_clairTotal - _rowsPlays(khent: false)).clamp(0, _clairTotal);
+
+  /// True when either side has plays the song table cannot show, so the card
+  /// can render an "Other songs" row and keep the column adding up.
+  bool get hasOtherPlays => khentOtherPlays > 0 || clairOtherPlays > 0;
+
+  int _rowsPlays({required bool khent}) =>
+      _tracks.fold(0, (sum, t) => sum + (khent ? t.khentPlays : t.clairPlays));
 
   /// Khent's share of the combined total (0..1) for the versus bar.
   double get khentShare {
@@ -222,14 +255,20 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _artist = artist;
     _isLoading = true;
     _safeNotify();
-    final results = await Future.wait([
-      _tracksForArtist(_khentUser, artist),
-      _tracksForArtist(_clairUser, artist),
-    ]);
+    // Kick off all four reads together: rows for the table, exact counts for
+    // the headline numbers.
+    final khentRows = _tracksForArtist(_khentUser, artist);
+    final clairRows = _tracksForArtist(_clairUser, artist);
+    final khentExact = _sync.fetchArtistPlayCount(_khentUser, artist);
+    final clairExact = _sync.fetchArtistPlayCount(_clairUser, artist);
+
+    final merged = _merge(await khentRows, await clairRows);
+    final exactKhent = await khentExact;
+    final exactClair = await clairExact;
+    // A newer selectArtist won while these reads were in flight — drop them.
     if (_disposed || request != _requestId) return;
-    final merged = _merge(results[0], results[1]);
-    _khentTotal = merged.$1;
-    _clairTotal = merged.$2;
+    _khentTotal = _exactOrRows(merged.$1, exactKhent);
+    _clairTotal = _exactOrRows(merged.$2, exactClair);
     _tracks = merged.$3;
     _cache[key] = _CachedShowdown(
       khentTotal: _khentTotal,
@@ -285,19 +324,32 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
   }
 
-  /// Pulls each user's all-time top tracks once and keeps only rows for
-  /// [artist] (case-insensitive, trimmed). This replaces the deprecated
-  /// `user.getartisttracks` call, whose entries carry no `playcount` and
-  /// whose backend is stale — both collapsed live totals to zero.
+  /// Pulls each user's all-time top tracks, page by page, and keeps only rows
+  /// for [artist] (case-insensitive, trimmed). One page was never enough: an
+  /// artist's songs slide below the page size as more music is played, and
+  /// those plays then vanished from the showdown.
   Future<List<TopMusicTrack>> _tracksForArtist(
     String username,
     String artist,
   ) async {
     final wanted = artist.trim().toLowerCase();
-    final top = await _sync.fetchTopTracks(username, limit: _topTracksLimit);
+    final top = await _sync.fetchTopTracksPaged(
+      username,
+      pageSize: _topTracksPageSize,
+      maxPages: _topTracksMaxPages,
+    );
     return top
         .where((t) => t.artistName.trim().toLowerCase() == wanted)
         .toList();
+  }
+
+  /// Uses Last.fm's exact artist playcount when it answered, otherwise the
+  /// sum of the visible rows. Never reports less than the rows on screen, so
+  /// the song table can always add up to the headline and numbers never
+  /// regress just because a fetch half-failed.
+  static int _exactOrRows(int rowsPlays, int? exactPlays) {
+    if (exactPlays == null) return rowsPlays;
+    return exactPlays < rowsPlays ? rowsPlays : exactPlays;
   }
 
   /// Merges both users' track lists into one song-by-song table, sorted by
@@ -386,11 +438,13 @@ class ArtistShowdownProvider extends ChangeNotifier {
         _khentUser,
         artist: artist,
         knownTracks: khentTracks,
+        maxTracks: _historyMaxTracks,
       ),
       _sync.fetchArtistHistory(
         _clairUser,
         artist: artist,
         knownTracks: clairTracks,
+        maxTracks: _historyMaxTracks,
       ),
     ]);
 
