@@ -101,6 +101,9 @@ jobs:
       - name: Test functions
         working-directory: functions
         run: |
+          # Same lint gate as the PR quality job (budget = one-way ratchet,
+          # see functions/eslint.config.js); keeps main honest too.
+          npm run lint -- --max-warnings=25
           npm test
           node --check index.js
           node eval_gate.js
