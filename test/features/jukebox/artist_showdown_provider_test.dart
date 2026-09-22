@@ -23,6 +23,7 @@ class _FakeSync extends MusicSyncService {
     this.suggestions = const [],
     this.artistImages = const {},
     this.historyByUser = const {},
+    this.exactPlaysByUser = const {},
   });
 
   /// Last.fm username -> full all-time top tracks (provider filters by
@@ -32,20 +33,34 @@ class _FakeSync extends MusicSyncService {
   final List<ArtistSuggestion> suggestions;
   final Map<String, String?> artistImages;
   final Map<String, List<MusicStatus>> historyByUser;
+
+  /// Last.fm username -> exact all-time artist playcount, as the live
+  /// `artist.getInfo` call answers it. Absent means "Last.fm could not
+  /// answer", which must fall back to the row sum.
+  final Map<String, int> exactPlaysByUser;
   int calls = 0;
   int artworkCalls = 0;
   int suggestionCalls = 0;
   int artistImageCalls = 0;
   int historyCalls = 0;
+  int exactPlayCountCalls = 0;
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
+    int page = 1,
     String period = 'overall',
   }) async {
     calls++;
+    if (page > 1) return const [];
     return byUser[username] ?? const [];
+  }
+
+  @override
+  Future<int?> fetchArtistPlayCount(String username, String artist) async {
+    exactPlayCountCalls++;
+    return exactPlaysByUser[username];
   }
 
   @override
@@ -129,6 +144,75 @@ void main() {
       expect(provider.tracks.last.trackName, 'Strangers');
       expect(provider.tracks.last.khentPlays, 0);
       expect(provider.tracks.last.leader, 'clair');
+      provider.dispose();
+    });
+
+    // Regression: totals used to be summed from a single top-track page, so
+    // plays of songs below that page silently vanished and counts only shrank
+    // (Clair's Ethel Cain dropped to 103). The exact artist playcount from
+    // `artist.getInfo` must win, and the leftover must stay visible as
+    // "Other songs" instead of disappearing.
+    test('uses the exact artist playcount and reports other songs', () async {
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('American Teenager', 42)],
+          'clairjassen': [_track('American Teenager', 67)],
+        },
+        exactPlaysByUser: {'khentsgdz': 42, 'clairjassen': 118},
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      // Exact counts, not the row sums (67 is what the visible page held).
+      expect(provider.khentTotal, 42);
+      expect(provider.clairTotal, 118);
+      expect(provider.leader, 'clair');
+      expect(sync.exactPlayCountCalls, 2);
+
+      // 118 - 67 plays belong to songs below the fetched top tracks.
+      expect(provider.clairOtherPlays, 51);
+      expect(provider.khentOtherPlays, 0);
+      expect(provider.hasOtherPlays, isTrue);
+      provider.dispose();
+    });
+
+    test('falls back to row sums when Last.fm cannot answer', () async {
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('American Teenager', 42)],
+          'clairjassen': [
+            _track('American Teenager', 67),
+            _track('Strangers', 12),
+          ],
+        },
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      expect(provider.khentTotal, 42);
+      expect(provider.clairTotal, 79);
+      expect(provider.hasOtherPlays, isFalse);
+      provider.dispose();
+    });
+
+    test('never reports less than the rows it is showing', () async {
+      // A stale exact count (e.g. a rounded upstream value) must not make the
+      // headline disagree with the visible table downward.
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('American Teenager', 42)],
+          'clairjassen': [
+            _track('American Teenager', 67),
+            _track('Strangers', 12),
+          ],
+        },
+        exactPlaysByUser: {'khentsgdz': 42, 'clairjassen': 50},
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      expect(provider.clairTotal, 79);
+      expect(provider.hasOtherPlays, isFalse);
       provider.dispose();
     });
 

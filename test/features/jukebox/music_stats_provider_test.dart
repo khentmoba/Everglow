@@ -27,6 +27,7 @@ class _FlakyArtworkSync extends MusicSyncService {
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
+    int page = 1,
     String period = 'overall',
   }) async =>
       // Different tracks per user so neither lane can rescue the other
@@ -91,6 +92,7 @@ class _FakeSync extends MusicSyncService {
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
+    int page = 1,
     String period = 'overall',
   }) async => topTracks;
 

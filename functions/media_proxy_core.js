@@ -29,8 +29,12 @@ function buildTmdbUpstream(path, query = {}, apiKey = '') {
   return upstream;
 }
 
+// `artist.getinfo` carries the optional `username` context, which returns
+// that user's exact all-time playcount for the artist (stats.userplaycount).
+// That is the only reliable per-artist total: top-N charts silently drop
+// plays once a track falls below the page size.
 const LASTFM_METHOD_PATTERN =
-  /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|trackscrobbles|info)|track\.getinfo|artist\.search)$/i;
+  /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|trackscrobbles|info)|track\.getinfo|artist\.(?:search|getinfo))$/i;
 
 function isAllowedLastfmMethod(method) {
   return LASTFM_METHOD_PATTERN.test(String(method || ''));
