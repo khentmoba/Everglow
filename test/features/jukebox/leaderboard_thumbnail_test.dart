@@ -153,6 +153,7 @@ class _SectionFakeSync extends MusicSyncService {
   Future<List<TopMusicTrack>> fetchTopTracks(
     String username, {
     int limit = 10,
+    int page = 1,
     String period = 'overall',
   }) async => username == 'clairjassen' ? clairTracks : khentTracks;
 

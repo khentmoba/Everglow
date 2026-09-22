@@ -1104,6 +1104,193 @@ void main() {
       expect(await service.fetchTrackScrobbles('u', artist: 'A', track: 'T'), isEmpty);
     });
 
+    test('fetchArtistPlayCount reads stats.userplaycount exactly', () async {
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['method'], 'artist.getinfo');
+        expect(request.url.queryParameters['artist'], 'Ethel Cain');
+        expect(request.url.queryParameters['username'], 'clairjassen');
+        // Misspellings must still resolve to the right artist's count.
+        expect(request.url.queryParameters['autocorrect'], '1');
+        return _jsonResponse({
+          'artist': {
+            'name': 'Ethel Cain',
+            'stats': {'listeners': '900000', 'playcount': '40000000', 'userplaycount': '118'},
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      expect(await service.fetchArtistPlayCount('clairjassen', 'Ethel Cain'), 118);
+    });
+
+    test('fetchArtistPlayCount returns null when Last.fm cannot answer', () async {
+      // An HTTP-200 error payload (rate limit / backend failure) must be null
+      // so the caller falls back rather than showing a hard zero.
+      final erroring = MusicSyncService(
+        client: MockClient(
+          (_) async => _jsonResponse({'error': 29, 'message': 'slow down'}),
+        ),
+        signUrl: (url) async => url,
+      );
+      expect(await erroring.fetchArtistPlayCount('clairjassen', 'Ethel Cain'), isNull);
+
+      final missingStats = MusicSyncService(
+        client: MockClient((_) async => _jsonResponse({'artist': {'name': 'X'}})),
+        signUrl: (url) async => url,
+      );
+      expect(await missingStats.fetchArtistPlayCount('clairjassen', 'X'), isNull);
+
+      final offline = MusicSyncService(
+        client: MockClient((_) async => _jsonResponse({}, status: 502)),
+        signUrl: (url) async => url,
+      );
+      expect(await offline.fetchArtistPlayCount('clairjassen', 'X'), isNull);
+
+      final blank = MusicSyncService(client: MockClient((_) async => _jsonResponse({})), signUrl: (url) async => url);
+      expect(await blank.fetchArtistPlayCount('', 'X'), isNull);
+      expect(await blank.fetchArtistPlayCount('u', '  '), isNull);
+    });
+
+    test('fetchTopTracksPaged walks full pages and stops on a short one', () async {
+      final requestedPages = <String>[];
+      final client = MockClient((request) async {
+        final page = request.url.queryParameters['page'] ?? '1';
+        requestedPages.add(page);
+        // Page 1 is full (200 rows), page 2 is the tail (3 rows).
+        final count = page == '1' ? 200 : 3;
+        return _jsonResponse({
+          'toptracks': {
+            'track': List.generate(
+              count,
+              (i) => {
+                'name': 'Song $page-$i',
+                'playcount': '5',
+                'artist': {'name': 'Ethel Cain'},
+                'mbid': '',
+              },
+            ),
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      final tracks = await service.fetchTopTracksPaged('clairjassen');
+      expect(tracks, hasLength(203));
+      expect(requestedPages, ['1', '2']);
+    });
+
+    test('fetchTopTracksPaged stops at the page cap when pages stay full', () async {
+      final requestedPages = <String>[];
+      final client = MockClient((request) async {
+        requestedPages.add(request.url.queryParameters['page'] ?? '1');
+        return _jsonResponse({
+          'toptracks': {
+            'track': List.generate(
+              200,
+              (i) => {
+                'name': 'Song $i',
+                'playcount': '5',
+                'artist': {'name': 'Some Artist'},
+                'mbid': '',
+              },
+            ),
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      final tracks = await service.fetchTopTracksPaged(
+        'clairjassen',
+        pageSize: 200,
+        maxPages: 3,
+      );
+      expect(tracks, hasLength(600));
+      expect(requestedPages, ['1', '2', '3']);
+    });
+
+    test('fetchTrackScrobblesAll walks every page up to totalPages', () async {
+      final requestedPages = <String>[];
+      final client = MockClient((request) async {
+        final page = int.parse(request.url.queryParameters['page'] ?? '1');
+        requestedPages.add('$page');
+        // Three pages of 2 rows each, as Last.fm reports via @attr.
+        return _jsonResponse({
+          'trackscrobbles': {
+            '@attr': {'page': '$page', 'perPage': '2', 'totalPages': '3', 'total': '6'},
+            'track': List.generate(
+              2,
+              (i) => {
+                'name': 'Strangers',
+                'artist': {'#text': 'Ethel Cain'},
+                'date': {'uts': '${1690000000 + page * 10 + i}'},
+              },
+            ),
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      final scrobbles = await service.fetchTrackScrobblesAll(
+        'clairjassen',
+        artist: 'Ethel Cain',
+        track: 'Strangers',
+        pageSize: 2,
+      );
+      expect(scrobbles, hasLength(6));
+      expect(requestedPages, ['1', '2', '3']);
+    });
+
+    test('fetchTrackScrobblesAll keeps paging when rows drop but pages remain', () async {
+      // A page can parse to fewer rows than it holds (undated entries are
+      // dropped). That must not be mistaken for the end of the list, or long
+      // histories get truncated — the original bug.
+      final requestedPages = <String>[];
+      final client = MockClient((request) async {
+        final page = int.parse(request.url.queryParameters['page'] ?? '1');
+        requestedPages.add('$page');
+        return _jsonResponse({
+          'trackscrobbles': {
+            '@attr': {'page': '$page', 'perPage': '3', 'totalPages': '2', 'total': '6'},
+            'track': [
+              // Two undated rows (dropped) and one real scrobble per page.
+              {'name': 'Strangers', 'artist': {'#text': 'Ethel Cain'}},
+              {'name': 'Strangers', 'artist': {'#text': 'Ethel Cain'}},
+              {
+                'name': 'Strangers',
+                'artist': {'#text': 'Ethel Cain'},
+                'date': {'uts': '${1690000000 + page * 10}'},
+              },
+            ],
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+
+      final scrobbles = await service.fetchTrackScrobblesAll(
+        'clairjassen',
+        artist: 'Ethel Cain',
+        track: 'Strangers',
+        pageSize: 3,
+      );
+      expect(scrobbles, hasLength(2));
+      expect(requestedPages, ['1', '2']);
+    });
+
     test('fetchArtistHistory aggregates tracks + recent, deduplicates and sorts newest first', () async {
       final client = MockClient((request) async {
         final method = request.url.queryParameters['method'];
