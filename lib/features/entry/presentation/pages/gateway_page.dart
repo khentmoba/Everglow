@@ -83,6 +83,7 @@ class _GatewayPageState extends State<GatewayPage> {
   }
 
   void _quickLogin(String passcode) {
+    if (passcode.isEmpty) return;
     if (_notifier.currentState != GatewayState.awaitingInput &&
         _notifier.currentState != GatewayState.initialLoad &&
         _notifier.currentState != GatewayState.error) {
@@ -549,6 +550,16 @@ class _GatewayPageState extends State<GatewayPage> {
   }
 
   Widget _buildDevLoginBar() {
+    final chips = <Widget>[
+      if (EnvConfig.khentPasscode.isNotEmpty)
+        _devUserChip('Khent', () => _quickLogin(EnvConfig.khentPasscode)),
+      if (EnvConfig.clairPasscode.isNotEmpty)
+        _devUserChip('Clair', () => _quickLogin(EnvConfig.clairPasscode)),
+      if (EnvConfig.breyanPasscode.isNotEmpty)
+        _devUserChip('Cinema', () => _quickLogin(EnvConfig.breyanPasscode)),
+    ];
+    if (chips.isEmpty) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
@@ -579,12 +590,10 @@ class _GatewayPageState extends State<GatewayPage> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 8),
-          _devUserChip('Khent', () => _quickLogin(EnvConfig.khentPasscode)),
-          const SizedBox(width: 6),
-          _devUserChip('Clair', () => _quickLogin(EnvConfig.clairPasscode)),
-          const SizedBox(width: 6),
-          _devUserChip('Cinema', () => _quickLogin(EnvConfig.breyanPasscode)),
+          for (final chip in chips) ...[
+            const SizedBox(width: 6),
+            chip,
+          ],
         ],
       ),
     );

@@ -122,7 +122,7 @@ lib/
   main.dart                          # Entry point, Provider setup, NotificationService, PresenceService
   core/
     audio/                           # Sound effects (just_audio)
-    config/env_config.dart          # EnvConfig — dotenv / --dart-define, debug-only fallbacks
+    config/env_config.dart          # EnvConfig — dotenv / --dart-define, no source passcodes
     di/                              # Composition root (appProviders) + app shell (AppRoot)
     models/                          # Shared models (PresenceStatus)
     router/app_router.dart           # GoRouter composition root; feature routes under each feature

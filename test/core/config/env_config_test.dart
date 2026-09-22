@@ -1,34 +1,41 @@
 import 'package:everglow/core/config/env_config.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('EnvConfig', () {
-    test('debug builds keep the documented dev fallbacks', () {
-      expect(kDebugMode, isTrue);
-      expect(EnvConfig.clairPasscode, '0221');
-      expect(EnvConfig.khentPasscode, '0938');
-      expect(EnvConfig.breyanPasscode, '9132');
-      expect(EnvConfig.octagramPasscode, '8080');
-      expect(EnvConfig.breyanPassword, '91329132');
-      expect(EnvConfig.octagramPassword, '80808080');
+  group('EnvConfig unconfigured defaults', () {
+    setUp(() {
+      dotenv.clean();
     });
 
-    test('client build exposes no couple credentials', () {
-      // These getters were removed deliberately: production auth must use the
-      // server-verified passcode endpoint rather than browser-held secrets.
-      expect(EnvConfig.hasAnyPasscodes, isTrue);
+    tearDown(() {
+      dotenv.clean();
     });
 
-    test('has* flags reflect configured state', () {
-      expect(EnvConfig.hasBreyanCreds, isTrue);
-      expect(EnvConfig.hasOctagramCreds, isTrue);
-      expect(EnvConfig.hasAnyPasscodes, isTrue);
+    test('passcodes and cinema passwords have no literal source fallbacks', () {
+      expect(EnvConfig.clairPasscode, isEmpty);
+      expect(EnvConfig.khentPasscode, isEmpty);
+      expect(EnvConfig.breyanPasscode, isEmpty);
+      expect(EnvConfig.octagramPasscode, isEmpty);
+      expect(EnvConfig.breyanPassword, isEmpty);
+      expect(EnvConfig.octagramPassword, isEmpty);
     });
 
-    test('missingRequired lists only local cinema account setup', () {
+    test('has* flags reflect unconfigured state without env defines', () {
+      expect(EnvConfig.hasBreyanCreds, isFalse);
+      expect(EnvConfig.hasOctagramCreds, isFalse);
+      expect(EnvConfig.hasAnyPasscodes, isFalse);
+    });
+
+    test('missingRequired reports unconfigured cinema credentials', () {
       final missing = EnvConfig.missingRequired();
-      expect(missing, isEmpty);
+      expect(
+        missing,
+        containsAll([
+          'BREYAN_EMAIL / BREYAN_PASSWORD',
+          'OCTAGRAM_EMAIL / OCTAGRAM_PASSWORD',
+        ]),
+      );
     });
 
     test('public identifiers keep their defaults', () {
@@ -39,10 +46,44 @@ void main() {
       expect(EnvConfig.octagramEmail, 'octagram@scrapbook.local');
     });
 
-    test('server-only browser credentials are absent', () {
-      // Compile-time access would place these values in deployed JavaScript.
+    test('server-only credentials are never exposed in client config', () {
       expect(EnvConfig.missingRequired(), isNot(contains('TMDB_API_KEY')));
       expect(EnvConfig.missingRequired(), isNot(contains('LASTFM_API_KEY')));
+    });
+  });
+
+  group('EnvConfig with environment values provided', () {
+    setUp(() {
+      dotenv.loadFromString(
+        envString: '''
+CLAIR_PASSCODE=1111
+KHENT_PASSCODE=2222
+BREYAN_PASSCODE=3333
+OCTAGRAM_PASSCODE=4444
+BREYAN_PASSWORD=breyan_secret
+OCTAGRAM_PASSWORD=octagram_secret
+''',
+      );
+    });
+
+    tearDown(() {
+      dotenv.clean();
+    });
+
+    test('picks up configured passcodes and credentials', () {
+      expect(EnvConfig.clairPasscode, '1111');
+      expect(EnvConfig.khentPasscode, '2222');
+      expect(EnvConfig.breyanPasscode, '3333');
+      expect(EnvConfig.octagramPasscode, '4444');
+      expect(EnvConfig.breyanPassword, 'breyan_secret');
+      expect(EnvConfig.octagramPassword, 'octagram_secret');
+    });
+
+    test('has* flags and missingRequired reflect configured state', () {
+      expect(EnvConfig.hasBreyanCreds, isTrue);
+      expect(EnvConfig.hasOctagramCreds, isTrue);
+      expect(EnvConfig.hasAnyPasscodes, isTrue);
+      expect(EnvConfig.missingRequired(), isEmpty);
     });
   });
 }
