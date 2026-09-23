@@ -21,7 +21,6 @@ import '../../features/jukebox/presentation/routes/jukebox_routes.dart';
 import '../../features/journal/presentation/routes/journal_routes.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
-import 'temp_preview_routes.dart'; // TEMP-PREVIEW-ONLY: revert before PR
 import '../di/app_providers.dart' as di;
 
 /// App-wide router configuration.
@@ -38,11 +37,7 @@ GoRouter createAppRouter() {
     refreshListenable: di.authService,
     redirect: (context, state) {
       final loc = state.matchedLocation;
-      const publicPaths = {
-        '/',
-        '/temp-persist-a', // TEMP-PREVIEW-ONLY: revert before PR
-        '/temp-persist-b', // TEMP-PREVIEW-ONLY: revert before PR
-      };
+      const publicPaths = {'/'};
       final isPublic = publicPaths.contains(loc);
 
       // If the persisted session is still loading from disk, do NOT bounce
@@ -105,7 +100,6 @@ GoRouter createAppRouter() {
       ...watchPartyRoutes,
       ...jukeboxRoutes,
       ...journalRoutes,
-      ...tempPreviewRoutes, // TEMP-PREVIEW-ONLY: revert before PR
     ],
     errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
   );
