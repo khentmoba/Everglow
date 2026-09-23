@@ -47,7 +47,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.embed) _load();
   }
 
   @override

@@ -71,7 +71,9 @@ class _KatanaCurrentlyReadingScreenState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _subscribe());
+    if (widget.embed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _subscribe());
+    }
   }
 
   void _subscribe() {
