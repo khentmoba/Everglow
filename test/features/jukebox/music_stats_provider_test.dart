@@ -44,7 +44,7 @@ class _FlakyArtworkSync extends MusicSyncService {
   Future<int> fetchUserTotalPlays(String username) async => 100;
 
   @override
-  Future<String?> fetchTrackArtwork({
+  Future<TrackMetadata?> fetchTrackMetadata({
     required String artist,
     required String track,
     String? mbid,
@@ -53,7 +53,9 @@ class _FlakyArtworkSync extends MusicSyncService {
     final calls = (artworkCalls[key] ?? 0) + 1;
     artworkCalls[key] = calls;
     if (calls == 1) return null;
-    return 'https://img.example/${Uri.encodeComponent(track)}.png';
+    return TrackMetadata(
+      artworkUrl: 'https://img.example/${Uri.encodeComponent(track)}.png',
+    );
   }
 }
 

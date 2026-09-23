@@ -167,7 +167,7 @@ class _SectionFakeSync extends MusicSyncService {
   Future<int> fetchUserTotalPlays(String username) async => 0;
 
   @override
-  Future<String?> fetchTrackArtwork({
+  Future<TrackMetadata?> fetchTrackMetadata({
     required String artist,
     required String track,
     String? mbid,
