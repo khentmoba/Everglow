@@ -87,18 +87,13 @@ const TOOL_NAMES = [
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.
 
-// Always available: memory writes, mood, recap, web, XP, activity.
+// Always available: memory writes, mood, XP.
 const CORE_TOOLS = [
   'set_mood',
   'save_to_starlight_jar',
   'remember_fact',
   'read_memories',
-  'get_today_recap',
-  'web_search',
-  'read_web_page',
-  'browse_web',
   'add_xp',
-  'log_activity',
 ];
 
 // Read-only lookups, added only when no intent group matches, so plain
@@ -177,8 +172,16 @@ const TOOL_GROUPS = [
     tools: ['add_trip', 'add_trip_pin', 'get_trips', 'edit_trip'],
   },
   {
-    match: /habit|streak|workout|\bgym\b|routine/i,
-    tools: ['log_habit', 'complete_habit', 'edit_habit'],
+    match: /habit|streak|workout|\bgym\b|routine|\blog\b|activity|\bdid\b|exercis|dinner|lunch|breakfast/i,
+    tools: ['log_habit', 'complete_habit', 'edit_habit', 'log_activity'],
+  },
+  {
+    match: /recap|summary|digest|today|what happened/i,
+    tools: ['get_today_recap'],
+  },
+  {
+    match: /search|google|web|online|lookup|look up|news|weather|price|\burl\b|http|site|page|article|who is|what is the price|browse/i,
+    tools: ['web_search', 'read_web_page', 'browse_web'],
   },
   {
     match: /photos?|pictures?|gallery|selfie|\bimages?\b/i,

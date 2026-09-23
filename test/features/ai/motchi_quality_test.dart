@@ -33,6 +33,13 @@ void main() {
       expect(quality.shouldAutoThink('movie night with us'), isFalse);
     });
 
+    test('casual questions do not trigger deep thinking', () {
+      expect(quality.shouldAutoThink('how are you doing today?'), isFalse);
+      expect(quality.shouldAutoThink('what do you think of this?'), isFalse);
+      expect(quality.shouldAutoThink('why is the sky blue?'), isFalse);
+      expect(quality.shouldAutoThink('can you recommend a quick snack?'), isFalse);
+    });
+
     test('two questions trigger thinking even when short', () {
       expect(
         quality.shouldAutoThink('Are you okay? What did you eat today?'),

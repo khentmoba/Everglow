@@ -6,29 +6,26 @@
 class MotchiQuality {
   const MotchiQuality();
 
-  // Refined triggers: only high-signal reasoning words. Removed generic
-  // couple pronouns (us/we/both) that fired on 70% of messages.
+  // High-signal reasoning triggers only. Removed generic conversational
+  // words (why, how, think, suggest, recommend) that fired on everyday chat.
   static const Set<String> _thinkingTriggers = {
     'plan',
     'planning',
+    'itinerary',
     'decide',
     'decision',
+    'help me decide',
+    'help us decide',
     'compare',
     'comparison',
-    'why',
-    'how',
-    'explain',
+    'pros and cons',
+    'analyze',
     'analysis',
-    'think',
-    'reason',
-    'recommend',
-    'suggest',
-    'help me decide',
-    'should we',
-    'what should',
+    'deep dive',
     'anniversary',
     'surprise',
     'relationship',
+    'why are we',
   };
 
   /// A message gets deep thinking when it is genuinely complex: long,
@@ -36,11 +33,12 @@ class MotchiQuality {
   bool shouldAutoThink(String message) {
     final text = message.trim();
     if (text.length < 12) return false;
-    if (text.length >= 120) return true;
+    // Substantial paragraphs (40+ words) get reasoning headroom.
+    if (text.length >= 240) return true;
     final lower = text.toLowerCase();
     if ('?'.allMatches(lower).length >= 2) return true;
     final sentenceCount = '.!?'.allMatches(lower).length;
-    if (sentenceCount >= 2 && text.length >= 60) {
+    if (sentenceCount >= 2 && text.length >= 80) {
       final hasTrigger = _thinkingTriggers.any(
         (word) => lower.contains(word),
       );

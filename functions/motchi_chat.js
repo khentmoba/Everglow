@@ -176,6 +176,54 @@ async function handleProxyAI(req, res) {
     return;
   }
 
+  // ── Early streaming initialization: flush headers immediately so client connects in ~50ms ──
+  const isStreaming = req.body.stream === true;
+  let sendEvent = () => {};
+  let stopKeepalive = () => {};
+  let stopHeartbeat = () => {};
+
+  if (isStreaming) {
+    res.set('Content-Type', 'text/event-stream');
+    res.set('Cache-Control', 'no-cache');
+    res.set('Connection', 'keep-alive');
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Expose-Headers', '*');
+    res.set('X-Content-Type-Options', 'nosniff');
+    if (res.socket) res.socket.setNoDelay(true);
+    res.flushHeaders();
+
+    sendEvent = (data) => {
+      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
+    };
+
+    let keepaliveInterval = null;
+    const startKeepalive = () => {
+      if (keepaliveInterval) return;
+      keepaliveInterval = setInterval(() => {
+        try { res.write(': keepalive\n\n'); } catch (_) {}
+      }, 15000);
+    };
+    stopKeepalive = () => {
+      if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
+    };
+
+    let heartbeatInterval = null;
+    const startHeartbeat = () => {
+      if (heartbeatInterval) return;
+      heartbeatInterval = setInterval(() => {
+        try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
+      }, 3000);
+    };
+    stopHeartbeat = () => {
+      if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+    };
+
+    // Immediately inform client that streaming is live
+    sendEvent({ tool_status: 'generating' });
+    startKeepalive();
+    startHeartbeat();
+  }
+
   // Build context server-side if feature is provided (avoids browser->Firestore latency)
   const isKhent = caller === 'khentsgdz';
   const callerLabel = isKhent ? 'Dada' : 'Mama';
@@ -547,8 +595,14 @@ ${HTML_GAME_GUIDE}
   const apiKey = process.env.AGNES_API_KEY;
 
   if (!apiKey) {
-    // No LLM key configured: return the deterministic fallback instead of
-    // failing the request. Motchi stays usable for basic replies.
+    // No LLM key configured: return deterministic fallback.
+    if (isStreaming) {
+      sendEvent({ content: 'Motchi is resting right now - try again in a bit!' });
+      sendEvent({ tool_status: 'done' });
+      sendEvent('[DONE]');
+      stopKeepalive(); stopHeartbeat();
+      return;
+    }
     res.json({ reply: 'Motchi is resting right now - try again in a bit!' });
     return;
   }
@@ -700,50 +754,9 @@ ${HTML_GAME_GUIDE}
 
 
   // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
-  if (req.body.stream === true) {
-    // Set up SSE connection
-    res.set('Content-Type', 'text/event-stream');
-    res.set('Cache-Control', 'no-cache');
-    res.set('Connection', 'keep-alive');
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Expose-Headers', '*');
-    res.set('X-Content-Type-Options', 'nosniff');
-    if (res.socket) res.socket.setNoDelay(true);
-    res.flushHeaders();
-
-    const sendEvent = (data) => {
-      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
-    };
-
-    // Keepalive ping every 15s during tool execution
-    let keepaliveInterval = null;
-    const startKeepalive = () => {
-      keepaliveInterval = setInterval(() => {
-        try { res.write(': keepalive\n\n'); } catch (_) {}
-      }, 15000);
-    };
-    const stopKeepalive = () => {
-      if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
-    };
-
-    // Thinking heartbeat: while the model is still silently reasoning, send
-    // a tick every 3s so the client can keep its "thinking" state alive.
-    let heartbeatInterval = null;
-    const startHeartbeat = () => {
-      heartbeatInterval = setInterval(() => {
-        try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
-      }, 3000);
-    };
-    const stopHeartbeat = () => {
-      if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
-    };
-
+  if (isStreaming) {
+    let _streamedFinalReply = '';
     try {
-      // ── Stream directly — no blocking tool-detection round ──
-      sendEvent({ tool_status: 'generating' });
-      startKeepalive();
-      startHeartbeat();
-
       let currentMessages = [...nimMessages];
       let toolRound = 0;
       // Global spend brake: 8 rounds are normal, retries are not.
@@ -751,7 +764,6 @@ ${HTML_GAME_GUIDE}
       // (was: 8 rounds x 3 attempts = 24 paid calls).
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
-      let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
@@ -1084,16 +1096,22 @@ ${HTML_GAME_GUIDE}
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
       // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
-      if (_streamedFinalReply.trim()) {
-        const checkText = stripArtifactsForChecks(_streamedFinalReply);
-        if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
-          serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
+      try {
+        if (_streamedFinalReply.trim()) {
+          const checkText = stripArtifactsForChecks(_streamedFinalReply);
+          if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
+            serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
+          }
+          if (checkText) checkHallucinations(checkText).catch(() => {});
         }
-        if (checkText) checkHallucinations(checkText).catch(() => {});
+      } catch (postErr) {
+        console.warn('proxyAI post-reply tasks error:', postErr.message);
       }
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
-      sendEvent({ error: 'Motchi got distracted and lost her train of thought. Try asking again?' });
+      if (!_streamedFinalReply.trim()) {
+        sendEvent({ error: 'Motchi got distracted and lost her train of thought. Try asking again?' });
+      }
       sendEvent('[DONE]');
     } finally {
       stopKeepalive();

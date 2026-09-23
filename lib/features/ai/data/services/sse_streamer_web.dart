@@ -40,9 +40,26 @@ Future<String> streamSseResponse({
   var drainScheduled = false;
   var streamDone = false;
 
+  StreamSubscription? visSub;
   void completeRequest() {
+    visSub?.cancel();
     if (!completer.isCompleted) {
       completer.complete(fullResponse.toString());
+    }
+  }
+
+  void drainAll() {
+    while (pending.isNotEmpty) {
+      final data = pending.removeAt(0);
+      _processSseData(
+        data,
+        fullResponse,
+        onChunk,
+        onReasoning: onReasoning,
+        onToolStatus: onToolStatus,
+        onToolResult: onToolResult,
+        onError: onError,
+      );
     }
   }
 
@@ -68,6 +85,14 @@ Future<String> streamSseResponse({
   }
 
   void startDrain() {
+    // In background tabs, browsers pause requestAnimationFrame. Drain immediately
+    // so incoming chunks don't pile up or hang until the user refocuses the tab.
+    if (html.window.document.hidden == true) {
+      drainScheduled = false;
+      drainAll();
+      if (streamDone) completeRequest();
+      return;
+    }
     if (drainScheduled) return;
     drainScheduled = true;
     // Drive pacing with requestAnimationFrame: browser timers get throttled
@@ -102,7 +127,8 @@ Future<String> streamSseResponse({
       }
     }
     lineBuffer = '';
-    if (pending.isEmpty) {
+    if (pending.isEmpty || html.window.document.hidden == true) {
+      drainAll();
       completeRequest();
     } else {
       startDrain();
@@ -123,6 +149,11 @@ Future<String> streamSseResponse({
   }
 
   Future<String> responseFuture = completer.future;
+  visSub = html.document.on['visibilitychange'].listen((_) {
+    if (html.document.hidden != true && pending.isNotEmpty) {
+      startDrain();
+    }
+  });
   try {
     final ac = web.AbortController();
     final requestHeaders = web.Headers();
@@ -200,6 +231,7 @@ Future<String> streamSseResponse({
       responseFuture = completer.future;
     }
   } catch (e) {
+    visSub.cancel();
     timeoutTimer?.cancel();
     if (!completer.isCompleted) {
       completer.completeError(e);

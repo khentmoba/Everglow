@@ -83,8 +83,9 @@ const { handleProxyAI } = require('./motchi_chat.js');
 // before any content streams means no reply at all. 300s covers slow
 // generations; artifact builds get 280s end-to-end (120s for chat).
 exports.proxyAI = cappedHttps(10, handleProxyAI, { timeoutSeconds: 300, memory: '512MB' });
-// V2 function on Cloud Run — natively supports SSE streaming.
-exports.proxyAIv2 = onRequest({ invoker: 'public', maxInstances: 10, timeoutSeconds: 300, memory: '512MiB' }, handleProxyAI);
+// V2 function on Cloud Run — natively supports SSE streaming. Keeps 1 warm
+// instance so Motchi replies start immediately without a 3-8s cold start.
+exports.proxyAIv2 = onRequest({ invoker: 'public', minInstances: 1, maxInstances: 10, timeoutSeconds: 300, memory: '512MiB' }, handleProxyAI);
 
 // Motchi study-set generator for Academy Solo + 1v1. Plain JSON (no
 // streaming): one call per set, well inside a 90s budget.
