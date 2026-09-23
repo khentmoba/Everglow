@@ -9,7 +9,7 @@
 // Run from repo root: `dart tool/motchi_prompt_eval.dart`
 // Advisory only (always exits 0) — the hard CI check is `node eval_gate.js`.
 // Upgrade path: swap [_route] for a live `proxyAIv2` call (needs
-// TOKENHARBOR_API_KEY) and score tool-choice + groundedness with an LLM judge.
+// AGNES_API_KEY) and score tool-choice + groundedness with an LLM judge.
 import 'dart:convert';
 import 'dart:io';
 

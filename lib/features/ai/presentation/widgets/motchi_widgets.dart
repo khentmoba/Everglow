@@ -21,7 +21,9 @@ class _MotchiHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showNav = isDesktop || MediaQuery.sizeOf(context).width >= 520;
+    final width = MediaQuery.sizeOf(context).width;
+    final showNav = isDesktop || width >= 520;
+    final compact = width < 600;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: isDesktop ? 20 : 10,
@@ -107,52 +109,63 @@ class _MotchiHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Motchi',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.titleLarge().copyWith(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
+                        ),
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: AppColors.blushGold.withValues(alpha: 0.14),
+                          borderRadius: AppRadius.radiusFull,
+                        ),
+                        child: Text(
+                          '🐾 CAT',
+                          style: AppTypography.labelSmall().copyWith(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: AppColors.blushGold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (!compact) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    'Motchi',
-                    style: AppTypography.titleLarge().copyWith(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                    'Your cat who knows everything about you two',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodySmall().copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
                       height: 1.1,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                    decoration: BoxDecoration(
-                      color: AppColors.blushGold.withValues(alpha: 0.14),
-                      borderRadius: AppRadius.radiusFull,
-                    ),
-                    child: Text(
-                      '🐾 CAT',
-                      style: AppTypography.labelSmall().copyWith(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                        color: AppColors.blushGold,
-                      ),
-                    ),
-                  ),
                 ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Your cat who knows everything about you two',
-                style: AppTypography.bodySmall().copyWith(
-                  color: AppColors.textMuted,
-                  fontSize: 11,
-                  height: 1.1,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Spacer(),
           if (showNav) ...[
             _HeaderActionButton(
               tooltip: 'Memory Book',

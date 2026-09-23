@@ -240,6 +240,7 @@ class _QuickReplyChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!enabled) return const SizedBox.shrink();
     final chips = _getContextualChips();
     final inner = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -360,28 +361,11 @@ class _WebSourcesCard extends StatelessWidget {
     const accent = AppColors.auroraTeal;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(11, 10, 11, 5),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 7),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.inkDeep.withValues(alpha: 0.90),
-            AppColors.velvet.withValues(alpha: 0.72),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.28),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: AppColors.inkDeep.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.18), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,12 +376,12 @@ class _WebSourcesCard extends StatelessWidget {
               const Icon(Icons.public_rounded, size: 14, color: accent),
               const SizedBox(width: 6),
               Text(
-                'Sources',
+                'SOURCES · ${sources.length}',
                 style: AppTypography.bodySmall().copyWith(
                   fontSize: 10.5,
                   color: accent,
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.4,
+                  letterSpacing: 0.7,
                 ),
               ),
             ],
@@ -441,7 +425,7 @@ class _WebSourceRow extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
           child: Row(
             children: [
               Container(
@@ -469,7 +453,7 @@ class _WebSourceRow extends StatelessWidget {
                     Text(
                       label,
                       style: AppTypography.bodySmall().copyWith(
-                        fontSize: 12.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: AppColors.petalWhite,
                       ),
@@ -480,7 +464,7 @@ class _WebSourceRow extends StatelessWidget {
                       Text(
                         sub,
                         style: AppTypography.bodySmall().copyWith(
-                          fontSize: 10.5,
+                          fontSize: 11.5,
                           color: AppColors.textMuted,
                         ),
                         maxLines: 1,

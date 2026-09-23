@@ -108,7 +108,7 @@ tag — if a release is wrong, cut a new patch version instead.
 
 ## Watch-outs (learned from live breaks)
 
-- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / TokenHarbor / Agnes keys server-side.
+- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / Agnes keys server-side.
 - **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
 - **History should stay readable:** tiny scoped commits (`fix(dashboard): ...`). One fix per commit so a bad deploy is easy to undo. No "fix live by redeploying to see" — look locally first.

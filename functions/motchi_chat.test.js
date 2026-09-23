@@ -130,13 +130,21 @@ test('streaming error catch preserves streamed content and isolates background t
   assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
 });
 
-test('retries use the fast 1s step (TokenHarbor has no RPM window)', () => {
+test('429 retries wait for an Agnes free-tier slot', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // TokenHarbor is pay-as-you-go — the Sep 2026 Agnes 5/min RPM window
-  // (12s 429 backoff) is gone. Every retry keeps the fast 1s step.
-  assert.doesNotMatch(src, /lastWas429/);
-  assert.doesNotMatch(src, /12000 \* \(attempt \+ 1\)/);
-  assert.match(src, /const waitMs = 1000 \* \(attempt \+ 1\)/);
+  // Agnes allows five requests per minute. Retrying a 429 after 1s just
+  // burns another call; wait one 12s slot while 502/503 stay fast.
+  assert.match(src, /lastWas429/);
+  assert.match(src, /12000 \* \(attempt \+ 1\)/);
+  assert.match(src, /1000 \* \(attempt \+ 1\)/);
+});
+
+test('chat uses the fast Agnes provider', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  assert.match(src, /process\.env\.AGNES_API_KEY/);
+  assert.match(src, /const model = 'agnes-3\.0-flash'/);
+  assert.match(src, /apihub\.agnes-ai\.com\/v1\/chat\/completions/);
+  assert.doesNotMatch(src, /tokenharbor\.ai|qwen3\.8-flash|TOKENHARBOR_API_KEY/);
 });
 
 test('game guide only rides artifact asks (prompt diet)', () => {

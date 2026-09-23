@@ -60,7 +60,7 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
       assistantReply: 'You have a dinner planned at 7 PM!',
       tools: [{ name: 'get_calendar', args: {}, resultSummary: 'Dinner at 7 PM', elapsedMs: 120 }],
       reasoning: 'Checking calendar for events',
-      model: 'qwen3.8-flash',
+      model: 'agnes-3.0-flash',
       durationMs: 1500,
     });
 
@@ -78,7 +78,7 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
     assert.equal(docData.turns[0].tools.length, 1);
     assert.equal(docData.turns[0].tools[0].name, 'get_calendar');
     assert.equal(docData.turns[0].reasoning, 'Checking calendar for events');
-    assert.equal(docData.turns[0].model, 'qwen3.8-flash');
+    assert.equal(docData.turns[0].model, 'agnes-3.0-flash');
     assert.equal(docData.turns[0].durationMs, 1500);
   } finally {
     common.getDb = originalGetDb;
@@ -95,7 +95,7 @@ test('recordMotchiTurn updates existing session on subsequent turns', async () =
     assistantReply: 'Hey Khent!',
     tools: [],
     reasoning: '',
-    model: 'qwen3.8-flash',
+    model: 'agnes-3.0-flash',
     durationMs: 800,
     error: null,
     imageCount: 0,
