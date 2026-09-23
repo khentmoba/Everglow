@@ -531,9 +531,9 @@ function shouldExtractMemory(userMessage, motchiReply) {
   return user.length >= 120;
 }
 
-// Agnes 3.0 Flash: 512K context window, generous token budget.
-// Use ~25% of context for input safety; reserve rest for output + tool loops.
-const AGNES_INPUT_TOKEN_BUDGET = 120000;
+// Qwen 3.8 Flash via TokenHarbor: 1M context window. Keep the proven 120K
+// input budget as a cost guard; the extra headroom is reserve, not license.
+const LLM_INPUT_TOKEN_BUDGET = 120000;
 
 /**
  * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
@@ -760,5 +760,5 @@ module.exports = {
   phtDayBounds,
   PHT_OFFSET_MS,
   parseReminderDate,
-  AGNES_INPUT_TOKEN_BUDGET,
+  LLM_INPUT_TOKEN_BUDGET,
 };

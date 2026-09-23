@@ -6,7 +6,7 @@ const test = require('node:test');
 const {
   getMessageText,
   estimateTokens,
-  AGNES_INPUT_TOKEN_BUDGET,
+  LLM_INPUT_TOKEN_BUDGET,
 } = require('./motchi_core');
 
 test('getMessageText passes strings through', () => {
@@ -42,5 +42,5 @@ test('estimateTokens weights CJK higher', () => {
 });
 
 test('LLM input budget stays at 120k', () => {
-  assert.equal(AGNES_INPUT_TOKEN_BUDGET, 120000);
+  assert.equal(LLM_INPUT_TOKEN_BUDGET, 120000);
 });
