@@ -33,15 +33,11 @@ void main() {
   }
 
   Finder edgeFadeOverlay() => find.byWidgetPredicate(
-    (w) =>
-        w is Container &&
-        w.foregroundDecoration is BoxDecoration &&
-        (w.foregroundDecoration as BoxDecoration).gradient is LinearGradient,
+    (w) => w is ShaderMask && w.blendMode == BlendMode.dstIn,
   );
 
   List<Widget> cards(List<String> titles) => [
-    for (final t in titles)
-      SizedBox(width: 128, height: 186, child: Text(t)),
+    for (final t in titles) SizedBox(width: 128, height: 186, child: Text(t)),
   ];
 
   testWidgets('short row renders each child exactly once (no tiling)', (

@@ -35,6 +35,7 @@ class EverglowMarquee extends StatefulWidget {
   final double pixelsPerSecond;
   final bool shimmer;
   final double height;
+
   /// Soften the left/right clip bounds on overflowing (scrolling) rows.
   /// Static rows render no fade. Disable for light backgrounds where a
   /// fade-to-black would read as a smudge.
@@ -184,8 +185,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
 
     // Short rows fit entirely on screen: show each child exactly once
     // with no auto-scroll. (An unbounded viewport trivially fits.)
-    final overflows =
-        viewportWidth.isFinite && singleSetWidth > viewportWidth;
+    final overflows = viewportWidth.isFinite && singleSetWidth > viewportWidth;
     // Plain field write — no setState — consumed by the ticker only.
     _canScroll = overflows;
     // ...and the ticker only runs when there is somewhere to scroll to.
@@ -222,24 +222,29 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
       ),
     );
     // Dissolve drifting cards at the clip bounds instead of slicing them
-    // mid-glyph. Foreground decoration paints over the row with no extra
-    // saveLayer and no layout change, so the scroll-jank work is unaffected.
+    // mid-glyph. A ShaderMask with dstIn fades the cards' own alpha to
+    // transparent at the edges, so the dissolve matches ANY background
+    // (the old foreground gradient painted pure black, which read as a
+    // dark bar on the dashboard's purple glow). The mask itself is static
+    // — only the Transform underneath moves — and the RepaintBoundary
+    // above keeps the saveLayer cost inside this row.
     // Static rows fit, never clip, and render no fade.
     if (widget.edgeFade) {
-      row = Container(
-        foregroundDecoration: const BoxDecoration(
-          gradient: LinearGradient(
+      row = ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Color(0xFF000000),
               Colors.transparent,
+              Colors.black,
+              Colors.black,
               Colors.transparent,
-              Color(0xFF000000),
             ],
             stops: [0.0, 0.035, 0.965, 1.0],
-          ),
-        ),
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
         child: row,
       );
     }
