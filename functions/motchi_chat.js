@@ -755,6 +755,8 @@ ${HTML_GAME_GUIDE}
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
+      let forceTextNextRound = false; // repair rounds carry no tools: the nudge demands text only
+      let fullContent = ''; // this round's streamed text (loop scope so post-loop repair can keep it)
       let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
@@ -763,6 +765,10 @@ ${HTML_GAME_GUIDE}
 
       while (toolRound < MAX_TOOL_ROUNDS) {
         toolRound++;
+        // A repair nudge demands visible text only — tools stay
+        // attached otherwise so the model can keep working.
+        const noToolsThisRound = forceTextNextRound;
+        forceTextNextRound = false;
 
         // Retry transient Agnes API errors (429, 502, 503) up to 2 times
         let streamResp = null;
@@ -785,7 +791,9 @@ ${HTML_GAME_GUIDE}
                 messages: currentMessages,
                 // Greetings carry no tools at all (cheapest path); the
                 // key must be omitted, not emptied, with tool_choice.
-                ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
+                // Repair rounds also drop tools so the model must answer
+                // in text instead of calling again.
+                ...(tools.length && !noToolsThisRound ? { tools, tool_choice: 'auto' } : {}),
                 max_tokens: maxTokens,
                 temperature: 0.6,
                 top_p: 0.95,
@@ -829,7 +837,7 @@ ${HTML_GAME_GUIDE}
         }
 
         // Collect the full response while streaming to client
-        let fullContent = '';
+        fullContent = '';
         let collectedToolCalls = [];
 
         const reader = streamResp.body.getReader();
@@ -899,6 +907,7 @@ ${HTML_GAME_GUIDE}
             currentMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
             sendEvent({ tool_status: 'repairing' });
             fullContent = '';
+            forceTextNextRound = true;
             continue;
           }
           // Dangling-list repair: a preamble ending with ":" and no
@@ -911,6 +920,7 @@ ${HTML_GAME_GUIDE}
             currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
             sendEvent({ tool_status: 'repairing' });
             fullContent = '';
+            forceTextNextRound = true;
             continue;
           }
           break;
@@ -1021,6 +1031,51 @@ ${HTML_GAME_GUIDE}
         fullContent = '';
       }
 
+      // Post-loop repair: the repeat-guard break and the 8-round cap
+      // above both exit with no in-loop nudge, so a preamble like
+      // "Let me save the standouts:" can reach Clair with no list.
+      // Mirror the non-streaming path: one final text-only call whose
+      // content streams after the preamble as one finished reply.
+      const needsPostLoopRepair = !didDanglingRepair &&
+        endsWithDanglingColon(_streamedFinalReply) &&
+        agnesCalls < MAX_AGNES_CALLS_PER_MESSAGE;
+      if (needsPostLoopRepair) {
+        didDanglingRepair = true;
+        agnesCalls++;
+        if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
+        currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
+        sendEvent({ tool_status: 'repairing' });
+        try {
+          const repairResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              model,
+              messages: currentMessages,
+              // No tools: the nudge demands the promised list in text.
+              max_tokens: maxTokens,
+              temperature: 0.6,
+              top_p: 0.95,
+              stream: false,
+            }),
+            signal: AbortSignal.timeout(60000),
+          });
+          if (repairResp && repairResp.ok) {
+            const repairData = await repairResp.json();
+            const repairText = repairData.choices?.[0]?.message?.content || '';
+            if (repairText) {
+              _streamedFinalReply += repairText;
+              sendEvent({ content: repairText });
+            }
+          }
+        } catch (e) {
+          console.warn('proxyAI post-loop dangling repair failed:', e.message);
+        }
+      }
+
       stopKeepalive();
       stopHeartbeat();
       if (_hitLengthLimit) {
@@ -1048,7 +1103,7 @@ ${HTML_GAME_GUIDE}
     return;
   }
 
-  async function callAgnesOnce(msgs) {
+  async function callAgnesOnce(msgs, withoutTools = false) {
     const resp = await fetch(
       'https://apihub.agnes-ai.com/v1/chat/completions',
       {
@@ -1060,7 +1115,7 @@ ${HTML_GAME_GUIDE}
         body: JSON.stringify({
           model: model,
           messages: msgs,
-          ...(tools.length ? { tools, tool_choice: 'auto' } : {}),
+          ...(tools.length && !withoutTools ? { tools, tool_choice: 'auto' } : {}),
           max_tokens: maxTokens,
           temperature: 0.6,
           top_p: 0.95,
@@ -1176,7 +1231,7 @@ ${HTML_GAME_GUIDE}
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
     nsMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
     try {
-      const repairResp = await callAgnesOnce(nsMessages);
+      const repairResp = await callAgnesOnce(nsMessages, true);
       if (repairResp && repairResp.ok) {
         const repairData = await repairResp.json();
         const repairMsg = repairData.choices?.[0]?.message || {};
@@ -1191,7 +1246,7 @@ ${HTML_GAME_GUIDE}
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
     nsMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
     try {
-      const danglingResp = await callAgnesOnce(nsMessages);
+      const danglingResp = await callAgnesOnce(nsMessages, true);
       if (danglingResp && danglingResp.ok) {
         const danglingData = await danglingResp.json();
         const danglingMsg = danglingData.choices?.[0]?.message || {};
