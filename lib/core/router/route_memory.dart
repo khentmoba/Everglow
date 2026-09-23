@@ -7,11 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// How it fits together:
 /// - `main.dart` awaits [load] before `runApp`, so the remembered page is
 ///   ready when the router is created.
-/// - The router's `redirect` asks [bootRestoreTarget] once at boot: a bare
-///   gateway (`/` with no query) sends her back to the remembered page —
-///   directly when logged in, or via the login's `?from=` return hop when
-///   logged out. Real links always win: any path, or any query (`?from=`,
-///   `?dev=`, previews), skips the restore untouched.
+/// - The router uses [bootLocation] as its `initialLocation`. go_router
+///   only honors that when the browser URL is exactly `/`, so real links
+///   always win: any path or query (`?from=`, `?dev=`, previews, deep
+///   links) skips the restore untouched. Logged-out boots land on the
+///   remembered page and bounce through the usual `?from=` login hop.
 /// - Every navigation is recorded via [remember] (wired to the router
 ///   delegate listener), so the saved page is always the latest one.
 ///
@@ -43,10 +43,6 @@ class RouteMemory {
   /// The remembered page to boot into, loaded by [load] before `runApp`.
   static String? bootLocation;
 
-  /// The restore runs once per boot: after the first redirect decision,
-  /// later visits to the gateway stay on the gateway.
-  static bool _consumed = false;
-
   /// Reads the saved page from the device. Never throws — a failure just
   /// means a normal boot into the gateway.
   static Future<void> load() async {
@@ -71,43 +67,6 @@ class RouteMemory {
     }
   }
 
-  /// Resets the one-shot guard. Tests only — production consumes once.
-  @visibleForTesting
-  static void debugResetConsume() {
-    _consumed = false;
-  }
-
-  /// Takes the remembered page for the boot-time redirect decision.
-  /// First call returns [bootLocation]; every later call returns null,
-  /// so only the boot navigation restores — never later ones.
-  static String? consumeBootLocation() {
-    if (_consumed) return null;
-    _consumed = true;
-    return bootLocation;
-  }
-
-  /// Where the boot redirect should send a bare gateway (`/` with no
-  /// query): the remembered page when logged in, the login's `?from=`
-  /// return hop when logged out. Returns null when there is nothing to
-  /// restore or the URL already carries intent (any path or any query).
-  /// Cinema-only users never restore outside `/cinema`.
-  static String? bootRestoreTarget({
-    required bool authed,
-    required bool cinemaOnly,
-    required Uri uri,
-    required String? remembered,
-  }) {
-    if (remembered == null) return null;
-    if (uri.path != '/' || uri.queryParameters.isNotEmpty) return null;
-    final safe = restorableOrNull(remembered);
-    if (safe == null) return null;
-    if (!authed) {
-      return Uri(path: '/', queryParameters: {'from': safe}).toString();
-    }
-    if (cinemaOnly && !safe.startsWith('/cinema')) return '/cinema';
-    return safe;
-  }
-
   /// Returns [location] when it is safe to reopen after a restart
   /// (internal path, not the gateway, no `extra` needed), else null.
   /// The full string (including query) is kept so parameterized pages
@@ -130,7 +89,6 @@ class RouteMemory {
   /// Clears the remembered page (logout). Best-effort, never throws.
   static Future<void> clear() async {
     bootLocation = null;
-    _consumed = true; // this boot already decided; stay decided.
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(storageKey);

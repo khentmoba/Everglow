@@ -6,7 +6,6 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     RouteMemory.bootLocation = null;
-    RouteMemory.debugResetConsume();
   });
 
   group('restorableOrNull', () {
@@ -44,112 +43,6 @@ void main() {
       expect(RouteMemory.restorableOrNull('https://evil.example/chat'), isNull);
       expect(RouteMemory.restorableOrNull('//evil.example/chat'), isNull);
       expect(RouteMemory.restorableOrNull('/chat/../../admin'), isNull);
-    });
-  });
-
-  group('bootRestoreTarget', () {
-    const remembered = '/journal';
-    final bareGateway = Uri.parse('/');
-
-    test('logged-in bare gateway reopens the remembered page', () {
-      expect(
-        RouteMemory.bootRestoreTarget(
-          authed: true,
-          cinemaOnly: false,
-          uri: bareGateway,
-          remembered: remembered,
-        ),
-        '/journal',
-      );
-    });
-
-    test('logged-out bare gateway hops through the login return flow', () {
-      expect(
-        RouteMemory.bootRestoreTarget(
-          authed: false,
-          cinemaOnly: false,
-          uri: bareGateway,
-          remembered: remembered,
-        ),
-        '/?from=%2Fjournal',
-      );
-    });
-
-    test('real links always win over the restore', () {
-      for (final uri in [
-        Uri.parse('/cinema'),
-        Uri.parse('/?from=/chat'),
-        Uri.parse('/?dev=khent'),
-        Uri.parse('/dashboard?perf=1'),
-      ]) {
-        expect(
-          RouteMemory.bootRestoreTarget(
-            authed: true,
-            cinemaOnly: false,
-            uri: uri,
-            remembered: remembered,
-          ),
-          isNull,
-          reason: '$uri must be left untouched',
-        );
-      }
-    });
-
-    test('nothing remembered means no restore', () {
-      expect(
-        RouteMemory.bootRestoreTarget(
-          authed: true,
-          cinemaOnly: false,
-          uri: bareGateway,
-          remembered: null,
-        ),
-        isNull,
-      );
-    });
-
-    test('unsafe remembered pages are not restored', () {
-      for (final bad in ['/manga/reader', '/', 'https://evil.example/x']) {
-        expect(
-          RouteMemory.bootRestoreTarget(
-            authed: true,
-            cinemaOnly: false,
-            uri: bareGateway,
-            remembered: bad,
-          ),
-          isNull,
-          reason: '$bad must never be a restore target',
-        );
-      }
-    });
-
-    test('cinema-only users restore inside /cinema only', () {
-      expect(
-        RouteMemory.bootRestoreTarget(
-          authed: true,
-          cinemaOnly: true,
-          uri: bareGateway,
-          remembered: '/cinema',
-        ),
-        '/cinema',
-      );
-      expect(
-        RouteMemory.bootRestoreTarget(
-          authed: true,
-          cinemaOnly: true,
-          uri: bareGateway,
-          remembered: '/journal',
-        ),
-        '/cinema',
-      );
-    });
-  });
-
-  group('consumeBootLocation', () {
-    test('yields the page once, then nothing', () async {
-      await RouteMemory.remember('/chat');
-      await RouteMemory.load();
-      expect(RouteMemory.consumeBootLocation(), '/chat');
-      expect(RouteMemory.consumeBootLocation(), isNull);
     });
   });
 

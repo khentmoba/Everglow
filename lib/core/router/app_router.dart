@@ -58,13 +58,6 @@ GoRouter createAppRouter() {
       // after a killed tab/PWA — directly when logged in, via the login's
       // `?from=` hop when logged out. Real links always win (any path or
       // any query skips this), so deep links and previews are untouched.
-      final restore = RouteMemory.bootRestoreTarget(
-        authed: authed,
-        cinemaOnly: di.authService.isCinemaOnlyUser,
-        uri: state.uri,
-        remembered: RouteMemory.consumeBootLocation(),
-      );
-      if (restore != null) return restore;
       // Not authed -> bounce to gate, remembering where the link pointed
       // so the gateway can take the user straight there after login
       // (PR preview deep links like <preview>/cinema).
@@ -86,7 +79,11 @@ GoRouter createAppRouter() {
       return null;
     },
 
-    initialLocation: '/',
+    // Reopen where she left off after a killed tab/PWA: go_router uses
+    // initialLocation only when the browser URL is exactly `/`, so real
+    // links always win (any path or query skips the restore untouched).
+    // Logged-out boots bounce through the usual `?from=` login hop below.
+    initialLocation: RouteMemory.bootLocation ?? '/',
     debugLogDiagnostics: false,
     routes: [
       ...gatewayRoutes,
