@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import 'dart:async';
@@ -19,7 +18,10 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 
 class StarlightJarWidget extends StatefulWidget {
-  const StarlightJarWidget({super.key});
+  final List<StarNote>? previewNotes;
+  final StarlightService? service;
+
+  const StarlightJarWidget({super.key, this.previewNotes, this.service});
 
   @override
   State<StarlightJarWidget> createState() => _StarlightJarWidgetState();
@@ -27,7 +29,9 @@ class StarlightJarWidget extends StatefulWidget {
 
 class _StarlightJarWidgetState extends State<StarlightJarWidget>
     with TickerProviderStateMixin {
-  final StarlightService _service = StarlightService();
+  StarlightService? _serviceInstance;
+  StarlightService get _service =>
+      _serviceInstance ??= (widget.service ?? StarlightService());
   late final Stream<List<StarNote>> _starNotesStream;
   StreamSubscription<List<StarNote>>? _starNotesSub;
   List<StarNote> _serverNotes = const [];
@@ -77,19 +81,25 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
   @override
   void initState() {
     super.initState();
-    _starNotesStream = _service.getStarNotes();
-    _starNotesSub = _starNotesStream.listen(
-      (notes) {
-        if (!mounted) return;
-        setState(() {
-          _serverNotes = notes;
-          _rebuildEffectiveNotes();
-        });
-      },
-      onError: (Object e) {
-        if (mounted) setState(() => _notes = const []);
-      },
-    );
+    if (widget.previewNotes != null) {
+      _serverNotes = widget.previewNotes!;
+      _notes = widget.previewNotes!;
+    } else {
+      _starNotesStream = _service.getStarNotes();
+      _starNotesSub = _starNotesStream.listen(
+        (notes) {
+          if (!mounted) return;
+          setState(() {
+            _serverNotes = notes;
+            _rebuildEffectiveNotes();
+          });
+        },
+        onError: (Object e) {
+          if (mounted) setState(() => _notes = const []);
+        },
+      );
+      _loadOnThisDay();
+    }
     _shakeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -101,7 +111,6 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     _surpriseConfetti = ConfettiController(
       duration: const Duration(seconds: 2),
     );
-    _loadOnThisDay();
   }
 
   Future<void> _loadOnThisDay() async {
@@ -811,15 +820,18 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
 
 class _StarMotion {
   static const _colors = [
-    AppColors.roseQuartz,
+    AppColors.auroraGold,
     AppColors.blushGold,
+    AppColors.auroraRose,
+    AppColors.roseQuartz,
+    AppColors.auroraLilac,
     AppColors.softLavender,
-    Color(0xFFFFF176),
-    Color(0xFF80DEEA),
+    AppColors.auroraTeal,
   ];
 
   late double baseX;
   late double baseY;
+  late double baseSize;
   late double ampX;
   late double ampY;
   late double speedX;
@@ -835,20 +847,21 @@ class _StarMotion {
     final r = Random(seed);
     // Relative to the 280x350 star layer: spread across the full jar
     // body with insets for the glass border (sides) and lid (top).
-    baseX = 24 + r.nextDouble() * 208;
-    baseY = 48 + r.nextDouble() * 230;
-    ampX = 8 + r.nextDouble() * 12;
-    ampY = 6 + r.nextDouble() * 10;
-    speedX = 0.55 + r.nextDouble() * 0.45;
-    speedY = 0.4 + r.nextDouble() * 0.4;
+    baseX = 32 + r.nextDouble() * 196;
+    baseY = 52 + r.nextDouble() * 224;
+    baseSize =
+        20.0 + r.nextDouble() * 8.0; // natural size variation: 20 to 28 px
+    ampX = 6 + r.nextDouble() * 10;
+    ampY = 5 + r.nextDouble() * 8;
+    speedX = 0.45 + r.nextDouble() * 0.40;
+    speedY = 0.35 + r.nextDouble() * 0.35;
     phaseX = r.nextDouble() * 2 * pi;
     phaseY = r.nextDouble() * 2 * pi;
-    rotSpeed = 0.25 + r.nextDouble() * 0.55;
+    rotSpeed = 0.15 + r.nextDouble() * 0.35;
     twinklePhase = r.nextDouble() * 2 * pi;
     baseRotation = r.nextDouble() * 2 * pi;
 
-    final base = _colors[r.nextInt(_colors.length)];
-    color = base.withValues(alpha: 0.7);
+    color = _colors[r.nextInt(_colors.length)];
   }
 }
 
@@ -871,11 +884,10 @@ class _JarStarFieldPainter extends CustomPainter {
     // Bounds are relative to the 280x350 star layer canvas (not the old
     // 400-wide outer Stack), so stars fill the glass instead of bunching
     // on the right and getting clipped.
-    final double jarLeft = 14.0;
-    final double jarTop = 36.0;
-    final double jarRight = size.width - 14.0;
-    final double jarBottom = size.height - 14.0;
-    const maxSize = 24.0;
+    final double jarLeft = 18.0;
+    final double jarTop = 40.0;
+    final double jarRight = size.width - 18.0;
+    final double jarBottom = size.height - 18.0;
 
     for (final note in notes) {
       final m = motionCache.putIfAbsent(
@@ -893,43 +905,31 @@ class _JarStarFieldPainter extends CustomPainter {
           m.baseY +
           cos(tY * 2 * pi + m.phaseY) * m.ampY +
           cos(tY * 2 * pi * 0.43 + m.phaseY * 1.3) * m.ampY * 0.25;
-      final dx = rawDx.clamp(jarLeft, max<double>(jarLeft, jarRight - maxSize));
-      final dy = rawDy.clamp(jarTop, max<double>(jarTop, jarBottom - maxSize));
-      final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.5;
-      final opacity = (0.55 + sin(t * 2 * pi * 2.3 + m.twinklePhase) * 0.35)
-          .clamp(0.0, 1.0);
-      final scale = 0.85 + sin(t * 2 * pi * 1.2 + m.phaseX) * 0.15;
+      final dx = rawDx.clamp(jarLeft, max<double>(jarLeft, jarRight));
+      final dy = rawDy.clamp(jarTop, max<double>(jarTop, jarBottom));
+      final rotation = m.baseRotation + sin(t * 2 * pi * m.rotSpeed) * 0.35;
 
-      final paint = Paint()
-        ..color = m.color.withValues(alpha: opacity)
-        ..maskFilter = kIsWeb
-            ? null
-            : const MaskFilter.blur(BlurStyle.normal, 4);
+      final twinkleWave = sin(t * 2 * pi * 1.8 + m.twinklePhase);
+      // Keep opacity luminous and rich (0.70 - 1.0) so colors never turn murky
+      final opacity = (0.86 + twinkleWave * 0.14).clamp(0.70, 1.0);
+      final scale = 0.94 + sin(t * 2 * pi * 1.1 + m.phaseX) * 0.08;
+      final glowIntensity = (0.68 + twinkleWave * 0.32).clamp(0.35, 1.0);
+      // When at the crest of the twinkle wave, show a delicate glint sparkle
+      final sparkle = (twinkleWave - 0.60).clamp(0.0, 0.40) / 0.40;
 
       canvas.save();
       canvas.translate(dx, dy);
       canvas.rotate(rotation);
-      canvas.drawPath(_starPath(24 * scale), paint);
+      drawOrigamiStar(
+        canvas,
+        color: m.color,
+        size: m.baseSize * scale,
+        opacity: opacity,
+        glowIntensity: glowIntensity,
+        sparkle: sparkle,
+      );
       canvas.restore();
     }
-  }
-
-  Path _starPath(double size) {
-    final path = Path();
-    const points = 5;
-    for (var i = 0; i < points * 2; i++) {
-      final radius = i.isEven ? size * 0.5 : size * 0.22;
-      final angle = -pi / 2 + i * pi / points;
-      final x = cos(angle) * radius;
-      final y = sin(angle) * radius;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    return path;
   }
 
   @override
