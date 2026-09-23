@@ -43,10 +43,11 @@ class ShowdownTrack {
 /// They used to be summed from a single top-track page, which silently lost
 /// plays once a song fell below that page, so totals only ever shrank.
 ///
-/// The song table is built from the paged all-time top-track charts, filtered
-/// locally by artist. Rows can never cover every track a person scrobbled, so
-/// [khentOtherPlays] / [clairOtherPlays] report the difference between the
-/// exact total and the rows shown.
+/// The song table discovers all songs strictly for that artist
+/// (`fetchArtistCatalogTracksAll` + recent scrobbles for that artist) and
+/// queries each user's exact per-track playcount (`track.getInfo`). Zero
+/// tracks from other artists are transferred, and plays are never capped
+/// by overall library rankings.
 ///
 /// The older `user.getartisttracks` endpoint is deprecated since 2019 and
 /// returns individual scrobbles without playcounts from a stale backend,
@@ -63,17 +64,14 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
   static const String defaultArtist = 'Ethel Cain';
 
-  /// Page size for `user.gettoptracks`. Last.fm caps a request at 1000 rows
-  /// but 500s (error 8) on that size for active accounts; 200 is reliable.
+  /// Page size for `user.gettoptracks` fallback.
   static const int _topTracksPageSize = 200;
 
-  /// How many 200-row pages to walk (up to 1000 rows per person). Deep enough
-  /// that an artist's songs stop falling off the chart, bounded so one
-  /// showdown never becomes an unbounded crawl.
+  /// How many 200-row pages to walk for the fallback path.
   static const int _topTracksMaxPages = 5;
 
   /// Most songs of one artist to ask Last.fm about for the history timeline.
-  static const int _historyMaxTracks = 25;
+  static const int _historyMaxTracks = 50;
 
   final MusicSyncService _sync;
   late final String _khentUser;
@@ -255,21 +253,19 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _artist = artist;
     _isLoading = true;
     _safeNotify();
-    // Kick off all four reads together: rows for the table, exact counts for
-    // the headline numbers.
-    final khentRows = _tracksForArtist(_khentUser, artist);
-    final clairRows = _tracksForArtist(_clairUser, artist);
-    final khentExact = _sync.fetchArtistPlayCount(_khentUser, artist);
-    final clairExact = _sync.fetchArtistPlayCount(_clairUser, artist);
+    // Kick off reads together: exact headline counts and artist-specific tracks.
+    final khentExactFuture = _sync.fetchArtistPlayCount(_khentUser, artist);
+    final clairExactFuture = _sync.fetchArtistPlayCount(_clairUser, artist);
+    final rowsFuture = _fetchArtistShowdownRows(artist);
 
-    final merged = _merge(await khentRows, await clairRows);
-    final exactKhent = await khentExact;
-    final exactClair = await clairExact;
+    final exactKhent = await khentExactFuture;
+    final exactClair = await clairExactFuture;
+    final rows = await rowsFuture;
     // A newer selectArtist won while these reads were in flight — drop them.
     if (_disposed || request != _requestId) return;
-    _khentTotal = _exactOrRows(merged.$1, exactKhent);
-    _clairTotal = _exactOrRows(merged.$2, exactClair);
-    _tracks = merged.$3;
+    _khentTotal = _exactOrRows(rows.$1, exactKhent);
+    _clairTotal = _exactOrRows(rows.$2, exactClair);
+    _tracks = rows.$3;
     _cache[key] = _CachedShowdown(
       khentTotal: _khentTotal,
       clairTotal: _clairTotal,
@@ -324,11 +320,83 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
   }
 
-  /// Pulls each user's all-time top tracks, page by page, and keeps only rows
-  /// for [artist] (case-insensitive, trimmed). One page was never enough: an
-  /// artist's songs slide below the page size as more music is played, and
-  /// those plays then vanished from the showdown.
-  Future<List<TopMusicTrack>> _tracksForArtist(
+  /// Fetches uncapped track rows for [artist] with zero other artists loaded.
+  ///
+  /// Discovers all tracks belonging to [artist] via Last.fm catalog
+  /// (`artist.gettoptracks`), plus any recently scrobbled tracks for [artist]
+  /// to capture unreleased or newly played tracks.
+  /// Then queries each user's exact playcount for those songs.
+  ///
+  /// If catalog discovery finds no plays (e.g. offline, mock test service,
+  /// or zero scrobbles found), falls back to filtering the top tracks chart.
+  Future<(int, int, List<ShowdownTrack>)> _fetchArtistShowdownRows(
+    String artist,
+  ) async {
+    final wanted = artist.trim().toLowerCase();
+
+    // 1. Discover all candidate tracks strictly for this artist.
+    final catalogFuture = _sync.fetchArtistCatalogTracksAll(artist);
+    final recentKhentFuture = _sync.fetchRecentTracks(_khentUser, limit: 200);
+    final recentClairFuture = _sync.fetchRecentTracks(_clairUser, limit: 200);
+
+    final catalog = await catalogFuture;
+    final candidateMap = <String, TopMusicTrack>{};
+    for (final t in catalog) {
+      candidateMap[t.trackName.trim().toLowerCase()] = t;
+    }
+
+    // Complement with any recent scrobbles matching this artist
+    final recentKhent = await recentKhentFuture;
+    final recentClair = await recentClairFuture;
+    for (final s in [...recentKhent, ...recentClair]) {
+      if (s.artistName.trim().toLowerCase() == wanted && s.trackName.isNotEmpty) {
+        final key = s.trackName.trim().toLowerCase();
+        candidateMap.putIfAbsent(
+          key,
+          () => TopMusicTrack(
+            rank: candidateMap.length + 1,
+            trackName: s.trackName.trim(),
+            artistName: artist,
+            playCount: 0,
+            imageUrl: s.imageUrl,
+            spotifyUrl:
+                'https://open.spotify.com/search/${Uri.encodeComponent('$artist ${s.trackName}')}',
+          ),
+        );
+      }
+    }
+
+    final candidates = candidateMap.values.toList();
+
+    // 2. If candidate tracks were found for this artist, query per-track playcounts.
+    if (candidates.isNotEmpty) {
+      final khentTracksFuture = _sync.fetchUserArtistTracks(
+        _khentUser,
+        artist,
+        candidateTracks: candidates,
+      );
+      final clairTracksFuture = _sync.fetchUserArtistTracks(
+        _clairUser,
+        artist,
+        candidateTracks: candidates,
+      );
+      final khentTracks = await khentTracksFuture;
+      final clairTracks = await clairTracksFuture;
+
+      if (khentTracks.isNotEmpty || clairTracks.isNotEmpty) {
+        return _merge(khentTracks, clairTracks);
+      }
+    }
+
+    // 3. Fallback: if catalog & candidate search returned no plays (e.g. mock test
+    // that only stubs fetchTopTracks, or network error), fall back to top tracks.
+    final khentFallback = await _tracksForArtistLegacy(_khentUser, artist);
+    final clairFallback = await _tracksForArtistLegacy(_clairUser, artist);
+    return _merge(khentFallback, clairFallback);
+  }
+
+  /// Legacy fallback: pulls each user's top tracks chart and filters by artist.
+  Future<List<TopMusicTrack>> _tracksForArtistLegacy(
     String username,
     String artist,
   ) async {

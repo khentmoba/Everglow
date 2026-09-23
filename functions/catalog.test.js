@@ -26,6 +26,7 @@ test('Last.fm cache holds all-time reads longer than live ones', () => {
   const thirtyMinutes = 30 * 60 * 1000;
   // Exact per-artist playcount and all-time charts barely move between listens.
   assert.equal(catalog.lastfmCacheTtlMs('artist.getInfo'), thirtyMinutes);
+  assert.equal(catalog.lastfmCacheTtlMs('artist.getTopTracks'), thirtyMinutes);
   assert.equal(
     catalog.lastfmCacheTtlMs('user.gettoptracks', 'overall'),
     thirtyMinutes,

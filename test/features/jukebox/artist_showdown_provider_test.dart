@@ -24,6 +24,8 @@ class _FakeSync extends MusicSyncService {
     this.artistImages = const {},
     this.historyByUser = const {},
     this.exactPlaysByUser = const {},
+    this.catalogTracks = const [],
+    this.userArtistTracks = const {},
   });
 
   /// Last.fm username -> full all-time top tracks (provider filters by
@@ -38,12 +40,37 @@ class _FakeSync extends MusicSyncService {
   /// `artist.getInfo` call answers it. Absent means "Last.fm could not
   /// answer", which must fall back to the row sum.
   final Map<String, int> exactPlaysByUser;
+  final List<TopMusicTrack> catalogTracks;
+  final Map<String, List<TopMusicTrack>> userArtistTracks;
   int calls = 0;
   int artworkCalls = 0;
   int suggestionCalls = 0;
   int artistImageCalls = 0;
   int historyCalls = 0;
   int exactPlayCountCalls = 0;
+  int catalogCalls = 0;
+  int userArtistTrackCalls = 0;
+
+  @override
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
+    String artist, {
+    int pageSize = 50,
+    int maxPages = 10,
+  }) async {
+    catalogCalls++;
+    return catalogTracks;
+  }
+
+  @override
+  Future<List<TopMusicTrack>> fetchUserArtistTracks(
+    String username,
+    String artist, {
+    required List<TopMusicTrack> candidateTracks,
+    int batchSize = 6,
+  }) async {
+    userArtistTrackCalls++;
+    return userArtistTracks[username] ?? const [];
+  }
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -147,6 +174,66 @@ void main() {
       provider.dispose();
     });
 
+    test(
+      'loads artist using uncapped per-artist catalog tracks without fetching other artists',
+      () async {
+        final sync = _FakeSync(
+          byUser: {
+            'khentsgdz': [
+              _track('Other Artist Track', 9999, artist: 'Other Artist'),
+            ],
+            'clairjassen': [
+              _track('Another Artist Track', 8888, artist: 'Another Artist'),
+            ],
+          },
+          catalogTracks: [
+            _track('Strangers', 0),
+            _track('Sun Bleached Flies', 0),
+            _track('Rare B-Side', 0),
+          ],
+          userArtistTracks: {
+            'khentsgdz': [
+              _track('Strangers', 1000000),
+              _track('Rare B-Side', 1),
+            ],
+            'clairjassen': [
+              _track('Sun Bleached Flies', 20),
+              _track('Strangers', 5),
+            ],
+          },
+          exactPlaysByUser: {'khentsgdz': 1000001, 'clairjassen': 25},
+        );
+        final provider = ArtistShowdownProvider(syncService: sync);
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.artist, 'Ethel Cain');
+        // Exactly 1,000,001 plays for Khent — uncapped!
+        expect(provider.khentTotal, 1000001);
+        expect(provider.clairTotal, 25);
+        expect(provider.leader, 'khent');
+        // All 3 tracks are shown, including the 1-play song and the 1,000,000 play song
+        expect(provider.tracks, hasLength(3));
+        expect(provider.tracks[0].trackName, 'Strangers');
+        expect(provider.tracks[0].khentPlays, 1000000);
+        expect(provider.tracks[0].clairPlays, 5);
+        expect(provider.tracks[1].trackName, 'Sun Bleached Flies');
+        expect(provider.tracks[1].clairPlays, 20);
+        expect(provider.tracks[2].trackName, 'Rare B-Side');
+        expect(provider.tracks[2].khentPlays, 1);
+
+        // Verify zero calls were made to fetchTopTracks (zero other artists fetched!)
+        expect(sync.calls, 0);
+        expect(sync.catalogCalls, greaterThanOrEqualTo(1));
+        expect(sync.userArtistTrackCalls, 2);
+
+        // Entire total is accounted for by the individual song rows
+        expect(provider.hasOtherPlays, isFalse);
+        expect(provider.khentOtherPlays, 0);
+        expect(provider.clairOtherPlays, 0);
+        provider.dispose();
+      },
+    );
+
     // Regression: totals used to be summed from a single top-track page, so
     // plays of songs below that page silently vanished and counts only shrank
     // (Clair's Ethel Cain dropped to 103). The exact artist playcount from
@@ -237,7 +324,9 @@ void main() {
       expect(provider.tracks, hasLength(2));
       expect(
         provider.tracks.every(
-          (t) => t.trackName != 'Video Games' && t.trackName != 'Summertime Sadness',
+          (t) =>
+              t.trackName != 'Video Games' &&
+              t.trackName != 'Summertime Sadness',
         ),
         isTrue,
       );
@@ -334,9 +423,7 @@ void main() {
       await _waitFor(() => !provider.isLoading);
       // Table shows immediately, even before artwork lands.
       expect(provider.tracks, hasLength(1));
-      await _waitFor(
-        () => provider.tracks.first.imageUrl == art,
-      );
+      await _waitFor(() => provider.tracks.first.imageUrl == art);
       expect(sync.artworkCalls, greaterThanOrEqualTo(1));
       // Totals are untouched by the enrichment pass.
       expect(provider.khentTotal, 10);
@@ -488,67 +575,77 @@ void main() {
       provider.dispose();
     });
 
-    test('loadArtistHistory fetches and caches history for Khent and Clair', () async {
-      final khentScrobble = MusicStatus(
-        username: 'khentsgdz',
-        trackName: 'American Teenager',
-        artistName: 'Ethel Cain',
-        albumName: 'Preacher\'s Daughter',
-        isPlaying: false,
-        spotifyUrl: 'https://spotify/american',
-        timestamp: DateTime(2026, 9, 20, 10, 30),
-      );
-      final clairScrobble = MusicStatus(
-        username: 'clairjassen',
-        trackName: 'Strangers',
-        artistName: 'Ethel Cain',
-        albumName: 'Preacher\'s Daughter',
-        isPlaying: false,
-        spotifyUrl: 'https://spotify/strangers',
-        timestamp: DateTime(2026, 9, 21, 14, 15),
-      );
+    test(
+      'loadArtistHistory fetches and caches history for Khent and Clair',
+      () async {
+        final khentScrobble = MusicStatus(
+          username: 'khentsgdz',
+          trackName: 'American Teenager',
+          artistName: 'Ethel Cain',
+          albumName: 'Preacher\'s Daughter',
+          isPlaying: false,
+          spotifyUrl: 'https://spotify/american',
+          timestamp: DateTime(2026, 9, 20, 10, 30),
+        );
+        final clairScrobble = MusicStatus(
+          username: 'clairjassen',
+          trackName: 'Strangers',
+          artistName: 'Ethel Cain',
+          albumName: 'Preacher\'s Daughter',
+          isPlaying: false,
+          spotifyUrl: 'https://spotify/strangers',
+          timestamp: DateTime(2026, 9, 21, 14, 15),
+        );
 
-      final sync = _FakeSync(
-        byUser: {
-          'khentsgdz': [_track('American Teenager', 10)],
-          'clairjassen': [_track('Strangers', 8)],
-        },
-        artworkByTrack: {
-          'American Teenager': 'https://itunes/american.png',
-        },
-        historyByUser: {
-          'khentsgdz': [khentScrobble],
-          'clairjassen': [clairScrobble],
-        },
-      );
+        final sync = _FakeSync(
+          byUser: {
+            'khentsgdz': [_track('American Teenager', 10)],
+            'clairjassen': [_track('Strangers', 8)],
+          },
+          artworkByTrack: {'American Teenager': 'https://itunes/american.png'},
+          historyByUser: {
+            'khentsgdz': [khentScrobble],
+            'clairjassen': [clairScrobble],
+          },
+        );
 
-      final provider = ArtistShowdownProvider(syncService: sync);
-      await _waitFor(() => !provider.isLoading);
+        final provider = ArtistShowdownProvider(syncService: sync);
+        await _waitFor(() => !provider.isLoading);
 
-      expect(provider.hasHistory, isFalse);
-      expect(provider.isLoadingHistory, isFalse);
+        expect(provider.hasHistory, isFalse);
+        expect(provider.isLoadingHistory, isFalse);
 
-      await provider.loadArtistHistory();
+        await provider.loadArtistHistory();
 
-      expect(provider.isLoadingHistory, isFalse);
-      expect(provider.hasHistory, isTrue);
-      expect(provider.khentHistory, hasLength(1));
-      expect(provider.clairHistory, hasLength(1));
-      // Enriched artwork from showdown tracks is attached to khent's scrobble:
-      expect(provider.khentHistory.first.imageUrl, 'https://itunes/american.png');
-      expect(provider.khentHistory.first.timestamp, DateTime(2026, 9, 20, 10, 30));
-      expect(provider.clairHistory.first.timestamp, DateTime(2026, 9, 21, 14, 15));
-      expect(sync.historyCalls, 2);
+        expect(provider.isLoadingHistory, isFalse);
+        expect(provider.hasHistory, isTrue);
+        expect(provider.khentHistory, hasLength(1));
+        expect(provider.clairHistory, hasLength(1));
+        // Enriched artwork from showdown tracks is attached to khent's scrobble:
+        expect(
+          provider.khentHistory.first.imageUrl,
+          'https://itunes/american.png',
+        );
+        expect(
+          provider.khentHistory.first.timestamp,
+          DateTime(2026, 9, 20, 10, 30),
+        );
+        expect(
+          provider.clairHistory.first.timestamp,
+          DateTime(2026, 9, 21, 14, 15),
+        );
+        expect(sync.historyCalls, 2);
 
-      // Subsequent call uses cache
-      await provider.loadArtistHistory();
-      expect(sync.historyCalls, 2);
+        // Subsequent call uses cache
+        await provider.loadArtistHistory();
+        expect(sync.historyCalls, 2);
 
-      // forceRefresh bypasses cache
-      await provider.loadArtistHistory(forceRefresh: true);
-      expect(sync.historyCalls, 4);
+        // forceRefresh bypasses cache
+        await provider.loadArtistHistory(forceRefresh: true);
+        expect(sync.historyCalls, 4);
 
-      provider.dispose();
-    });
+        provider.dispose();
+      },
+    );
   });
 }

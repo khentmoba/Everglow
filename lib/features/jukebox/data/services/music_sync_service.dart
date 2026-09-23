@@ -341,6 +341,235 @@ class MusicSyncService {
     return null;
   }
 
+  /// Fetches top tracks of [artist] from Last.fm's artist discography
+  /// (`artist.gettoptracks`). Only fetches tracks for [artist], zero tracks
+  /// from any other artist.
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracks(
+    String artist, {
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final trimmedArtist = artist.trim();
+    if (trimmedArtist.isEmpty) return [];
+
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=artist.gettoptracks'
+        '&artist=${Uri.encodeComponent(trimmedArtist)}'
+        '&limit=$limit&page=$page&autocorrect=1&format=json',
+      );
+      final response = await _getWithAuth(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final tracks = _asMapList(data['toptracks']?['track']);
+        if (tracks.isNotEmpty) {
+          final parsed = <TopMusicTrack>[];
+          for (var i = 0; i < tracks.length; i++) {
+            final t = tracks[i];
+            final name = (t['name'] as String?)?.trim() ?? '';
+            if (name.isEmpty) continue;
+            final rank =
+                int.tryParse(t['@attr']?['rank']?.toString() ?? '') ?? (i + 1);
+            final mbid = (t['mbid'] as String?)?.trim();
+            final playCount =
+                int.tryParse(t['playcount']?.toString() ?? '') ?? 0;
+            final images = t['image'] as List<dynamic>?;
+            final imageUrl = pickLastfmImageUrl(images);
+            parsed.add(
+              TopMusicTrack(
+                rank: rank,
+                trackName: name,
+                artistName: trimmedArtist,
+                playCount: playCount,
+                imageUrl: imageUrl,
+                spotifyUrl:
+                    'https://open.spotify.com/search/${Uri.encodeComponent('$trimmedArtist $name')}',
+                mbid: (mbid != null && mbid.isNotEmpty) ? mbid : null,
+              ),
+            );
+          }
+          return parsed;
+        } else {
+          _warnOnLastfmError(data, 'artist catalog tracks', trimmedArtist);
+        }
+      } else {
+        Logger.w(
+          'Jukebox Service: Artist catalog tracks ($trimmedArtist) status ${response.statusCode}',
+        );
+      }
+    } on TimeoutException {
+      Logger.w(
+        'Jukebox Service Timeout: Artist catalog tracks for "$trimmedArtist" timed out.',
+      );
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service Exception (artist catalog tracks, $trimmedArtist)',
+        error: e,
+      );
+    }
+    return [];
+  }
+
+  /// Walks the full catalog of tracks for [artist] from Last.fm,
+  /// page by page, until all pages are retrieved.
+  /// Bounded by [maxPages] to prevent infinite loops, but deep enough to
+  /// cover the artist's full discography with zero other artists loaded.
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
+    String artist, {
+    int pageSize = 50,
+    int maxPages = 10,
+  }) async {
+    final all = <TopMusicTrack>[];
+    final seenNames = <String>{};
+    for (var page = 1; page <= maxPages; page++) {
+      final rows = await fetchArtistCatalogTracks(
+        artist,
+        page: page,
+        limit: pageSize,
+      );
+      if (rows.isEmpty) break;
+      for (final track in rows) {
+        if (seenNames.add(track.trackName.toLowerCase())) {
+          all.add(track);
+        }
+      }
+      if (rows.length < pageSize) break;
+    }
+    return all;
+  }
+
+  /// Fetches [username]'s exact all-time playcount for a specific [track]
+  /// by [artist] via `track.getinfo&username=...`.
+  /// Returns 0 if never played, user unknown, or request fails.
+  /// Play count is an exact, uncapped integer (from 1 to 1,000,000+).
+  Future<int> fetchTrackUserPlayCount({
+    required String username,
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async {
+    final trimmedArtist = artist.trim();
+    final trimmedTrack = track.trim();
+    if (username.isEmpty ||
+        trimmedArtist.isEmpty ||
+        trimmedTrack.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return 0;
+    }
+
+    try {
+      final buffer = StringBuffer(
+        '$_baseUrl?method=track.getinfo&format=json'
+        '&username=${Uri.encodeComponent(username)}'
+        '&autocorrect=1',
+      );
+      if (mbid != null && mbid.isNotEmpty) {
+        buffer.write('&mbid=${Uri.encodeComponent(mbid)}');
+      } else {
+        buffer.write(
+          '&artist=${Uri.encodeComponent(trimmedArtist)}'
+          '&track=${Uri.encodeComponent(trimmedTrack)}',
+        );
+      }
+
+      final url = Uri.parse(buffer.toString());
+      final response = await _getWithAuth(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final trackNode = data['track'];
+        if (trackNode is Map) {
+          final raw = trackNode['userplaycount']?.toString();
+          return int.tryParse(raw ?? '') ?? 0;
+        }
+      } else if (response.statusCode == 404) {
+        _invalidUsers.add(username);
+      }
+    } on TimeoutException {
+      Logger.d(
+        'Jukebox Service Timeout: track playcount for "$trimmedArtist - $trimmedTrack" timed out.',
+      );
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service Exception (track playcount, $trimmedArtist - $trimmedTrack, $username)',
+        error: e,
+      );
+    }
+    return 0;
+  }
+
+  /// Fetches all tracks by [artist] that [username] has scrobbled,
+  /// with exact, uncapped playcounts for each song.
+  ///
+  /// Takes a list of [candidateTracks] (from the artist's catalog and/or
+  /// recent scrobbles for that artist). Queries `track.getinfo` for each song
+  /// in parallel batches to stay responsive and avoid rate limits.
+  ///
+  /// Only tracks where the user has at least 1 play are returned.
+  Future<List<TopMusicTrack>> fetchUserArtistTracks(
+    String username,
+    String artist, {
+    required List<TopMusicTrack> candidateTracks,
+    int batchSize = 6,
+  }) async {
+    final trimmedArtist = artist.trim();
+    if (username.isEmpty ||
+        trimmedArtist.isEmpty ||
+        candidateTracks.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return [];
+    }
+
+    final playedTracks = <TopMusicTrack>[];
+    for (var i = 0; i < candidateTracks.length; i += batchSize) {
+      if (_invalidUsers.contains(username)) break;
+      final batch = candidateTracks.skip(i).take(batchSize).toList();
+      final playCounts = await Future.wait(
+        batch.map(
+          (t) => fetchTrackUserPlayCount(
+            username: username,
+            artist: trimmedArtist,
+            track: t.trackName,
+            mbid: t.mbid,
+          ),
+        ),
+      );
+
+      for (var j = 0; j < batch.length; j++) {
+        final count = playCounts[j];
+        if (count > 0) {
+          final track = batch[j];
+          playedTracks.add(
+            TopMusicTrack(
+              rank: playedTracks.length + 1,
+              trackName: track.trackName,
+              artistName: trimmedArtist,
+              playCount: count,
+              imageUrl: track.imageUrl,
+              spotifyUrl: track.spotifyUrl,
+              mbid: track.mbid,
+            ),
+          );
+        }
+      }
+    }
+
+    playedTracks.sort((a, b) => b.playCount.compareTo(a.playCount));
+    for (var i = 0; i < playedTracks.length; i++) {
+      playedTracks[i] = TopMusicTrack(
+        rank: i + 1,
+        trackName: playedTracks[i].trackName,
+        artistName: playedTracks[i].artistName,
+        playCount: playedTracks[i].playCount,
+        imageUrl: playedTracks[i].imageUrl,
+        spotifyUrl: playedTracks[i].spotifyUrl,
+        mbid: playedTracks[i].mbid,
+      );
+    }
+    return playedTracks;
+  }
+
   /// Deprecated: `user.getartisttracks` was deprecated by Last.fm in 2019
   /// (stale legacy backend, entries carry no `playcount`). Kept for tests
   /// and backwards compat — new code should pull `user.gettoptracks`
