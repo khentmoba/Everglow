@@ -15,6 +15,7 @@ class JukeboxProvider extends ChangeNotifier {
     AuthService? authService,
     Future<bool> Function(String uid)? awardListenXp,
     Duration pollInterval = const Duration(seconds: 60),
+    Duration livePollInterval = const Duration(seconds: 25),
     Duration resubscribeDelay = const Duration(seconds: 5),
   }) : _apiService = apiService ?? MusicSyncService(),
        _persistenceService =
@@ -22,6 +23,7 @@ class JukeboxProvider extends ChangeNotifier {
        _authService = authService,
        _awardListenXp = awardListenXp,
        _pollInterval = pollInterval,
+       _livePollInterval = livePollInterval,
        _resubscribeDelay = resubscribeDelay {
     // Replay the latest known state to every (re)subscriber: broadcast
     // streams don't retain events, so without this a fresh StreamBuilder
@@ -39,6 +41,7 @@ class JukeboxProvider extends ChangeNotifier {
   final AuthService? _authService;
   final Future<bool> Function(String uid)? _awardListenXp;
   final Duration _pollInterval;
+  final Duration _livePollInterval;
   final Duration _resubscribeDelay;
 
   /// Last awarded track per Last.fm username, so the poll doesn't
@@ -74,11 +77,26 @@ class JukeboxProvider extends ChangeNotifier {
     _subscribeToFirestore([khentUser, clairUser]);
 
     // 3. Start Polling Last.fm to keep Firestore updated
-    // Every 60s: fast enough for "now playing", slow enough to be kind
-    // to Last.fm (the server also caches these reads for 5 minutes).
-    _fetchAndSync(khentUser, clairUser);
-    _pollingTimer = Timer.periodic(_pollInterval, (timer) {
-      _fetchAndSync(khentUser, clairUser);
+    // Adaptive cadence (see _pollLoop): ~25s while anyone is live so song
+    // changes surface fast, 60s while idle to stay kind to Last.fm.
+    _pollLoop(khentUser, clairUser);
+  }
+
+  /// Polls Last.fm, then waits [_livePollInterval] while anyone is live
+  /// and [_pollInterval] while idle. Fast polling only runs during actual
+  /// listening, and Firestore writes still happen only on track changes,
+  /// so realtime costs nothing extra there — just a few more free
+  /// Last.fm reads while music plays.
+  Future<void> _pollLoop(String khent, String clair) async {
+    final live = await _fetchAndSync(khent, clair);
+    if (_disposed) return;
+    // Echoed Firestore state covers failed polls: a failed fetch returns
+    // false, but the last known live state keeps the fast cadence.
+    final anyoneLive =
+        live || _currentStatus.values.any((s) => s.isPlaying);
+    _pollingTimer = Timer(anyoneLive ? _livePollInterval : _pollInterval, () {
+      if (_disposed) return;
+      _pollLoop(khent, clair);
     });
   }
 
@@ -142,27 +160,32 @@ class JukeboxProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _fetchAndSync(String khent, String clair) async {
-    final futures = <Future<void>>[];
+  /// Returns true when either user is currently playing (drives [_pollLoop]).
+  Future<bool> _fetchAndSync(String khent, String clair) async {
+    final futures = <Future<bool>>[];
     if (khent.isNotEmpty) {
       futures.add(_fetchListen(khent));
     }
     if (clair.isNotEmpty) {
       futures.add(_fetchListen(clair));
     }
-    if (futures.isNotEmpty) await Future.wait(futures);
+    if (futures.isEmpty) return false;
+    final results = await Future.wait(futures);
+    return results.any((live) => live);
   }
 
-  Future<void> _fetchListen(String lastfmUser) async {
+  Future<bool> _fetchListen(String lastfmUser) async {
     MusicStatus? status;
     try {
       status = await _apiService.fetchRecentTrack(lastfmUser);
     } catch (_) {
-      return;
+      return false;
     }
-    if (status == null) return;
+    if (status == null) return false;
     final key = _trackKey(status);
-    if (key.isNotEmpty && _lastSyncedTrackKey[lastfmUser] == key) return;
+    if (key.isNotEmpty && _lastSyncedTrackKey[lastfmUser] == key) {
+      return status.isPlaying;
+    }
     _lastSyncedTrackKey[lastfmUser] = key;
     try {
       await _persistenceService.saveMusicStatus(status);
@@ -170,6 +193,7 @@ class JukeboxProvider extends ChangeNotifier {
       Logger.e('Jukebox: saveMusicStatus failed', error: e);
     }
     await _awardListenFor(status);
+    return status.isPlaying;
   }
 
   Future<void> _awardListenFor(MusicStatus status) async {

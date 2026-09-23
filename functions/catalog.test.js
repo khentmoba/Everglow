@@ -35,8 +35,9 @@ test('Last.fm cache holds all-time reads longer than live ones', () => {
     catalog.lastfmCacheTtlMs('user.gettopalbums', 'overall'),
     thirtyMinutes,
   );
-  // Live reads keep the short default so the jukebox stays current.
-  assert.equal(catalog.lastfmCacheTtlMs('user.getrecenttracks'), fiveMinutes);
+  // The jukebox live feed holds only 30s so song changes surface fast;
+  // other live reads keep the short default.
+  assert.equal(catalog.lastfmCacheTtlMs('user.getrecenttracks'), 30 * 1000);
   assert.equal(
     catalog.lastfmCacheTtlMs('user.gettoptracks', '7day'),
     fiveMinutes,
