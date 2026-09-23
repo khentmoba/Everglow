@@ -2,6 +2,8 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const study = require('../motchi_study.js');
 const indexExports = require('../index.js');
@@ -76,4 +78,11 @@ test('buildStudyPrompt pins count, category, and topic', () => {
   assert.match(prompt, /film/);
   assert.match(prompt, /Ghibli/);
   assert.match(prompt, /ONLY a JSON array/);
+});
+
+test('429 retry waits out the RPM window (free tier: 5/min)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '../motchi_study.js'), 'utf8');
+  // Same Sep 2026 Agnes cut as chat — a 429 retried after 1.5s just
+  // 429s again. 429s must wait one slot (12s); 502/503 stay fast.
+  assert.match(src, /e\.status === 429 \? 12000 : 1500/);
 });

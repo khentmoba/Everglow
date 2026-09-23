@@ -795,6 +795,7 @@ ${HTML_GAME_GUIDE}
         // Retry transient Agnes API errors (429, 502, 503) up to 2 times
         let streamResp = null;
         let lastFetchError = null;
+        let lastWas429 = false;
         for (let attempt = 0; attempt < 3; attempt++) {
           if (agnesCalls >= MAX_AGNES_CALLS_PER_MESSAGE) {
             lastFetchError = 'message call budget spent';
@@ -832,11 +833,18 @@ ${HTML_GAME_GUIDE}
             if (streamResp.ok) break; // success
             if (![429, 502, 503].includes(streamResp.status)) break; // non-retryable
             lastFetchError = `Agnes HTTP ${streamResp.status}`;
+            lastWas429 = streamResp.status === 429;
           } catch (fetchErr) {
             lastFetchError = fetchErr.message;
+            lastWas429 = false;
           }
-          // Exponential backoff before retry
-          if (attempt < 2) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          // Backoff before retry: 429s wait out the RPM window (free
+          // tier is 5/min, so one slot opens every 12s); 502/503 and
+          // network blips keep the fast 1s-step retry.
+          if (attempt < 2) {
+            const waitMs = lastWas429 ? 12000 * (attempt + 1) : 1000 * (attempt + 1);
+            await new Promise((r) => setTimeout(r, waitMs));
+          }
         }
 
         if (!streamResp || !streamResp.ok) {

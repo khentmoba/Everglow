@@ -130,6 +130,15 @@ test('streaming error catch preserves streamed content and isolates background t
   assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
 });
 
+test('429 retries wait out the RPM window (free tier: 5/min)', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Agnes cut free RPM to 5/min (Sep 2026) — a 429 retried after 1s
+  // just 429s again. 429s must wait one slot (12s) per attempt while
+  // 502/503 and network blips keep the fast 1s-step retry.
+  assert.match(src, /lastWas429 = streamResp\.status === 429/);
+  assert.match(src, /lastWas429 \? 12000 \* \(attempt \+ 1\) : 1000 \* \(attempt \+ 1\)/);
+});
+
 test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',
