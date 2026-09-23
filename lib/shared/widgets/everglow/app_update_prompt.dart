@@ -99,16 +99,24 @@ class _UpdateBanner extends StatelessWidget {
                       ),
                     ),
                   ),
-                  IconButton(
-                    onPressed: service.dismiss,
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: AppColors.petalWhite,
+                  // No Tooltip here: this banner lives in MaterialApp.builder,
+                  // above Navigator/Overlay, where Tooltip crashes on hover
+                  // with "No Overlay widget found" and squeezes the Row
+                  // into vertical text + a 340px tall slab. Semantics keeps
+                  // the screen-reader label without needing an Overlay.
+                  Semantics(
+                    button: true,
+                    label: 'Dismiss update notification',
+                    child: IconButton(
+                      onPressed: service.dismiss,
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: AppColors.petalWhite,
+                      ),
+                      constraints: const BoxConstraints(),
+                      padding: EdgeInsets.zero,
                     ),
-                    tooltip: 'Dismiss',
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
                   ),
                 ],
               ),
