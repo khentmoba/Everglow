@@ -38,6 +38,23 @@ String katanaChapterNumFromId(String id) {
   return lower.substring(cIndex + 1);
 }
 
+/// Infers the dashboard language badge from MangaKatana genres.
+///
+/// The site has no language field — Korean titles carry the `manhwa`
+/// genre and Chinese titles the `manhua` genre, so those win; anything
+/// else (including genre-less auto-adds) falls back to Japanese manga.
+/// Returns the `MangaItem.originalLanguage` code (`ko` / `cn` / `jp`).
+String katanaLanguageForGenres(List<KatanaGenre> genres) {
+  var manhwa = false;
+  for (final genre in genres) {
+    final slug = genre.slug.toLowerCase();
+    final name = genre.name.toLowerCase();
+    if (slug == 'manhua' || name == 'manhua') return 'cn';
+    if (slug == 'manhwa' || name == 'manhwa') manhwa = true;
+  }
+  return manhwa ? 'ko' : 'jp';
+}
+
 /// A single chapter entry for a manga (e.g. `c413`).
 class KatanaChapter {
   final String id;

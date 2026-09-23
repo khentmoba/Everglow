@@ -106,11 +106,11 @@ class KatanaService {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme) return url;
     final host = uri.host.toLowerCase();
+    // Note: mangakatana.net is a parked ad domain, not the manga site —
+    // deliberately not proxied (the server allowlist agrees).
     final isAllowed =
         host == 'mangakatana.com' ||
         host.endsWith('.mangakatana.com') ||
-        host == 'mangakatana.net' ||
-        host.endsWith('.mangakatana.net') ||
         host.endsWith('.mangakakalot.com') ||
         host.endsWith('.mkklcdnv6temp.com') ||
         host.endsWith('.catmanga.org');

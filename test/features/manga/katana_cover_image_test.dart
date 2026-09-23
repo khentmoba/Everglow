@@ -57,6 +57,13 @@ void main() {
       expect(KatanaService.proxyImageUrl(''), isEmpty);
     });
 
+    test('does not proxy parked mangakatana.net domain', () {
+      // mangakatana.net serves domain-parking ads, not manga images —
+      // and the server allowlist rejects it. Pass through untouched.
+      const parked = 'https://mangakatana.net/imgs/cover/a.jpg';
+      expect(KatanaService.proxyImageUrl(parked), equals(parked));
+    });
+
     test('ignores non-manga urls', () {
       const other = 'https://firebasestorage.googleapis.com/v0/b/img.jpg';
       expect(KatanaService.proxyImageUrl(other), equals(other));
