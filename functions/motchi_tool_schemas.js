@@ -998,8 +998,8 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '') {
   }
   const isSmallTalk = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i.test(trimmed);
   if (isSmallTalk) {
-    const coreAllowed = new Set(CORE_TOOLS);
-    return MOTCHI_TOOLS.filter(t => coreAllowed.has(t.function.name));
+    const smallTalkAllowed = new Set(['set_mood', 'remember_fact', 'add_xp']);
+    return MOTCHI_TOOLS.filter(t => smallTalkAllowed.has(t.function.name));
   }
   // Intent routing: core tools + only the groups the message asks
   // for (typically a third of the schemas). Falls back to full tools if
