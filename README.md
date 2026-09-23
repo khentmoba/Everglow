@@ -109,8 +109,8 @@ _Previous releases: [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/
 | **External APIs** | TMDB, Open Library, OpenTDB, Last.fm, Jikan, AniList, MangaDex, Comick, MangaKakalot, Mangasee123, Bato, Spotify |
 | **Real-Time** | Firestore snapshots (chat, canvas, presence, watchlist, multiplayer) |
 | **Voice Chat** | WebRTC via Firestore signaling |
-| **AI** | Agnes 3.0 Flash via SSE streaming with 50+ function-calling tools |
-| **Cloud Functions** | Authenticated proxies (TMDB, Last.fm, Spotify, manga, anime, Open Library) + AI (Agnes) + schedules/triggers |
+| **AI** | Qwen 3.8 Flash via SSE streaming with 50+ function-calling tools |
+| **Cloud Functions** | Authenticated proxies (TMDB, Last.fm, Spotify, manga, anime, Open Library) + AI (TokenHarbor) + schedules/triggers |
 | **Notifications** | Firebase Cloud Messaging (FCM) with topic subscriptions |
 
 ---
@@ -132,7 +132,7 @@ lib/
     utils/                           # Logger, Firestore stream helpers, connectivity
   features/
     academy/                         # Trivia game — 8 categories, solo study, 1v1 matches
-    ai/                              # Motchi AI assistant (Agnes 3.0 Flash + 50+ function tools via apihub.agnes-ai.com)
+    ai/                              # Motchi AI assistant (Qwen 3.8 Flash + 50+ function tools via tokenharbor.ai)
     books/                           # Book discovery & reader (Open Library) + Our Books list
     bucket_list/                     # Shared bucket list kanban (todo / doing / done)
     calendar/                        # Shared calendar + date polls (Rallly-style voting)
@@ -236,7 +236,7 @@ The workflow:
 | `proxyTmdb` | Authenticated TMDB proxy (server-side API key, ID-token required) |
 | `proxyLastfm` | Authenticated Last.fm proxy (server-side API key) |
 | `proxySpotifySearch` / `spotifyExchange` / `spotifyRefresh` / `spotifyCurrentlyPlaying` | Spotify OAuth + search + playback |
-| `proxyAI` / `proxyAIv2` | Motchi AI proxy — Agnes 3.0 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 50+ tools |
+| `proxyAI` / `proxyAIv2` | Motchi AI proxy — Qwen 3.8 Flash (tokenharbor.ai) via SSE streaming, 1M context, 50+ tools |
 | `agnesImage` | Agnes image generation proxy (`agnes-image-2.0-flash`) |
 | `verifyPasscode` | Server-verified passcode login (Khent/Clair) |
 | `health` | Public liveness + Firestore reachability |

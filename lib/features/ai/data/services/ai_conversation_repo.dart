@@ -184,7 +184,7 @@ class AIConversationRepository implements IAIConversationRepository {
     }
   }
 
-  /// LLM-powered session summary via Agnes.
+  /// LLM-powered session summary via the Motchi proxy.
   Future<String> _buildLLMSummary(List messages) async {
     if (messages.isEmpty) return 'Empty session';
 

@@ -17,7 +17,7 @@ const MAX_TURNS_PER_SESSION = 50;
  * @param {string} params.assistantReply - Motchi's reply text
  * @param {Array<Object>} [params.tools] - Tools executed: [{ name, args, resultSummary, elapsedMs }]
  * @param {string} [params.reasoning] - Model thinking / reasoning text
- * @param {string} [params.model] - Model name (e.g. agnes-3.8-flash)
+ * @param {string} [params.model] - Model name (e.g. qwen3.8-flash)
  * @param {number} [params.durationMs] - Total turn duration in ms
  * @param {string} [params.error] - Error message if turn failed
  * @param {number} [params.imageCount] - Number of images attached

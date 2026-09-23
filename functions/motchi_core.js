@@ -416,7 +416,7 @@ function composeTodayRecap({
   return parts.join(' ');
 }
 
-/// Flattens an Agnes message content block (string or parts array) to text.
+/// Flattens an LLM message content block (string or parts array) to text.
 function getMessageText(content) {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
@@ -427,7 +427,7 @@ function getMessageText(content) {
   return '';
 }
 
-/// Rough input-token estimate for Agnes prompts.
+/// Rough input-token estimate for Motchi prompts.
 /// Counts CJK characters (roughly 1.5 tokens each); the rest ~4 chars/token.
 function estimateTokens(text) {
   if (!text) return 0;
@@ -500,9 +500,9 @@ function shouldExtractMemory(userMessage, motchiReply) {
   return user.length >= 120;
 }
 
-// Agnes 3.0 Flash: 512K context window, generous token budget.
-// Use ~25% of context for input safety; reserve rest for output + tool loops.
-const AGNES_INPUT_TOKEN_BUDGET = 120000;
+// Qwen 3.8 Flash via TokenHarbor: 1M context window. Keep the proven 120K
+// input budget as a cost guard; the extra headroom is reserve, not license.
+const LLM_INPUT_TOKEN_BUDGET = 120000;
 
 /**
  * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
@@ -677,5 +677,5 @@ module.exports = {
   phtDayBounds,
   PHT_OFFSET_MS,
   parseReminderDate,
-  AGNES_INPUT_TOKEN_BUDGET,
+  LLM_INPUT_TOKEN_BUDGET,
 };
