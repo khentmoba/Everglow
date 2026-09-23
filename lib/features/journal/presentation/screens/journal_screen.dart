@@ -12,6 +12,7 @@ import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
+import '../../../../shared/utils/scroll_memory.dart';
 import '../../../../shared/widgets/everglow/everglow_search_field.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/services/journal_service.dart';
@@ -29,6 +30,7 @@ class JournalScreen extends StatefulWidget {
 
 class _JournalScreenState extends State<JournalScreen> {
   final _searchController = TextEditingController();
+  final _entriesScroll = RememberedScrollController('journal:entries');
   String _searchQuery = '';
   Future<List<JournalEntry>>? _searchFuture;
   JournalCategory? _categoryFilter;
@@ -76,6 +78,7 @@ class _JournalScreenState extends State<JournalScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    _entriesScroll.dispose();
     super.dispose();
   }
 
@@ -178,8 +181,7 @@ class _JournalScreenState extends State<JournalScreen> {
                     _ChapterRail(
                       entries: all,
                       selected: _categoryFilter,
-                      onSelect: (c) =>
-                          setState(() => _categoryFilter = c),
+                      onSelect: (c) => setState(() => _categoryFilter = c),
                     ),
                     const SizedBox(height: 8),
                     _AuthorRow(
@@ -202,8 +204,7 @@ class _JournalScreenState extends State<JournalScreen> {
                           : _PaginatedJournalList(
                               firstPage: entries,
                               isFiltered: _isFiltered,
-                              onTap: (entry) =>
-                                  _showEntryDetail(entry, auth),
+                              onTap: (entry) => _showEntryDetail(entry, auth),
                             ),
                     ),
                   ],
@@ -263,6 +264,7 @@ class _JournalScreenState extends State<JournalScreen> {
         if (entries.isEmpty) return _noMatchView();
         final auth = context.read<AuthService>();
         return ListView.separated(
+          controller: _entriesScroll,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           itemCount: entries.length,
           separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -735,10 +737,7 @@ class _MemoryCapsule extends StatelessWidget {
               },
             ),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -835,6 +834,14 @@ class _PaginatedJournalList extends StatefulWidget {
 
 class _PaginatedJournalListState extends State<_PaginatedJournalList> {
   final List<JournalEntry> _older = [];
+  final _scroll = RememberedScrollController('journal:entries:paged');
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
   DocumentSnapshot? _cursor;
   bool _loadingMore = false;
   bool _exhausted = false;
@@ -908,6 +915,7 @@ class _PaginatedJournalListState extends State<_PaginatedJournalList> {
   Widget build(BuildContext context) {
     final entries = [...widget.firstPage, ..._older];
     return ListView.separated(
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       itemCount: entries.length + (_canPage ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 12),
