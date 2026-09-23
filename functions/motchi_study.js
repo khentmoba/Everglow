@@ -215,7 +215,8 @@ async function handleGenerateStudySet(req, res) {
   } catch (e) {
     if (e.status === 429 || e.status === 502 || e.status === 503) {
       try {
-        await new Promise((r) => setTimeout(r, 1500));
+        // 429s wait out the RPM window (free tier: one slot per 12s).
+        await new Promise((r) => setTimeout(r, e.status === 429 ? 12000 : 1500));
         reply = await callAgnes({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
       } catch {
         res.status(502).json({ error: 'Motchi got distracted — try the cached questions.' });
