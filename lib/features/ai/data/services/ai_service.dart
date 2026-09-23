@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -35,6 +36,15 @@ class AIService extends ChangeNotifier {
   List<String> get memories => _memoryRepo.all;
   AIConversation? get assistantConversation => _conversationRepo.assistant;
   AIConversation? get guardianConversation => _conversationRepo.guardian;
+
+  String? _currentSessionId;
+  String get currentSessionId => _currentSessionId ??= _generateSessionId();
+
+  String _generateSessionId() {
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final rand = (math.Random().nextInt(900000) + 100000).toString();
+    return 'sess_${stamp}_$rand';
+  }
 
   bool _isLoading = false;
   int _activeRequest = 0;
@@ -759,6 +769,7 @@ class AIService extends ChangeNotifier {
             'memories': memories,
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
+            'sessionId': currentSessionId,
             'enableThinking': enableThinking,
             'canvas': canvasEnabled,
           }),
@@ -855,6 +866,7 @@ class AIService extends ChangeNotifier {
       'memories': memories,
       'feature': feature,
       'caller': caller,
+      'sessionId': currentSessionId,
       'stream': true, // enables real SSE streaming from the backend
       'enableThinking': enableThinking,
       'canvas': canvasEnabled,
@@ -893,6 +905,7 @@ class AIService extends ChangeNotifier {
       _conversationRepo.setConversation(feature, conv);
 
   Future<void> clearConversation(String feature, {bool archive = true}) async {
+    _currentSessionId = null;
     await _conversationRepo.clear(feature, archive: archive);
     notifyListeners();
   }
@@ -904,6 +917,7 @@ class AIService extends ChangeNotifier {
   }
 
   void startFreshSession() {
+    _currentSessionId = null;
     _conversationRepo.startFresh();
     notifyListeners();
   }
@@ -926,6 +940,7 @@ class AIService extends ChangeNotifier {
 
   /// Switch to a specific archived session, loading its messages.
   Future<void> switchSession(String sessionId) async {
+    _currentSessionId = sessionId;
     await _conversationRepo.loadSession(sessionId);
     // Also save it as the current assistant conversation
     final conv = _conversationRepo.assistant;

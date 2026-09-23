@@ -122,4 +122,32 @@ void main() {
 
     ai.dispose();
   });
+
+  test('AIService maintains and cycles currentSessionId', () async {
+    final ai = AIService(
+      memoryRepo: _FakeMemoryRepo(),
+      conversationRepo: _FakeConversationRepo(),
+    );
+
+    final sess1 = ai.currentSessionId;
+    expect(sess1, isNotEmpty);
+    expect(sess1.startsWith('sess_'), isTrue);
+
+    // Same session ID across multiple reads
+    expect(ai.currentSessionId, equals(sess1));
+
+    // Clearing conversation (new chat) cycles the session ID
+    await ai.clearConversation('assistant', archive: true);
+    final sess2 = ai.currentSessionId;
+    expect(sess2, isNotEmpty);
+    expect(sess2, isNot(equals(sess1)));
+
+    // startFreshSession cycles the session ID as well
+    ai.startFreshSession();
+    final sess3 = ai.currentSessionId;
+    expect(sess3, isNotEmpty);
+    expect(sess3, isNot(equals(sess2)));
+
+    ai.dispose();
+  });
 }
