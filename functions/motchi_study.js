@@ -184,7 +184,7 @@ async function handleGenerateStudySet(req, res) {
 
   // Shared cap with Motchi chat: one set costs the same as one chat turn.
   // Fails open on counter hiccups (see common.js) — never block study.
-  const caller = await getVerifiedUsername(decoded).catch(() => '');
+  const caller = getVerifiedUsername(decoded) || '';
   const dailyLimit = caller === 'khentsgdz' || caller === 'clairjassen' ? 300 : 50;
   const usage = await checkDailyCap(decoded.uid, 'proxyAI', dailyLimit);
   if (!usage.allowed) {

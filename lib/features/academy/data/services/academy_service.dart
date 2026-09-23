@@ -14,7 +14,6 @@ class AcademyService {
       _firestore.collection('academy_questions');
   CollectionReference get _matchesRef =>
       _firestore.collection('active_matches');
-  CollectionReference get _usersRef => _firestore.collection('users');
 
   /// Match length for 1v1. The shared [GameMatch.questionIds] order decides
   /// the real length; this is the snapshot size at creation.
@@ -88,22 +87,6 @@ class AcademyService {
       for (final id in ids)
         if (found[id] != null) found[id]!,
     ];
-  }
-
-  // Update Study Points for a user
-  Future<void> updateStudyPoints(String userId, int points) async {
-    final userDoc = _usersRef.doc(userId);
-    await _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(userDoc);
-      if (!snapshot.exists) {
-        transaction.set(userDoc, {'studyPoints': points});
-      } else {
-        final currentPoints = snapshot.data() != null
-            ? (snapshot.data() as Map<String, dynamic>)['studyPoints'] ?? 0
-            : 0;
-        transaction.update(userDoc, {'studyPoints': currentPoints + points});
-      }
-    });
   }
 
   // Seeding helper

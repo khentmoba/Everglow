@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../shared/utils/firestore_pagination.dart';
 import '../../domain/models/chat_message.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -16,26 +17,46 @@ class ChatService {
     return '$m-$d';
   }
 
-  Stream<List<ChatMessage>> getMessagesStream() {
+  static const int messagePageSize = 50;
+
+  Stream<FirestorePage<ChatMessage>> getMessagesStream() {
     return withFirestoreTimeout(
       _db
           .collection('sanctuary_messages')
           .orderBy('timestamp', descending: true)
-          .limit(50)
+          .limit(messagePageSize)
           .snapshots()
           .map((snapshot) {
             final messages = <ChatMessage>[];
-            for (var doc in snapshot.docs) {
+            for (final doc in snapshot.docs) {
               try {
                 messages.add(ChatMessage.fromFirestore(doc));
               } catch (e) {
                 Logger.e("Error parsing message document ${doc.id}", error: e);
               }
             }
-            return messages.reversed.toList();
+            return FirestorePage(
+              items: messages.reversed.toList(),
+              nextCursor: snapshot.docs.length == messagePageSize
+                  ? snapshot.docs.last
+                  : null,
+            );
           }),
       label: 'sanctuary-chat',
       duration: const Duration(seconds: 10),
+    );
+  }
+
+  Future<FirestorePage<ChatMessage>> getMessagesPage({
+    DocumentSnapshot? cursor,
+    int limit = messagePageSize,
+  }) {
+    return fetchFirestorePage<ChatMessage>(
+      collection: _db.collection('sanctuary_messages'),
+      orderBy: 'timestamp',
+      cursor: cursor,
+      limit: limit,
+      fromDoc: ChatMessage.fromFirestore,
     );
   }
 

@@ -55,7 +55,7 @@ void main() {
       );
     });
 
-    test('builds VidSrc TV URLs with season and episode query', () {
+    test('builds VidSrc TV URLs with season, episode, and start', () {
       expect(
         buildVideoSourceUrl(
           vidsrc,
@@ -63,12 +63,13 @@ void main() {
           id: '1399',
           season: 2,
           episode: 3,
+          startSeconds: 95,
         ),
-        'https://vidsrc.to/embed/tv/1399?season=2&episode=3',
+        'https://vidsrc.to/embed/tv/1399?season=2&episode=3&start=95',
       );
     });
 
-    test('builds MultiEmbed movie URLs with tmdb flag', () {
+    test('builds MultiEmbed movie URLs with tmdb flag and start', () {
       expect(
         buildVideoSourceUrl(
           multiembed,
@@ -76,8 +77,9 @@ void main() {
           id: '603',
           season: 1,
           episode: 1,
+          startSeconds: 90,
         ),
-        'https://multiembed.mov/?video_id=603&tmdb=1',
+        'https://multiembed.mov/?video_id=603&tmdb=1&start=90',
       );
     });
 

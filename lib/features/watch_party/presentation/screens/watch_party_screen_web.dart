@@ -16,6 +16,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../cinema/data/services/ani_zip_service.dart';
 import '../../../cinema/data/services/player_memory_service.dart';
 import '../../../cinema/data/services/video_source_service.dart';
+import '../../../cinema/data/services/video_source_url_builder.dart';
 import '../../../cinema/data/models/video_source_config.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
@@ -663,8 +664,8 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               _hlsVolume <= 0
                   ? Icons.volume_off_rounded
                   : _hlsVolume < 0.5
-                      ? Icons.volume_down_rounded
-                      : Icons.volume_up_rounded,
+                  ? Icons.volume_down_rounded
+                  : Icons.volume_up_rounded,
               color: AppColors.textMuted,
               size: 16,
             ),

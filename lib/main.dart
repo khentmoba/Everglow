@@ -15,6 +15,7 @@ import 'core/router/route_memory.dart';
 import 'shared/utils/scroll_memory.dart';
 import 'core/services/notification_service.dart';
 import 'core/system/app_bootstrap.dart';
+import 'core/system/app_check.dart';
 import 'core/system/app_error_widget.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
@@ -59,6 +60,11 @@ Future<void> _startEverglow() async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      try {
+        await activateAppCheck();
+      } catch (e) {
+        Logger.e('[AppCheck] activation failed', error: e);
+      }
     },
     initializeNotifications: () => NotificationService().initialize(),
     scaffoldMessengerKey: _scaffoldMessengerKey,

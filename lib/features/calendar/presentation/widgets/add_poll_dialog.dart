@@ -10,6 +10,12 @@ import '../../data/services/calendar_poll_service.dart';
 class AddPollDialog extends StatefulWidget {
   const AddPollDialog({super.key});
 
+  static bool canCreate({
+    required String title,
+    required int dateCount,
+    required bool saving,
+  }) => !saving && title.trim().isNotEmpty && dateCount >= 2;
+
   @override
   State<AddPollDialog> createState() => _AddPollDialogState();
 }
@@ -68,29 +74,46 @@ class _AddPollDialogState extends State<AddPollDialog> {
 
   Future<void> _save() async {
     final title = _titleController.text.trim();
-    if (title.isEmpty || _dates.length < 2 || _saving) return;
-    setState(() => _saving = true);
-    final auth = context.read<AuthService>();
-    final username = auth.currentUser ?? 'unknown';
-    final poll = DatePoll(
-      id: '',
+    if (!AddPollDialog.canCreate(
       title: title,
-      description: _descController.text.trim(),
-      createdBy: username,
-      createdAt: DateTime.now(),
-      options: _dates
-          .map(
-            (d) => DatePollOption(
-              id: d.millisecondsSinceEpoch.toString(),
-              date: d,
-              label:
-                  '${d.month}/${d.day} ${TimeOfDay.fromDateTime(d).format(context)}',
-            ),
-          )
-          .toList(),
-    );
-    await CalendarPollService().create(poll);
-    if (mounted) Navigator.pop(context, true);
+      dateCount: _dates.length,
+      saving: _saving,
+    )) {
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final auth = context.read<AuthService>();
+      final poll = DatePoll(
+        id: '',
+        title: title,
+        description: _descController.text.trim(),
+        createdBy: auth.currentUser ?? 'unknown',
+        createdAt: DateTime.now(),
+        options: _dates
+            .map(
+              (d) => DatePollOption(
+                id: d.millisecondsSinceEpoch.toString(),
+                date: d,
+                label:
+                    '${d.month}/${d.day} ${TimeOfDay.fromDateTime(d).format(context)}',
+              ),
+            )
+            .toList(),
+      );
+      await CalendarPollService().create(poll);
+      if (mounted) Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not create the poll. Please try again.'),
+          backgroundColor: AppColors.deepRose,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -140,6 +163,7 @@ class _AddPollDialogState extends State<AddPollDialog> {
               const SizedBox(height: 16),
               TextField(
                 controller: _titleController,
+                onChanged: (_) => setState(() {}),
                 style: AppTypography.outfitWhite.copyWith(
                   color: AppColors.petalWhite,
                 ),
@@ -293,11 +317,13 @@ class _AddPollDialogState extends State<AddPollDialog> {
                 width: double.infinity,
                 child: GestureDetector(
                   onTap:
-                      _saving ||
-                          _titleController.text.trim().isEmpty ||
-                          _dates.length < 2
-                      ? null
-                      : _save,
+                      AddPollDialog.canCreate(
+                        title: _titleController.text,
+                        dateCount: _dates.length,
+                        saving: _saving,
+                      )
+                      ? _save
+                      : null,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(

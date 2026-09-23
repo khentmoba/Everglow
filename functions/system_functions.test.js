@@ -25,6 +25,7 @@ test('deploy surface still includes core + system functions', () => {
     'proxyLastfm',
     'proxyAI',
     'verifyPasscode',
+    'bootstrapProfile',
   ]) {
     assert.ok(names.includes(expected), `missing export: ${expected}`);
   }

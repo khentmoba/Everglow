@@ -32,13 +32,25 @@ String buildVideoSourceUrl(
 
   if (mediaType == 'tv') {
     if (tvBase.contains('vidsrc.to')) {
-      return '$tvBase$id?season=$season&episode=$episode';
+      return _withStartSeconds(
+        '$tvBase$id?season=$season&episode=$episode',
+        startSeconds,
+      );
     } else if (tvBase.contains('multiembed.mov')) {
-      return '$tvBase$id&tmdb=1&s=$season&e=$episode';
+      return _withStartSeconds(
+        '$tvBase$id&tmdb=1&s=$season&e=$episode',
+        startSeconds,
+      );
     } else if (provider.id == 'vsembed') {
-      return '$tvBase$id?season=$season&episode=$episode';
+      return _withStartSeconds(
+        '$tvBase$id?season=$season&episode=$episode',
+        startSeconds,
+      );
     } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
-      return '$tvBase$id?season=$season&episode=$episode';
+      return _withStartSeconds(
+        '$tvBase$id?season=$season&episode=$episode',
+        startSeconds,
+      );
     } else {
       // vidlink: https://vidlink.pro/tv/{id}/{season}/{episode}
       // vidcore: https://vidcore.org/embed/tv/{id}/{season}/{episode}
@@ -54,7 +66,7 @@ String buildVideoSourceUrl(
   }
 
   if (movieBase.contains('multiembed.mov')) {
-    return '$movieBase$id&tmdb=1';
+    return _withStartSeconds('$movieBase$id&tmdb=1', startSeconds);
   }
   final separator =
       movieBase.endsWith('/') ||

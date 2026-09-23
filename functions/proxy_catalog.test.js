@@ -27,6 +27,17 @@ test('proxyCatalog rejects traversal path', () => {
   );
 });
 
+test('proxyCatalog rejects absolute and protocol-relative origin overrides', () => {
+  assert.throws(
+    () => resolveCatalogUpstream('jikan', 'https://169.254.169.254/latest/meta-data'),
+    /Invalid path/,
+  );
+  assert.throws(
+    () => resolveCatalogUpstream('jikan', '//169.254.169.254/latest/meta-data'),
+    /Invalid path/,
+  );
+});
+
 test('proxyCatalog rejects overlong path', () => {
   assert.throws(
     () => resolveCatalogUpstream('openlibrary', `search.json?${'q=x&'.repeat(100)}`),

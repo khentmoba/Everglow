@@ -113,8 +113,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   Future<void> _restoreHlsVolume() async {
     final memory = await _playerMemory.load(_hlsVolumeKey);
     if (!mounted) return;
-    final volume = (memory.volume ?? PlayerMemoryService.defaultVolume)
-        .clamp(0.0, 1.0);
+    final volume = (memory.volume ?? PlayerMemoryService.defaultVolume).clamp(
+      0.0,
+      1.0,
+    );
     setState(() => _hlsVolume = volume);
     _hlsController.setVolume(volume);
   }
@@ -766,83 +768,38 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   }
 
   // ─── URL building ─────────────────────────────────────────────────
-  // Mirrors the regular player. The only addition is a trailing
-  // `&start=N` for providers that support it (Videasy accepts
-  // `?startTime=N`). For the rest the hint is silently ignored —
-  // they always start at 0 — which is the documented limitation of
-  // the sync.
+  // Mirrors the regular player and passes the room's start position through
+  // the shared provider URL builder.
 
   String _buildPlayerUrl(
     VideoSourceConfig provider, {
     required double startSeconds,
   }) {
-    final movieBase = provider.movieUrl;
-    final tvBase = provider.tvUrl;
     final id = _room.isAnime
         ? (_resolvedTmdbId ?? _room.malId ?? _room.tmdbId)
         : _room.tmdbId;
-    debugPrint(
-      'WatchPartyScreen _buildPlayerUrl: provider=${provider.id}, id=$id, mediaType=${_room.mediaType}, season=${_room.season}, episode=${_room.episode}',
+    var base = buildVideoSourceUrl(
+      provider,
+      mediaType: _room.mediaType,
+      id: id.toString(),
+      season: _room.season ?? 1,
+      episode: _room.episode ?? 1,
+      startSeconds: startSeconds.round(),
     );
 
-    String base;
-    if (provider.id == 'everglow-embed') {
-      if (_room.mediaType == 'tv') {
-        final s = _room.season ?? 1;
-        final e = _room.episode ?? 1;
-        return '$tvBase?tmdbId=$id&type=tv&s=$s&e=$e';
-      }
-      return '$movieBase?tmdbId=$id&type=movie';
-    }
-    if (_room.mediaType == 'tv') {
-      final s = _room.season ?? 1;
-      final e = _room.episode ?? 1;
-      if (tvBase.contains('vidsrc.to')) {
-        base = '$tvBase$id?season=$s&episode=$e';
-      } else if (tvBase.contains('multiembed.mov')) {
-        base = '$tvBase$id&tmdb=1&s=$s&e=$e';
-      } else if (provider.id == 'vsembed') {
-        base = '$tvBase$id?season=$s&episode=$e';
-      } else {
-        final separator = tvBase.endsWith('/') ? '' : '/';
-        base = '$tvBase$separator$id/$s/$e';
-      }
-    } else {
-      if (movieBase.contains('multiembed.mov')) {
-        base = '$movieBase$id&tmdb=1';
-      } else {
-        final separator =
-            movieBase.endsWith('/') ||
-                movieBase.contains('?') ||
-                movieBase.contains('=')
-            ? ''
-            : '/';
-        base = '$movieBase$separator$id';
-      }
-    }
-
-    // VidLink / Videasy: autoplay flag mirrors play/pause so the
-    // DOM-level reload actually stops or starts the video.
-    // When autoplay is on, we also emit muted=1 so the browser
-    // allows autoplay even without a user gesture on the partner's side.
     if (provider.id == 'vidlink' ||
         provider.id == 'videasy' ||
         provider.id == 'vidfast') {
-      final isTv = _room.mediaType == 'tv';
-      final auto = _autoplay ? 'true' : 'false';
-      final flags = isTv
-          ? 'autoplay=$auto&nextButton=true&episodeSelector=true'
-          : 'autoplay=$auto';
-      final sep = base.contains('?') ? '&' : '?';
-      base = '$base$sep$flags';
-      if (_autoplay) {
-        base = '$base&muted=1';
+      final uri = Uri.parse(base);
+      final params = uri.queryParameters
+        ..['autoplay'] = _autoplay ? 'true' : 'false';
+      if (_room.mediaType == 'tv') {
+        params['nextButton'] = 'true';
+        params['episodeSelector'] = 'true';
       }
-      return base;
+      if (_autoplay) params['muted'] = '1';
+      return uri.replace(queryParameters: params).toString();
     }
-    // VidFast doesn't support seek parameters — we always return the
-    // clean URL so the default first provider never fails due to an
-    // unsupported `?start=N`. Only Videasy honours startTime.
     return base;
   }
 

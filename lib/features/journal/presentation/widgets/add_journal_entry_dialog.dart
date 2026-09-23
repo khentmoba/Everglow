@@ -83,55 +83,68 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     final content = _contentController.text.trim();
     if (title.isEmpty && content.isEmpty) return;
     setState(() => _saving = true);
-    final now = DateTime.now();
-    final wordCount = _countWords(content);
+    try {
+      final now = DateTime.now();
+      final wordCount = _countWords(content);
 
-    if (widget.existing != null) {
-      final updated = widget.existing!.copyWith(
-        title: title.isEmpty ? 'Untitled' : title,
-        content: content,
-        category: _category,
-        mood: _mood,
-        clearMood: _mood == null,
-        tags: _tags,
-        isPinned: _isPinned,
-        isLocked: _isLocked,
-        updatedAt: now,
-        wordCount: wordCount,
-      );
-      await JournalService().update(updated);
-    } else {
-      final entry = JournalEntry(
-        id: '',
-        title: title.isEmpty ? 'Untitled' : title,
-        content: content,
-        author: widget.author,
-        createdAt: now,
-        updatedAt: now,
-        category: _category,
-        mood: _mood,
-        tags: _tags,
-        isPinned: _isPinned,
-        isLocked: _isLocked,
-        wordCount: wordCount,
-      );
-      await JournalService().add(entry);
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null && uid.isNotEmpty) {
-        try {
-          await XPService().awardJournal(uid);
-        } catch (e) {
-          Logger.e('Journal: XP award failed', error: e);
+      if (widget.existing != null) {
+        final updated = widget.existing!.copyWith(
+          title: title.isEmpty ? 'Untitled' : title,
+          content: content,
+          category: _category,
+          mood: _mood,
+          clearMood: _mood == null,
+          tags: _tags,
+          isPinned: _isPinned,
+          isLocked: _isLocked,
+          updatedAt: now,
+          wordCount: wordCount,
+        );
+        await JournalService().update(updated);
+      } else {
+        final entry = JournalEntry(
+          id: '',
+          title: title.isEmpty ? 'Untitled' : title,
+          content: content,
+          author: widget.author,
+          createdAt: now,
+          updatedAt: now,
+          category: _category,
+          mood: _mood,
+          tags: _tags,
+          isPinned: _isPinned,
+          isLocked: _isLocked,
+          wordCount: wordCount,
+        );
+        await JournalService().add(entry);
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          try {
+            await XPService().awardJournal(uid);
+          } catch (e) {
+            Logger.e('Journal: XP award failed', error: e);
+          }
         }
       }
+      if (widget.existing == null) {
+        // Words are saved now — forget the draft so it never comes back
+        // stale. (Edit-saves leave new-entry drafts alone.)
+        await _titleController.clearDraft();
+        await _contentController.clearDraft();
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save this journal entry.'),
+            backgroundColor: AppColors.deepRose,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (widget.existing == null) {
-      // Words are saved now — forget the draft so it never comes back
-      // stale. (Edit-saves leave new-entry drafts alone.)
-      await _titleController.clearDraft();
-      await _contentController.clearDraft();
-    }
-    if (mounted) Navigator.pop(context);
   }
 
   @override

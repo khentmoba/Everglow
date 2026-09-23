@@ -44,6 +44,45 @@ async function requireAuth(req, res) {
   }
 }
 
+/**
+ * Requires a valid Firebase App Check token. Pass `{ consume: true }` for
+ * sensitive one-shot endpoints; callers must then acquire a limited-use
+ * token on every request.
+ */
+async function requireAppCheck(req, res, { consume = false } = {}) {
+  const token = String(
+    req.get('X-Firebase-AppCheck') || req.headers['x-firebase-appcheck'] || '',
+  ).trim();
+  if (!token) {
+    res.status(401).json({ error: 'App Check required' });
+    return null;
+  }
+  try {
+    return await getAdmin().appCheck().verifyToken(token, { consume });
+  } catch (e) {
+    console.warn('App Check verification failed:', e.message);
+    res.status(401).json({ error: 'Invalid or expired App Check token' });
+    return null;
+  }
+}
+
+const COUPLE_USERNAMES = new Set(['khentsgdz', 'clairjassen']);
+const CINEMA_USERNAMES = new Set(['breyan', 'octagram']);
+
+function isCoupleIdentity(decoded) {
+  return decoded?.role === 'couple' && COUPLE_USERNAMES.has(decoded?.username);
+}
+
+async function requireCouple(req, res) {
+  const decoded = await requireAuth(req, res);
+  if (!decoded) return null;
+  if (!isCoupleIdentity(decoded)) {
+    res.status(403).json({ error: 'Couple only' });
+    return null;
+  }
+  return { decoded, username: decoded.username };
+}
+
 function isPrivateIpv4(ip) {
   const parts = ip.split('.').map(Number);
   if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return true;
@@ -96,32 +135,17 @@ function isAllowedBookTextUrl(url) {
   return allowed;
 }
 
-/** Verified caller cache — maps Firebase UID -> {username, ts} (5m TTL). */
-const _verifiedCallerCache = new Map();
-const VERIFIED_CALLER_TTL_MS = 5 * 60 * 1000;
-
 /**
- * Resolve the trusted username for a verified Firebase Auth token.
- * Uses `users/{uid}.username` (written by AuthService._syncUserDoc) and
- * caches for 5 minutes. Returns null if not found or on error.
+ * Resolve the trusted username from server-issued custom claims.
+ * Client-writable profile documents are intentionally not consulted.
  */
-async function getVerifiedUsername(decoded) {
-  if (!decoded || !decoded.uid) return null;
-  const cached = _verifiedCallerCache.get(decoded.uid);
-  if (cached && (Date.now() - cached.ts) < VERIFIED_CALLER_TTL_MS) {
-    return cached.username;
+function getVerifiedUsername(decoded) {
+  const username = String(decoded?.username || '').trim().toLowerCase();
+  if (decoded?.role === 'couple' && COUPLE_USERNAMES.has(username)) {
+    return username;
   }
-  try {
-    const snap = await getAdmin().firestore().collection('users').doc(decoded.uid).get();
-    if (snap.exists) {
-      const username = (snap.data()?.username || '').toString().trim().toLowerCase();
-      if (username) {
-        _verifiedCallerCache.set(decoded.uid, { username, ts: Date.now() });
-        return username;
-      }
-    }
-  } catch (e) {
-    console.warn('[auth] getVerifiedUsername lookup failed:', e.message);
+  if (decoded?.role === 'cinema' && CINEMA_USERNAMES.has(username)) {
+    return username;
   }
   return null;
 }
@@ -266,6 +290,9 @@ module.exports = {
   getDb,
   cappedHttps,
   requireAuth,
+  requireAppCheck,
+  requireCouple,
+  isCoupleIdentity,
   rateLimitHit,
   enforceRateLimit,
   clientIp,

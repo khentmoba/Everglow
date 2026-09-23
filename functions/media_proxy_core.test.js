@@ -96,6 +96,10 @@ test('Gallery delete rejects other-bucket project URLs and non-gallery paths', (
     /project Storage bucket/,
   );
   assert.throws(() =>
+    resolveGalleryDeletePath('https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.evil/o/gallery%2Fx.jpg?alt=media'),
+    /project Storage bucket/,
+  );
+  assert.throws(() =>
     resolveGalleryDeletePath('https://firebasestorage.googleapis.com/v0/b/everglow-1c6db.firebasestorage.app/o/vault%2Fsecret.jpg?alt=media'),
     /Only gallery files/,
   );

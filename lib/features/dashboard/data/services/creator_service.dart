@@ -10,7 +10,6 @@ import '../../domain/models/milestone.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../guardian/data/models/guardian_message.dart';
 import '../../../../core/utils/logger.dart';
-import 'milestone_service.dart';
 
 class CreatorService {
   FirebaseFirestore? _firestoreInstance;
@@ -21,9 +20,9 @@ class CreatorService {
     FirebaseFirestore? firestore,
     FirebaseStorage? storage,
     http.Client? httpClient,
-  })  : _firestoreInstance = firestore,
-        _storageInstance = storage,
-        _httpClient = httpClient;
+  }) : _firestoreInstance = firestore,
+       _storageInstance = storage,
+       _httpClient = httpClient;
 
   FirebaseFirestore get _firestore =>
       _firestoreInstance ??= FirebaseFirestore.instance;
@@ -121,8 +120,10 @@ class CreatorService {
         .orderBy('date', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Milestone.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Milestone.fromFirestore(doc)).toList(),
+        );
   }
 
   // ---------------------------------------------------------------------------
@@ -171,8 +172,11 @@ class CreatorService {
         .orderBy('unlockDate', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => HiddenNote.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => HiddenNote.fromFirestore(doc))
+              .toList(),
+        );
   }
 
   // ---------------------------------------------------------------------------
@@ -196,9 +200,11 @@ class CreatorService {
         .where('category', isEqualTo: 'whisper')
         .limit(limit)
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => GuardianMessage.fromFirestore(doc.data(), doc.id))
-            .toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => GuardianMessage.fromFirestore(doc.data(), doc.id))
+              .toList(),
+        );
   }
 
   /// Deletes a whisper message.
@@ -302,9 +308,7 @@ class CreatorService {
       final uri = Uri.parse(
         'https://us-central1-everglow-1c6db.cloudfunctions.net/health',
       );
-      final response = await _http.get(uri).timeout(
-        const Duration(seconds: 8),
-      );
+      final response = await _http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200 || response.statusCode == 503) {
         final decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic>) {
@@ -317,10 +321,7 @@ class CreatorService {
         'message': 'HTTP ${response.statusCode}',
       };
     } catch (e) {
-      return {
-        'status': 'offline',
-        'error': e.toString(),
-      };
+      return {'status': 'offline', 'error': e.toString()};
     }
   }
 
@@ -347,11 +348,6 @@ class CreatorService {
       );
       return null;
     }
-  }
-
-  /// Repaired legacy milestone assets (.png to .jpg).
-  Future<int> repairMilestoneAssets() async {
-    return MilestoneService().repairLegacyAssetPaths();
   }
 
   /// Clears persistent local disk caches for letters and local storage.

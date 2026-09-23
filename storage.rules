@@ -7,29 +7,29 @@ service firebase.storage {
     function isCoupleUser() {
       return isSignedIn() &&
         request.auth.token.firebase.sign_in_provider != 'anonymous' &&
-        firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.username in ['khentsgdz', 'clairjassen'];
+        request.auth.token.role == 'couple' &&
+        request.auth.token.username in ['khentsgdz', 'clairjassen'];
     }
     match /gallery/{userId}/{allPaths=**} {
       allow read: if isCoupleUser();
-      allow write: if request.auth != null && request.auth.uid == userId
+      allow write: if isCoupleUser() && request.auth.uid == userId
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
     match /memories/{userId}/{allPaths=**} {
       allow read: if isCoupleUser();
-      allow write: if request.auth != null && request.auth.uid == userId
+      allow write: if isCoupleUser() && request.auth.uid == userId
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
     match /milestones/{userId}/{allPaths=**} {
       allow read: if isCoupleUser();
-      allow write: if request.auth != null && request.auth.uid == userId
+      allow write: if isCoupleUser() && request.auth.uid == userId
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
     match /milestones/{legacyFile} {
-      allow read: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      allow read: if isCoupleUser();
       allow write: if false;
     }
     match /vault/{userId}/{allPaths=**} {

@@ -42,7 +42,7 @@ const {
 
 const { proxyAnime, proxyAnimeSegment, proxyMegavidHls } = require('./anime.js');
 const { proxySpotifySearch, spotifyExchange, spotifyRefresh, spotifyCurrentlyPlaying } = require('./spotify.js');
-const { verifyPasscode } = require('./passcode.js');
+const { verifyPasscode, bootstrapProfile } = require('./passcode.js');
 const { health, sweepStalePresence } = require('./system_functions.js');
 exports.health = health;
 exports.sweepStalePresence = sweepStalePresence;
@@ -125,6 +125,7 @@ module.exports = Object.assign({}, module.exports, {
   spotifyRefresh,
   spotifyCurrentlyPlaying,
   verifyPasscode,
+  bootstrapProfile,
   onNewChatMessage,
   onNewMood,
   onNewStarDrop,

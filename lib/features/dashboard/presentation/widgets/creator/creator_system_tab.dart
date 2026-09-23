@@ -30,8 +30,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
   Map<String, dynamic>? _usage;
   bool _isCheckingUsage = false;
 
-  bool _isRepairing = false;
-  int? _repairedCount;
   bool _isClearingCache = false;
 
   @override
@@ -44,10 +42,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.velvet,
-      ),
+      SnackBar(content: Text(message), backgroundColor: AppColors.velvet),
     );
   }
 
@@ -63,8 +58,8 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
         _health = result;
         final status = (result['status'] as String?) ?? 'unknown';
         if (status != 'ok') {
-          _healthError = result['error']?.toString() ??
-              result['message']?.toString();
+          _healthError =
+              result['error']?.toString() ?? result['message']?.toString();
         }
       });
     } catch (e) {
@@ -86,27 +81,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
       setState(() => _usage = result);
     } finally {
       if (mounted) setState(() => _isCheckingUsage = false);
-    }
-  }
-
-  Future<void> _repairAssets() async {
-    setState(() {
-      _isRepairing = true;
-      _repairedCount = null;
-    });
-    try {
-      final count = await widget.creatorService.repairMilestoneAssets();
-      if (!mounted) return;
-      setState(() => _repairedCount = count);
-      _snack(
-        count == 0
-            ? 'Milestone photos already healthy ✨'
-            : 'Repaired $count milestone photo${count == 1 ? '' : 's'} ✨',
-      );
-    } catch (e) {
-      _snack('Repair failed: $e');
-    } finally {
-      if (mounted) setState(() => _isRepairing = false);
     }
   }
 
@@ -151,9 +125,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
         ),
         backgroundColor: AppColors.velvet,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 4),
       ),
     );
@@ -252,14 +224,12 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
                       _buildPill(
                         label:
                             'Firestore ${((_health!['checks'] as Map?)?['firestore'] ?? 'unknown')}',
-                        ok: ((_health!['checks'] as Map?)?['firestore']) ==
+                        ok:
+                            ((_health!['checks'] as Map?)?['firestore']) ==
                             'ok',
                       ),
                       if ((_health!['version'] as String?) != null)
-                        _buildPill(
-                          label: 'v${_health!['version']}',
-                          ok: true,
-                        ),
+                        _buildPill(label: 'v${_health!['version']}', ok: true),
                     ],
                   )
                 else
@@ -394,16 +364,6 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildToolRow(
-                  icon: Icons.auto_fix_high_rounded,
-                  title: 'Repair milestone photos',
-                  subtitle: _repairedCount == null
-                      ? 'Fix old .png paths → .jpg'
-                      : 'Last run fixed $_repairedCount photo${_repairedCount == 1 ? '' : 's'}',
-                  isLoading: _isRepairing,
-                  onTap: _isRepairing ? null : _repairAssets,
-                ),
-                const SizedBox(height: 10),
-                _buildToolRow(
                   icon: Icons.cleaning_services_rounded,
                   title: 'Clear local caches',
                   subtitle: 'Letterbox disk cache + offline previews',
@@ -520,9 +480,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
                 side: BorderSide(
                   color: AppColors.blushGold.withValues(alpha: 0.4),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: AppRadius.radiusLg,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
@@ -599,8 +557,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
           builder: (context, snapshot) {
             final status = snapshot.data;
             final now = DateTime.now();
-            final online =
-                status != null && status.isOnlineAt(now);
+            final online = status != null && status.isOnlineAt(now);
             final lastSeen = status?.lastSeen;
 
             return Container(
@@ -617,9 +574,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
                     height: 10,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: online
-                          ? AppColors.blushGold
-                          : AppColors.textMuted,
+                      color: online ? AppColors.blushGold : AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -670,10 +625,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
               }
               return Row(
                 children: [
-                  Text(
-                    latest.moodEmoji,
-                    style: const TextStyle(fontSize: 18),
-                  ),
+                  Text(latest.moodEmoji, style: const TextStyle(fontSize: 18)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -750,9 +702,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
     final alerts = _usage!['recentAlerts'];
     final day = (_usage!['usageDay'] as String?) ?? '';
     final entries = usage is Map
-        ? usage.entries
-            .where((e) => e.value is Map)
-            .toList()
+        ? usage.entries.where((e) => e.value is Map).toList()
         : <MapEntry<dynamic, dynamic>>[];
     final alertList = alerts is List ? alerts : const [];
     return Column(
@@ -900,8 +850,9 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
                 width: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(AppColors.blushGold),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.blushGold,
+                  ),
                 ),
               )
             else

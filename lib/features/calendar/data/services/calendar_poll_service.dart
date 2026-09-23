@@ -38,6 +38,7 @@ class CalendarPollService {
       Logger.i('Created poll: ${poll.title}');
     } catch (e) {
       Logger.e('Error creating poll', error: e);
+      rethrow;
     }
   }
 
@@ -49,6 +50,7 @@ class CalendarPollService {
       Logger.i('Vote $username -> $optionId on $pollId');
     } catch (e) {
       Logger.e('Error voting', error: e);
+      rethrow;
     }
   }
 
@@ -59,6 +61,7 @@ class CalendarPollService {
       });
     } catch (e) {
       Logger.e('Error unvoting', error: e);
+      rethrow;
     }
   }
 
@@ -70,6 +73,7 @@ class CalendarPollService {
       });
     } catch (e) {
       Logger.e('Error closing poll', error: e);
+      rethrow;
     }
   }
 
@@ -81,6 +85,7 @@ class CalendarPollService {
       });
     } catch (e) {
       Logger.e('Error reopening poll', error: e);
+      rethrow;
     }
   }
 
@@ -89,6 +94,7 @@ class CalendarPollService {
       await _db.collection(_collection).doc(pollId).delete();
     } catch (e) {
       Logger.e('Error deleting poll', error: e);
+      rethrow;
     }
   }
 }

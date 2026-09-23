@@ -38,6 +38,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
   final List<DoodleStroke> _sessionStrokes = [];
   final List<DoodleStroke> _redoStack = [];
+  List<DoodleStroke> _knownStrokes = [];
+  final Set<String> _pendingEraseIds = {};
 
   CanvasTool _activeTool = CanvasTool.pen;
   String _currentColor = '#FFC0CB';
@@ -130,6 +132,10 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
                 final isLoading = !snapshot.hasData;
                 final historyStrokes = snapshot.data ?? [];
+                _knownStrokes = historyStrokes;
+                _pendingEraseIds.removeWhere(
+                  (id) => !historyStrokes.any((stroke) => stroke.id == id),
+                );
 
                 // Combine history with live strokes from others
                 final othersLiveStrokes = _liveStrokes
@@ -184,7 +190,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
               onPanStart: (details) => _onPanStart(details, userId),
               onPanUpdate: (details) => _onPanUpdate(details, userId),
               onPanEnd: (details) => _onPanEnd(details, userId),
-              child: Container(color: AppColors.petalWhite.withValues(alpha: 0.001)),
+              child: Container(
+                color: AppColors.petalWhite.withValues(alpha: 0.001),
+              ),
             ),
           ),
 
@@ -227,11 +235,11 @@ class _CanvasScreenState extends State<CanvasScreen> {
         backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
-          'Clear Canvas?',
+          'Clear Your Drawings?',
           style: AppTypography.cormorantBold.copyWith(fontSize: 22),
         ),
         content: Text(
-          'This will permanently delete all doodles for everyone. Are you sure?',
+          'This will permanently delete your drawings. Your partner’s drawings stay untouched.',
           style: AppTypography.outfitWhite.copyWith(
             color: AppColors.petalWhite.withValues(alpha: 0.8),
           ),
@@ -247,9 +255,15 @@ class _CanvasScreenState extends State<CanvasScreen> {
             ),
           ),
           TextButton(
-            onPressed: () {
-              _canvasService.clearAllStrokes();
-              Navigator.pop(context);
+            onPressed: () async {
+              final userId = _currentUserId;
+              if (userId == null) return;
+              try {
+                await _canvasService.clearAllStrokes(userId);
+                if (context.mounted) Navigator.pop(context);
+              } catch (error) {
+                Logger.e('Canvas clear failed', error: error);
+              }
             },
             child: Text(
               'Clear',
@@ -386,7 +400,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.petalWhite,
+          ),
           decoration: InputDecoration(
             hintText: 'Type something...',
             hintStyle: AppTypography.outfitWhite.copyWith(
@@ -467,21 +483,30 @@ class _CanvasScreenState extends State<CanvasScreen> {
     final normRadiusX = _eraserRadius / box.size.width;
     final normRadiusY = _eraserRadius / box.size.height;
 
-    _canvasService.getStrokesStream().first.then((strokes) {
-      for (var stroke in strokes) {
-        for (var point in stroke.points) {
-          final dx = point['x']! - normX;
-          final dy = point['y']! - normY;
-
-          if ((dx * dx) / (normRadiusX * normRadiusX) +
-                  (dy * dy) / (normRadiusY * normRadiusY) <
-              1.0) {
-            _canvasService.deleteStroke(stroke.id);
-            break;
-          }
-        }
+    final userId = _currentUserId;
+    if (userId == null) return;
+    for (final stroke in _knownStrokes) {
+      if (stroke.userId != userId || !_pendingEraseIds.add(stroke.id)) {
+        continue;
       }
-    });
+      final hitsEraser = stroke.points.any((point) {
+        final dx = point['x']! - normX;
+        final dy = point['y']! - normY;
+        return (dx * dx) / (normRadiusX * normRadiusX) +
+                (dy * dy) / (normRadiusY * normRadiusY) <
+            1.0;
+      });
+      if (!hitsEraser) {
+        _pendingEraseIds.remove(stroke.id);
+        continue;
+      }
+      unawaited(
+        _canvasService.deleteStroke(stroke.id).catchError((Object error) {
+          _pendingEraseIds.remove(stroke.id);
+          Logger.e('Canvas erase failed', error: error);
+        }),
+      );
+    }
   }
 
   void _onPanEnd(DragEndDetails details, String userId) async {

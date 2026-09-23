@@ -10,6 +10,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_elevation.dart';
 import '../../../../shared/utils/draft_text_controller.dart';
+import '../../../../shared/utils/firestore_pagination.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/partner_presence_indicator.dart';
@@ -33,8 +34,13 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     'chat:sanctuary',
   );
   final ScrollController _scrollController = ScrollController();
-  late Stream<List<ChatMessage>> _messagesStream;
+  late Stream<FirestorePage<ChatMessage>> _messagesStream;
+  final List<ChatMessage> _olderMessages = [];
   final List<ChatMessage> _optimisticMessages = [];
+  DocumentSnapshot? _olderMessageCursor;
+  bool _loadingOlderMessages = false;
+  Object? _olderMessagesError;
+  String? _lastAutoScrolledMessageId;
   bool _showScrollButton = false;
   bool _authChecked = false;
   String? _authError;
@@ -95,20 +101,6 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       return;
     }
 
-    // Ensure user doc in background — do not block chat connection on write ACK.
-    unawaited(
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .set({
-            'username': authService.currentUser,
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true))
-          .catchError((Object e) {
-            Logger.e("Sanctuary: failed to ensure user doc", error: e);
-          }),
-    );
-
     // Self-heal a stuck partner link: if the one-shot background resolve in
     // AuthService failed earlier (offline, rules), retry it now so the
     // presence header recovers without forcing the user to re-login.
@@ -124,6 +116,50 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   void _connectStream() {
     final chatService = context.read<ChatService>();
     _messagesStream = chatService.getMessagesStream();
+  }
+
+  Future<void> _loadOlderMessages(FirestorePage<ChatMessage> latest) async {
+    final cursor = _olderMessageCursor ?? latest.nextCursor;
+    if (cursor == null || _loadingOlderMessages) return;
+    final oldExtent = _scrollController.hasClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+    final oldPixels = _scrollController.hasClients
+        ? _scrollController.position.pixels
+        : 0.0;
+    setState(() {
+      _loadingOlderMessages = true;
+      _olderMessagesError = null;
+    });
+    try {
+      final page = await context.read<ChatService>().getMessagesPage(
+        cursor: cursor,
+      );
+      if (!mounted) return;
+      final existingIds = _olderMessages.map((message) => message.id).toSet();
+      final older = page.items.reversed
+          .where((message) => existingIds.add(message.id))
+          .toList();
+      setState(() {
+        _olderMessages.insertAll(0, older);
+        _olderMessageCursor = page.nextCursor;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        final addedExtent =
+            _scrollController.position.maxScrollExtent - oldExtent;
+        _scrollController.jumpTo(
+          (oldPixels + addedExtent).clamp(
+            0.0,
+            _scrollController.position.maxScrollExtent,
+          ),
+        );
+      });
+    } catch (error) {
+      if (mounted) setState(() => _olderMessagesError = error);
+    } finally {
+      if (mounted) setState(() => _loadingOlderMessages = false);
+    }
   }
 
   @override
@@ -229,7 +265,15 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   }
 
   List<ChatMessage> _mergeMessages(List<ChatMessage> serverMessages) {
-    if (_optimisticMessages.isEmpty) return serverMessages;
+    final byId = <String, ChatMessage>{
+      for (final message in serverMessages) message.id: message,
+    };
+    for (final message in _olderMessages) {
+      byId.putIfAbsent(message.id, () => message);
+    }
+    final persisted = byId.values.toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    if (_optimisticMessages.isEmpty) return persisted;
 
     // Filter out optimistic messages confirmed by Firestore using 1-to-1 matching.
     // Tracking matched server IDs ensures duplicate messages ("I love you" sent twice)
@@ -243,7 +287,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
         continue;
       }
       var matched = false;
-      for (final srv in serverMessages) {
+      for (final srv in persisted) {
         if (matchedServerIds.contains(srv.id)) continue;
         if (srv.sender == opt.sender &&
             srv.text == opt.text &&
@@ -253,9 +297,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
           break;
         }
       }
-      if (!matched) {
-        remainingOptimistic.add(opt);
-      }
+      if (!matched) remainingOptimistic.add(opt);
     }
 
     if (remainingOptimistic.length != _optimisticMessages.length) {
@@ -268,8 +310,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       });
     }
 
-    final combined = [...serverMessages, ...remainingOptimistic];
-    combined.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final combined = [...persisted, ...remainingOptimistic]
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return combined;
   }
 
@@ -331,7 +373,7 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                       else if (_authError != null)
                         _buildAuthError()
                       else
-                        StreamBuilder<List<ChatMessage>>(
+                        StreamBuilder<FirestorePage<ChatMessage>>(
                           stream: _messagesStream,
                           builder: (context, snapshot) {
                             if (snapshot.connectionState ==
@@ -408,9 +450,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                               );
                             }
 
-                            final serverMessages =
-                                snapshot.data ?? const <ChatMessage>[];
-                            final messages = _mergeMessages(serverMessages);
+                            final latest = snapshot.data!;
+                            final messages = _mergeMessages(latest.items);
 
                             if (messages.isEmpty) {
                               return Center(
@@ -465,10 +506,18 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                               );
                             }
 
-                            // Auto-scroll logic
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              (_) => _scrollToBottom(),
-                            );
+                            final newestId = messages.last.id;
+                            if (newestId != _lastAutoScrolledMessageId) {
+                              _lastAutoScrolledMessageId = newestId;
+                              WidgetsBinding.instance.addPostFrameCallback(
+                                (_) => _scrollToBottom(),
+                              );
+                            }
+                            final hasOlder = _olderMessages.isNotEmpty
+                                ? _olderMessageCursor != null
+                                : latest.nextCursor != null;
+                            final showPager =
+                                hasOlder || _olderMessagesError != null;
 
                             return Semantics(
                               liveRegion: true,
@@ -480,13 +529,48 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
                                   16,
                                   100,
                                 ),
-                                itemCount: messages.length,
+                                itemCount:
+                                    messages.length + (showPager ? 1 : 0),
                                 itemBuilder: (context, index) {
-                                  final message = messages[index];
+                                  if (showPager && index == 0) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 10,
+                                      ),
+                                      child: Center(
+                                        child: TextButton.icon(
+                                          onPressed: _loadingOlderMessages
+                                              ? null
+                                              : () =>
+                                                    _loadOlderMessages(latest),
+                                          icon: _loadingOlderMessages
+                                              ? const SizedBox(
+                                                  width: 16,
+                                                  height: 16,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                )
+                                              : const Icon(
+                                                  Icons.history_rounded,
+                                                ),
+                                          label: Text(
+                                            _olderMessagesError != null
+                                                ? 'Retry older messages'
+                                                : 'Load older messages',
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  final messageIndex =
+                                      index - (showPager ? 1 : 0);
+                                  final message = messages[messageIndex];
                                   final isMe = message.sender == currentUser;
 
-                                  final prev = index > 0
-                                      ? messages[index - 1]
+                                  final prev = messageIndex > 0
+                                      ? messages[messageIndex - 1]
                                       : null;
                                   final isGrouped =
                                       prev != null &&
@@ -788,6 +872,10 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     setState(() {
       _authChecked = false;
       _authError = null;
+      _olderMessages.clear();
+      _olderMessageCursor = null;
+      _olderMessagesError = null;
+      _lastAutoScrolledMessageId = null;
     });
 
     try {

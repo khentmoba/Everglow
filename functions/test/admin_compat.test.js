@@ -18,7 +18,7 @@ const { getAdminCompat } = require('../admin_compat.js');
 
 test('legacy namespace API is restored on firebase-admin v14+', () => {
   const admin = getAdminCompat();
-  for (const fn of ['auth', 'firestore', 'messaging', 'storage']) {
+  for (const fn of ['appCheck', 'auth', 'firestore', 'messaging', 'storage']) {
     assert.equal(typeof admin[fn], 'function', `admin.${fn} should be callable`);
   }
 });
@@ -47,4 +47,5 @@ test('all legacy services bind to the same default app', () => {
   assert.equal(admin.firestore().app, app);
   assert.equal(admin.messaging().app, app);
   assert.equal(admin.storage().app, app);
+  assert.equal(admin.appCheck().app, app);
 });

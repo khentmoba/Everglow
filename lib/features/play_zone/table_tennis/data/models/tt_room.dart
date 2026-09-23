@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+const _unset = Object();
+
 enum TTRoomStatus { waiting, playing, finished, abandoned }
 
 TTRoomStatus ttRoomStatusFromString(String? s) {
@@ -66,7 +68,7 @@ class TTRoom {
   });
 
   TTRoom copyWith({
-    String? guestUid,
+    Object? guestUid = _unset,
     String? hostSide,
     TTRoomStatus? status,
     double? hostPaddleY,
@@ -80,7 +82,9 @@ class TTRoom {
     return TTRoom(
       id: id,
       hostUid: hostUid,
-      guestUid: guestUid ?? this.guestUid,
+      guestUid: identical(guestUid, _unset)
+          ? this.guestUid
+          : guestUid as String?,
       hostSide: hostSide ?? this.hostSide,
       status: status ?? this.status,
       hostPaddleY: hostPaddleY ?? this.hostPaddleY,

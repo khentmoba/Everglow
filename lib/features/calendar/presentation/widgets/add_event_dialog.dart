@@ -249,6 +249,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
                 // ── Title ──
                 TextField(
                   controller: _titleController,
+                  onChanged: (_) => setState(() {}),
                   style: AppTypography.outfitWhite.copyWith(
                     color: AppColors.petalWhite,
                   ),
@@ -319,7 +320,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 : AppColors.twilight,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppColors.blushGold.withValues(alpha: 0.15),
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.15,
+                              ),
                             ),
                           ),
                           child: Row(
@@ -328,7 +331,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 Icons.access_time_rounded,
                                 size: 16,
                                 color: _isAllDay
-                                    ? AppColors.petalWhite.withValues(alpha: 0.3)
+                                    ? AppColors.petalWhite.withValues(
+                                        alpha: 0.3,
+                                      )
                                     : AppColors.blushGold,
                               ),
                               const SizedBox(width: 8),

@@ -7,10 +7,9 @@ import 'package:http/http.dart' as http;
 /// Routes through the `proxyCatalog` Cloud Function (allow-listed to those
 /// hosts, 5-minute edge cache) so the browser never calls third parties
 /// directly. Sends the Firebase ID token when signed in; the proxy
-/// validates it when present and still serves anonymous callers.
+/// requires it on every request.
 class CatalogProxyClient {
-  CatalogProxyClient({http.Client? client})
-    : _client = client ?? http.Client();
+  CatalogProxyClient({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
@@ -26,21 +25,19 @@ class CatalogProxyClient {
     final rawQuery = query == null || query.isEmpty
         ? ''
         : '?${Uri(queryParameters: query).query}';
-    final uri = Uri.parse(proxyBase).replace(
-      queryParameters: {'base': base, 'path': '$path$rawQuery'},
-    );
+    final uri = Uri.parse(
+      proxyBase,
+    ).replace(queryParameters: {'base': base, 'path': '$path$rawQuery'});
     return _getWithOptionalAuth(uri, timeout);
   }
 
-  Future<http.Response> _getWithOptionalAuth(
-    Uri uri,
-    Duration timeout,
-  ) async {
+  Future<http.Response> _getWithOptionalAuth(Uri uri, Duration timeout) async {
     String? token;
     try {
       token = await FirebaseAuth.instance.currentUser?.getIdToken();
     } catch (_) {
-      // Firebase not initialized (e.g. unit tests or early boot): continue anonymously.
+      // Unit tests and early boot have no Firebase app. The server still
+      // rejects this request; production calls run after authentication.
     }
     final headers = <String, String>{'Accept': 'application/json'};
     if (token != null && token.isNotEmpty) {

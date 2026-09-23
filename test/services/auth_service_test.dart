@@ -29,55 +29,6 @@ void main() {
     });
   });
 
-  group('AuthService.needsUserDocRepair', () {
-    test('healthy doc needs no repair', () {
-      expect(
-        AuthService.needsUserDocRepair({
-          'username': 'khentsgdz',
-          'partnerUsername': 'clairjassen',
-        }, 'khentsgdz'),
-        isFalse,
-      );
-    });
-
-    test('doc with createdAt still needs no repair', () {
-      expect(
-        AuthService.needsUserDocRepair({
-          'username': 'clairjassen',
-          'createdAt': '2026-01-01',
-        }, 'clairjassen'),
-        isFalse,
-      );
-    });
-
-    test('drifted username needs repair', () {
-      expect(
-        AuthService.needsUserDocRepair(
-          {'username': 'Khent'},
-          'khentsgdz',
-        ),
-        isTrue,
-      );
-    });
-
-    test('missing username needs repair', () {
-      expect(
-        AuthService.needsUserDocRepair(const {}, 'khentsgdz'),
-        isTrue,
-      );
-    });
-
-    test('extra fields need repair', () {
-      expect(
-        AuthService.needsUserDocRepair({
-          'username': 'khentsgdz',
-          'email': 'khent@example.com',
-        }, 'khentsgdz'),
-        isTrue,
-      );
-    });
-  });
-
   group('AuthService.pickPartnerUid', () {
     test('returns null when no doc claims the username', () {
       expect(

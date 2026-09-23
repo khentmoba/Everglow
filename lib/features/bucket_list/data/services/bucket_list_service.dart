@@ -93,6 +93,7 @@ class BucketListService {
       Logger.i('Added bucket item: ${item.title}');
     } catch (e) {
       Logger.e('Error adding bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -103,6 +104,7 @@ class BucketListService {
       Logger.i('Updated bucket item: ${item.id}');
     } catch (e) {
       Logger.e('Error updating bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -113,6 +115,7 @@ class BucketListService {
       Logger.i('Deleted bucket item: $id');
     } catch (e) {
       Logger.e('Error deleting bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -138,6 +141,7 @@ class BucketListService {
       Logger.i('Marked bucket item $id as completed by $completedBy');
     } catch (e) {
       Logger.e('Error completing bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -160,6 +164,7 @@ class BucketListService {
       Logger.i('Marked bucket item $id as uncomplete');
     } catch (e) {
       Logger.e('Error uncompleting bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -172,6 +177,7 @@ class BucketListService {
       Logger.i('Marked bucket item $id as planned');
     } catch (e) {
       Logger.e('Error marking bucket item as planned', error: e);
+      rethrow;
     }
   }
 
@@ -206,6 +212,7 @@ class BucketListService {
       Logger.i('Moved bucket item $id -> ${status.name}');
     } catch (e) {
       Logger.e('Error moving bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -227,6 +234,7 @@ class BucketListService {
       Logger.i('Assigned bucket item $id to ${username ?? "none"}');
     } catch (e) {
       Logger.e('Error assigning bucket item', error: e);
+      rethrow;
     }
   }
 
@@ -239,6 +247,7 @@ class BucketListService {
       Logger.i('Set priority $id -> ${priority.name}');
     } catch (e) {
       Logger.e('Error setting priority', error: e);
+      rethrow;
     }
   }
 
@@ -260,6 +269,7 @@ class BucketListService {
       Logger.i('Set dueDate $id -> $dueDate');
     } catch (e) {
       Logger.e('Error setting dueDate', error: e);
+      rethrow;
     }
   }
 

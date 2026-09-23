@@ -4,8 +4,7 @@ rules_version = '2';
 //
 // Access model:
 //   * Anonymous auth is not allowed for app data.
-//   * A registered user must have a /users/{uid} document whose username is
-//     one of the four known profiles.
+//   * Roles and usernames come only from signed Firebase custom claims.
 //   * Khent and Clair are the "couple" and own the shared scrapbook data.
 //   * Breyan and Octagram are cinema-only profiles; they can use their own
 //     watch list, games, and academy data, but not couple-only collections.
@@ -23,22 +22,24 @@ service cloud.firestore {
     }
 
     function isRegistered() {
-      return isAuthenticated() && isNotAnonymous() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isAuthenticated() && isNotAnonymous() && (
+        (request.auth.token.role == 'couple' &&
+          request.auth.token.username in ['khentsgdz', 'clairjassen']) ||
+        (request.auth.token.role == 'cinema' &&
+          request.auth.token.username in ['breyan', 'octagram'])
+      );
     }
 
     function username() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username;
+      return request.auth.token.username;
     }
 
     function isCouple() {
-      return isRegistered() &&
-        username() in ['khentsgdz', 'clairjassen'];
+      return isRegistered() && request.auth.token.role == 'couple';
     }
 
     function isCinemaProfile() {
-      return isRegistered() &&
-        username() in ['breyan', 'octagram'];
+      return isRegistered() && request.auth.token.role == 'cinema';
     }
 
     function isAppUser() {
@@ -47,8 +48,8 @@ service cloud.firestore {
 
     function isCouplePair(uidA, uidB) {
       return uidA != null && uidB != null && uidA != uidB &&
-        get(/databases/$(database)/documents/users/$(uidA)).data.username in ['khentsgdz', 'clairjassen'] &&
-        get(/databases/$(database)/documents/users/$(uidB)).data.username in ['khentsgdz', 'clairjassen'];
+        get(/databases/$(database)/documents/users/$(uidA)).data.role == 'couple' &&
+        get(/databases/$(database)/documents/users/$(uidB)).data.role == 'couple';
     }
 
     function ownerOf(userId) {
@@ -133,13 +134,8 @@ service cloud.firestore {
     // ---------- User profile and per-user subcollections ----------
 
     match /users/{userId} {
-      allow create: if isAuthenticated() && isNotAnonymous() &&
-        request.auth.uid == userId &&
-        request.resource.data.username in ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
       allow read: if isRegistered();
-      allow update: if ownerOf(userId) &&
-        resource.data.username == request.resource.data.username && request.resource.data.keys().hasOnly(['username', 'partnerUsername', 'updatedAt', 'createdAt']);
-      allow delete: if ownerOf(userId);
+      allow write: if false;
     }
 
     match /users/{userId}/progress/{docId} {
@@ -288,7 +284,13 @@ service cloud.firestore {
     match /book_download_history/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /date_ideas/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /guardian_messages/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
-    match /canvas_strokes/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
+    match /canvas_strokes/{docId} {
+      allow read: if isCouple();
+      allow create: if isCouple() && request.resource.data.userId == request.auth.uid;
+      allow update: if isCouple() && resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId;
+      allow delete: if isCouple() && resource.data.userId == request.auth.uid;
+    }
     match /live_canvas/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /manga_library/{docId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 102400; allow update: if isCouple() && request.resource.data.size() < 102400; allow delete: if isCouple(); }
     match /manga_library/{docId}/bookmarks/{bookmarkId} { allow read: if isCouple(); allow create: if isCouple() && request.resource.data.size() < 10240; allow update: if isCouple() && request.resource.data.size() < 10240; allow delete: if isCouple(); }
@@ -334,13 +336,23 @@ service cloud.firestore {
       allow read: if isAppUser();
       allow create: if isAppUser() &&
         request.resource.data.hostUid == request.auth.uid &&
+        request.resource.data.guestUid == null &&
         request.resource.data.status == 'waiting';
       allow update: if isAppUser() &&
-        (request.auth.uid == resource.data.hostUid ||
-         request.auth.uid == resource.data.guestUid) &&
         request.resource.data.status in ['waiting', 'playing', 'finished'] &&
         request.resource.data.hostUid == resource.data.hostUid &&
-        request.resource.data.category == resource.data.category;
+        (
+          (request.auth.uid == resource.data.hostUid &&
+            (request.resource.data.guestUid == resource.data.guestUid ||
+              (request.resource.data.guestUid == null &&
+               request.resource.data.status == 'waiting'))) ||
+          (request.auth.uid == resource.data.guestUid &&
+            request.resource.data.guestUid == resource.data.guestUid) ||
+          (resource.data.guestUid == null &&
+            resource.data.status == 'waiting' &&
+            request.resource.data.guestUid == request.auth.uid &&
+            request.resource.data.status == 'playing')
+        );
       allow delete: if isAppUser() &&
         request.auth.uid == resource.data.hostUid;
     }
@@ -353,9 +365,18 @@ service cloud.firestore {
         (isCinemaProfile() && resource.data.userName == username() &&
          request.resource.data.userName == resource.data.userName);
     }
-    match /fcm_tokens/{docId} {
-      allow read: if isAppUser() && docId == username();
-      allow write: if isAppUser() && docId == username();
+    match /fcm_tokens/{deviceId} {
+      allow read: if isAppUser() && resource.data.uid == request.auth.uid;
+      allow create, update: if isAppUser() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.username == username() &&
+        request.resource.data.token is string &&
+        request.resource.data.token.size() > 0 &&
+        request.resource.data.token.size() < 4096 &&
+        (!resource.exists() ||
+          (resource.data.uid == request.auth.uid &&
+           resource.data.username == request.resource.data.username));
+      allow delete: if isAppUser() && resource.data.uid == request.auth.uid;
     }
     match /config/{docId} {
       allow read: if isRegistered();

@@ -332,6 +332,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       }
     } catch (e) {
       Logger.e('Error updating watch progress', error: e);
+      rethrow;
     }
   }
 
@@ -465,6 +466,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
       await collection.doc(existing.docs.first.id).update(ratingData);
     } catch (e) {
       Logger.e('Error updating user rating', error: e);
+      rethrow;
     }
   }
 

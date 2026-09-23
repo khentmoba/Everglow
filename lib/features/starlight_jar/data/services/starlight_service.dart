@@ -61,6 +61,7 @@ class StarlightService {
       Logger.i("Dropped star into jar successfully");
     } catch (e) {
       Logger.e("Error adding star", error: e);
+      rethrow;
     }
   }
 
@@ -160,6 +161,7 @@ class StarlightService {
       Logger.i("Deleted star $id");
     } catch (e) {
       Logger.e("Error deleting star", error: e);
+      rethrow;
     }
   }
 }

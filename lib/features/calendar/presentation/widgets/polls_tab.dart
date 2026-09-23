@@ -298,11 +298,11 @@ class _PollCard extends StatelessWidget {
                     onPressed: poll.options.isEmpty
                         ? null
                         : () => _vote(
-                              context,
-                              poll,
-                              poll.options.first.id,
-                              currentUser,
-                            ),
+                            context,
+                            poll,
+                            poll.options.first.id,
+                            currentUser,
+                          ),
                     icon: const Icon(
                       Icons.how_to_vote_rounded,
                       size: 14,
@@ -374,7 +374,7 @@ class _PollCard extends StatelessWidget {
                     ),
                   ),
                   TextButton(
-                    onPressed: () => CalendarPollService().reopen(poll.id),
+                    onPressed: () => _reopen(context, poll),
                     child: Text(
                       'Reopen',
                       style: AppTypography.outfitWhite.copyWith(
@@ -391,14 +391,41 @@ class _PollCard extends StatelessWidget {
     );
   }
 
-  void _vote(
+  Future<void> _vote(
     BuildContext context,
     DatePoll poll,
     String optionId,
     String username,
-  ) {
+  ) async {
     if (username.isEmpty) return;
-    CalendarPollService().vote(poll.id, username, optionId);
+    await _runWrite(
+      context,
+      () => CalendarPollService().vote(poll.id, username, optionId),
+    );
+  }
+
+  Future<void> _reopen(BuildContext context, DatePoll poll) async {
+    await _runWrite(context, () => CalendarPollService().reopen(poll.id));
+  }
+
+  Future<bool> _runWrite(
+    BuildContext context,
+    Future<void> Function() write,
+  ) async {
+    try {
+      await write();
+      return true;
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('That change could not be saved. Please try again.'),
+            backgroundColor: AppColors.deepRose,
+          ),
+        );
+      }
+      return false;
+    }
   }
 
   void _finalizePoll(BuildContext context, DatePoll poll) async {
@@ -441,32 +468,31 @@ class _PollCard extends StatelessWidget {
         ],
       ),
     );
-    if (confirm != true) return;
-    await CalendarPollService().close(poll.id, winning);
-    // Create calendar event for winners
-    if (poll.options.isEmpty) return;
-    final opt = poll.options.firstWhere(
-      (o) => o.id == winning,
-      orElse: () => poll.options.first,
-    );
-    final event = CalendarEvent(
-      id: '',
-      title: poll.title,
-      description: 'Decided via poll: ${poll.title}',
-      date: opt.date,
-      type: CalendarEventType.dateNight,
-      createdBy: poll.createdBy,
-      attendees: poll.votes.keys.toList(),
-    );
-    await CalendarService().addEvent(event);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Poll finalized & event created!'),
-          backgroundColor: AppColors.deepRose,
-        ),
+    if (confirm != true || poll.options.isEmpty || !context.mounted) return;
+    final saved = await _runWrite(context, () async {
+      await CalendarPollService().close(poll.id, winning);
+      final opt = poll.options.firstWhere(
+        (o) => o.id == winning,
+        orElse: () => poll.options.first,
       );
-    }
+      final event = CalendarEvent(
+        id: '',
+        title: poll.title,
+        description: 'Decided via poll: ${poll.title}',
+        date: opt.date,
+        type: CalendarEventType.dateNight,
+        createdBy: poll.createdBy,
+        attendees: poll.votes.keys.toList(),
+      );
+      await CalendarService().addEvent(event);
+    });
+    if (!saved || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Poll finalized & event created!'),
+        backgroundColor: AppColors.deepRose,
+      ),
+    );
   }
 
   void _showPollMenu(BuildContext context, DatePoll poll, String currentUser) {
@@ -496,7 +522,10 @@ class _PollCard extends StatelessWidget {
               ),
               onTap: () async {
                 Navigator.pop(ctx);
-                await CalendarPollService().delete(poll.id);
+                await _runWrite(
+                  context,
+                  () => CalendarPollService().delete(poll.id),
+                );
               },
             ),
           ],

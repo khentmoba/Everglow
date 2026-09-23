@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/env_config.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
@@ -50,6 +50,10 @@ class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   StreamSubscription<RemoteMessage>? _foregroundSub;
+  StreamSubscription<RemoteMessage>? _openedSub;
+  StreamSubscription<String>? _tokenSub;
+  StreamSubscription<User?>? _authSub;
+  String? _latestToken;
   final StreamController<RemoteMessage> _messageController =
       StreamController<RemoteMessage>.broadcast();
 
@@ -87,9 +91,19 @@ class NotificationService {
       final token = kIsWeb && vapidKey.isNotEmpty
           ? await _messaging.getToken(vapidKey: vapidKey)
           : await _messaging.getToken();
-      if (token != null) await _saveToken(token);
+      if (token != null) {
+        _latestToken = token;
+        await _saveToken(token);
+      }
 
-      _messaging.onTokenRefresh.listen(_saveToken);
+      _tokenSub = _messaging.onTokenRefresh.listen((token) {
+        _latestToken = token;
+        unawaited(_saveToken(token));
+      });
+      _authSub = FirebaseAuth.instance.idTokenChanges().listen((user) {
+        final token = _latestToken;
+        if (user != null && token != null) unawaited(_saveToken(token));
+      });
     } catch (e) {
       debugPrint("Warning: FCM getToken failed: $e");
     }
@@ -104,7 +118,7 @@ class NotificationService {
         _firebaseMessagingBackgroundHandler,
       );
 
-      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      _openedSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
         _messageController.add(message);
         _navigateFromNotification(message);
       });
@@ -184,20 +198,32 @@ class NotificationService {
   }
 
   Future<void> _saveToken(String token) async {
-    // Save under the current username so Cloud Functions can look
-    // up tokens using the same PARTNER_UID / username mapping.
-    final prefs = await SharedPreferences.getInstance();
-    final username = prefs.getString('current_user_name');
-    if (username == null || username.isEmpty) return;
-    await _firestore.collection('fcm_tokens').doc(username).set({
-      'token': token,
-      'updatedAt': FieldValue.serverTimestamp(),
-      'platform': defaultTargetPlatform.toString(),
-    }, SetOptions(merge: true));
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final tokenResult = await user.getIdTokenResult();
+    final tokenClaims = tokenResult.claims ?? const <String, dynamic>{};
+    final username = tokenClaims['username']?.toString().trim() ?? '';
+    final role = tokenClaims['role']?.toString().trim() ?? '';
+    if (username.isEmpty || (role != 'couple' && role != 'cinema')) return;
+
+    final tokenHash = token.hashCode.toUnsigned(32).toRadixString(16);
+    await _firestore
+        .collection('fcm_tokens')
+        .doc('${user.uid}-$tokenHash')
+        .set({
+          'uid': user.uid,
+          'username': username,
+          'token': token,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'platform': defaultTargetPlatform.toString(),
+        }, SetOptions(merge: true));
   }
 
   Future<void> dispose() async {
     await _foregroundSub?.cancel();
+    await _openedSub?.cancel();
+    await _tokenSub?.cancel();
+    await _authSub?.cancel();
     await _messageController.close();
   }
 }

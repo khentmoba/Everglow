@@ -75,10 +75,11 @@ function resolveGalleryDeletePath(imageUrl) {
   } catch (err) {
     throw new Error('Invalid imageUrl', { cause: err });
   }
-  if (parsed.hostname !== 'firebasestorage.googleapis.com') {
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'firebasestorage.googleapis.com') {
     throw new Error('URL must be from the project Storage bucket');
   }
-  if (!parsed.pathname.includes('everglow-1c6db')) {
+  const bucketPrefix = '/v0/b/everglow-1c6db.firebasestorage.app/o/';
+  if (!parsed.pathname.startsWith(bucketPrefix)) {
     throw new Error('URL must be from the project Storage bucket');
   }
   const marker = '/o/';

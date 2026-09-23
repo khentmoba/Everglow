@@ -3,195 +3,126 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('GatewayNotifier with configured passcodes', () {
+  const khentPassphrase = 'khent correct horse battery';
+  const clairPassphrase = 'clair correct horse battery';
+
+  group('GatewayNotifier with configured passphrases', () {
     setUp(() {
       dotenv.loadFromString(
-        envString: '''
+        envString:
+            '''
 OCTAGRAM_PASSCODE=8080
 BREYAN_PASSCODE=9132
-CLAIR_PASSCODE=0221
-KHENT_PASSCODE=0938
+CLAIR_PASSCODE=$clairPassphrase
+KHENT_PASSCODE=$khentPassphrase
 ''',
       );
     });
 
-    tearDown(() {
-      dotenv.clean();
+    tearDown(dotenv.clean);
+
+    test('accepts text and enforces the maximum input length', () {
+      final notifier = GatewayNotifier()
+        ..updateInput('a' * 300)
+        ..updateInput('private phrase');
+
+      expect(notifier.currentInput, 'private phrase');
+      expect(notifier.canSubmit, isFalse);
     });
 
-    test('starts in awaitingInput', () {
-      final notifier = GatewayNotifier();
-      expect(notifier.currentState, GatewayState.awaitingInput);
+    test('requires 16 characters for a couple passphrase', () {
+      final notifier = GatewayNotifier()..updateInput('a' * 15);
+      expect(notifier.canSubmit, isFalse);
+
+      notifier.updateInput('a' * 16);
+      expect(notifier.canSubmit, isTrue);
     });
 
-    test('digits accumulate up to four', () {
-      final notifier = GatewayNotifier();
-      for (final d in ['1', '2', '3', '4', '5']) {
-        notifier.appendDigit(d);
-      }
-      expect(notifier.currentInput, '1234');
-    });
-
-    test('digits ignored after fourth until cleared', () {
-      final notifier = GatewayNotifier();
-      for (final d in ['0', '9', '3', '8']) {
-        notifier.appendDigit(d);
-      }
-      expect(notifier.currentInput, '0938');
-      notifier.appendDigit('7');
-      expect(notifier.currentInput, '0938');
-    });
-
-    test('backspace removes last digit', () {
-      final notifier = GatewayNotifier();
-      notifier.appendDigit('0');
-      notifier.appendDigit('9');
-      notifier.backspace();
-      expect(notifier.currentInput, '0');
-    });
-
-    test('backspace does not go below zero digits', () {
-      final notifier = GatewayNotifier();
-      notifier.backspace();
-      expect(notifier.currentInput, '');
-    });
-
-    test('clearInput resets the field', () {
-      final notifier = GatewayNotifier();
-      notifier.appendDigit('1');
-      notifier.clearInput();
-      expect(notifier.currentInput, '');
-    });
-
-    testWidgets('client cinema code unlocks without a server verifier wired', (
-      tester,
-    ) async {
-      final notifier = GatewayNotifier();
-      for (final d in ['8', '0', '8', '0']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 600));
+    test('client cinema code unlocks without a server verifier', () async {
+      final notifier = GatewayNotifier()
+        ..updateInput('8080')
+        ..submit();
+      await Future<void>.delayed(const Duration(milliseconds: 400));
       expect(notifier.currentState, GatewayState.unlocking);
     });
 
-    testWidgets('unknown code errors and resets to awaitingInput', (
-      tester,
-    ) async {
+    testWidgets('unknown passphrase errors and resets', (tester) async {
       final verifierCalled = <String>[];
       final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (passcode) async {
-          verifierCalled.add(passcode);
+        ..verifyCouplePasscode = (passphrase) async {
+          verifierCalled.add(passphrase);
           return null;
-        };
-      for (final d in ['9', '9', '9', '9']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 1200));
-      expect(verifierCalled, contains('9999'));
-      expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.currentInput, '');
-    });
-
-    testWidgets('server-verified couple passcode unlocks', (tester) async {
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (passcode) async =>
-            passcode == '0221' ? 'khentsgdz' : null;
-      for (final d in ['0', '2', '2', '1']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 700));
-      expect(notifier.currentState, GatewayState.unlocking);
-      expect(notifier.lastEnteredPasscode, '0221');
-    });
-
-    testWidgets('offline remembered code opens the saved copy', (tester) async {
-      // Server unreachable (throws), but this device remembers Clair and
-      // the typed code is hers: the gate unlocks into offline mode.
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
         }
-        ..tryOfflineUnlock = (passcode) =>
-            passcode == '0221' ? 'clairjassen' : null;
-      for (final d in ['0', '2', '2', '1']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 700));
-      expect(notifier.currentState, GatewayState.unlocking);
-      expect(notifier.lastEnteredPasscode, '0221');
-      expect(notifier.lastFailureReason, isNull);
-    });
+        ..updateInput('this passphrase is definitely wrong')
+        ..submit();
 
-    testWidgets('offline wrong code reports invalid, not connection', (
-      tester,
-    ) async {
-      // 9999 matches nobody's code, so even offline the gate knows it is
-      // simply wrong instead of blaming the connection.
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
-        }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['9', '9', '9', '9']) {
-        notifier.appendDigit(d);
-      }
       await tester.pump(const Duration(milliseconds: 1200));
+      expect(verifierCalled, ['this passphrase is definitely wrong']);
       expect(notifier.currentState, GatewayState.awaitingInput);
+      expect(notifier.currentInput, isEmpty);
       expect(notifier.lastFailureReason, GatewayFailureReason.invalidCode);
     });
 
-    testWidgets('offline code that is not remembered stays a connection issue', (
+    testWidgets('server-verified couple passphrase unlocks', (tester) async {
+      final notifier = GatewayNotifier();
+      notifier.verifyCouplePasscode = (passphrase) async {
+        return passphrase == clairPassphrase ? 'clairjassen' : null;
+      };
+      notifier.updateInput(clairPassphrase);
+      notifier.submit();
+
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(notifier.currentState, GatewayState.unlocking);
+      expect(notifier.lastEnteredPasscode, clairPassphrase);
+    });
+
+    testWidgets('offline remembered passphrase opens the saved copy', (
       tester,
     ) async {
-      // A valid-shaped code (Khent's) with no remembered match: the gate
-      // must not unlock, and must say "couldn't connect" rather than
-      // "wrong code" since the server never answered.
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
-        }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['0', '9', '3', '8']) {
-        notifier.appendDigit(d);
-      }
+      final notifier = GatewayNotifier();
+      notifier.verifyCouplePasscode = (_) async {
+        throw Exception('offline');
+      };
+      notifier.tryOfflineUnlock = (passphrase) {
+        return passphrase == khentPassphrase ? 'khentsgdz' : null;
+      };
+      notifier.updateInput(khentPassphrase);
+      notifier.submit();
+
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(notifier.currentState, GatewayState.unlocking);
+      expect(notifier.lastFailureReason, isNull);
+    });
+
+    testWidgets('offline wrong passphrase reports invalid, not connection', (
+      tester,
+    ) async {
+      final notifier = GatewayNotifier();
+      notifier.verifyCouplePasscode = (_) async {
+        throw Exception('offline');
+      };
+      notifier.tryOfflineUnlock = (_) => null;
+      notifier.updateInput('another sufficiently long phrase');
+      notifier.submit();
+
       await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.lastFailureReason, GatewayFailureReason.connection);
+      expect(notifier.lastFailureReason, GatewayFailureReason.invalidCode);
     });
   });
 
-  group('GatewayNotifier without configured environment passcodes', () {
-    setUp(() {
-      dotenv.clean();
-    });
+  group('GatewayNotifier without configured environment', () {
+    setUp(dotenv.clean);
+    tearDown(dotenv.clean);
 
-    tearDown(() {
-      dotenv.clean();
-    });
-
-    testWidgets('unconfigured cinema code does not unlock locally', (tester) async {
-      final notifier = GatewayNotifier();
-      for (final d in ['8', '0', '8', '0']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.currentState, GatewayState.awaitingInput);
-    });
-
-    testWidgets('server unreachable reports connection error when codes unconfigured', (
+    testWidgets('missing server verifier never unlocks a couple', (
       tester,
     ) async {
       final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
-        }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['9', '9', '9', '9']) {
-        notifier.appendDigit(d);
-      }
+        ..updateInput('this is long enough but unverified')
+        ..submit();
+
       await tester.pump(const Duration(milliseconds: 1200));
       expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.lastFailureReason, GatewayFailureReason.connection);
     });
   });
 }

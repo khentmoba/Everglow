@@ -21,7 +21,7 @@
   <meta name="description" content="Everglow - A private digital relationship scrapbook">
   <meta name="theme-color" content="#1a0f1e">
   <meta name="color-scheme" content="dark">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -84,7 +84,7 @@
       overflow: hidden;
       overscroll-behavior: none;
       -webkit-overscroll-behavior: none;
-      touch-action: manipulation;
+      touch-action: pan-x pan-y pinch-zoom;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
@@ -194,16 +194,10 @@
   </script>
 
   <script>
-    // Enforce viewport meta tag against Flutter Web's FullPageEmbeddingStrategy:
-    // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
-    // user-scalable=no & viewport-fit=cover, which causes accidental zoom & layout
-    // stretching on mobile devices. This observer guarantees the tag stays locked.
-    // If the engine ever measures a viewport WITHOUT cover (e.g. it boots in the
-    // gap between Flutter's replacement and our restore), its canvas stays short
-    // and the Home Screen app shows an empty dark band at the bottom. The resize
-    // nudge below makes the engine re-measure the true full window in that case.
+    // Preserve viewport-fit=cover when Flutter replaces the viewport tag.
+    // Do not cap or disable user scaling; browser and OS zoom remain available.
     (function () {
-      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+      var expected = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
       var resizeQueued = false;
       function nudgeEngine() {
         if (resizeQueued) return;
@@ -283,10 +277,6 @@
         window.visualViewport.addEventListener('resize', resetScroll, { passive: true });
       }
 
-      // Prevent multi-finger pinch-zoom on iOS Safari:
-      document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
-      document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
-      document.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
     })();
   </script>
 

@@ -91,10 +91,26 @@ test('watch_list cinema updates cannot reassign ownership', () => {
   );
 });
 
-test('tt_rooms updates pin status + immutable host/category', () => {
+test('tt_rooms updates allow a new guest claim and host-only rematch reset', () => {
+  const block = rules.match(/match \/tt_rooms\/\{roomId\} \{([\s\S]*?)\n {4}\}/)?.[1] || '';
+  assert.match(block, /resource\.data\.guestUid == null/);
+  assert.match(block, /request\.resource\.data\.guestUid == request\.auth\.uid/);
+  assert.match(block, /request\.auth\.uid == resource\.data\.hostUid/);
+  assert.match(block, /request\.resource\.data\.hostUid == resource\.data\.hostUid/);
+});
+
+test('identity roles come from custom claims and user profiles are server-owned', () => {
+  assert.match(rules, /request\.auth\.token\.role == 'couple'/);
+  assert.match(rules, /request\.auth\.token\.role == 'cinema'/);
+  const users = rules.match(/match \/users\/\{userId\} \{([\s\S]*?)\n {4}\}/)?.[1] || '';
+  assert.match(users, /allow read: if isRegistered\(\);/);
+  assert.match(users, /allow write: if false;/);
+});
+
+test('canvas eraser deletes are owner-scoped in rules', () => {
   assert.match(
     rules,
-    /match \/tt_rooms\/\{roomId\} \{[\s\S]*?request\.resource\.data\.status in \['waiting', 'playing', 'finished'\]/,
+    /match \/canvas_strokes\/\{docId\} \{[\s\S]*?allow delete: if isCouple\(\) && resource\.data\.userId == request\.auth\.uid;/,
   );
 });
 
@@ -116,7 +132,8 @@ test('garden_stats allows couple reads and owner-scoped writes', () => {
   );
 });
 
-test('storage gallery/memories/milestones allow couple reads', () => {
+test('storage gallery/memories/milestones use signed couple claims', () => {
+  assert.match(storage, /request\.auth\.token\.role == 'couple'/);
   for (const prefix of ['gallery', 'memories', 'milestones']) {
     assert.match(
       storage,
@@ -126,7 +143,6 @@ test('storage gallery/memories/milestones allow couple reads', () => {
       `${prefix} must allow couple reads`,
     );
   }
-  assert.ok(!storage.includes('request.auth.uid == userId;\n      allow write') || true);
 });
 
 test('motchi_games is couple-only', () => {

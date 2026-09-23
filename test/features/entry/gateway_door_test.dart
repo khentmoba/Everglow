@@ -1,62 +1,39 @@
 import 'package:everglow/features/dashboard/presentation/widgets/dashboard_load_veil.dart';
 import 'package:everglow/features/entry/presentation/pages/gateway_page.dart';
 import 'package:everglow/features/entry/presentation/state/gateway_state.dart';
-import 'package:everglow/features/entry/presentation/widgets/passcode_input.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('passcode keypad is visible and tappable immediately', (
+  testWidgets('gateway exposes the passphrase field immediately', (
     tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: GatewayPage()));
+    await tester.pump();
 
-    // The keypad must be clickable from the first frame, even before the
-    // door entrance animation finishes.
-    expect(find.text('1'), findsOneWidget);
-    await tester.tap(find.text('1'));
-    await tester.pump(const Duration(milliseconds: 100));
-
-    final input = tester.widget<PasscodeInput>(find.byType(PasscodeInput));
-    expect(input.input, '1');
+    expect(find.byType(TextField), findsOneWidget);
   });
 
-  testWidgets('keypad remains after the entrance animation completes', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: GatewayPage()));
-
-    await tester.pump(const Duration(seconds: 2));
-
-    expect(find.text('1'), findsOneWidget);
-  });
-
-  testWidgets('couple passcode requires server verification (no offline unlock)', (
-    tester,
-  ) async {
-    final notifier = GatewayNotifier();
-    for (final digit in ['0', '9', '3', '8']) {
-      notifier.appendDigit(digit);
-    }
+  testWidgets('couple passphrase requires a server verifier', (tester) async {
+    final notifier = GatewayNotifier()
+      ..updateInput('this long phrase is unverified')
+      ..submit();
     await tester.pump(const Duration(milliseconds: 1200));
-    // Without a verifier wired, a couple code must NOT unlock the UI:
-    // firestore.rules needs a real Firebase session, so a local unlock
-    // would only show permission-denied shelves.
+
     expect(notifier.currentState, GatewayState.awaitingInput);
   });
 
-  testWidgets('server-verified couple passcode 0938 unlocks', (tester) async {
-    final notifier = GatewayNotifier()
-      ..verifyCouplePasscode = (passcode) async =>
-          passcode == '0938' ? 'khentsgdz' : null;
-    for (final digit in ['0', '9', '3', '8']) {
-      notifier.appendDigit(digit);
-    }
+  testWidgets('server-verified passphrase unlocks', (tester) async {
+    final notifier = GatewayNotifier();
+    notifier.verifyCouplePasscode = (_) async => 'khentsgdz';
+    notifier.updateInput('a valid server passphrase');
+    notifier.submit();
     await tester.pump(const Duration(milliseconds: 700));
+
     expect(notifier.currentState, GatewayState.unlocking);
   });
 
-  testWidgets('DashboardLoadVeil request is not set until passcode unlocks', (
+  testWidgets('dashboard loader is not requested before unlock', (
     tester,
   ) async {
     DashboardLoadVeil.resetPasscodeLoaderRequest();

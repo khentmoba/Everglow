@@ -1,7 +1,7 @@
 'use strict';
 
 const { Readable } = require('node:stream');
-const { cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
+const { cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth, requireCouple } = require('./common.js');
 const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
 
 /**
@@ -49,10 +49,10 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     return;
   }
 
-  // Only allow URLs from the project's own Storage bucket
-  if (!targetUrl.includes('firebasestorage.googleapis.com') ||
-      !targetUrl.includes('everglow-1c6db')) {
-    res.status(403).json({ error: 'URL must be from the project Storage bucket' });
+  try {
+    resolveGalleryDeletePath(targetUrl);
+  } catch (e) {
+    res.status(403).json({ error: e.message });
     return;
   }
 
@@ -60,6 +60,7 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
+      redirect: 'manual',
       signal: AbortSignal.timeout(20000),
     });
     if (!upstream.ok) {
@@ -137,28 +138,14 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     return;
   }
 
-  // Verify auth
-  const idToken = req.headers.authorization?.replace('Bearer ', '');
-  if (!idToken) {
-    res.status(401).json({ error: 'Auth required' });
+  const identity = await requireCouple(req, res);
+  if (!identity) return;
+  if (identity.username !== 'khentsgdz') {
+    res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
     return;
   }
+  const { decoded } = identity;
   const admin = getAdmin();
-  let decoded;
-  try {
-    decoded = await admin.auth().verifyIdToken(idToken);
-  } catch (e) {
-    res.status(401).json({ error: 'Invalid or expired auth token' });
-    return;
-  }
-  if (decoded.uid !== 'Khentsgdz') {
-    // Fall back to the user document so recreated accounts keep working.
-    const userDoc = await admin.firestore().collection('users').doc(decoded.uid).get();
-    if (!userDoc.exists || userDoc.data()?.username !== 'khentsgdz') {
-      res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
-      return;
-    }
-  }
   // Destructive + scans up to 2000 docs: keep it rare.
   if (enforceRateLimit(req, res, { endpoint: 'cleanupGallery', limit: 10, windowMs: 60000, uid: decoded.uid })) return;
 

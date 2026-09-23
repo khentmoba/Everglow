@@ -94,6 +94,17 @@ void main() {
       expect(room.ball.vx, 3.0);
     });
 
+    test('copyWith can explicitly clear the previous guest', () {
+      final room = TTRoom.fromDoc('r5', {
+        'hostUid': 'khent',
+        'guestUid': 'clair',
+        'status': 'finished',
+      }).copyWith(guestUid: null, status: TTRoomStatus.waiting);
+
+      expect(room.guestUid, isNull);
+      expect(room.status, TTRoomStatus.waiting);
+    });
+
     test('toMap keeps status name and nested ball', () {
       final map = TTRoom.fromDoc('r4', {
         'hostUid': 'khent',

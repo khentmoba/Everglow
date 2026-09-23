@@ -4,133 +4,136 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Widget _wrap(PasscodeInput input) {
-  return MaterialApp(home: Scaffold(body: Center(child: input)));
+  return MaterialApp(
+    home: Scaffold(body: Center(child: input)),
+  );
 }
 
 void main() {
   group('GatewayNotifier failure reasons', () {
-    testWidgets('wrong code keeps invalidCode reason after auto-reset',
-        (tester) async {
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async => null;
-      for (final d in ['1', '2', '3', '4']) {
-        notifier.appendDigit(d);
-      }
+    testWidgets('wrong passphrase keeps invalid reason after reset', (
+      tester,
+    ) async {
+      final notifier = GatewayNotifier();
+      notifier.verifyCouplePasscode = (_) async => null;
+      notifier.updateInput('this passphrase is wrong');
+      notifier.submit();
+
       await tester.pump(const Duration(milliseconds: 1200));
       expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.currentInput, '');
+      expect(notifier.currentInput, isEmpty);
       expect(notifier.lastFailureReason, GatewayFailureReason.invalidCode);
     });
 
-    testWidgets('throwing verifier keeps connection reason after auto-reset',
-        (tester) async {
-      // A valid-shaped code (Khent's) with nobody remembered offline: the
-      // server never answered, so it stays a connection problem — never a
-      // wrong code — even after the error shake auto-resets the field.
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
-        }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['0', '9', '3', '8']) {
-        notifier.appendDigit(d);
-      }
+    testWidgets('throwing verifier keeps connection reason', (tester) async {
+      final notifier = GatewayNotifier();
+      notifier.verifyCouplePasscode = (_) async {
+        throw Exception('offline');
+      };
+      notifier.tryOfflineUnlock = (_) => null;
+      notifier.updateInput('a valid length offline phrase');
+      notifier.submit();
+
       await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.currentState, GatewayState.awaitingInput);
       expect(notifier.lastFailureReason, GatewayFailureReason.connection);
     });
 
-    testWidgets('new digit clears the failure reason', (tester) async {
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async => null;
-      for (final d in ['1', '2', '3', '4']) {
-        notifier.appendDigit(d);
-      }
+    testWidgets('new input clears the previous failure', (tester) async {
+      final notifier = GatewayNotifier();
+      notifier.verifyCouplePasscode = (_) async => null;
+      notifier.updateInput('this passphrase is wrong');
+      notifier.submit();
       await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.lastFailureReason, isNotNull);
-      notifier.appendDigit('5');
+      expect(notifier.lastFailureReason, GatewayFailureReason.invalidCode);
+
+      notifier.updateInput('another');
       expect(notifier.lastFailureReason, isNull);
-      expect(notifier.currentInput, '5');
     });
   });
 
-  group('PasscodeInput entry copy + states', () {
-    testWidgets('does not show redundant header, shows progress count',
-        (tester) async {
-      await tester.pumpWidget(_wrap(PasscodeInput(
-        input: '12',
-        onDigitPressed: (_) {},
-        onBackspace: () {},
-      )));
-      await tester.pump();
-      expect(
-        find.text('Your private place for Khent & Clair'),
-        findsNothing,
+  group('PassphraseInput', () {
+    testWidgets('shows progress and exposes accessible entry', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          PasscodeInput(
+            input: 'twelve chars',
+            onChanged: (_) {},
+            onSubmit: () {},
+            canSubmit: false,
+          ),
+        ),
       );
-      expect(find.text('Enter your 4-digit passcode'), findsNothing);
-      expect(find.text('2 of 4'), findsOneWidget);
-    });
 
-    testWidgets('shows verifying state and disables visual emphasis',
-        (tester) async {
-      await tester.pumpWidget(_wrap(PasscodeInput(
-        input: '1234',
-        isVerifying: true,
-        onDigitPressed: (_) {},
-        onBackspace: () {},
-      )));
-      await tester.pump();
-      expect(find.text('Opening your space…'), findsOneWidget);
-      // Progress count is replaced while verifying.
-      expect(find.text('4 of 4'), findsNothing);
-    });
-
-    testWidgets('shows wrong-code message', (tester) async {
-      await tester.pumpWidget(_wrap(PasscodeInput(
-        input: '',
-        isError: true,
-        failureReason: GatewayFailureReason.invalidCode,
-        onDigitPressed: (_) {},
-        onBackspace: () {},
-      )));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('12 / 16+ characters'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
       expect(
-        find.text('That code didn’t open Everglow. Try again.'),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('shows connection message', (tester) async {
-      await tester.pumpWidget(_wrap(PasscodeInput(
-        input: '',
-        isError: true,
-        failureReason: GatewayFailureReason.connection,
-        onDigitPressed: (_) {},
-        onBackspace: () {},
-      )));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(
-        find.text(
-          'Everglow couldn’t connect. Check your connection and try again.',
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics &&
+              widget.properties.label == 'Passphrase entry for Khent and Clair',
         ),
         findsOneWidget,
       );
     });
 
-    testWidgets('key buttons expose keyboard focus nodes', (tester) async {
-      await tester.pumpWidget(_wrap(PasscodeInput(
-        input: '',
-        onDigitPressed: (_) {},
-        onBackspace: () {},
-      )));
+    testWidgets('shows verifying state', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          PasscodeInput(
+            input: 'a valid passphrase',
+            onChanged: (_) {},
+            onSubmit: () {},
+            canSubmit: true,
+            isVerifying: true,
+          ),
+        ),
+      );
       await tester.pump();
-      // Every key is wrapped in a Focus so Tab + Enter/Space works.
-      // 10 digits + backspace = 11 focusable keys.
-      final focusWidgets = tester.widgetList<Focus>(find.byType(Focus));
-      // Includes the outer pad Focus plus 11 key Focus nodes.
-      expect(focusWidgets.length, greaterThanOrEqualTo(12));
+      expect(find.text('Opening your space...'), findsOneWidget);
+    });
+
+    testWidgets('shows wrong-passphrase error', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          PasscodeInput(
+            input: '',
+            onChanged: (_) {},
+            onSubmit: () {},
+            canSubmit: false,
+            isError: true,
+            failureReason: GatewayFailureReason.invalidCode,
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.text('That passphrase did not open Everglow. Try again.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('can reveal the private passphrase', (tester) async {
+      await tester.pumpWidget(
+        _wrap(
+          PasscodeInput(
+            input: 'private phrase',
+            onChanged: (_) {},
+            onSubmit: () {},
+            canSubmit: false,
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).obscureText,
+        isTrue,
+      );
+      await tester.tap(find.byTooltip('Show passphrase'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).obscureText,
+        isFalse,
+      );
     });
   });
 }

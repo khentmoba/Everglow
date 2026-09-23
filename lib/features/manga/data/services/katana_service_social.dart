@@ -60,6 +60,7 @@ extension KatanaServiceSocial on KatanaService {
       await ref.set(data, SetOptions(merge: true));
     } catch (e) {
       Logger.e('setBookmark error', error: e);
+      rethrow;
     }
   }
 
@@ -121,10 +122,10 @@ extension KatanaServiceSocial on KatanaService {
           await _library
               .doc('$userName|${KatanaService._katanaMangaId(slug)}')
               .set({
-            'lastReadChapterId': chapterId,
-            'lastReadChapterTitle': chapterTitle,
-            'lastReadPage': page,
-          }, SetOptions(merge: true));
+                'lastReadChapterId': chapterId,
+                'lastReadChapterTitle': chapterTitle,
+                'lastReadPage': page,
+              }, SetOptions(merge: true));
         } else {
           for (final doc in existing.docs) {
             // One-time backfill for bare auto-adds saved before the detail
@@ -155,6 +156,7 @@ extension KatanaServiceSocial on KatanaService {
       }
     } catch (e) {
       Logger.e('saveReadingProgress error', error: e);
+      rethrow;
     }
   }
 
@@ -169,12 +171,7 @@ extension KatanaServiceSocial on KatanaService {
   }) async {
     final detail = await fetchMangaDetail(slug);
     if (detail != null) return detail;
-    return KatanaManga(
-      slug: slug,
-      id: slug,
-      title: title,
-      coverUrl: coverUrl,
-    );
+    return KatanaManga(slug: slug, id: slug, title: title, coverUrl: coverUrl);
   }
 
   // ── Couple reading & recommendations ──────────────────────────
@@ -263,6 +260,7 @@ extension KatanaServiceSocial on KatanaService {
       await ref.set(data, SetOptions(merge: true));
     } catch (e) {
       Logger.e('recommendManga error', error: e);
+      rethrow;
     }
   }
 
@@ -352,6 +350,7 @@ extension KatanaServiceSocial on KatanaService {
       }
     } catch (e) {
       Logger.e('setReading error', error: e);
+      rethrow;
     }
   }
 }

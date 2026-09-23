@@ -179,7 +179,7 @@ class OurBooksService {
       return draft.copyWith(id: docRef.id);
     } catch (e) {
       Logger.e('Error adding to our_books', error: e);
-      return null;
+      rethrow;
     }
   }
 
@@ -205,6 +205,7 @@ class OurBooksService {
       });
     } catch (e) {
       Logger.e('Error setting read flag', error: e);
+      rethrow;
     }
   }
 
@@ -219,6 +220,7 @@ class OurBooksService {
       await collection.doc(existing.docs.first.id).delete();
     } catch (e) {
       Logger.e('Error removing from our_books', error: e);
+      rethrow;
     }
   }
 }

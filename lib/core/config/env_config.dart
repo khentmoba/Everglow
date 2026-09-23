@@ -22,6 +22,7 @@ class EnvConfig {
     'LASTFM_USER_CLAIR': String.fromEnvironment('LASTFM_USER_CLAIR'),
     'FCM_VAPID_KEY': String.fromEnvironment('FCM_VAPID_KEY'),
     'SPOTIFY_CLIENT_ID': String.fromEnvironment('SPOTIFY_CLIENT_ID'),
+    'APP_CHECK_WEB_SITE_KEY': String.fromEnvironment('APP_CHECK_WEB_SITE_KEY'),
   };
 
   static String _from(String name, {String fallback = ''}) {
@@ -30,8 +31,7 @@ class EnvConfig {
     try {
       final val = dotenv.env[name]?.trim();
       if (val != null && val.isNotEmpty) return val;
-    } catch (_) {
-    }
+    } catch (_) {}
     return fallback;
   }
 
@@ -42,9 +42,9 @@ class EnvConfig {
       _from('OCTAGRAM_EMAIL', fallback: 'octagram@scrapbook.local');
   static String get octagramPassword => _from('OCTAGRAM_PASSWORD');
 
-  // Gateway passcodes: server-verified for Khent/Clair; Breyan/Octagram are
-  // client-verified cinema-only profiles. Passcodes and passwords must be
-  // passed via --dart-define or .env; no hardcoded literal fallbacks in source.
+  // Khent/Clair passphrases stay server-side in production; these values are
+  // only for ignored local .env/dev tooling. Cinema passcodes are client-side
+  // because those accounts cannot access couple data.
   static String get clairPasscode => _from('CLAIR_PASSCODE');
   static String get khentPasscode => _from('KHENT_PASSCODE');
   static String get breyanPasscode => _from('BREYAN_PASSCODE');
@@ -55,6 +55,7 @@ class EnvConfig {
   static String get lastfmUserClair =>
       _from('LASTFM_USER_CLAIR', fallback: 'clairjassen');
   static String get spotifyClientId => _from('SPOTIFY_CLIENT_ID');
+  static String get appCheckWebSiteKey => _from('APP_CHECK_WEB_SITE_KEY');
 
   static const String _kFcmVapidKey =
       'BL2l-ngjWKYYXNK5QKHRcLt4zUyHq-3wTgY5NO0MOcGEoI03Eh3A3Kk2us_hQdN4tXyOO4A6ldQ1T5L7DLTSrT0';

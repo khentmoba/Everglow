@@ -438,6 +438,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       Logger.i('Saved to read_list: ${item.title} ($userName)');
     } catch (e) {
       Logger.e('Error saving to read_list', error: e);
+      rethrow;
     }
   }
 
@@ -458,6 +459,7 @@ class OpenLibraryService with ConnectivityAware, ErrorAware {
       }
     } catch (e) {
       Logger.e('Error removing from read_list', error: e);
+      rethrow;
     }
   }
 

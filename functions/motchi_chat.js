@@ -20,10 +20,9 @@ const {
 } = require('./motchi_memory.js');
 const {
   getAdmin,
-  requireAuth,
+  requireCouple,
   enforceRateLimit,
   checkDailyCap,
-  getVerifiedUsername,
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
@@ -131,15 +130,16 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // Validate Firebase Auth token before spending any LLM credits.
-  const decoded = await requireAuth(req, res);
-  if (!decoded) return;
+  // Mandatory couple gate before context reads or tool construction.
+  const identity = await requireCouple(req, res);
+  if (!identity) return;
+  const { decoded, username: caller } = identity;
   // Per-minute brake: humans chat far slower than this; bots don't.
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
   const {
     messages, context, systemPrompt: customSystemPrompt, memories, feature,
-    caller: clientCaller, enableThinking, canvas, sessionId,
+    enableThinking, canvas, sessionId,
   } = req.body;
   const requestStartedAt = Date.now();
   const turnTools = [];
@@ -158,21 +158,11 @@ async function handleProxyAI(req, res) {
     return;
   }
 
-  // ── W1-A1: Derive trusted caller from Firebase Auth token, not client body ──
-  const verifiedUsername = await getVerifiedUsername(decoded);
-  const normalizedClientCaller = typeof clientCaller === 'string' ? clientCaller.trim().toLowerCase() : '';
-  const caller = verifiedUsername || normalizedClientCaller || '';
   // Shared services for tool executors (built once per request).
   const toolCtx = createToolCtx({ callerUid: caller, caller });
-  if (verifiedUsername && normalizedClientCaller && verifiedUsername !== normalizedClientCaller) {
-    console.warn(`[auth] caller mismatch: token=${verifiedUsername} client=${normalizedClientCaller} — using token`);
-  }
-  if (!verifiedUsername && normalizedClientCaller) {
-    console.warn(`[auth] no verified username for uid=${decoded.uid}, falling back to client caller=${normalizedClientCaller}`);
-  }
   // Daily usage cap, counted across instances (fails open if Firestore
   // hiccups — never break Clair's chat over a counter write).
-  const _dailyLimit = (caller === 'khentsgdz' || caller === 'clairjassen') ? 300 : 50;
+  const _dailyLimit = 300;
   const _usage = await checkDailyCap(decoded.uid, 'proxyAI', _dailyLimit);
   if (!_usage.allowed) {
     res.status(429).json({ error: 'Daily AI limit reached — Motchi will be back tomorrow.' });

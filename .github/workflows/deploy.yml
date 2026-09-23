@@ -62,13 +62,12 @@ jobs:
           OCTAGRAM_PASSWORD: ${{ secrets.OCTAGRAM_PASSWORD }}
           BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
           OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
-          CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
-          KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
+          APP_CHECK_WEB_SITE_KEY: ${{ secrets.APP_CHECK_WEB_SITE_KEY }}
         run: |
           # tool/build_web.dart forwards to `flutter build web` and adds the
           # engine-pinned gstatic CanvasKit URL when reachable (safe fallback).
           ARGS=(--release --no-source-maps) # prod: no maps; staging uses --source-maps
-          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD BREYAN_PASSCODE OCTAGRAM_PASSCODE CLAIR_PASSCODE KHENT_PASSCODE; do
+          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD BREYAN_PASSCODE OCTAGRAM_PASSCODE APP_CHECK_WEB_SITE_KEY; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
               ARGS+=(--dart-define="$KEY=$VAL")
@@ -120,6 +119,8 @@ jobs:
           KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
           CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
           KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
+          BREYAN_EMAIL: ${{ secrets.BREYAN_EMAIL }}
+          OCTAGRAM_EMAIL: ${{ secrets.OCTAGRAM_EMAIL }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
           TINYFISH_API_KEY: ${{ secrets.TINYFISH_API_KEY }}
@@ -151,6 +152,8 @@ jobs:
           if [ -n "${KHENT_PASSCODE:-}" ]; then echo "KHENT_PASSCODE=${KHENT_PASSCODE}" >> functions/.env; fi
           if [ -n "${CLAIR_EMAIL:-}" ]; then echo "CLAIR_EMAIL=${CLAIR_EMAIL}" >> functions/.env; fi
           if [ -n "${KHENT_EMAIL:-}" ]; then echo "KHENT_EMAIL=${KHENT_EMAIL}" >> functions/.env; fi
+          if [ -n "${BREYAN_EMAIL:-}" ]; then echo "BREYAN_EMAIL=${BREYAN_EMAIL}" >> functions/.env; fi
+          if [ -n "${OCTAGRAM_EMAIL:-}" ]; then echo "OCTAGRAM_EMAIL=${OCTAGRAM_EMAIL}" >> functions/.env; fi
           if [ -n "${SPOTIFY_CLIENT_ID:-}" ]; then echo "SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}" >> functions/.env; fi
           if [ -n "${SPOTIFY_CLIENT_SECRET:-}" ]; then echo "SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}" >> functions/.env; fi
           if [ -n "${TINYFISH_API_KEY:-}" ]; then echo "TINYFISH_API_KEY=${TINYFISH_API_KEY}" >> functions/.env; fi

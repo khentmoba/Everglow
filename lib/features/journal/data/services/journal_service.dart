@@ -232,6 +232,7 @@ class JournalService {
       Logger.i('Journal added: ${entry.title}');
     } catch (e) {
       Logger.e('Error adding journal', error: e);
+      rethrow;
     }
   }
 
@@ -244,6 +245,7 @@ class JournalService {
       Logger.i('Journal updated: ${entry.id}');
     } catch (e) {
       Logger.e('Error updating journal', error: e);
+      rethrow;
     }
   }
 
@@ -253,6 +255,7 @@ class JournalService {
       Logger.i('Journal deleted: $id');
     } catch (e) {
       Logger.e('Error deleting journal', error: e);
+      rethrow;
     }
   }
 
@@ -264,6 +267,7 @@ class JournalService {
       });
     } catch (e) {
       Logger.e('Error toggling pin', error: e);
+      rethrow;
     }
   }
 
@@ -284,6 +288,7 @@ class JournalService {
       Logger.i('Journal lock toggled: $id -> $locked');
     } catch (e) {
       Logger.e('Error toggling lock', error: e);
+      rethrow;
     }
   }
 }

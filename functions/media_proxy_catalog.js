@@ -1,12 +1,12 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const { cappedHttps, enforceRateLimit, requireAuth } = require('./common.js');
 
 /**
  * Generic allow-listed JSON catalog proxy for keyless public APIs
  * (Open Library, Jikan, iTunes, AniSkip). The client passes ?base=<openlibrary|jikan|itunes|aniskip> and
  * ?path=<api path with query>. Only those hosts are reachable;
- * auth is optional (validated when present) like proxyMangaDex.
+ * Firebase authentication is required on every request.
  *
  *   GET /proxyCatalog?base=openlibrary&path=search.json%3Fq%3D...%26limit%3D20
  *   GET /proxyCatalog?base=jikan&path=anime%3Fq%3D...%26limit%3D20
@@ -47,11 +47,15 @@ function resolveCatalogUpstream(baseKey, pathParam) {
   const qIndex = pathParam.indexOf('?');
   const rawPath = qIndex === -1 ? pathParam : pathParam.slice(0, qIndex);
   const rawQuery = qIndex === -1 ? '' : pathParam.slice(qIndex + 1);
+  if (rawPath.startsWith('//')) throw new Error('Invalid path');
   const safePath = rawPath.replace(/^\/+/, '').replace(/\.\.+/g, '');
   if (safePath.length === 0 || safePath.length > 200) {
     throw new Error('Invalid path');
   }
   const targetUrl = new URL(safePath, upstreamBase);
+  if (targetUrl.origin !== new URL(upstreamBase).origin) {
+    throw new Error('Invalid path');
+  }
   if (rawQuery) targetUrl.search = rawQuery;
   if (targetUrl.search.length > 300) throw new Error('Invalid path');
   return targetUrl;
@@ -71,20 +75,8 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
     res.status(405).json({ error: 'Only GET is accepted' });
     return;
   }
-  // Anonymous-tolerant by design (native clients without a token still
-  // need covers). Upstreams like Jikan are strict (3/sec), so keep the
-  // per-IP cap modest.
   if (enforceRateLimit(req, res, { endpoint: 'proxyCatalog', limit: 120, windowMs: 60000 })) return;
-  const header = req.get('Authorization') || req.headers.authorization || '';
-  const idToken = header ? String(header).replace(/^Bearer\s+/i, '') : '';
-  if (idToken) {
-    try {
-      await getAdmin().auth().verifyIdToken(idToken);
-    } catch (e) {
-      res.status(401).json({ error: 'Invalid or expired auth token' });
-      return;
-    }
-  }
+  if (!(await requireAuth(req, res))) return;
 
   let targetUrl;
   try {
@@ -101,6 +93,7 @@ const proxyCatalog = cappedHttps(20, async (req, res) => {
         'User-Agent': 'Everglow/1.0 (https://github.com/everglow)',
         'Accept': 'application/json',
       },
+      redirect: 'manual',
       signal: AbortSignal.timeout(20000),
     });
     const body = await upstream.text();

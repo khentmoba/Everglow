@@ -235,6 +235,10 @@
         "function": "verifyPasscode"
       },
       {
+        "source": "/api/bootstrapProfile",
+        "function": "bootstrapProfile"
+      },
+      {
         "source": "/api/proxyTmdb",
         "function": "proxyTmdb"
       },

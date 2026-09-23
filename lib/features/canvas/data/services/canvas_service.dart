@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
-import '../../../../core/utils/logger.dart';
 import 'canvas_point_utils.dart';
 
 class CanvasService {
@@ -12,7 +11,7 @@ class CanvasService {
     return withFirestoreTimeout(
       _db
           .collection(_collection)
-          .orderBy('createdAt', descending: false)
+          .orderBy('createdAt', descending: true)
           .limit(300)
           .snapshots()
           .map(
@@ -57,25 +56,14 @@ class CanvasService {
     );
   }
 
-  Future<void> clearAllStrokes() async {
-    // Fire-and-forget from a dialog with no await: failures must log,
-    // not surface as unhandled async errors.
-    try {
-      await _deleteInBatches(
-        (await withGetTimeout(
-          _db.collection(_collection).get(),
-          label: 'canvas clear strokes',
-        )).docs.map((doc) => doc.reference).toList(),
-      );
-      await _deleteInBatches(
-        (await withGetTimeout(
-          _db.collection('live_canvas').get(),
-          label: 'canvas clear live',
-        )).docs.map((doc) => doc.reference).toList(),
-      );
-    } catch (e) {
-      Logger.e('Canvas clearAllStrokes failed', error: e);
-    }
+  Future<void> clearAllStrokes(String userId) async {
+    await _deleteInBatches(
+      (await withGetTimeout(
+        _db.collection(_collection).where('userId', isEqualTo: userId).get(),
+        label: 'canvas clear strokes',
+      )).docs.map((doc) => doc.reference).toList(),
+    );
+    await _deleteInBatches([_db.collection('live_canvas').doc(userId)]);
   }
 
   Future<void> _deleteInBatches(

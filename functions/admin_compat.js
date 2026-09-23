@@ -16,6 +16,7 @@
  */
 
 const appMod = require('firebase-admin/app');
+const appCheckMod = require('firebase-admin/app-check');
 const authMod = require('firebase-admin/auth');
 const firestoreMod = require('firebase-admin/firestore');
 const messagingMod = require('firebase-admin/messaging');
@@ -41,6 +42,10 @@ function getAdminCompat() {
 
   if (typeof _app.auth !== 'function') {
     const legacy = {
+      /** Legacy `admin.appCheck(app?)`. */
+      appCheck(appArg) {
+        return appCheckMod.getAppCheck(appArg || _app);
+      },
       /** Legacy `admin.auth(app?)`. */
       auth(appArg) {
         return authMod.getAuth(appArg || _app);

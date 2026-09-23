@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -31,7 +32,8 @@ class AuthService extends ChangeNotifier {
   String? _currentUser;
   String? _partnerUid;
   String? _partnerNameResolved;
-  bool _hasSyncedUserDoc = false;
+  bool _hasTrustedIdentity = false;
+  bool _isSyncingIdentity = false;
   bool _isResolvingPartner = false;
   bool _isSessionLoaded = false;
   String? _lastAuthError;
@@ -41,24 +43,19 @@ class AuthService extends ChangeNotifier {
     _loadSession();
     _auth.authStateChanges().listen((User? user) {
       _user = user;
-      _hasSyncedUserDoc = false;
+      _hasTrustedIdentity = false;
       if (user == null) {
         _partnerUid = null;
         _partnerNameResolved = null;
         _isResolvingPartner = false;
       } else if (_currentUser != null) {
-        // Anonymous sessions can never satisfy firestore.rules
-        // (`isNotAnonymous` is required for every app read), so an
-        // anonymous user paired with a couple username would only ever
-        // see permission-denied streams and false-empty shelves. Drop the
-        // false session so the gateway forces a real login instead.
         if (user.isAnonymous && isCoupleUser) {
           Logger.e(
             '[AuthService] clearing anonymous session for couple user $_currentUser — real login required',
           );
           unawaited(_auth.signOut());
         } else {
-          unawaited(_syncUserDoc());
+          _queueServerIdentitySync();
         }
       }
       notifyListeners();
@@ -86,10 +83,9 @@ class AuthService extends ChangeNotifier {
           _user = null;
         }
         notifyListeners();
-        // If auth state already fired before we loaded the session,
-        // sync the user doc now that _currentUser is available.
-        if (_auth.currentUser != null && !_hasSyncedUserDoc) {
-          unawaited(_syncUserDoc());
+        // Auth state can fire before the remembered username is loaded.
+        if (_auth.currentUser != null && !_hasTrustedIdentity) {
+          _queueServerIdentitySync();
         }
       }
     } catch (e) {
@@ -122,13 +118,13 @@ class AuthService extends ChangeNotifier {
 
   /// Single-line auth diagnosis for the browser console. The dashboard
   /// logs this on load so a permission-denied report always carries the
-  /// session facts needed to tell a guest session from a missing user doc.
+  /// session facts needed to tell a guest session from a missing role claim.
   String get diagLine =>
       'uid=${_auth.currentUser?.uid ?? 'none'} '
       'anonymous=$isAnonymousSession '
       'username=${_currentUser ?? 'none'} '
       'offlineMode=$_offlineUnlocked '
-      'usersDocSynced=$_hasSyncedUserDoc';
+      'trustedIdentity=$_hasTrustedIdentity';
 
   /// True when this session was unlocked offline from the remembered user
   /// (see [tryOfflineRememberedLogin]). The dashboard shows cached data
@@ -140,10 +136,10 @@ class AuthService extends ChangeNotifier {
   /// An offline-remembered session also counts as ready: the dashboard
   /// renders cached Firestore data instead of spinning forever.
   bool get isReady =>
-      _currentUser != null && (_user != null || _offlineUnlocked);
+      _currentUser != null &&
+      ((_hasTrustedIdentity && _user != null) || _offlineUnlocked);
 
-  /// Dynamically resolved partner UID from the /users collection.
-  /// Populated after login via [_syncUserDoc].
+  /// Dynamically resolved partner UID from the server-owned /users profiles.
   String? get partnerUid => _partnerUid;
 
   /// True while partner UID resolution is in flight. Presence widgets use
@@ -209,7 +205,7 @@ class AuthService extends ChangeNotifier {
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       _currentUser = username;
       await _saveSession(username);
-      unawaited(_syncUserDoc());
+      await _syncServerIdentity();
       _lastAuthError = null;
       _offlineUnlocked = false;
       Logger.i(
@@ -224,9 +220,15 @@ class AuthService extends ChangeNotifier {
         error: e,
       );
     } catch (e) {
-      _lastAuthError = 'Login error. Falling back to guest access.';
-      Logger.e("General auth error during passcode login", error: e);
-      await ensureAuthenticated();
+      _lastAuthError = 'Could not verify this account with the server.';
+      Logger.e('Identity bootstrap failed after login', error: e);
+      await _auth.signOut();
+      _user = null;
+      _currentUser = null;
+      _hasTrustedIdentity = false;
+      await _saveSession(null);
+    } finally {
+      notifyListeners();
     }
   }
 
@@ -246,35 +248,90 @@ class AuthService extends ChangeNotifier {
     _lastAuthError = message;
   }
 
-  /// Writes/updates the /users/{uid} document and resolves the partner's UID
-  /// dynamically from Firestore. This replaces the old hard-coded UID system
-  /// and is resilient to account recreations.
-  ///
-  /// The core `users/{uid}` write is awaited, but partner resolution, XP init
-  /// and letterbox seeding run in the background so `isReady` flips true
-  /// without waiting for 2-3 extra round-trips (≈700ms saved per login).
-  Future<void> _syncUserDoc() async {
-    final myUid = _auth.currentUser?.uid;
-    if (myUid == null || _currentUser == null) return;
-    if (_hasSyncedUserDoc) return;
-    _hasSyncedUserDoc = true;
+  void _queueServerIdentitySync() {
+    unawaited(
+      _syncServerIdentity().catchError((Object error) {
+        Logger.e('[AuthService] server identity sync failed', error: error);
+      }),
+    );
+  }
 
-    final db = FirebaseFirestore.instance;
+  /// Exchanges the authenticated Firebase account for server-issued role
+  /// claims and a server-owned profile. The client never writes /users.
+  Future<void> _syncServerIdentity() async {
+    final user = _auth.currentUser;
+    if (user == null || _currentUser == null) return;
+    if (_hasTrustedIdentity || _isSyncingIdentity) return;
+    _isSyncingIdentity = true;
+
     try {
-      await db.collection('users').doc(myUid).set({
-        'username': _currentUser,
-        'partnerUsername': partnerUsername,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      Logger.i('[AuthService] users doc synced for $_currentUser ($myUid)');
+      final idToken = await user.getIdToken();
+      final appCheckToken = await FirebaseAppCheck.instance.getToken();
+      if (idToken == null || idToken.isEmpty || appCheckToken == null) {
+        throw StateError('Firebase identity token unavailable');
+      }
 
-      // Remaining work doesn't block first paint — fire-and-forget.
+      final isLocalWeb =
+          kIsWeb &&
+          (Uri.base.host == 'localhost' ||
+              Uri.base.host == '127.0.0.1' ||
+              Uri.base.host == '0.0.0.0');
+      final urls = <Uri>[
+        if (kIsWeb && !isLocalWeb) Uri.parse('/api/bootstrapProfile'),
+        Uri.parse(
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/bootstrapProfile',
+        ),
+      ];
+
+      http.Response? response;
+      Object? lastError;
+      for (final url in urls) {
+        try {
+          final candidate = await http
+              .post(
+                url,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer $idToken',
+                  'X-Firebase-AppCheck': appCheckToken,
+                },
+              )
+              .timeout(const Duration(seconds: 10));
+          if (candidate.statusCode == 200) {
+            response = candidate;
+            break;
+          }
+          lastError = 'HTTP ${candidate.statusCode}: ${candidate.body}';
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (response == null) {
+        throw StateError('Profile bootstrap failed: $lastError');
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final username = data['username'] as String?;
+      if (username == null || username.isEmpty) {
+        throw const FormatException('Profile bootstrap returned no username');
+      }
+      await user.getIdToken(true);
+      _currentUser = username;
+      await _saveSession(username);
+      _hasTrustedIdentity = true;
+      _offlineUnlocked = false;
+      _lastAuthError = null;
+      Logger.i(
+        '[AuthService] trusted identity ready for $username (${user.uid})',
+      );
+      notifyListeners();
+
       unawaited(
         Future.wait([
           _resolvePartnerInfo().catchError((Object e) {
             Logger.e('AuthService._resolvePartnerInfo failed (bg)', error: e);
           }),
-          XPService().initializeProgress(myUid).catchError((Object e) {
+          XPService().initializeProgress(user.uid).catchError((Object e) {
             Logger.e('XP init failed (bg)', error: e);
           }),
           if (isCoupleUser)
@@ -283,67 +340,9 @@ class AuthService extends ChangeNotifier {
             }),
         ]),
       );
-    } catch (e) {
-      // Self-heal: a stale users doc (username from an older app version
-      // or fields outside the rules allow-list) rejects every update via
-      // the keys/username rule, which permanently breaks isCouple() and
-      // with it every couple read. Delete and recreate it in the current
-      // shape instead of failing forever.
-      var repaired = false;
-      try {
-        repaired = await _repairStaleUserDoc(db, myUid);
-      } catch (e2) {
-        Logger.e(
-          '[AuthService] users doc repair failed for $_currentUser ($myUid)',
-          error: e2,
-        );
-      }
-      if (!repaired) {
-        _hasSyncedUserDoc = false;
-        Logger.e(
-          '[AuthService] _syncUserDoc failed for $_currentUser ($myUid)',
-          error: e,
-        );
-      }
+    } finally {
+      _isSyncingIdentity = false;
     }
-  }
-
-  /// Deletes and recreates the own users doc when it is stale, i.e. its
-  /// `username` no longer matches the signed-in profile or it carries
-  /// fields the rules no longer allow. Returns true when a repair ran.
-  /// The doc only holds identity fields, so recreating it loses nothing.
-  Future<bool> _repairStaleUserDoc(FirebaseFirestore db, String myUid) async {
-    final doc = await withGetTimeout(
-      db.collection('users').doc(myUid).get(),
-      label: 'auth stale user-doc check',
-    );
-    if (!doc.exists) return false;
-    final data = doc.data() ?? {};
-    if (!needsUserDocRepair(data, _currentUser)) return false;
-    Logger.i(
-      '[AuthService] repairing stale users doc for $_currentUser ($myUid)',
-    );
-    await db.collection('users').doc(myUid).delete();
-    await db.collection('users').doc(myUid).set({
-      'username': _currentUser,
-      'partnerUsername': partnerUsername,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    Logger.i('[AuthService] users doc repaired for $_currentUser ($myUid)');
-    return true;
-  }
-
-  /// True when a users doc can never satisfy the update rule and must be
-  /// recreated: username drifted from the signed-in profile, or the doc
-  /// carries fields outside the allow-list.
-  @visibleForTesting
-  static bool needsUserDocRepair(
-    Map<String, dynamic> data,
-    String? currentUser,
-  ) {
-    const allowed = {'username', 'partnerUsername', 'updatedAt', 'createdAt'};
-    if (data['username'] != currentUser) return true;
-    return !data.keys.every(allowed.contains);
   }
 
   /// Queries /users to find the partner's UID by username. If the partner's
@@ -498,22 +497,25 @@ class AuthService extends ChangeNotifier {
     Object? lastError;
     for (final url in urls) {
       try {
+        final appCheckToken = await FirebaseAppCheck.instance
+            .getLimitedUseToken();
         final resp = await http
             .post(
               url,
-              headers: {'Content-Type': 'application/json'},
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Firebase-AppCheck': appCheckToken,
+              },
               body: jsonEncode({'passcode': passcode}),
             )
             .timeout(const Duration(seconds: 10));
-        if (resp.statusCode == 401 || resp.statusCode == 400) {
-          // Definitive answer from the server: wrong code.
+        if (resp.statusCode == 400 ||
+            (resp.statusCode == 401 && resp.body.contains('passphrase'))) {
           return null;
         }
         if (resp.statusCode != 200) {
-          lastError = 'HTTP ${resp.statusCode}';
-          Logger.e(
-            'verifyCouplePasscode $url -> ${resp.statusCode}: ${resp.body}',
-          );
+          lastError = 'HTTP ${resp.statusCode}: ${resp.body}';
+          Logger.e('verifyCouplePasscode $url -> $lastError');
           continue;
         }
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -533,13 +535,14 @@ class AuthService extends ChangeNotifier {
         }
         _currentUser = username;
         await _saveSession(username);
-        unawaited(_syncUserDoc());
-        _lastAuthError = null;
-        _offlineUnlocked = false;
-        notifyListeners();
-        return username;
+        await _syncServerIdentity();
+        return _currentUser;
       } catch (e) {
         lastError = e;
+        if (_auth.currentUser != null) {
+          await _auth.signOut();
+          _hasTrustedIdentity = false;
+        }
         Logger.e('verifyCouplePasscode $url failed', error: e);
       }
     }
@@ -637,7 +640,7 @@ class AuthService extends ChangeNotifier {
     _partnerUid = null;
     _partnerNameResolved = null;
     _isResolvingPartner = false;
-    _hasSyncedUserDoc = false;
+    _hasTrustedIdentity = false;
     _offlineUnlocked = false;
     await _saveSession(null);
     notifyListeners();

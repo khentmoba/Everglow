@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
+import '../../../../shared/utils/firestore_pagination.dart';
 import '../../../../core/utils/logger.dart';
 
 class GalleryService {
@@ -193,18 +194,40 @@ class GalleryService {
     }
   }
 
-  /// Stream of all photos, newest first.
-  Stream<List<MemoryPhoto>> getPhotosStream() {
+  static const int photoPageSize = 40;
+  static const int searchPageSize = 50;
+
+  /// Live newest page. The screen appends older pages with
+  /// [getPhotosPage], so new uploads still appear immediately.
+  Stream<FirestorePage<MemoryPhoto>> getPhotosStream() {
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
-        .limit(40)
+        .limit(photoPageSize)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => MemoryPhoto.fromFirestore(doc))
-              .toList(),
+          (snapshot) => FirestorePage(
+            items: snapshot.docs
+                .map((doc) => MemoryPhoto.fromFirestore(doc))
+                .toList(),
+            nextCursor: snapshot.docs.length == photoPageSize
+                ? snapshot.docs.last
+                : null,
+          ),
         );
+  }
+
+  Future<FirestorePage<MemoryPhoto>> getPhotosPage({
+    DocumentSnapshot? cursor,
+    int limit = photoPageSize,
+  }) {
+    return fetchFirestorePage<MemoryPhoto>(
+      collection: _db.collection(_collection),
+      orderBy: 'uploadedAt',
+      cursor: cursor,
+      limit: limit,
+      fromDoc: MemoryPhoto.fromFirestore,
+    );
   }
 
   /// Stream of recent photos (for dashboard preview).
@@ -295,26 +318,30 @@ class GalleryService {
     }
   }
 
-  /// Search photos by caption or tags (client-side, one-shot so typing
-  /// doesn't re-query on every remote write).
-  Future<List<MemoryPhoto>> searchPhotos(String query) async {
+  /// Search photos by caption or tags one cursor page at a time.
+  Future<FirestorePage<MemoryPhoto>> searchPhotosPage(
+    String query, {
+    DocumentSnapshot? cursor,
+    int limit = searchPageSize,
+  }) async {
     final lowerQuery = query.toLowerCase();
-    final snapshot = await withGetTimeout(
-      _db
-          .collection(_collection)
-          .orderBy('uploadedAt', descending: true)
-          .limit(50)
-          .get(),
-      label: 'gallery search',
+    final page = await fetchFirestorePage<MemoryPhoto>(
+      collection: _db.collection(_collection),
+      orderBy: 'uploadedAt',
+      cursor: cursor,
+      limit: limit,
+      fromDoc: MemoryPhoto.fromFirestore,
     );
-    return snapshot.docs
-        .map((doc) => MemoryPhoto.fromFirestore(doc))
-        .where(
-          (photo) =>
-              photo.caption.toLowerCase().contains(lowerQuery) ||
-              photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-        )
-        .toList();
+    return FirestorePage(
+      items: page.items
+          .where(
+            (photo) =>
+                photo.caption.toLowerCase().contains(lowerQuery) ||
+                photo.tags.any((tag) => tag.toLowerCase().contains(lowerQuery)),
+          )
+          .toList(),
+      nextCursor: page.nextCursor,
+    );
   }
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.
@@ -454,6 +481,7 @@ class GalleryService {
       Logger.i("Updated location for $id");
     } catch (e) {
       Logger.e("Error updating location", error: e);
+      rethrow;
     }
   }
 }

@@ -41,6 +41,7 @@ class BookLibraryService {
       Logger.i('Favorited book: ${item.title} ($userName)');
     } catch (e) {
       Logger.e('Error adding book favorite', error: e);
+      rethrow;
     }
   }
 
@@ -61,6 +62,7 @@ class BookLibraryService {
       }
     } catch (e) {
       Logger.e('Error removing book favorite', error: e);
+      rethrow;
     }
   }
 
@@ -116,6 +118,7 @@ class BookLibraryService {
       await collection.add(data);
     } catch (e) {
       Logger.e('Error logging book download', error: e);
+      rethrow;
     }
   }
 

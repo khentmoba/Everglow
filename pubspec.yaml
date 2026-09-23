@@ -47,6 +47,7 @@ dependencies:
   archive: ^4.0.7
   cached_network_image: ^3.4.1
   flutter_cache_manager: ^3.4.2
+  firebase_app_check: ^0.3.2+10
 
 dev_dependencies:
   flutter_test:
@@ -60,7 +61,6 @@ flutter:
   assets:
     - assets/images/logo.jpg
     - assets/images/motchi_avatar.webp
-    - assets/images/milestones/
     - assets/data/
     - assets/google_fonts/
     - assets/audio/

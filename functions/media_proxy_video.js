@@ -1,6 +1,11 @@
 'use strict';
 
-const { cappedHttps, enforceRateLimit, requireAuth } = require('./common.js');
+const {
+  cappedHttps,
+  enforceRateLimit,
+  isPublicDnsHost,
+  requireAuth,
+} = require('./common.js');
 
 /**
  * Fetches the direct video stream URL from VidLink server-side so Flutter
@@ -113,44 +118,9 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
     return;
   }
 
-  let parsed;
-  try {
-    parsed = new URL(targetUrl);
-  } catch (_) {
-    res.status(400).json({ error: 'Invalid url' });
-    return;
-  }
-
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    res.status(400).json({ error: 'Only http(s) urls are allowed' });
-    return;
-  }
-  const hostname = parsed.hostname.toLowerCase();
-  const blocked = [
-    'localhost',
-    '127.0.0.1',
-    '::1',
-    '169.254.169.254',
-    'metadata.google.internal',
-    'metadata',
-  ];
-  if (blocked.includes(hostname)) {
-    res.status(400).json({ error: 'Host not allowed' });
-    return;
-  }
-
   const referer = req.query.referer;
   try {
-    const upstream = await fetch(targetUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': '*/*',
-        ...(referer ? { 'Referer': String(referer) } : {}),
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(30000),
-    });
+    const upstream = await fetchPublicStream(targetUrl, String(referer || ''));
     if (!upstream.ok) {
       res
         .status(upstream.status)
@@ -182,6 +152,38 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
   }
 });
 
+async function fetchPublicStream(targetUrl, referer, redirects = 0) {
+  let parsed;
+  try {
+    parsed = new URL(targetUrl);
+  } catch {
+    throw new Error('Invalid url');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Only http(s) urls are allowed');
+  }
+  if (!(await isPublicDnsHost(parsed.hostname))) {
+    throw new Error('Host not allowed');
+  }
+
+  const response = await fetch(parsed, {
+    method: 'GET',
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': '*/*',
+      ...(referer ? { 'Referer': referer } : {}),
+    },
+    redirect: 'manual',
+    signal: AbortSignal.timeout(30000),
+  });
+  if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+  if (redirects >= 3) throw new Error('Too many redirects');
+  const location = response.headers.get('location');
+  if (!location) return response;
+  await response.body?.cancel();
+  return fetchPublicStream(new URL(location, parsed).toString(), referer, redirects + 1);
+}
 
 let _wasmReady = null;
 let _wasmGetAdv = null;
@@ -491,4 +493,9 @@ async function initWasm() {
   return globalThis.getAdv || null;
 }
 
-module.exports = { proxyVideoStream, proxyWatchStream, initWasm };
+module.exports = {
+  proxyVideoStream,
+  proxyWatchStream,
+  initWasm,
+  fetchPublicStream,
+};
