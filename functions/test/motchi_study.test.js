@@ -80,10 +80,7 @@ test('buildStudyPrompt pins count, category, and topic', () => {
   assert.match(prompt, /ONLY a JSON array/);
 });
 
-test('retry is one fast attempt (TokenHarbor has no RPM window)', () => {
+test('429 retry waits out the Agnes RPM window (free tier: 5/min)', () => {
   const src = fs.readFileSync(path.join(__dirname, '../motchi_study.js'), 'utf8');
-  // Same Sep 2026 Agnes 5/min cut as chat — gone now that study runs
-  // on pay-as-you-go TokenHarbor. One fast 1.5s retry for 429/502/503.
-  assert.doesNotMatch(src, /12000/);
-  assert.match(src, /setTimeout\(r, 1500\)/);
+  assert.match(src, /e\.status === 429 \? 12000 : 1500/);
 });

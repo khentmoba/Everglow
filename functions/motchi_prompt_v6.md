@@ -23,7 +23,7 @@
 > routing policy changes.
 
 - version: 6
-- model: qwen3.8-flash (1M context, input budget 120000)
+- model: agnes-3.0-flash (512K context, input budget 120000)
 - tool rounds: up to 8 (`MAX_TOOL_ROUNDS`), 25s per tool (`TOOL_TIMEOUT_MS`)
 - prompt char guard: 50000 (`PROMPT_CHAR_LIMIT`)
 - memory injection: top 10 relevant (`selectRelevantMemories`)

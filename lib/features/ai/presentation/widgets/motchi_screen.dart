@@ -704,7 +704,10 @@ class _MotchiScreenState extends State<MotchiScreen> {
                     children: [
                       bubble,
                       const SizedBox(height: 6),
-                      _WebSourcesCard(sources: msg.sources),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 46),
+                        child: _WebSourcesCard(sources: msg.sources),
+                      ),
                     ],
                   );
                 }

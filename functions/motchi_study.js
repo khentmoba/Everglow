@@ -13,8 +13,8 @@ const {
   getVerifiedUsername,
 } = require('./common.js');
 
-const TOKENHARBOR_URL = 'https://tokenharbor.ai/v1/chat/completions';
-const MODEL = 'qwen3.8-flash';
+const AGNES_URL = 'https://apihub.agnes-ai.com/v1/chat/completions';
+const MODEL = 'agnes-3.0-flash';
 
 const STUDY_CATEGORIES = [
   'engineering',
@@ -126,8 +126,8 @@ function parseStudySet(text) {
   return { questions };
 }
 
-async function callLlm({ apiKey, messages, maxTokens, timeoutMs }) {
-  const resp = await fetch(TOKENHARBOR_URL, {
+async function callAgnes({ apiKey, messages, maxTokens, timeoutMs }) {
+  const resp = await fetch(AGNES_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -140,12 +140,11 @@ async function callLlm({ apiKey, messages, maxTokens, timeoutMs }) {
       temperature: 0.7,
       top_p: 0.95,
       stream: false,
-      enable_thinking: false,
     }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!resp.ok) {
-    const err = new Error(`TokenHarbor HTTP ${resp.status}`);
+    const err = new Error(`Agnes HTTP ${resp.status}`);
     err.status = resp.status;
     throw err;
   }
@@ -193,7 +192,7 @@ async function handleGenerateStudySet(req, res) {
     return;
   }
 
-  const apiKey = process.env.TOKENHARBOR_API_KEY;
+  const apiKey = process.env.AGNES_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: 'Study generator is resting — try the cached questions.' });
     return;
@@ -212,19 +211,19 @@ async function handleGenerateStudySet(req, res) {
   // One generation attempt + one strict-JSON repair attempt at most.
   let reply;
   try {
-    reply = await callLlm({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
+    reply = await callAgnes({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
   } catch (e) {
     if (e.status === 429 || e.status === 502 || e.status === 503) {
       try {
-        // TokenHarbor is pay-as-you-go (no RPM window) — one fast retry.
-        await new Promise((r) => setTimeout(r, 1500));
-        reply = await callLlm({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
+        // 429s wait out the RPM window (free tier: one slot per 12s).
+        await new Promise((r) => setTimeout(r, e.status === 429 ? 12000 : 1500));
+        reply = await callAgnes({ apiKey, messages, maxTokens: 4000, timeoutMs: 60000 });
       } catch {
         res.status(502).json({ error: 'Motchi got distracted — try the cached questions.' });
         return;
       }
     } else {
-      console.warn('[generateStudySet] TokenHarbor failed:', e.message);
+      console.warn('[generateStudySet] Agnes failed:', e.message);
       res.status(502).json({ error: 'Motchi got distracted — try the cached questions.' });
       return;
     }
@@ -233,7 +232,7 @@ async function handleGenerateStudySet(req, res) {
   let parsed = parseStudySet(reply);
   if (parsed.error) {
     try {
-      const repair = await callLlm({
+      const repair = await callAgnes({
         apiKey,
         messages: [
           ...messages,

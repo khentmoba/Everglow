@@ -119,7 +119,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : '';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: widget.isUser
             ? MainAxisAlignment.end
@@ -182,7 +182,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   maxWidth: MediaQuery.sizeOf(context).width *
                       (widget.isUser ? 0.78 : 0.82),
                 ),
-                padding: const EdgeInsets.fromLTRB(17, 14, 17, 13),
+                padding: const EdgeInsets.fromLTRB(18, 15, 18, 14),
                 decoration: BoxDecoration(
                   gradient: widget.isUser
                       ? const LinearGradient(
@@ -218,7 +218,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   border: Border.all(
                     color: widget.isUser
                         ? AppColors.petalWhite.withValues(alpha: 0.20)
-                        : AppColors.moonlight.withValues(alpha: 0.16),
+                        : AppColors.moonlight.withValues(alpha: 0.10),
                   ),
                   boxShadow: widget.isUser
                       ? [
@@ -251,58 +251,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
-                    if (!widget.isUser)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 9),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8.5,
-                                vertical: 3.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.blushGold.withValues(alpha: 0.12),
-                                borderRadius: AppRadius.radiusFull,
-                                border: Border.all(
-                                  color: AppColors.blushGold.withValues(alpha: 0.28),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text('🐾', style: TextStyle(fontSize: 10)),
-                                  const SizedBox(width: 4.5),
-                                  Text(
-                                    'MOTCHI',
-                                    style: AppTypography.labelSmall().copyWith(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.8,
-                                      color: AppColors.blushGold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                '· your cat who remembers',
-                                style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppColors.roseQuartz.withValues(alpha: 0.82),
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const Spacer(),
-                            EverglowCopyIconButton(textToCopy: displayText),
-                          ],
-                        ),
-                      ),
                     if (hasReasoning)
                       GestureDetector(
                         onTap: () =>
@@ -384,7 +332,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
                           height: 1.55,
-                          fontSize: 14.5,
+                          fontSize: 15.5,
                           fontWeight: FontWeight.w500,
                         ),
                       )
@@ -412,8 +360,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               text: cleanBubbleText,
                               baseStyle: AppTypography.bodyMedium().copyWith(
                                 color: AppColors.textHigh,
-                                height: 1.65,
-                                fontSize: 14.5,
+                                height: 1.55,
+                                fontSize: 15.5,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -432,47 +380,39 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         padding: EdgeInsets.only(top: 7),
                         child: _StreamingProgressBar(),
                       ),
-                    // Source + time footer — one quiet line for assistant replies.
+                    // Quiet footer: time and actions stay available without
+                    // competing with the reply for attention.
                     if (!widget.isUser && !widget.isStreaming)
                       Padding(
-                        padding: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.only(top: 6),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Flexible(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.auto_awesome_rounded,
-                                    size: 11,
-                                    color: AppColors.blushGold.withValues(
-                                      alpha: 0.75,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Flexible(
-                                    child: Text(
-                                      widget.timestamp != null
-                                          ? 'Private to you two · ${isToday ? timeStr : fullDateStr}'
-                                          : 'Private to you two · Everglow context',
-                                      style: AppTypography.bodySmall().copyWith(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textMuted,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            Icon(
+                              Icons.lock_outline_rounded,
+                              size: 12,
+                              color: AppColors.textMuted,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                widget.timestamp == null
+                                    ? 'Private to you two'
+                                    : '${isToday ? timeStr : fullDateStr} · Private',
+                                style: AppTypography.bodySmall().copyWith(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textMuted,
+                                ),
                               ),
                             ),
-                            if (displayText.trim().isNotEmpty)
+                            if (displayText.trim().isNotEmpty) ...[
+                              EverglowCopyIconButton(textToCopy: displayText),
                               _ListenButton(text: displayText),
+                            ],
                           ],
                         ),
                       ),
-                    if ((widget.timestamp != null && widget.isUser) ||
-                        widget.isStreaming)
+                    if (widget.timestamp != null && widget.isUser)
                       Padding(
                         padding: const EdgeInsets.only(top: 5),
                         child: Row(
@@ -486,33 +426,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               ),
                               const SizedBox(width: 4),
                             ],
-                            if (widget.isStreaming) ...[
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.blushGold,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Container(
-                                    width: 2,
-                                    height: 2,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.twilight,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
                             Text(
-                              widget.isStreaming
-                                  ? 'replying...'
-                                  : isToday
-                                  ? timeStr
-                                  : fullDateStr,
+                              isToday ? timeStr : fullDateStr,
                               style: AppTypography.bodySmall().copyWith(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
