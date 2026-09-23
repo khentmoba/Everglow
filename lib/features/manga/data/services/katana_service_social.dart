@@ -106,16 +106,16 @@ extension KatanaServiceSocial on KatanaService {
           label: 'katana progress save lookup',
         );
         if (existing.docs.isEmpty && title.isNotEmpty) {
-          await setReading(
-            KatanaManga(
-              slug: slug,
-              id: slug,
-              title: title,
-              coverUrl: coverUrl,
-            ),
-            userName,
-            reading: true,
+          // The reader only passes title + cover, which would save a bare
+          // entry (wrong MANGA badge, no tags/authors). Pull the detail
+          // page once so the new entry carries full metadata; falls back
+          // to the bare entry when the fetch fails.
+          final manga = await _fullMangaForReading(
+            slug: slug,
+            title: title,
+            coverUrl: coverUrl,
           );
+          await setReading(manga, userName, reading: true);
           // setReading creates a deterministic doc id, so no re-read:
           // stamp this chapter's progress straight onto it.
           await _library
@@ -127,6 +127,22 @@ extension KatanaServiceSocial on KatanaService {
           }, SetOptions(merge: true));
         } else {
           for (final doc in existing.docs) {
+            // One-time backfill for bare auto-adds saved before the detail
+            // fetch above existed (empty tags): merge full metadata so the
+            // badge and tags correct themselves on the next read.
+            final tags = doc.data()['tags'];
+            if (tags is List && tags.isEmpty) {
+              final manga = await _fullMangaForReading(
+                slug: slug,
+                title: title,
+                coverUrl: coverUrl,
+              );
+              // Never blank a good title when both the reader and the
+              // detail fetch come up empty.
+              if (manga.title.isNotEmpty) {
+                await setReading(manga, userName, reading: true);
+              }
+            }
             await doc.reference.set({
               'lastReadChapterId': chapterId,
               'lastReadChapterTitle': chapterTitle,
@@ -140,6 +156,25 @@ extension KatanaServiceSocial on KatanaService {
     } catch (e) {
       Logger.e('saveReadingProgress error', error: e);
     }
+  }
+
+  /// Full metadata for a Currently Reading entry: the detail page when it
+  /// loads (genres, authors, tags, description), else the bare reader
+  /// metadata so the save still proceeds. `fetchMangaDetail` never throws
+  /// (null on failure), so no try/catch is needed here.
+  Future<KatanaManga> _fullMangaForReading({
+    required String slug,
+    required String title,
+    required String coverUrl,
+  }) async {
+    final detail = await fetchMangaDetail(slug);
+    if (detail != null) return detail;
+    return KatanaManga(
+      slug: slug,
+      id: slug,
+      title: title,
+      coverUrl: coverUrl,
+    );
   }
 
   // ── Couple reading & recommendations ──────────────────────────
@@ -289,7 +324,7 @@ extension KatanaServiceSocial on KatanaService {
         'description': manga.summary,
         'coverUrl': proxiedImageUrl(manga.coverUrl),
         'status': manga.status,
-        'originalLanguage': 'jp',
+        'originalLanguage': katanaLanguageForGenres(manga.genres),
         'contentRating': 'safe',
         'tags': [for (final genre in manga.genres) genre.name],
         'userName': userName,

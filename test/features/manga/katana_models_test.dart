@@ -68,4 +68,54 @@ void main() {
       expect(bookmark.isRecommended, isFalse);
     });
   });
+
+  group('katanaLanguageForGenres', () {
+    KatanaGenre genre(String slug, [String? name]) =>
+        KatanaGenre(slug: slug, name: name ?? slug);
+
+    test('manhua genre infers Chinese', () {
+      expect(
+        katanaLanguageForGenres([
+          genre('action', 'Action'),
+          genre('manhua', 'Manhua'),
+        ]),
+        'cn',
+      );
+    });
+
+    test('manhwa genre infers Korean', () {
+      expect(
+        katanaLanguageForGenres([
+          genre('action', 'Action'),
+          genre('manhwa', 'Manhwa'),
+        ]),
+        'ko',
+      );
+    });
+
+    test('no type genre falls back to Japanese', () {
+      expect(
+        katanaLanguageForGenres([
+          genre('action', 'Action'),
+          genre('fantasy', 'Fantasy'),
+        ]),
+        'jp',
+      );
+    });
+
+    test('empty genres fall back to Japanese', () {
+      expect(katanaLanguageForGenres(const []), 'jp');
+    });
+
+    test('matches names case-insensitively', () {
+      expect(
+        katanaLanguageForGenres([genre('x', 'MANHUA')]),
+        'cn',
+      );
+      expect(
+        katanaLanguageForGenres([genre('y', 'manhwa')]),
+        'ko',
+      );
+    });
+  });
 }
