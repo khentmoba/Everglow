@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/dashboard/data/services/letterbox_service.dart';
 import '../../features/xp/data/services/xp_service.dart';
 import '../config/env_config.dart';
+import '../router/route_memory.dart';
 import '../utils/firestore_stream_utils.dart';
 import '../utils/logger.dart';
 
@@ -629,6 +630,9 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     await _auth.signOut();
+    // Forget the last page: the next login on this device starts fresh
+    // instead of reopening the previous user's screen.
+    await RouteMemory.clear();
     _currentUser = null;
     _partnerUid = null;
     _partnerNameResolved = null;

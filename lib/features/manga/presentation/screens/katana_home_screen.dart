@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/utils/scroll_memory.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
 import '../katana/currently_reading_shelf.dart';
@@ -29,6 +30,7 @@ class KatanaHomeScreen extends StatefulWidget {
 
 class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
   final KatanaService _service = KatanaService();
+  final _scroll = RememberedScrollController('manga:home');
   KatanaHomeData? _data;
   bool _loading = true;
   String? _error;
@@ -46,6 +48,12 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -143,16 +151,14 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     final partner = auth.partnerUsername;
 
     final content = ListView(
+      controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
       children: [
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
-            child: CurrentlyReadingShelf(
-              userName: user,
-              partnerName: partner,
-            ),
+            child: CurrentlyReadingShelf(userName: user, partnerName: partner),
           ),
         ),
         Center(

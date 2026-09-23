@@ -35,8 +35,8 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   bool _searchHasMore = false;
   bool _isLoadingMore = false;
   BookSearchFilters _advancedFilters = BookSearchFilters.none;
-
-
+  final _homeScroll = RememberedScrollController('books:home');
+  final _resultsScroll = RememberedScrollController('books:results');
 
   @override
   void initState() {
@@ -71,6 +71,8 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     _historySub?.cancel();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _homeScroll.dispose();
+    _resultsScroll.dispose();
     _searchDebounce?.cancel();
     super.dispose();
   }
@@ -479,10 +481,6 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
         'Search any book, author, or subject across the full database.',
     IconData icon = Icons.travel_explore_rounded,
   }) {
-    return EverglowEmptyState(
-      icon: icon,
-      title: title,
-      subtitle: subtitle,
-    );
+    return EverglowEmptyState(icon: icon, title: title, subtitle: subtitle);
   }
 }

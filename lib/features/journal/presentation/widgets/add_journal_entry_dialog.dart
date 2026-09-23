@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/draft_text_controller.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../../xp/data/services/xp_service.dart';
 import '../../data/models/journal_entry.dart';
@@ -20,8 +21,8 @@ class AddJournalEntryDialog extends StatefulWidget {
 }
 
 class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
-  late TextEditingController _titleController;
-  late TextEditingController _contentController;
+  late DraftTextController _titleController;
+  late DraftTextController _contentController;
   late final TextEditingController _tagController = TextEditingController();
   late JournalCategory _category;
   JournalMood? _mood;
@@ -33,12 +34,20 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
+    _titleController = DraftTextController(
+      'journal:new:title',
       text: widget.existing?.title ?? '',
     );
-    _contentController = TextEditingController(
+    _contentController = DraftTextController(
+      'journal:new:content',
       text: widget.existing?.content ?? '',
     );
+    if (widget.existing == null) {
+      // New page: bring back half-written words after a killed tab/PWA.
+      // Edits always start from the saved entry — never from a draft.
+      _titleController.loadDraft();
+      _contentController.loadDraft();
+    }
     _category = widget.existing?.category ?? JournalCategory.daily;
     _mood = widget.existing?.mood;
     _isPinned = widget.existing?.isPinned ?? false;
@@ -115,6 +124,12 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
           Logger.e('Journal: XP award failed', error: e);
         }
       }
+    }
+    if (widget.existing == null) {
+      // Words are saved now — forget the draft so it never comes back
+      // stale. (Edit-saves leave new-entry drafts alone.)
+      await _titleController.clearDraft();
+      await _contentController.clearDraft();
     }
     if (mounted) Navigator.pop(context);
   }
@@ -195,9 +210,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                             : AppColors.twilight,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: sel
-                              ? hue
-                              : hue.withValues(alpha: 0.3),
+                          color: sel ? hue : hue.withValues(alpha: 0.3),
                         ),
                       ),
                       child: Text(

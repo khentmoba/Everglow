@@ -31,6 +31,7 @@ import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/scroll_memory.dart';
 part 'books_screen_widgets.dart';
 part 'books_screen_state_base.dart';
 
@@ -108,6 +109,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
       backgroundColor: _cCard,
       onRefresh: _fetchHomeData,
       child: CustomScrollView(
+        controller: _homeScroll,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
@@ -326,9 +328,17 @@ class _BooksScreenState extends _BooksScreenStateBase {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _StatBit(value: '$popular', label: 'Popular now'),
-            Container(width: 1, height: 28, color: _cRose.withValues(alpha: 0.12)),
+            Container(
+              width: 1,
+              height: 28,
+              color: _cRose.withValues(alpha: 0.12),
+            ),
             _StatBit(value: '$recent', label: 'Fresh titles'),
-            Container(width: 1, height: 28, color: _cRose.withValues(alpha: 0.12)),
+            Container(
+              width: 1,
+              height: 28,
+              color: _cRose.withValues(alpha: 0.12),
+            ),
             _StatBit(value: '${bookCategories.length}', label: 'Shelves'),
           ],
         ),
@@ -416,10 +426,8 @@ class _BooksScreenState extends _BooksScreenStateBase {
       icon: Icons.local_fire_department_rounded,
       accent: _cAmber,
       results: _popular,
-      onSeeAll: () => context.push(
-        '/books/list',
-        extra: const BookListArgs.popular(),
-      ),
+      onSeeAll: () =>
+          context.push('/books/list', extra: const BookListArgs.popular()),
     );
   }
 
@@ -430,10 +438,8 @@ class _BooksScreenState extends _BooksScreenStateBase {
       icon: Icons.fiber_new_rounded,
       accent: _cDeepRose,
       results: _recent,
-      onSeeAll: () => context.push(
-        '/books/list',
-        extra: const BookListArgs.recent(),
-      ),
+      onSeeAll: () =>
+          context.push('/books/list', extra: const BookListArgs.recent()),
     );
   }
 
@@ -623,8 +629,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
                             onEdit: _openAdvancedSearch,
                             onClear: () {
                               setState(
-                                () => _advancedFilters =
-                                    BookSearchFilters.none,
+                                () => _advancedFilters = BookSearchFilters.none,
                               );
                               _rerunSearchIfNeeded();
                             },
@@ -670,10 +675,11 @@ class _BooksScreenState extends _BooksScreenStateBase {
                       ),
                       Expanded(
                         child: ListView.builder(
+                          controller: _resultsScroll,
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
                           physics: const BouncingScrollPhysics(),
-                          itemCount: _searchResults.length +
-                              (_searchHasMore ? 1 : 0),
+                          itemCount:
+                              _searchResults.length + (_searchHasMore ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index >= _searchResults.length) {
                               return _LoadMoreRow(
@@ -712,10 +718,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
   }
 
   Future<void> _openAdvancedSearch() async {
-    final picked = await AdvancedSearchSheet.open(
-      context,
-      _advancedFilters,
-    );
+    final picked = await AdvancedSearchSheet.open(context, _advancedFilters);
     if (picked == null || !mounted) return;
     setState(() => _advancedFilters = picked);
     _rerunSearchIfNeeded();

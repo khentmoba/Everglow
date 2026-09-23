@@ -11,6 +11,8 @@ import 'core/di/app_root.dart';
 import 'core/perf/perf_hud.dart';
 import 'core/perf/perf_settings.dart';
 import 'core/router/app_router.dart';
+import 'core/router/route_memory.dart';
+import 'shared/utils/scroll_memory.dart';
 import 'core/services/notification_service.dart';
 import 'core/system/app_bootstrap.dart';
 import 'core/system/app_error_widget.dart';
@@ -40,7 +42,11 @@ Future<void> _startEverglow() async {
     try {
       widgetName = details.context?.toString() ?? 'no-widget';
     } catch (_) {}
-    Logger.e('[FlutterError at $widgetName]', error: details.exception, stackTrace: details.stack);
+    Logger.e(
+      '[FlutterError at $widgetName]',
+      error: details.exception,
+      stackTrace: details.stack,
+    );
   };
   ErrorWidget.builder = buildEverglowErrorWidget;
 
@@ -70,6 +76,12 @@ Future<void> _startEverglow() async {
   // switches). Before runApp on purpose: the engine caches the view's physical
   // size at the first frame, so a render-scale override has to land first.
   await PerfSettings.load();
+  // Remembered page for this device (route_memory.dart): ready before the
+  // router is created so a killed tab/PWA reopens where she left off.
+  await RouteMemory.load();
+  // Saved scroll spots (scroll_memory.dart): ready before the first
+  // frame so long lists open exactly where she left them.
+  await ScrollMemory.preload();
   // Health lands after first frame; log it when it arrives.
   unawaited(
     result.healthFuture.then(

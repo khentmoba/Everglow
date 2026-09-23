@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_elevation.dart';
+import '../../../../shared/utils/draft_text_controller.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
 import '../../../../shared/widgets/partner_presence_indicator.dart';
@@ -28,7 +29,9 @@ class SanctuaryChatScreen extends StatefulWidget {
 }
 
 class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
+  final DraftTextController _messageController = DraftTextController(
+    'chat:sanctuary',
+  );
   final ScrollController _scrollController = ScrollController();
   late Stream<List<ChatMessage>> _messagesStream;
   final List<ChatMessage> _optimisticMessages = [];
@@ -39,6 +42,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
   @override
   void initState() {
     super.initState();
+    // Bring back half-typed words after a killed tab/PWA reload.
+    _messageController.loadDraft();
     _scrollController.addListener(_onScroll);
     _checkAuthAndConnect();
   }
@@ -164,7 +169,8 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
     setState(() {
       _optimisticMessages.add(localMsg);
     });
-    _messageController.clear();
+    // Words are sent now — forget the draft so it never comes back stale.
+    _messageController.clearDraft();
     HapticFeedback.lightImpact();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
 

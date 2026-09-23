@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/utils/draft_text_controller.dart';
 import '../../domain/models/star_note.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -11,7 +12,7 @@ class DropStarDialog extends StatefulWidget {
 }
 
 class _DropStarDialogState extends State<DropStarDialog> {
-  final TextEditingController _controller = TextEditingController();
+  final DraftTextController _controller = DraftTextController('starlight:drop');
   final TextEditingController _tagController = TextEditingController();
   bool _isSubmitEnabled = false;
   String _selectedCategory = 'gratitude';
@@ -20,6 +21,8 @@ class _DropStarDialogState extends State<DropStarDialog> {
   @override
   void initState() {
     super.initState();
+    // Bring back half-typed words after a killed tab/PWA reload.
+    _controller.loadDraft();
     _controller.addListener(_validateInput);
   }
 
@@ -273,14 +276,17 @@ class _DropStarDialogState extends State<DropStarDialog> {
                   const SizedBox(width: 12),
                   ElevatedButton(
                     onPressed: _isSubmitEnabled
-                        ? () => Navigator.pop(
-                            context,
-                            StarDropResult(
+                        ? () {
+                            final result = StarDropResult(
                               content: _controller.text,
                               category: _selectedCategory,
                               tags: List.unmodifiable(_tags),
-                            ),
-                          )
+                            );
+                            // Words are dropped now — forget the draft so it
+                            // never comes back stale.
+                            _controller.clearDraft();
+                            Navigator.pop(context, result);
+                          }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.deepRose,
