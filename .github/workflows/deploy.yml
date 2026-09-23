@@ -113,6 +113,7 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
+          TOKENHARBOR_API_KEY: ${{ secrets.TOKENHARBOR_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
@@ -136,6 +137,9 @@ jobs:
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           if [ -n "$AGNES_API_KEY" ]; then
             echo "AGNES_API_KEY=${AGNES_API_KEY}" > functions/.env
+          fi
+          if [ -n "$TOKENHARBOR_API_KEY" ]; then
+            echo "TOKENHARBOR_API_KEY=${TOKENHARBOR_API_KEY}" >> functions/.env
           fi
           if [ -n "$TMDB_API_KEY" ]; then
             echo "TMDB_API_KEY=${TMDB_API_KEY}" >> functions/.env

@@ -42,7 +42,7 @@ class AIMessage {
         [],
   );
 
-  /// Returns the payload for the Agnes API.
+  /// Returns the payload for the Motchi proxy API.
   /// If images are present, uses the multimodal content array format.
   Map<String, dynamic> toApiPayload() {
     if (imageUrls.isEmpty) {
