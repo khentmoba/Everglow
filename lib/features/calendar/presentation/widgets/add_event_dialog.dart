@@ -8,8 +8,13 @@ import '../../../../core/theme/app_typography.dart';
 
 class AddEventDialog extends StatefulWidget {
   final DateTime selectedDay;
+  final CalendarEventType initialType;
 
-  const AddEventDialog({super.key, required this.selectedDay});
+  const AddEventDialog({
+    super.key,
+    required this.selectedDay,
+    this.initialType = CalendarEventType.custom,
+  });
 
   @override
   State<AddEventDialog> createState() => _AddEventDialogState();
@@ -20,12 +25,18 @@ class _AddEventDialogState extends State<AddEventDialog> {
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final CalendarService _calendarService = CalendarService();
-  CalendarEventType _selectedType = CalendarEventType.custom;
+  late CalendarEventType _selectedType;
   String _recurring = 'none';
   bool _isSaving = false;
   TimeOfDay _selectedTime = const TimeOfDay(hour: 19, minute: 0);
   bool _isAllDay = false;
   final List<String> _attendees = []; // usernames
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedType = widget.initialType;
+  }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
