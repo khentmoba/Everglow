@@ -40,16 +40,11 @@ class _ShowdownFakeSync extends MusicSyncService {
   _ShowdownFakeSync({
     required this.topTracks,
     this.suggestions = const [],
-  }) : exactPlaysByUser = const {};
+  });
 
   /// Last.fm username (lowercased) -> full top tracks.
   final Map<String, List<TopMusicTrack>> topTracks;
   final List<ArtistSuggestion> suggestions;
-
-  /// Last.fm username (lowercased) -> exact all-time artist playcount, as
-  /// `artist.getInfo` would answer it. Missing entries mean "Last.fm could
-  /// not answer", so the provider falls back to summing the visible rows.
-  final Map<String, int> exactPlaysByUser;
 
   @override
   Future<List<TopMusicTrack>> fetchArtistTracks(
@@ -70,10 +65,6 @@ class _ShowdownFakeSync extends MusicSyncService {
     String period = 'overall',
   }) async =>
       page == 1 ? (topTracks[username.toLowerCase()] ?? const []) : const [];
-
-  @override
-  Future<int?> fetchArtistPlayCount(String username, String artist) async =>
-      exactPlaysByUser[username.toLowerCase()];
 
   @override
   Future<List<MusicStatus>> fetchRecentTracks(

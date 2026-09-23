@@ -287,60 +287,6 @@ class MusicSyncService {
     return all;
   }
 
-  /// Exact number of times [username] has played [artist], any track.
-  ///
-  /// `artist.getInfo` with the `username` context reports the user's own
-  /// all-time playcount (`stats.userplaycount`) in one request. Unlike
-  /// summing a top-track chart this can never drift or miss a song, which is
-  /// why the showdown headline numbers use it. Returns null when Last.fm
-  /// cannot answer (no key, unknown artist, error payload, offline) so the
-  /// caller can fall back to summing top-track rows.
-  Future<int?> fetchArtistPlayCount(String username, String artist) async {
-    final trimmedArtist = artist.trim();
-    if (username.isEmpty ||
-        trimmedArtist.isEmpty ||
-        _invalidUsers.contains(username)) {
-      return null;
-    }
-    try {
-      final url = Uri.parse(
-        '$_baseUrl?method=artist.getinfo'
-        '&artist=${Uri.encodeComponent(trimmedArtist)}'
-        '&username=$username&autocorrect=1&format=json',
-      );
-      final response = await _getWithAuth(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final artistNode = data['artist'];
-        final stats = artistNode is Map ? artistNode['stats'] : null;
-        final raw = stats is Map ? stats['userplaycount']?.toString() : null;
-        final parsed = int.tryParse(raw ?? '');
-        if (parsed != null) return parsed;
-        _warnOnLastfmError(data, 'artist playcount', username);
-      } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
-        Logger.w(
-          'Jukebox Service: Last.fm user "$username" not found (artist.getInfo).',
-        );
-      } else {
-        Logger.w(
-          'Jukebox Service: Artist playcount ($username, $trimmedArtist) status ${response.statusCode}',
-        );
-      }
-    } on TimeoutException {
-      Logger.w(
-        'Jukebox Service Timeout: Artist playcount for "$trimmedArtist" ($username) timed out.',
-      );
-    } catch (e) {
-      Logger.w(
-        'Jukebox Service Exception (artist playcount, $trimmedArtist, $username)',
-        error: e,
-      );
-    }
-    return null;
-  }
-
   /// Fetches top tracks of [artist] from Last.fm's artist discography
   /// (`artist.gettoptracks`). Only fetches tracks for [artist], zero tracks
   /// from any other artist.
