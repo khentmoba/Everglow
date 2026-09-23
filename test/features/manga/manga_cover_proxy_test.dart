@@ -27,6 +27,33 @@ void main() {
       expect(proxyMangaCoverUrl(dexProxied), equals(dexProxied));
     });
 
+    test('rewrites already-proxied Katana AVIF cover to webp twin', () {
+      // Dashboard entries stored while the parser picked AVIF heal on
+      // render without needing a Firestore rewrite.
+      const proxied =
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.avif';
+      expect(
+        proxyMangaCoverUrl(proxied),
+        equals(
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.webp',
+        ),
+      );
+    });
+
+    test('routes direct Katana AVIF cover through proxy as webp twin', () {
+      const raw = 'https://mangakatana.com/imgs/cover/09c/22/724fa.avif';
+      final proxied = proxyMangaCoverUrl(raw);
+      expect(proxied, contains('proxyMangaKatana'));
+      expect(
+        proxied,
+        contains(
+          Uri.encodeComponent(
+            'https://mangakatana.com/imgs/cover/09c/22/724fa.webp',
+          ),
+        ),
+      );
+    });
+
     test('leaves Comick covers direct (CORS-enabled CDN)', () {
       const raw = 'https://meo.comick.pictures/d0Xmgj.jpg';
       expect(proxyMangaCoverUrl(raw), equals(raw));

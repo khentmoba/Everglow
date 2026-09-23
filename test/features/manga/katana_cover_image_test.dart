@@ -23,6 +23,36 @@ void main() {
       expect(KatanaService.proxyImageUrl(proxied), equals(proxied));
     });
 
+    test('rewrites direct AVIF cover to proxied webp twin', () {
+      // The site serves covers AVIF-first now; Flutter cannot decode
+      // AVIF, so the `.webp` twin (same path) is proxied instead.
+      const raw = 'https://mangakatana.com/imgs/cover/09c/22/724fa.avif';
+      final proxied = KatanaService.proxyImageUrl(raw);
+      expect(
+        proxied,
+        equals(
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.webp',
+        ),
+      );
+    });
+
+    test('rewrites already-proxied AVIF cover to webp twin', () {
+      // Stored entries saved while the parser picked AVIF heal on read.
+      const proxied =
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.avif';
+      expect(
+        KatanaService.proxyImageUrl(proxied),
+        equals(
+          'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyMangaKatana?url=https%3A%2F%2Fmangakatana.com%2Fimgs%2Fcover%2F09c%2F22%2F724fa.webp',
+        ),
+      );
+    });
+
+    test('leaves non-Katana AVIF untouched (no webp twin guaranteed)', () {
+      const other = 'https://firebasestorage.googleapis.com/v0/b/img.avif';
+      expect(KatanaService.proxyImageUrl(other), equals(other));
+    });
+
     test('handles empty url gracefully', () {
       expect(KatanaService.proxyImageUrl(''), isEmpty);
     });
