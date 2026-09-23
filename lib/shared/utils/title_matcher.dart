@@ -17,6 +17,7 @@ class TitleMatcher {
   /// Television" for TMDB's "Yellowjackets") and must not block a match.
   static const _genericSuffixes = {
     'television',
+    'televison', // Common misspelling (e.g. "Yellow Jacket Televison")
     'tv',
     'movie',
     'movies',
@@ -24,7 +25,83 @@ class TitleMatcher {
     'films',
     'series',
     'show',
+    'shows',
+    'season',
+    'seasons',
+    'episode',
+    'episodes',
+    'anime',
+    'animation',
+    'animated',
+    'ova',
+    'ona',
+    'special',
+    'specials',
   };
+
+  /// Strips generic media suffixes ("television", "televison", "movie", "tv", etc.)
+  /// and leading articles from [title]. Returns the cleaned title.
+  static String stripGenerics(String title) {
+    final norm = normalize(title);
+    final stripped = _stripGenerics(norm);
+    if (stripped.isEmpty) return title.trim();
+    return stripped;
+  }
+
+  /// Generates ranked search queries for TMDB when searching for artwork / healing.
+  ///
+  /// For "Yellow Jacket Televison":
+  /// 1. "Yellow Jacket Televison" (raw)
+  /// 2. "Yellow Jacket" (generic suffixes stripped)
+  /// 3. "yellowjackets" (compound plural)
+  /// 4. "yellowjacket" (compound singular)
+  /// 5. "yellow jackets" (spaced plural)
+  static List<String> searchCandidates(String rawTitle) {
+    final trimmed = rawTitle.trim();
+    if (trimmed.isEmpty) return const [];
+
+    final candidates = <String>[trimmed];
+    final norm = normalize(trimmed);
+    final stripped = _stripGenerics(norm);
+
+    if (stripped.isNotEmpty && stripped != norm) {
+      candidates.add(stripped);
+    }
+
+    final base = stripped.isNotEmpty ? stripped : norm;
+    final words = base.split(' ').where((w) => w.isNotEmpty).toList();
+
+    if (words.length > 1) {
+      final compound = words.join('');
+      candidates.add(compound);
+      if (!compound.endsWith('s')) {
+        candidates.add('${compound}s');
+      } else if (compound.length > 4 && compound.endsWith('s')) {
+        candidates.add(compound.substring(0, compound.length - 1));
+      }
+      final spaced = words.join(' ');
+      if (!spaced.endsWith('s')) {
+        candidates.add('${spaced}s');
+      }
+    } else if (words.length == 1) {
+      final word = words.first;
+      if (!word.endsWith('s')) {
+        candidates.add('${word}s');
+      } else if (word.length > 4 && word.endsWith('s')) {
+        candidates.add(word.substring(0, word.length - 1));
+      }
+    }
+
+    final seen = <String>{};
+    final result = <String>[];
+    for (final c in candidates) {
+      final key = c.toLowerCase().trim();
+      if (key.isNotEmpty && seen.add(key)) {
+        result.add(c);
+      }
+    }
+    return result;
+  }
 
   static String _stripGenerics(String normalized) {
     var words = normalized

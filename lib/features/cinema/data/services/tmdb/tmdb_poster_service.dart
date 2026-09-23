@@ -57,7 +57,13 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
       await Future.wait(chunk.map((item) async {
         final healed = await healPoster(item);
         if (healed == null) return;
-        final idx = updated.indexWhere((u) => u.id == item.id);
+        final idx = updated.indexWhere(
+          (u) =>
+              (item.id.isNotEmpty && u.id == item.id) ||
+              (item.id.isEmpty &&
+                  u.tmdbId == item.tmdbId &&
+                  u.title == item.title),
+        );
         if (idx != -1) updated[idx] = healed;
       }));
     }
@@ -136,11 +142,11 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
       final posterUrl = TmdbImages.posterFor(posterPath);
       if (posterUrl.isEmpty || posterUrl == item.posterPath.trim()) continue;
       // Persist the matched type too: fixes wrong-type docs (movie saved
-      // as tv) and normalizes empty / oddly-cased values. When the match
-      // was loose (stored "Yellow Jacket Television" vs TMDB's
+      // as tv) and normalizes empty / oddly-cased values. When the title
+      // was messy or differed (stored "Yellow Jacket Television" vs TMDB's
       // "Yellowjackets"), also correct the stored title so the shelf
       // shows the canonical name and future heals match strictly.
-      final fixTitle = loose && tmdbTitle.isNotEmpty && tmdbTitle != item.title;
+      final fixTitle = tmdbTitle.isNotEmpty && tmdbTitle != item.title;
       final healed = item.copyWith(
         posterPath: posterUrl,
         mediaType: mediaType,
@@ -151,19 +157,23 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
         final patch = <String, dynamic>{'posterPath': posterUrl};
         if (mediaType != item.mediaType) patch['mediaType'] = mediaType;
         if (fixTitle) patch['title'] = tmdbTitle;
-        unawaited(
-          firestore
-              .collection('watch_list')
-              .doc(item.id)
-              .update(patch)
-              .catchError((Object e, StackTrace st) {
-                Logger.e(
-                  'Poster heal: watch_list patch write failed for ${item.id}',
-                  error: e,
-                  stackTrace: st,
-                );
-              }),
-        );
+        try {
+          unawaited(
+            firestore
+                .collection('watch_list')
+                .doc(item.id)
+                .update(patch)
+                .catchError((Object e, StackTrace st) {
+                  Logger.e(
+                    'Poster heal: watch_list patch write failed for ${item.id}',
+                    error: e,
+                    stackTrace: st,
+                  );
+                }),
+          );
+        } catch (e) {
+          Logger.w('Poster heal: Firestore update skipped: $e');
+        }
       }
       return healed;
         }
@@ -171,55 +181,64 @@ class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
     return null;
   }
 
-  /// Title-search heal for docs without a usable TMDB id. Picks the first
-  /// result whose title matches and actually has artwork. Strict
-  /// [titlesMatch] first; when nothing matches (stored "Yellow Jacket
-  /// Television" vs TMDB's "Yellowjackets"), a loose substring pass
-  /// trusts TMDB's ranking rather than leaving the tile blank.
+  /// Title-search heal for docs without a usable TMDB id or whose details
+  /// lookup had no artwork (e.g. artwork-less title vs the real show).
+  /// Picks the first result whose title matches and actually has artwork.
+  /// Generates ranked candidates via [TitleMatcher.searchCandidates]. Strict
+  /// [titlesMatch] first; when nothing matches across candidate queries,
+  /// a loose substring pass trusts TMDB's ranking rather than leaving the tile blank.
   Future<MediaItem?> _healByTitleSearch(MediaItem item) async {
     final title = item.title.trim();
     if (title.isEmpty) return null;
-    final results = await _searchService.searchMedia(title);
+    final candidates = TitleMatcher.searchCandidates(title);
+
     for (final loose in [false, true]) {
-      for (final r in results) {
-        if (!TmdbImages.isUsablePath(r.posterPath)) continue;
-        final matches = loose
-            ? TitleMatcher.titlesLooselyMatch(title, r.title)
-            : titlesMatch(title, r.title);
-        if (!matches) continue;
-      // Loose match means the stored title was off ("Yellow Jacket
-      // Television" vs "Yellowjackets") — correct it to TMDB's canonical
-      // title alongside the poster so the shelf shows the right name.
-      final fixTitle = loose && r.title.isNotEmpty && r.title != title;
-      final healed = item.copyWith(
-        posterPath: r.posterPath,
-        tmdbId: r.tmdbId,
-        mediaType: r.mediaType,
-        title: fixTitle ? r.title : null,
-      );
+      for (final query in candidates) {
+        final results = await _searchService.searchMedia(query);
+        for (final r in results) {
+          if (!TmdbImages.isUsablePath(r.posterPath)) continue;
+          final matches = loose
+              ? TitleMatcher.titlesLooselyMatch(title, r.title)
+              : titlesMatch(title, r.title);
+          if (!matches) continue;
+          // When the stored title was off ("Yellow Jacket Televison" vs
+          // "Yellowjackets"), correct it to TMDB's canonical title alongside
+          // the poster so the shelf shows the right name.
+          final fixTitle = r.title.isNotEmpty && r.title != title;
+          final healed = item.copyWith(
+            posterPath: r.posterPath,
+            tmdbId: r.tmdbId,
+            mediaType: r.mediaType,
+            title: fixTitle ? r.title : null,
+          );
       if (item.id.isNotEmpty) {
-        unawaited(
-          firestore
-              .collection('watch_list')
-              .doc(item.id)
-              .update({
-                'posterPath': r.posterPath,
-                'tmdbId': r.tmdbId,
-                'mediaType': r.mediaType,
-                if (fixTitle) 'title': r.title,
-              })
-              .catchError((Object e, StackTrace st) {
-                Logger.e(
-                  'Poster resolve: watch_list write failed for ${item.id}',
-                  error: e,
-                  stackTrace: st,
-                );
-              }),
-        );
+        try {
+          unawaited(
+            firestore
+                .collection('watch_list')
+                .doc(item.id)
+                .update({
+                  'posterPath': r.posterPath,
+                  'tmdbId': r.tmdbId,
+                  'mediaType': r.mediaType,
+                  if (fixTitle) 'title': r.title,
+                })
+                .catchError((Object e, StackTrace st) {
+                  Logger.e(
+                    'Poster resolve: watch_list write failed for ${item.id}',
+                    error: e,
+                    stackTrace: st,
+                  );
+                }),
+          );
+        } catch (e) {
+          Logger.w('Poster resolve: Firestore update skipped: $e');
+        }
       }
       return healed;
         }
       }
+    }
     return null;
   }
 
