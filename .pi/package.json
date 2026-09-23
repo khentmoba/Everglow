@@ -1,0 +1,15 @@
+{
+  "name": "everglow-pi-extensions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Type dependencies so editors and tsc resolve Pi APIs for .pi/extensions/*.ts. Runtime needs no install (Pi provides virtual modules). Keep pi-coding-agent/pi-tui in sync with `pi --version`.",
+  "scripts": {
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.87.1",
+    "@earendil-works/pi-tui": "0.87.1",
+    "@types/node": "22.19.19",
+    "typescript": "5.9.3"
+  }
+}
