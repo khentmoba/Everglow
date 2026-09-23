@@ -136,6 +136,13 @@ test('motchi_games is couple-only', () => {
   );
 });
 
+test('motchi_sessions is couple read-only, client write denied', () => {
+  assert.match(
+    rules,
+    /match \/motchi_sessions\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow write: if false;/,
+  );
+});
+
 test('book library collections are couple-only', () => {
   for (const name of ['book_favorites', 'book_download_history']) {
     assert.match(

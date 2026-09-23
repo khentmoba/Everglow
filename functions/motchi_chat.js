@@ -30,6 +30,7 @@ const { buildContextForFeature, invalidateContextBlock } = require('./motchi_con
 const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath } = require('./motchi_tools.js');
 const { selectToolsForRequest } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
+const { recordMotchiTurn } = require('./motchi_sessions.js');
 
 const TOOL_INVALIDATIONS = {
   add_to_watchlist: 'watchlist',
@@ -138,8 +139,10 @@ async function handleProxyAI(req, res) {
 
   const {
     messages, context, systemPrompt: customSystemPrompt, memories, feature,
-    caller: clientCaller, enableThinking, canvas,
+    caller: clientCaller, enableThinking, canvas, sessionId,
   } = req.body;
+  const requestStartedAt = Date.now();
+  const turnTools = [];
   // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
   // never makes artifacts proactively — but an explicit ask ("make chess",
   // "quiz us") always wins and still builds the artifact. Defaults ON so
@@ -179,9 +182,7 @@ async function handleProxyAI(req, res) {
   // ── Early streaming initialization: flush headers immediately so client connects in ~50ms ──
   const isStreaming = req.body.stream === true;
   let sendEvent = () => {};
-  let startKeepalive = () => {};
   let stopKeepalive = () => {};
-  let startHeartbeat = () => {};
   let stopHeartbeat = () => {};
 
   if (isStreaming) {
@@ -198,32 +199,22 @@ async function handleProxyAI(req, res) {
       try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
     };
 
-    let keepaliveInterval = null;
-    startKeepalive = () => {
-      if (keepaliveInterval) return;
-      keepaliveInterval = setInterval(() => {
-        try { res.write(': keepalive\n\n'); } catch (_) {}
-      }, 15000);
-    };
+    let keepaliveInterval = setInterval(() => {
+      try { res.write(': keepalive\n\n'); } catch (_) {}
+    }, 15000);
     stopKeepalive = () => {
       if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
     };
 
-    let heartbeatInterval = null;
-    startHeartbeat = () => {
-      if (heartbeatInterval) return;
-      heartbeatInterval = setInterval(() => {
-        try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
-      }, 3000);
-    };
+    let heartbeatInterval = setInterval(() => {
+      try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
+    }, 3000);
     stopHeartbeat = () => {
       if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
     };
 
     // Immediately inform client that streaming is live
     sendEvent({ tool_status: 'generating' });
-    startKeepalive();
-    startHeartbeat();
   }
 
   // Build context server-side if feature is provided (avoids browser->Firestore latency)
@@ -650,6 +641,12 @@ ${HTML_GAME_GUIDE}
         logToolCall(fastPath.tool, caller, fpResult, Date.now() - fpStarted).catch(() => {});
       }
     } catch (_) {}
+    turnTools.push({
+      name: fastPath.tool,
+      args: fastPath.args,
+      resultSummary: typeof fpResult === 'string' ? fpResult.slice(0, 500) : JSON.stringify(fpResult).slice(0, 500),
+      elapsedMs: Date.now() - fpStarted,
+    });
     nimMessages.push(
       {
         role: 'assistant',
@@ -757,6 +754,8 @@ ${HTML_GAME_GUIDE}
 
   // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
   if (isStreaming) {
+    let _streamedFinalReply = '';
+    let _streamedReasoning = '';
     try {
       let currentMessages = [...nimMessages];
       let toolRound = 0;
@@ -764,8 +763,7 @@ ${HTML_GAME_GUIDE}
       // Caps the worst case at 8 successes + 4 retries per message
       // (was: 8 rounds x 3 attempts = 24 paid calls).
       let agnesCalls = 0;
-      const MAX_AGNES_CALLS_PER_MESSAGE = 12;
-      let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
+      const MAX_AGNES_CALLS_PER_MESSAGE = 12; // W1-C10: accumulate for server-side memory extract
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
@@ -873,8 +871,14 @@ ${HTML_GAME_GUIDE}
               const finishReason = parsed.choices?.[0]?.finish_reason;
 
               // Stream content tokens to client immediately
-              if (delta.reasoning) sendEvent({ reasoning: delta.reasoning });
-              if (delta.reasoning_content) sendEvent({ reasoning: delta.reasoning_content });
+          if (delta.reasoning) {
+            _streamedReasoning += delta.reasoning;
+            sendEvent({ reasoning: delta.reasoning });
+          }
+          if (delta.reasoning_content) {
+            _streamedReasoning += delta.reasoning_content;
+            sendEvent({ reasoning: delta.reasoning_content });
+          }
               if (delta.content) {
                 fullContent += delta.content;
                 _streamedFinalReply += delta.content;
@@ -993,6 +997,12 @@ ${HTML_GAME_GUIDE}
               logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
             }
           } catch (_) {}
+          turnTools.push({
+            name: fnName,
+            args: fnArgs,
+            resultSummary: typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500),
+            elapsedMs: Date.now() - toolStartedAt,
+          });
 
           // A successful explicit save makes auto-extraction redundant.
           if (fnName === 'remember_fact') {
@@ -1109,12 +1119,40 @@ ${HTML_GAME_GUIDE}
       } catch (postErr) {
         console.warn('proxyAI post-reply tasks error:', postErr.message);
       }
+
+      // Fire-and-forget session recording
+      recordMotchiTurn({
+        sessionId,
+        caller,
+        feature: feature || 'assistant',
+        userMessage: lastUserMessage,
+        assistantReply: _streamedFinalReply,
+        tools: turnTools,
+        reasoning: _streamedReasoning,
+        model,
+        durationMs: Date.now() - requestStartedAt,
+        error: null,
+        imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
+      }).catch(() => {});
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
       if (!_streamedFinalReply.trim()) {
         sendEvent({ error: 'Motchi got distracted and lost her train of thought. Try asking again?' });
       }
       sendEvent('[DONE]');
+      recordMotchiTurn({
+        sessionId,
+        caller,
+        feature: feature || 'assistant',
+        userMessage: lastUserMessage,
+        assistantReply: _streamedFinalReply,
+        tools: turnTools,
+        reasoning: _streamedReasoning,
+        model,
+        durationMs: Date.now() - requestStartedAt,
+        error: e.message,
+        imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
+      }).catch(() => {});
     } finally {
       stopKeepalive();
       stopHeartbeat();
@@ -1227,6 +1265,12 @@ ${HTML_GAME_GUIDE}
           logToolCall(fnName, caller, result, Date.now() - toolStartedAt).catch(() => {});
         }
       } catch (_) {}
+      turnTools.push({
+        name: fnName,
+        args: fnArgs,
+        resultSummary: typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500),
+        elapsedMs: Date.now() - toolStartedAt,
+      });
       // A successful explicit save makes auto-extraction redundant.
       if (fnName === 'remember_fact') {
         try { if (JSON.parse(result).success) _nsRememberSaved = true; } catch (_) {}
@@ -1277,6 +1321,20 @@ ${HTML_GAME_GUIDE}
 
   const reply = nsReply.trim();
   res.json({ reply, reasoning: nsReasoning, model: nsModel });
+  // Fire-and-forget session recording
+  recordMotchiTurn({
+    sessionId,
+    caller,
+    feature: feature || 'assistant',
+    userMessage: lastUserMessage,
+    assistantReply: reply,
+    tools: turnTools,
+    reasoning: nsReasoning,
+    model: nsModel || model,
+    durationMs: Date.now() - requestStartedAt,
+    error: null,
+    imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
+  }).catch(() => {});
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
     const checkText = stripArtifactsForChecks(reply);
