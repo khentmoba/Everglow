@@ -82,11 +82,35 @@ test('endsWithDanglingColon spots a promised list that never arrived', () => {
 
 test('dangling-list repair is wired on both answer paths', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Nudge const + streaming use + non-streaming use.
+  // Nudge const + streaming in-loop + streaming post-loop + non-streaming.
   const uses = src.split('DANGLING_REPLY_NUDGE').length - 1;
-  assert.ok(uses >= 3, `expected nudge const + 2 uses, saw ${uses}`);
+  assert.ok(uses >= 4, `expected nudge const + 3 uses, saw ${uses}`);
   assert.match(src, /didDanglingRepair/);
   assert.match(src, /endsWithDanglingColon/);
+});
+
+test('streaming dangling repair covers loop exits (repeat guard + round cap)', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // The in-loop nudge only runs when a round ends with no tool calls —
+  // the repeat-guard break and the 8-round cap used to skip it and ship
+  // "Let me save the standouts:" with no list after it.
+  assert.match(src, /Post-loop repair/);
+  assert.match(src, /needsPostLoopRepair/);
+  // The post-loop call streams its text after the preamble as one reply.
+  assert.ok(src.includes('sendEvent({ content: repairText })'));
+  // Bounded by the same per-message spend brake as the loop.
+  assert.ok(src.includes('agnesCalls < MAX_AGNES_CALLS_PER_MESSAGE'));
+});
+
+test('repair rounds detach tools so the model must answer in text', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // A repair nudge that still carries tools can be disobeyed with another
+  // tool call — both paths must send the nudge with no tools attached.
+  assert.match(src, /forceTextNextRound/);
+  assert.ok(src.includes('!noToolsThisRound ? { tools, tool_choice: \'auto\' } : {}'));
+  assert.match(src, /callAgnesOnce\(msgs, withoutTools = false\)/);
+  const textOnlyRepairs = src.split('callAgnesOnce(nsMessages, true)').length - 1;
+  assert.equal(textOnlyRepairs, 2);
 });
 
 test('missing-block repair is wired on both answer paths', () => {
