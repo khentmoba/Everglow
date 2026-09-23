@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:everglow/features/jukebox/data/models/top_music_track.dart';
 import 'package:everglow/features/jukebox/data/services/music_sync_service.dart';
 import 'package:everglow/shared/utils/catalog_proxy_client.dart';
 
@@ -306,45 +307,48 @@ void main() {
       expect(artwork, isNull);
     });
 
-    test('retries track-only for ASCII artists and still checks both', () async {
-      final requestedTerms = <String>[];
-      final client = MockClient((request) async {
-        if (request.url.queryParameters['method'] == 'track.getinfo') {
-          return _lastfmEmptyArtwork();
-        }
-        final term = request.url.queryParameters['term'] ?? '';
-        requestedTerms.add(term);
-        // Combined query comes up empty (iTunes quirk); the track-only
-        // retry finds the exact song by the exact artist.
-        if (term.contains('Ethel Cain')) {
-          return _jsonResponse({'resultCount': 0, 'results': []});
-        }
-        return _jsonResponse({
-          'resultCount': 1,
-          'results': [
-            _itunesResult(
-              trackName: 'Strangers',
-              artistName: 'Ethel Cain',
-              artwork: 'https://f.example/strangers/100x100bb.jpg',
-            ),
-          ],
+    test(
+      'retries track-only for ASCII artists and still checks both',
+      () async {
+        final requestedTerms = <String>[];
+        final client = MockClient((request) async {
+          if (request.url.queryParameters['method'] == 'track.getinfo') {
+            return _lastfmEmptyArtwork();
+          }
+          final term = request.url.queryParameters['term'] ?? '';
+          requestedTerms.add(term);
+          // Combined query comes up empty (iTunes quirk); the track-only
+          // retry finds the exact song by the exact artist.
+          if (term.contains('Ethel Cain')) {
+            return _jsonResponse({'resultCount': 0, 'results': []});
+          }
+          return _jsonResponse({
+            'resultCount': 1,
+            'results': [
+              _itunesResult(
+                trackName: 'Strangers',
+                artistName: 'Ethel Cain',
+                artwork: 'https://f.example/strangers/100x100bb.jpg',
+              ),
+            ],
+          });
         });
-      });
 
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url.replace(
-          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
-        ),
-      );
-      final artwork = await service.fetchTrackArtwork(
-        artist: 'Ethel Cain',
-        track: 'Strangers',
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url.replace(
+            queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+          ),
+        );
+        final artwork = await service.fetchTrackArtwork(
+          artist: 'Ethel Cain',
+          track: 'Strangers',
+        );
 
-      expect(artwork, 'https://f.example/strangers/600x600bb.jpg');
-      expect(requestedTerms, ['Ethel Cain Strangers', 'Strangers']);
-    });
+        expect(artwork, 'https://f.example/strangers/600x600bb.jpg');
+        expect(requestedTerms, ['Ethel Cain Strangers', 'Strangers']);
+      },
+    );
 
     test('rejects a track-only retry hit by the wrong artist', () async {
       final client = MockClient((request) async {
@@ -454,48 +458,51 @@ void main() {
       expect(artwork, isNull);
     });
 
-    test('falls through to iTunes when the verified track has no art', () async {
-      final client = MockClient((request) async {
-        if (request.url.queryParameters['method'] == 'track.getinfo') {
-          // Last.fm knows the exact song but carries no cover.
-          return _jsonResponse({
-            'track': {
-              'name': 'Strangers',
-              'artist': {'name': 'Ethel Cain'},
-              'album': {
-                'image': [
-                  {'#text': '', 'size': 'small'},
-                  {'#text': '', 'size': 'extralarge'},
-                ],
+    test(
+      'falls through to iTunes when the verified track has no art',
+      () async {
+        final client = MockClient((request) async {
+          if (request.url.queryParameters['method'] == 'track.getinfo') {
+            // Last.fm knows the exact song but carries no cover.
+            return _jsonResponse({
+              'track': {
+                'name': 'Strangers',
+                'artist': {'name': 'Ethel Cain'},
+                'album': {
+                  'image': [
+                    {'#text': '', 'size': 'small'},
+                    {'#text': '', 'size': 'extralarge'},
+                  ],
+                },
               },
-            },
+            });
+          }
+          return _jsonResponse({
+            'resultCount': 1,
+            'results': [
+              _itunesResult(
+                trackName: 'Strangers',
+                artistName: 'Ethel Cain',
+                artwork: 'https://h.example/strangers/100x100bb.jpg',
+              ),
+            ],
           });
-        }
-        return _jsonResponse({
-          'resultCount': 1,
-          'results': [
-            _itunesResult(
-              trackName: 'Strangers',
-              artistName: 'Ethel Cain',
-              artwork: 'https://h.example/strangers/100x100bb.jpg',
-            ),
-          ],
         });
-      });
 
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url.replace(
-          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
-        ),
-      );
-      final artwork = await service.fetchTrackArtwork(
-        artist: 'Ethel Cain',
-        track: 'Strangers',
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url.replace(
+            queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+          ),
+        );
+        final artwork = await service.fetchTrackArtwork(
+          artist: 'Ethel Cain',
+          track: 'Strangers',
+        );
 
-      expect(artwork, 'https://h.example/strangers/600x600bb.jpg');
-    });
+        expect(artwork, 'https://h.example/strangers/600x600bb.jpg');
+      },
+    );
 
     test('returns null when iTunes also comes up empty', () async {
       final client = MockClient((request) async {
@@ -620,37 +627,40 @@ void main() {
       expect(artwork, isNull);
     });
 
-    test('accepts a collab artist when the stored name is one member', () async {
-      // Live regression: Clair's "Be Kind" (stored artist "Marshmello")
-      // stayed on the fallback tile because iTunes lists the artist as
-      // "Marshmello & Halsey" — same song, same cover, must match.
-      final client = MockClient((request) async {
-        if (request.url.queryParameters['method'] == 'track.getinfo') {
-          return _lastfmEmptyArtwork();
-        }
-        return _jsonResponse({
-          'resultCount': 1,
-          'results': [
-            _itunesResult(
-              trackName: 'Be Kind',
-              artistName: 'Marshmello & Halsey',
-              artwork: 'https://i.example/bekind/100x100bb.jpg',
-            ),
-          ],
+    test(
+      'accepts a collab artist when the stored name is one member',
+      () async {
+        // Live regression: Clair's "Be Kind" (stored artist "Marshmello")
+        // stayed on the fallback tile because iTunes lists the artist as
+        // "Marshmello & Halsey" — same song, same cover, must match.
+        final client = MockClient((request) async {
+          if (request.url.queryParameters['method'] == 'track.getinfo') {
+            return _lastfmEmptyArtwork();
+          }
+          return _jsonResponse({
+            'resultCount': 1,
+            'results': [
+              _itunesResult(
+                trackName: 'Be Kind',
+                artistName: 'Marshmello & Halsey',
+                artwork: 'https://i.example/bekind/100x100bb.jpg',
+              ),
+            ],
+          });
         });
-      });
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url.replace(
-          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
-        ),
-      );
-      final artwork = await service.fetchTrackArtwork(
-        artist: 'Marshmello',
-        track: 'Be Kind',
-      );
-      expect(artwork, 'https://i.example/bekind/600x600bb.jpg');
-    });
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url.replace(
+            queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+          ),
+        );
+        final artwork = await service.fetchTrackArtwork(
+          artist: 'Marshmello',
+          track: 'Be Kind',
+        );
+        expect(artwork, 'https://i.example/bekind/600x600bb.jpg');
+      },
+    );
 
     test('accepts featured-artist tags in the track title', () async {
       // "Be Kind (with Halsey)" is the same recording as "Be Kind" —
@@ -963,7 +973,11 @@ void main() {
               'title': 'Preacher\'s Daughter',
               'image': [
                 {'#text': '', 'size': 'small'},
-                {'#text': 'https://lastfm-img.freetls.fastly.net/i/u/300x300/real.png', 'size': 'extralarge'},
+                {
+                  '#text':
+                      'https://lastfm-img.freetls.fastly.net/i/u/300x300/real.png',
+                  'size': 'extralarge',
+                },
               ],
             },
           },
@@ -983,7 +997,10 @@ void main() {
       );
       expect(meta, isNotNull);
       expect(meta?.albumName, 'Preacher\'s Daughter');
-      expect(meta?.artworkUrl, 'https://lastfm-img.freetls.fastly.net/i/u/300x300/real.png');
+      expect(
+        meta?.artworkUrl,
+        'https://lastfm-img.freetls.fastly.net/i/u/300x300/real.png',
+      );
 
       final album = await service.fetchTrackAlbum(
         artist: 'Ethel Cain',
@@ -992,117 +1009,150 @@ void main() {
       expect(album, 'Preacher\'s Daughter');
     });
 
-    test('extracts collectionName from iTunes when Last.fm has no album', () async {
-      final client = MockClient((request) async {
-        if (request.url.queryParameters['method'] == 'track.getinfo') {
+    test(
+      'extracts collectionName from iTunes when Last.fm has no album',
+      () async {
+        final client = MockClient((request) async {
+          if (request.url.queryParameters['method'] == 'track.getinfo') {
+            return _jsonResponse({
+              'track': {
+                'name': 'Cruel Summer',
+                'artist': {'name': 'Taylor Swift'},
+              },
+            });
+          }
           return _jsonResponse({
-            'track': {
-              'name': 'Cruel Summer',
-              'artist': {'name': 'Taylor Swift'},
-            },
+            'resultCount': 1,
+            'results': [
+              {
+                'trackName': 'Cruel Summer',
+                'artistName': 'Taylor Swift',
+                'collectionName': 'Lover',
+                'artworkUrl100':
+                    'https://is1-ssl.mzstatic.com/image/thumb/cover.jpg/100x100bb.jpg',
+              },
+            ],
           });
-        }
-        return _jsonResponse({
-          'resultCount': 1,
-          'results': [
-            {
-              'trackName': 'Cruel Summer',
-              'artistName': 'Taylor Swift',
-              'collectionName': 'Lover',
-              'artworkUrl100': 'https://is1-ssl.mzstatic.com/image/thumb/cover.jpg/100x100bb.jpg',
-            },
-          ],
         });
-      });
 
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url.replace(
-          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
-        ),
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url.replace(
+            queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+          ),
+        );
 
-      final meta = await service.fetchTrackMetadata(
-        artist: 'Taylor Swift',
-        track: 'Cruel Summer',
-      );
-      expect(meta, isNotNull);
-      expect(meta?.albumName, 'Lover');
-      expect(meta?.artworkUrl, 'https://is1-ssl.mzstatic.com/image/thumb/cover.jpg/600x600bb.jpg');
+        final meta = await service.fetchTrackMetadata(
+          artist: 'Taylor Swift',
+          track: 'Cruel Summer',
+        );
+        expect(meta, isNotNull);
+        expect(meta?.albumName, 'Lover');
+        expect(
+          meta?.artworkUrl,
+          'https://is1-ssl.mzstatic.com/image/thumb/cover.jpg/600x600bb.jpg',
+        );
 
-      final album = await service.fetchTrackAlbum(
-        artist: 'Taylor Swift',
-        track: 'Cruel Summer',
-      );
-      expect(album, 'Lover');
-    });
+        final album = await service.fetchTrackAlbum(
+          artist: 'Taylor Swift',
+          track: 'Cruel Summer',
+        );
+        expect(album, 'Lover');
+      },
+    );
   });
 
   group('MusicSyncService.fetchTrackScrobbles and fetchArtistHistory', () {
-    test('fetchTrackScrobbles parses track scrobbles with timestamps and album', () async {
-      final client = MockClient((request) async {
-        expect(request.url.queryParameters['method'], 'user.gettrackscrobbles');
-        expect(request.url.queryParameters['artist'], 'Ethel Cain');
-        expect(request.url.queryParameters['track'], 'American Teenager');
-        return _jsonResponse({
-          'trackscrobbles': {
-            'track': [
-              {
-                'name': 'American Teenager',
-                'artist': {'#text': 'Ethel Cain'},
-                'album': {'#text': 'Preacher\'s Daughter'},
-                'image': [
-                  {'#text': 'https://lastfm.example/art.jpg', 'size': 'large'},
-                ],
-                'date': {'uts': '1689000000', '#text': '10 Jul 2023, 14:40'},
-              },
-              {
-                'name': 'American Teenager',
-                'artist': {'#text': 'Ethel Cain'},
-                'album': {'#text': 'Preacher\'s Daughter'},
-                'date': {'uts': '1688000000', '#text': '29 Jun 2023, 14:40'},
-              },
-            ],
-          },
+    test(
+      'fetchTrackScrobbles parses track scrobbles with timestamps and album',
+      () async {
+        final client = MockClient((request) async {
+          expect(
+            request.url.queryParameters['method'],
+            'user.gettrackscrobbles',
+          );
+          expect(request.url.queryParameters['artist'], 'Ethel Cain');
+          expect(request.url.queryParameters['track'], 'American Teenager');
+          return _jsonResponse({
+            'trackscrobbles': {
+              'track': [
+                {
+                  'name': 'American Teenager',
+                  'artist': {'#text': 'Ethel Cain'},
+                  'album': {'#text': 'Preacher\'s Daughter'},
+                  'image': [
+                    {
+                      '#text': 'https://lastfm.example/art.jpg',
+                      'size': 'large',
+                    },
+                  ],
+                  'date': {'uts': '1689000000', '#text': '10 Jul 2023, 14:40'},
+                },
+                {
+                  'name': 'American Teenager',
+                  'artist': {'#text': 'Ethel Cain'},
+                  'album': {'#text': 'Preacher\'s Daughter'},
+                  'date': {'uts': '1688000000', '#text': '29 Jun 2023, 14:40'},
+                },
+              ],
+            },
+          });
         });
-      });
 
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url.replace(
-          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
-        ),
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url.replace(
+            queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+          ),
+        );
 
-      final scrobbles = await service.fetchTrackScrobbles(
-        'khentsgdz',
-        artist: 'Ethel Cain',
-        track: 'American Teenager',
-      );
+        final scrobbles = await service.fetchTrackScrobbles(
+          'khentsgdz',
+          artist: 'Ethel Cain',
+          track: 'American Teenager',
+        );
 
-      expect(scrobbles.length, 2);
-      expect(scrobbles.first.trackName, 'American Teenager');
-      expect(scrobbles.first.artistName, 'Ethel Cain');
-      expect(scrobbles.first.albumName, 'Preacher\'s Daughter');
-      expect(scrobbles.first.imageUrl, 'https://lastfm.example/art.jpg');
-      expect(
-        scrobbles.first.timestamp,
-        DateTime.fromMillisecondsSinceEpoch(1689000000 * 1000),
-      );
-    });
+        expect(scrobbles.length, 2);
+        expect(scrobbles.first.trackName, 'American Teenager');
+        expect(scrobbles.first.artistName, 'Ethel Cain');
+        expect(scrobbles.first.albumName, 'Preacher\'s Daughter');
+        expect(scrobbles.first.imageUrl, 'https://lastfm.example/art.jpg');
+        expect(
+          scrobbles.first.timestamp,
+          DateTime.fromMillisecondsSinceEpoch(1689000000 * 1000),
+        );
+      },
+    );
 
-    test('fetchTrackScrobbles returns empty on invalid inputs or 404', () async {
-      final client = MockClient((request) async => _jsonResponse({}, status: 404));
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url,
-      );
+    test(
+      'fetchTrackScrobbles returns empty on invalid inputs or 404',
+      () async {
+        final client = MockClient(
+          (request) async => _jsonResponse({}, status: 404),
+        );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url,
+        );
 
-      expect(await service.fetchTrackScrobbles('', artist: 'A', track: 'T'), isEmpty);
-      expect(await service.fetchTrackScrobbles('u', artist: '', track: 'T'), isEmpty);
-      expect(await service.fetchTrackScrobbles('u', artist: 'A', track: ''), isEmpty);
-      expect(await service.fetchTrackScrobbles('u', artist: 'A', track: 'T'), isEmpty);
-    });
+        expect(
+          await service.fetchTrackScrobbles('', artist: 'A', track: 'T'),
+          isEmpty,
+        );
+        expect(
+          await service.fetchTrackScrobbles('u', artist: '', track: 'T'),
+          isEmpty,
+        );
+        expect(
+          await service.fetchTrackScrobbles('u', artist: 'A', track: ''),
+          isEmpty,
+        );
+        expect(
+          await service.fetchTrackScrobbles('u', artist: 'A', track: 'T'),
+          isEmpty,
+        );
+      },
+    );
 
     test('fetchArtistPlayCount reads stats.userplaycount exactly', () async {
       final client = MockClient((request) async {
@@ -1114,7 +1164,11 @@ void main() {
         return _jsonResponse({
           'artist': {
             'name': 'Ethel Cain',
-            'stats': {'listeners': '900000', 'playcount': '40000000', 'userplaycount': '118'},
+            'stats': {
+              'listeners': '900000',
+              'playcount': '40000000',
+              'userplaycount': '118',
+            },
           },
         });
       });
@@ -1123,99 +1177,124 @@ void main() {
         signUrl: (url) async => url,
       );
 
-      expect(await service.fetchArtistPlayCount('clairjassen', 'Ethel Cain'), 118);
+      expect(
+        await service.fetchArtistPlayCount('clairjassen', 'Ethel Cain'),
+        118,
+      );
     });
 
-    test('fetchArtistPlayCount returns null when Last.fm cannot answer', () async {
-      // An HTTP-200 error payload (rate limit / backend failure) must be null
-      // so the caller falls back rather than showing a hard zero.
-      final erroring = MusicSyncService(
-        client: MockClient(
-          (_) async => _jsonResponse({'error': 29, 'message': 'slow down'}),
-        ),
-        signUrl: (url) async => url,
-      );
-      expect(await erroring.fetchArtistPlayCount('clairjassen', 'Ethel Cain'), isNull);
+    test(
+      'fetchArtistPlayCount returns null when Last.fm cannot answer',
+      () async {
+        // An HTTP-200 error payload (rate limit / backend failure) must be null
+        // so the caller falls back rather than showing a hard zero.
+        final erroring = MusicSyncService(
+          client: MockClient(
+            (_) async => _jsonResponse({'error': 29, 'message': 'slow down'}),
+          ),
+          signUrl: (url) async => url,
+        );
+        expect(
+          await erroring.fetchArtistPlayCount('clairjassen', 'Ethel Cain'),
+          isNull,
+        );
 
-      final missingStats = MusicSyncService(
-        client: MockClient((_) async => _jsonResponse({'artist': {'name': 'X'}})),
-        signUrl: (url) async => url,
-      );
-      expect(await missingStats.fetchArtistPlayCount('clairjassen', 'X'), isNull);
+        final missingStats = MusicSyncService(
+          client: MockClient(
+            (_) async => _jsonResponse({
+              'artist': {'name': 'X'},
+            }),
+          ),
+          signUrl: (url) async => url,
+        );
+        expect(
+          await missingStats.fetchArtistPlayCount('clairjassen', 'X'),
+          isNull,
+        );
 
-      final offline = MusicSyncService(
-        client: MockClient((_) async => _jsonResponse({}, status: 502)),
-        signUrl: (url) async => url,
-      );
-      expect(await offline.fetchArtistPlayCount('clairjassen', 'X'), isNull);
+        final offline = MusicSyncService(
+          client: MockClient((_) async => _jsonResponse({}, status: 502)),
+          signUrl: (url) async => url,
+        );
+        expect(await offline.fetchArtistPlayCount('clairjassen', 'X'), isNull);
 
-      final blank = MusicSyncService(client: MockClient((_) async => _jsonResponse({})), signUrl: (url) async => url);
-      expect(await blank.fetchArtistPlayCount('', 'X'), isNull);
-      expect(await blank.fetchArtistPlayCount('u', '  '), isNull);
-    });
+        final blank = MusicSyncService(
+          client: MockClient((_) async => _jsonResponse({})),
+          signUrl: (url) async => url,
+        );
+        expect(await blank.fetchArtistPlayCount('', 'X'), isNull);
+        expect(await blank.fetchArtistPlayCount('u', '  '), isNull);
+      },
+    );
 
-    test('fetchTopTracksPaged walks full pages and stops on a short one', () async {
-      final requestedPages = <String>[];
-      final client = MockClient((request) async {
-        final page = request.url.queryParameters['page'] ?? '1';
-        requestedPages.add(page);
-        // Page 1 is full (200 rows), page 2 is the tail (3 rows).
-        final count = page == '1' ? 200 : 3;
-        return _jsonResponse({
-          'toptracks': {
-            'track': List.generate(
-              count,
-              (i) => {
-                'name': 'Song $page-$i',
-                'playcount': '5',
-                'artist': {'name': 'Ethel Cain'},
-                'mbid': '',
-              },
-            ),
-          },
+    test(
+      'fetchTopTracksPaged walks full pages and stops on a short one',
+      () async {
+        final requestedPages = <String>[];
+        final client = MockClient((request) async {
+          final page = request.url.queryParameters['page'] ?? '1';
+          requestedPages.add(page);
+          // Page 1 is full (200 rows), page 2 is the tail (3 rows).
+          final count = page == '1' ? 200 : 3;
+          return _jsonResponse({
+            'toptracks': {
+              'track': List.generate(
+                count,
+                (i) => {
+                  'name': 'Song $page-$i',
+                  'playcount': '5',
+                  'artist': {'name': 'Ethel Cain'},
+                  'mbid': '',
+                },
+              ),
+            },
+          });
         });
-      });
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url,
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url,
+        );
 
-      final tracks = await service.fetchTopTracksPaged('clairjassen');
-      expect(tracks, hasLength(203));
-      expect(requestedPages, ['1', '2']);
-    });
+        final tracks = await service.fetchTopTracksPaged('clairjassen');
+        expect(tracks, hasLength(203));
+        expect(requestedPages, ['1', '2']);
+      },
+    );
 
-    test('fetchTopTracksPaged stops at the page cap when pages stay full', () async {
-      final requestedPages = <String>[];
-      final client = MockClient((request) async {
-        requestedPages.add(request.url.queryParameters['page'] ?? '1');
-        return _jsonResponse({
-          'toptracks': {
-            'track': List.generate(
-              200,
-              (i) => {
-                'name': 'Song $i',
-                'playcount': '5',
-                'artist': {'name': 'Some Artist'},
-                'mbid': '',
-              },
-            ),
-          },
+    test(
+      'fetchTopTracksPaged stops at the page cap when pages stay full',
+      () async {
+        final requestedPages = <String>[];
+        final client = MockClient((request) async {
+          requestedPages.add(request.url.queryParameters['page'] ?? '1');
+          return _jsonResponse({
+            'toptracks': {
+              'track': List.generate(
+                200,
+                (i) => {
+                  'name': 'Song $i',
+                  'playcount': '5',
+                  'artist': {'name': 'Some Artist'},
+                  'mbid': '',
+                },
+              ),
+            },
+          });
         });
-      });
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url,
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url,
+        );
 
-      final tracks = await service.fetchTopTracksPaged(
-        'clairjassen',
-        pageSize: 200,
-        maxPages: 3,
-      );
-      expect(tracks, hasLength(600));
-      expect(requestedPages, ['1', '2', '3']);
-    });
+        final tracks = await service.fetchTopTracksPaged(
+          'clairjassen',
+          pageSize: 200,
+          maxPages: 3,
+        );
+        expect(tracks, hasLength(600));
+        expect(requestedPages, ['1', '2', '3']);
+      },
+    );
 
     test('fetchTrackScrobblesAll walks every page up to totalPages', () async {
       final requestedPages = <String>[];
@@ -1225,7 +1304,12 @@ void main() {
         // Three pages of 2 rows each, as Last.fm reports via @attr.
         return _jsonResponse({
           'trackscrobbles': {
-            '@attr': {'page': '$page', 'perPage': '2', 'totalPages': '3', 'total': '6'},
+            '@attr': {
+              'page': '$page',
+              'perPage': '2',
+              'totalPages': '3',
+              'total': '6',
+            },
             'track': List.generate(
               2,
               (i) => {
@@ -1252,126 +1336,318 @@ void main() {
       expect(requestedPages, ['1', '2', '3']);
     });
 
-    test('fetchTrackScrobblesAll keeps paging when rows drop but pages remain', () async {
-      // A page can parse to fewer rows than it holds (undated entries are
-      // dropped). That must not be mistaken for the end of the list, or long
-      // histories get truncated — the original bug.
-      final requestedPages = <String>[];
-      final client = MockClient((request) async {
-        final page = int.parse(request.url.queryParameters['page'] ?? '1');
-        requestedPages.add('$page');
-        return _jsonResponse({
-          'trackscrobbles': {
-            '@attr': {'page': '$page', 'perPage': '3', 'totalPages': '2', 'total': '6'},
-            'track': [
-              // Two undated rows (dropped) and one real scrobble per page.
-              {'name': 'Strangers', 'artist': {'#text': 'Ethel Cain'}},
-              {'name': 'Strangers', 'artist': {'#text': 'Ethel Cain'}},
-              {
-                'name': 'Strangers',
-                'artist': {'#text': 'Ethel Cain'},
-                'date': {'uts': '${1690000000 + page * 10}'},
+    test(
+      'fetchTrackScrobblesAll keeps paging when rows drop but pages remain',
+      () async {
+        // A page can parse to fewer rows than it holds (undated entries are
+        // dropped). That must not be mistaken for the end of the list, or long
+        // histories get truncated — the original bug.
+        final requestedPages = <String>[];
+        final client = MockClient((request) async {
+          final page = int.parse(request.url.queryParameters['page'] ?? '1');
+          requestedPages.add('$page');
+          return _jsonResponse({
+            'trackscrobbles': {
+              '@attr': {
+                'page': '$page',
+                'perPage': '3',
+                'totalPages': '2',
+                'total': '6',
               },
-            ],
-          },
+              'track': [
+                // Two undated rows (dropped) and one real scrobble per page.
+                {
+                  'name': 'Strangers',
+                  'artist': {'#text': 'Ethel Cain'},
+                },
+                {
+                  'name': 'Strangers',
+                  'artist': {'#text': 'Ethel Cain'},
+                },
+                {
+                  'name': 'Strangers',
+                  'artist': {'#text': 'Ethel Cain'},
+                  'date': {'uts': '${1690000000 + page * 10}'},
+                },
+              ],
+            },
+          });
         });
-      });
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url,
-      );
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url,
+        );
 
-      final scrobbles = await service.fetchTrackScrobblesAll(
-        'clairjassen',
-        artist: 'Ethel Cain',
-        track: 'Strangers',
-        pageSize: 3,
-      );
-      expect(scrobbles, hasLength(2));
-      expect(requestedPages, ['1', '2']);
-    });
+        final scrobbles = await service.fetchTrackScrobblesAll(
+          'clairjassen',
+          artist: 'Ethel Cain',
+          track: 'Strangers',
+          pageSize: 3,
+        );
+        expect(scrobbles, hasLength(2));
+        expect(requestedPages, ['1', '2']);
+      },
+    );
 
-    test('fetchArtistHistory aggregates tracks + recent, deduplicates and sorts newest first', () async {
-      final client = MockClient((request) async {
-        final method = request.url.queryParameters['method'];
-        if (method == 'user.gettrackscrobbles') {
-          final track = request.url.queryParameters['track'];
-          if (track == 'American Teenager') {
+    test(
+      'fetchArtistHistory aggregates tracks + recent, deduplicates and sorts newest first',
+      () async {
+        final client = MockClient((request) async {
+          final method = request.url.queryParameters['method'];
+          if (method == 'user.gettrackscrobbles') {
+            final track = request.url.queryParameters['track'];
+            if (track == 'American Teenager') {
+              return _jsonResponse({
+                'trackscrobbles': {
+                  'track': [
+                    {
+                      'name': 'American Teenager',
+                      'artist': {'#text': 'Ethel Cain'},
+                      'album': {'#text': 'Preacher\'s Daughter'},
+                      'date': {'uts': '1690000000'}, // older
+                    },
+                  ],
+                },
+              });
+            }
+            if (track == 'Strangers') {
+              return _jsonResponse({
+                'trackscrobbles': {
+                  'track': [
+                    {
+                      'name': 'Strangers',
+                      'artist': {'#text': 'Ethel Cain'},
+                      'album': {'#text': 'Preacher\'s Daughter'},
+                      'date': {'uts': '1695000000'}, // newer
+                    },
+                  ],
+                },
+              });
+            }
+          } else if (method == 'user.getrecenttracks') {
             return _jsonResponse({
-              'trackscrobbles': {
+              'recenttracks': {
                 'track': [
-                  {
-                    'name': 'American Teenager',
-                    'artist': {'#text': 'Ethel Cain'},
-                    'album': {'#text': 'Preacher\'s Daughter'},
-                    'date': {'uts': '1690000000'}, // older
-                  },
-                ],
-              },
-            });
-          }
-          if (track == 'Strangers') {
-            return _jsonResponse({
-              'trackscrobbles': {
-                'track': [
+                  // Duplicate of Strangers scrobble at 1695000000
                   {
                     'name': 'Strangers',
                     'artist': {'#text': 'Ethel Cain'},
                     'album': {'#text': 'Preacher\'s Daughter'},
-                    'date': {'uts': '1695000000'}, // newer
+                    'date': {'uts': '1695000000'},
+                  },
+                  // Brand new recent play at 1700000000
+                  {
+                    'name': 'Sun Bleached Flies',
+                    'artist': {'#text': 'Ethel Cain'},
+                    'album': {'#text': 'Preacher\'s Daughter'},
+                    'date': {'uts': '1700000000'},
+                  },
+                  // Different artist - should be filtered out
+                  {
+                    'name': 'Cardigan',
+                    'artist': {'#text': 'Taylor Swift'},
+                    'album': {'#text': 'Folklore'},
+                    'date': {'uts': '1700000001'},
                   },
                 ],
               },
             });
           }
-        } else if (method == 'user.getrecenttracks') {
+          return _jsonResponse({}, status: 400);
+        });
+
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (url) async => url,
+        );
+
+        final history = await service.fetchArtistHistory(
+          'khentsgdz',
+          artist: 'Ethel Cain',
+          knownTracks: ['American Teenager', 'Strangers'],
+        );
+
+        // Total 3 unique: Sun Bleached Flies (1700000000), Strangers (1695000000), American Teenager (1690000000)
+        expect(history.length, 3);
+        expect(history[0].trackName, 'Sun Bleached Flies');
+        expect(history[1].trackName, 'Strangers');
+        expect(history[2].trackName, 'American Teenager');
+      },
+    );
+  });
+
+  group('MusicSyncService uncapped per-artist catalog and playcounts', () {
+    test(
+      'fetchArtistCatalogTracks parses toptracks node for specific artist',
+      () async {
+        final client = MockClient((request) async {
+          expect(request.url.queryParameters['method'], 'artist.gettoptracks');
+          expect(request.url.queryParameters['artist'], 'Ethel Cain');
           return _jsonResponse({
-            'recenttracks': {
+            'toptracks': {
               'track': [
-                // Duplicate of Strangers scrobble at 1695000000
+                {
+                  'name': 'American Teenager',
+                  'playcount': '500000',
+                  '@attr': {'rank': '1'},
+                  'image': [
+                    {
+                      '#text': 'https://lastfm.example/art.png',
+                      'size': 'extralarge',
+                    },
+                  ],
+                },
                 {
                   'name': 'Strangers',
-                  'artist': {'#text': 'Ethel Cain'},
-                  'album': {'#text': 'Preacher\'s Daughter'},
-                  'date': {'uts': '1695000000'},
+                  'playcount': '400000',
+                  '@attr': {'rank': '2'},
                 },
-                // Brand new recent play at 1700000000
+              ],
+            },
+          });
+        });
+
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (u) async => u,
+        );
+        final tracks = await service.fetchArtistCatalogTracks('Ethel Cain');
+
+        expect(tracks, hasLength(2));
+        expect(tracks[0].trackName, 'American Teenager');
+        expect(tracks[0].artistName, 'Ethel Cain');
+        expect(tracks[0].imageUrl, 'https://lastfm.example/art.png');
+        expect(tracks[1].trackName, 'Strangers');
+      },
+    );
+
+    test('fetchArtistCatalogTracksAll walks pages and deduplicates', () async {
+      final client = MockClient((request) async {
+        final page = request.url.queryParameters['page'] ?? '1';
+        if (page == '1') {
+          return _jsonResponse({
+            'toptracks': {
+              'track': [
                 {
-                  'name': 'Sun Bleached Flies',
-                  'artist': {'#text': 'Ethel Cain'},
-                  'album': {'#text': 'Preacher\'s Daughter'},
-                  'date': {'uts': '1700000000'},
+                  'name': 'Track 1',
+                  '@attr': {'rank': '1'},
                 },
-                // Different artist - should be filtered out
                 {
-                  'name': 'Cardigan',
-                  'artist': {'#text': 'Taylor Swift'},
-                  'album': {'#text': 'Folklore'},
-                  'date': {'uts': '1700000001'},
+                  'name': 'Track 2',
+                  '@attr': {'rank': '2'},
                 },
               ],
             },
           });
         }
-        return _jsonResponse({}, status: 400);
+        return _jsonResponse({
+          'toptracks': {
+            'track': [
+              {
+                'name': 'Track 3',
+                '@attr': {'rank': '3'},
+              },
+            ],
+          },
+        });
       });
 
-      final service = MusicSyncService(
-        client: client,
-        signUrl: (url) async => url,
+      final service = MusicSyncService(client: client, signUrl: (u) async => u);
+      final tracks = await service.fetchArtistCatalogTracksAll(
+        'Ethel Cain',
+        pageSize: 2,
+        maxPages: 3,
       );
 
-      final history = await service.fetchArtistHistory(
-        'khentsgdz',
-        artist: 'Ethel Cain',
-        knownTracks: ['American Teenager', 'Strangers'],
-      );
-
-      // Total 3 unique: Sun Bleached Flies (1700000000), Strangers (1695000000), American Teenager (1690000000)
-      expect(history.length, 3);
-      expect(history[0].trackName, 'Sun Bleached Flies');
-      expect(history[1].trackName, 'Strangers');
-      expect(history[2].trackName, 'American Teenager');
+      expect(tracks, hasLength(3));
+      expect(tracks.map((t) => t.trackName), ['Track 1', 'Track 2', 'Track 3']);
     });
+
+    test(
+      'fetchTrackUserPlayCount returns exact integer scrobble count including 1,000,000',
+      () async {
+        final client = MockClient((request) async {
+          expect(request.url.queryParameters['method'], 'track.getinfo');
+          expect(request.url.queryParameters['username'], 'khentsgdz');
+          expect(request.url.queryParameters['artist'], 'Ethel Cain');
+          expect(request.url.queryParameters['track'], 'American Teenager');
+          return _jsonResponse({
+            'track': {'name': 'American Teenager', 'userplaycount': '1000000'},
+          });
+        });
+
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (u) async => u,
+        );
+        final count = await service.fetchTrackUserPlayCount(
+          username: 'khentsgdz',
+          artist: 'Ethel Cain',
+          track: 'American Teenager',
+        );
+
+        expect(count, 1000000);
+      },
+    );
+
+    test(
+      'fetchUserArtistTracks returns only songs with plays > 0 sorted descending',
+      () async {
+        final client = MockClient((request) async {
+          final track = request.url.queryParameters['track'];
+          final plays = track == 'Strangers'
+              ? '29'
+              : (track == 'Sun Bleached Flies' ? '26' : '0');
+          return _jsonResponse({
+            'track': {'name': track, 'userplaycount': plays},
+          });
+        });
+
+        final service = MusicSyncService(
+          client: client,
+          signUrl: (u) async => u,
+        );
+        final candidates = [
+          const TopMusicTrack(
+            rank: 1,
+            trackName: 'Strangers',
+            artistName: 'Ethel Cain',
+            playCount: 0,
+            imageUrl: null,
+            spotifyUrl: 'https://spotify/strangers',
+          ),
+          const TopMusicTrack(
+            rank: 2,
+            trackName: 'Unplayed Song',
+            artistName: 'Ethel Cain',
+            playCount: 0,
+            imageUrl: null,
+            spotifyUrl: 'https://spotify/unplayed',
+          ),
+          const TopMusicTrack(
+            rank: 3,
+            trackName: 'Sun Bleached Flies',
+            artistName: 'Ethel Cain',
+            playCount: 0,
+            imageUrl: null,
+            spotifyUrl: 'https://spotify/sun',
+          ),
+        ];
+
+        final results = await service.fetchUserArtistTracks(
+          'khentsgdz',
+          'Ethel Cain',
+          candidateTracks: candidates,
+        );
+
+        expect(results, hasLength(2));
+        expect(results[0].trackName, 'Strangers');
+        expect(results[0].playCount, 29);
+        expect(results[0].rank, 1);
+        expect(results[1].trackName, 'Sun Bleached Flies');
+        expect(results[1].playCount, 26);
+        expect(results[1].rank, 2);
+      },
+    );
   });
 }

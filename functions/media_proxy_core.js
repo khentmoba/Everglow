@@ -34,7 +34,7 @@ function buildTmdbUpstream(path, query = {}, apiKey = '') {
 // That is the only reliable per-artist total: top-N charts silently drop
 // plays once a track falls below the page size.
 const LASTFM_METHOD_PATTERN =
-  /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|trackscrobbles|info)|track\.getinfo|artist\.(?:search|getinfo))$/i;
+  /^(user\.get(?:recenttracks|toptracks|topartists|topalbums|lovedtracks|artisttracks|trackscrobbles|info)|track\.getinfo|artist\.(?:search|getinfo|gettoptracks))$/i;
 
 function isAllowedLastfmMethod(method) {
   return LASTFM_METHOD_PATTERN.test(String(method || ''));

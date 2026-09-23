@@ -49,7 +49,7 @@ function externalCacheKey(prefix, upstream) {
 function lastfmCacheTtlMs(method, period) {
   const m = String(method || '').toLowerCase();
   const p = String(period || 'overall').toLowerCase();
-  if (m === 'artist.getinfo') return 30 * 60 * 1000;
+  if (m === 'artist.getinfo' || m === 'artist.gettoptracks') return 30 * 60 * 1000;
   if (
     m === 'user.gettoptracks' ||
     m === 'user.gettopartists' ||
