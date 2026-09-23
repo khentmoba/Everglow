@@ -199,22 +199,32 @@ async function handleProxyAI(req, res) {
       try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch (_) {}
     };
 
-    let keepaliveInterval = setInterval(() => {
-      try { res.write(': keepalive\n\n'); } catch (_) {}
-    }, 15000);
+    let keepaliveInterval = null;
+    const startKeepalive = () => {
+      if (keepaliveInterval) return;
+      keepaliveInterval = setInterval(() => {
+        try { res.write(': keepalive\n\n'); } catch (_) {}
+      }, 15000);
+    };
     stopKeepalive = () => {
       if (keepaliveInterval) { clearInterval(keepaliveInterval); keepaliveInterval = null; }
     };
 
-    let heartbeatInterval = setInterval(() => {
-      try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
-    }, 3000);
+    let heartbeatInterval = null;
+    const startHeartbeat = () => {
+      if (heartbeatInterval) return;
+      heartbeatInterval = setInterval(() => {
+        try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
+      }, 3000);
+    };
     stopHeartbeat = () => {
       if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
     };
 
     // Immediately inform client that streaming is live
     sendEvent({ tool_status: 'generating' });
+    startKeepalive();
+    startHeartbeat();
   }
 
   // Build context server-side if feature is provided (avoids browser->Firestore latency)
@@ -763,7 +773,7 @@ ${HTML_GAME_GUIDE}
       // Caps the worst case at 8 successes + 4 retries per message
       // (was: 8 rounds x 3 attempts = 24 paid calls).
       let agnesCalls = 0;
-      const MAX_AGNES_CALLS_PER_MESSAGE = 12; // W1-C10: accumulate for server-side memory extract
+      const MAX_AGNES_CALLS_PER_MESSAGE = 12;
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
