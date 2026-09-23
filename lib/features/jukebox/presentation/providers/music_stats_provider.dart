@@ -260,8 +260,13 @@ class MusicStatsProvider extends ChangeNotifier {
         );
         changed = true;
       }
+      // Paint each batch as it lands so covers appear progressively
+      // instead of all at once after the slowest lookup finishes.
+      if (changed) {
+        _safeNotify();
+        changed = false;
+      }
     }
-    if (changed) _safeNotify();
   }
 
   /// Same enrichment as [_enrichTopTrackArtwork] but for recent scrobbles.
@@ -297,8 +302,12 @@ class MusicStatsProvider extends ChangeNotifier {
         );
         changed = true;
       }
+      // Paint each batch as it lands (same as top tracks above).
+      if (changed) {
+        _safeNotify();
+        changed = false;
+      }
     }
-    if (changed) _safeNotify();
   }
 
   /// When a lookup last came up empty, so transient failures (Last.fm rate
@@ -401,26 +410,24 @@ class MusicStatsProvider extends ChangeNotifier {
         DateTime.now().difference(missAt) < _artworkRetryCooldown) {
       return null;
     }
-    final artwork = await _syncService.fetchTrackArtwork(
+    // One call returns both cover and album: the old artwork-then-album
+    // sequence ran the full Last.fm -> iTunes -> Spotify chain twice per
+    // track, doubling the top-10's load time.
+    final meta = await _syncService.fetchTrackMetadata(
       artist: artist,
       track: track,
       mbid: mbid,
     );
-    final album = await _syncService.fetchTrackAlbum(
-      artist: artist,
-      track: track,
-      mbid: mbid,
-    );
-    if (artwork != null || (album != null && album.isNotEmpty)) {
-      final meta = TrackMetadata(artworkUrl: artwork, albumName: album);
-      _metadataCache[key] = meta;
-      if (artwork != null) _artworkCache[key] = artwork;
-      _artworkMissAt.remove(key);
-      return meta;
-    } else {
+    if (meta == null ||
+        (meta.artworkUrl == null &&
+            (meta.albumName == null || meta.albumName!.isEmpty))) {
       _artworkMissAt[key] = DateTime.now();
       return null;
     }
+    _metadataCache[key] = meta;
+    if (meta.artworkUrl != null) _artworkCache[key] = meta.artworkUrl!;
+    _artworkMissAt.remove(key);
+    return meta;
   }
 
   Future<String?> _artworkFor(

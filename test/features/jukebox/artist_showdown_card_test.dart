@@ -91,6 +91,16 @@ class _ShowdownFakeSync extends MusicSyncService {
     String? mbid,
   }) async => null;
 
+  // MusicStatsProvider enriches via fetchTrackMetadata (single call for
+  // cover + album); without this the base implementation would attempt
+  // real network calls in fake async.
+  @override
+  Future<TrackMetadata?> fetchTrackMetadata({
+    required String artist,
+    required String track,
+    String? mbid,
+  }) async => null;
+
   @override
   Future<List<ArtistSuggestion>> fetchArtistSuggestions(
     String query, {
