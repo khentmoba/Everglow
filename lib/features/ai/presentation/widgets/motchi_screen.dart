@@ -273,6 +273,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
         enableThinking: enableThinking,
         imageUrls: imagesToSend,
       );
+      if (mounted) {
+        setState(() {
+          _lastSentMessage = null;
+        });
+      }
       _scrollToBottom();
     } catch (e) {
       if (!mounted) return;

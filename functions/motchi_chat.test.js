@@ -121,6 +121,15 @@ test('missing-block repair is wired on both answer paths', () => {
   assert.match(src, /didArtifactRepair/);
 });
 
+test('streaming error catch preserves streamed content and isolates background tasks', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Background memory extraction & hallucination checks must be guarded
+  // so post-stream errors don't trigger the outer streaming error handler.
+  assert.match(src, /post-reply tasks error/);
+  // Outer streaming catch must NOT send error event if content was already streamed.
+  assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
+});
+
 test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',

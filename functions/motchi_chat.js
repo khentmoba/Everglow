@@ -1098,16 +1098,22 @@ ${HTML_GAME_GUIDE}
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
       // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
-      if (_streamedFinalReply.trim()) {
-        const checkText = stripArtifactsForChecks(_streamedFinalReply);
-        if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
-          serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
+      try {
+        if (_streamedFinalReply.trim()) {
+          const checkText = stripArtifactsForChecks(_streamedFinalReply);
+          if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
+            serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
+          }
+          if (checkText) checkHallucinations(checkText).catch(() => {});
         }
-        if (checkText) checkHallucinations(checkText).catch(() => {});
+      } catch (postErr) {
+        console.warn('proxyAI post-reply tasks error:', postErr.message);
       }
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
-      sendEvent({ error: 'Motchi got distracted and lost her train of thought. Try asking again?' });
+      if (!_streamedFinalReply.trim()) {
+        sendEvent({ error: 'Motchi got distracted and lost her train of thought. Try asking again?' });
+      }
       sendEvent('[DONE]');
     } finally {
       stopKeepalive();

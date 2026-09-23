@@ -393,6 +393,7 @@ class AIService extends ChangeNotifier {
       // state ends as soon as the stream does; Firestore writes below can
       // take seconds and must not hold the chat in "thinking".
       _isLoading = false;
+      _lastError = null;
       _resetDraftState();
       _setConversation(feature, conversation);
       notifyListeners();
@@ -799,6 +800,7 @@ class AIService extends ChangeNotifier {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        if (attempt > 0) _lastError = null;
         return await _callProxyAIStreamOnce(
           messages,
           context,
@@ -870,11 +872,12 @@ class AIService extends ChangeNotifier {
       onToolStatus: onToolStatus,
       onToolResult: onToolResult,
       onError: onError,
-      // Artifact builds get 280s (inside the server's 300s function
-      // budget); everyday chat keeps the snappy 120s cap.
-      timeout: artifactExpected
+      // Artifact builds and thinking requests get 280s (inside the server's
+      // 300s function budget) so slow generations or multi-turn tool loops
+      // land cleanly. Everyday chat keeps 180s.
+      timeout: (artifactExpected || enableThinking)
           ? const Duration(seconds: 280)
-          : const Duration(seconds: 120),
+          : const Duration(seconds: 180),
     );
   }
 
