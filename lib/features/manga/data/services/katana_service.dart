@@ -74,12 +74,34 @@ class KatanaService {
     return Uri.parse('$base&cookie=${Uri.encodeComponent(cookie)}');
   }
 
+  /// MangaKatana serves covers AVIF-first now (`<picture>` with `.avif`,
+  /// `.webp` and `.jpg` variants at the same path), but Flutter's image
+  /// codec cannot decode AVIF — an AVIF cover renders as a broken
+  /// placeholder. The site always serves a `.webp` twin alongside, so
+  /// rewrite to it. Works on direct URLs and already-proxied stored
+  /// ones (`.` survives `Uri.encodeComponent`, so `.avif` stays literal
+  /// inside `proxyMangaKatana?url=...`).
+  static String rewriteAvifToWebp(String url) {
+    if (url.isEmpty || !url.toLowerCase().contains('.avif')) return url;
+    return url.replaceAll(
+      RegExp(r'\.avif(?=$|[?&#])', caseSensitive: false),
+      '.webp',
+    );
+  }
+
   /// Proxies a page image (covers and chapter pages) through the
   /// MangaKatana image Cloud Function. All covers now go through the
   /// image proxy (which allows anonymous <img> loads via host allowlist)
   /// so they work from Image.network without Authorization headers.
   static String proxyImageUrl(String url) {
     if (url.isEmpty) return '';
+    // AVIF never decodes in Flutter — point at the `.webp` twin first,
+    // before the already-proxied early return, so stored AVIF entries
+    // heal on read. Scoped to Katana URLs only; other hosts' AVIF (if
+    // any) is left alone since no `.webp` twin is guaranteed there.
+    if (url.toLowerCase().contains('mangakatana')) {
+      url = rewriteAvifToWebp(url);
+    }
     if (url.contains('proxyMangaKatana')) return url;
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme) return url;
