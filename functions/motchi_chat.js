@@ -179,9 +179,7 @@ async function handleProxyAI(req, res) {
   // ── Early streaming initialization: flush headers immediately so client connects in ~50ms ──
   const isStreaming = req.body.stream === true;
   let sendEvent = () => {};
-  let startKeepalive = () => {};
   let stopKeepalive = () => {};
-  let startHeartbeat = () => {};
   let stopHeartbeat = () => {};
 
   if (isStreaming) {
@@ -199,7 +197,7 @@ async function handleProxyAI(req, res) {
     };
 
     let keepaliveInterval = null;
-    startKeepalive = () => {
+    const startKeepalive = () => {
       if (keepaliveInterval) return;
       keepaliveInterval = setInterval(() => {
         try { res.write(': keepalive\n\n'); } catch (_) {}
@@ -210,7 +208,7 @@ async function handleProxyAI(req, res) {
     };
 
     let heartbeatInterval = null;
-    startHeartbeat = () => {
+    const startHeartbeat = () => {
       if (heartbeatInterval) return;
       heartbeatInterval = setInterval(() => {
         try { sendEvent({ tool_status: 'thinking' }); } catch (_) {}
@@ -757,6 +755,7 @@ ${HTML_GAME_GUIDE}
 
   // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
   if (isStreaming) {
+    let _streamedFinalReply = '';
     try {
       let currentMessages = [...nimMessages];
       let toolRound = 0;
@@ -765,7 +764,6 @@ ${HTML_GAME_GUIDE}
       // (was: 8 rounds x 3 attempts = 24 paid calls).
       let agnesCalls = 0;
       const MAX_AGNES_CALLS_PER_MESSAGE = 12;
-      let _streamedFinalReply = ''; // W1-C10: accumulate for server-side memory extract
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
