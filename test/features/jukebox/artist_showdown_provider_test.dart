@@ -23,7 +23,6 @@ class _FakeSync extends MusicSyncService {
     this.suggestions = const [],
     this.artistImages = const {},
     this.historyByUser = const {},
-    this.exactPlaysByUser = const {},
     this.catalogTracks = const [],
     this.userArtistTracks = const {},
   });
@@ -36,10 +35,6 @@ class _FakeSync extends MusicSyncService {
   final Map<String, String?> artistImages;
   final Map<String, List<MusicStatus>> historyByUser;
 
-  /// Last.fm username -> exact all-time artist playcount, as the live
-  /// `artist.getInfo` call answers it. Absent means "Last.fm could not
-  /// answer", which must fall back to the row sum.
-  final Map<String, int> exactPlaysByUser;
   final List<TopMusicTrack> catalogTracks;
   final Map<String, List<TopMusicTrack>> userArtistTracks;
   int calls = 0;
@@ -47,7 +42,6 @@ class _FakeSync extends MusicSyncService {
   int suggestionCalls = 0;
   int artistImageCalls = 0;
   int historyCalls = 0;
-  int exactPlayCountCalls = 0;
   int catalogCalls = 0;
   int userArtistTrackCalls = 0;
 
@@ -82,12 +76,6 @@ class _FakeSync extends MusicSyncService {
     calls++;
     if (page > 1) return const [];
     return byUser[username] ?? const [];
-  }
-
-  @override
-  Future<int?> fetchArtistPlayCount(String username, String artist) async {
-    exactPlayCountCalls++;
-    return exactPlaysByUser[username];
   }
 
   @override
@@ -175,7 +163,7 @@ void main() {
     });
 
     test(
-      'loads artist using uncapped per-artist catalog tracks without fetching other artists',
+      'loads artist using uncapped per-artist catalog tracks',
       () async {
         final sync = _FakeSync(
           byUser: {
@@ -201,7 +189,6 @@ void main() {
               _track('Strangers', 5),
             ],
           },
-          exactPlaysByUser: {'khentsgdz': 1000001, 'clairjassen': 25},
         );
         final provider = ArtistShowdownProvider(syncService: sync);
         await _waitFor(() => !provider.isLoading);
@@ -221,49 +208,72 @@ void main() {
         expect(provider.tracks[2].trackName, 'Rare B-Side');
         expect(provider.tracks[2].khentPlays, 1);
 
-        // Verify zero calls were made to fetchTopTracks (zero other artists fetched!)
-        expect(sync.calls, 0);
+        // Both sources are read: the catalog for deep cuts, each user's own
+        // chart for tracks the global catalog misses (none here).
+        expect(sync.calls, 2);
         expect(sync.catalogCalls, greaterThanOrEqualTo(1));
         expect(sync.userArtistTrackCalls, 2);
-
-        // Entire total is accounted for by the individual song rows
-        expect(provider.hasOtherPlays, isFalse);
-        expect(provider.khentOtherPlays, 0);
-        expect(provider.clairOtherPlays, 0);
         provider.dispose();
       },
     );
 
-    // Regression: totals used to be summed from a single top-track page, so
-    // plays of songs below that page silently vanished and counts only shrank
-    // (Clair's Ethel Cain dropped to 103). The exact artist playcount from
-    // `artist.getInfo` must win, and the leftover must stay visible as
-    // "Other songs" instead of disappearing.
-    test('uses the exact artist playcount and reports other songs', () async {
+    // Regression: the user's own chart used to be read only when the catalog
+    // found nothing, so any song missing from the global catalog (name
+    // variants, delisted songs) collapsed into an unnamed "Other songs" row.
+    // Both sources are unioned now, so every played song is a named row.
+    test('unions catalog counts with the user chart so every song is named',
+        () async {
       final sync = _FakeSync(
         byUser: {
-          'khentsgdz': [_track('American Teenager', 42)],
-          'clairjassen': [_track('American Teenager', 67)],
+          // In the user's chart but missing from the global catalog.
+          'khentsgdz': [_track('Delisted Demo', 3)],
+          'clairjassen': [_track('Delisted Demo', 2)],
         },
-        exactPlaysByUser: {'khentsgdz': 42, 'clairjassen': 118},
+        catalogTracks: [_track('Strangers', 0)],
+        userArtistTracks: {
+          'khentsgdz': [_track('Strangers', 42)],
+          'clairjassen': [_track('Strangers', 67)],
+        },
       );
       final provider = ArtistShowdownProvider(syncService: sync);
       await _waitFor(() => !provider.isLoading);
 
-      // Exact counts, not the row sums (67 is what the visible page held).
-      expect(provider.khentTotal, 42);
-      expect(provider.clairTotal, 118);
-      expect(provider.leader, 'clair');
-      expect(sync.exactPlayCountCalls, 2);
-
-      // 118 - 67 plays belong to songs below the fetched top tracks.
-      expect(provider.clairOtherPlays, 51);
-      expect(provider.khentOtherPlays, 0);
-      expect(provider.hasOtherPlays, isTrue);
+      // Both the catalog song and the chart-only song are named rows.
+      expect(provider.tracks, hasLength(2));
+      expect(provider.tracks[0].trackName, 'Strangers');
+      expect(provider.tracks[1].trackName, 'Delisted Demo');
+      expect(provider.tracks[1].khentPlays, 3);
+      expect(provider.tracks[1].clairPlays, 2);
+      // Totals are the row sums: everything adds up, nothing is filler.
+      expect(provider.khentTotal, 45);
+      expect(provider.clairTotal, 69);
       provider.dispose();
     });
 
-    test('falls back to row sums when Last.fm cannot answer', () async {
+    test('keeps the higher count when both sources name a song', () async {
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('Strangers', 12)],
+          'clairjassen': [_track('Strangers', 4)],
+        },
+        catalogTracks: [_track('Strangers', 0)],
+        userArtistTracks: {
+          'khentsgdz': [_track('Strangers', 10)],
+          'clairjassen': [_track('Strangers', 5)],
+        },
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      await _waitFor(() => !provider.isLoading);
+
+      expect(provider.tracks, hasLength(1));
+      expect(provider.tracks.first.khentPlays, 12);
+      expect(provider.tracks.first.clairPlays, 5);
+      expect(provider.khentTotal, 12);
+      expect(provider.clairTotal, 5);
+      provider.dispose();
+    });
+
+    test('totals are the sums of the named rows', () async {
       final sync = _FakeSync(
         byUser: {
           'khentsgdz': [_track('American Teenager', 42)],
@@ -278,28 +288,6 @@ void main() {
 
       expect(provider.khentTotal, 42);
       expect(provider.clairTotal, 79);
-      expect(provider.hasOtherPlays, isFalse);
-      provider.dispose();
-    });
-
-    test('never reports less than the rows it is showing', () async {
-      // A stale exact count (e.g. a rounded upstream value) must not make the
-      // headline disagree with the visible table downward.
-      final sync = _FakeSync(
-        byUser: {
-          'khentsgdz': [_track('American Teenager', 42)],
-          'clairjassen': [
-            _track('American Teenager', 67),
-            _track('Strangers', 12),
-          ],
-        },
-        exactPlaysByUser: {'khentsgdz': 42, 'clairjassen': 50},
-      );
-      final provider = ArtistShowdownProvider(syncService: sync);
-      await _waitFor(() => !provider.isLoading);
-
-      expect(provider.clairTotal, 79);
-      expect(provider.hasOtherPlays, isFalse);
       provider.dispose();
     });
 

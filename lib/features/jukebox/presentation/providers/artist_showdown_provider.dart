@@ -38,16 +38,13 @@ class ShowdownTrack {
 /// table. Results are cached per artist for the session so switching back
 /// and forth never refetches.
 ///
-/// Headline totals come from `artist.getInfo`'s per-user `userplaycount`
-/// (`fetchArtistPlayCount`) — the exact, whole-history number for that artist.
-/// They used to be summed from a single top-track page, which silently lost
-/// plays once a song fell below that page, so totals only ever shrank.
-///
-/// The song table discovers all songs strictly for that artist
-/// (`fetchArtistCatalogTracksAll` + recent scrobbles for that artist) and
-/// queries each user's exact per-track playcount (`track.getInfo`). Zero
-/// tracks from other artists are transferred, and plays are never capped
-/// by overall library rankings.
+/// Every play shown belongs to a named song: rows union the artist's
+/// catalog (`fetchArtistCatalogTracksAll` + recent scrobbles, counted per
+/// song via `track.getInfo`) with each user's own top-tracks chart filtered
+/// to the artist, keeping the higher count when both name a song. The
+/// catalog finds deep cuts below the chart; the chart finds user-specific
+/// tracks (name variants, delisted songs) the global catalog misses.
+/// Headline totals are the row sums, so the column always adds up.
 ///
 /// The older `user.getartisttracks` endpoint is deprecated since 2019 and
 /// returns individual scrobbles without playcounts from a stale backend,
@@ -121,23 +118,6 @@ class ArtistShowdownProvider extends ChangeNotifier {
     if (_clairTotal > _khentTotal) return 'clair';
     return null;
   }
-
-  /// Plays of the current artist by Khent that are counted in the headline
-  /// total but have no row in the song table (songs outside the fetched top
-  /// tracks). Zero when the table already covers everything.
-  int get khentOtherPlays =>
-      (_khentTotal - _rowsPlays(khent: true)).clamp(0, _khentTotal);
-
-  /// Same as [khentOtherPlays] for Clair.
-  int get clairOtherPlays =>
-      (_clairTotal - _rowsPlays(khent: false)).clamp(0, _clairTotal);
-
-  /// True when either side has plays the song table cannot show, so the card
-  /// can render an "Other songs" row and keep the column adding up.
-  bool get hasOtherPlays => khentOtherPlays > 0 || clairOtherPlays > 0;
-
-  int _rowsPlays({required bool khent}) =>
-      _tracks.fold(0, (sum, t) => sum + (khent ? t.khentPlays : t.clairPlays));
 
   /// Khent's share of the combined total (0..1) for the versus bar.
   double get khentShare {
@@ -253,18 +233,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _artist = artist;
     _isLoading = true;
     _safeNotify();
-    // Kick off reads together: exact headline counts and artist-specific tracks.
-    final khentExactFuture = _sync.fetchArtistPlayCount(_khentUser, artist);
-    final clairExactFuture = _sync.fetchArtistPlayCount(_clairUser, artist);
-    final rowsFuture = _fetchArtistShowdownRows(artist);
-
-    final exactKhent = await khentExactFuture;
-    final exactClair = await clairExactFuture;
-    final rows = await rowsFuture;
+    final rows = await _fetchArtistShowdownRows(artist);
     // A newer selectArtist won while these reads were in flight — drop them.
     if (_disposed || request != _requestId) return;
-    _khentTotal = _exactOrRows(rows.$1, exactKhent);
-    _clairTotal = _exactOrRows(rows.$2, exactClair);
+    _khentTotal = rows.$1;
+    _clairTotal = rows.$2;
     _tracks = rows.$3;
     _cache[key] = _CachedShowdown(
       khentTotal: _khentTotal,
@@ -320,12 +293,13 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetches uncapped track rows for [artist] with zero other artists loaded.
+  /// Fetches track rows for [artist] from two sources, unioned per user.
   ///
   /// Discovers all tracks belonging to [artist] via Last.fm catalog
   /// (`artist.gettoptracks`), plus any recently scrobbled tracks for [artist]
-  /// to capture unreleased or newly played tracks.
-  /// Then queries each user's exact playcount for those songs.
+  /// to capture unreleased or newly played tracks, then queries each user's
+  /// exact playcount for those songs — and unions that with each user's own
+  /// top-tracks chart filtered to [artist].
   ///
   /// If catalog discovery finds no plays (e.g. offline, mock test service,
   /// or zero scrobbles found), falls back to filtering the top tracks chart.
@@ -368,7 +342,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
     final candidates = candidateMap.values.toList();
 
-    // 2. If candidate tracks were found for this artist, query per-track playcounts.
+    // 2. If candidate tracks were found for this artist, query per-track
+    // playcounts and union with each user's own chart: the catalog misses
+    // user-specific tracks (name variants, delisted songs), and the chart
+    // misses deep cuts below its pages. Unioned, every played song is a
+    // named row instead of unnamed filler.
     if (candidates.isNotEmpty) {
       final khentTracksFuture = _sync.fetchUserArtistTracks(
         _khentUser,
@@ -380,11 +358,17 @@ class ArtistShowdownProvider extends ChangeNotifier {
         artist,
         candidateTracks: candidates,
       );
+      final khentChartFuture = _tracksForArtistLegacy(_khentUser, artist);
+      final clairChartFuture = _tracksForArtistLegacy(_clairUser, artist);
       final khentTracks = await khentTracksFuture;
       final clairTracks = await clairTracksFuture;
+      final khentChart = await khentChartFuture;
+      final clairChart = await clairChartFuture;
+      final khent = _unionUserTracks(khentTracks, khentChart);
+      final clair = _unionUserTracks(clairTracks, clairChart);
 
-      if (khentTracks.isNotEmpty || clairTracks.isNotEmpty) {
-        return _merge(khentTracks, clairTracks);
+      if (khent.isNotEmpty || clair.isNotEmpty) {
+        return _merge(khent, clair);
       }
     }
 
@@ -411,13 +395,34 @@ class ArtistShowdownProvider extends ChangeNotifier {
         .toList();
   }
 
-  /// Uses Last.fm's exact artist playcount when it answered, otherwise the
-  /// sum of the visible rows. Never reports less than the rows on screen, so
-  /// the song table can always add up to the headline and numbers never
-  /// regress just because a fetch half-failed.
-  static int _exactOrRows(int rowsPlays, int? exactPlays) {
-    if (exactPlays == null) return rowsPlays;
-    return exactPlays < rowsPlays ? rowsPlays : exactPlays;
+  /// Unions two same-user track lists into one row per song, keeping the
+  /// higher playcount when both sources name it. Both lists claim to report
+  /// the same all-time count, so the higher one wins and no confirmed play
+  /// is ever hidden; artwork falls back to whichever side has it.
+  static List<TopMusicTrack> _unionUserTracks(
+    List<TopMusicTrack> first,
+    List<TopMusicTrack> second,
+  ) {
+    final byTrack = <String, TopMusicTrack>{};
+    for (final t in [...first, ...second]) {
+      final key = _key(t.trackName);
+      final existing = byTrack[key];
+      if (existing == null) {
+        byTrack[key] = t;
+      } else {
+        final winner = t.playCount > existing.playCount ? t : existing;
+        byTrack[key] = TopMusicTrack(
+          rank: winner.rank,
+          trackName: winner.trackName,
+          artistName: winner.artistName,
+          playCount: winner.playCount,
+          imageUrl: winner.imageUrl ?? existing.imageUrl ?? t.imageUrl,
+          spotifyUrl: winner.spotifyUrl,
+          mbid: winner.mbid ?? existing.mbid ?? t.mbid,
+        );
+      }
+    }
+    return byTrack.values.toList();
   }
 
   /// Merges both users' track lists into one song-by-song table, sorted by
