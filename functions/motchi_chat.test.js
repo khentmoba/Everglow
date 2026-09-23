@@ -139,6 +139,17 @@ test('429 retries wait out the RPM window (free tier: 5/min)', () => {
   assert.match(src, /lastWas429 \? 12000 \* \(attempt \+ 1\) : 1000 \* \(attempt \+ 1\)/);
 });
 
+test('game guide only rides artifact asks (prompt diet)', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // The ~2.5KB phone-first game guide used to ride every chat through
+  // the canvas section. Both interpolations (study + assistant) must
+  // stay gated behind wantsArtifact, and artifact follow-ups ("make
+  // it pink") keep it via the previous reply's block.
+  const gated = src.split("wantsArtifact ? HTML_GAME_GUIDE : ''").length - 1;
+  assert.equal(gated, 2);
+  assert.match(src, /hasCompleteArtifact\(prevAssistantText\)/);
+});
+
 test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',

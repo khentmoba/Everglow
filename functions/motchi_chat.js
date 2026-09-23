@@ -248,7 +248,10 @@ async function handleProxyAI(req, res) {
   const wantsArtifact = /flashcards?|flash cards?|tic-?tac|checkers|html-artifact|quiz-json/i.test(_artifactMsg) ||
     /\bquiz (us|me)\b|\btest (us|me)\b/i.test(_artifactMsg) ||
     /\b(make|build|create|generate|give|send|start|play|challenge)\b.{0,30}\b(quiz|trivia|game|app|website|chess|html|artifact)\b/i.test(_artifactMsg) ||
-    /\b(quiz|trivia|game|chess)\b.{0,10}\?\s*$/i.test(_artifactMsg);
+    /\b(quiz|trivia|game|chess)\b.{0,10}\?\s*$/i.test(_artifactMsg) ||
+    // Artifact follow-ups ("make it pink", "add sound") name no nouns —
+    // keep the guide while the previous reply still carries a block.
+    hasCompleteArtifact(prevAssistantText);
   // True when the canvas prompt section rode along (mirrors the two
   // section gates below) — the repair nudge only makes sense then.
   const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
@@ -441,7 +444,7 @@ ${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
   HTML only inside the block. The visible reply stays warm and short ("Made you checkers — tap Preview to play!").
-${HTML_GAME_GUIDE}`;
+${wantsArtifact ? HTML_GAME_GUIDE : ''}`;
   }
 
   // ── Main Motchi chat: same interactive canvas (Canvas / Artifacts style) ──
@@ -472,7 +475,7 @@ ${HTML_GAME_GUIDE}`;
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
   HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you checkers — tap Preview to play!").
-${HTML_GAME_GUIDE}
+${wantsArtifact ? HTML_GAME_GUIDE : ''}
 - When they ask for flashcards or study cards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block (10 cards max):
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
