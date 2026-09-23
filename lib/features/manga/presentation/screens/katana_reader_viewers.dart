@@ -81,36 +81,56 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   Widget _buildWebtoonViewer() {
     final width = MediaQuery.sizeOf(context).width;
     final maxContentWidth = width > 850 ? 850.0 : double.infinity;
+    final desktopWeb = KatanaReaderScreen.isDesktopWeb(
+      isWeb: kIsWeb,
+      platform: defaultTargetPlatform,
+    );
+    final content = Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxContentWidth),
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: EdgeInsets.zero,
+          physics: desktopWeb
+              ? const NeverScrollableScrollPhysics()
+              : const BouncingScrollPhysics(),
+          // Keep neighbours built so paging back and forth never
+          // re-resolves an image that already loaded.
+          scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
+          addAutomaticKeepAlives: true,
+          addRepaintBoundaries: true,
+          itemCount: _pages.length + 1,
+          itemBuilder: (context, index) {
+            if (index == _pages.length) return _buildEndCard();
+            return _buildWebtoonImage(index);
+          },
+        ),
+      ),
+    );
+
+    final desktopContent = Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerSignal: (event) {
+        scrollReaderWithWheel(event, _scrollController);
+      },
+      child: content,
+    );
 
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: _toggleChrome,
       onDoubleTap: _handleDoubleTap,
-      child: InteractiveViewer(
-        transformationController: _transformController,
-        minScale: 1.0,
-        maxScale: 3.5,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxContentWidth),
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: EdgeInsets.zero,
-              physics: const BouncingScrollPhysics(),
-              // Keep neighbours built so paging back and forth never
-              // re-resolves an image that already loaded.
-              scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
-              addAutomaticKeepAlives: true,
-              addRepaintBoundaries: true,
-              itemCount: _pages.length + 1,
-              itemBuilder: (context, index) {
-                if (index == _pages.length) return _buildEndCard();
-                return _buildWebtoonImage(index);
-              },
+      // InteractiveViewer maps upward mouse-wheel notches to zoom on
+      // desktop web. Omit it there and forward wheel events explicitly;
+      // touch/mobile web and native builds retain pinch/double-tap zoom.
+      child: desktopWeb
+          ? desktopContent
+          : InteractiveViewer(
+              transformationController: _transformController,
+              minScale: 1.0,
+              maxScale: 3.5,
+              child: content,
             ),
-          ),
-        ),
-      ),
     );
   }
 

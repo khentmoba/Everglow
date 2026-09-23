@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
@@ -30,7 +32,33 @@ part 'katana_reader_chrome.dart';
 /// - Tablet two-page spread support
 /// - Night dimmer and theme selection (OLED Black, Plum Night, Warm Sepia)
 /// - Keyboard arrow navigation for desktop & tablet keyboards
+
+@visibleForTesting
+void scrollReaderWithWheel(
+  PointerSignalEvent event,
+  ScrollController controller,
+) {
+  if (event is! PointerScrollEvent || !controller.hasClients) return;
+  final delta = event.scrollDelta.dy;
+  if (delta == 0) return;
+  final position = controller.position;
+  final target = (position.pixels + delta)
+      .clamp(position.minScrollExtent, position.maxScrollExtent)
+      .toDouble();
+  if (target != position.pixels) position.jumpTo(target);
+}
+
 class KatanaReaderScreen extends StatefulWidget {
+  @visibleForTesting
+  static bool isDesktopWeb({
+    required bool isWeb,
+    required TargetPlatform platform,
+  }) =>
+      isWeb &&
+      (platform == TargetPlatform.windows ||
+          platform == TargetPlatform.macOS ||
+          platform == TargetPlatform.linux);
+
   final String slug;
   final String chapterId;
   final List<KatanaChapter> chapters;
