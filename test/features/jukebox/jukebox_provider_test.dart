@@ -60,10 +60,22 @@ class _StubSync extends MusicSyncService {
       result?.call(username);
 }
 
+MusicStatus _idleStatus(String username) => MusicStatus(
+  username: username,
+  trackName: 'Love Lies',
+  artistName: 'Khalid',
+  albumName: 'Love Lies',
+  isPlaying: false,
+  spotifyUrl: 'https://open.spotify.com/search/Khalid',
+  timestamp: DateTime.utc(2026, 9, 6, 4, 0),
+);
+
 JukeboxProvider _provider({
   required _FakeStore store,
   MusicStatus? Function(String username)? fetch,
   List<String>? awardedUids,
+  Duration pollInterval = const Duration(hours: 1),
+  Duration livePollInterval = const Duration(seconds: 25),
 }) {
   final provider = JukeboxProvider(
     apiService: _StubSync(fetch),
@@ -74,7 +86,8 @@ JukeboxProvider _provider({
             awardedUids.add(uid);
             return true;
           },
-    pollInterval: const Duration(hours: 1),
+    pollInterval: pollInterval,
+    livePollInterval: livePollInterval,
     resubscribeDelay: const Duration(milliseconds: 10),
   );
   addTearDown(provider.dispose);
@@ -171,6 +184,37 @@ void main() {
         containsAll(['khentsgdz', 'clairjassen']),
       );
       expect(store.saved.every((s) => s.isPlaying), isTrue);
+    });
+
+    test('polls fast while someone is live, slow while idle', () async {
+      final liveStore = _FakeStore();
+      var liveFetches = 0;
+      _provider(
+        store: liveStore,
+        fetch: (u) {
+          liveFetches++;
+          return _liveStatus(u);
+        },
+        livePollInterval: const Duration(milliseconds: 50),
+      );
+      // Initial round (2 users) + fast re-polls land quickly.
+      await _waitFor(() => liveFetches >= 6);
+
+      final idleStore = _FakeStore();
+      var idleFetches = 0;
+      _provider(
+        store: idleStore,
+        fetch: (u) {
+          idleFetches++;
+          return _idleStatus(u);
+        },
+        pollInterval: const Duration(milliseconds: 500),
+        livePollInterval: const Duration(milliseconds: 50),
+      );
+      await _waitFor(() => idleFetches == 2);
+      // 200ms in, the idle provider must not have re-polled yet.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(idleFetches, 2);
     });
 
     test('skips listen XP when no award callback is wired', () async {

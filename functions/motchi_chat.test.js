@@ -99,7 +99,7 @@ test('streaming dangling repair covers loop exits (repeat guard + round cap)', (
   // The post-loop call streams its text after the preamble as one reply.
   assert.ok(src.includes('sendEvent({ content: repairText })'));
   // Bounded by the same per-message spend brake as the loop.
-  assert.ok(src.includes('agnesCalls < MAX_AGNES_CALLS_PER_MESSAGE'));
+  assert.ok(src.includes('llmCalls < MAX_LLM_CALLS_PER_MESSAGE'));
 });
 
 test('repair rounds detach tools so the model must answer in text', () => {
@@ -108,8 +108,8 @@ test('repair rounds detach tools so the model must answer in text', () => {
   // tool call — both paths must send the nudge with no tools attached.
   assert.match(src, /forceTextNextRound/);
   assert.ok(src.includes('!noToolsThisRound ? { tools, tool_choice: \'auto\' } : {}'));
-  assert.match(src, /callAgnesOnce\(msgs, withoutTools = false\)/);
-  const textOnlyRepairs = src.split('callAgnesOnce(nsMessages, true)').length - 1;
+  assert.match(src, /callLlmOnce\(msgs, withoutTools = false\)/);
+  const textOnlyRepairs = src.split('callLlmOnce(nsMessages, true)').length - 1;
   assert.equal(textOnlyRepairs, 2);
 });
 
@@ -130,13 +130,13 @@ test('streaming error catch preserves streamed content and isolates background t
   assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
 });
 
-test('429 retries wait out the RPM window (free tier: 5/min)', () => {
+test('retries use the fast 1s step (TokenHarbor has no RPM window)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Agnes cut free RPM to 5/min (Sep 2026) — a 429 retried after 1s
-  // just 429s again. 429s must wait one slot (12s) per attempt while
-  // 502/503 and network blips keep the fast 1s-step retry.
-  assert.match(src, /lastWas429 = streamResp\.status === 429/);
-  assert.match(src, /lastWas429 \? 12000 \* \(attempt \+ 1\) : 1000 \* \(attempt \+ 1\)/);
+  // TokenHarbor is pay-as-you-go — the Sep 2026 Agnes 5/min RPM window
+  // (12s 429 backoff) is gone. Every retry keeps the fast 1s step.
+  assert.doesNotMatch(src, /lastWas429/);
+  assert.doesNotMatch(src, /12000 \* \(attempt \+ 1\)/);
+  assert.match(src, /const waitMs = 1000 \* \(attempt \+ 1\)/);
 });
 
 test('game guide only rides artifact asks (prompt diet)', () => {

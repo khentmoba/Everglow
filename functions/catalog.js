@@ -43,12 +43,15 @@ function externalCacheKey(prefix, upstream) {
  * Per-method cache TTLs for Last.fm. All-time counters barely move between
  * listens, so the slow reads (exact per-artist playcounts, all-time top
  * tracks/artists) are held much longer than the blanket 5-minute default.
- * Recent charts (7day) and recent scrobbles stay short so the jukebox stays
- * live, and the showdown's deeper paging never re-pays upstream per open.
+ * Recent charts (7day) stay short, while recent scrobbles — the jukebox's
+ * live feed — are held only 30s so a song change surfaces on the next
+ * poll instead of up to 5 minutes late. The showdown's deeper paging
+ * never re-pays upstream per open.
  */
 function lastfmCacheTtlMs(method, period) {
   const m = String(method || '').toLowerCase();
   const p = String(period || 'overall').toLowerCase();
+  if (m === 'user.getrecenttracks') return 30 * 1000;
   if (m === 'artist.getinfo' || m === 'artist.gettoptracks') return 30 * 60 * 1000;
   if (
     m === 'user.gettoptracks' ||
@@ -153,9 +156,9 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
   }
 
   // Same instance cache as TMDB: the jukebox polls recent tracks every
-  // minute per user, and scrobbles barely move that fast. Only HTTP 200
-  // bodies are cached (errors never stick), for 30m on all-time reads and
-  // 5m on recent ones — see lastfmCacheTtlMs.
+  // ~25s while someone is live, so the live feed is cached 30s (one poll
+  // behind at most) while all-time reads hold 30m — see lastfmCacheTtlMs.
+  // Only HTTP 200 bodies are cached (errors never stick).
   const cacheKey = externalCacheKey('lastfm:proxy:', upstream);
   const cached = _getExternalCache(
     cacheKey,

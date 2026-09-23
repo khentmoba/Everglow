@@ -11,7 +11,7 @@ const {
   estimateTokens,
   shouldExtractMemory,
   phtDateString,
-  AGNES_INPUT_TOKEN_BUDGET,
+  LLM_INPUT_TOKEN_BUDGET,
 } = require('./motchi_core.js');
 const {
   serverExtractAndSaveMemory,
@@ -531,16 +531,16 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
   }
 
   // ── Token budget guard ────────────────────────────────
-  // Ensure total input (system + messages) stays within Agnes's context (512K).
+  // Ensure total input (system + messages) stays within the model's context (1M).
   // Work directly on systemPrompt + messages before nimMessages is built.
   {
     let inputTokens = estimateTokens(systemPrompt);
     for (const m of messages) inputTokens += estimateTokens(getMessageText(m.content));
-    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', AGNES_INPUT_TOKEN_BUDGET);
+    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', LLM_INPUT_TOKEN_BUDGET);
 
     // Phase 1: Drop oldest conversation message pairs
     const msgs = [...messages]; // mutable copy
-    while (inputTokens > AGNES_INPUT_TOKEN_BUDGET && msgs.length > 2) {
+    while (inputTokens > LLM_INPUT_TOKEN_BUDGET && msgs.length > 2) {
       const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
       inputTokens -= removed
         .map((m) => estimateTokens(getMessageText(m?.content)))
@@ -551,7 +551,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
     }
 
     // Phase 2: If still over budget, progressively shorten system prompt
-    if (inputTokens > AGNES_INPUT_TOKEN_BUDGET) {
+    if (inputTokens > LLM_INPUT_TOKEN_BUDGET) {
       let sys = systemPrompt;
       // Drop Previous Conversations section
       const pcIdx = sys.indexOf('## Previous Conversations');
@@ -598,7 +598,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
   ];
 
   // Get API key from environment variables (loaded from .env or Cloud Run env)
-  const apiKey = process.env.AGNES_API_KEY;
+  const apiKey = process.env.TOKENHARBOR_API_KEY;
 
   if (!apiKey) {
     // No LLM key configured: return deterministic fallback.
@@ -613,8 +613,8 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
     return;
   }
 
-  // Model: Agnes 3.0 Flash — 512K context, tool calling, thinking mode, image understanding
-  const model = 'agnes-3.0-flash';
+  // Model: Qwen 3.8 Flash via TokenHarbor — 1M context, tool calling, thinking, image understanding
+  const model = 'qwen3.8-flash';
 
   // ── Custom Motchi Tools (OpenAI function calling format) ──
 
@@ -676,7 +676,8 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
   }
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
-  // Agnes uses chat_template_kwargs.enable_thinking instead of reasoning_effort.
+  // Qwen thinks by default, so the flag goes out explicitly both ways:
+  // true for deep-think, false for everyday chat (cheaper, faster).
   // enableThinking is already destructured from req.body above.
 
   // ── Output budget tiers ───────────────────────────────
@@ -689,11 +690,11 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
   const maxTokens = (feature === 'study' || enableThinkingFlag || wantsArtifact) ? 16384 : 4096;
 
   // ── Payload size guard ──────────────────────────────
-  // Cloud Run max request size is 32MB; Agnes supports up to 512K context.
+  // Cloud Run max request size is 32MB; Qwen 3.8 Flash supports 1M context.
   // Trim aggressively as best-effort so the model doesn't
-  // waste context on stale history, but don't hard-block — let Agnes handle
+  // waste context on stale history, but don't hard-block — let the model handle
   // it if trimming can't fit within Cloud Run's limit.
-  const agnesBody = JSON.stringify({
+  const llmBody = JSON.stringify({
     model,
     messages: nimMessages,
     tools,
@@ -701,13 +702,13 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
     temperature: 0.6,
     top_p: 0.95,
     stream: req.body.stream === true,
-    ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+    enable_thinking: enableThinkingFlag === true,
   });
-  let agnesBodyBytes = Buffer.byteLength(agnesBody, 'utf8');
-  console.log('[proxyAI] Payload size before trim:', (agnesBodyBytes / 1024 / 1024).toFixed(2), 'MB');
-  if (agnesBodyBytes > 8 * 1024 * 1024) {
+  let llmBodyBytes = Buffer.byteLength(llmBody, 'utf8');
+  console.log('[proxyAI] Payload size before trim:', (llmBodyBytes / 1024 / 1024).toFixed(2), 'MB');
+  if (llmBodyBytes > 8 * 1024 * 1024) {
     // Phase 1: Remove oldest conversation message pairs (keep system + recent)
-    while (agnesBodyBytes > 8 * 1024 * 1024 && nimMessages.length > 4) {
+    while (llmBodyBytes > 8 * 1024 * 1024 && nimMessages.length > 4) {
       nimMessages.splice(1, 2);
       const trimmedBody = JSON.stringify({
         model,
@@ -717,18 +718,18 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+        enable_thinking: enableThinkingFlag === true,
       });
-      agnesBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
+      llmBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
     }
     // Phase 2: If still too large, trim system prompt content
-    if (agnesBodyBytes > 8 * 1024 * 1024 && nimMessages[0]?.content) {
+    if (llmBodyBytes > 8 * 1024 * 1024 && nimMessages[0]?.content) {
       // Parse our own payload once (guarded) and measure trims against it.
-      let agnesBase = null;
-      try { agnesBase = JSON.parse(agnesBody); } catch (_) { agnesBase = null; }
+      let llmBase = null;
+      try { llmBase = JSON.parse(llmBody); } catch (_) { llmBase = null; }
       const byteSizeWith = (content) => {
-        const body = agnesBase
-          ? JSON.stringify({ ...agnesBase, messages: [{ role: 'system', content }, ...nimMessages.slice(1)] })
+        const body = llmBase
+          ? JSON.stringify({ ...llmBase, messages: [{ role: 'system', content }, ...nimMessages.slice(1)] })
           : JSON.stringify({ model, messages: [{ role: 'system', content }, ...nimMessages.slice(1)], tools, max_tokens: maxTokens });
         return Buffer.byteLength(body, 'utf8');
       };
@@ -757,11 +758,11 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+        enable_thinking: enableThinkingFlag === true,
       });
-      agnesBodyBytes = Buffer.byteLength(finalBody, 'utf8');
+      llmBodyBytes = Buffer.byteLength(finalBody, 'utf8');
     }
-    console.log('[proxyAI] Payload size after trim:', (agnesBodyBytes / 1024 / 1024).toFixed(2), 'MB');
+    console.log('[proxyAI] Payload size after trim:', (llmBodyBytes / 1024 / 1024).toFixed(2), 'MB');
   }
 
 
@@ -775,14 +776,14 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
       // Global spend brake: 8 rounds are normal, retries are not.
       // Caps the worst case at 8 successes + 4 retries per message
       // (was: 8 rounds x 3 attempts = 24 paid calls).
-      let agnesCalls = 0;
-      const MAX_AGNES_CALLS_PER_MESSAGE = 12;
+      let llmCalls = 0;
+      const MAX_LLM_CALLS_PER_MESSAGE = 12;
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
       let forceTextNextRound = false; // repair rounds carry no tools: the nudge demands text only
       let fullContent = ''; // this round's streamed text (loop scope so post-loop repair can keep it)
-      let _hitLengthLimit = false; // set when Agnes stops mid-reply (finish_reason=length)
+      let _hitLengthLimit = false; // set when the model stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
       // another paid round on the same call.
@@ -795,18 +796,17 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
         const noToolsThisRound = forceTextNextRound;
         forceTextNextRound = false;
 
-        // Retry transient Agnes API errors (429, 502, 503) up to 2 times
+        // Retry transient TokenHarbor API errors (429, 502, 503) up to 2 times
         let streamResp = null;
         let lastFetchError = null;
-        let lastWas429 = false;
         for (let attempt = 0; attempt < 3; attempt++) {
-          if (agnesCalls >= MAX_AGNES_CALLS_PER_MESSAGE) {
+          if (llmCalls >= MAX_LLM_CALLS_PER_MESSAGE) {
             lastFetchError = 'message call budget spent';
             break;
           }
-          agnesCalls++;
+          llmCalls++;
           try {
-            streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+            streamResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -824,7 +824,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
                 temperature: 0.6,
                 top_p: 0.95,
                 stream: true,
-                ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+                enable_thinking: enableThinkingFlag === true,
               }),
               // Artifact builds (games, quizzes) stream far longer than
               // chat — 280s sits inside the 300s function budget so a slow
@@ -835,23 +835,20 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
 
             if (streamResp.ok) break; // success
             if (![429, 502, 503].includes(streamResp.status)) break; // non-retryable
-            lastFetchError = `Agnes HTTP ${streamResp.status}`;
-            lastWas429 = streamResp.status === 429;
+            lastFetchError = `TokenHarbor HTTP ${streamResp.status}`;
           } catch (fetchErr) {
             lastFetchError = fetchErr.message;
-            lastWas429 = false;
           }
-          // Backoff before retry: 429s wait out the RPM window (free
-          // tier is 5/min, so one slot opens every 12s); 502/503 and
-          // network blips keep the fast 1s-step retry.
+          // Backoff before retry: TokenHarbor is pay-as-you-go with no
+          // free-tier RPM window, so every retry keeps the fast 1s step.
           if (attempt < 2) {
-            const waitMs = lastWas429 ? 12000 * (attempt + 1) : 1000 * (attempt + 1);
+            const waitMs = 1000 * (attempt + 1);
             await new Promise((r) => setTimeout(r, waitMs));
           }
         }
 
         if (!streamResp || !streamResp.ok) {
-          console.warn(`proxyAI Agnes fetch failed after retries: ${lastFetchError || streamResp?.status}`);
+          console.warn(`proxyAI TokenHarbor fetch failed after retries: ${lastFetchError || streamResp?.status}`);
           try {
             const fallback = composeTodayRecap({
               dateLabel: phtDateString(),
@@ -1083,15 +1080,15 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
       // content streams after the preamble as one finished reply.
       const needsPostLoopRepair = !didDanglingRepair &&
         endsWithDanglingColon(_streamedFinalReply) &&
-        agnesCalls < MAX_AGNES_CALLS_PER_MESSAGE;
+        llmCalls < MAX_LLM_CALLS_PER_MESSAGE;
       if (needsPostLoopRepair) {
         didDanglingRepair = true;
-        agnesCalls++;
+        llmCalls++;
         if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
         currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
         sendEvent({ tool_status: 'repairing' });
         try {
-          const repairResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+          const repairResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -1105,6 +1102,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
               temperature: 0.6,
               top_p: 0.95,
               stream: false,
+              enable_thinking: false,
             }),
             signal: AbortSignal.timeout(60000),
           });
@@ -1124,7 +1122,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
       stopKeepalive();
       stopHeartbeat();
       if (_hitLengthLimit) {
-        console.warn('[proxyAI] Agnes hit max_tokens mid-reply — artifact may be truncated (no closing fence, no Preview button).');
+        console.warn('[proxyAI] model hit max_tokens mid-reply — artifact may be truncated (no closing fence, no Preview button).');
       }
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
@@ -1182,9 +1180,9 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
     return;
   }
 
-  async function callAgnesOnce(msgs, withoutTools = false) {
+  async function callLlmOnce(msgs, withoutTools = false) {
     const resp = await fetch(
-      'https://apihub.agnes-ai.com/v1/chat/completions',
+      'https://tokenharbor.ai/v1/chat/completions',
       {
         method: 'POST',
         headers: {
@@ -1199,7 +1197,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
-          ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+          enable_thinking: enableThinkingFlag === true,
         }),
         // Same artifact headroom as the streaming path (280s < 300s budget).
         signal: AbortSignal.timeout(wantsArtifact ? 280000 : 60000),
@@ -1209,16 +1207,16 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
   }
 
   function nonStreamError(status, detail) {
-    // Special-case 413 (Payload Too Large) — pass through Agnes's detail
+    // Special-case 413 (Payload Too Large) — pass through the model's detail
     if (status === 413) {
-      console.error('[proxyAI] Agnes returned 413:', detail);
+      console.error('[proxyAI] Model returned 413:', detail);
       return res.status(413).json({
         error: `Payload too large. ${detail}`,
         model: model,
       });
     }
     return res.status(status).json({
-      error: `Agnes returned ${status}`,
+      error: `Model returned ${status}`,
       detail,
       model: model,
     });
@@ -1237,19 +1235,20 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     let response;
     try {
-      response = await callAgnesOnce(nsMessages);
+      response = await callLlmOnce(nsMessages);
     } catch (_) {
       response = null;
     }
     if (!response || !response.ok) {
       if (round > 0) break; // mid-loop failure: keep what we have
-      nonStreamError(response ? response.status : 502, 'No response from Agnes');
+      nonStreamError(response ? response.status : 502, 'No response from the model');
       return;
     }
     const data = await response.json();
     nsModel = data.model || nsModel;
     const message = data.choices?.[0]?.message || {};
     if (message.reasoning) nsReasoning += message.reasoning;
+    if (message.reasoning_content) nsReasoning += message.reasoning_content;
     if (message.content) nsReply += message.content;
     const freshCalls = (message.tool_calls || []).filter(Boolean).filter((tc) => {
       const key = `${tc.function?.name || ''}:${tc.function?.arguments || ''}`;
@@ -1316,7 +1315,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
     nsMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
     try {
-      const repairResp = await callAgnesOnce(nsMessages, true);
+      const repairResp = await callLlmOnce(nsMessages, true);
       if (repairResp && repairResp.ok) {
         const repairData = await repairResp.json();
         const repairMsg = repairData.choices?.[0]?.message || {};
@@ -1331,7 +1330,7 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
     nsMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
     try {
-      const danglingResp = await callAgnesOnce(nsMessages, true);
+      const danglingResp = await callLlmOnce(nsMessages, true);
       if (danglingResp && danglingResp.ok) {
         const danglingData = await danglingResp.json();
         const danglingMsg = danglingData.choices?.[0]?.message || {};
