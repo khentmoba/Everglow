@@ -62,6 +62,7 @@ class _MotchiHeader extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Stack(
+            clipBehavior: Clip.none,
             children: [
               Container(
                 width: 36,
@@ -69,13 +70,13 @@ class _MotchiHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.blushGold.withValues(alpha: 0.45),
+                    color: AppColors.blushGold.withValues(alpha: 0.55),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.blushGold.withValues(alpha: 0.25),
-                      blurRadius: 10,
+                      color: AppColors.blushGold.withValues(alpha: 0.28),
+                      blurRadius: 12,
                       spreadRadius: 1,
                     ),
                   ],
@@ -94,11 +95,11 @@ class _MotchiHeader extends StatelessWidget {
                 ),
               ),
               Positioned(
-                right: 0,
-                bottom: 0,
+                right: -2,
+                bottom: -2,
                 child: Container(
-                  width: 9,
-                  height: 9,
+                  width: 10,
+                  height: 10,
                   decoration: BoxDecoration(
                     color: AppColors.success,
                     shape: BoxShape.circle,
@@ -132,19 +133,34 @@ class _MotchiHeader extends StatelessWidget {
                     if (!compact) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.blushGold.withValues(alpha: 0.14),
                           borderRadius: AppRadius.radiusFull,
-                        ),
-                        child: Text(
-                          '🐾 CAT',
-                          style: AppTypography.labelSmall().copyWith(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
-                            color: AppColors.blushGold,
+                          border: Border.all(
+                            color: AppColors.blushGold.withValues(alpha: 0.28),
+                            width: 0.8,
                           ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.pets_rounded,
+                              size: 9,
+                              color: AppColors.blushGold,
+                            ),
+                            const SizedBox(width: 3.5),
+                            Text(
+                              'CAT',
+                              style: AppTypography.labelSmall().copyWith(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                                color: AppColors.blushGold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -153,7 +169,7 @@ class _MotchiHeader extends StatelessWidget {
                 if (!compact) ...[
                   const SizedBox(height: 2),
                   Text(
-                    'Your cat who knows everything about you two',
+                    'Your cat who knows everything about you two 🐾',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.bodySmall().copyWith(
