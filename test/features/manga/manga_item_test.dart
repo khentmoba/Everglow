@@ -8,17 +8,33 @@ void main() {
     test('contentType maps original language to content type', () {
       // Verified via fromFirestore to reuse the default-arg path.
       MangaItem item(String lang) => MangaItem.fromFirestore({
-            'mangaId': 'hid1',
-            'title': 'T',
-            'originalLanguage': lang,
-          }, 'doc1');
+        'mangaId': 'hid1',
+        'title': 'T',
+        'originalLanguage': lang,
+      }, 'doc1');
 
       expect(item('jp').contentType, 'Manga');
       expect(item('ja').contentType, 'Manga');
       expect(item('ko').contentType, 'Manhwa');
+      expect(item('kr').contentType, 'Manhwa');
       expect(item('zh').contentType, 'Manhua');
       expect(item('cn').contentType, 'Manhua');
       expect(item('en').contentType, 'Other');
+    });
+
+    test('hasAuthor only accepts a non-empty author', () {
+      MangaItem item({String author = '', String artist = ''}) => MangaItem(
+        id: 'doc1',
+        mangaId: 'hid1',
+        title: 'T',
+        author: author,
+        artist: artist,
+        addedAt: DateTime.utc(2026, 1, 1),
+      );
+
+      expect(item().hasAuthor, isFalse);
+      expect(item(author: 'Author').hasAuthor, isTrue);
+      expect(item(artist: 'Artist').hasAuthor, isFalse);
     });
 
     test('library status getters reflect libraryStatus', () {
@@ -89,8 +105,10 @@ void main() {
       expect(restored.tags, item.tags);
       expect(restored.userName, item.userName);
       // Timestamp.toDate() returns local time; compare epoch millis.
-      expect(restored.addedAt.millisecondsSinceEpoch,
-          addedAt.millisecondsSinceEpoch);
+      expect(
+        restored.addedAt.millisecondsSinceEpoch,
+        addedAt.millisecondsSinceEpoch,
+      );
       expect(restored.libraryStatus, item.libraryStatus);
       expect(restored.lastReadChapterId, item.lastReadChapterId);
       expect(restored.lastReadPage, item.lastReadPage);
@@ -206,8 +224,14 @@ void main() {
         expiresAt: DateTime.utc(2026, 1, 1),
       );
 
-      expect(pages.urlForPage(0), 'https://uploads.example.com/data/abc123/001.jpg');
-      expect(pages.urlForPage(1), 'https://uploads.example.com/data/abc123/002.jpg');
+      expect(
+        pages.urlForPage(0),
+        'https://uploads.example.com/data/abc123/001.jpg',
+      );
+      expect(
+        pages.urlForPage(1),
+        'https://uploads.example.com/data/abc123/002.jpg',
+      );
     });
 
     test('urlForPage treats filenames as direct URLs when base is empty', () {

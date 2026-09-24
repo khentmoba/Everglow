@@ -57,6 +57,15 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     super.initState();
     _item = widget.item;
     _loadChapters();
+    unawaited(_hydrateMetadata());
+  }
+
+  Future<void> _hydrateMetadata() async {
+    if (_item.hasAuthor) return;
+    final user = context.read<AuthService>().currentUser ?? '';
+    final enriched = await _kakalotService.enrichMetadata(_item, user);
+    if (!mounted || enriched == null) return;
+    setState(() => _item = enriched);
   }
 
   /// In-memory chapter cache so reopening the same manga is instant.

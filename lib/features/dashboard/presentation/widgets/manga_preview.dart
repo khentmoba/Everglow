@@ -209,12 +209,6 @@ class _MangaShelfState extends State<_MangaShelf> {
     );
   }
 
-  String _subtitleFor(MangaItem item) {
-    final author = item.author.isNotEmpty ? item.author : item.artist;
-    if (author.isEmpty) return item.contentType;
-    return '$author • ${item.contentType}';
-  }
-
   String _proxyCoverUrl(String url) => proxyMangaCoverUrl(url);
 
   List<Widget> _buildCards() {
@@ -226,7 +220,6 @@ class _MangaShelfState extends State<_MangaShelf> {
               accent: ShelfAccent.manga,
               imageUrl: _proxyCoverUrl(item.coverUrl),
               title: item.title,
-              subtitle: _subtitleFor(item),
               topBadge: item.contentType.toUpperCase(),
               onTap: () => _openDetails(item),
             ),
