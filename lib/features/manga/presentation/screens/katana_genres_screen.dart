@@ -29,7 +29,7 @@ class _KatanaGenresScreenState extends State<KatanaGenresScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.embed) _load();
   }
 
   Future<void> _load() async {

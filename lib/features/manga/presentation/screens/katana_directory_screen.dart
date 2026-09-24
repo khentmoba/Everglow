@@ -89,7 +89,7 @@ class _KatanaDirectoryScreenState extends State<KatanaDirectoryScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.embed) _load();
   }
 
   Future<void> _load() async {
