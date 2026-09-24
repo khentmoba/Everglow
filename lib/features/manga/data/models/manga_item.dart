@@ -7,8 +7,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// `mangaId`. The `mangaKakalotId` field stores the MangaKakalot slug
 /// for chapter resolution.
 ///
-/// `originalLanguage` maps from Comick's `country` field:
-///   `jp` = Manga, `ko` = Manhwa, `cn`/`zh` = Manhua.
+/// `originalLanguage` maps from source country/language fields:
+///   `jp`/`ja` = Manga, `kr`/`ko` = Manhwa, `cn`/`zh` = Manhua.
 class MangaItem {
   final String id;
   final String mangaId;
@@ -86,10 +86,11 @@ class MangaItem {
   });
 
   /// Convenience label for the content type. Used in poster cards and
-  /// filters. Falls back to "Manga" for anything outside ja/ko/zh.
+  /// filters. Comick uses `kr` for Korean while MangaDex uses `ko`.
   String get contentType {
-    switch (originalLanguage) {
+    switch (originalLanguage.toLowerCase()) {
       case 'ko':
+      case 'kr':
         return 'Manhwa';
       case 'zh':
       case 'cn':
@@ -101,6 +102,9 @@ class MangaItem {
         return 'Other';
     }
   }
+
+  /// Whether the entry has an author name.
+  bool get hasAuthor => author.trim().isNotEmpty;
 
   bool get isInLibrary => libraryStatus != 'none' && libraryStatus.isNotEmpty;
   bool get isReading => libraryStatus == 'reading';

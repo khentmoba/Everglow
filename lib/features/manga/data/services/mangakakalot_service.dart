@@ -8,6 +8,10 @@ import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
+import 'comick_service.dart';
+import 'katana_service.dart';
+import 'mangadex_service.dart';
+import '../models/katana_models.dart';
 
 /// Scrapes mangakakalot.com for chapter data and page images. Catalog
 /// browsing (search, popular, latest) is still handled by [ComickService].
@@ -198,6 +202,165 @@ class MangaKakalotService with ConnectivityAware {
 
   // ── LIBRARY (Firestore) ────────────────────────────────────────────
 
+  /// Fill missing creator and catalog metadata for a library item.
+  ///
+  /// Older entries were saved from slim search results, so they can have a
+  /// cover and title but no author. Resolve the source detail once and merge
+  /// the useful fields back into the user's library document.
+  Future<MangaItem?> enrichMetadata(MangaItem item, String userName) async {
+    if (item.hasAuthor) return item;
+
+    MangaItem? full;
+    try {
+      if (item.mangaId.startsWith('katana|')) {
+        final slug = item.mangaKakalotId.isNotEmpty
+            ? item.mangaKakalotId
+            : item.mangaId.substring('katana|'.length);
+        final detail = await KatanaService().fetchMangaDetail(slug);
+        if (detail != null) full = _katanaMetadata(item, detail);
+      } else if (item.comickId > 0 || item.comickSlug.isNotEmpty) {
+        full = await ComickService().getDetails(item.mangaId);
+        if (full == null || !full.hasAuthor) {
+          full = await _findMangaDexMatch(item);
+        }
+      } else if (item.mangaKakalotId.isNotEmpty) {
+        full = await MangaDexService().getDetails(item.mangaKakalotId);
+        if (full == null || !full.hasAuthor) {
+          full = await _findMangaDexMatch(item);
+        }
+      }
+    } catch (e, st) {
+      Logger.e(
+        'Manga metadata enrichment failed for ${item.mangaId}',
+        error: e,
+        stackTrace: st,
+      );
+      return null;
+    }
+
+    if (full == null) return null;
+    final merged = _mergeMetadata(item, full);
+    final patch = _metadataPatch(merged);
+    if (userName.isNotEmpty && patch.isNotEmpty) {
+      try {
+        final docs = await withGetTimeout(
+          _firestore
+              .collection('manga_library')
+              .where('mangaId', isEqualTo: item.mangaId)
+              .where('userName', isEqualTo: userName)
+              .limit(1)
+              .get(),
+          label: 'manga metadata repair lookup',
+        );
+        if (docs.docs.isNotEmpty) {
+          await docs.docs.first.reference.update(patch);
+        }
+      } catch (e, st) {
+        Logger.e(
+          'Manga metadata enrichment write failed for ${item.mangaId}',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+    return merged;
+  }
+
+  Future<MangaItem?> _findMangaDexMatch(MangaItem item) async {
+    if (item.title.trim().isEmpty) return null;
+    final results = await MangaDexService().search(query: item.title, limit: 5);
+    final wanted = item.title.trim().toLowerCase();
+    MangaItem? match;
+    for (final candidate in results) {
+      final names = [candidate.title, ...candidate.altTitles];
+      if (names.any((name) => name.trim().toLowerCase() == wanted)) {
+        match = candidate;
+        break;
+      }
+    }
+    if (match == null) return null;
+    if (match.hasAuthor) return match;
+    return MangaDexService().getDetails(match.mangaId);
+  }
+
+  MangaItem _katanaMetadata(MangaItem base, KatanaManga manga) {
+    final hasTypeGenre = manga.genres.any((genre) {
+      final value = '${genre.slug} ${genre.name}'.toLowerCase();
+      return value.contains('manhwa') || value.contains('manhua');
+    });
+    return base.copyWith(
+      title: manga.title.isNotEmpty ? manga.title : base.title,
+      author: manga.authors.isNotEmpty ? manga.authors.first : base.author,
+      artist: manga.artists.isNotEmpty ? manga.artists.first : base.artist,
+      description: manga.summary.isNotEmpty ? manga.summary : base.description,
+      coverUrl: manga.coverUrl.isNotEmpty
+          ? KatanaService.proxyImageUrl(manga.coverUrl)
+          : base.coverUrl,
+      status: manga.status.isNotEmpty ? manga.status : base.status,
+      originalLanguage: hasTypeGenre
+          ? katanaLanguageForGenres(manga.genres)
+          : base.originalLanguage,
+      tags: manga.genres.isNotEmpty
+          ? [for (final genre in manga.genres) genre.name]
+          : base.tags,
+      altTitles: manga.altNames.isNotEmpty ? manga.altNames : base.altTitles,
+    );
+  }
+
+  MangaItem _mergeMetadata(MangaItem base, MangaItem full) {
+    return base.copyWith(
+      title: full.title.isNotEmpty ? full.title : base.title,
+      author: full.author.isNotEmpty ? full.author : base.author,
+      artist: full.artist.isNotEmpty ? full.artist : base.artist,
+      description: full.description.isNotEmpty
+          ? full.description
+          : base.description,
+      coverUrl: base.coverUrl.isNotEmpty ? base.coverUrl : full.coverUrl,
+      year: full.year.isNotEmpty ? full.year : base.year,
+      status: full.status.isNotEmpty ? full.status : base.status,
+      originalLanguage: full.originalLanguage.isNotEmpty
+          ? full.originalLanguage
+          : base.originalLanguage,
+      tags: full.tags.isNotEmpty ? full.tags : base.tags,
+      rating: full.rating > 0 ? full.rating : base.rating,
+      followCount: full.followCount > 0 ? full.followCount : base.followCount,
+      altTitles: full.altTitles.isNotEmpty ? full.altTitles : base.altTitles,
+      mangaKakalotId: full.mangaKakalotId.isNotEmpty
+          ? full.mangaKakalotId
+          : base.mangaKakalotId,
+      comickId: full.comickId > 0 ? full.comickId : base.comickId,
+      comickSlug: full.comickSlug.isNotEmpty
+          ? full.comickSlug
+          : base.comickSlug,
+    );
+  }
+
+  Map<String, dynamic> _metadataPatch(MangaItem item) {
+    final patch = <String, dynamic>{};
+    void put(String key, String value) {
+      if (value.trim().isNotEmpty) patch[key] = value;
+    }
+
+    put('title', item.title);
+    put('author', item.author);
+    put('artist', item.artist);
+    put('description', item.description);
+    put('coverUrl', item.coverUrl);
+    put('year', item.year);
+    put('status', item.status);
+    put('originalLanguage', item.originalLanguage);
+    if (item.tags.isNotEmpty) patch['tags'] = item.tags;
+    if (item.altTitles.isNotEmpty) patch['altTitles'] = item.altTitles;
+    if (item.rating > 0) patch['rating'] = item.rating;
+    if (item.followCount > 0) patch['followCount'] = item.followCount;
+    if (item.mangaKakalotId.isNotEmpty) {
+      patch['mangaKakalotId'] = item.mangaKakalotId;
+    }
+    if (item.comickId > 0) patch['comickId'] = item.comickId;
+    if (item.comickSlug.isNotEmpty) patch['comickSlug'] = item.comickSlug;
+    return patch;
+  }
+
   Future<void> saveToLibrary(
     MangaItem item,
     String libraryStatus,
@@ -205,10 +368,12 @@ class MangaKakalotService with ConnectivityAware {
   ) async {
     if (userName.isEmpty) return;
     try {
+      final enriched = await enrichMetadata(item, userName);
+      final saveItem = enriched ?? item;
       final collection = _firestore.collection('manga_library');
       final existing = await withGetTimeout(
         collection
-            .where('mangaId', isEqualTo: item.mangaId)
+            .where('mangaId', isEqualTo: saveItem.mangaId)
             .where('userName', isEqualTo: userName)
             .limit(1)
             .get(),
@@ -218,10 +383,11 @@ class MangaKakalotService with ConnectivityAware {
         await collection.doc(existing.docs.first.id).update({
           'libraryStatus': libraryStatus,
           'addedAt': Timestamp.now(),
+          ..._metadataPatch(saveItem),
         });
       } else {
         await collection.add(
-          item
+          saveItem
               .copyWith(
                 libraryStatus: libraryStatus,
                 userName: userName,

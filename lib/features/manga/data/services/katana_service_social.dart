@@ -127,19 +127,27 @@ extension KatanaServiceSocial on KatanaService {
           }, SetOptions(merge: true));
         } else {
           for (final doc in existing.docs) {
-            // One-time backfill for bare auto-adds saved before the detail
-            // fetch above existed (empty tags): merge full metadata so the
-            // badge and tags correct themselves on the next read.
-            final tags = doc.data()['tags'];
-            if (tags is List && tags.isEmpty) {
+            // Repair bare or partial auto-adds on the next read. A record
+            // can have tags/type data while its creator fields are still
+            // empty, so checking tags alone is not enough.
+            final metadata = doc.data();
+            final tags = metadata['tags'];
+            final author = metadata['author'] as String?;
+            final artist = metadata['artist'] as String?;
+            final needsDetail =
+                (tags is! List || tags.isEmpty) ||
+                ((author == null || author.trim().isEmpty) &&
+                    (artist == null || artist.trim().isEmpty));
+            if (needsDetail) {
               final manga = await _fullMangaForReading(
                 slug: slug,
                 title: title,
                 coverUrl: coverUrl,
               );
-              // Never blank a good title when both the reader and the
-              // detail fetch come up empty.
-              if (manga.title.isNotEmpty) {
+              // Never replace an existing record with bare fallback data
+              // when the detail request failed.
+              if (manga.title.isNotEmpty &&
+                  (manga.authors.isNotEmpty || manga.genres.isNotEmpty)) {
                 await setReading(manga, userName, reading: true);
               }
             }

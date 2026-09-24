@@ -275,6 +275,20 @@ class MangaDexService with ConnectivityAware {
     final relationships = data['relationships'] as List?;
     final rating = attrs['rating'] as Map<String, dynamic>?;
 
+    var author = '';
+    var artist = '';
+    for (final relationship in relationships ?? const <dynamic>[]) {
+      if (relationship is! Map) continue;
+      final type = relationship['type'] as String?;
+      final name = (relationship['attributes'] as Map?)?['name'] as String?;
+      if (name == null || name.trim().isEmpty) continue;
+      if (type == 'author' && author.isEmpty) {
+        author = name;
+      } else if (type == 'artist' && artist.isEmpty) {
+        artist = name;
+      }
+    }
+
     // Extract alt titles for fallback matching on other sources
     final altTitlesRaw = attrs['altTitles'] as List?;
     final altTitles = <String>[];
@@ -295,6 +309,8 @@ class MangaDexService with ConnectivityAware {
       mangaId: mangaId,
       mangaKakalotId: mangaId,
       title: _extractTitle(attrs),
+      author: author,
+      artist: artist,
       description: _extractDescription(attrs),
       coverUrl: _coverUrl(mangaId, relationships),
       year: (attrs['year'] as int?)?.toString() ?? '',
@@ -306,6 +322,31 @@ class MangaDexService with ConnectivityAware {
       followCount: attrs['followedCount'] as int? ?? 0,
       altTitles: altTitles,
     );
+  }
+
+  /// Fetch full metadata for a MangaDex manga by UUID.
+  Future<MangaItem?> getDetails(String mangaId) async {
+    if (mangaId.isEmpty) return null;
+    final path =
+        'manga/$mangaId'
+        '?includes[]=author'
+        '&includes[]=artist'
+        '&includes[]=cover_art'
+        '&includes[]=tags';
+    try {
+      final headers = await _authHeaders();
+      final response = await http
+          .get(_proxied(path), headers: headers)
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final body = json.decode(response.body) as Map<String, dynamic>;
+        final data = body['data'];
+        if (data is Map<String, dynamic>) return _mapMangaItem(data);
+      }
+    } catch (e) {
+      Logger.e('MangaDex details error', error: e);
+    }
+    return null;
   }
 
   /// Search MangaDex by title.
@@ -325,6 +366,8 @@ class MangaDexService with ConnectivityAware {
       'manga?title=${Uri.encodeQueryComponent(query)}'
       '&limit=$limit&offset=$offset'
       '&includes[]=cover_art'
+      '&includes[]=author'
+      '&includes[]=artist'
       '&order[followedCount]=desc'
       '&contentRating[]=safe'
       '&contentRating[]=suggestive'
@@ -364,6 +407,8 @@ class MangaDexService with ConnectivityAware {
     final buf = StringBuffer(
       'manga?limit=$limit&offset=$offset'
       '&includes[]=cover_art'
+      '&includes[]=author'
+      '&includes[]=artist'
       '&order[followedCount]=desc'
       '&contentRating[]=safe'
       '&contentRating[]=suggestive'
@@ -403,6 +448,8 @@ class MangaDexService with ConnectivityAware {
     final buf = StringBuffer(
       'manga?limit=$limit&offset=$offset'
       '&includes[]=cover_art'
+      '&includes[]=author'
+      '&includes[]=artist'
       '&order[latestUploadedChapter]=desc'
       '&contentRating[]=safe'
       '&contentRating[]=suggestive'
