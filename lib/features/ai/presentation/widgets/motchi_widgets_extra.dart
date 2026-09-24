@@ -127,35 +127,64 @@ class _MessageBubbleState extends State<_MessageBubble> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!widget.isUser) ...[
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.blushGold.withValues(alpha: 0.45),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blushGold.withValues(alpha: 0.25),
-                    blurRadius: 14,
-                    spreadRadius: 1,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: AppColors.blushGold.withValues(alpha: 0.55),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.blushGold.withValues(alpha: 0.30),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                      ),
+                      BoxShadow(
+                        color: AppColors.auroraLilac.withValues(alpha: 0.18),
+                        blurRadius: 20,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(11),
-                child: Image.asset(
-                  'assets/images/motchi_avatar.webp',
-                  width: 36,
-                  height: 36,
-                  cacheWidth: kIsWeb ? null : 108,
-                  cacheHeight: kIsWeb ? null : 108,
-                  filterQuality: FilterQuality.high,
-                  fit: BoxFit.cover,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/motchi_avatar.webp',
+                      width: 38,
+                      height: 38,
+                      cacheWidth: kIsWeb ? null : 114,
+                      cacheHeight: kIsWeb ? null : 114,
+                      filterQuality: FilterQuality.high,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
-              ),
+                Positioned(
+                  bottom: -3,
+                  right: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(2.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.inkDeep,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.70),
+                        width: 1,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.pets_rounded,
+                      size: 9,
+                      color: AppColors.blushGold,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 10),
           ],
@@ -182,66 +211,68 @@ class _MessageBubbleState extends State<_MessageBubble> {
                   maxWidth: MediaQuery.sizeOf(context).width *
                       (widget.isUser ? 0.78 : 0.82),
                 ),
-                padding: const EdgeInsets.fromLTRB(18, 15, 18, 14),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
                 decoration: BoxDecoration(
                   gradient: widget.isUser
                       ? const LinearGradient(
                           colors: [
                             AppColors.deepRose,
                             AppColors.roseDepths,
-                            AppColors.roseDark,
+                            AppColors.plum,
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         )
                       : LinearGradient(
                           colors: [
-                            AppColors.velvet.withValues(alpha: 0.68),
-                            AppColors.inkDeep.withValues(alpha: 0.88),
+                            AppColors.inkDeep.withValues(alpha: 0.94),
+                            AppColors.velvet.withValues(alpha: 0.72),
+                            AppColors.inkDeep.withValues(alpha: 0.90),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                   borderRadius: widget.isUser
                       ? const BorderRadius.only(
-                          topLeft: Radius.circular(20),
-                          topRight: Radius.circular(20),
-                          bottomLeft: Radius.circular(20),
-                          bottomRight: Radius.circular(6),
-                        )
-                      : const BorderRadius.only(
-                          topLeft: Radius.circular(6),
-                          topRight: Radius.circular(22),
+                          topLeft: Radius.circular(22),
+                          topRight: Radius.circular(8),
                           bottomLeft: Radius.circular(22),
                           bottomRight: Radius.circular(22),
+                        )
+                      : const BorderRadius.only(
+                          topLeft: Radius.circular(8),
+                          topRight: Radius.circular(24),
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
                         ),
                   border: Border.all(
                     color: widget.isUser
-                        ? AppColors.petalWhite.withValues(alpha: 0.20)
-                        : AppColors.moonlight.withValues(alpha: 0.10),
+                        ? AppColors.petalWhite.withValues(alpha: 0.24)
+                        : AppColors.blushGold.withValues(alpha: 0.18),
+                    width: 1.0,
                   ),
                   boxShadow: widget.isUser
                       ? [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.25),
-                            blurRadius: 14,
+                            color: Colors.black.withValues(alpha: 0.28),
+                            blurRadius: 16,
                             offset: const Offset(0, 4),
                           ),
                           BoxShadow(
-                            color: AppColors.deepRose.withValues(alpha: 0.32),
-                            blurRadius: 20,
+                            color: AppColors.deepRose.withValues(alpha: 0.35),
+                            blurRadius: 22,
                             offset: const Offset(0, 6),
                           ),
                         ]
                       : [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 22,
+                            color: Colors.black.withValues(alpha: 0.38),
+                            blurRadius: 24,
                             offset: const Offset(0, 8),
                           ),
                           BoxShadow(
-                            color: AppColors.auroraLilac.withValues(alpha: 0.09),
-                            blurRadius: 24,
+                            color: AppColors.blushGold.withValues(alpha: 0.08),
+                            blurRadius: 20,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -251,6 +282,59 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
+                    if (!widget.isUser) ...[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.blushGold.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppColors.blushGold.withValues(alpha: 0.25),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.pets_rounded,
+                                  size: 10,
+                                  color: AppColors.blushGold,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'MOTCHI',
+                                  style: AppTypography.labelSmall().copyWith(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.8,
+                                    color: AppColors.blushGold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (widget.isStreaming) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              'purring…',
+                              style: AppTypography.bodySmall().copyWith(
+                                fontSize: 11,
+                                fontStyle: FontStyle.italic,
+                                color: AppColors.blushGold.withValues(alpha: 0.75),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     if (hasReasoning)
                       GestureDetector(
                         onTap: () =>
@@ -262,12 +346,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.inkDeep.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.inkDeep.withValues(alpha: 0.70),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: AppColors.blushGold.withValues(
-                                alpha: 0.20,
+                                alpha: 0.28,
                               ),
+                              width: 0.9,
                             ),
                           ),
                           child: Column(
@@ -277,20 +362,18 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(
-                                    Icons.psychology_rounded,
-                                    size: 14,
-                                    color: AppColors.blushGold.withValues(
-                                      alpha: 0.7,
-                                    ),
+                                  const Icon(
+                                    Icons.pets_rounded,
+                                    size: 13,
+                                    color: AppColors.blushGold,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Pondering${widget.isStreaming ? '...' : ''}',
+                                    'Motchi\'s thoughts${widget.isStreaming ? '…' : ''}',
                                     style: AppTypography.bodySmall().copyWith(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.blushGold.withValues(alpha: 0.9),
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.blushGold,
                                     ),
                                   ),
                                   const SizedBox(width: 6),
@@ -299,7 +382,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                         ? Icons.keyboard_arrow_up_rounded
                                         : Icons.keyboard_arrow_down_rounded,
                                     size: 14,
-                                    color: AppColors.textDisabled,
+                                    color: AppColors.blushGold.withValues(alpha: 0.7),
                                   ),
                                 ],
                               ),
@@ -380,33 +463,33 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         padding: EdgeInsets.only(top: 7),
                         child: _StreamingProgressBar(),
                       ),
-                    // Quiet footer: time and actions stay available without
-                    // competing with the reply for attention.
+                    // Cozy footer: whispered for you two with soft icon actions
                     if (!widget.isUser && !widget.isStreaming)
                       Padding(
-                        padding: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.only(top: 8),
                         child: Row(
                           children: [
                             Icon(
-                              Icons.lock_outline_rounded,
-                              size: 12,
-                              color: AppColors.textMuted,
+                              Icons.favorite_rounded,
+                              size: 11,
+                              color: AppColors.blushGold.withValues(alpha: 0.75),
                             ),
                             const SizedBox(width: 5),
                             Expanded(
                               child: Text(
                                 widget.timestamp == null
-                                    ? 'Private to you two'
-                                    : '${isToday ? timeStr : fullDateStr} · Private',
+                                    ? 'Whispered for you two 🐾'
+                                    : '${isToday ? timeStr : fullDateStr} · Whispered for you two 🐾',
                                 style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.textMuted,
+                                  color: AppColors.textMuted.withValues(alpha: 0.85),
                                 ),
                               ),
                             ),
                             if (displayText.trim().isNotEmpty) ...[
                               EverglowCopyIconButton(textToCopy: displayText),
+                              const SizedBox(width: 4),
                               _ListenButton(text: displayText),
                             ],
                           ],
@@ -414,28 +497,24 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       ),
                     if (widget.timestamp != null && widget.isUser)
                       Padding(
-                        padding: const EdgeInsets.only(top: 5),
+                        padding: const EdgeInsets.only(top: 6),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (widget.isUser) ...[
-                              Icon(
-                                Icons.favorite_rounded,
-                                size: 9,
-                                color: AppColors.petalWhite.withValues(alpha: 0.65),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
+                            Icon(
+                              Icons.favorite_rounded,
+                              size: 10,
+                              color: AppColors.blushGold.withValues(alpha: 0.9),
+                            ),
+                            const SizedBox(width: 4),
                             Text(
                               isToday ? timeStr : fullDateStr,
                               style: AppTypography.bodySmall().copyWith(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: widget.isUser
-                                    ? AppColors.petalWhite.withValues(
-                                        alpha: 0.75,
-                                      )
-                                    : AppColors.textMuted,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.85,
+                                ),
                               ),
                             ),
                           ],
@@ -537,24 +616,28 @@ class _UserAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmed = (name ?? '').trim();
     final initial = trimmed.isEmpty ? '?' : trimmed[0].toUpperCase();
+    final isClair = trimmed.toLowerCase().startsWith('c');
     return Container(
-      width: 32,
-      height: 32,
+      width: 34,
+      height: 34,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [AppColors.deepRose, AppColors.plum],
+        gradient: LinearGradient(
+          colors: isClair
+              ? const [AppColors.auroraRose, AppColors.deepRose]
+              : const [AppColors.deepRose, AppColors.plum],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: AppColors.roseQuartz.withValues(alpha: 0.45),
-          width: 1.2,
+          color: AppColors.blushGold.withValues(alpha: 0.60),
+          width: 1.3,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.deepRose.withValues(alpha: 0.30),
-            blurRadius: 10,
+            color: (isClair ? AppColors.auroraRose : AppColors.deepRose)
+                .withValues(alpha: 0.35),
+            blurRadius: 12,
             offset: const Offset(0, 2),
           ),
         ],
@@ -563,9 +646,9 @@ class _UserAvatar extends StatelessWidget {
         child: Text(
           initial,
           style: AppTypography.bodySmall().copyWith(
-            fontSize: 12.5,
+            fontSize: 13,
             color: AppColors.petalWhite,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),

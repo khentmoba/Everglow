@@ -706,7 +706,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       const SizedBox(height: 6),
                       Padding(
                         padding: const EdgeInsets.only(left: 46),
-                        child: _WebSourcesCard(sources: msg.sources),
+                        child: WebSourcesCard(sources: msg.sources),
                       ),
                     ],
                   );

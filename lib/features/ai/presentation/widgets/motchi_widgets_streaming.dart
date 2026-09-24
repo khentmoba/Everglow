@@ -217,62 +217,93 @@ class _ThinkingIndicator extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(11),
-              border: Border.all(
-                color: AppColors.blushGold.withValues(alpha: 0.45),
-                width: 1.1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.blushGold.withValues(alpha: 0.25),
-                  blurRadius: 12,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.blushGold.withValues(alpha: 0.55),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.blushGold.withValues(alpha: 0.30),
+                      blurRadius: 14,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/images/motchi_avatar.webp',
-                width: 32,
-                height: 32,
-                cacheWidth: kIsWeb ? null : 96,
-                cacheHeight: kIsWeb ? null : 96,
-                filterQuality: FilterQuality.high,
-                fit: BoxFit.cover,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: Image.asset(
+                    'assets/images/motchi_avatar.webp',
+                    width: 36,
+                    height: 36,
+                    cacheWidth: kIsWeb ? null : 108,
+                    cacheHeight: kIsWeb ? null : 108,
+                    filterQuality: FilterQuality.high,
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                bottom: -2,
+                right: -2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: AppColors.inkDeep,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.blushGold.withValues(alpha: 0.70),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.pets_rounded,
+                    size: 8,
+                    color: AppColors.blushGold,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.velvet.withValues(alpha: 0.68),
-                  AppColors.inkDeep.withValues(alpha: 0.88),
+                  AppColors.inkDeep.withValues(alpha: 0.94),
+                  AppColors.velvet.withValues(alpha: 0.72),
+                  AppColors.inkDeep.withValues(alpha: 0.90),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(6),
-                topRight: Radius.circular(18),
-                bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(18),
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(22),
+                bottomLeft: Radius.circular(22),
+                bottomRight: Radius.circular(22),
               ),
               border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.16),
-                width: 0.9,
+                color: AppColors.blushGold.withValues(alpha: 0.18),
+                width: 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.30),
-                  blurRadius: 16,
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 20,
                   offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: AppColors.blushGold.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
@@ -514,30 +545,30 @@ class _ComposerInputState extends State<_ComposerInput> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.inkDeep.withValues(alpha: 0.92),
-                      AppColors.velvet.withValues(alpha: 0.78),
+                      AppColors.inkDeep.withValues(alpha: 0.95),
+                      AppColors.velvet.withValues(alpha: 0.82),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(26),
                   border: Border.all(
                     color: _focused
-                        ? AppColors.blushGold.withValues(alpha: 0.42)
-                        : AppColors.moonlight.withValues(alpha: 0.16),
+                        ? AppColors.blushGold.withValues(alpha: 0.55)
+                        : AppColors.blushGold.withValues(alpha: 0.16),
                     width: 1.1,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 20,
+                      color: Colors.black.withValues(alpha: 0.38),
+                      blurRadius: 22,
                       offset: const Offset(0, 8),
                     ),
                     if (_focused)
                       BoxShadow(
-                        color: AppColors.blushGold.withValues(alpha: 0.16),
-                        blurRadius: 22,
-                        offset: const Offset(0, 4),
+                        color: AppColors.blushGold.withValues(alpha: 0.20),
+                        blurRadius: 24,
+                        offset: const Offset(0, 3),
                       ),
                   ],
                 ),
@@ -672,10 +703,10 @@ class _ComposerInputState extends State<_ComposerInput> {
                           maxLines: 6,
                           textInputAction: TextInputAction.newline,
                           decoration: InputDecoration(
-                            hintText: 'Share with Motchi… 🐾',
+                            hintText: 'Whisper to Motchi… 🐾',
                             hintStyle: AppTypography.bodyMedium().copyWith(
                               color: AppColors.textDisabled,
-                              fontSize: 13.5,
+                              fontSize: 14,
                             ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
@@ -718,13 +749,13 @@ class _ComposerInputState extends State<_ComposerInput> {
                                               alpha: 0.55,
                                             )
                                           : null),
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                                 border: (!ai.isLoading && canSend)
                                     ? Border.all(
-                                        color: AppColors.petalWhite.withValues(
-                                          alpha: 0.22,
+                                        color: AppColors.blushGold.withValues(
+                                          alpha: 0.50,
                                         ),
-                                        width: 1,
+                                        width: 1.1,
                                       )
                                     : null,
                                 boxShadow: (!ai.isLoading && canSend)
@@ -734,7 +765,13 @@ class _ComposerInputState extends State<_ComposerInput> {
                                             alpha: 0.45,
                                           ),
                                           blurRadius: 14,
-                                          offset: const Offset(0, 4),
+                                          offset: const Offset(0, 3),
+                                        ),
+                                        BoxShadow(
+                                          color: AppColors.blushGold.withValues(
+                                            alpha: 0.25,
+                                          ),
+                                          blurRadius: 10,
                                         ),
                                       ]
                                     : null,
@@ -747,11 +784,13 @@ class _ComposerInputState extends State<_ComposerInput> {
                                         size: 21,
                                       )
                                     : Icon(
-                                        Icons.arrow_upward_rounded,
+                                        canSend
+                                            ? Icons.pets_rounded
+                                            : Icons.arrow_upward_rounded,
                                         color: canSend
                                             ? AppColors.petalWhite
                                             : AppColors.textDisabled,
-                                        size: 21,
+                                        size: canSend ? 19 : 21,
                                       ),
                               ),
                             ),

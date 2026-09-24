@@ -837,25 +837,31 @@ class _Callout extends StatelessWidget {
     final style = base.copyWith(height: 1.6);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.auroraLilac.withValues(alpha: 0.16),
+            AppColors.auroraLilac.withValues(alpha: 0.18),
             AppColors.deepRose.withValues(alpha: 0.12),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: AppRadius.radiusMd,
+        borderRadius: AppRadius.radiusLg,
         border: Border.all(
-          color: AppColors.auroraLilac.withValues(alpha: 0.28),
+          color: AppColors.blushGold.withValues(alpha: 0.32),
+          width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.auroraLilac.withValues(alpha: 0.12),
-            blurRadius: 16,
+            color: AppColors.auroraLilac.withValues(alpha: 0.14),
+            blurRadius: 18,
             offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: AppColors.blushGold.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 1),
           ),
         ],
       ),

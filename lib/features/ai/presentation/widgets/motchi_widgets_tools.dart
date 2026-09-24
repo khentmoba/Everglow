@@ -300,45 +300,51 @@ class _QuickPillState extends State<_QuickPill> {
             borderRadius: BorderRadius.circular(20),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
                     _hover && enabled
                         ? AppColors.velvet.withValues(alpha: 0.95)
-                        : AppColors.inkDeep.withValues(alpha: 0.85),
+                        : AppColors.inkDeep.withValues(alpha: 0.88),
                     _hover && enabled
-                        ? AppColors.plum.withValues(alpha: 0.75)
-                        : AppColors.velvet.withValues(alpha: 0.65),
+                        ? AppColors.deepRose.withValues(alpha: 0.28)
+                        : AppColors.velvet.withValues(alpha: 0.60),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                   color: _hover && enabled
-                      ? AppColors.blushGold.withValues(alpha: 0.40)
-                      : AppColors.moonlight.withValues(alpha: 0.16),
+                      ? AppColors.blushGold.withValues(alpha: 0.50)
+                      : AppColors.blushGold.withValues(alpha: 0.18),
                   width: 0.9,
                 ),
                 boxShadow: _hover && enabled
                     ? [
                         BoxShadow(
-                          color: AppColors.blushGold.withValues(alpha: 0.14),
-                          blurRadius: 12,
+                          color: AppColors.blushGold.withValues(alpha: 0.18),
+                          blurRadius: 14,
                           offset: const Offset(0, 3),
                         ),
                       ]
-                    : null,
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.20),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
               ),
               child: Text(
                 widget.label,
                 style: AppTypography.bodySmall().copyWith(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: _hover && enabled
-                      ? AppColors.petalWhite
-                      : AppColors.textMedium,
+                      ? AppColors.blushGold
+                      : AppColors.petalWhite.withValues(alpha: 0.92),
                 ),
               ),
             ),
@@ -350,10 +356,10 @@ class _QuickPillState extends State<_QuickPill> {
 }
 
 /// Tappable web sources — persisted under her finished reply so Clair
-/// can open what Motchi actually read.
-class _WebSourcesCard extends StatelessWidget {
+/// can open what Motchi actually discovered.
+class WebSourcesCard extends StatelessWidget {
   final List<Map<String, String>> sources; // {title, url, site}
-  const _WebSourcesCard({required this.sources});
+  const WebSourcesCard({super.key, required this.sources});
 
   @override
   Widget build(BuildContext context) {
@@ -361,11 +367,33 @@ class _WebSourcesCard extends StatelessWidget {
     const accent = AppColors.auroraTeal;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 7),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: BoxDecoration(
-        color: AppColors.inkDeep.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accent.withValues(alpha: 0.18), width: 1),
+        gradient: LinearGradient(
+          colors: [
+            AppColors.inkDeep.withValues(alpha: 0.90),
+            AppColors.velvet.withValues(alpha: 0.70),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.25),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.30),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: accent.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -373,39 +401,72 @@ class _WebSourcesCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.public_rounded, size: 14, color: accent),
-              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.explore_rounded, size: 12, color: accent),
+              ),
+              const SizedBox(width: 7),
               Text(
-                'SOURCES · ${sources.length}',
-                style: AppTypography.bodySmall().copyWith(
-                  fontSize: 10.5,
+                'MOTCHI\'S DISCOVERIES',
+                style: AppTypography.labelSmall().copyWith(
+                  fontSize: 10,
                   color: accent,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.7,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${sources.length}',
+                  style: AppTypography.labelSmall().copyWith(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          for (var i = 0; i < sources.length; i++)
-            _WebSourceRow(
-              index: i + 1,
-              title: sources[i]['title'] ?? '',
-              url: sources[i]['url'] ?? '',
-              site: sources[i]['site'] ?? '',
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 82,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: sources.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                return _WebSourceTile(
+                  index: i + 1,
+                  title: sources[i]['title'] ?? '',
+                  url: sources[i]['url'] ?? '',
+                  site: sources[i]['site'] ?? '',
+                );
+              },
             ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _WebSourceRow extends StatelessWidget {
+class _WebSourceTile extends StatefulWidget {
   final int index;
   final String title;
   final String url;
   final String site;
-  const _WebSourceRow({
+
+  const _WebSourceTile({
     required this.index,
     required this.title,
     required this.url,
@@ -413,71 +474,115 @@ class _WebSourceRow extends StatelessWidget {
   });
 
   @override
+  State<_WebSourceTile> createState() => _WebSourceTileState();
+}
+
+class _WebSourceTileState extends State<_WebSourceTile> {
+  bool _hover = false;
+
+  String _cleanHost(String site, String url) {
+    var s = site.trim();
+    if (s.isEmpty) {
+      s = Uri.tryParse(url)?.host ?? '';
+    }
+    s = s.replaceFirst(RegExp(r'^https?://'), '');
+    s = s.replaceFirst(RegExp(r'^www\.'), '');
+    if (s.endsWith('/')) s = s.substring(0, s.length - 1);
+    return s.isEmpty ? 'source' : s;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final label = title.isNotEmpty ? title : (site.isNotEmpty ? site : url);
-    final sub = site.isNotEmpty && title.isNotEmpty ? site : null;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+    const accent = AppColors.auroraTeal;
+    final host = _cleanHost(widget.site, widget.url);
+    final displayTitle = widget.title.isNotEmpty ? widget.title : host;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
         onTap: () {
           HapticFeedback.lightImpact();
-          _openWebSource(url);
+          _openWebSource(widget.url);
         },
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-          child: Row(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 220,
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+          decoration: BoxDecoration(
+            color: _hover
+                ? AppColors.inkDeep.withValues(alpha: 0.95)
+                : AppColors.velvet.withValues(alpha: 0.60),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: _hover
+                  ? accent.withValues(alpha: 0.50)
+                  : accent.withValues(alpha: 0.20),
+              width: 1,
+            ),
+            boxShadow: _hover
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: 0.18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.auroraTeal.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Text(
-                  '$index',
-                  style: AppTypography.bodySmall().copyWith(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.auroraTeal,
+              Row(
+                children: [
+                  Container(
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.18),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '${widget.index}',
+                      style: AppTypography.labelSmall().copyWith(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: accent,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      host,
                       style: AppTypography.bodySmall().copyWith(
-                        fontSize: 13,
+                        fontSize: 10.5,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.petalWhite,
+                        color: accent.withValues(alpha: 0.9),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (sub != null)
-                      Text(
-                        sub,
-                        style: AppTypography.bodySmall().copyWith(
-                          fontSize: 11.5,
-                          color: AppColors.textMuted,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
+                  ),
+                  Icon(
+                    Icons.arrow_outward_rounded,
+                    size: 13,
+                    color: _hover ? accent : AppColors.textMuted,
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.open_in_new_rounded,
-                size: 14,
-                color: AppColors.textMuted,
+              Text(
+                displayTitle,
+                style: AppTypography.bodySmall().copyWith(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.petalWhite,
+                  height: 1.25,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
