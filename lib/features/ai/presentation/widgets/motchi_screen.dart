@@ -75,6 +75,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
       final ai = context.read<AIService>();
       _aiService = ai;
       ai.addListener(_onAiChanged);
+      ai.draftResponseNotifier.addListener(_onDraft);
       ai.toolResultsNotifier.addListener(_onToolResults);
       await ai.loadAssistantConversation();
       if (mounted && (ai.assistantConversation?.messages.isNotEmpty ?? false)) {
@@ -97,6 +98,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
     _focusNode.dispose();
     final ai = _aiService;
     if (ai != null) {
+      ai.draftResponseNotifier.removeListener(_onDraft);
       ai.toolResultsNotifier.removeListener(_onToolResults);
       ai.removeListener(_onAiChanged);
     }
@@ -198,6 +200,10 @@ class _MotchiScreenState extends State<MotchiScreen> {
         ),
       );
     }
+  }
+
+  void _onDraft() {
+    if (!_userScrolledUp) _scrollToBottom(animated: false);
   }
 
   void _onAiChanged() {
