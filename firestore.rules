@@ -349,9 +349,14 @@ service cloud.firestore {
         (isCinemaProfile() && resource.data.userName == username());
       allow create: if isCouple() ||
         (isCinemaProfile() && request.resource.data.userName == username());
-      allow update, delete: if isCouple() ||
+      // Split: request.resource is null on delete, so the combined form
+      // denied every cinema-profile removal (Breyan/Octagram could add
+      // movies but never remove them).
+      allow update: if isCouple() ||
         (isCinemaProfile() && resource.data.userName == username() &&
          request.resource.data.userName == resource.data.userName);
+      allow delete: if isCouple() ||
+        (isCinemaProfile() && resource.data.userName == username());
     }
     match /fcm_tokens/{docId} {
       allow read: if isAppUser() && docId == username();

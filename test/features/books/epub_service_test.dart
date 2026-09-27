@@ -109,6 +109,13 @@ void main() {
       expect(EpubService.htmlToText('<p>A &amp; B</p>'), 'A & B');
       expect(EpubService.htmlToText('<p>&#65;BC</p>'), 'ABC');
     });
+
+    test('out-of-range numeric entities do not fail the book', () {
+      expect(
+        EpubService.htmlToText('<p>A&#99999999999;B</p>'),
+        'A\u{FFFD}B',
+      );
+    });
   });
 
   group('EpubService.candidatesFor', () {
