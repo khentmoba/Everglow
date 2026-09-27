@@ -904,11 +904,13 @@ ${HTML_GAME_GUIDE}
             lastFetchError = fetchErr.message;
             lastWas429 = false;
           }
-          // Backoff before retry: 429s wait out the RPM window (free
-          // tier is 5/min, so one slot opens every 12s); 502/503 and
-          // network blips keep the fast 1s-step retry.
+          // Backoff before retry: 429s get a short breather (3s/6s) so a
+          // rate-limited turn fails over to the friendly fallback within
+          // ~9s instead of freezing the chat for 36s; the client's own
+          // 1s/2s retry covers residual blips with a fresh request.
+          // 502/503 and network blips keep the fast 1s-step retry.
           if (attempt < 2) {
-            const waitMs = lastWas429 ? 12000 * (attempt + 1) : 1000 * (attempt + 1);
+            const waitMs = lastWas429 ? 3000 * (attempt + 1) : 1000 * (attempt + 1);
             await new Promise((r) => setTimeout(r, waitMs));
           }
         }

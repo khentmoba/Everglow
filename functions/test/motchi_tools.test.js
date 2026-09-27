@@ -293,6 +293,12 @@ test('matchFastPath fires only on whole-message zero-arg asks', () => {
   assert.equal(fp('what is coming up this month'), 'get_calendar_events');
   assert.equal(fp("what's coming up"), 'get_calendar_events');
   assert.equal(fp('read back our starlight jar notes'), 'read_starlight_jar');
+  assert.equal(fp('show our bucket list'), 'get_bucket_list');
+  assert.equal(fp("what's on our bucket list?"), 'get_bucket_list');
+  assert.equal(fp('read our journal'), 'get_journal_entries');
+  assert.equal(fp('show my recent journal entries'), 'get_journal_entries');
+  assert.equal(fp('show our trips'), 'get_trips');
+  assert.equal(fp('what trips do we have'), 'get_trips');
   // Negatives: compounds, multi-sentence, trivia (canvas), chatter.
   assert.equal(fp('what level are we on and plan a date night'), null);
   assert.equal(fp('list my reminders then cancel the plant one'), null);
@@ -303,6 +309,9 @@ test('matchFastPath fires only on whole-message zero-arg asks', () => {
   assert.equal(fp('what is on our watchlist and recommend one'), null);
   assert.equal(fp('what is coming up this month for our trip'), null);
   assert.equal(fp('read back our starlight jar notes from last year'), null);
+  assert.equal(fp('show our bucket list and add Batanes'), null);
+  assert.equal(fp('read my journal about Batanes'), null);
+  assert.equal(fp('plan our trip to Batanes'), null);
   assert.equal(fp('hi motchi'), null);
   assert.equal(fp(''), null);
   assert.equal(fp(null), null);

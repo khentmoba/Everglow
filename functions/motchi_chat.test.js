@@ -130,12 +130,14 @@ test('streaming error catch preserves streamed content and isolates background t
   assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
 });
 
-test('429 retries wait for an Agnes free-tier slot', () => {
+test('429 retries breathe briefly then fail over fast', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // Agnes allows five requests per minute. Retrying a 429 after 1s just
-  // burns another call; wait one 12s slot while 502/503 stay fast.
+  // A 429 gets a short breather (3s/6s) so the turn fails over to the
+  // friendly fallback within ~9s instead of freezing chat for 36s;
+  // the client's own 1s/2s retry covers residual blips with a fresh
+  // request. 502/503 stay on the fast 1s-step retry.
   assert.match(src, /lastWas429/);
-  assert.match(src, /12000 \* \(attempt \+ 1\)/);
+  assert.match(src, /3000 \* \(attempt \+ 1\)/);
   assert.match(src, /1000 \* \(attempt \+ 1\)/);
 });
 
