@@ -1,267 +1,57 @@
 // ignore_for_file: avoid_print
-// Offline Motchi routing eval — zero LLM cost.
+// Motchi routing eval — scores the LIVE router, zero LLM cost.
 //
-// Scores a keyword router (mirroring the pinned routing policy in
-// `functions/motchi_prompt_v5.md`) against `functions/test/motchi_eval_cases.json`.
-// Use it as the tuning baseline: when the persona or tool set changes,
-// add/adjust cases here and in the JSON, then compare scores across runs.
+// Older versions of this file scored a hand-written keyword strawman
+// that drifted from the shipped router (it read 53.7% while live
+// routing was 100%). Now the routing comes from
+// `tool/motchi_eval_bridge.js` (single source of truth:
+// `selectToolNames` in `functions/motchi_tools.js`) and this file
+// only scores recall: every case's expectedTools must be a subset of
+// the live selection.
 //
 // Run from repo root: `dart tool/motchi_prompt_eval.dart`
-// Advisory only (always exits 0) — the hard CI check is `node eval_gate.js`.
-// Upgrade path: swap [_route] for a live `proxyAIv2` call (needs
-// AGNES_API_KEY) and score tool-choice + groundedness with an LLM judge.
+// Advisory (always exits 0); the hard CI checks are `node --test`
+// (`tool routing covers every eval case intent`) and `eval_gate.js`.
 import 'dart:convert';
 import 'dart:io';
 
-typedef _Rule = ({String tool, List<List<String>> anyGroups});
-
-/// Ordered rules: first rule whose EVERY group has ANY keyword wins.
-/// Mirrors "prefer custom tools; web_search only for current/external info;
-// no tools for plain chat" from the pinned prompt.
-const List<_Rule> _rules = [
-  (
-    tool: 'add_to_watchlist',
-    anyGroups: [
-      ['watchlist'],
-      ['add', 'save', 'put'],
-    ],
-  ),
-  (
-    tool: 'mark_watchlist_item_watched',
-    anyGroups: [
-      ['watched', 'finished watching', 'mark'],
-    ],
-  ),
-  (
-    tool: 'get_watchlist',
-    anyGroups: [
-      ['watchlist'],
-    ],
-  ),
-  (
-    tool: 'update_book_progress',
-    anyGroups: [
-      ['percent', 'through', 'finished chapter', 'progress'],
-    ],
-  ),
-  (
-    tool: 'add_book_to_our_books',
-    anyGroups: [
-      ['our books', 'reading list'],
-      ['add'],
-    ],
-  ),
-  (
-    tool: 'search_books',
-    anyGroups: [
-      ['book'],
-    ],
-  ),
-  (
-    tool: 'search_anime',
-    anyGroups: [
-      ['anime'],
-    ],
-  ),
-  (
-    tool: 'search_movies',
-    anyGroups: [
-      ['movie', 'film', 'show to watch', 'real movie'],
-    ],
-  ),
-  (
-    tool: 'save_to_starlight_jar',
-    anyGroups: [
-      ['save'],
-      ['note', 'jar', 'starlight', 'this'],
-    ],
-  ),
-  (
-    tool: 'read_starlight_jar',
-    anyGroups: [
-      ['starlight'],
-      ['read', 'show', 'revisit'],
-    ],
-  ),
-  (
-    tool: 'set_mood',
-    anyGroups: [
-      ['feeling', 'i feel', 'my mood', 'i am happy', 'i am sad', 'i am tired'],
-    ],
-  ),
-  (
-    tool: 'create_reminder',
-    anyGroups: [
-      ['remind'],
-    ],
-  ),
-  (
-    tool: 'plan_date_night',
-    anyGroups: [
-      ['plan a'],
-      ['date night', 'date'],
-    ],
-  ),
-  (
-    tool: 'get_date_ideas',
-    anyGroups: [
-      ['date idea'],
-    ],
-  ),
-  (
-    tool: 'get_weather',
-    anyGroups: [
-      ['weather'],
-    ],
-  ),
-  (
-    tool: 'read_chat_messages',
-    anyGroups: [
-      ['chat'],
-      ['said', 'say in', 'what did'],
-    ],
-  ),
-  (
-    tool: 'send_sanctuary_message',
-    anyGroups: [
-      ['sanctuary', 'tell clair', 'tell khent'],
-      ['tell', 'send', 'relay'],
-    ],
-  ),
-  (
-    tool: 'remember_fact',
-    anyGroups: [
-      ['remember that', 'remember this'],
-    ],
-  ),
-  (
-    tool: 'read_memories',
-    anyGroups: [
-      ['remember about', 'what do you remember'],
-    ],
-  ),
-  (
-    tool: 'get_memory_trivia',
-    anyGroups: [
-      ['quiz'],
-    ],
-  ),
-  (
-    tool: 'get_relationship_insights',
-    anyGroups: [
-      ['pattern'],
-    ],
-  ),
-  (
-    tool: 'get_today_recap',
-    anyGroups: [
-      ['recap'],
-    ],
-  ),
-  (
-    tool: 'get_xp_stats',
-    anyGroups: [
-      ['level', 'xp'],
-    ],
-  ),
-  (
-    tool: 'create_journal_entry',
-    anyGroups: [
-      ['journal'],
-    ],
-  ),
-  (
-    tool: 'add_calendar_event',
-    anyGroups: [
-      ['calendar'],
-      ['add'],
-    ],
-  ),
-  (
-    tool: 'get_calendar_events',
-    anyGroups: [
-      ['coming up', 'this month', 'upcoming'],
-    ],
-  ),
-  (
-    tool: 'log_habit',
-    anyGroups: [
-      ['habit'],
-    ],
-  ),
-  (
-    tool: 'add_bucket_item',
-    anyGroups: [
-      ['bucket list'],
-    ],
-  ),
-  (
-    tool: 'add_trip',
-    anyGroups: [
-      ['trip to', 'plan a trip'],
-    ],
-  ),
-  (
-    tool: 'search_spotify',
-    anyGroups: [
-      ['play some', 'spotify', 'song for us'],
-    ],
-  ),
-  (
-    tool: 'get_gallery',
-    anyGroups: [
-      ['photo'],
-    ],
-  ),
-  (
-    tool: 'get_garden',
-    anyGroups: [
-      ['garden'],
-    ],
-  ),
-  (
-    tool: 'web_search',
-    anyGroups: [
-      ['right now', 'price of', 'latest', 'news'],
-    ],
-  ),
-];
-
-List<String> _route(String message) {
-  final lower = message.toLowerCase();
-  for (final rule in _rules) {
-    final hit = rule.anyGroups.every((g) => g.any((k) => lower.contains(k)));
-    if (hit) return [rule.tool];
-  }
-  return const [];
-}
-
 void main() {
-  final casesFile = File('functions/test/motchi_eval_cases.json');
-  if (!casesFile.existsSync()) {
-    print('cases file not found — run from repo root');
+  final bridge = File('tool/motchi_eval_bridge.js');
+  if (!bridge.existsSync()) {
+    print('bridge not found — run from repo root');
     exit(2);
   }
-  final cases = (jsonDecode(casesFile.readAsStringSync()) as List).cast<Map>();
+  final res = Process.runSync('node', ['tool/motchi_eval_bridge.js']);
+  if (res.exitCode != 0) {
+    print('bridge failed:\n${res.stderr}');
+    exit(2);
+  }
+  final decoded = jsonDecode(res.stdout as String) as Map;
+  final cases = (decoded['cases'] as List).cast<Map>();
   var correct = 0;
   final misses = <String>[];
   for (final c in cases) {
-    final got = _route(c['message'] as String);
     final want = ((c['expectedTools'] as List?) ?? []).cast<String>();
-    final ok = got.length == want.length && got.every((t) => want.contains(t));
+    final got = ((c['selected'] as List?) ?? []).cast<String>().toSet();
+    final ok = want.every(got.contains);
     if (ok) {
       correct++;
     } else {
-      misses.add('${c['id']}: want=$want got=$got');
+      final missing = want.where((t) => !got.contains(t)).join(',');
+      misses.add('${c['id']}: missing=$missing (selected ${got.length})');
     }
   }
   final score = cases.isEmpty ? 0.0 : correct / cases.length;
   print(
-    'motchi routing eval: $correct/${cases.length} '
+    'motchi routing eval (live): $correct/${cases.length} '
     '(${(score * 100).toStringAsFixed(1)}%)',
   );
   for (final m in misses) {
     print('  miss $m');
   }
-  print('baseline: keep this >= 80% when tuning the persona or tools.');
+  if (score < 1) {
+    print('live routing must cover every eval case — fix the router, not the cases.');
+  } else {
+    print('perfect: live router covers every eval intent.');
+  }
 }
