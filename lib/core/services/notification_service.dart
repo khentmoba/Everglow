@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/config/env_config.dart';
+import '../../core/utils/logger.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/app_typography.dart';
 
@@ -78,7 +79,7 @@ class NotificationService {
         return;
       }
     } catch (e) {
-      debugPrint("Warning: FCM requestPermission failed: $e");
+      Logger.e('FCM requestPermission failed', error: e);
       return;
     }
 
@@ -91,7 +92,7 @@ class NotificationService {
 
       _messaging.onTokenRefresh.listen(_saveToken);
     } catch (e) {
-      debugPrint("Warning: FCM getToken failed: $e");
+      Logger.e('FCM getToken failed', error: e);
     }
 
     try {
@@ -109,7 +110,7 @@ class NotificationService {
         _navigateFromNotification(message);
       });
     } catch (e) {
-      debugPrint("Warning: FCM listener setup failed: $e");
+      Logger.e('FCM listener setup failed', error: e);
     }
   }
 
@@ -179,7 +180,7 @@ class NotificationService {
     try {
       GoRouter.of(_navContext!).go(route);
     } catch (e) {
-      debugPrint("Warning: Navigation from notification failed: $e");
+      Logger.e('Navigation from notification failed', error: e);
     }
   }
 
