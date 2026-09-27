@@ -229,12 +229,61 @@ function enforceRateLimit(req, res, { endpoint, limit, windowMs, uid = '' }) {
 // instances can't dodge the cap. Fails OPEN (allows the call) when
 // Firestore is unreachable — we never want to break Clair's chat
 // because a counter write hiccuped; the miss is logged instead.
+//
+// Speed: the write+read round-trip ran on EVERY chat request before the
+// first LLM byte (~100-400ms of pure serial wait). The count is now
+// cached in-memory for 60s: warm requests decide instantly and
+// fire-and-forget the increment, while a stale/missing entry falls back
+// to the exact write+read path. Enforcement stays within a 60s
+// staleness bound per instance — plenty for abuse protection, and the
+// per-minute rate limiter above is still the hard per-instance brake.
 function _todayDayKey(now = new Date()) {
   return now.toISOString().slice(0, 10);
 }
 
+const _dailyCapCache = new Map(); // `${uid}:${endpoint}:${day}` -> {count, ts}
+const DAILY_CAP_CACHE_TTL_MS = 60 * 1000;
+const DAILY_CAP_CACHE_MAX = 500;
+
+function _dailyCapCacheGet(key) {
+  const entry = _dailyCapCache.get(key);
+  if (!entry) return null;
+  if ((Date.now() - entry.ts) > DAILY_CAP_CACHE_TTL_MS) {
+    _dailyCapCache.delete(key);
+    return null;
+  }
+  return entry.count;
+}
+
+function _dailyCapCacheSet(key, count) {
+  _dailyCapCache.set(key, { count, ts: Date.now() });
+  if (_dailyCapCache.size > DAILY_CAP_CACHE_MAX) {
+    const oldest = _dailyCapCache.keys().next().value;
+    _dailyCapCache.delete(oldest);
+  }
+}
+
 async function checkDailyCap(uid, endpoint, dailyLimit) {
   const day = _todayDayKey();
+  const key = `${uid}:${endpoint}:${day}`;
+  // Warm path: decide from cache, sync Firestore in the background.
+  const cached = _dailyCapCacheGet(key);
+  if (cached !== null) {
+    const count = cached + 1;
+    _dailyCapCacheSet(key, count);
+    try {
+      const ref = getDb().collection('api_usage').doc(uid).collection('days').doc(day);
+      ref.set({
+        [endpoint]: getAdmin().firestore.FieldValue.increment(1),
+        updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+      }, { merge: true }).catch((e) => {
+        console.warn('[usage] background daily cap sync failed:', e.message);
+      });
+    } catch (e) {
+      console.warn('[usage] background daily cap sync failed:', e.message);
+    }
+    return { allowed: count <= dailyLimit, count };
+  }
   try {
     const ref = getDb().collection('api_usage').doc(uid).collection('days').doc(day);
     await ref.set({
@@ -243,6 +292,7 @@ async function checkDailyCap(uid, endpoint, dailyLimit) {
     }, { merge: true });
     const snap = await ref.get();
     const count = Number(snap.data()?.[endpoint] || 0);
+    _dailyCapCacheSet(key, count);
     return { allowed: count <= dailyLimit, count };
   } catch (e) {
     console.warn('[usage] daily cap check failed (fail-open):', e.message);

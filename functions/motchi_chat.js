@@ -132,8 +132,10 @@ async function handleProxyAI(req, res) {
   }
 
   // Validate Firebase Auth token before spending any LLM credits.
+  const _tAuth0 = Date.now();
   const decoded = await requireAuth(req, res);
   if (!decoded) return;
+  const _tAuthMs = Date.now() - _tAuth0;
   // Per-minute brake: humans chat far slower than this; bots don't.
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
@@ -159,7 +161,9 @@ async function handleProxyAI(req, res) {
   }
 
   // ── W1-A1: Derive trusted caller from Firebase Auth token, not client body ──
+  const _tUser0 = Date.now();
   const verifiedUsername = await getVerifiedUsername(decoded);
+  const _tUserMs = Date.now() - _tUser0;
   const normalizedClientCaller = typeof clientCaller === 'string' ? clientCaller.trim().toLowerCase() : '';
   const caller = verifiedUsername || normalizedClientCaller || '';
   // Shared services for tool executors (built once per request).
@@ -173,7 +177,9 @@ async function handleProxyAI(req, res) {
   // Daily usage cap, counted across instances (fails open if Firestore
   // hiccups — never break Clair's chat over a counter write).
   const _dailyLimit = (caller === 'khentsgdz' || caller === 'clairjassen') ? 300 : 50;
+  const _tCap0 = Date.now();
   const _usage = await checkDailyCap(decoded.uid, 'proxyAI', _dailyLimit);
+  const _tCapMs = Date.now() - _tCap0;
   if (!_usage.allowed) {
     res.status(429).json({ error: 'Daily AI limit reached — Motchi will be back tomorrow.' });
     return;
@@ -272,6 +278,7 @@ async function handleProxyAI(req, res) {
   // all three together and await once, so a cold turn pays one round-trip
   // instead of three in a row. Each fails soft: a hiccup just means Motchi
   // answers with less context, never a failed chat for Clair.
+  const _tCtx0 = Date.now();
   const _contextPromise = (feature && !context && !fastPath)
     ? buildContextForFeature(feature, caller, lastUserMessage).catch((e) => {
         console.warn('[proxyAI] server context failed, continuing without it:', e.message);
@@ -310,6 +317,7 @@ async function handleProxyAI(req, res) {
   const [serverContext, relevantMemories, personaBase] = await Promise.all([
     _contextPromise, _memoriesPromise, _personaPromise,
   ]);
+  const _tCtxMs = Date.now() - _tCtx0;
   const resolvedContext = context || serverContext || '';
 
   // Use custom system prompt if provided, otherwise build from persona or hardcoded default
@@ -712,19 +720,46 @@ ${HTML_GAME_GUIDE}
   // Trim aggressively as best-effort so the model doesn't
   // waste context on stale history, but don't hard-block — let the model handle
   // it if trimming can't fit within Cloud Run's limit.
-  const llmBody = JSON.stringify({
-    model,
-    messages: nimMessages,
-    tools,
-    max_tokens: maxTokens,
-    temperature: 0.6,
-    top_p: 0.95,
-    stream: req.body.stream === true,
-    ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
-  });
-  let llmBodyBytes = Buffer.byteLength(llmBody, 'utf8');
-  console.log('[proxyAI] Payload size before trim:', (llmBodyBytes / 1024 / 1024).toFixed(2), 'MB');
-  if (llmBodyBytes > 8 * 1024 * 1024) {
+  // Speed: the full JSON.stringify below is wasted CPU on the common
+  // small-payload path (and multi-MB with photos). Estimate cheaply
+  // first and only stringify when we might be near the 8MB cap.
+  let llmBody = '';
+  let llmBodyBytes;
+  let payloadMeasured = false;
+  {
+    let estChars = 500; // JSON envelope + fixed fields
+    try { estChars += JSON.stringify(tools || []).length; } catch (_) {}
+    for (const m of nimMessages) {
+      const c = m?.content;
+      if (typeof c === 'string') { estChars += c.length; continue; }
+      if (Array.isArray(c)) {
+        for (const part of c) {
+          if (part?.type === 'image_url') estChars += String(part?.image_url?.url || '').length;
+          else if (typeof part?.text === 'string') estChars += part.text.length;
+        }
+      }
+    }
+    // UTF-8 bytes are >= chars; 2M chars can never reach 8MB... in
+    // practice ASCII dominates, and anything bigger takes the exact path.
+    if (estChars > 2 * 1024 * 1024) {
+      llmBody = JSON.stringify({
+        model,
+        messages: nimMessages,
+        tools,
+        max_tokens: maxTokens,
+        temperature: 0.6,
+        top_p: 0.95,
+        stream: req.body.stream === true,
+        ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+      });
+      llmBodyBytes = Buffer.byteLength(llmBody, 'utf8');
+      payloadMeasured = true;
+    } else {
+      llmBodyBytes = estChars;
+    }
+  }
+  console.log('[proxyAI] Payload size before trim:', (llmBodyBytes / 1024 / 1024).toFixed(2), 'MB' + (payloadMeasured ? '' : ' (est)'));
+  if (payloadMeasured && llmBodyBytes > 8 * 1024 * 1024) {
     // Phase 1: Remove oldest conversation message pairs (keep system + recent)
     while (llmBodyBytes > 8 * 1024 * 1024 && nimMessages.length > 4) {
       nimMessages.splice(1, 2);
@@ -784,6 +819,13 @@ ${HTML_GAME_GUIDE}
   }
 
 
+  // ── Speed telemetry: one pre-LLM line per request, so Cloud Run logs
+  // give before/after TTFT compares without any new infra. ──
+  {
+    const _fpMs = (fastPath && turnTools.length) ? turnTools[0].elapsedMs : 0;
+    console.log(`[proxyAI] pre-llm auth=${_tAuthMs}ms user=${_tUserMs}ms cap=${_tCapMs}ms ctx=${_tCtxMs}ms fp=${_fpMs}ms prompt=${systemPrompt.length}ch msgs=${nimMessages.length} tools=${tools.length} fastpath=${!!fastPath} stream=${isStreaming}`);
+  }
+
   // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
   if (isStreaming) {
     let _streamedFinalReply = '';
@@ -801,6 +843,7 @@ ${HTML_GAME_GUIDE}
       let didDanglingRepair = false; // dangling-colon nudge: at most once
       let forceTextNextRound = false; // repair rounds carry no tools: the nudge demands text only
       let fullContent = ''; // this round's streamed text (loop scope so post-loop repair can keep it)
+      let _ttftMs = null; // round-1 first-content latency (the TTFT number)
       let _hitLengthLimit = false; // set when the model stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
@@ -809,6 +852,7 @@ ${HTML_GAME_GUIDE}
 
       while (toolRound < MAX_TOOL_ROUNDS) {
         toolRound++;
+        const _round0 = Date.now(); // TTFT clock for this round's LLM call
         // A repair nudge demands visible text only — tools stay
         // attached otherwise so the model can keep working.
         const noToolsThisRound = forceTextNextRound;
@@ -924,6 +968,10 @@ ${HTML_GAME_GUIDE}
                 _streamedFinalReply += delta.content;
                 sendEvent({ content: delta.content });
                 stopHeartbeat();
+                if (_ttftMs === null && toolRound === 1) {
+                  _ttftMs = Date.now() - _round0;
+                  console.log(`[proxyAI] ttft round=1 llm=${_ttftMs}ms total=${Date.now() - requestStartedAt}ms`);
+                }
               }
 
               // Collect tool calls from stream deltas
