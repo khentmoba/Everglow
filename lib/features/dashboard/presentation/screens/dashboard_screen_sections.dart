@@ -287,6 +287,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
         hue: AppColors.blushGold,
         caption: 'Letters',
       ),
+      const QuickAction(
+        label: 'Money',
+        icon: Icons.savings_rounded,
+        route: '/money',
+        hue: AppColors.auroraGold,
+        caption: 'Wallet',
+      ),
     ];
 
     final visible = [...primary, ...more];
