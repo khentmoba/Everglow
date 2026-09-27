@@ -312,6 +312,24 @@ function selectToolNames(message, prevAssistantText = '', prevUserText = '') {
 }
 
 /**
+ * Loop-guard key for a tool call: same tool + same args twice in one
+ * message means the model is circling. Pure so tests can pin it.
+ */
+function toolCallKey(name, argsJson) {
+  return `${name || ''}:${argsJson || ''}`;
+}
+
+/** Drops repeat calls from a batch, tracking `seen` across rounds. */
+function dropRepeatCalls(seen, calls) {
+  return (calls || []).filter((tc) => {
+    const key = toolCallKey(tc?.function?.name, tc?.function?.arguments);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
  * Markdown block naming the tools attached to this request. Names only —
  * full descriptions already ride with the schemas, so repeating them
  * would just burn tokens. The fallback persona embeds this per request
