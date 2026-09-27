@@ -278,6 +278,13 @@ test('parseReminderDate reads ISO, relatives, and PHT wall times', () => {
   assert.equal(parseReminderDate('thursday at 3pm', now).toISOString(), '2026-09-17T07:00:00.000Z');
   assert.equal(parseReminderDate('thursday at 7am', now).toISOString(), '2026-09-23T23:00:00.000Z');
   assert.equal(parseReminderDate('tmrw at 3pm', now).toISOString(), '2026-09-18T07:00:00.000Z');
+  // Named times + dayparts; lone noon/midnight = the coming one.
+  assert.equal(parseReminderDate('tomorrow at noon', now).toISOString(), '2026-09-18T04:00:00.000Z');
+  assert.equal(parseReminderDate('remind me at midnight', now).toISOString(), '2026-09-17T16:00:00.000Z');
+  assert.equal(parseReminderDate('tomorrow morning', now).toISOString(), '2026-09-18T01:00:00.000Z');
+  assert.equal(parseReminderDate('friday evening', now).toISOString(), '2026-09-18T11:00:00.000Z');
+  assert.equal(parseReminderDate('in 2 days at 3pm', now).toISOString(), '2026-09-19T07:00:00.000Z');
+  assert.equal(parseReminderDate('midnight tonight', now).toISOString(), '2026-09-17T16:00:00.000Z');
   assert.equal(parseReminderDate('someday maybe', now), null);
   assert.equal(parseReminderDate('', now), null);
 });

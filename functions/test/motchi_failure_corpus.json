@@ -144,6 +144,8 @@
   {"id": "rt-pronoun-move", "kind": "routing", "message": "move it to friday", "context": "add dentist appointment thursday", "mustInclude": ["update_calendar_event"], "mustExclude": []},
   {"id": "rt-pronoun-cancel", "kind": "routing", "message": "cancel that", "context": "remind me tomorrow to water plants", "mustInclude": ["cancel_reminder"], "mustExclude": []},
   {"id": "rt-pronoun-noread", "kind": "routing", "message": "read it", "context": "journal about yesterday", "mustInclude": ["read_journal_entry"], "mustExclude": ["create_journal_entry"]},
+  {"id": "rt-time-cal-read", "kind": "routing", "message": "change my plant reminder to 5pm", "mustInclude": ["edit_reminder", "get_calendar_events"], "mustExclude": ["add_calendar_event", "update_calendar_event", "delete_calendar_event"]},
+  {"id": "rt-time-movie-read", "kind": "routing", "message": "what movie should we watch at 8pm", "mustInclude": ["search_movies", "get_calendar_events"], "mustExclude": ["add_calendar_event", "add_to_watchlist"]},
 
   {"id": "sched-friday", "kind": "schedulable", "text": "friday at 3pm", "expect": true},
   {"id": "sched-next-friday", "kind": "schedulable", "text": "next friday", "expect": true},
@@ -152,6 +154,12 @@
   {"id": "sched-tomorrow", "kind": "schedulable", "text": "tomorrow at 3pm", "expect": true},
   {"id": "sched-iso", "kind": "schedulable", "text": "2026-02-14T15:00", "expect": true},
   {"id": "sched-never", "kind": "schedulable", "text": "someday maybe", "expect": false},
+  {"id": "sched-noon", "kind": "schedulable", "text": "tomorrow at noon", "expect": true},
+  {"id": "sched-midnight", "kind": "schedulable", "text": "remind me at midnight", "expect": true},
+  {"id": "sched-morning", "kind": "schedulable", "text": "tomorrow morning", "expect": true},
+  {"id": "sched-evening", "kind": "schedulable", "text": "friday evening", "expect": true},
+  {"id": "sched-in-days-clock", "kind": "schedulable", "text": "in 2 days at 3pm", "expect": true},
+  {"id": "sched-in-weeks", "kind": "schedulable", "text": "in 2 weeks", "expect": true},
 
   {"id": "ft-cal-yes", "kind": "followthrough", "message": "yes", "offer": "Want me to add this to the calendar?", "mustInclude": ["add_calendar_event"]},
   {"id": "ft-journal-sure", "kind": "followthrough", "message": "sure", "offer": "Shall I save that to the journal for you two?", "mustInclude": ["create_journal_entry"]},

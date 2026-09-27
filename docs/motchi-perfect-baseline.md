@@ -40,3 +40,18 @@ Date parsing (reminder stored with scheduled:false today):
   existing exec tests + live spot-checks, not the corpus.
 - Production failure rate (live LLM calls) — sampled from
   `motchi_stats` when available; offline corpus is the gate.
+
+## Result (2026-09-28, branch motchi/perfect-agent)
+
+| Eval | Before | After |
+|---|---|---|
+| Live routing recall | 100% (67 cases) | 100% (132 cases, paraphrase cover) |
+| Dart eval | 100% (live) | 100% (132 cases) |
+| Failure corpus | 143/152 (94.1%) | **160/160 (100%)** |
+| node --test | 233 + corpus failing | **237, all green** |
+| eval gate | pass (v7) | pass (v8) |
+
+Zero failed tool calls on the offline corpus. Every addition tied to
+a failing case: context routing (5 corpus cases), weekday/tmrw dates
+(4), paraphrase gaps (12 router fixes), named times/dayparts (6 new
+sched cases), take-off/push phrasings (3 eval + 2 corpus cases).

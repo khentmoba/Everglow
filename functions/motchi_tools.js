@@ -117,14 +117,14 @@ const WRITE_INTENT_RE = /add|save|create|log|set|mark|remove|delete|update|edit|
 
 const TOOL_GROUPS = [
   {
-    match: /movie|film|cinema|watchlist|watched|\bwatch\b|\btv\b|shows|series|episode|tmdb|netflix|k-?drama/i,
+    match: /movie|film|cinema|watchlist|watched|watching|rewatch|\bwatch\b|\btv\b|shows|series|episode|tmdb|netflix|k-?drama/i,
     tools: ['search_movies', 'get_watchlist'],
     write: ['add_to_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],
     // "watched" (not bare "watch": that matches "watchlist" itself).
     // Keeps statement logging ("we watched Dune"); "what we watched"
     // questions carry the writes too — harmless, the model needs a
-    // title to act and reads first.
-    writeMatch: /add|save|put|mark|watched|finish|remove|delete/i,
+    // title to act and reads first. Queue/stick/take-off are list verbs.
+    writeMatch: /add|save|put|mark|watched|finish|remove|delete|queue|stick|take .{0,25} off/i,
   },
   {
     match: /\bbook\b|books|\bread\b|reading|author|novel|chapter|percent|progress|\blibrary\b/i,
@@ -142,11 +142,13 @@ const TOOL_GROUPS = [
     tools: ['search_spotify'],
   },
   {
-    match: /chat|sanctuary|said|\bsay\b|\btell\b|relay|messaged|convo/i,
+    match: /chat|sanctuary|said|\bsay\b|\btell\b|relay|messaged|convo|message|a note|note to|\bsend\b.{0,25}(sanctuary|chat|clair|khent|her|him|them|mama|dada|note|message)/i,
     tools: ['read_chat_messages'],
     write: ['send_sanctuary_message', 'send_note_to_partner'],
-    // "tell Clair" writes; "tell me about our chat" reads.
-    writeMatch: /\btell (clair|khent|her|him|them|mama|dada)\b|\bsend\b|relay|write|note |message (to|her|him|them|clair|khent|mama|dada)/i,
+    // "tell Clair" / "send Clair a note" write; "tell me about our
+    // chat" reads. Bare "send me X" never matches the group (it means
+    // answer here, not post to sanctuary).
+    writeMatch: /\btell (clair|khent|her|him|them|mama|dada)\b|\bsend\b|relay|write|message (to|for|her|him|them|clair|khent|mama|dada)/i,
   },
   {
     match: /starlight|\bjar\b|grateful|gratitude|thankful|\bnotes?\b/i,
@@ -163,11 +165,12 @@ const TOOL_GROUPS = [
     writeMatch: /my mood|\bfeels?\b|\bfeeling\b|\bfelt\b|i'm\b|i am|right now/i,
   },
   {
-    match: /memor|remember|forget|trivia|\bquiz\b/i,
+    match: /memor|remember|forget|trivia|\bquiz\b|keep in mind|don't forget|note that/i,
     tools: ['get_memory_trivia'],
     write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory'],
     // "forget the memory" deletes; "I forget what we watched" is chat.
-    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|forget (the|that|this|about|my|our)/i,
+    // Corrections ("is wrong", "actually it was") attach edits.
+    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|is wrong|was wrong|actually.{0,15}was|meant\b|correction|forget (the|that|this|about|my|our)/i,
   },
   {
     match: /\bdates?\b|dating|anniversary|romantic|date night|datenight|\bideas?\b/i,
@@ -182,15 +185,28 @@ const TOOL_GROUPS = [
     tools: ['list_reminders'],
     write: ['create_reminder', 'cancel_reminder', 'edit_reminder'],
     // "remind me/us/her" writes; bare "reminders" (list/show) reads.
-    writeMatch: /create|add|set|new|alarm|notify|cancel|delete|remove|change|edit|update|move|snooze|\bremind me\b|\bremind us\b|\bremind her\b|\bremind him\b|\bremind them\b/i,
+    writeMatch: /create|add|set|new|alarm|notify|cancel|delete|remove|drop|change|edit|update|move|snooze|\bremind me\b|\bremind us\b|\bremind her\b|\bremind him\b|\bremind them\b/i,
   },
   {
-    match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon/i,
+    match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon|\b\d{1,2}(:\d{2})?\s*(am|pm)\b|\bnoon\b|\bmidnight\b/i,
     tools: ['get_calendar_events'],
     write: ['add_calendar_event', 'update_calendar_event', 'delete_calendar_event'],
-    // "schedule a …" writes; "on the schedule" reads. No bare "new":
-    // "any new events" is a read ("create"/"make" cover new writes).
-    writeMatch: /add|create|make|move|reschedul|postpon|change|edit|update|delete|remove|cancel|book|schedul\w* (a|an|our|my|the|it|this)/i,
+    // Action verbs write; bare "schedul*" writes unless the message
+    // opens with a read framing ("show my schedule", "what's on …").
+    // No bare "new": "any new events" is a read. Clock times pull
+    // the calendar READ in, but only reschedule verbs earn writes on
+    // a time-only match ("push dinner to 8pm" yes, "change my plant
+    // reminder to 5pm" no).
+    writeMatch: (t, matched) => {
+      const s = String(t || '');
+      const m = String(matched !== undefined ? matched : s);
+      const hasNoun = /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon/i.test(m);
+      if (/add|create|make|move|drop|reschedul|postpon|change|edit|update|delete|remove|cancel|book|shift|push/i.test(s)) {
+        return hasNoun || /move|reschedul|postpon|shift|push/i.test(s);
+      }
+      if (!/\bschedul/i.test(s)) return false;
+      return !/^(show|check|see|view|list|what|how|any|is|are)\b/i.test(s.trim());
+    },
   },
   {
     match: /journal|diar|reflect|\bentr(?:y|ies)\b|letter|rewrite/i,
@@ -203,15 +219,16 @@ const TOOL_GROUPS = [
     match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b|\bcomplet\w*\b|\bfinish\w*\b/i,
     tools: ['get_bucket_list'],
     write: ['add_bucket_item', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
-    // No bare "new": "any new ideas" is a read.
-    writeMatch: /add|create|mark|complete|finish|done|delete|remove|edit|change|update/i,
+    // No bare "new": "any new ideas" is a read. "put X on", "take
+    // X off", and "X is now Y" are list writes.
+    writeMatch: /add|create|mark|complete|finish|done|delete|remove|edit|change|update|put|take .{0,25} off|\boff\b.{0,15}\blist\b|is now|are now|\bset\b/i,
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
     tools: ['get_trips'],
     write: ['add_trip', 'add_trip_pin', 'edit_trip'],
     // No bare "new": "any new trips" is a read ("plan" covers it).
-    writeMatch: /plan|add|create|pin|move|change|edit|update|book/i,
+    writeMatch: /plan|add|create|pin|move|change|edit|update|book|shift|push|postpon/i,
   },
   {
     match: /habit|streak|workout|\bgym\b|routine|\blog\b|activity|\bdid\b|exercis|dinner|lunch|breakfast/i,
@@ -223,11 +240,11 @@ const TOOL_GROUPS = [
     writeMatch: /log|add|create|complete|finish|done|edit|change|rename|update|start|track|fix/i,
   },
   {
-    match: /recap|summary|digest|today|what happened/i,
+    match: /recap|summariz|summaris|summary|digest|today|what happened/i,
     tools: ['get_today_recap'],
   },
   {
-    match: /search|google|web|online|lookup|look up|news|weather|price|\burl\b|http|site|page|article|who is|what is the price|browse/i,
+    match: /search|google|web|online|lookup|look up|news|weather|price|\burl\b|http|site|page|article|who is|what is the price|browse|\blink\b|\bopen\b.{0,20}(link|url|page|site|article|http)/i,
     tools: ['web_search', 'read_web_page', 'browse_web'],
   },
   {
@@ -293,7 +310,11 @@ function selectToolNames(message, prevAssistantText = '', prevUserText = '') {
         if (Array.isArray(group.write) && group.write.length > 0) {
           let wHit = true; // fail open: a broken pattern must not blind Motchi
           try {
-            wHit = (group.writeMatch || WRITE_INTENT_RE).test(text);
+            const wm = group.writeMatch || WRITE_INTENT_RE;
+            // Function predicates get the matched text too, so a noun
+            // living in context ("cancel the dentist" + prior
+            // "dentist appointment") still unlocks writes.
+            wHit = typeof wm === 'function' ? wm(text, haystack) : wm.test(text);
           } catch (_) {}
           if (wHit) for (const name of group.write) picked.add(name);
         }

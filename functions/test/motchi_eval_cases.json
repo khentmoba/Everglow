@@ -480,5 +480,460 @@
       "search_movies",
       "get_date_ideas"
     ]
+  },
+  {
+    "id": "watch-add-p2",
+    "message": "put Dune 2 on the watchlist",
+    "expectedTools": [
+      "add_to_watchlist"
+    ]
+  },
+  {
+    "id": "watch-read-p2",
+    "message": "show me our watchlist",
+    "expectedTools": [
+      "get_watchlist"
+    ]
+  },
+  {
+    "id": "watch-watched-p2",
+    "message": "finished watching Interstellar last night",
+    "expectedTools": [
+      "mark_watchlist_item_watched"
+    ]
+  },
+  {
+    "id": "movie-search-p2",
+    "message": "suggest a horror film for friday night",
+    "expectedTools": [
+      "search_movies"
+    ]
+  },
+  {
+    "id": "starlight-save-p2",
+    "message": "keep this in the jar: our first dance",
+    "expectedTools": [
+      "save_to_starlight_jar"
+    ]
+  },
+  {
+    "id": "starlight-read-p2",
+    "message": "show our starlight notes",
+    "expectedTools": [
+      "read_starlight_jar"
+    ]
+  },
+  {
+    "id": "mood-log-p2",
+    "message": "feeling stressed from school lately",
+    "expectedTools": [
+      "set_mood"
+    ]
+  },
+  {
+    "id": "books-search-p2",
+    "message": "look up the author Brandon Sanderson",
+    "expectedTools": [
+      "search_books"
+    ]
+  },
+  {
+    "id": "books-add-p2",
+    "message": "save Project Hail Mary to our reading list",
+    "expectedTools": [
+      "add_book_to_our_books"
+    ]
+  },
+  {
+    "id": "book-progress-p2",
+    "message": "done with chapter 12 of Dune",
+    "expectedTools": [
+      "update_book_progress"
+    ]
+  },
+  {
+    "id": "anime-p2",
+    "message": "any good romance manga to read",
+    "expectedTools": [
+      "search_anime"
+    ]
+  },
+  {
+    "id": "music-p2",
+    "message": "find a chill playlist for tonight",
+    "expectedTools": [
+      "search_spotify"
+    ]
+  },
+  {
+    "id": "gallery-p2",
+    "message": "our selfies from the beach",
+    "expectedTools": [
+      "get_gallery"
+    ]
+  },
+  {
+    "id": "garden-p2",
+    "message": "any new blooms in the garden",
+    "expectedTools": [
+      "get_garden"
+    ]
+  },
+  {
+    "id": "canvas-p2",
+    "message": "our latest sketch",
+    "expectedTools": [
+      "get_canvas"
+    ]
+  },
+  {
+    "id": "reminder-p2",
+    "message": "set an alarm for 7am tomorrow",
+    "expectedTools": [
+      "create_reminder"
+    ]
+  },
+  {
+    "id": "remind-list-p2",
+    "message": "what reminders do I have",
+    "expectedTools": [
+      "list_reminders"
+    ]
+  },
+  {
+    "id": "remind-cancel-p2",
+    "message": "drop the 7am alarm",
+    "expectedTools": [
+      "cancel_reminder"
+    ]
+  },
+  {
+    "id": "remind-edit-p2",
+    "message": "move my plant reminder to friday",
+    "expectedTools": [
+      "edit_reminder"
+    ]
+  },
+  {
+    "id": "chat-read-p2",
+    "message": "show the latest sanctuary messages",
+    "expectedTools": [
+      "read_chat_messages"
+    ]
+  },
+  {
+    "id": "chat-send-p2",
+    "message": "relay to Clair that I miss her",
+    "expectedTools": [
+      "send_sanctuary_message"
+    ]
+  },
+  {
+    "id": "note-p2",
+    "message": "send Clair a note that I am running late",
+    "expectedTools": [
+      "send_note_to_partner"
+    ]
+  },
+  {
+    "id": "memory-save-p2",
+    "message": "keep in mind that Clair is allergic to shrimp",
+    "expectedTools": [
+      "remember_fact"
+    ]
+  },
+  {
+    "id": "memory-read-p2",
+    "message": "what do you know about us",
+    "expectedTools": [
+      "read_memories"
+    ]
+  },
+  {
+    "id": "mem-pin-p2",
+    "message": "keep that first-date memory pinned",
+    "expectedTools": [
+      "pin_memory"
+    ]
+  },
+  {
+    "id": "mem-delete-p2",
+    "message": "delete the memory about my ex",
+    "expectedTools": [
+      "delete_memory"
+    ]
+  },
+  {
+    "id": "mem-edit-p2",
+    "message": "that Bistek memory is wrong, it was Adobo",
+    "expectedTools": [
+      "edit_memory"
+    ]
+  },
+  {
+    "id": "trivia-p2",
+    "message": "test us with some trivia",
+    "expectedTools": [
+      "get_memory_trivia"
+    ]
+  },
+  {
+    "id": "xp-p2",
+    "message": "show our level",
+    "expectedTools": [
+      "get_xp_stats"
+    ]
+  },
+  {
+    "id": "xp-add-p2",
+    "message": "award Khent 20 xp for the gym",
+    "expectedTools": [
+      "add_xp"
+    ]
+  },
+  {
+    "id": "insights-p2",
+    "message": "how have our moods been lately",
+    "expectedTools": [
+      "get_relationship_insights"
+    ]
+  },
+  {
+    "id": "recap-p2",
+    "message": "summarize our day",
+    "expectedTools": [
+      "get_today_recap"
+    ]
+  },
+  {
+    "id": "activity-p2",
+    "message": "we ate ramen for dinner",
+    "expectedTools": [
+      "log_activity"
+    ]
+  },
+  {
+    "id": "journal-p2",
+    "message": "write about today in the journal",
+    "expectedTools": [
+      "create_journal_entry"
+    ]
+  },
+  {
+    "id": "journal-read-p2",
+    "message": "show my journal entries",
+    "expectedTools": [
+      "get_journal_entries"
+    ]
+  },
+  {
+    "id": "journal-search-p2",
+    "message": "find entries about Bohol",
+    "expectedTools": [
+      "search_journal_entries"
+    ]
+  },
+  {
+    "id": "journal-entry-p2",
+    "message": "open the sunday entry",
+    "expectedTools": [
+      "read_journal_entry"
+    ]
+  },
+  {
+    "id": "journal-edit-p2",
+    "message": "update the beach entry with the sunset",
+    "expectedTools": [
+      "edit_journal_entry"
+    ]
+  },
+  {
+    "id": "journal-delete-p2",
+    "message": "remove the dentist entry",
+    "expectedTools": [
+      "delete_journal_entry"
+    ]
+  },
+  {
+    "id": "calendar-add-p2",
+    "message": "schedule date night for saturday",
+    "expectedTools": [
+      "add_calendar_event"
+    ]
+  },
+  {
+    "id": "calendar-read-p2",
+    "message": "anything on the calendar tomorrow",
+    "expectedTools": [
+      "get_calendar_events"
+    ]
+  },
+  {
+    "id": "cal-update-p2",
+    "message": "reschedule dinner to 7pm",
+    "expectedTools": [
+      "update_calendar_event"
+    ]
+  },
+  {
+    "id": "cal-delete-p2",
+    "message": "drop the dentist event",
+    "expectedTools": [
+      "delete_calendar_event"
+    ]
+  },
+  {
+    "id": "bucket-add-p2",
+    "message": "put Japan on the bucket list",
+    "expectedTools": [
+      "add_bucket_item"
+    ]
+  },
+  {
+    "id": "bucket-read-p2",
+    "message": "show the bucket list",
+    "expectedTools": [
+      "get_bucket_list"
+    ]
+  },
+  {
+    "id": "bucket-complete-p2",
+    "message": "done with the Bohol trip, mark it complete",
+    "expectedTools": [
+      "complete_bucket_item"
+    ]
+  },
+  {
+    "id": "bucket-delete-p2",
+    "message": "take skydiving off the bucket list",
+    "expectedTools": [
+      "delete_bucket_item"
+    ]
+  },
+  {
+    "id": "bucket-edit-p2",
+    "message": "our Siargao goal is now top priority",
+    "expectedTools": [
+      "edit_bucket_item"
+    ]
+  },
+  {
+    "id": "habit-log-p2",
+    "message": "start a gym routine",
+    "expectedTools": [
+      "log_habit"
+    ]
+  },
+  {
+    "id": "habit-done-p2",
+    "message": "workout done, log it",
+    "expectedTools": [
+      "complete_habit"
+    ]
+  },
+  {
+    "id": "habit-edit-p2",
+    "message": "change morning pages habit to evenings",
+    "expectedTools": [
+      "edit_habit"
+    ]
+  },
+  {
+    "id": "trip-p2",
+    "message": "book us a Cebu getaway",
+    "expectedTools": [
+      "add_trip"
+    ]
+  },
+  {
+    "id": "trips-read-p2",
+    "message": "what trips are planned",
+    "expectedTools": [
+      "get_trips"
+    ]
+  },
+  {
+    "id": "trip-pin-p2",
+    "message": "pin Moalboal Sardines to the Cebu trip",
+    "expectedTools": [
+      "add_trip_pin"
+    ]
+  },
+  {
+    "id": "trip-edit-p2",
+    "message": "shift our Cebu trip to April",
+    "expectedTools": [
+      "edit_trip"
+    ]
+  },
+  {
+    "id": "weather-p2",
+    "message": "will it rain in Cabadbaran tomorrow",
+    "expectedTools": [
+      "get_weather"
+    ]
+  },
+  {
+    "id": "web-p2",
+    "message": "latest news on the Fuji X100VI",
+    "expectedTools": [
+      "web_search"
+    ]
+  },
+  {
+    "id": "web-read-p2",
+    "message": "open that link and summarize it",
+    "expectedTools": [
+      "read_web_page"
+    ]
+  },
+  {
+    "id": "browse-p2",
+    "message": "the price only shows after clicking, go check it",
+    "expectedTools": [
+      "browse_web"
+    ]
+  },
+  {
+    "id": "date-plan-p2",
+    "message": "surprise us with a date night idea",
+    "expectedTools": [
+      "plan_date_night"
+    ]
+  },
+  {
+    "id": "date-ideas-p2",
+    "message": "romantic ideas for saturday",
+    "expectedTools": [
+      "get_date_ideas"
+    ]
+  },
+  {
+    "id": "everglow-p2",
+    "message": "any good restaurants nearby",
+    "expectedTools": [
+      "search_everglow"
+    ]
+  },
+  {
+    "id": "watch-stick",
+    "message": "stick Interstellar on the watchlist",
+    "expectedTools": [
+      "add_to_watchlist"
+    ]
+  },
+  {
+    "id": "watch-takeoff",
+    "message": "take Dune off the watchlist",
+    "expectedTools": [
+      "remove_from_watchlist"
+    ]
+  },
+  {
+    "id": "cal-push",
+    "message": "push dinner to 8pm",
+    "expectedTools": [
+      "update_calendar_event"
+    ]
   }
 ]
