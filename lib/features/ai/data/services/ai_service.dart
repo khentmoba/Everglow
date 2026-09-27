@@ -911,8 +911,14 @@ class AIService extends ChangeNotifier {
   }
 
   /// Load the assistant conversation on panel open.
+  /// Memories ride along in parallel so the first send doesn't pay the
+  /// 150-doc Firestore read after the user already tapped send — by the
+  /// time they type, both are warm and the request leaves immediately.
   Future<void> loadAssistantConversation() async {
-    await _conversationRepo.loadAssistant();
+    await Future.wait([
+      _conversationRepo.loadAssistant(),
+      _ensureMemoriesLoaded(),
+    ]);
     notifyListeners();
   }
 

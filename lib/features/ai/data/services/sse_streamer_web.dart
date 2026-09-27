@@ -39,6 +39,10 @@ Future<String> streamSseResponse({
   final pending = <String>[];
   var drainScheduled = false;
   var streamDone = false;
+  // First paint wins: the very first chunk renders synchronously instead
+  // of waiting for a requestAnimationFrame (~1 frame / 16ms of TTFT).
+  // Later bursts stay paced so a flood still paints at a visible rhythm.
+  var everDrained = false;
 
   StreamSubscription? visSub;
   void completeRequest() {
@@ -94,6 +98,12 @@ Future<String> streamSseResponse({
       return;
     }
     if (drainScheduled) return;
+    if (!everDrained) {
+      everDrained = true;
+      drain();
+      if (pending.isNotEmpty) startDrain();
+      return;
+    }
     drainScheduled = true;
     // Drive pacing with requestAnimationFrame: browser timers get throttled
     // hard while the app's animations run, which made reply bursts appear
