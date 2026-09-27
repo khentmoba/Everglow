@@ -66,10 +66,12 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// Checks if VidLink actually serves content (postMessage-based).
   /// Ensures we don't hang on "content not available" pages.
   Timer? _contentCheckTimer;
-  JSFunction? _onWheelListener;
 
-  /// Drives the page scroll view so wheel events from the embed iframe
-  /// (which Flutter never sees) can be forwarded to it.
+  /// Drives the page scroll view below the player.
+  ///
+  /// There is deliberately no wheel forwarding from the embed iframe:
+  /// wheel events inside a cross-origin iframe never reach this
+  /// document, so a listener on the iframe element can never fire.
   final ScrollController _pageScrollController = ScrollController();
 
   /// Listens for VidLink's MEDIA_DATA / PLAYER_EVENT postMessage to
@@ -279,32 +281,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
 
-    // Forward wheel events over the iframe to the page scroll view. The
-    // embed swallows them, so without this the page can't be scrolled
-    // on desktop while the cursor is over the player.
-    _onWheelListener = ((web.Event e) {
-      if (!_pageScrollController.hasClients) return;
-      final wheel = e as web.WheelEvent;
-      if (wheel.ctrlKey) return;
-      wheel.preventDefault();
-      var delta = wheel.deltaY;
-      switch (wheel.deltaMode) {
-        case 1:
-          delta *= 20;
-          break;
-        case 2:
-          delta *= 600;
-          break;
-      }
-      if (delta == 0) return;
-      final position = _pageScrollController.position;
-      final target = (position.pixels + delta)
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
-      if (target != position.pixels) position.jumpTo(target);
-    }).toJS;
-    _iframe.addEventListener('wheel', _onWheelListener, true.toJS);
-
     // Listen for postMessage events from embed providers (VidLink)
     // to confirm content is actually playable.
     _messageListener = _buildMessageListener();
@@ -414,9 +390,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     }
     if (_onErrorListener != null) {
       _iframe.removeEventListener('error', _onErrorListener);
-    }
-    if (_onWheelListener != null) {
-      _iframe.removeEventListener('wheel', _onWheelListener);
     }
     if (_messageListener != null) {
       web.window.removeEventListener('message', _messageListener);
