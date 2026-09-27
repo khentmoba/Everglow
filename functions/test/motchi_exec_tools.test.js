@@ -899,3 +899,43 @@ test('deletes return restorable data for undo', async () => {
   assert.equal(out.deleted.priority, 'high');
   assert.equal(out.deleted.status, 'planned');
 });
+
+test('subs executors roll renewals forward and guard add args', async () => {
+  const planning = require('../motchi_exec_planning.js');
+  const { ctx, addedDocs } = makeCtx();
+  const dayMs = 86400000;
+  const now = new Date();
+  const ts = (d) => ({ toDate: () => d });
+  const docs = [
+    { id: 'a', data: () => ({ name: 'Netflix', price: 549, cycle: 'monthly', payer: 'khent', renewalDate: ts(new Date(now.getTime() + 3 * dayMs)) }) },
+    { id: 'b', data: () => ({ name: 'iCloud', price: 1200, cycle: 'yearly', payer: 'shared', renewalDate: ts(new Date(now.getTime() - 40 * dayMs)) }) },
+  ];
+  const chain = {
+    orderBy: () => chain,
+    limit: () => chain,
+    get: async () => ({ docs, empty: false, size: docs.length }),
+    add: async (d) => { addedDocs.push(d); return { id: 'new1' }; },
+  };
+  ctx.db = { collection: () => chain };
+
+  const all = JSON.parse(await planning.exec_get_subscriptions(ctx, { renewing_within_days: 365 }));
+  assert.equal(all.count, 2);
+  assert.equal(all.items[0].name, 'Netflix');
+  assert.equal(all.items[0].days_until, 3);
+  // Stale yearly date rolls forward instead of going negative.
+  assert.ok(all.items[1].days_until > 300);
+  // Yearly folds into the monthly total: 549 + 1200/12.
+  assert.equal(all.monthly_total, 649);
+
+  const soon = JSON.parse(await planning.exec_get_subscriptions(ctx, { renewing_within_days: 7 }));
+  assert.equal(soon.count, 1);
+  assert.equal(soon.items[0].name, 'Netflix');
+
+  const bad = JSON.parse(await planning.exec_add_subscription(ctx, { name: '', price: 0, renewal_date: 'nope' }));
+  assert.ok(bad.error);
+  const ok = JSON.parse(await planning.exec_add_subscription(ctx, { name: 'Spotify', price: 129, renewal_date: '2026-10-15', cycle: 'monthly', payer: 'clair' }));
+  assert.equal(ok.success, true);
+  assert.equal(addedDocs.length, 1);
+  assert.equal(addedDocs[0].name, 'Spotify');
+  assert.equal(addedDocs[0].payer, 'clair');
+});

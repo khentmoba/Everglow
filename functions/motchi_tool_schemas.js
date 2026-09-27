@@ -970,6 +970,37 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'get_subscriptions',
+      description: 'List the couple\'s tracked subscriptions with prices and renewal countdowns. Use when they ask what subs they have, what renews soon, or where money goes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          renewing_within_days: { type: 'number', description: 'Only subs renewing within this many days (default 30)' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'add_subscription',
+      description: 'Track a new subscription (Netflix, Spotify, iCloud…). Prices are always Philippine pesos.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Subscription name (e.g., Netflix)' },
+          price: { type: 'number', description: 'Price in pesos (e.g., 549)' },
+          renewal_date: { type: 'string', description: 'Next renewal date ISO 8601 YYYY-MM-DD' },
+          cycle: { type: 'string', enum: ['monthly','yearly'], description: 'Billing cycle (default monthly)' },
+          payer: { type: 'string', enum: ['khent','clair','shared'], description: 'Who pays (default shared)' },
+        },
+        required: ['name','price','renewal_date'],
+      },
+    },
+  },
 ];
 
 function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prevUserText = '') {

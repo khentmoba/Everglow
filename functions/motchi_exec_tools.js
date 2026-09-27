@@ -92,6 +92,8 @@ const {
   exec_plan_date_night,
   exec_get_date_ideas,
   exec_get_weather,
+  exec_get_subscriptions,
+  exec_add_subscription,
 } = require('./motchi_exec_planning.js');
 const {
   exec_get_relationship_insights,
@@ -213,6 +215,8 @@ const TOOL_EXECUTORS = {
   plan_date_night: exec_plan_date_night,
   get_date_ideas: exec_get_date_ideas,
   get_weather: exec_get_weather,
+  get_subscriptions: exec_get_subscriptions,
+  add_subscription: exec_add_subscription,
   get_relationship_insights: exec_get_relationship_insights,
   get_memory_trivia: exec_get_memory_trivia,
   get_today_recap: exec_get_today_recap,

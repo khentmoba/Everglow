@@ -69,6 +69,10 @@ test('validateToolArgs enforces required fields', () => {
   assert.equal(validate('web_search', { query: 'Ethel Cain tour' }).ok, true);
   assert.equal(validate('search_spotify', {}).ok, false);
   assert.equal(validate('search_spotify', { artist: 'Ethel Cain', track: 'Crush' }).ok, true);
+  assert.equal(validate('add_subscription', {}).ok, false);
+  assert.equal(validate('add_subscription', { name: 'Netflix', price: 0, renewal_date: '2026-10-15' }).ok, false);
+  assert.equal(validate('add_subscription', { name: 'Netflix', price: 549, renewal_date: 'soon-ish' }).ok, false);
+  assert.equal(validate('add_subscription', { name: 'Netflix', price: 549, renewal_date: '2026-10-15' }).ok, true);
 });
 
 test('validateToolArgs enforces length limits', () => {
