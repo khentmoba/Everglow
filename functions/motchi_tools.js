@@ -695,6 +695,18 @@ const FAST_PATH_INTENTS = [
     match: /^(read back (our|my|the) starlight( jar)?( notes?)?|show (our|my|the) starlight( jar)?( notes?)?)[?!\s.]*$/i,
     tool: 'read_starlight_jar',
   },
+  {
+    match: /^(show|list) (our|my|the) bucket list[?!\s.]*$|^what('s| is) (on|in) (our|my|the) bucket list[?!\s.]*$/i,
+    tool: 'get_bucket_list',
+  },
+  {
+    match: /^(show|list|read) (our|my|the) (recent )?journal( entries)?[?!\s.]*$/i,
+    tool: 'get_journal_entries',
+  },
+  {
+    match: /^(show|list) (our|my|the|upcoming) trips[?!\s.]*$|^what trips do we have[?!\s.]*$/i,
+    tool: 'get_trips',
+  },
 ];
 
 const FAST_PATH_BLOCKERS = /\b(and|then|also|plus|after that|followed by|before that)\b|[;+]|\n/i;

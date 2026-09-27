@@ -173,7 +173,7 @@ async function getWatchContext() {
       const snapshot = await db.collection('our_cinema')
         .where('userId', '==', username)
         .orderBy('addedAt', 'desc')
-        .limit(15)
+        .limit(10)
         .get();
       if (!snapshot.empty) {
         const items = snapshot.docs.map(doc => {
@@ -258,7 +258,7 @@ async function getUpcomingMovies() {
 async function getBooksContext() {
   try {
     const db = getDb();
-    const snapshot = await db.collection('our_books').limit(20).get();
+    const snapshot = await db.collection('our_books').limit(12).get();
     if (snapshot.empty) return '';
     const books = snapshot.docs.map(doc => {
       const d = doc.data();
@@ -277,12 +277,14 @@ async function getStarlightContext() {
     const db = getDb();
     const snapshot = await db.collection('starlight_jar')
       .orderBy('timestamp', 'desc')
-      .limit(20)
+      .limit(12)
       .get();
     if (snapshot.empty) return '';
     const notes = snapshot.docs.map(doc => {
       const d = doc.data();
-      return `- "${d.content || ''}" — ${d.author || ''}`;
+      // Cap each note: untrimmed notes could each be KBs of prompt.
+      const content = String(d.content || '').slice(0, 200);
+      return `- "${content}" — ${d.author || ''}`;
     }).join('\n');
     return `Starlight Jar notes (recent):\n${notes}`;
   } catch (_) { return ''; }
@@ -310,7 +312,7 @@ async function getMusicContext() {
     const db = getDb();
     const snapshot = await db.collection('music')
       .orderBy('addedAt', 'desc')
-      .limit(25)
+      .limit(15)
       .get();
     if (snapshot.empty) return '';
     const songs = snapshot.docs.map(doc => {
@@ -326,7 +328,7 @@ async function getGardenContext() {
     const db = getDb();
     const snapshot = await db.collection('garden_plants')
       .orderBy('plantedAt', 'desc')
-      .limit(20)
+      .limit(12)
       .get();
     if (snapshot.empty) return '';
     const plants = snapshot.docs.map(doc => {

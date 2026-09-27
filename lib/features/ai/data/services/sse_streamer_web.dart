@@ -39,6 +39,31 @@ Future<String> streamSseResponse({
   final pending = <String>[];
   var drainScheduled = false;
   var streamDone = false;
+  // First paint wins: the first VISIBLE token (content/reasoning) renders
+  // synchronously instead of waiting for a requestAnimationFrame (~1 frame
+  // / 16ms of TTFT). Status-only events stay on the paced rAF path, and
+  // later bursts keep painting at a visible rhythm.
+  var paintedFirstToken = false;
+
+  /// True when a queued SSE payload carries visible text. Raw-string scan
+  /// (drain still does the real JSON parse) — only the value's first char
+  /// is inspected, so embedded escapes can't fool it.
+  bool payloadHasText(String data, String key) {
+    final i = data.indexOf('"$key":"');
+    if (i < 0) return false;
+    final v = i + key.length + 4;
+    if (v >= data.length) return false;
+    return data[v] != '"'; // '"' right away = empty string value
+  }
+
+  bool pendingHasVisibleToken() {
+    for (final d in pending) {
+      if (payloadHasText(d, 'content') || payloadHasText(d, 'reasoning')) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   StreamSubscription? visSub;
   void completeRequest() {
@@ -94,6 +119,14 @@ Future<String> streamSseResponse({
       return;
     }
     if (drainScheduled) return;
+    if (!paintedFirstToken && pendingHasVisibleToken()) {
+      drain();
+      // A 4-event budget may leave the token queued behind statuses —
+      // stay on the sync path until visible text actually drains.
+      paintedFirstToken = !pendingHasVisibleToken();
+      if (pending.isNotEmpty) startDrain();
+      return;
+    }
     drainScheduled = true;
     // Drive pacing with requestAnimationFrame: browser timers get throttled
     // hard while the app's animations run, which made reply bursts appear
