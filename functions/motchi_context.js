@@ -9,7 +9,7 @@ const {
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
-const { selectBlockKeys, formatChatContext, formatSessionContext } = require('./motchi_core.js');
+const { selectBlockKeys, formatChatContext, formatSessionContext, phtDateLabel, PHT_OFFSET_MS } = require('./motchi_core.js');
 
 /**
  * In-memory cache for individual feature context blocks.
@@ -112,28 +112,34 @@ async function buildContextForFeature(feature, _callerUid, userMessage = '') {
   }
 }
 
-function getProactiveContext() {
-  const now = new Date();
-  const parts = [];
+// Always-on date line + near-day specials, computed in Philippine wall
+// time (the server runs on UTC, so server-local dates are off by a day
+// for the first 8 hours of every PHT morning). This block rides first in
+// every assistant prompt — without it Motchi can't reason about
+// weekends, tomorrows, or countdowns at all.
+function getProactiveContext(nowMs = Date.now()) {
+  const pht = new Date(nowMs + PHT_OFFSET_MS);
+  const y = pht.getUTCFullYear();
+  const todayUTC = Date.UTC(y, pht.getUTCMonth(), pht.getUTCDate());
+  const daysUntil = (month, day) =>
+    Math.ceil((Date.UTC(y, month, day) - todayUTC) / 86400000);
+
+  const parts = [`Today is ${phtDateLabel(nowMs)} (Philippine time).`];
 
   // Anniversary (Feb 14)
-  const anniv = new Date(now.getFullYear(), 1, 14);
-  const annivDays = Math.ceil((anniv - now) / (1000 * 60 * 60 * 24));
+  const annivDays = daysUntil(1, 14);
   if (annivDays > 0) parts.push(`💕 Anniversary in ${annivDays} days (Feb 14)`);
   else if (annivDays === 0) parts.push(`💕 ANNIVERSARY TODAY!`);
 
   // Birthdays
-  const khentBday = new Date(now.getFullYear(), 9, 26);
-  const clairBday = new Date(now.getFullYear(), 1, 21);
-  const toKhent = Math.ceil((khentBday - now) / (1000 * 60 * 60 * 24));
-  const toClair = Math.ceil((clairBday - now) / (1000 * 60 * 60 * 24));
+  const toKhent = daysUntil(9, 26);
+  const toClair = daysUntil(1, 21);
   if (toKhent === 0) parts.push('🎂 Dada\'s birthday TODAY!');
   else if (toKhent > 0 && toKhent <= 30) parts.push(`Dada's birthday in ${toKhent} days 🎂`);
   if (toClair === 0) parts.push('🎂 Mama\'s birthday TODAY!');
   else if (toClair > 0 && toClair <= 30) parts.push(`Mama's birthday in ${toClair} days 🎂`);
 
-  if (parts.length === 0) return '';
-  return `Today's digest: ${parts.join(' ')}`;
+  return parts.join(' ');
 }
 
 async function getMoodContext() {
@@ -514,6 +520,7 @@ async function getBudgetContext() {
 
 module.exports = {
   buildContextForFeature,
+  getProactiveContext,
   getTmdbKey,
   invalidateContextBlock,
 };

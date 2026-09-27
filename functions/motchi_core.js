@@ -460,6 +460,15 @@ function phtDateString(nowMs = Date.now()) {
   return new Date(nowMs + PHT_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+const PHT_WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const PHT_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "Sunday, September 27, 2026" in Philippine wall time. */
+function phtDateLabel(nowMs = Date.now()) {
+  const pht = new Date(nowMs + PHT_OFFSET_MS);
+  return `${PHT_WEEKDAYS[pht.getUTCDay()]}, ${PHT_MONTHS[pht.getUTCMonth()]} ${pht.getUTCDate()}, ${pht.getUTCFullYear()}`;
+}
+
 /**
  * UTC instants bounding the PHT calendar day containing `nowMs`:
  * { start, end } as Dates (end is the last millisecond of the day).
@@ -686,6 +695,7 @@ module.exports = {
   getMessageText,
   estimateTokens,
   phtDateString,
+  phtDateLabel,
   phtDayBounds,
   PHT_OFFSET_MS,
   parseReminderDate,

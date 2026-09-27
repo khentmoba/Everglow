@@ -247,8 +247,10 @@ const TOOL_GROUPS = [
     tools: ['get_xp_stats'],
   },
   {
+    // Bare asks ("suggest something for tonight") name no feature —
+    // attach the two pickers Motchi reaches for most, not just the index.
     match: /recommend|suggest|discover|\bfind\b|looking for|any good/i,
-    tools: ['search_everglow'],
+    tools: ['search_everglow', 'search_movies', 'get_date_ideas'],
   },
   {
     match: /\bplan\b|planning|surprise|organize/i,

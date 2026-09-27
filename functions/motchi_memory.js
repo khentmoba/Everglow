@@ -35,7 +35,7 @@ async function getRemoteEmbedding(text) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3500),
     });
     if (!resp.ok) return null;
     const data = await resp.json();
@@ -46,6 +46,30 @@ async function getRemoteEmbedding(text) {
   } catch (_) {
     return null;
   }
+}
+
+/**
+ * True for greetings, smalltalk, and short asks that rank fine on
+ * keywords alone — no point spending an embedding round-trip on them.
+ */
+function isCasualMemoryQuery(text) {
+  const t = String(text || '').trim();
+  if (t.length < 24) return true;
+  if (t.length > 80) return false;
+  return /^(hi|hello|hey|good (morning|afternoon|evening|night)|thanks|thank you|ok(ay)?|haha+|lol|love you|mew|prr|nya|how are you|what'?s up)\b/i.test(t);
+}
+
+// ── Facts cache ──────────────────────────────────────────────
+// selectRelevantMemories runs every turn but the book barely moves
+// (extraction is throttled to one write per 30 min, the rest are
+// explicit). Cache the raw fetch briefly; ranking still runs fresh
+// per message, and every write path invalidates. In-memory only — a
+// cold instance just reads again.
+const FACTS_CACHE_TTL_MS = 90 * 1000;
+let _factsCache = { at: 0, facts: null };
+
+function invalidateMemoryCache() {
+  _factsCache = { at: 0, facts: null };
 }
 
 async function getEmbedding(text) {
@@ -152,6 +176,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
             confidence: 1.0,
             updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
           });
+          invalidateMemoryCache();
         } catch (_) {}
         hit.fact = fact;
         continue;
@@ -176,6 +201,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         source: callerUsername || 'motchi',
         embedding,
         });
+        invalidateMemoryCache();
         recentDocs.unshift({ id: ref.id, fact });
       } catch (_) {
         recentDocs.unshift({ id: null, fact });
@@ -271,52 +297,66 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
     // Slim: 60 freshest + pinned top-up (was: 150 freshest). Pinned facts
     // ride their own tiny query so an old pin can never fall off the
     // tail when the book grows past the fresh window.
-    const factsCol = db.collection('ai_memories').doc('shared').collection('facts');
-    const [snapshot, pinnedSnap] = await Promise.all([
-      factsCol.orderBy('createdAt', 'desc').limit(60).get(),
-      factsCol.where('pinned', '==', true).limit(20).get(),
-    ]);
+    // Cached raw fetch when fresh (ranking below still runs per message).
+    let memories = (_factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS)
+      ? _factsCache.facts
+      : null;
+    if (!memories) {
+      const factsCol = db.collection('ai_memories').doc('shared').collection('facts');
+      const [snapshot, pinnedSnap] = await Promise.all([
+        factsCol.orderBy('createdAt', 'desc').limit(60).get(),
+        factsCol.where('pinned', '==', true).limit(20).get(),
+      ]);
 
-    const memories = [];
-    const seenIds = new Set();
-    for (const snap of [snapshot, pinnedSnap]) {
-    snap.forEach(doc => {
-      if (seenIds.has(doc.id)) return;
-      seenIds.add(doc.id);
-      const data = doc.data();
-      memories.push({
-        id: doc.id,
-        fact: data.fact || '',
-        category: data.category || 'fact',
-        subject: data.subject || null,
-        relation: data.relation || null,
-        object: data.object || null,
-        occurredAt: data.occurredAt?.toDate?.() || null,
-        createdAt: data.createdAt?.toDate?.() || null,
-        pinned: data.pinned === true,
-        confidence: data.confidence ?? 1.0,
-        lastAccessed: data.lastAccessed?.toDate?.() || null,
+      memories = [];
+      const seenIds = new Set();
+      for (const snap of [snapshot, pinnedSnap]) {
+      snap.forEach(doc => {
+        if (seenIds.has(doc.id)) return;
+        seenIds.add(doc.id);
+        const data = doc.data();
+        memories.push({
+          id: doc.id,
+          fact: data.fact || '',
+          category: data.category || 'fact',
+          subject: data.subject || null,
+          relation: data.relation || null,
+          object: data.object || null,
+          occurredAt: data.occurredAt?.toDate?.() || null,
+          createdAt: data.createdAt?.toDate?.() || null,
+          pinned: data.pinned === true,
+          confidence: data.confidence ?? 1.0,
+          lastAccessed: data.lastAccessed?.toDate?.() || null,
+          embedding: Array.isArray(data.embedding) ? data.embedding : null,
+        });
       });
-    });
+      }
+      _factsCache = { at: Date.now(), facts: memories };
     }
 
-    // Decay: halve confidence if not accessed in 90 days
+    // Decay: halve confidence if not accessed in 90 days. Cloned — the
+    // cached originals must not rot (or collect _cos tags) turn by turn.
     const now = new Date();
     const decayed = memories.map(m => {
-      if (m.lastAccessed) {
-        const daysSince = (now - m.lastAccessed) / (1000 * 60 * 60 * 24);
+      const c = { ...m };
+      if (c.lastAccessed) {
+        const daysSince = (now - c.lastAccessed) / (1000 * 60 * 60 * 24);
         if (daysSince > 90) {
-          m.confidence *= Math.pow(0.5, daysSince / 90);
+          c.confidence *= Math.pow(0.5, daysSince / 90);
         }
       }
-      return m;
+      return c;
     }).filter(m => m.confidence >= 0.15);
 
-    // One remote query vector per turn when the endpoint answers;
-    // facts stored in the remote space then match semantically instead
-    // of by hash overlap. Fails soft to local-only ranking.
+    // One remote query vector per turn when the endpoint answers AND the
+    // book actually holds remote-space facts — otherwise the vector has
+    // nothing to match against and the HTTP round-trip is pure waste.
+    // Casual asks rank fine on keywords alone. Fails soft to local-only.
+    const anyRemote = decayed.some((f) => Array.isArray(f.embedding) && f.embedding.length >= 256);
     let remoteQueryEmb = null;
-    try { remoteQueryEmb = await getRemoteEmbedding(userMessage || ''); } catch (_) {}
+    if (anyRemote && !isCasualMemoryQuery(userMessage)) {
+      try { remoteQueryEmb = await getRemoteEmbedding(userMessage || ''); } catch (_) {}
+    }
     const ranked = rankMemories(decayed, userMessage || '', maxResults, undefined, remoteQueryEmb);
     // W3-C12: bump accessCount/lastAccessed for the memories that were injected (fire-and-forget)
     if (ranked.length > 0) {
@@ -345,6 +385,8 @@ async function selectRelevantMemories(clientMemories, userMessage, maxResults = 
 module.exports = {
   getEmbedding,
   getRemoteEmbedding,
+  isCasualMemoryQuery,
+  invalidateMemoryCache,
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,

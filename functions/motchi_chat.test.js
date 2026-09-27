@@ -150,12 +150,22 @@ test('chat uses the fast Agnes provider', () => {
 test('game guide only rides artifact asks (prompt diet)', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
   // The ~2.5KB phone-first game guide used to ride every chat through
-  // the canvas section. Both interpolations (study + assistant) must
-  // stay gated behind wantsArtifact, and artifact follow-ups ("make
-  // it pink") keep it via the previous reply's block.
+  // the canvas section. Study mode keeps its ternary gate; the assistant
+  // section splits into CANVAS_FULL (artifact turns, guide inside) vs
+  // CANVAS_QUICK (plain chat pointer) — the guide must never leak into
+  // the slim pointer. Artifact follow-ups ("make it pink") keep it via
+  // the previous reply's block, and a bare yes to an offered quiz/game
+  // upgrades the build turn to the full guide.
   const gated = src.split("wantsArtifact ? HTML_GAME_GUIDE : ''").length - 1;
-  assert.equal(gated, 2);
+  assert.equal(gated, 1);
+  assert.match(src, /wantsArtifact \? CANVAS_FULL : CANVAS_QUICK/);
+  const quickBlock = src.slice(
+    src.indexOf('const CANVAS_QUICK'),
+    src.indexOf('wantsArtifact ? CANVAS_FULL : CANVAS_QUICK'),
+  );
+  assert.ok(!quickBlock.includes('HTML_GAME_GUIDE'), 'slim pointer must not carry the game guide');
   assert.match(src, /hasCompleteArtifact\(prevAssistantText\)/);
+  assert.match(src, /isBareYes\(_artifactMsg\)/);
 });
 
 test('deploy surface still includes chat + schedules + catalog', () => {

@@ -10,6 +10,21 @@ test('motchi memory group exposes four helpers', () => {
   assert.equal(typeof mem.checkHallucinations, 'function');
   assert.equal(typeof mem.getEmbedding, 'function');
   assert.equal(typeof mem.selectRelevantMemories, 'function');
+  assert.equal(typeof mem.isCasualMemoryQuery, 'function');
+  assert.equal(typeof mem.invalidateMemoryCache, 'function');
+});
+
+test('isCasualMemoryQuery gates the remote embedding round-trip', () => {
+  assert.equal(mem.isCasualMemoryQuery('hi motchi!'), true);
+  assert.equal(mem.isCasualMemoryQuery('good morning motchi, we love you!'), true);
+  assert.equal(mem.isCasualMemoryQuery(''), true);
+  assert.equal(mem.isCasualMemoryQuery('what do you remember about our coffee habits?'), false);
+  assert.equal(mem.isCasualMemoryQuery('Khent prefers black coffee and rides a Winner X'), false);
+});
+
+test('invalidateMemoryCache is safe to call any time', () => {
+  mem.invalidateMemoryCache();
+  mem.invalidateMemoryCache();
 });
 
 test('selectRelevantMemories ranks client facts without Firestore', async () => {
