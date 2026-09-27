@@ -972,7 +972,7 @@ const MOTCHI_TOOLS = [
   },
 ];
 
-function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '') {
+function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prevUserText = '') {
   if (reqFeature === 'guardian') {
     const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
@@ -1005,7 +1005,7 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '') {
   // for (typically a third of the schemas). Falls back to full tools if
   // the router ever returns nothing, so Motchi never goes blind.
   try {
-    const wanted = new Set(selectToolNames(userMsg, prevAssistantText));
+    const wanted = new Set(selectToolNames(userMsg, prevAssistantText, prevUserText));
     const routed = MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
     if (routed.length > 0) return routed;
   } catch (_) {}

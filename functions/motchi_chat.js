@@ -239,6 +239,10 @@ async function handleProxyAI(req, res) {
   // Previous assistant text powers follow-through routing: a bare yes
   // keeps the write tools only when Motchi just offered a plan.
   const prevAssistantText = getMessageText(messages.findLast((m) => m?.role === 'assistant')?.content);
+  // Previous user turn lends topics when the current message names no
+  // group (follow-ups like "move it to Friday").
+  const _userMsgs = messages.filter((m) => m?.role === 'user');
+  const prevUserText = getMessageText(_userMsgs.length > 1 ? _userMsgs[_userMsgs.length - 2]?.content : '');
   // Explicit artifact ask — wins over the Canvas toggle (see above). Used
   // both for the prompt gate and the output-budget tier below. Strong nouns
   // match bare; ambiguous ones (quiz, game, app, website…) need an ask or
@@ -635,7 +639,7 @@ ${HTML_GAME_GUIDE}
 
 
   // Tools: custom Motchi tools (dynamically pruned for feature and greetings)
-  let tools = selectToolsForRequest(feature, lastUserMessage, prevAssistantText);
+  let tools = selectToolsForRequest(feature, lastUserMessage, prevAssistantText, prevUserText);
   if (fastPath) tools = []; // pre-executed below; the model only answers
 
   // Render the persona's tool list from the ATTACHED tools, so the prompt

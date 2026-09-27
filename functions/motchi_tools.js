@@ -258,8 +258,18 @@ const TOOL_GROUPS = [
   },
 ];
 
-/** Tool names for a message: core + matching groups' reads + gated writes. */
-function selectToolNames(message, prevAssistantText = '') {
+/**
+ * Tool names for a message: core + matching groups' reads + gated writes.
+ * When the current message names no group at all, the previous user
+ * turn lends its topics (follow-ups like "move it to Friday" or
+ * "cancel that"). A third-person pronoun (it/that/this) also pulls
+ * context in as a union, so "read it" after journal talk inherits
+ * journal reads alongside its own book match. First/second person
+ * (me/you) never trigger this — topic switches stay clean. Write
+ * gating always reads the CURRENT message only, so "read it" never
+ * attaches creates.
+ */
+function selectToolNames(message, prevAssistantText = '', prevUserText = '') {
   const text = String(message || '');
   const picked = new Set(CORE_TOOLS);
   // Follow-through first: a bare yes to an offered plan keeps the
@@ -268,26 +278,33 @@ function selectToolNames(message, prevAssistantText = '') {
     for (const name of FOLLOW_THROUGH_TOOLS) picked.add(name);
     return [...picked];
   }
-  let matched = 0;
-  for (const group of TOOL_GROUPS) {
-    let hit;
-    try {
-      hit = group.match.test(text);
-    } catch (_) {
-      hit = false;
-    }
-    if (hit) {
-      matched++;
-      for (const name of group.tools) picked.add(name);
-      if (Array.isArray(group.write) && group.write.length > 0) {
-        let wHit = true; // fail open: a broken pattern must not blind Motchi
-        try {
-          wHit = (group.writeMatch || WRITE_INTENT_RE).test(text);
-        } catch (_) {}
-        if (wHit) for (const name of group.write) picked.add(name);
+  const scan = (haystack) => {
+    let n = 0;
+    for (const group of TOOL_GROUPS) {
+      let hit;
+      try {
+        hit = group.match.test(haystack);
+      } catch (_) {
+        hit = false;
+      }
+      if (hit) {
+        n++;
+        for (const name of group.tools) picked.add(name);
+        if (Array.isArray(group.write) && group.write.length > 0) {
+          let wHit = true; // fail open: a broken pattern must not blind Motchi
+          try {
+            wHit = (group.writeMatch || WRITE_INTENT_RE).test(text);
+          } catch (_) {}
+          if (wHit) for (const name of group.write) picked.add(name);
+        }
       }
     }
-  }
+    return n;
+  };
+  let matched = scan(text);
+  const ctx = String(prevUserText || '');
+  const needsCtx = matched === 0 || /\b(it|that|this|those|these)\b/i.test(text);
+  if (ctx && ctx !== text && needsCtx) matched += scan(ctx);
   if (matched === 0) {
     for (const name of AWARENESS_TOOLS) picked.add(name);
   }

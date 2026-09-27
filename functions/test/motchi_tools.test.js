@@ -379,6 +379,23 @@ test('read/write split: reads travel light, writes ride action verbs', () => {
   assert.ok(tools.selectToolNames('yes', 'Want me to remember that for you?').includes('remember_fact'));
 });
 
+test('context routing: follow-ups inherit the previous turn topics', () => {
+  const sel = (m, ctx) => tools.selectToolNames(m, '', ctx || '');
+  // Zero-group follow-ups fall back to previous-turn topics.
+  assert.ok(sel('move dentist to friday', 'add dentist appointment thursday').includes('update_calendar_event'));
+  assert.ok(sel('cancel that', 'remind me tomorrow to water plants').includes('cancel_reminder'));
+  // Pronouns union context with the current match; writes gate on current.
+  const readIt = sel('read it', 'journal about yesterday');
+  assert.ok(readIt.includes('read_journal_entry'));
+  assert.ok(!readIt.includes('create_journal_entry'));
+  // No context, no inheritance: bare follow-ups stay Chattable-small.
+  assert.ok(!sel('move it to friday', '').includes('update_calendar_event'));
+  // Topic switches stay clean: me/you never pull context in.
+  assert.ok(!sel('remind me tomorrow', 'add Dune to our watchlist').includes('add_to_watchlist'));
+  // Same-message repeat is not context.
+  assert.ok(!sel('move dentist to friday', 'move dentist to friday').includes('update_calendar_event'));
+});
+
 test('edit tools validate id-or-title plus their fields', () => {
   for (const tool of ['edit_bucket_item', 'edit_habit', 'edit_reminder', 'edit_trip']) {
     assert.equal(tools.validateToolArgs(tool, {}).ok, false);

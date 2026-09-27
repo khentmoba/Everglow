@@ -527,8 +527,9 @@ const AGNES_INPUT_TOKEN_BUDGET = 120000;
 
 /**
  * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
- * 8601 plus "today/tonight/tomorrow [at H[:MM] am/pm]", "in N
- * minutes/hours/days/weeks", and "next week". Clock times are read as
+ * 8601 plus "today/tonight/tomorrow [at H[:MM] am/pm]" (tmrw works
+ * too), "in N minutes/hours/days/weeks", weekday names ("friday",
+ * "friday at 3pm", "next friday"), and "next week". Clock times are read as
  * Philippine wall time (the server runs on UTC, but Khent and Clair live
  * in PHT) — "tomorrow at 3pm" means 3pm in Cabadbaran, not 3pm UTC.
  * Returns null when nothing parseable is found.
@@ -536,7 +537,7 @@ const AGNES_INPUT_TOKEN_BUDGET = 120000;
 function parseReminderDate(raw, nowMs = Date.now()) {
   const text = String(raw || '').trim();
   if (!text) return null;
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replace(/\btmrw\b/g, 'tomorrow');
   // Phrases first: the lenient Date parser below mangles inputs like
   // "tonight at 8" into nonsense years, so known relatives win.
 
@@ -590,6 +591,25 @@ function parseReminderDate(raw, nowMs = Date.now()) {
       return d.getTime() <= nowMs ? phtWall(1, clock.h, clock.min) : d;
     }
     return new Date(nowMs + 3600000);
+  }
+  const wd = lower.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if (wd) {
+    const targets = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+    const phtDow = new Date(nowMs + PHT_OFFSET_MS).getUTCDay();
+    let delta = (targets[wd[2]] - phtDow + 7) % 7;
+    const clock = parseClock();
+    if (wd[1] || /next week/.test(lower)) {
+      delta += 7; // "next friday" = next week's Friday
+    } else if (delta === 0) {
+      // Same weekday: today if the clock time is still ahead, else +7.
+      if (clock) {
+        const t = phtWall(0, clock.h, clock.min);
+        if (t.getTime() > nowMs) return t;
+      }
+      delta = 7;
+    }
+    if (clock) return phtWall(delta, clock.h, clock.min);
+    return phtWall(delta, 9, 0); // dateless weekday = 9am that day
   }
   if (/next week/.test(lower)) return new Date(nowMs + 7 * 86400000);
   // Last resort: ISO 8601 and other directly parseable dates.
