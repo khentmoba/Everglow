@@ -87,11 +87,11 @@ const TOOL_NAMES = [
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.
 
-// Always available: memory writes, mood, XP.
+// Always available: memory reads + proactive XP awards. The old core also
+// carried set_mood, save_to_starlight_jar, and remember_fact on EVERY
+// intent turn; those now ride their intent groups (mood, starlight,
+// memory) so read-only asks stop paying for write schemas they can't use.
 const CORE_TOOLS = [
-  'set_mood',
-  'save_to_starlight_jar',
-  'remember_fact',
   'read_memories',
   'add_xp',
 ];
@@ -110,14 +110,28 @@ const AWARENESS_TOOLS = [
 // Intent groups: keyword pattern plus the tools that intent needs. All
 // matching groups merge. Keywords stay generous — a spurious group
 // costs ~3 tools, a missed group costs a failed request.
+// Fallback write trigger for groups without their own `writeMatch`.
+// Generous on purpose: a spurious write set costs ~3 schemas, a missed
+// one costs a failed request.
+const WRITE_INTENT_RE = /add|save|create|log|set|mark|remove|delete|update|edit|change|cancel|complete|finish|plan|remind|send|tell|relay|pin|remember|forget|fix|move|rename|note|track|book/i;
+
 const TOOL_GROUPS = [
   {
     match: /movie|film|cinema|watchlist|watched|\bwatch\b|\btv\b|shows|series|episode|tmdb|netflix|k-?drama/i,
-    tools: ['add_to_watchlist', 'search_movies', 'get_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],
+    tools: ['search_movies', 'get_watchlist'],
+    write: ['add_to_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],
+    // "watched" (not bare "watch": that matches "watchlist" itself).
+    // Keeps statement logging ("we watched Dune"); "what we watched"
+    // questions carry the writes too — harmless, the model needs a
+    // title to act and reads first.
+    writeMatch: /add|save|put|mark|watched|finish|remove|delete/i,
   },
   {
     match: /\bbook\b|books|\bread\b|reading|author|novel|chapter|percent|progress|\blibrary\b/i,
-    tools: ['search_books', 'add_book_to_our_books', 'update_book_progress'],
+    tools: ['search_books'],
+    write: ['add_book_to_our_books', 'update_book_progress'],
+    // No bare "chapter": "what chapter are we on" is a read.
+    writeMatch: /add|save|put|percent|through|progress|finish|update|done/i,
   },
   {
     match: /anime|manga|jikan|myanimelist/i,
@@ -129,19 +143,31 @@ const TOOL_GROUPS = [
   },
   {
     match: /chat|sanctuary|said|\bsay\b|\btell\b|relay|messaged|convo/i,
-    tools: ['read_chat_messages', 'send_sanctuary_message', 'send_note_to_partner'],
+    tools: ['read_chat_messages'],
+    write: ['send_sanctuary_message', 'send_note_to_partner'],
+    // "tell Clair" writes; "tell me about our chat" reads.
+    writeMatch: /\btell (clair|khent|her|him|them|mama|dada)\b|\bsend\b|relay|write|note |message (to|her|him|them|clair|khent|mama|dada)/i,
   },
   {
     match: /starlight|\bjar\b|grateful|gratitude|thankful|\bnotes?\b/i,
     tools: ['read_starlight_jar'],
+    write: ['save_to_starlight_jar'],
+    writeMatch: /save|add|write|put|keep|store/i,
   },
   {
     match: /\bmoods?\b|feeling|\bfeel\b|felt|emotion|happy|sad|stressed|tired|excited|anxious|lonely/i,
     tools: ['get_relationship_insights'],
+    write: ['set_mood'],
+    // "my mood / I feel / right now" writes; "our moods / patterns"
+    // reads. The \bfeels? form covers "we feel great" too.
+    writeMatch: /my mood|\bfeels?\b|\bfeeling\b|\bfelt\b|i'm\b|i am|right now/i,
   },
   {
     match: /memor|remember|forget|trivia|\bquiz\b/i,
-    tools: ['pin_memory', 'edit_memory', 'delete_memory', 'get_memory_trivia'],
+    tools: ['get_memory_trivia'],
+    write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory'],
+    // "forget the memory" deletes; "I forget what we watched" is chat.
+    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|forget (the|that|this|about|my|our)/i,
   },
   {
     match: /\bdates?\b|dating|anniversary|romantic|date night|datenight|\bideas?\b/i,
@@ -153,27 +179,48 @@ const TOOL_GROUPS = [
   },
   {
     match: /remind|reminder|alarm|\bnotify\b/i,
-    tools: ['create_reminder', 'list_reminders', 'cancel_reminder', 'edit_reminder'],
+    tools: ['list_reminders'],
+    write: ['create_reminder', 'cancel_reminder', 'edit_reminder'],
+    // "remind me/us/her" writes; bare "reminders" (list/show) reads.
+    writeMatch: /create|add|set|new|alarm|notify|cancel|delete|remove|change|edit|update|move|snooze|\bremind me\b|\bremind us\b|\bremind her\b|\bremind him\b|\bremind them\b/i,
   },
   {
     match: /calendar|schedul|coming up|upcoming|this month|this week|tomorrow|\bevents?\b|appointment|deadline|reschedul|postpon/i,
-    tools: ['add_calendar_event', 'get_calendar_events', 'update_calendar_event', 'delete_calendar_event'],
+    tools: ['get_calendar_events'],
+    write: ['add_calendar_event', 'update_calendar_event', 'delete_calendar_event'],
+    // "schedule a …" writes; "on the schedule" reads. No bare "new":
+    // "any new events" is a read ("create"/"make" cover new writes).
+    writeMatch: /add|create|make|move|reschedul|postpon|change|edit|update|delete|remove|cancel|book|schedul\w* (a|an|our|my|the|it|this)/i,
   },
   {
     match: /journal|diar|reflect|\bentr(?:y|ies)\b|letter|rewrite/i,
-    tools: ['create_journal_entry', 'get_journal_entries', 'search_journal_entries', 'read_journal_entry', 'edit_journal_entry', 'delete_journal_entry'],
+    tools: ['get_journal_entries', 'search_journal_entries', 'read_journal_entry'],
+    write: ['create_journal_entry', 'edit_journal_entry', 'delete_journal_entry'],
+    // No bare "new": "any new entries" is a read.
+    writeMatch: /journal about|write|create|add|start|edit|change|update|rewrite|delete|remove|fix/i,
   },
   {
     match: /bucket|\bdreams?\b|\bwish(?:es)?\b|\bgoals?\b|\bcomplet\w*\b|\bfinish\w*\b/i,
-    tools: ['add_bucket_item', 'get_bucket_list', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
+    tools: ['get_bucket_list'],
+    write: ['add_bucket_item', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
+    // No bare "new": "any new ideas" is a read.
+    writeMatch: /add|create|mark|complete|finish|done|delete|remove|edit|change|update/i,
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
-    tools: ['add_trip', 'add_trip_pin', 'get_trips', 'edit_trip'],
+    tools: ['get_trips'],
+    write: ['add_trip', 'add_trip_pin', 'edit_trip'],
+    // No bare "new": "any new trips" is a read ("plan" covers it).
+    writeMatch: /plan|add|create|pin|move|change|edit|update|book/i,
   },
   {
     match: /habit|streak|workout|\bgym\b|routine|\blog\b|activity|\bdid\b|exercis|dinner|lunch|breakfast/i,
-    tools: ['log_habit', 'complete_habit', 'edit_habit', 'log_activity'],
+    // log_activity stays always-on: "we had ramen" statements get
+    // logged proactively; the habit writes gate on action verbs.
+    tools: ['log_activity'],
+    write: ['log_habit', 'complete_habit', 'edit_habit'],
+    // No bare "new": "any new habit ideas" is a read.
+    writeMatch: /log|add|create|complete|finish|done|edit|change|rename|update|start|track|fix/i,
   },
   {
     match: /recap|summary|digest|today|what happened/i,
@@ -209,7 +256,7 @@ const TOOL_GROUPS = [
   },
 ];
 
-/** Tool names for a message: core + every matching intent group. */
+/** Tool names for a message: core + matching groups' reads + gated writes. */
 function selectToolNames(message, prevAssistantText = '') {
   const text = String(message || '');
   const picked = new Set(CORE_TOOLS);
@@ -230,6 +277,13 @@ function selectToolNames(message, prevAssistantText = '') {
     if (hit) {
       matched++;
       for (const name of group.tools) picked.add(name);
+      if (Array.isArray(group.write) && group.write.length > 0) {
+        let wHit = true; // fail open: a broken pattern must not blind Motchi
+        try {
+          wHit = (group.writeMatch || WRITE_INTENT_RE).test(text);
+        } catch (_) {}
+        if (wHit) for (const name of group.write) picked.add(name);
+      }
     }
   }
   if (matched === 0) {
@@ -571,6 +625,18 @@ const FAST_PATH_INTENTS = [
     match: /^what patterns do you see in our moods[?!\s.]*$/i,
     tool: 'get_relationship_insights',
   },
+  {
+    match: /^(what('s| is) (on|in) (our|my|the) watchlist|show (our|my|the) watchlist|list (our|my|the) watchlist)[?!\s.]*$/i,
+    tool: 'get_watchlist',
+  },
+  {
+    match: /^(what('s| is) coming up( this (week|month))?|show (our|my|the) (upcoming )?events|what events do we have (coming up|this week|this month))[?!\s.]*$/i,
+    tool: 'get_calendar_events',
+  },
+  {
+    match: /^(read back (our|my|the) starlight( jar)?( notes?)?|show (our|my|the) starlight( jar)?( notes?)?)[?!\s.]*$/i,
+    tool: 'read_starlight_jar',
+  },
 ];
 
 const FAST_PATH_BLOCKERS = /\b(and|then|also|plus|after that|followed by|before that)\b|[;+]|\n/i;
@@ -594,6 +660,10 @@ const FOLLOW_THROUGH_TOOLS = [
   'add_to_watchlist',
   'send_sanctuary_message',
   'send_note_to_partner',
+  // Ex-core writes: "want me to save / remember / log this?" + "yes".
+  'save_to_starlight_jar',
+  'set_mood',
+  'remember_fact',
 ];
 
 const BARE_YES_RE = /^(yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|sounds good|perfect|yes please|yes do it|yeah do it|ok do it|let'?s do it)[!.,\s]*$/i;
@@ -635,6 +705,7 @@ module.exports = {
   hasOffer,
   CORE_TOOLS,
   AWARENESS_TOOLS,
+  WRITE_INTENT_RE,
   TOOL_GROUPS,
   selectToolNames,
   toolListSection,

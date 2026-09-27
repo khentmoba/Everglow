@@ -229,8 +229,15 @@ const CONTEXT_BLOCK_KEYWORDS = {
 // when the message asks about history, memory, or the past.
 const DEFAULT_CONTEXT_KEYS = ['chat', 'mood', 'activity', 'watchlist', 'starlight', 'books', 'calendar'];
 
-/** Block keys to fetch for a query: keyword hits first, defaults fill. */
-function selectBlockKeys(query, maxKeys = 7) {
+/**
+ * Block keys to fetch for a query: keyword hits first (up to maxKeys),
+ * defaults fill only to minKeys. Every block is a Firestore query +
+ * prompt tokens, so a vague message fetches the 4 most useful blocks
+ * instead of all 7 — the model still pulls anything else via the
+ * awareness tools. The pricey `sessions` scan still runs only on a
+ * history keyword hit, never as filler.
+ */
+function selectBlockKeys(query, maxKeys = 7, minKeys = 4) {
   const lowered = String(query || '').toLowerCase();
   const words = new Set(lowered.split(/[^a-z0-9]+/).filter(Boolean));
   const scored = Object.keys(CONTEXT_BLOCK_KEYWORDS).map((key) => {
@@ -246,7 +253,12 @@ function selectBlockKeys(query, maxKeys = 7) {
     return { key, score, rank: rank === -1 ? 100 : rank };
   });
   scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.key < b.key ? -1 : 1));
-  return scored.slice(0, maxKeys).map((s) => s.key);
+  const picked = scored.filter((s) => s.score > 0).slice(0, maxKeys).map((s) => s.key);
+  for (const s of scored) {
+    if (picked.length >= minKeys) break;
+    if (!picked.includes(s.key)) picked.push(s.key);
+  }
+  return picked;
 }
 
 function selectContextBlocks(blocks, query, maxBlocks = 6, alwaysKeep = 'proactive') {

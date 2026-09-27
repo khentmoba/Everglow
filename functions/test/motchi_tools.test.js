@@ -244,7 +244,7 @@ test('routing lists only known tools and reaches all of them', () => {
   const reachable = new Set([
     ...tools.CORE_TOOLS,
     ...tools.AWARENESS_TOOLS,
-    ...tools.TOOL_GROUPS.flatMap((g) => g.tools),
+    ...tools.TOOL_GROUPS.flatMap((g) => [...g.tools, ...(g.write || [])]),
   ]);
   for (const name of reachable) {
     assert.ok(tools.TOOL_NAMES.includes(name), `unknown routed tool: ${name}`);
@@ -288,6 +288,11 @@ test('matchFastPath fires only on whole-message zero-arg asks', () => {
   assert.equal(fp('list my reminders'), 'list_reminders');
   assert.equal(fp('what are our reminders?'), 'list_reminders');
   assert.equal(fp('what patterns do you see in our moods'), 'get_relationship_insights');
+  assert.equal(fp('what is on our watchlist'), 'get_watchlist');
+  assert.equal(fp('show our watchlist'), 'get_watchlist');
+  assert.equal(fp('what is coming up this month'), 'get_calendar_events');
+  assert.equal(fp("what's coming up"), 'get_calendar_events');
+  assert.equal(fp('read back our starlight jar notes'), 'read_starlight_jar');
   // Negatives: compounds, multi-sentence, trivia (canvas), chatter.
   assert.equal(fp('what level are we on and plan a date night'), null);
   assert.equal(fp('list my reminders then cancel the plant one'), null);
@@ -295,6 +300,9 @@ test('matchFastPath fires only on whole-message zero-arg asks', () => {
   assert.equal(fp('what level are we on? Also how is Clair?'), null);
   assert.equal(fp('quiz us on our memories'), null);
   assert.equal(fp('remind me tomorrow at 3pm to water the plants'), null);
+  assert.equal(fp('what is on our watchlist and recommend one'), null);
+  assert.equal(fp('what is coming up this month for our trip'), null);
+  assert.equal(fp('read back our starlight jar notes from last year'), null);
   assert.equal(fp('hi motchi'), null);
   assert.equal(fp(''), null);
   assert.equal(fp(null), null);
@@ -335,6 +343,40 @@ test('follow-through beats the smalltalk core-only set', () => {
   // Same "ok" with no offer stays smalltalk-narrow.
   const narrow = selectToolsForRequest('assistant', 'ok', 'nice weather today').map((t) => t.function.name);
   assert.ok(!narrow.includes('create_journal_entry'));
+});
+
+test('read/write split: reads travel light, writes ride action verbs', () => {
+  const has = (msg, tool) => tools.selectToolNames(msg).includes(tool);
+  // Reads: no write schemas attached.
+  assert.ok(has('what is on our watchlist', 'get_watchlist'));
+  assert.ok(!has('what is on our watchlist', 'add_to_watchlist'));
+  assert.ok(!has('what is on our watchlist', 'mark_watchlist_item_watched'));
+  assert.ok(has('list my reminders', 'list_reminders'));
+  assert.ok(!has('list my reminders', 'create_reminder'));
+  assert.ok(has('what patterns do you see in our moods', 'get_relationship_insights'));
+  assert.ok(!has('what patterns do you see in our moods', 'set_mood'));
+  assert.ok(has('read back our starlight jar notes', 'read_starlight_jar'));
+  assert.ok(!has('read back our starlight jar notes', 'save_to_starlight_jar'));
+  assert.ok(has('show our bucket list', 'get_bucket_list'));
+  assert.ok(!has('show our bucket list', 'add_bucket_item'));
+  // Substring traps: reads that merely contain a write word root.
+  assert.ok(!has('any new events this month', 'add_calendar_event'));
+  assert.ok(!has('what chapter are we on', 'update_book_progress'));
+  assert.ok(!has('tell me about our chat lately', 'send_sanctuary_message'));
+  assert.ok(!has('I forget what we watched last week', 'delete_memory'));
+  assert.ok(has('make a dentist appointment for Friday', 'add_calendar_event'));
+  // Writes: action verbs attach the write schemas.
+  assert.ok(has('add Dune to our watchlist', 'add_to_watchlist'));
+  assert.ok(has("I'm feeling happy today", 'set_mood'));
+  assert.ok(has('save a note saying hi', 'save_to_starlight_jar'));
+  assert.ok(has('remember that Khent likes black coffee', 'remember_fact'));
+  assert.ok(has('move our dentist appointment to Friday', 'update_calendar_event'));
+  assert.ok(has('rename our reading habit to morning pages', 'edit_habit'));
+  // Core stays lean: reads + XP only.
+  assert.deepEqual([...tools.CORE_TOOLS].sort(), ['add_xp', 'read_memories']);
+  // Follow-through keeps the ex-core writes for offered plans.
+  assert.ok(tools.selectToolNames('yes', 'Want me to save this to the jar?').includes('save_to_starlight_jar'));
+  assert.ok(tools.selectToolNames('yes', 'Want me to remember that for you?').includes('remember_fact'));
 });
 
 test('edit tools validate id-or-title plus their fields', () => {
