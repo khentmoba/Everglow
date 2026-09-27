@@ -222,6 +222,7 @@ const CONTEXT_BLOCK_KEYWORDS = {
   travel: ['trip', 'trips', 'travel', 'travels', 'vacation', 'getaway', 'itinerary', 'flight', 'flights', 'hotel', 'hotels'],
   wellness: ['habit', 'habits', 'streak', 'streaks', 'workout', 'workouts', 'gym', 'routine', 'routines', 'health', 'exercise', 'run', 'running'],
   budget: ['budget', 'spend', 'spent', 'spending', 'money', 'expense', 'expenses', 'peso', 'pesos', 'php', 'cost', 'costs', 'price', 'prices', 'bought', 'buy'],
+  subs: ['subscription', 'subscriptions', 'subs', 'sub', 'renew', 'renews', 'renewal', 'renewals', 'billing', 'netflix', 'spotify', 'icloud'],
 };
 
 // Awareness set: fetched when the query names nothing in particular.
@@ -381,6 +382,7 @@ function composeTodayRecap({
   starlight = [],
   memories = [],
   insights = [],
+  subs = [],
   now,
 } = {}) {
   const parts = [];
@@ -406,6 +408,14 @@ function composeTodayRecap({
 
   if (watchlist && watchlist.length > 0) {
     parts.push(`On the watchlist: ${watchlist.slice(0, 2).join(', ')}.`);
+  }
+
+  if (subs && subs.length > 0) {
+    const line = subs.slice(0, 2).map((s) => {
+      const when = s.daysUntil <= 0 ? 'renews today' : s.daysUntil === 1 ? 'renews tomorrow' : `renews in ${s.daysUntil} days`;
+      return `${s.name} ${when} (₱${s.price})`;
+    }).join('; ');
+    parts.push(`Heads up on subs: ${line}.`);
   }
 
   const onThisDay = (memories || []).filter((m) => {

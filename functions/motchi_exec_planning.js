@@ -696,6 +696,87 @@ async function exec_edit_trip(ctx, args) {
   return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
 }
 
+// ── Subs tracker ─────────────────────────────────────────────
+// Mirrors the Dart Subscription roll-forward: a stored renewal date
+// rolls by cycle until it lands on/after today, so countdowns stay
+// correct without edits.
+
+function _subAddMonths(d, months) {
+  const m = d.getMonth() + months;
+  const y = d.getFullYear() + Math.floor(m / 12);
+  const mm = ((m % 12) + 12) % 12;
+  const lastDay = new Date(y, mm + 1, 0).getDate();
+  return new Date(y, mm, Math.min(d.getDate(), lastDay));
+}
+
+function subNextRenewal(renewalDate, cycle, now) {
+  const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const today = day(now || new Date());
+  let next = renewalDate instanceof Date ? day(renewalDate) : today;
+  if (Number.isNaN(next.getTime())) next = today;
+  const step = cycle === 'yearly' ? 12 : 1;
+  let guard = 0;
+  while (next < today && guard < 1200) {
+    next = _subAddMonths(next, step);
+    guard++;
+  }
+  return next;
+}
+
+async function exec_get_subscriptions(ctx, args) {
+    const within = Math.min(Math.max(Number(args.renewing_within_days)||30,1),365);
+    const snap = await ctx.db.collection('subscriptions').orderBy('createdAt','desc').limit(50).get();
+    if (snap.empty) return JSON.stringify({ items: [], count: 0, monthly_total: 0 });
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const items = [];
+    let monthlyTotal = 0;
+    for (const d of snap.docs) {
+      const v = d.data() || {};
+      const price = Number(v.price) || 0;
+      const cycle = v.cycle === 'yearly' ? 'yearly' : 'monthly';
+      monthlyTotal += cycle === 'yearly' ? price / 12 : price;
+      const stored = v.renewalDate?.toDate?.() instanceof Date ? v.renewalDate.toDate() : null;
+      const next = subNextRenewal(stored, cycle, now);
+      const daysUntil = Math.round((next - today) / 86400000);
+      if (daysUntil <= within) {
+        items.push({
+          id: d.id,
+          name: v.name || '',
+          price,
+          cycle,
+          payer: ['khent','clair','shared'].includes(v.payer) ? v.payer : 'shared',
+          next_renewal: next.toISOString().slice(0,10),
+          days_until: daysUntil,
+        });
+      }
+    }
+    items.sort((a, b) => a.days_until - b.days_until);
+    return JSON.stringify({ items, count: items.length, monthly_total: Math.round(monthlyTotal * 100) / 100 });
+}
+
+async function exec_add_subscription(ctx, args) {
+    const name = String(args.name||'').trim();
+    if (!name) return JSON.stringify({ error: 'name required' });
+    const price = Number(args.price);
+    if (!(price > 0)) return JSON.stringify({ error: 'price must be a positive number' });
+    const renewal = new Date(String(args.renewal_date||''));
+    if (Number.isNaN(renewal.getTime())) return JSON.stringify({ error: `Invalid renewal_date: ${String(args.renewal_date||'')}` });
+    const cycle = String(args.cycle||'') === 'yearly' ? 'yearly' : 'monthly';
+    const payer = ['khent','clair','shared'].includes(String(args.payer||'')) ? String(args.payer) : 'shared';
+    const data = {
+      name,
+      price,
+      renewalDate: ctx.admin.firestore.Timestamp.fromDate(renewal),
+      cycle,
+      payer,
+      createdBy: ctx.callerUid,
+      createdAt: ctx.admin.firestore.Timestamp.now(),
+    };
+    const ref = await ctx.db.collection('subscriptions').add(data);
+    return JSON.stringify({ success: true, id: ref.id, name, price, cycle, payer });
+}
+
 module.exports = {
   exec_create_reminder,
   exec_list_reminders,
@@ -720,4 +801,7 @@ module.exports = {
   exec_plan_date_night,
   exec_get_date_ideas,
   exec_get_weather,
+  exec_get_subscriptions,
+  exec_add_subscription,
+  subNextRenewal,
 };

@@ -10,6 +10,27 @@ const { getAdmin, getDb } = require('./common.js');
 const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
 const { getRemoteEmbedding } = require('./motchi_memory.js');
+const { subNextRenewal } = require('./motchi_exec_planning.js');
+
+/**
+ * Subs renewing within 7 days, soonest first — the "Netflix renews in
+ * 3 days" line for the morning digest. Empty when nothing is due,
+ * so quiet days stay quiet.
+ */
+function subsRenewingSoon(subsSnap) {
+  if (!subsSnap || subsSnap.empty) return [];
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return subsSnap.docs
+    .map((d) => {
+      const v = d.data() || {};
+      const stored = v.renewalDate?.toDate?.() instanceof Date ? v.renewalDate.toDate() : null;
+      const next = subNextRenewal(stored, v.cycle === 'yearly' ? 'yearly' : 'monthly', now);
+      return { name: v.name || 'Subscription', price: Number(v.price) || 0, daysUntil: Math.round((next - today) / 86400000) };
+    })
+    .filter((s) => s.daysUntil <= 7)
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+}
 
 // Cap on remote embedding calls per nightly sweep. Local vectors are
 // free and unbounded; remote ones cost time + money, so the first 25
@@ -33,9 +54,10 @@ async function collectRecapData(db, {
     db.collection('recent_activity').orderBy('timestamp', 'desc').limit(activityLimit).get(),
     db.collection('starlight_jar').orderBy('timestamp', 'desc').limit(starlightLimit).get(),
     db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(150).get(),
+    db.collection('subscriptions').limit(20).get(),
   ];
   if (includeWatchlist) jobs.push(db.collection('our_cinema').limit(5).get());
-  const [moodsSnap, activitySnap, starSnap, memorySnap, watchSnap] = await Promise.all(jobs);
+  const [moodsSnap, activitySnap, starSnap, memorySnap, subsSnap, watchSnap] = await Promise.all(jobs);
   return {
     recapData: {
       dateLabel,
@@ -53,6 +75,7 @@ async function collectRecapData(db, {
           occurredAt: data.occurredAt?.toDate?.() || null,
         };
       }),
+      subs: subsRenewingSoon(subsSnap),
     },
     snaps: { moodsSnap, activitySnap, starSnap, memorySnap, watchSnap: watchSnap || null },
   };
@@ -563,4 +586,5 @@ module.exports = {
   motchiReminderChecker,
   motchiMemorySweep,
   collectRecapData,
+  subsRenewingSoon,
 };

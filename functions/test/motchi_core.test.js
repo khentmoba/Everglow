@@ -156,6 +156,16 @@ test('composeTodayRecap grounds the recap in real data', () => {
   assert.ok(recap.includes('On this day'));
 });
 
+test('composeTodayRecap warns about subs renewing soon', () => {
+  const recap = composeTodayRecap({
+    dateLabel: '2026-09-27',
+    subs: [{ name: 'Netflix', price: 549, daysUntil: 3 }],
+  });
+  assert.ok(recap.includes('Netflix renews in 3 days (₱549)'));
+  const quiet = composeTodayRecap({ dateLabel: '2026-09-27' });
+  assert.ok(!quiet.includes('subs'));
+});
+
 test('selectBlockKeys pre-selects the blocks a query needs', () => {
   assert.ok(selectBlockKeys('what should we watch tonight').includes('watchlist'));
   assert.ok(selectBlockKeys('how is our garden doing').includes('garden'));
@@ -165,6 +175,7 @@ test('selectBlockKeys pre-selects the blocks a query needs', () => {
   assert.ok(selectBlockKeys('play some Ethel Cain songs').includes('music'));
   assert.ok(selectBlockKeys('log a gym workout streak').includes('wellness'));
   assert.ok(selectBlockKeys('how much did we spend this month').includes('budget'));
+  assert.ok(selectBlockKeys('which subs renew soon').includes('subs'));
 });
 
 test('needsEmbeddingBackfill spots unusable stored vectors', () => {

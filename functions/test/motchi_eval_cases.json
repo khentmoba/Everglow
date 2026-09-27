@@ -935,5 +935,19 @@
     "expectedTools": [
       "update_calendar_event"
     ]
+  },
+  {
+    "id": "subs-read",
+    "message": "which subs renew soon",
+    "expectedTools": [
+      "get_subscriptions"
+    ]
+  },
+  {
+    "id": "subs-add",
+    "message": "track Netflix at 549 pesos renewing 2026-10-15",
+    "expectedTools": [
+      "add_subscription"
+    ]
   }
 ]

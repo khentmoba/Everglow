@@ -78,6 +78,8 @@ const TOOL_NAMES = [
   'edit_habit',
   'edit_reminder',
   'edit_trip',
+  'get_subscriptions',
+  'add_subscription',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -222,6 +224,14 @@ const TOOL_GROUPS = [
     // No bare "new": "any new ideas" is a read. "put X on", "take
     // X off", and "X is now Y" are list writes.
     writeMatch: /add|create|mark|complete|finish|done|delete|remove|edit|change|update|put|take .{0,25} off|\boff\b.{0,15}\blist\b|is now|are now|\bset\b/i,
+  },
+  {
+    match: /subscri|\bsubs?\b|renewals?|netflix|spotify|icloud|\bbilling\b/i,
+    tools: ['get_subscriptions'],
+    write: ['add_subscription'],
+    // No bare "new": "any new subs" is a read. "we got Netflix"
+    // and "signed up for" are statement-style adds.
+    writeMatch: /add|create|track|subscrib|sign .{0,10}up|we got|just got/i,
   },
   {
     match: /\btrips?\b|travel|vacation|getaway|itinerary|flight|hotel/i,
@@ -514,6 +524,13 @@ function validateToolArgs(toolName, args = {}) {
       if (!_text(a.title)) return { ok: false, error: 'title required' };
       if (!_isValidDateString(a.start_date) || !_isValidDateString(a.end_date)) {
         return { ok: false, error: 'Invalid start_date or end_date' };
+      }
+      return { ok: true };
+    case 'add_subscription':
+      if (!_text(a.name)) return { ok: false, error: 'name required' };
+      if (!(Number(a.price) > 0)) return { ok: false, error: 'price must be a positive number' };
+      if (!_isValidDateString(a.renewal_date)) {
+        return { ok: false, error: `Invalid renewal_date: ${_text(a.renewal_date)}` };
       }
       return { ok: true };
     case 'search_spotify': {

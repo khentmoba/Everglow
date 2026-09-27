@@ -287,6 +287,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
         hue: AppColors.blushGold,
         caption: 'Letters',
       ),
+      const QuickAction(
+        label: 'Subs',
+        icon: Icons.subscriptions_rounded,
+        route: '/subs',
+        hue: AppColors.warmAmber,
+        caption: 'Tracker',
+      ),
     ];
 
     final visible = [...primary, ...more];
