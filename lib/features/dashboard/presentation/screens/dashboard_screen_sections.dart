@@ -281,6 +281,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
         caption: 'Dreams',
       ),
       const QuickAction(
+        label: 'Trip Kit',
+        icon: Icons.luggage_rounded,
+        route: '/trips',
+        hue: AppColors.warmAmber,
+        caption: 'Lakad',
+      ),
+      const QuickAction(
         label: 'Letterbox',
         icon: Icons.mail_outline_rounded,
         route: '/letterbox',
