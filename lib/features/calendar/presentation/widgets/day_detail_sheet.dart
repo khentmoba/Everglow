@@ -71,10 +71,13 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
       relativeTag = 'Tomorrow';
     } else if (diffInDays == -1) {
       relativeTag = 'Yesterday';
-    } else if (diffInDays > 1 && diffInDays <= 7) {
+    } else if (diffInDays > 1) {
       relativeTag = 'In $diffInDays days';
     } else {
-      relativeTag = DateFormat('EEEE').format(widget.day);
+      // Past days beyond yesterday: day counts, never the weekday — the
+      // weekday already renders beside the badge, so repeating it here
+      // showed e.g. "Friday" twice for the same header.
+      relativeTag = '${-diffInDays} days ago';
     }
 
     final formattedDate = DateFormat('MMMM d, y').format(widget.day);
