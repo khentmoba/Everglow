@@ -45,11 +45,11 @@ Date parsing (reminder stored with scheduled:false today):
 
 | Eval | Before | After |
 |---|---|---|
-| Live routing recall | 100% (67 cases) | 100% (132 cases, paraphrase cover) |
-| Dart eval | 100% (live) | 100% (132 cases) |
+| Live routing recall | 100% (67 cases) | 100% (134 cases: paraphrase cover + 2 from #395) |
+| Dart eval | 100% (live) | 100% (134 cases) |
 | Failure corpus | 143/152 (94.1%) | **160/160 (100%)** |
-| node --test | 233 + corpus failing | **237, all green** |
-| eval gate | pass (v7) | pass (v8) |
+| node --test | 233 + corpus failing | **241, all green** (incl. #395's canvas/PHT/memory tests) |
+| eval gate | pass (v7) | pass (v9, rebased over #395's v8) |
 
 Zero failed tool calls on the offline corpus. Every addition tied to
 a failing case: context routing (5 corpus cases), weekday/tmrw dates
