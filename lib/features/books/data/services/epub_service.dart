@@ -364,7 +364,15 @@ class EpubService {
         .replaceAll('&apos;', "'")
         .replaceAllMapped(
           RegExp('&#(\\d+);'),
-          (m) => String.fromCharCode(int.parse(m.group(1)!)),
+          (m) {
+            // Total decode: a malformed book with an out-of-range
+            // entity used to throw and fail the entire book open.
+            final code = int.tryParse(m.group(1)!);
+            if (code == null || code < 0 || code > 0x10FFFF) {
+              return '\u{FFFD}';
+            }
+            return String.fromCharCode(code);
+          },
         );
   }
 }
