@@ -115,7 +115,6 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final String referrerPolicy;
   final VoidCallback? onContentError;
   final void Function(VideasyProgress progress)? onProgress;
-  final ScrollController? scrollController;
 
   /// Fires when the embed changes episodes on its own (CineSrc
   /// auto-play or its built-in episode picker), reporting the TMDB
@@ -131,7 +130,6 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.referrerPolicy = 'no-referrer',
     this.onContentError,
     this.onProgress,
-    this.scrollController,
     this.onPlayerEpisodeChanged,
   });
 

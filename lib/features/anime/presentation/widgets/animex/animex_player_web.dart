@@ -17,7 +17,6 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final String referrerPolicy;
   final VoidCallback? onContentError;
   final void Function(VideasyProgress progress)? onProgress;
-  final ScrollController? scrollController;
 
   /// Fires when the embed changes episodes on its own (CineSrc
   /// auto-play or its built-in episode picker), reporting the TMDB
@@ -41,7 +40,6 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.referrerPolicy = 'no-referrer',
     this.onContentError,
     this.onProgress,
-    this.scrollController,
     this.onPlayerEpisodeChanged,
     this.sandbox = true,
   });
@@ -55,30 +53,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoad;
   JSFunction? _onMessage;
-  JSFunction? _onIframeWheel;
   bool _loaded = false;
   bool _contentError = false;
-
-  void _forwardWheel(web.WheelEvent wheel, ScrollController ctrl) {
-    if (!ctrl.hasClients) return;
-    if (wheel.ctrlKey) return;
-    wheel.preventDefault();
-    var delta = wheel.deltaY.toDouble();
-    switch (wheel.deltaMode) {
-      case 1:
-        delta *= 20;
-        break;
-      case 2:
-        delta *= 600;
-        break;
-    }
-    if (delta == 0) return;
-    final pos = ctrl.position;
-    final target = (pos.pixels + delta)
-        .clamp(pos.minScrollExtent, pos.maxScrollExtent)
-        .toDouble();
-    if (target != pos.pixels) pos.jumpTo(target);
-  }
 
   @override
   void initState() {
@@ -120,17 +96,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
-    final scrollController = widget.scrollController;
-    if (scrollController != null) {
-      _onIframeWheel = ((web.Event e) {
-        _forwardWheel(e as web.WheelEvent, scrollController);
-      }).toJS;
-      _iframe.addEventListener(
-        'wheel',
-        _onIframeWheel,
-        web.AddEventListenerOptions(capture: true, passive: false),
-      );
-    }
+    // No wheel forwarding by design: wheel events inside a
+    // cross-origin iframe never reach this document, so a listener on
+    // the iframe element can never fire.
 
     _onMessage = ((web.MessageEvent event) {
       final raw = event.data;
@@ -177,9 +145,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
     if (_onMessage != null) {
       web.window.removeEventListener('message', _onMessage!);
-    }
-    if (_onIframeWheel != null) {
-      _iframe.removeEventListener('wheel', _onIframeWheel!);
     }
     super.dispose();
   }

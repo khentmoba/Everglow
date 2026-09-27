@@ -116,7 +116,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
             onContentError: _handleContentError,
             onProgress: _onPlayerProgress,
             onPlayerEpisodeChanged: _onPlayerEpisodeChanged,
-            scrollController: _scrollCtrl,
           );
 
     return Center(

@@ -81,14 +81,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// Whether the player is in custom fullscreen (theater) mode.
   bool _isFullscreen = false;
 
-  /// Drives the page scroll view so wheel events from the embed iframe
-  /// (which Flutter never sees) can be forwarded to it.
+  /// Drives the page scroll view below the player.
+  ///
+  /// There is deliberately no wheel forwarding from the embed iframe:
+  /// wheel events inside a cross-origin iframe never reach this
+  /// document, so a listener on the iframe element can never fire.
   final ScrollController _scrollController = ScrollController();
-
-  /// Native wheel listener on the embed iframe. The iframe swallows
-  /// wheel events, so without this the page can't be scrolled in
-  /// browser fullscreen, where the player covers the whole viewport.
-  JSFunction? _onWheelListener;
 
   /// DOM exit chip shown in theater mode. It lives outside Flutter's
   /// canvas (which sits underneath the fixed-position iframe), so it
@@ -198,33 +196,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     }).toJS;
     _iframe.addEventListener('load', _onLoadListener);
     _iframe.addEventListener('error', _onErrorListener);
-
-    // Wheel events over the native iframe never reach Flutter's
-    // scrollable, so forward them to the page scroll view directly.
-    // This keeps the page scrollable even in browser fullscreen, where
-    // the player fills nearly the entire viewport.
-    _onWheelListener = ((web.Event e) {
-      if (_isFullscreen || !_scrollController.hasClients) return;
-      final wheel = e as web.WheelEvent;
-      if (wheel.ctrlKey) return; // Leave pinch-zoom gestures alone.
-      wheel.preventDefault();
-      var delta = wheel.deltaY;
-      switch (wheel.deltaMode) {
-        case 1: // DOM_DELTA_LINE
-          delta *= 20;
-          break;
-        case 2: // DOM_DELTA_PAGE
-          delta *= 600;
-          break;
-      }
-      if (delta == 0) return;
-      final position = _scrollController.position;
-      final target = (position.pixels + delta)
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
-      if (target != position.pixels) position.jumpTo(target);
-    }).toJS;
-    _iframe.addEventListener('wheel', _onWheelListener, true.toJS);
 
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
@@ -1012,9 +983,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     }
     if (_onErrorListener != null) {
       _iframe.removeEventListener('error', _onErrorListener);
-    }
-    if (_onWheelListener != null) {
-      _iframe.removeEventListener('wheel', _onWheelListener);
     }
     if (_messageListener != null) {
       web.window.removeEventListener('message', _messageListener);
