@@ -27,7 +27,7 @@ const {
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
-const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath } = require('./motchi_tools.js');
+const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes } = require('./motchi_tools.js');
 const { selectToolsForRequest } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
@@ -251,7 +251,10 @@ async function handleProxyAI(req, res) {
     /\b(quiz|trivia|game|chess)\b.{0,10}\?\s*$/i.test(_artifactMsg) ||
     // Artifact follow-ups ("make it pink", "add sound") name no nouns —
     // keep the guide while the previous reply still carries a block.
-    hasCompleteArtifact(prevAssistantText);
+    hasCompleteArtifact(prevAssistantText) ||
+    // Bare yes to an offered quiz/game ("want a quick quiz?" → "yes"):
+    // the build turn needs the full guide, not the slim pointer.
+    (isBareYes(_artifactMsg) && /quiz|trivia|flashcards?|flash cards?|\bgame\b/i.test(prevAssistantText || ''));
   // True when the canvas prompt section rode along (mirrors the two
   // section gates below) — the repair nudge only makes sense then.
   const canvasSectionOn = (feature === 'study' && canvasOn) || (feature === 'assistant' && (canvasOn || wantsArtifact));
@@ -456,8 +459,12 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}`;
   // Unlike Study mode this is NOT source-grounded — use Everglow context +
   // general knowledge. Never emit the blocks unasked (a summary or explanation
   // stays plain text); only when they ask for a quiz, test, trivia, or cards.
-  if (feature === 'assistant' && (canvasOn || wantsArtifact)) {
-    systemPrompt += `
+  // Full canvas guide on artifact turns, slim pointer on plain chat. The
+  // pointer keeps proactive offers possible ("want a quick quiz?") while
+  // saving ~1.8KB per turn — re-sent every tool round, so it multiplies.
+  // An explicit ask (or a bare yes to an offer, via wantsArtifact)
+  // upgrades the build turn to the full guide.
+  const CANVAS_FULL = `
 ## Interactive Canvas — quiz & flashcards
 - When they ask for a quiz, test, or trivia questions: keep the visible reply warm and short (1-2 lines, e.g. the topic + "tap below to start"), do NOT list the questions or A-D options in the text — put them ONLY in the hidden block (5 questions unless they ask for more):
   \`\`\`quiz-json
@@ -475,13 +482,21 @@ ${wantsArtifact ? HTML_GAME_GUIDE : ''}`;
   <!DOCTYPE html>... the full game/app here ...
   \`\`\`
   HTML only inside the block, no commentary inside it. The visible reply stays warm and short ("Made you checkers — tap Preview to play!").
-${wantsArtifact ? HTML_GAME_GUIDE : ''}
+${HTML_GAME_GUIDE}
 - When they ask for flashcards or study cards: keep the visible reply warm and short (1-2 lines), do NOT list Front/Back lines in the text — put the cards ONLY in the hidden block (10 cards max):
   \`\`\`flashcards-json
   [{"front":"...","back":"..."}]
   \`\`\`
   JSON only inside the block, no commentary inside it.
 - Use those exact fence names (quiz-json, flashcards-json, html-artifact, everglow-link) with valid JSON/HTML inside — the chat turns each block into a tappable Preview / Try-it button. Only emit a block when they asked for that kind of thing (quiz/test/trivia, cards, or something to play/use); a summary or explanation stays plain text.`;
+  const CANVAS_QUICK = `
+## Interactive Canvas — quiz & flashcards
+- You can OFFER quizzes, flashcards, or tiny playable games when it fits — but only EMIT a hidden block when they ask for one (quiz/test/trivia, cards, or something to play/use). A summary or explanation stays plain text.
+- Quiz block (5 questions unless asked more): \`\`\`quiz-json [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}] \`\`\` — answer is the 0-based index, JSON only inside, never list Q&A in the visible text (not even when you quiz them and grade after).
+- Flashcards (10 max): \`\`\`flashcards-json [{"front":"...","back":"..."}] \`\`\`. Playable game/app: one self-contained HTML file (inline style/script only, no CDN/network/storage, phone-first tappable, under ~12KB) in \`\`\`html-artifact ... \`\`\`.
+- Chess/scribble/table-tennis: do NOT rebuild — link the Play Zone: \`\`\`everglow-link {"route": "/play-zone/chess"} \`\`\` (/play-zone/scribble, /play-zone/tt).`;
+  if (feature === 'assistant' && (canvasOn || wantsArtifact)) {
+    systemPrompt += wantsArtifact ? CANVAS_FULL : CANVAS_QUICK;
   }
 
   // ── System prompt size guard ────────────────────────────

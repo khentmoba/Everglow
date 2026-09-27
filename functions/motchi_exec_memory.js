@@ -7,7 +7,7 @@
  */
 
 const { parseFactStructure, rankMemories, findContradiction } = require('./motchi_core.js');
-const { getEmbedding } = require('./motchi_memory.js');
+const { getEmbedding, invalidateMemoryCache } = require('./motchi_memory.js');
 
 async function exec_remember_fact(ctx, args) {
     const fact = (args.fact || '').trim();
@@ -33,6 +33,7 @@ async function exec_remember_fact(ctx, args) {
             confidence: 1.0,
             updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
           });
+          invalidateMemoryCache();
           return JSON.stringify({ success: true, updated: true, id: hit.id, fact, previous: hit.fact });
         }
       } catch (_) {}
@@ -54,6 +55,7 @@ async function exec_remember_fact(ctx, args) {
       source: ctx.callerUid || 'motchi',
       embedding: emb, // W4-C9 scaffold
     });
+    invalidateMemoryCache();
     return JSON.stringify({
       success: true,
       fact,
@@ -102,6 +104,7 @@ async function exec_pin_memory(ctx, args) {
     const snap = await ref.get();
     if (!snap.exists) return JSON.stringify({ error: `Memory ${mid} not found` });
     await ref.update({ pinned, lastAccessed: ctx.admin.firestore.FieldValue.serverTimestamp() });
+    invalidateMemoryCache();
     return JSON.stringify({ success: true, memory_id: mid, pinned });
 }
 
@@ -127,6 +130,7 @@ async function exec_delete_memory(ctx, args) {
       });
     } catch (_) {}
     await ref.delete();
+    invalidateMemoryCache();
     return JSON.stringify({ success: true, memory_id: mid, fact: factText, undo_hint: 'Use undo if needed within 7 days' });
 }
 
@@ -148,6 +152,7 @@ async function exec_edit_memory(ctx, args) {
     };
     if (args.category) update.category = String(args.category).trim().toLowerCase();
     await ref.update(update);
+    invalidateMemoryCache();
     return JSON.stringify({ success: true, memory_id: mid, fact, category: update.category || snap.data()?.category || 'fact' });
 }
 
