@@ -215,9 +215,18 @@ test('getProactiveContext always leads with the PHT date', () => {
 });
 
 test('selectBlockKeys falls back to the awareness set', () => {
-  assert.deepEqual(selectBlockKeys(''), DEFAULT_CONTEXT_KEYS);
-  assert.deepEqual(selectBlockKeys('zzzq blorp fnord'), DEFAULT_CONTEXT_KEYS);
-  assert.equal(selectBlockKeys('hi motchi').length, 7);
+  assert.deepEqual(selectBlockKeys(''), DEFAULT_CONTEXT_KEYS.slice(0, 4));
+  assert.deepEqual(selectBlockKeys('zzzq blorp fnord'), DEFAULT_CONTEXT_KEYS.slice(0, 4));
+  assert.equal(selectBlockKeys('hi motchi').length, 4);
+  // Hits ride above the floor; filler never includes the sessions scan.
+  const garden = selectBlockKeys('how is our garden doing');
+  assert.ok(garden.includes('garden'));
+  assert.equal(garden.length, 4);
+  assert.ok(!selectBlockKeys('zzzq blorp fnord').includes('sessions'));
+  assert.ok(selectBlockKeys('what did we talk about at the start').includes('sessions'));
+  // Rich queries still scale up to the cap.
+  const rich = selectBlockKeys('movie mood garden music book trip journal calendar');
+  assert.ok(rich.length > 4 && rich.length <= 7);
 });
 
 test('buildContextForFeature resolves safely without crashing', async () => {

@@ -1,4 +1,4 @@
-# Motchi System Prompt — v6 snapshot (2026-09-21)
+# Motchi System Prompt — v8 snapshot (2026-09-28)
 
 > Versioned snapshot of the live prompt (fallback `systemPrompt` in
 > `motchi_chat.js` + `MOTCHI_TOOLS` in `motchi_tool_schemas.js` +
@@ -36,8 +36,24 @@
 > `motchi_prompt_v8.md` (and update `eval_gate.js`
 > `EXPECTED_PROMPT_VERSION`) when the persona or routing policy
 > changes.
+>
+> v8 changes vs v7: Motchi finally knows what day it is — the
+> proactive context block always leads with a Philippine-time date
+> line (countdowns moved to PHT too, so birthdays never flip a day
+> early). Memory reads got cheaper and smarter: fetched facts are
+> cached 90s (invalidated on every write) and stored embeddings now
+> ride into ranking, so the remote query vector actually matches
+> semantically instead of being discarded; casual asks skip the
+> embedding round-trip. The recommend intent group also attaches
+> `search_movies` + `get_date_ideas`, so bare asks like "suggest
+> something for tonight" can act. Plain chat carries a slim canvas
+> pointer (~0.7KB) instead of the full guide (~2.5KB); explicit
+> artifact asks — plus a bare yes to an offered quiz/game — still
+> get the full guide. Bump to `motchi_prompt_v9.md` (and update
+> `eval_gate.js` `EXPECTED_PROMPT_VERSION`) when the persona or
+> routing policy changes.
 
-- version: 7
+- version: 8
 - model: agnes-3.0-flash (512K context, input budget 120000)
 - tool rounds: up to 8 (`MAX_TOOL_ROUNDS`), 25s per tool (`TOOL_TIMEOUT_MS`)
 - prompt char guard: 50000 (`PROMPT_CHAR_LIMIT`)
@@ -90,6 +106,14 @@
     set (`FOLLOW_THROUGH_TOOLS`) only when the previous assistant
     message shows an offer (`hasOffer`) — so "yes" executes the
     plan using details Motchi already named, and never asks twice.
+14. Date awareness: the proactive context block always leads with the
+    Philippine-time date line, and birthday/anniversary countdowns
+    are computed in PHT — Motchi can reason about weekends,
+    tomorrows, and countdowns on every turn.
+15. Canvas tiers: plain chat carries the slim canvas pointer (fence
+    names + compact shapes); explicit artifact asks, artifact
+    follow-ups, and a bare yes to an offered quiz/game/flashcards
+    upgrade to the full guide for the build turn.
 
 ## Tool inventory (63)
 
