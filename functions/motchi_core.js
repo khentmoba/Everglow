@@ -527,8 +527,9 @@ const AGNES_INPUT_TOKEN_BUDGET = 120000;
 
 /**
  * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
- * 8601 plus "today/tonight/tomorrow [at H[:MM] am/pm]", "in N
- * minutes/hours/days/weeks", and "next week". Clock times are read as
+ * 8601 plus "today/tonight/tomorrow [at H[:MM] am/pm]" (tmrw works
+ * too), "in N minutes/hours/days/weeks", weekday names ("friday",
+ * "friday at 3pm", "next friday"), and "next week". Clock times are read as
  * Philippine wall time (the server runs on UTC, but Khent and Clair live
  * in PHT) — "tomorrow at 3pm" means 3pm in Cabadbaran, not 3pm UTC.
  * Returns null when nothing parseable is found.
@@ -536,13 +537,26 @@ const AGNES_INPUT_TOKEN_BUDGET = 120000;
 function parseReminderDate(raw, nowMs = Date.now()) {
   const text = String(raw || '').trim();
   if (!text) return null;
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().replace(/\btmrw\b/g, 'tomorrow');
   // Phrases first: the lenient Date parser below mangles inputs like
   // "tonight at 8" into nonsense years, so known relatives win.
 
-  const parseClock = () => {
-    const m = lower.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
-    if (!m) return null;
+  const parseClock = (src) => {
+    const hay = src !== undefined ? src : lower;
+    const m = hay.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+    if (!m) {
+      // Named times: noon/midnight are exact; dayparts get the
+      // obvious defaults (morning 9am, afternoon 3pm, evening 9pm).
+      // Checked only when no digits exist, so "night" never shadows
+      // a real clock time (and \bnight\b can't match "tonight").
+      if (/\bnoon\b/.test(hay)) return { h: 12, min: 0, explicit: true };
+      if (/\bmidnight\b/.test(hay)) return { h: 0, min: 0, explicit: true };
+      if (/\bmorning\b/.test(hay)) return { h: 9, min: 0, explicit: false };
+      if (/\bafternoon\b/.test(hay)) return { h: 15, min: 0, explicit: false };
+      if (/\bevening\b/.test(hay)) return { h: 19, min: 0, explicit: false };
+      if (/\bnight\b/.test(hay)) return { h: 21, min: 0, explicit: false };
+      return null;
+    }
     let h = parseInt(m[1], 10);
     const min = m[2] ? parseInt(m[2], 10) : 0;
     const ap = (m[3] || '').toLowerCase();
@@ -561,6 +575,16 @@ function parseReminderDate(raw, nowMs = Date.now()) {
   const rel = lower.match(/in\s+(\d+)\s*(minute|min|hour|hr|day|week)/);
   if (rel) {
     const n = parseInt(rel[1], 10);
+    const isDay = !(rel[2].startsWith('min') || rel[2].startsWith('hour') || rel[2] === 'hr');
+    // "in 2 days at 3pm" keeps its clock: scan AFTER the rel phrase
+    // so the "2" in "2 days" isn't misread as 2 o'clock.
+    if (isDay) {
+      const clock = parseClock(lower.slice(rel.index + rel[0].length));
+      if (clock) {
+        const days = rel[2].startsWith('week') ? n * 7 : n;
+        return phtWall(days, clock.h, clock.min);
+      }
+    }
     const unit = rel[2].startsWith('min') ? 60000
       : (rel[2].startsWith('hour') || rel[2] === 'hr') ? 3600000
       : rel[2].startsWith('week') ? 7 * 86400000 : 86400000;
@@ -574,6 +598,8 @@ function parseReminderDate(raw, nowMs = Date.now()) {
   if (/\btonight\b/.test(lower)) {
     const clock = parseClock();
     if (!clock) return phtWall(0, 20, 0);
+    // "midnight tonight" is the coming midnight, not last night's.
+    if (clock.h === 0 && clock.min === 0) return phtWall(1, 0, 0);
     let h = clock.h;
     // Bare hours at night mean evening: "tonight at 8" is 8pm.
     if (!clock.explicit) {
@@ -590,6 +616,31 @@ function parseReminderDate(raw, nowMs = Date.now()) {
       return d.getTime() <= nowMs ? phtWall(1, clock.h, clock.min) : d;
     }
     return new Date(nowMs + 3600000);
+  }
+  const wd = lower.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if (wd) {
+    const targets = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+    const phtDow = new Date(nowMs + PHT_OFFSET_MS).getUTCDay();
+    let delta = (targets[wd[2]] - phtDow + 7) % 7;
+    const clock = parseClock();
+    if (wd[1] || /next week/.test(lower)) {
+      delta += 7; // "next friday" = next week's Friday
+    } else if (delta === 0) {
+      // Same weekday: today if the clock time is still ahead, else +7.
+      if (clock) {
+        const t = phtWall(0, clock.h, clock.min);
+        if (t.getTime() > nowMs) return t;
+      }
+      delta = 7;
+    }
+    if (clock) return phtWall(delta, clock.h, clock.min);
+    return phtWall(delta, 9, 0); // dateless weekday = 9am that day
+  }
+  if (/\b(midnight|noon)\b/.test(lower)) {
+    // Lone "at midnight/noon" with no day anchor: the coming one.
+    const clock = parseClock();
+    const d = phtWall(0, clock.h, clock.min);
+    return d.getTime() <= nowMs ? phtWall(1, clock.h, clock.min) : d;
   }
   if (/next week/.test(lower)) return new Date(nowMs + 7 * 86400000);
   // Last resort: ISO 8601 and other directly parseable dates.
