@@ -396,6 +396,23 @@ test('context routing: follow-ups inherit the previous turn topics', () => {
   assert.ok(!sel('move dentist to friday', 'move dentist to friday').includes('update_calendar_event'));
 });
 
+test('loop guard drops repeat tool+args pairs across rounds', () => {
+  const seen = new Set();
+  const batch = [
+    { function: { name: 'get_watchlist', arguments: '{}' } },
+    { function: { name: 'get_watchlist', arguments: '{}' } },
+    { function: { name: 'get_watchlist', arguments: '{"limit":5}' } },
+  ];
+  const kept = tools.dropRepeatCalls(seen, batch);
+  assert.equal(kept.length, 2);
+  assert.equal(kept[0].function.arguments, '{}');
+  assert.equal(kept[1].function.arguments, '{"limit":5}');
+  // Second round with the same call is fully dropped (circling).
+  assert.equal(tools.dropRepeatCalls(seen, batch.slice(0, 1)).length, 0);
+  assert.equal(tools.toolCallKey('a', '{}'), 'a:{}');
+  assert.equal(tools.toolCallKey(null, null), ':');
+});
+
 test('edit tools validate id-or-title plus their fields', () => {
   for (const tool of ['edit_bucket_item', 'edit_habit', 'edit_reminder', 'edit_trip']) {
     assert.equal(tools.validateToolArgs(tool, {}).ok, false);

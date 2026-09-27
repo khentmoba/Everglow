@@ -745,6 +745,8 @@ module.exports = {
   WRITE_INTENT_RE,
   TOOL_GROUPS,
   selectToolNames,
+  toolCallKey,
+  dropRepeatCalls,
   toolListSection,
   validateToolArgs,
   isValidHttpUrl,

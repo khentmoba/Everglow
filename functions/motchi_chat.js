@@ -27,7 +27,7 @@ const {
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
-const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes } = require('./motchi_tools.js');
+const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, dropRepeatCalls } = require('./motchi_tools.js');
 const { selectToolsForRequest } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
@@ -987,12 +987,7 @@ ${HTML_GAME_GUIDE}
         // Drop repeats of already-executed tool+args pairs. If every
         // call is a repeat, the model is circling — end the loop and
         // keep the text already streamed as the answer.
-        collectedToolCalls = collectedToolCalls.filter((tc) => {
-          const key = `${tc.function?.name || ''}:${tc.function?.arguments || ''}`;
-          if (seenToolCalls.has(key)) return false;
-          seenToolCalls.add(key);
-          return true;
-        });
+        collectedToolCalls = dropRepeatCalls(seenToolCalls, collectedToolCalls);
         if (collectedToolCalls.length === 0) {
           break;
         }
