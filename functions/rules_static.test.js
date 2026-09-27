@@ -129,6 +129,13 @@ test('storage gallery/memories/milestones allow couple reads', () => {
   assert.ok(!storage.includes('request.auth.uid == userId;\n      allow write') || true);
 });
 
+test('subscriptions is couple-only', () => {
+  assert.match(
+    rules,
+    /match \/subscriptions\/\{docId\} \{[\s\S]*?allow read: if isCouple\(\);[\s\S]*?allow delete: if isCouple\(\);/,
+  );
+});
+
 test('motchi_games is couple-only', () => {
   assert.match(
     rules,

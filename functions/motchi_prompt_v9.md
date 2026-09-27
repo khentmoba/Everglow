@@ -135,7 +135,7 @@
     follow-ups, and a bare yes to an offered quiz/game/flashcards
     upgrade to the full guide for the build turn.
 
-## Tool inventory (63)
+## Tool inventory (65)
 
 add_to_watchlist, save_to_starlight_jar, set_mood, search_movies,
 get_weather, create_reminder, list_reminders, cancel_reminder,
@@ -154,4 +154,4 @@ get_bucket_list, get_journal_entries, search_journal_entries,
 read_journal_entry, get_trips, edit_journal_entry, delete_journal_entry,
 update_calendar_event, delete_calendar_event, complete_bucket_item,
 delete_bucket_item, edit_bucket_item, edit_habit, edit_reminder,
-edit_trip
+edit_trip, get_subscriptions, add_subscription

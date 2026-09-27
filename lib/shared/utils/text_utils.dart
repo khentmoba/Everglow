@@ -1,3 +1,14 @@
+import 'package:intl/intl.dart';
+
+final _pesoWhole = NumberFormat('#,##0', 'en_PH');
+final _pesoCents = NumberFormat('#,##0.00', 'en_PH');
+
+/// `549` → `₱549`, `129.5` → `₱129.50`. Cents only when needed.
+String formatPeso(num amount) {
+  final hasCents = (amount - amount.truncate()).abs() > 0.004;
+  return '₱${(hasCents ? _pesoCents : _pesoWhole).format(amount)}';
+}
+
 /// Strip common markdown formatting from text.
 String stripMarkdown(String text) {
   return text

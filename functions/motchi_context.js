@@ -70,6 +70,7 @@ async function buildContextForFeature(feature, _callerUid, userMessage = '') {
           travel: () => getCachedBlock('travel', 300000, getTravelContext),
           wellness: () => getCachedBlock('wellness', 180000, getWellnessContext),
           budget: () => typeof getBudgetContext === 'function' ? getCachedBlock('budget', 300000, getBudgetContext) : Promise.resolve(''),
+          subs: () => getCachedBlock('subs', 300000, getSubsContext),
         };
         // Canonical order keeps the prompt stable turn-to-turn.
         const ordered = Object.keys(fetchers).filter((k) => wanted.includes(k));
@@ -500,6 +501,26 @@ async function getWellnessContext() {
       return `${v.title||''} (${v.category||'health'}) streak:${v.streak||0}`;
     }).join('\n');
     return `Active habits:\n${lines}`;
+  } catch (_) { return ''; }
+}
+
+async function getSubsContext() {
+  try {
+    const db = getDb();
+    const snap = await db.collection('subscriptions').orderBy('createdAt','desc').limit(20).get();
+    if (snap.empty) return '';
+    const { subNextRenewal } = require('./motchi_exec_planning.js');
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const rows = snap.docs.map(d => {
+      const v = d.data() || {};
+      const stored = v.renewalDate?.toDate?.() instanceof Date ? v.renewalDate.toDate() : null;
+      const next = subNextRenewal(stored, v.cycle === 'yearly' ? 'yearly' : 'monthly', now);
+      const days = Math.round((next - today) / 86400000);
+      const when = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : `in ${days}d`;
+      return { line: `${v.name || 'Sub'} ₱${Number(v.price) || 0}${v.cycle === 'yearly' ? '/yr' : '/mo'} paid by ${v.payer || 'shared'}, renews ${when}`, days };
+    }).sort((a, b) => a.days - b.days);
+    return `Subscriptions:\n${rows.map(r => r.line).join('\n')}`;
   } catch (_) { return ''; }
 }
 
