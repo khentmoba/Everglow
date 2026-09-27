@@ -16,12 +16,14 @@ const {
   composeTodayRecap,
   shouldExtractMemory,
   phtDateString,
+  phtDateLabel,
   phtDayBounds,
   parseReminderDate,
 } = require('../motchi_core.js');
 
 const {
   buildContextForFeature,
+  getProactiveContext,
   invalidateContextBlock,
 } = require('../motchi_context.js');
 
@@ -190,6 +192,26 @@ test('phtDayBounds spans the PHT calendar day', () => {
   const { start, end } = phtDayBounds(Date.parse('2026-09-16T12:00:00Z'));
   assert.equal(start.toISOString(), '2026-09-15T16:00:00.000Z');
   assert.equal(end.toISOString(), '2026-09-16T15:59:59.999Z');
+});
+
+test('phtDateLabel names the PHT weekday and date', () => {
+  // Sun Sep 27 2026 09:00 PHT.
+  assert.equal(phtDateLabel(Date.parse('2026-09-27T01:00:00Z')), 'Sunday, September 27, 2026');
+  // 00:30 PHT Monday (still Sunday in UTC) — the label follows PHT.
+  assert.equal(phtDateLabel(Date.parse('2026-09-27T16:30:00Z')), 'Monday, September 28, 2026');
+});
+
+test('getProactiveContext always leads with the PHT date', () => {
+  // Ordinary day: date line only, never empty.
+  const plain = getProactiveContext(Date.parse('2026-09-27T01:00:00Z'));
+  assert.ok(plain.startsWith('Today is Sunday, September 27, 2026 (Philippine time).'));
+  // Birthday edge: 00:30 PHT Feb 21 is Mama's birthday even though
+  // the server clock (UTC) still reads Feb 20.
+  const bday = getProactiveContext(Date.parse('2026-02-20T16:30:00Z'));
+  assert.ok(bday.includes("Mama's birthday TODAY!"));
+  // Anniversary countdown from a PHT morning.
+  const anniv = getProactiveContext(Date.parse('2026-02-10T01:00:00Z'));
+  assert.ok(anniv.includes('Anniversary in 4 days'));
 });
 
 test('selectBlockKeys falls back to the awareness set', () => {

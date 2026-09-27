@@ -464,5 +464,21 @@
     "expectedTools": [
       "edit_trip"
     ]
+  },
+  {
+    "id": "recommend-tonight",
+    "message": "suggest something fun for tonight",
+    "expectedTools": [
+      "search_movies",
+      "get_date_ideas"
+    ]
+  },
+  {
+    "id": "recommend-weekend",
+    "message": "recommend something cozy for us this weekend",
+    "expectedTools": [
+      "search_movies",
+      "get_date_ideas"
+    ]
   }
 ]
