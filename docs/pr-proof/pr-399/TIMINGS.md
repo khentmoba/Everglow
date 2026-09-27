@@ -20,6 +20,15 @@ Debug DDC build + SwiftShader — this OVERSTATES real-device latency
 | branch  | phone    | warm | 47ms      |
 | branch  | tablet   | —    | 68ms      |
 
+Release build (`flutter run --release`, same harness, `print` timers
+since `debugPrint` is stripped in release):
+
+| build   | viewport | run  | tap→notify |
+|---------|----------|------|-----------|
+| branch  | phone    | cold | 14ms      |
+| branch  | phone    | warm | 3ms       |
+| branch  | tablet   | —    | 18ms      |
+
 Raw console lines:
 
 ```text
@@ -35,12 +44,21 @@ Raw console lines:
 # branch, tablet 768px
 [M1] tap 1790534658515
 [M1] feedback-notify 1790534658583        # +68ms
+# branch RELEASE, phone, cold
+[M1] tap 1790536172505
+[M1] feedback-notify 1790536172519        # +14ms
+# branch RELEASE, phone, warm (2nd tap)
+[M1] tap 1790536179641
+[M1] feedback-notify 1790536179644        # +3ms
+# branch RELEASE, tablet 768px
+[M1] tap 1790536256255
+[M1] feedback-notify 1790536256273        # +18ms
 ```
 
-Notify → paint is one frame (~16ms @60fps), so perceived feedback is
-~47–84ms worst case in the debug build — under the ~100ms budget on
-phone and tablet, with no regression (tap path is byte-identical;
-spread is debug-build noise).
+Notify → paint is one frame (~16ms @60fps debug, ~8ms release),
+so perceived feedback is ~47–84ms worst case in debug and ~11–30ms
+in release — under the ~100ms budget on phone and tablet, with no
+regression (tap path is byte-identical; spread is build noise).
 
 Pixel upper bound (cold first tap, debug + SwiftShader shader jank):
 feedback visible ≤1022ms — see `shot-motchi-feedback.jpg`
@@ -113,6 +131,18 @@ Pure routing stays <0.05ms avg; `rankMemories(60)` 0.44ms avg.
 No-tool totals ≈ 4.3–4.5s; tool totals 5.6–45s. (Three 135–230s rows
 on the retired qwen model excluded.) These are full-turn durations
 (all rounds), not TTFT — the genuine pre-change baseline.
+
+## Routing eval (criterion 3)
+
+`dart tool/motchi_prompt_eval.dart` on this branch:
+
+```text
+motchi routing eval (live): 134/134 (100.0%)
+perfect: live router covers every eval intent.
+```
+
+Every eval intent keeps its tools after the routing/fast-path changes
+— no tool-reachability regression.
 
 ## Still unverified (needs merge + deploy + real traffic)
 
