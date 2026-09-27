@@ -41,10 +41,12 @@ class _SharedGardenViewState extends State<SharedGardenView> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
+    final currentUser =
+        context.select<AuthService, String?>((a) => a.currentUser);
+    final partnerName =
+        context.select<AuthService, String>((a) => a.partnerName);
     final provider = context.watch<GardenProvider>();
-    final myName = auth.currentUser == 'khentsgdz' ? 'Khent' : 'Clair';
-    final partnerName = auth.partnerName;
+    final myName = currentUser == 'khentsgdz' ? 'Khent' : 'Clair';
 
     return Scaffold(
       backgroundColor: Colors.transparent,

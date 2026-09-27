@@ -23,10 +23,12 @@ class AnimeXTopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-    final userName = auth.currentUser ?? '';
-    final isCoupleUser = auth.isCoupleUser;
-    final isCinemaOnlyUser = auth.isCinemaOnlyUser;
+    final userName =
+        context.select<AuthService, String>((a) => a.currentUser ?? '');
+    final isCoupleUser =
+        context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final isCinemaOnlyUser =
+        context.select<AuthService, bool>((a) => a.isCinemaOnlyUser);
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final items = const [
       (AnimexPage.home, 'Home', Icons.house_outlined),

@@ -199,7 +199,7 @@ void main() {
 
     expect(built, isNotEmpty, reason: 'the visible sections must still build');
     expect(built, isNot(contains(19)), reason: 'far sections must not build');
-    expect(built.length, lessThan(8));
+    expect(built.length, lessThanOrEqualTo(4), reason: 'cold frame 1 mounts <= 4 sections');
 
     await scrollToEnd(tester, controller);
 
@@ -219,7 +219,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     expect(built, isNot(contains(19)));
-    expect(built.length, lessThan(8));
+    expect(built.length, lessThanOrEqualTo(4));
   });
 
   testWidgets('a section that scrolls into range builds, and only once', (

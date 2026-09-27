@@ -18,6 +18,14 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_elevation.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
+
+// The academy sub-routes (solo study, the head-to-head board, the podium)
+// share this hub's question/match models, so they ship in the same deferred
+// chunk. Exporting them here is what lets the route file reach all four
+// through one `deferred as academy_lib` import.
+export 'game_board_screen.dart';
+export 'podium_screen.dart';
+export 'solo_study_screen.dart';
 import '../../../../shared/widgets/everglow/everglow_card.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';

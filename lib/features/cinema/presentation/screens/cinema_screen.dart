@@ -648,10 +648,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = AppBreakpoint.isDesktop(context);
-    final auth = context.watch<AuthService>();
-    final isCoupleUser = auth.isCoupleUser;
-    final isCinemaOnlyUser = auth.isCinemaOnlyUser;
-    final userName = auth.currentUser ?? '';
+    final isCoupleUser =
+        context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final isCinemaOnlyUser =
+        context.select<AuthService, bool>((a) => a.isCinemaOnlyUser);
+    final userName =
+        context.select<AuthService, String>((a) => a.currentUser ?? '');
 
     // Main cinema content. The desktop top bar overlays it so the hero
     // can remain full bleed, just like the streaming-service pattern.
@@ -762,7 +764,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                               : () async {
                                   HapticFeedback.selectionClick();
                                   final router = GoRouter.of(context);
-                                  await auth.logout();
+                                  await context.read<AuthService>().logout();
                                   if (!mounted) return;
                                   router.go('/');
                                 },
@@ -811,7 +813,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                     : null,
                 onLogout: () async {
                   final router = GoRouter.of(context);
-                  await auth.logout();
+                  await context.read<AuthService>().logout();
                   if (!mounted) return;
                   router.go('/');
                 },

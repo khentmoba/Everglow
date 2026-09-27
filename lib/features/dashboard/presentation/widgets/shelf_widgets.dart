@@ -375,13 +375,14 @@ class _ShelfCardState extends State<ShelfCard> {
   Widget build(BuildContext context) {
     final isHovered = _hovered && !_pressed && widget.onTap != null;
 
-    return MouseRegion(
-      cursor: widget.onTap == null
-          ? SystemMouseCursors.basic
-          : SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: GestureDetector(
+    return RepaintBoundary(
+      child: MouseRegion(
+        cursor: widget.onTap == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
         onTapDown: (_) {
           if (widget.onTap == null) return;
           setState(() => _pressed = true);
@@ -656,7 +657,7 @@ class _ShelfCardState extends State<ShelfCard> {
           ),
         ),
       ),
-    );
+    ));
   }
 }
 

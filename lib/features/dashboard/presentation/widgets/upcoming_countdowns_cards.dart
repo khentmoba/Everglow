@@ -125,8 +125,11 @@ class _CountdownEventCardState extends State<_CountdownEventCard> {
             ),
             if (isImminent)
               BoxShadow(
-                color: hue.withValues(alpha: 0.10),
-                blurRadius: 32,
+                // Ambient halo, not an edge shadow. Same reasoning as the
+                // Time Together bloom: tighter and slightly stronger reads
+                // the same at these alphas for a third of the blur area.
+                color: hue.withValues(alpha: 0.13),
+                blurRadius: 18,
                 spreadRadius: -8,
               ),
           ],

@@ -454,8 +454,10 @@ class _DashboardScreenState extends State<DashboardScreen>
               showPetals: false,
             ),
           ),
-          // Ambient dusk-bloom layer (dashboard only).
-          const Positioned.fill(child: DashboardAmbience()),
+          // Ambient dusk-bloom layer (dashboard only, pauses when scrolled off).
+          Positioned.fill(
+            child: DashboardAmbience(scrollController: _scrollController),
+          ),
           // Home Screen status-bar inset arrives via MediaQuery (see
           // WebStandaloneInsets at the app root), so this SafeArea
           // clears it with no per-screen work.
