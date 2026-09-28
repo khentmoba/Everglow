@@ -1003,6 +1003,19 @@ const MOTCHI_TOOLS = [
   },
 ];
 
+// Light chat: a bare greeting or smalltalk one-liner with no real ask.
+// The chat handler skips Firestore context + memory + persona reads for
+// these and answers from a slim prompt — same warmth, far faster TTFT.
+// Anchored whole-message patterns: compound asks ("hi, remember X")
+// don't match, so they keep the full pipeline.
+const PURE_GREETING_RE = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i;
+const SMALLTALK_RE = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i;
+
+function isLightChat(message) {
+  const trimmed = String(message || '').trim();
+  return PURE_GREETING_RE.test(trimmed) || SMALLTALK_RE.test(trimmed);
+}
+
 function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prevUserText = '') {
   if (reqFeature === 'guardian') {
     const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
@@ -1019,7 +1032,7 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
     const wanted = new Set([...CORE_TOOLS, ...FOLLOW_THROUGH_TOOLS]);
     return MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
   }
-  const isPureGreeting = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i.test(trimmed);
+  const isPureGreeting = PURE_GREETING_RE.test(trimmed);
   if (isPureGreeting) {
     // A bare greeting never needs tools — answer warm and free.
     // Compound asks ("hi, remember X") don't match, so they keep
@@ -1027,7 +1040,7 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
     // entirely when this list is empty.
     return [];
   }
-  const isSmallTalk = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i.test(trimmed);
+  const isSmallTalk = SMALLTALK_RE.test(trimmed);
   if (isSmallTalk) {
     const smallTalkAllowed = new Set(['set_mood', 'remember_fact', 'add_xp']);
     return MOTCHI_TOOLS.filter(t => smallTalkAllowed.has(t.function.name));
@@ -1046,4 +1059,5 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
 module.exports = {
   MOTCHI_TOOLS,
   selectToolsForRequest,
+  isLightChat,
 };

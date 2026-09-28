@@ -435,3 +435,18 @@ test('edit tools validate id-or-title plus their fields', () => {
   assert.equal(tools.validateToolArgs('edit_reminder', { id: 'x', remind_at: '  ' }).ok, false);
   assert.equal(tools.validateToolArgs('edit_reminder', { id: 'x', remind_at: 'tomorrow at 3pm' }).ok, true);
 });
+
+test('isLightChat matches the greeting/smalltalk routing exactly', () => {
+  const { isLightChat, selectToolsForRequest } = require('../motchi_tool_schemas.js');
+  // Bare greetings + smalltalk are light; compound asks are not.
+  for (const m of ['hi', 'Hello!', 'good morning', 'mew', 'how are you?', 'thanks!', 'ok', 'lol']) {
+    assert.equal(isLightChat(m), true, m);
+  }
+  for (const m of ['hi, remember that I love lilies', 'what movies should we watch?', 'remember that I love lilies', 'plan a date night', '']) {
+    assert.equal(isLightChat(m), false, m);
+  }
+  // Routing parity: the extracted regexes still drive the same tool sets.
+  assert.equal(selectToolsForRequest('assistant', 'hi', '', '').length, 0);
+  assert.equal(selectToolsForRequest('assistant', 'how are you', '', '').length, 3);
+  assert.ok(selectToolsForRequest('assistant', 'what movies should we watch?', '', '').length > 3);
+});
