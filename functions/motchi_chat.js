@@ -27,8 +27,8 @@ const {
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
-const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, dropRepeatCalls } = require('./motchi_tools.js');
-const { selectToolsForRequest } = require('./motchi_tool_schemas.js');
+const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, hasOffer, dropRepeatCalls } = require('./motchi_tools.js');
+const { selectToolsForRequest, isLightChat } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
 
@@ -82,6 +82,42 @@ const ARTIFACT_FENCE_RE = /```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json
 /** True when the reply carries at least one complete artifact block. */
 function hasCompleteArtifact(text) {
   return ARTIFACT_FENCE_RE.test(String(text || ''));
+}
+
+// Slim persona for the light-chat fast lane (greetings/smalltalk only):
+// the same Motchi voice with no context or memory sections. Kept tiny on
+// purpose — every char here is prefill the model pays before token one.
+const LIGHT_CHAT_PROMPT = `You are Motchi 🍡, Khent & Clair's white cat inside Everglow — warm, playful, a little sassy, deeply affectionate. They just said hi or some smalltalk: answer directly in text in 1-2 short sentences with your usual charm (cat emojis 🐱🍡💕 ok, cat talk only if it fits). Match their energy and keep it light.`;
+
+const STALE_ARTIFACT_NOTE = '[an earlier interactive quiz/game card — already shown in chat]';
+
+/**
+ * Collapses hidden artifact blocks (quiz/flashcards/html/link) in all but
+ * the newest artifact-bearing turn, in place. A single old game can be
+ * ~12KB of history re-sent every turn and every tool round, slowing the
+ * first token for no reason — the card already rendered in chat. The
+ * newest block is kept so follow-ups ("make it pink") still see its
+ * code. Returns how many messages were slimmed.
+ */
+function stripStaleArtifacts(msgs) {
+  if (!Array.isArray(msgs)) return 0;
+  let keepIdx = -1;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const c = msgs[i] && msgs[i].content;
+    if (typeof c === 'string' && ARTIFACT_FENCE_RE.test(c)) { keepIdx = i; break; }
+  }
+  let stripped = 0;
+  for (let i = 0; i < msgs.length; i++) {
+    if (i === keepIdx) continue;
+    const m = msgs[i];
+    if (!m || typeof m.content !== 'string') continue;
+    const cleaned = stripArtifactsForChecks(m.content);
+    if (cleaned !== m.content) {
+      stripped++;
+      m.content = cleaned || STALE_ARTIFACT_NOTE;
+    }
+  }
+  return stripped;
 }
 
 // Strict follow-up when an artifact ask yields words but no fenced block
@@ -274,18 +310,25 @@ async function handleProxyAI(req, res) {
   const fastPath = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact)
     ? matchFastPath(lastUserMessage)
     : null;
+  // Light-chat fast lane: a bare greeting or smalltalk one-liner with no
+  // real ask skips the Firestore context + memory + persona reads below
+  // and answers from a ~500-char prompt. A bare yes to an offered plan
+  // is NOT light chat — the write turn needs its full awareness.
+  const lightChat = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact && !fastPath)
+    ? (isLightChat(lastUserMessage) && !(hasOffer(prevAssistantText) && isBareYes(lastUserMessage || '')))
+    : false;
   // Server context, persona, and memories are independent reads — start
   // all three together and await once, so a cold turn pays one round-trip
   // instead of three in a row. Each fails soft: a hiccup just means Motchi
   // answers with less context, never a failed chat for Clair.
   const _tCtx0 = Date.now();
-  const _contextPromise = (feature && !context && !fastPath)
+  const _contextPromise = (feature && !context && !fastPath && !lightChat)
     ? buildContextForFeature(feature, caller, lastUserMessage).catch((e) => {
         console.warn('[proxyAI] server context failed, continuing without it:', e.message);
         return '';
       })
     : Promise.resolve('');
-  const _memoriesPromise = (fastPath
+  const _memoriesPromise = ((fastPath || lightChat)
     ? Promise.resolve([])
     : selectRelevantMemories(memories, lastUserMessage, 10)
   ).catch((e) => {
@@ -293,10 +336,12 @@ async function handleProxyAI(req, res) {
     return [];
   });
   // Persona doc is cached in memory for 5 min; only a cold cache reads.
+  // Light chat never fetches — cache hit or nothing, the slim prompt
+  // carries the voice on its own.
   const _cachedPersona = (Date.now() - _personaCache.ts < _PERSONA_TTL_MS)
     ? _personaCache.text
     : null;
-  const _personaPromise = _cachedPersona
+  const _personaPromise = (_cachedPersona || lightChat)
     ? Promise.resolve(_cachedPersona)
     : (async () => {
         try {
@@ -320,8 +365,11 @@ async function handleProxyAI(req, res) {
   const _tCtxMs = Date.now() - _tCtx0;
   const resolvedContext = context || serverContext || '';
 
-  // Use custom system prompt if provided, otherwise build from persona or hardcoded default
-  let systemPrompt = customSystemPrompt || personaBase || `You are Motchi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them — their moods, habits, history, dreams, and the little details that make their relationship special. You are not just an assistant; you are a beloved companion who genuinely cares.
+  // Light chat answers from the slim prompt (no context, memories, or
+  // persona doc rode along) so the model prefills ~500 chars instead of
+  // ~20KB and the first token lands far sooner. Custom system prompts
+  // (one-shot callers) always win, as before.
+  let systemPrompt = customSystemPrompt || (lightChat ? (LIGHT_CHAT_PROMPT + (identityContext ? `\n${identityContext}` : '')) : null) || personaBase || `You are Motchi 🍡, Khent & Clair's white cat inside Everglow. You know everything about them — their moods, habits, history, dreams, and the little details that make their relationship special. You are not just an assistant; you are a beloved companion who genuinely cares.
 
 ## Character
 - White cat with pink cheeks and golden-red eyes. Warm, playful, sassy, protective, and deeply affectionate.
@@ -507,7 +555,7 @@ ${HTML_GAME_GUIDE}
 - Quiz block (5 questions unless asked more): \`\`\`quiz-json [{"q":"question","options":["a","b","c","d"],"answer":0,"why":"one-line gentle explanation"}] \`\`\` — answer is the 0-based index, JSON only inside, never list Q&A in the visible text (not even when you quiz them and grade after).
 - Flashcards (10 max): \`\`\`flashcards-json [{"front":"...","back":"..."}] \`\`\`. Playable game/app: one self-contained HTML file (inline style/script only, no CDN/network/storage, phone-first tappable, under ~12KB) in \`\`\`html-artifact ... \`\`\`.
 - Chess/scribble/table-tennis: do NOT rebuild — link the Play Zone: \`\`\`everglow-link {"route": "/play-zone/chess"} \`\`\` (/play-zone/scribble, /play-zone/tt).`;
-  if (feature === 'assistant' && (canvasOn || wantsArtifact)) {
+  if (feature === 'assistant' && !lightChat && (canvasOn || wantsArtifact)) {
     systemPrompt += wantsArtifact ? CANVAS_FULL : CANVAS_QUICK;
   }
 
@@ -617,6 +665,12 @@ ${HTML_GAME_GUIDE}
     messages.length = 0;
     messages.push(...msgs);
   }
+
+  // Stale artifacts: old quizzes/games in history are dead weight — the
+  // cards already rendered in chat, but the raw blocks (a game can be
+  // ~12KB) re-send every turn and every tool round, slowing token one.
+  // Only the newest artifact turn keeps its code, for follow-up edits.
+  const _strippedArtifacts = stripStaleArtifacts(messages);
 
   // Prepend system message
   const nimMessages = [
@@ -823,7 +877,7 @@ ${HTML_GAME_GUIDE}
   // give before/after TTFT compares without any new infra. ──
   {
     const _fpMs = (fastPath && turnTools.length) ? turnTools[0].elapsedMs : 0;
-    console.log(`[proxyAI] pre-llm auth=${_tAuthMs}ms user=${_tUserMs}ms cap=${_tCapMs}ms ctx=${_tCtxMs}ms fp=${_fpMs}ms prompt=${systemPrompt.length}ch msgs=${nimMessages.length} tools=${tools.length} fastpath=${!!fastPath} stream=${isStreaming}`);
+    console.log(`[proxyAI] pre-llm auth=${_tAuthMs}ms user=${_tUserMs}ms cap=${_tCapMs}ms ctx=${_tCtxMs}ms fp=${_fpMs}ms prompt=${systemPrompt.length}ch msgs=${nimMessages.length} tools=${tools.length} fastpath=${!!fastPath} light=${!!lightChat} staleArt=${_strippedArtifacts} stream=${isStreaming}`);
   }
 
   // ── Streaming mode (SSE) — immediate stream, tools handled post-stream ──
@@ -1434,6 +1488,7 @@ ${HTML_GAME_GUIDE}
 module.exports = {
   handleProxyAI,
   stripArtifactsForChecks,
+  stripStaleArtifacts,
   hasCompleteArtifact,
   endsWithDanglingColon,
 };

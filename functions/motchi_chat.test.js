@@ -184,3 +184,40 @@ test('deploy surface still includes chat + schedules + catalog', () => {
     assert.ok(indexExports[name], `missing export: ${name}`);
   }
 });
+
+test('stripStaleArtifacts keeps only the newest artifact turn', () => {
+  const game1 = 'Made you checkers!\n```html-artifact\n<html>old game</html>\n```';
+  const game2 = 'Made you snake!\n```html-artifact\n<html>new game</html>\n```';
+  const msgs = [
+    { role: 'user', content: 'make checkers' },
+    { role: 'assistant', content: game1 },
+    { role: 'user', content: 'make snake' },
+    { role: 'assistant', content: game2 },
+  ];
+  assert.equal(chat.stripStaleArtifacts(msgs), 1);
+  assert.ok(!msgs[1].content.includes('old game'), 'old block must go');
+  assert.ok(msgs[1].content.includes('Made you checkers'), 'warm text stays');
+  assert.ok(msgs[3].content.includes('new game'), 'newest block stays for follow-ups');
+});
+
+test('stripStaleArtifacts leaves plain history and photo parts alone', () => {
+  const msgs = [
+    { role: 'user', content: [{ type: 'text', text: 'look' }, { type: 'image_url', image_url: { url: 'data:x' } }] },
+    { role: 'assistant', content: 'cute pic! 🍡' },
+  ];
+  assert.equal(chat.stripStaleArtifacts(msgs), 0);
+  assert.equal(msgs[1].content, 'cute pic! 🍡');
+});
+
+test('light chat skips context reads and the canvas section', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Greetings/smalltalk must not pay for Firestore context, memory rank,
+  // persona fetch, or the canvas guide — that prefill is TTFT.
+  assert.match(src, /!context && !fastPath && !lightChat/);
+  assert.match(src, /fastPath \|\| lightChat/);
+  assert.match(src, /_cachedPersona \|\| lightChat/);
+  assert.match(src, /feature === 'assistant' && !lightChat && \(canvasOn \|\| wantsArtifact\)/);
+  assert.match(src, /LIGHT_CHAT_PROMPT/);
+  // Follow-through "ok" keeps full awareness (it executes an offered plan).
+  assert.match(src, /hasOffer\(prevAssistantText\) && isBareYes/);
+});
