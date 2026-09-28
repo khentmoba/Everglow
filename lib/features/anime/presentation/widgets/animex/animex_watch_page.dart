@@ -37,6 +37,56 @@ part 'animex_watch_page_config.dart';
 part 'animex_watch_page_sections.dart';
 
 
+@visibleForTesting
+Widget buildDesktopEpisodesSidebarForTesting({
+  required List<AniListEpisode> episodes,
+  required int selectedEpisode,
+  required String animeTitle,
+  required String fallbackPoster,
+  required ValueChanged<int> onSelectEpisode,
+  required void Function(AniListEpisode) onShowInfo,
+  List<AniListSeason> seasons = const [],
+  ValueChanged<AniListSeason>? onSelectSeason,
+  AniListSeason? nextSeason,
+}) {
+  return _DesktopEpisodesSidebar(
+    episodes: episodes,
+    selectedEpisode: selectedEpisode,
+    animeTitle: animeTitle,
+    fallbackPoster: fallbackPoster,
+    onSelectEpisode: onSelectEpisode,
+    onShowInfo: onShowInfo,
+    seasons: seasons,
+    onSelectSeason: onSelectSeason,
+    nextSeason: nextSeason,
+  );
+}
+
+@visibleForTesting
+Widget buildMobileEpisodesSectionForTesting({
+  required List<AniListEpisode> episodes,
+  required int selectedEpisode,
+  required String animeTitle,
+  required String fallbackPoster,
+  required ValueChanged<int> onSelectEpisode,
+  required void Function(AniListEpisode) onShowInfo,
+  List<AniListSeason> seasons = const [],
+  ValueChanged<AniListSeason>? onSelectSeason,
+  AniListSeason? nextSeason,
+}) {
+  return _MobileEpisodesSection(
+    episodes: episodes,
+    selectedEpisode: selectedEpisode,
+    animeTitle: animeTitle,
+    fallbackPoster: fallbackPoster,
+    onSelectEpisode: onSelectEpisode,
+    onShowInfo: onShowInfo,
+    seasons: seasons,
+    onSelectSeason: onSelectSeason,
+    nextSeason: nextSeason,
+  );
+}
+
 class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final AniListService _aniList = AniListService();
   final AniZipService _aniZip = AniZipService();
@@ -125,6 +175,40 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   MediaItem get _item => widget.controller.watchItem!;
   int get _malId => _item.tmdbId;
   int? get _anilistId => _item.anilistId;
+
+  List<AniListSeason> get _seasons => _detail?.seasons ?? const [];
+
+  AniListSeason? get _nextSeason {
+    final list = _seasons;
+    if (list.length <= 1) return null;
+    final index = list.indexWhere((s) => s.isCurrent);
+    if (index >= 0 && index < list.length - 1) {
+      return list[index + 1];
+    }
+    return null;
+  }
+
+  void _openSeason(AniListSeason season) {
+    if (season.isCurrent) return;
+    final item = MediaItem(
+      id: '',
+      tmdbId: season.malId ?? 0,
+      title: season.title,
+      mediaType: season.format.trim().toLowerCase() == 'movie'
+          ? 'movie'
+          : 'tv',
+      posterPath: season.coverImageUrl,
+      year: season.year != null && season.year! > 0 ? '${season.year}' : '',
+      status: '',
+      isAnime: true,
+      addedAt: DateTime.now(),
+      source: 'jikan',
+      anilistId: season.id,
+      format: season.format,
+      episodeCount: season.episodeCount,
+    );
+    widget.controller.openWatch(item);
+  }
 
   @override
   void initState() {
@@ -893,6 +977,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         _buildPlayerSection(context),
         const SizedBox(height: 32),
         if (_detail != null) _buildInfoSection(context),
+        if (_detail != null && _seasons.length > 1) ...[
+          const SizedBox(height: 32),
+          _buildSeasons(context),
+        ],
         if (_detail != null && _detail!.relations.isNotEmpty) ...[
           const SizedBox(height: 32),
           _buildRelations(context),
@@ -1269,6 +1357,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   Widget _buildStepButtons(BuildContext context) {
+    final isLastEpisode = _selectedEpisode >= _episodes.length;
+    final nextSeason = _nextSeason;
+    final hasNextSeason = isLastEpisode && nextSeason != null;
+
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -1279,9 +1371,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           onTap: () => _stepEpisode(-1),
         ),
         _EpisodeStepButton(
-          label: 'Next Episode',
-          enabled: _selectedEpisode < _episodes.length,
-          onTap: () => _stepEpisode(1),
+          label: hasNextSeason ? 'Next Season' : 'Next Episode',
+          icon: hasNextSeason ? Icons.skip_next_rounded : null,
+          enabled: !isLastEpisode || hasNextSeason,
+          onTap: hasNextSeason
+              ? () => _openSeason(nextSeason)
+              : () => _stepEpisode(1),
         ),
       ],
     );

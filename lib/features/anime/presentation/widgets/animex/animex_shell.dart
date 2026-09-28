@@ -88,7 +88,12 @@ class _AnimeXShellState extends State<AnimeXShell> {
             AnimeXSeasonalPage(controller: _controller),
           ];
           final detailChild = _controller.watchItem != null
-              ? AnimeXWatchPage(controller: _controller)
+              ? AnimeXWatchPage(
+                  key: ValueKey(
+                    'watch-${_controller.watchItem!.anilistId ?? _controller.watchItem!.tmdbId}',
+                  ),
+                  controller: _controller,
+                )
               : (_controller.playlistId != null
                     ? AnimeXPlaylistDetailPage(controller: _controller)
                     : (_controller.dmcaOpen

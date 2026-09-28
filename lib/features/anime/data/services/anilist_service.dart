@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/utils/connectivity_aware.dart';
 import '../../../../core/utils/logger.dart';
@@ -78,6 +79,11 @@ class AniListService with ConnectivityAware {
         return null;
       }
     });
+  }
+
+  @visibleForTesting
+  static List<AniListSeason> mapSeasonsForTesting(Map<String, dynamic> m) {
+    return AniListService()._mapSeasons(m);
   }
 
   /// Single comprehensive query for the anime detail page. Resolves
@@ -279,6 +285,7 @@ class AniListService with ConnectivityAware {
       characters: _mapCharacters(m['characters'] as Map<String, dynamic>?),
       staff: _mapStaff(m['staff'] as Map<String, dynamic>?),
       relations: _mapRelations(m['relations'] as Map<String, dynamic>?),
+      seasons: _mapSeasons(m),
       recommendations: _mapRecommendations(
         m['recommendations'] as Map<String, dynamic>?,
       ),
@@ -353,7 +360,15 @@ class AniListService with ConnectivityAware {
   List<AniListRelated> _mapRelations(Map<String, dynamic>? r) {
     if (r == null) return const [];
     final edges = (r['edges'] as List?) ?? const [];
-    return edges.whereType<Map<String, dynamic>>().map((e) {
+    const validFormats = {'TV', 'TV_SHORT', 'MOVIE', 'OVA', 'ONA', 'SPECIAL'};
+    return edges.whereType<Map<String, dynamic>>().where((e) {
+      final node = (e['node'] as Map<String, dynamic>?) ?? const {};
+      final format = ((node['format'] as String?) ?? '').toUpperCase().trim();
+      final type = (node['type'] as String?) ?? '';
+      if (type.isNotEmpty && type != 'ANIME') return false;
+      if (format.isNotEmpty && !validFormats.contains(format)) return false;
+      return true;
+    }).map((e) {
       final node = (e['node'] as Map<String, dynamic>?) ?? const {};
       final title = (node['title'] as Map<String, dynamic>?) ?? const {};
       final cover = (node['coverImage'] as Map<String, dynamic>?) ?? const {};
@@ -368,6 +383,135 @@ class AniListService with ConnectivityAware {
         format: (node['format'] as String?) ?? '',
       );
     }).toList();
+  }
+
+  List<AniListSeason> _mapSeasons(Map<String, dynamic> m) {
+    final currentId = (m['id'] as num?)?.toInt() ?? 0;
+    final seasonsMap = <int, AniListSeason>{};
+
+    void addNode(
+      Map<String, dynamic>? node, {
+      String? relType,
+      bool isCurrent = false,
+    }) {
+      if (node == null) return;
+      final id = (node['id'] as num?)?.toInt() ?? 0;
+      if (id <= 0) return;
+
+      final format = ((node['format'] as String?) ?? '').toUpperCase().trim();
+      const validFormats = {
+        'TV',
+        'TV_SHORT',
+        'MOVIE',
+        'OVA',
+        'ONA',
+        'SPECIAL',
+      };
+      if (!validFormats.contains(format)) return;
+
+      if (relType == 'SUMMARY' ||
+          relType == 'CHARACTER' ||
+          relType == 'OTHER') {
+        return;
+      }
+
+      final titleMap = node['title'] as Map<String, dynamic>?;
+      final english = titleMap?['english'] as String?;
+      final romaji = titleMap?['romaji'] as String?;
+      final title = (english != null && english.isNotEmpty)
+          ? english
+          : (romaji ?? '');
+      if (title.isEmpty) return;
+
+      final cover = node['coverImage'] as Map<String, dynamic>?;
+      final coverUrl = (cover?['large'] as String?) ??
+          (cover?['extraLarge'] as String?) ??
+          (cover?['medium'] as String?) ??
+          '';
+
+      final start = node['startDate'] as Map<String, dynamic>?;
+      final year = (start?['year'] as num?)?.toInt() ??
+          (node['seasonYear'] as num?)?.toInt();
+      final month = (start?['month'] as num?)?.toInt() ?? 0;
+      final day = (start?['day'] as num?)?.toInt() ?? 0;
+
+      final episodes = (node['episodes'] as num?)?.toInt();
+      final malId = (node['idMal'] as num?)?.toInt();
+
+      seasonsMap.putIfAbsent(
+        id,
+        () => AniListSeason(
+          id: id,
+          malId: malId,
+          title: title,
+          coverImageUrl: coverUrl,
+          format: format,
+          year: year,
+          month: month,
+          day: day,
+          episodeCount: episodes,
+          isCurrent: isCurrent || id == currentId,
+        ),
+      );
+    }
+
+    addNode(m, isCurrent: true);
+
+    const allowedRelations = {
+      'SEQUEL',
+      'PREQUEL',
+      'PARENT',
+      'SIDE_STORY',
+      'SPIN_OFF',
+      'ALTERNATIVE',
+      'ADAPTATION',
+    };
+
+    final relations = m['relations'] as Map<String, dynamic>?;
+    final edges = (relations?['edges'] as List?) ?? const [];
+    for (final edge in edges) {
+      if (edge is! Map<String, dynamic>) continue;
+      final relType = edge['relationType'] as String? ?? '';
+      if (!allowedRelations.contains(relType)) continue;
+
+      final node = edge['node'] as Map<String, dynamic>?;
+      if (node == null) continue;
+
+      final type = node['type'] as String? ?? '';
+      if (type == 'ANIME') {
+        addNode(node, relType: relType);
+      }
+
+      if (relType == 'ADAPTATION' ||
+          relType == 'SEQUEL' ||
+          relType == 'PREQUEL') {
+        final nestedRelations = node['relations'] as Map<String, dynamic>?;
+        final nestedEdges = (nestedRelations?['edges'] as List?) ?? const [];
+        for (final nEdge in nestedEdges) {
+          if (nEdge is! Map<String, dynamic>) continue;
+          final nRelType = nEdge['relationType'] as String? ?? '';
+          if (!allowedRelations.contains(nRelType)) continue;
+
+          final nNode = nEdge['node'] as Map<String, dynamic>?;
+          if (nNode == null) continue;
+          final nType = nNode['type'] as String? ?? '';
+          if (nType == 'ANIME') {
+            addNode(nNode, relType: nRelType);
+          }
+        }
+      }
+    }
+
+    final list = seasonsMap.values.toList();
+    list.sort((a, b) {
+      final yA = a.year ?? 9999;
+      final yB = b.year ?? 9999;
+      if (yA != yB) return yA.compareTo(yB);
+      if (a.month != b.month) return a.month.compareTo(b.month);
+      return a.day.compareTo(b.day);
+    });
+
+    return list;
   }
 
   List<AniListRecommended> _mapRecommendations(Map<String, dynamic>? r) {
@@ -1031,7 +1175,27 @@ query ($id: Int, $idMal: Int, $type: MediaType) {
           idMal
           title { romaji english }
           format
-          coverImage { large medium }
+          type
+          seasonYear
+          startDate { year month day }
+          episodes
+          coverImage { large medium extraLarge }
+          relations {
+            edges {
+              relationType
+              node {
+                id
+                idMal
+                title { romaji english }
+                format
+                type
+                seasonYear
+                startDate { year month day }
+                episodes
+                coverImage { large medium extraLarge }
+              }
+            }
+          }
         }
       }
     }

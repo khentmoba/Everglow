@@ -178,6 +178,9 @@ class _DesktopEpisodesSidebar extends StatefulWidget {
   final String fallbackPoster;
   final ValueChanged<int> onSelectEpisode;
   final void Function(AniListEpisode) onShowInfo;
+  final List<AniListSeason> seasons;
+  final ValueChanged<AniListSeason>? onSelectSeason;
+  final AniListSeason? nextSeason;
 
   const _DesktopEpisodesSidebar({
     required this.episodes,
@@ -186,6 +189,9 @@ class _DesktopEpisodesSidebar extends StatefulWidget {
     required this.fallbackPoster,
     required this.onSelectEpisode,
     required this.onShowInfo,
+    this.seasons = const [],
+    this.onSelectSeason,
+    this.nextSeason,
   });
 
   @override
@@ -273,11 +279,12 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
     final currentTitle =
         currentEp?.title ?? 'Episode ${widget.selectedEpisode}';
     final nextEp = _findEpisode(widget.selectedEpisode + 1);
+    final nextSeason = widget.nextSeason;
     final nextTitle =
         nextEp?.title ??
         (widget.selectedEpisode < widget.episodes.length
             ? 'Episode ${widget.selectedEpisode + 1}'
-            : null);
+            : (nextSeason != null ? '${nextSeason.title} (Episode 1)' : null));
 
     final displayList = _filteredEpisodes();
 
@@ -325,6 +332,18 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
                         ),
                       ),
                     ),
+                    if (widget.seasons.length > 1) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: _SeasonDropdownButton(
+                            seasons: widget.seasons,
+                            onSelectSeason: widget.onSelectSeason,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 5),
@@ -484,6 +503,145 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SeasonDropdownButton extends StatelessWidget {
+  final List<AniListSeason> seasons;
+  final ValueChanged<AniListSeason>? onSelectSeason;
+
+  const _SeasonDropdownButton({
+    required this.seasons,
+    this.onSelectSeason,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final current = seasons.firstWhere(
+      (s) => s.isCurrent,
+      orElse: () => seasons.first,
+    );
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+      ),
+      child: PopupMenuButton<AniListSeason>(
+        tooltip: 'Change Season',
+        color: AnimeXTokens.surfaceRaised,
+        elevation: 8,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+          side: const BorderSide(color: AnimeXTokens.borderStrong),
+        ),
+        offset: const Offset(0, 36),
+        onSelected: (season) {
+          if (!season.isCurrent) onSelectSeason?.call(season);
+        },
+        itemBuilder: (context) {
+          return seasons.map((season) {
+            final isCurrent = season.isCurrent;
+            final metaParts = <String>[];
+            metaParts.add(season.format);
+            if (season.episodeCount != null && season.episodeCount! > 0) {
+              metaParts.add('${season.episodeCount} eps');
+            }
+            if (season.year != null && season.year! > 0) {
+              metaParts.add('${season.year}');
+            }
+            final meta = metaParts.join(' • ');
+
+            return PopupMenuItem<AniListSeason>(
+              value: season,
+              height: 48,
+              child: Row(
+                children: [
+                  Icon(
+                    isCurrent
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 16,
+                    color: isCurrent
+                        ? AnimeXTokens.accentWarm
+                        : AnimeXTokens.textMuted,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          season.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: dmSansStyle(
+                            size: 12.5,
+                            color: isCurrent
+                                ? AnimeXTokens.accentWarm
+                                : AnimeXTokens.textPrimary,
+                            weight: isCurrent
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                        if (meta.isNotEmpty)
+                          Text(
+                            meta,
+                            style: dmSansStyle(
+                              size: 10.5,
+                              color: AnimeXTokens.textMuted,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList();
+        },
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 190),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+            border: Border.all(color: AnimeXTokens.border),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.layers_rounded,
+                size: 13,
+                color: AnimeXTokens.accentWarm,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  current.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: dmSansStyle(
+                    size: 11.5,
+                    color: AnimeXTokens.textPrimary,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 14,
+                color: AnimeXTokens.textSecondary,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

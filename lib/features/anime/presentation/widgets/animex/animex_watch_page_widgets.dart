@@ -93,11 +93,13 @@ class _EpisodeStepButton extends StatelessWidget {
   final String label;
   final bool enabled;
   final VoidCallback onTap;
+  final IconData? icon;
 
   const _EpisodeStepButton({
     required this.label,
     required this.enabled,
     required this.onTap,
+    this.icon,
   });
 
   @override
@@ -115,13 +117,28 @@ class _EpisodeStepButton extends StatelessWidget {
             color: enabled ? AnimeXTokens.borderStrong : AnimeXTokens.border,
           ),
         ),
-        child: Text(
-          label,
-          style: dmSansStyle(
-            size: 12,
-            color: enabled ? AnimeXTokens.textPrimary : AnimeXTokens.textMuted,
-            weight: FontWeight.w600,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 15,
+                color: enabled ? AnimeXTokens.accentWarm : AnimeXTokens.textMuted,
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: dmSansStyle(
+                size: 12,
+                color: enabled
+                    ? (icon != null ? AnimeXTokens.accentWarm : AnimeXTokens.textPrimary)
+                    : AnimeXTokens.textMuted,
+                weight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
