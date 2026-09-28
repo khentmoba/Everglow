@@ -134,9 +134,7 @@ class _HistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = entry.episodeMinutes > 0
-        ? (entry.durationSeconds / (entry.episodeMinutes * 60)).clamp(0.0, 1.0)
-        : 0.0;
+    final progress = entry.seriesProgress;
     final ago = _timeAgo(entry.updatedAt);
     return GestureDetector(
       onTap: onTap,
@@ -193,21 +191,25 @@ class _HistoryRow extends StatelessWidget {
                         color: AnimeXTokens.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 3,
-                        backgroundColor: Colors.white.withValues(alpha: 0.1),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AnimeXTokens.accent,
+                    if (progress != null) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 3,
+                          backgroundColor: Colors.white.withValues(alpha: 0.1),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AnimeXTokens.accent,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
-                      '${(progress * 100).toStringAsFixed(0)}% · Resume EP ${entry.episode}',
+                      progress == null
+                          ? 'Resume EP ${entry.episode}'
+                          : '${(progress * 100).toStringAsFixed(0)}% · Resume EP ${entry.episode} of ${entry.totalEpisodes}',
                       style: dmSansStyle(
                         size: 11,
                         color: AnimeXTokens.accentWarm,

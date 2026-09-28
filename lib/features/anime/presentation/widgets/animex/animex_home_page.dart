@@ -649,9 +649,8 @@ class _ContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = entry.episodeMinutes > 0
-        ? (entry.durationSeconds / (entry.episodeMinutes * 60)).clamp(0.0, 1.0)
-        : 0.0;
+    final progress = entry.seriesProgress;
+    final total = entry.totalEpisodes;
     return GestureDetector(
       onTap: onTap,
       child: MouseRegion(
@@ -698,7 +697,9 @@ class _ContinueCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AnimeXBadge(
-                      label: 'EP ${entry.episode}',
+                      label: total > 1
+                          ? 'EP ${entry.episode}/$total'
+                          : 'EP ${entry.episode}',
                       kind: AnimeXBadgeKind.airing,
                     ),
                     const SizedBox(height: 10),
@@ -708,18 +709,20 @@ class _ContinueCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: bebasStyle(size: 24, color: Colors.white),
                     ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 3,
-                        backgroundColor: Colors.white.withValues(alpha: 0.15),
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          AnimeXTokens.accent,
+                    if (progress != null) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 3,
+                          backgroundColor: Colors.white.withValues(alpha: 0.15),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AnimeXTokens.accent,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

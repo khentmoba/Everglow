@@ -41,8 +41,11 @@ class AnimexHistoryEntry {
   final String title;
   final String coverUrl;
   final int episode;
-  final int durationSeconds;
-  final int episodeMinutes;
+
+  /// Total episodes when known (0 = unknown, 1 = film). Anime servers
+  /// never report within-episode position, so resume progress is
+  /// series-based: completed episodes over this total.
+  final int totalEpisodes;
   final DateTime updatedAt;
 
   const AnimexHistoryEntry({
@@ -52,10 +55,16 @@ class AnimexHistoryEntry {
     required this.title,
     required this.coverUrl,
     required this.episode,
-    this.durationSeconds = 0,
-    this.episodeMinutes = 24,
+    this.totalEpisodes = 0,
     required this.updatedAt,
   });
+
+  /// Completed-episodes share, or null when there is nothing truthful
+  /// to draw (unknown total, or a single-episode film).
+  double? get seriesProgress {
+    if (totalEpisodes <= 1 || episode <= 0) return null;
+    return ((episode - 1) / totalEpisodes).clamp(0.0, 1.0);
+  }
 
   Map<String, dynamic> toJson() => {
     'key': key,
@@ -64,8 +73,7 @@ class AnimexHistoryEntry {
     'title': title,
     'coverUrl': coverUrl,
     'episode': episode,
-    'durationSeconds': durationSeconds,
-    'episodeMinutes': episodeMinutes,
+    'totalEpisodes': totalEpisodes,
     'updatedAt': updatedAt.millisecondsSinceEpoch,
   };
 
@@ -77,8 +85,7 @@ class AnimexHistoryEntry {
       title: json['title'] as String? ?? '',
       coverUrl: json['coverUrl'] as String? ?? '',
       episode: (json['episode'] as num?)?.toInt() ?? 1,
-      durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
-      episodeMinutes: (json['episodeMinutes'] as num?)?.toInt() ?? 24,
+      totalEpisodes: (json['totalEpisodes'] as num?)?.toInt() ?? 0,
       updatedAt: DateTime.fromMillisecondsSinceEpoch(
         (json['updatedAt'] as num?)?.toInt() ?? 0,
       ),
