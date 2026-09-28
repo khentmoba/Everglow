@@ -568,7 +568,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       title: _item.title,
       coverUrl: _item.posterUrl,
       episode: episode,
-      episodeMinutes: _detail?.duration ?? 24,
+      totalEpisodes: _detail?.episodeCount ?? _item.episodeCount ?? 0,
     );
   }
 

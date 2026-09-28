@@ -172,8 +172,7 @@ class AnimexStores extends ChangeNotifier {
     required String title,
     required String coverUrl,
     required int episode,
-    int durationSeconds = 0,
-    int episodeMinutes = 24,
+    int totalEpisodes = 0,
   }) async {
     _history.removeWhere((e) => e.key == key);
     _history.insert(
@@ -185,8 +184,7 @@ class AnimexStores extends ChangeNotifier {
         title: title,
         coverUrl: coverUrl,
         episode: episode,
-        durationSeconds: durationSeconds,
-        episodeMinutes: episodeMinutes,
+        totalEpisodes: totalEpisodes,
         updatedAt: DateTime.now(),
       ),
     );
