@@ -61,7 +61,8 @@ class _AnimeXShellState extends State<AnimeXShell> {
     // If the profile changed while the shell is mounted (logout/login on
     // the same PWA), reload both the per-user history store and the
     // per-user watchlist stream so no data bleeds across profiles.
-    final authUser = context.watch<AuthService>().currentUser;
+    final authUser =
+        context.select<AuthService, String?>((a) => a.currentUser);
     if (_lastUser != null && _lastUser != authUser) {
       _lastUser = authUser;
       WidgetsBinding.instance.addPostFrameCallback((_) {

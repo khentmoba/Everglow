@@ -336,16 +336,17 @@ class _KeepsakeClock extends StatelessWidget {
                       blurRadius: 30,
                       offset: const Offset(0, 16),
                     ),
+                    // Ambient bloom: alpha 0.08 over a 32px blur was a very
+                    // wide filter for an effect this faint — the third
+                    // auroraGold layer below it (0.06) was all but invisible
+                    // and still cost a full blur pass every raster. One tighter
+                    // layer at slightly higher alpha reads the same and costs
+                    // roughly a third of the pixels.
                     BoxShadow(
-                      color: AppColors.auroraRose.withValues(alpha: 0.08),
-                      blurRadius: 32,
+                      color: AppColors.auroraRose.withValues(alpha: 0.10),
+                      blurRadius: 18,
                       spreadRadius: -4,
                       offset: const Offset(0, 4),
-                    ),
-                    BoxShadow(
-                      color: AppColors.auroraGold.withValues(alpha: 0.06),
-                      blurRadius: 24,
-                      spreadRadius: -6,
                     ),
                   ],
                 ),

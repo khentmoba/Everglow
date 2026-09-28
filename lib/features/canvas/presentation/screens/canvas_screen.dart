@@ -76,8 +76,8 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final userId = authService.uid ?? 'unknown';
+    final userId =
+        context.select<AuthService, String>((a) => a.uid ?? 'unknown');
 
     return Scaffold(
       backgroundColor: AppColors.inkDeep,

@@ -68,6 +68,16 @@ class EverglowBackground extends StatefulWidget {
   /// whole visible canvas each frame. The surrounding [Stack] clips whatever
   /// falls off screen, so what actually gets filled is the circle's box
   /// intersected with the viewport.
+  ///
+  /// The box is deliberately *not* trimmed further. Trimming it below the
+  /// gradient's real radius would drop the outer, near-transparent ring (alpha
+  /// still under ~0.07 there) and roughly halve the fill, which is tempting —
+  /// but it stops this drawing pixel-identical to the old full-screen version,
+  /// and that bit-identity is exactly what
+  /// `test/shared/widgets/everglow/everglow_background_test.dart` pins. A
+  /// sub-visible-looking change is still a change to Clair's backdrop, and the
+  /// brief for this work is zero visual degradation. The safe win is the
+  /// bounding itself; the rest is not free.
   static Rect glowRect(RadialGlow glow, Size size) {
     final radius = glow.size * math.min(size.width, size.height);
     final center = glow.alignment.withinRect(Offset.zero & size);

@@ -34,30 +34,32 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: IgnorePointer(
-        child: Container(
-          decoration: BoxDecoration(
-            color: baseColor,
-            backgroundBlendMode: BlendMode.srcOver,
-          ),
-          child: Stack(
-            children: [
-              for (final g in glows)
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: RadialGradient(
-                        center: g.alignment,
-                        radius: g.size,
-                        colors: [
-                          g.color.withValues(alpha: g.opacity),
-                          g.color.withValues(alpha: 0),
-                        ],
-                        stops: const [0.0, 1.0],
+        child: RepaintBoundary(
+          child: Container(
+            decoration: BoxDecoration(
+              color: baseColor,
+              backgroundBlendMode: BlendMode.srcOver,
+            ),
+            child: Stack(
+              children: [
+                for (final g in glows)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: g.alignment,
+                          radius: g.size,
+                          colors: [
+                            g.color.withValues(alpha: g.opacity),
+                            g.color.withValues(alpha: 0),
+                          ],
+                          stops: const [0.0, 1.0],
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

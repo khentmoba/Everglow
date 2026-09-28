@@ -1,25 +1,32 @@
 import 'package:go_router/go_router.dart';
+import '../../../../core/router/deferred_route.dart';
 import '../../../../core/router/route_helpers.dart';
 
 import '../../data/models/academy_question.dart';
 import '../../data/models/game_match.dart';
-import '../screens/academy_hub_screen.dart';
-import '../screens/game_board_screen.dart';
-import '../screens/podium_screen.dart';
-import '../screens/solo_study_screen.dart';
+import '../screens/academy_hub_screen.dart' deferred as academy_lib;
 
 /// Routes owned by the academy feature.
+///
+/// The whole hub (and with it solo study, the head-to-head board and the
+/// podium) rides one deferred chunk: the four screens share question/match
+/// models and navigation, so splitting them would download the same models
+/// twice for no boot win.
 final List<GoRoute> academyRoutes = [
   GoRoute(
     path: '/academy',
-    builder: (_, _) => const AcademyHubScreen(),
+    builder: (_, _) => DeferredRouteLoader(
+      label: 'Academy',
+      loadLibrary: academy_lib.loadLibrary,
+      builder: () => academy_lib.AcademyHubScreen(),
+    ),
     routes: [
       GoRoute(
         path: 'solo',
         builder: (_, state) {
           final args = extraOf<SoloStudyArgs>(state);
           if (args == null) return missingExtraPage(state);
-          return SoloStudyScreen(
+          return academy_lib.SoloStudyScreen(
             questions: args.questions,
             category: args.category,
             topic: args.topic,
@@ -31,7 +38,7 @@ final List<GoRoute> academyRoutes = [
         builder: (_, state) {
           final args = extraOf<GameBoardArgs>(state);
           if (args == null) return missingExtraPage(state);
-          return GameBoardScreen(
+          return academy_lib.GameBoardScreen(
             matchId: args.matchId,
             username: args.username,
             questions: args.questions,
@@ -43,7 +50,7 @@ final List<GoRoute> academyRoutes = [
         builder: (_, state) {
           final match = extraOf<GameMatch>(state);
           if (match == null) return missingExtraPage(state);
-          return PodiumScreen(match: match);
+          return academy_lib.PodiumScreen(match: match);
         },
       ),
     ],

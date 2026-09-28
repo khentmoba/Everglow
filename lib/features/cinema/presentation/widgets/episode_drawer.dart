@@ -352,7 +352,8 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           // Khent/Clair semantics never leak.
           Builder(
             builder: (context) {
-              final isCouple = context.watch<AuthService>().isCoupleUser;
+              final isCouple =
+                  context.select<AuthService, bool>((a) => a.isCoupleUser);
               final chips = isCouple
                   ? Row(
                       children: [
@@ -748,7 +749,8 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildCinemaStatusArea() {
     return Builder(
       builder: (context) {
-        final isCouple = context.watch<AuthService>().isCoupleUser;
+        final isCouple =
+            context.select<AuthService, bool>((a) => a.isCoupleUser);
         final chips = isCouple
             ? Row(
                 children: [
@@ -953,7 +955,8 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildDiscordShareButton({int? season, int? episode}) {
     return Builder(
       builder: (context) {
-        final isCouple = context.watch<AuthService>().isCoupleUser;
+        final isCouple =
+            context.select<AuthService, bool>((a) => a.isCoupleUser);
         if (!isCouple) return const SizedBox.shrink();
         return EverglowButton.glass(
           label: _isSharingDiscord ? 'Sharing…' : 'Share to Discord',

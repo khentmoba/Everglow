@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/perf/repaint_throttle.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 
@@ -18,7 +19,8 @@ import '../../../../core/theme/app_motion.dart';
 ///
 /// Honors `AppMotion.reduced` by rendering nothing.
 class DashboardAmbience extends StatefulWidget {
-  const DashboardAmbience({super.key});
+  final ScrollController? scrollController;
+  const DashboardAmbience({super.key, this.scrollController});
 
   @override
   State<DashboardAmbience> createState() => _DashboardAmbienceState();
@@ -35,6 +37,7 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.scrollController?.addListener(_onScrollChange);
     if (!AppMotion.reduced) {
       _controller = AnimationController(
         vsync: this,
@@ -42,6 +45,19 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
       )..repeat();
       _painter = _AmbiencePainter(_controller!);
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardAmbience oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      oldWidget.scrollController?.removeListener(_onScrollChange);
+      widget.scrollController?.addListener(_onScrollChange);
+    }
+  }
+
+  void _onScrollChange() {
+    _updateTickerState();
   }
 
   @override
@@ -71,7 +87,10 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
     final route = ModalRoute.of(context);
     final isRouteVisible = route == null || route.isCurrent;
     final isAppVisible = _lifecycleState == AppLifecycleState.resumed;
-    final shouldRun = isRouteVisible && isAppVisible;
+    final isScrolledPast = widget.scrollController != null &&
+        widget.scrollController!.hasClients &&
+        widget.scrollController!.offset > 850;
+    final shouldRun = isRouteVisible && isAppVisible && !isScrolledPast;
 
     if (shouldRun && !c.isAnimating) {
       c.repeat();
@@ -89,7 +108,11 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.scrollController?.removeListener(_onScrollChange);
     _secondaryAnimation?.removeStatusListener(_onRouteAnimationStatus);
+    // The painter owns the repaint gate, and the gate subscribes to the
+    // controller — so the gate has to go before the controller does.
+    _painter?.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -222,6 +245,7 @@ class _BreathingEmblemState extends State<BreathingEmblem>
   AnimationController? _breath;
   AnimationController? _halo;
   _HaloPainter? _haloPainter;
+  ScrollPosition? _scrollPosition;
 
   @override
   void initState() {
@@ -240,7 +264,32 @@ class _BreathingEmblemState extends State<BreathingEmblem>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (pos != _scrollPosition) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = pos;
+      _scrollPosition?.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    final offscreen = _scrollPosition != null &&
+        _scrollPosition!.hasPixels &&
+        _scrollPosition!.pixels > 350;
+    if (offscreen) {
+      if (_breath?.isAnimating ?? false) _breath?.stop();
+      if (_halo?.isAnimating ?? false) _halo?.stop();
+    } else {
+      if (!(_breath?.isAnimating ?? true)) _breath?.repeat(reverse: true);
+      if (!(_halo?.isAnimating ?? true)) _halo?.repeat();
+    }
+  }
+
+  @override
   void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
     _breath?.dispose();
     _halo?.dispose();
     super.dispose();
@@ -284,6 +333,7 @@ class ShimmerTitle extends StatefulWidget {
 class _ShimmerTitleState extends State<ShimmerTitle>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
+  ScrollPosition? _scrollPosition;
 
   @override
   void initState() {
@@ -297,7 +347,30 @@ class _ShimmerTitleState extends State<ShimmerTitle>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (pos != _scrollPosition) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = pos;
+      _scrollPosition?.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    final offscreen = _scrollPosition != null &&
+        _scrollPosition!.hasPixels &&
+        _scrollPosition!.pixels > 350;
+    if (offscreen) {
+      if (_controller?.isAnimating ?? false) _controller?.stop();
+    } else {
+      if (!(_controller?.isAnimating ?? true)) _controller?.repeat();
+    }
+  }
+
+  @override
   void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
     _controller?.dispose();
     super.dispose();
   }
@@ -343,6 +416,7 @@ class PulseHeart extends StatefulWidget {
 class _PulseHeartState extends State<PulseHeart>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
+  ScrollPosition? _scrollPosition;
 
   @override
   void initState() {
@@ -356,7 +430,30 @@ class _PulseHeartState extends State<PulseHeart>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (pos != _scrollPosition) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = pos;
+      _scrollPosition?.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    final offscreen = _scrollPosition != null &&
+        _scrollPosition!.hasPixels &&
+        _scrollPosition!.pixels > 350;
+    if (offscreen) {
+      if (_controller?.isAnimating ?? false) _controller?.stop();
+    } else {
+      if (!(_controller?.isAnimating ?? true)) _controller?.repeat();
+    }
+  }
+
+  @override
   void dispose() {
+    _scrollPosition?.removeListener(_onScroll);
     _controller?.dispose();
     super.dispose();
   }
@@ -405,14 +502,83 @@ class _CursorSample {
   final Offset? previous;
 }
 
+/// Forwards animation ticks at a fixed ceiling instead of every vsync.
+///
+/// One instance backs the dashboard's ambient layer. It listens to the real
+/// controller (so pausing the controller still pauses the painting) but only
+/// wakes listeners when a full [_interval] has passed since the last wake, so
+/// the layer's expensive full-screen repaint runs at ~30 fps on a 60 Hz
+/// display.
+///
+/// The throttling itself lives in [RepaintThrottle] with an injectable clock,
+/// so the cap is asserted deterministically in
+/// `test/core/perf/repaint_throttle_test.dart` rather than inferred from
+/// frame-cost timings that move with the machine.
+class _AmbienceRepaintGate extends ChangeNotifier {
+  _AmbienceRepaintGate(this._controller) {
+    _throttle = RepaintThrottle(interval: kAmbienceRepaintInterval);
+    _throttle.addListener(notifyListeners);
+    _controller.addListener(_onTick);
+  }
+
+  final AnimationController _controller;
+  late final RepaintThrottle _throttle;
+
+  /// Notifies only when the throttle lets a tick through.
+  @visibleForTesting
+  int get forwardedCount => _throttle.forwardedCount;
+
+  void _onTick() {
+    if (!_controller.isAnimating) {
+      // Idle: stop forwarding entirely so a paused screen schedules no frames.
+      _throttle.stopSource();
+      return;
+    }
+    _throttle.resumeSourceIfStopped();
+    _throttle.onSourceTick();
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTick);
+    _throttle.removeListener(notifyListeners);
+    _throttle.dispose();
+    super.dispose();
+  }
+}
+
 class _AmbiencePainter extends CustomPainter {
-  _AmbiencePainter(this._controller) : super(repaint: _controller) {
+  factory _AmbiencePainter(AnimationController controller) =>
+      _AmbiencePainter._(controller, _AmbienceRepaintGate(controller));
+
+  _AmbiencePainter._(this._controller, this._gate) : super(repaint: _gate) {
     _initParticles();
   }
 
   final AnimationController _controller;
 
+  /// Caps this layer at ~30 fps instead of the display's 60.
+  ///
+  /// The ambient drift runs on a 24-second cycle, so a frame that lands 16ms
+  /// after the last one shows movement of well under a pixel — invisible. But
+  /// on Flutter Web every repaint of this layer re-rasterizes three
+  /// full-screen aurora bands, 14 petals with ghost trails, sparkles and a
+  /// bloom pulse, and raster shares the single web thread with build and
+  /// layout. Halving the rate halves the most expensive thing on the whole
+  /// screen. [AppMotion.reduced] and the idle freeze both bypass this
+  /// entirely, because the gate only forwards while the controller is running.
+  final _AmbienceRepaintGate _gate;
+
   static const int _auroraSegments = 28;
+
+  /// Releases the repaint gate's subscription to the controller.
+  ///
+  /// [CustomPainter] has no disposal hook of its own, so the owner has to
+  /// call this; [_DashboardAmbienceState] does it before disposing the
+  /// controller.
+  void dispose() {
+    _gate.dispose();
+  }
 
   final List<_AuroraBand> _bands = [];
   final List<_Petal> _petals = [];

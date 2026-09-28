@@ -105,6 +105,6 @@ class _EverglowCardState extends State<EverglowCard> {
       );
     }
 
-    return child;
+    return RepaintBoundary(child: child);
   }
 }

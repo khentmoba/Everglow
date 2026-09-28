@@ -146,9 +146,10 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     final data = _data ?? const KatanaHomeData();
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 960;
-    final auth = context.watch<AuthService>();
-    final user = auth.currentUser ?? '';
-    final partner = auth.partnerUsername;
+    final user =
+        context.select<AuthService, String>((a) => a.currentUser ?? '');
+    final partner =
+        context.select<AuthService, String?>((a) => a.partnerUsername);
 
     final content = ListView(
       controller: _scroll,

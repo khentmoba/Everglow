@@ -83,6 +83,7 @@ class _PerfHudState extends State<PerfHud> {
   @override
   void initState() {
     super.initState();
+    registerPerfReset(_reset);
     WidgetsBinding.instance.addTimingsCallback(_onTimings);
     _timer = Timer.periodic(_refresh, (_) => _tick());
   }

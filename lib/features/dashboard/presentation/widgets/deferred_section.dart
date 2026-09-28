@@ -57,7 +57,7 @@ class DeferredSection extends StatefulWidget {
   /// How far beyond the viewport still counts as "close enough". Wide enough to
   /// build a section before it is visible (no blank flash when scrolling into
   /// it), narrow enough that far-below sections stay unmounted.
-  static const double preloadMargin = 900;
+  static const double preloadMargin = 280;
 
   /// How long a section may sit above the viewport and still be worth building.
   static const double keepAboveMargin = 500;

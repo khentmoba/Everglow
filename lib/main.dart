@@ -76,6 +76,17 @@ Future<void> _startEverglow() async {
   // switches). Before runApp on purpose: the engine caches the view's physical
   // size at the first frame, so a render-scale override has to land first.
   await PerfSettings.load();
+  // Bound the decoded-image cache before the first frame.
+  //
+  // Flutter's default is 1000 images / 100 MB, but that 1000-object count is
+  // the binding limit: with `AppNetworkImage` decoding every poster to ~400 px
+  // (≈0.96 MB each) a long browsing session can hold ~1 GB of decoded
+  // bitmaps, which is more than Clair's phone can give back to the OS. A
+  // byte-based ceiling evicts by real cost instead, and the smaller object
+  // count keeps the pending/keep-alive bookkeeping cheap.
+  PaintingBinding.instance.imageCache
+    ..maximumSize = 220
+    ..maximumSizeBytes = 96 << 20; // 96 MB of decoded bitmaps
   // Remembered page for this device (route_memory.dart): ready before the
   // router is created so a killed tab/PWA reopens where she left off.
   await RouteMemory.load();

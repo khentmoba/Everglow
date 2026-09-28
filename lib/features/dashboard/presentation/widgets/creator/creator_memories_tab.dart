@@ -652,6 +652,7 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                             url,
                             width: 90,
                             height: 90,
+                            cacheWidth: 200,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
                               width: 90,
@@ -824,6 +825,7 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                       _existingImageUrls.first,
                       height: 120,
                       width: double.infinity,
+                      cacheWidth: 600,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
