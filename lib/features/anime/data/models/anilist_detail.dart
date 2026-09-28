@@ -30,6 +30,7 @@ class AniListDetail {
   final List<AniListRelated> relations;
   final List<AniListRecommended> recommendations;
   final List<AniListEpisode> episodes;
+  final List<AniListSeason> seasons;
 
   /// Unix timestamp (seconds) of the next episode's air time. Only populated
   /// for currently-airing anime where AniList provides `nextAiringEpisode`.
@@ -64,6 +65,7 @@ class AniListDetail {
     this.relations = const [],
     this.recommendations = const [],
     this.episodes = const [],
+    this.seasons = const [],
     this.nextAiringAt,
     this.nextAiringEpisode,
   });
@@ -107,6 +109,32 @@ class AniListStaffMember {
     required this.name,
     required this.imageUrl,
     required this.role,
+  });
+}
+
+class AniListSeason {
+  final int id;
+  final int? malId;
+  final String title;
+  final String coverImageUrl;
+  final String format; // TV, MOVIE, OVA, ONA, SPECIAL
+  final int? year;
+  final int month;
+  final int day;
+  final int? episodeCount;
+  final bool isCurrent;
+
+  const AniListSeason({
+    required this.id,
+    this.malId,
+    required this.title,
+    required this.coverImageUrl,
+    required this.format,
+    this.year,
+    this.month = 0,
+    this.day = 0,
+    this.episodeCount,
+    this.isCurrent = false,
   });
 }
 

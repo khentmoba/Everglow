@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ignore: depend_on_referenced_packages
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
+import 'package:everglow/features/anime/data/models/anilist_detail.dart';
+import 'package:everglow/features/anime/data/services/anilist_service.dart';
 import 'package:everglow/features/anime/data/services/animex_stores.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_controller.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_tokens.dart';
@@ -1030,6 +1032,260 @@ void main() {
       }
 
       await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    test('AniListService.mapSeasonsForTesting discovers seasons, excludes novels/manga, and sorts chronologically', () {
+      final mockData = {
+        'id': 108465,
+        'idMal': 39535,
+        'title': {'english': 'Mushoku Tensei: Jobless Reincarnation', 'romaji': 'Mushoku Tensei'},
+        'format': 'TV',
+        'seasonYear': 2021,
+        'startDate': {'year': 2021, 'month': 1, 'day': 11},
+        'episodes': 11,
+        'coverImage': {'large': 'https://cover/s1.jpg'},
+        'relations': {
+          'edges': [
+            {
+              'relationType': 'ADAPTATION',
+              'node': {
+                'id': 85470,
+                'idMal': 70261,
+                'title': {'english': 'Mushoku Tensei Novel'},
+                'format': 'NOVEL',
+                'type': 'MANGA',
+                'relations': {
+                  'edges': [
+                    {
+                      'relationType': 'ADAPTATION',
+                      'node': {
+                        'id': 146065,
+                        'idMal': 51179,
+                        'title': {'english': 'Mushoku Tensei: Jobless Reincarnation Season 2'},
+                        'format': 'TV',
+                        'type': 'ANIME',
+                        'startDate': {'year': 2023, 'month': 7, 'day': 3},
+                        'episodes': 13,
+                        'coverImage': {'large': 'https://cover/s2.jpg'},
+                      },
+                    },
+                    {
+                      'relationType': 'ALTERNATIVE',
+                      'node': {
+                        'id': 85564,
+                        'title': {'english': 'Mushoku Tensei Manga'},
+                        'format': 'MANGA',
+                        'type': 'MANGA',
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              'relationType': 'SEQUEL',
+              'node': {
+                'id': 127720,
+                'idMal': 45576,
+                'title': {'english': 'Mushoku Tensei: Jobless Reincarnation Cour 2'},
+                'format': 'TV',
+                'type': 'ANIME',
+                'startDate': {'year': 2021, 'month': 10, 'day': 4},
+                'episodes': 12,
+                'coverImage': {'large': 'https://cover/cour2.jpg'},
+              },
+            },
+          ],
+        },
+      };
+
+      final seasons = AniListService.mapSeasonsForTesting(mockData);
+
+      expect(seasons.length, 3);
+      expect(seasons[0].id, 108465);
+      expect(seasons[0].isCurrent, isTrue);
+      expect(seasons[0].title, 'Mushoku Tensei: Jobless Reincarnation');
+      expect(seasons[0].year, 2021);
+      expect(seasons[0].episodeCount, 11);
+
+      expect(seasons[1].id, 127720);
+      expect(seasons[1].isCurrent, isFalse);
+      expect(seasons[1].title, 'Mushoku Tensei: Jobless Reincarnation Cour 2');
+      expect(seasons[1].year, 2021);
+      expect(seasons[1].episodeCount, 12);
+
+      expect(seasons[2].id, 146065);
+      expect(seasons[2].isCurrent, isFalse);
+      expect(seasons[2].title, 'Mushoku Tensei: Jobless Reincarnation Season 2');
+      expect(seasons[2].year, 2023);
+      expect(seasons[2].episodeCount, 13);
+    });
+
+    testWidgets('desktop episodes sidebar shows season dropdown and allows selecting another season',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final episodes = [
+        const AniListEpisode(number: 1, title: 'Episode 1'),
+        const AniListEpisode(number: 2, title: 'Episode 2'),
+      ];
+      final seasons = [
+        const AniListSeason(
+          id: 108465,
+          malId: 39535,
+          title: 'Mushoku Tensei Season 1',
+          coverImageUrl: '',
+          format: 'TV',
+          year: 2021,
+          episodeCount: 11,
+          isCurrent: true,
+        ),
+        const AniListSeason(
+          id: 146065,
+          malId: 51179,
+          title: 'Mushoku Tensei Season 2',
+          coverImageUrl: '',
+          format: 'TV',
+          year: 2023,
+          episodeCount: 13,
+          isCurrent: false,
+        ),
+      ];
+
+      AniListSeason? selected;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 380,
+              height: 600,
+              child: buildDesktopEpisodesSidebarForTesting(
+                episodes: episodes,
+                selectedEpisode: 1,
+                animeTitle: 'Mushoku Tensei',
+                fallbackPoster: '',
+                onSelectEpisode: (_) {},
+                onShowInfo: (_) {},
+                seasons: seasons,
+                onSelectSeason: (s) => selected = s,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Mushoku Tensei Season 1'), findsOneWidget);
+      expect(find.byTooltip('Change Season'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Change Season'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mushoku Tensei Season 2'), findsOneWidget);
+
+      await tester.tap(find.text('Mushoku Tensei Season 2'));
+      await tester.pumpAndSettle();
+
+      expect(selected?.id, 146065);
+    });
+
+    testWidgets('desktop sidebar shows Next Season in Up Next when on last episode',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final episodes = [
+        const AniListEpisode(number: 1, title: 'Episode 1'),
+        const AniListEpisode(number: 2, title: 'Season Finale'),
+      ];
+      const nextSeason = AniListSeason(
+        id: 146065,
+        malId: 51179,
+        title: 'Season 2',
+        coverImageUrl: '',
+        format: 'TV',
+        year: 2023,
+        episodeCount: 12,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 380,
+              height: 600,
+              child: buildDesktopEpisodesSidebarForTesting(
+                episodes: episodes,
+                selectedEpisode: 2,
+                animeTitle: 'Mushoku Tensei',
+                fallbackPoster: '',
+                onSelectEpisode: (_) {},
+                onShowInfo: (_) {},
+                seasons: const [],
+                nextSeason: nextSeason,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Up next: Season 2 (Episode 1)'), findsOneWidget);
+    });
+
+    testWidgets('mobile episodes section renders Season button when multiple seasons exist',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final episodes = [
+        const AniListEpisode(number: 1, title: 'Episode 1'),
+      ];
+      final seasons = [
+        const AniListSeason(
+          id: 1,
+          title: 'Season 1',
+          coverImageUrl: '',
+          format: 'TV',
+          isCurrent: true,
+        ),
+        const AniListSeason(
+          id: 2,
+          title: 'Season 2',
+          coverImageUrl: '',
+          format: 'TV',
+          isCurrent: false,
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: buildMobileEpisodesSectionForTesting(
+              episodes: episodes,
+              selectedEpisode: 1,
+              animeTitle: 'Anime',
+              fallbackPoster: '',
+              onSelectEpisode: (_) {},
+              onShowInfo: (_) {},
+              seasons: seasons,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Season'), findsOneWidget);
+      await tester.tap(find.text('Season'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Select Season'), findsOneWidget);
+      expect(find.text('Season 2'), findsWidgets);
     });
   });
 }

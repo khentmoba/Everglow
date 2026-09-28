@@ -155,6 +155,9 @@ class _MobileEpisodesSection extends StatefulWidget {
   final String fallbackPoster;
   final ValueChanged<int> onSelectEpisode;
   final void Function(AniListEpisode) onShowInfo;
+  final List<AniListSeason> seasons;
+  final ValueChanged<AniListSeason>? onSelectSeason;
+  final AniListSeason? nextSeason;
 
   const _MobileEpisodesSection({
     required this.episodes,
@@ -163,6 +166,9 @@ class _MobileEpisodesSection extends StatefulWidget {
     required this.fallbackPoster,
     required this.onSelectEpisode,
     required this.onShowInfo,
+    this.seasons = const [],
+    this.onSelectSeason,
+    this.nextSeason,
   });
 
   @override
@@ -246,90 +252,148 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // EPISODES header row matching Reference Image #2
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          runSpacing: 8,
           children: [
-            Text(
-              'EPISODES',
-              style: dmSansStyle(
-                size: 14,
-                color: AnimeXTokens.textPrimary,
-                weight: FontWeight.w800,
-                letterSpacing: 0.1,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '(${widget.episodes.length})',
-              style: dmSansStyle(
-                size: 12,
-                color: AnimeXTokens.textMuted,
-                weight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            // Search pill button
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _showSearch = !_showSearch;
-                  if (!_showSearch) _searchCtrl.clear();
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _showSearch
-                      ? AnimeXTokens.accent.withValues(alpha: 0.2)
-                      : Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: _showSearch
-                        ? AnimeXTokens.accent
-                        : AnimeXTokens.border,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'EPISODES',
+                  style: dmSansStyle(
+                    size: 14,
+                    color: AnimeXTokens.textPrimary,
+                    weight: FontWeight.w800,
+                    letterSpacing: 0.1,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.search_rounded,
-                      size: 14,
-                      color: AnimeXTokens.textSecondary,
+                const SizedBox(width: 8),
+                Text(
+                  '(${widget.episodes.length})',
+                  style: dmSansStyle(
+                    size: 12,
+                    color: AnimeXTokens.textMuted,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.seasons.length > 1) ...[
+                  GestureDetector(
+                    onTap: () => _showSeasonPickerSheet(
+                      context,
+                      seasons: widget.seasons,
+                      onSelectSeason: (s) => widget.onSelectSeason?.call(s),
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Search',
-                      style: dmSansStyle(
-                        size: 11.5,
-                        color: AnimeXTokens.textSecondary,
-                        weight: FontWeight.w600,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AnimeXTokens.border),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.layers_rounded,
+                            size: 13,
+                            color: AnimeXTokens.accentWarm,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Season',
+                            style: dmSansStyle(
+                              size: 11.5,
+                              color: AnimeXTokens.textPrimary,
+                              weight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 14,
+                            color: AnimeXTokens.textSecondary,
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                // Search pill button
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showSearch = !_showSearch;
+                      if (!_showSearch) _searchCtrl.clear();
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _showSearch
+                          ? AnimeXTokens.accent.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: _showSearch
+                            ? AnimeXTokens.accent
+                            : AnimeXTokens.border,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.search_rounded,
+                          size: 14,
+                          color: AnimeXTokens.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Search',
+                          style: dmSansStyle(
+                            size: 11.5,
+                            color: AnimeXTokens.textSecondary,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Sort button
-            GestureDetector(
-              onTap: () => setState(() => _sortAscending = !_sortAscending),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AnimeXTokens.border),
+                const SizedBox(width: 8),
+                // Sort button
+                GestureDetector(
+                  onTap: () => setState(() => _sortAscending = !_sortAscending),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AnimeXTokens.border),
+                    ),
+                    child: const Icon(
+                      Icons.swap_vert_rounded,
+                      size: 16,
+                      color: AnimeXTokens.textSecondary,
+                    ),
+                  ),
                 ),
-                child: const Icon(
-                  Icons.swap_vert_rounded,
-                  size: 16,
-                  color: AnimeXTokens.textSecondary,
-                ),
-              ),
+              ],
             ),
           ],
         ),
@@ -649,6 +713,190 @@ void _showEpisodeInfoSheet(
                 ),
               ],
             ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// Mobile Season Selector bottom sheet.
+void _showSeasonPickerSheet(
+  BuildContext context, {
+  required List<AniListSeason> seasons,
+  required ValueChanged<AniListSeason> onSelectSeason,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AnimeXTokens.surfaceRaised,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.layers_rounded,
+                    size: 18,
+                    color: AnimeXTokens.accentWarm,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Select Season',
+                    style: dmSansStyle(
+                      size: 17,
+                      color: AnimeXTokens.textPrimary,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: seasons.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final season = seasons[index];
+                    final isCurrent = season.isCurrent;
+                    final metaParts = <String>[];
+                    metaParts.add(season.format);
+                    if (season.episodeCount != null &&
+                        season.episodeCount! > 0) {
+                      metaParts.add('${season.episodeCount} episodes');
+                    }
+                    if (season.year != null && season.year! > 0) {
+                      metaParts.add('${season.year}');
+                    }
+                    final meta = metaParts.join(' • ');
+
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (!isCurrent) onSelectSeason(season);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isCurrent
+                              ? AnimeXTokens.accent.withValues(alpha: 0.12)
+                              : Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(
+                            AnimeXTokens.radiusMd,
+                          ),
+                          border: Border.all(
+                            color: isCurrent
+                                ? AnimeXTokens.accent
+                                : AnimeXTokens.border,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            if (season.coverImageUrl.isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: AppNetworkImage(
+                                  imageUrl: season.coverImageUrl,
+                                  width: 42,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            else
+                              Container(
+                                width: 42,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(
+                                  Icons.movie_outlined,
+                                  color: AnimeXTokens.textMuted,
+                                ),
+                              ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    season.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: dmSansStyle(
+                                      size: 13,
+                                      color: isCurrent
+                                          ? AnimeXTokens.accentWarm
+                                          : AnimeXTokens.textPrimary,
+                                      weight: isCurrent
+                                          ? FontWeight.w700
+                                          : FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    meta,
+                                    style: dmSansStyle(
+                                      size: 11,
+                                      color: AnimeXTokens.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isCurrent)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AnimeXTokens.accent.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'Watching',
+                                  style: dmSansStyle(
+                                    size: 10,
+                                    color: AnimeXTokens.accentWarm,
+                                    weight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       );

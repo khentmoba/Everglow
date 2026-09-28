@@ -64,6 +64,9 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
                     fallbackPoster: _item.posterUrl,
                     onSelectEpisode: _selectEpisode,
                     onShowInfo: _openEpisodeInfo,
+                    seasons: _seasons,
+                    onSelectSeason: _openSeason,
+                    nextSeason: _nextSeason,
                   ),
                 ),
               ],
@@ -92,6 +95,9 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
                 fallbackPoster: _item.posterUrl,
                 onSelectEpisode: _selectEpisode,
                 onShowInfo: _openEpisodeInfo,
+                seasons: _seasons,
+                onSelectSeason: _openSeason,
+                nextSeason: _nextSeason,
               ),
             ],
           ),
@@ -241,8 +247,57 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
     );
   }
 
+  Widget _buildSeasons(BuildContext context) {
+    final seasons = _seasons
+        .map(
+          (s) => MediaItem(
+            id: '',
+            tmdbId: s.malId ?? 0,
+            title: s.title,
+            mediaType: s.format.trim().toLowerCase() == 'movie'
+                ? 'movie'
+                : 'tv',
+            posterPath: s.coverImageUrl,
+            year: s.year != null && s.year! > 0 ? '${s.year}' : '',
+            status: s.isCurrent ? 'Playing' : '',
+            isAnime: true,
+            addedAt: DateTime.now(),
+            source: 'jikan',
+            anilistId: s.id,
+            format: s.format,
+            episodeCount: s.episodeCount,
+          ),
+        )
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: AnimeXSectionHeader(
+            icon: Icons.layers_rounded,
+            title: 'Seasons & Sequels',
+          ),
+        ),
+        AnimeXPosterRow(
+          items: seasons,
+          onTap: (item) => widget.controller.openWatch(item),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRelations(BuildContext context) {
+    final seasonIds = _seasons.map((s) => s.id).toSet();
+    final seasonMalIds = _seasons.map((s) => s.malId).whereType<int>().toSet();
+
     final relations = _detail!.relations
+        .where(
+          (r) =>
+              !seasonIds.contains(r.id) &&
+              (r.malId == null || !seasonMalIds.contains(r.malId)),
+        )
         .map(
           (r) => MediaItem(
             id: '',
@@ -262,6 +317,9 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
           ),
         )
         .toList();
+
+    if (relations.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
