@@ -295,6 +295,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
         caption: 'Letters',
       ),
       const QuickAction(
+        label: 'Money',
+        icon: Icons.savings_rounded,
+        route: '/money',
+        hue: AppColors.auroraGold,
+        caption: 'Wallet',
+      ),
+      const QuickAction(
         label: 'Subs',
         icon: Icons.subscriptions_rounded,
         route: '/subs',
