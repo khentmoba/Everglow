@@ -1,4 +1,4 @@
-// BUILD=6.1.0+1-e253c18d
+// BUILD=6.1.0+1-2a9145b8
 // Everglow service worker: app-shell + asset caching + push.
 //
 // Pairing with firebase.json (last matching header rule wins there):
@@ -20,7 +20,7 @@
 // (firebase-messaging-sw.js) would replace this one and kill offline
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
-const SHELL="6.1.0+1-e253c18d-SHELL-v1";
+const SHELL="6.1.0+1-2a9145b8-SHELL-v1";
 // Stable across builds on purpose: entries rotate by `?v=` query, so a new
 // build misses (fetches fresh) while the previous shell stays cached for
 // offline boots. Only the newest two shells are kept (see trimCore).
@@ -91,6 +91,31 @@ async function newestCoreEntry() {
   } catch {}
   return null;
 }
+// Pre-warm the core shell for THIS build so the next cold open paints
+// straight from CacheStorage instead of re-downloading ~6MB.
+//
+// Deliberately not part of `install`: the install handler must not compete
+// with the page it is serving. This runs off `activate`, only when the shell
+// for the current build stamp is genuinely absent, and it bails out on a
+// save-data or 2g connection (see SAVE_DATA) so it never spends a metered
+// user's data. Any failure is swallowed: a warm that misses only costs the
+// next visit one normal fetch.
+const SAVE_DATA = (navigator.connection &&
+  (navigator.connection.saveData ||
+   /(^|-)2g$/.test(navigator.connection.effectiveType || "")));
+async function warmCoreShell() {
+  if (SAVE_DATA) return;
+  try {
+    const c = await caches.open(CORE);
+    const shellUrl = new URL("main.dart.js?v=6.1.0+1-2a9145b8", self.location.origin).href;
+    const already = await c.match(shellUrl);
+    if (already) return;
+    if (navigator.onLine === false) return;
+    const res = await fetch(shellUrl, { cache: "no-store" });
+    if (!res || !res.ok) return;
+    await c.put(shellUrl, res.clone());
+  } catch {}
+}
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
@@ -117,7 +142,8 @@ self.addEventListener("activate", (e) => {
           }
         } catch {}
       })
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      .then(() => warmCoreShell()),
   );
 });
 self.addEventListener("fetch", (e) => {

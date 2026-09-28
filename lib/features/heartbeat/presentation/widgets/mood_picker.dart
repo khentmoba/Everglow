@@ -13,7 +13,8 @@ class MoodPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<MoodController>();
+    final selectedScore =
+        context.select<MoodController, int?>((c) => c.selectedScore);
     final authService = context.read<AuthService>();
     final partnerName = authService.partnerName;
 
@@ -76,17 +77,17 @@ class MoodPicker extends StatelessWidget {
                 final label = mood['label'] as String;
                 return Semantics(
                   button: true,
-                  selected: controller.selectedScore == score,
+                  selected: selectedScore == score,
                   label: '$label mood, $score of 5, ${mood['emoji']}',
                   child: Tooltip(
                     message: '$label • $score of 5',
                     child: HeartEmoji(
                       emoji: mood['emoji'] as String,
-                      isSelected: controller.selectedScore == score,
+                      isSelected: selectedScore == score,
                       glowColor: mood['color'] as Color,
                       onTap: () async {
                     final currentUsername = authService.currentUser ?? '';
-                    await controller.submitMood(
+                    await context.read<MoodController>().submitMood(
                       username: currentUsername,
                       score: score,
                       emoji: mood['emoji'] as String,

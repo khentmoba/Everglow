@@ -385,7 +385,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
             onExit: (_) {
               setState(() => _hovered = false);
             },
-            child: card,
+            child: RepaintBoundary(child: card),
           ),
         ),
       ),

@@ -156,7 +156,8 @@ class _BooksScreenState extends _BooksScreenStateBase {
   Widget _buildTopHeader() {
     final top = MediaQuery.paddingOf(context).top;
     final canPop = Navigator.canPop(context);
-    final isCouple = context.watch<AuthService>().isCoupleUser;
+    final isCouple =
+        context.select<AuthService, bool>((a) => a.isCoupleUser);
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(

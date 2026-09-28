@@ -275,8 +275,9 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final currentUser = authService.currentUser ?? 'unknown';
+    final currentUser = context.select<AuthService, String>(
+      (a) => a.currentUser ?? 'unknown',
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,

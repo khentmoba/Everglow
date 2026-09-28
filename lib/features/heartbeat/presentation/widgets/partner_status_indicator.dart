@@ -10,9 +10,12 @@ class PartnerStatusIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authService = context.watch<AuthService>();
-    final partnerUsername = authService.partnerUsername ?? '';
-    final partnerName = authService.partnerName;
+    final partnerUsername = context.select<AuthService, String>(
+      (a) => a.partnerUsername ?? '',
+    );
+    final partnerName = context.select<AuthService, String>(
+      (a) => a.partnerName,
+    );
 
     return StreamBuilder<UserMood?>(
       stream: context.read<MoodService>().watchLatestMood(partnerUsername),

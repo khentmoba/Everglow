@@ -108,6 +108,31 @@ async function newestCoreEntry() {
   } catch {}
   return null;
 }
+// Pre-warm the core shell for THIS build so the next cold open paints
+// straight from CacheStorage instead of re-downloading ~6MB.
+//
+// Deliberately not part of `install`: the install handler must not compete
+// with the page it is serving. This runs off `activate`, only when the shell
+// for the current build stamp is genuinely absent, and it bails out on a
+// save-data or 2g connection (see SAVE_DATA) so it never spends a metered
+// user's data. Any failure is swallowed: a warm that misses only costs the
+// next visit one normal fetch.
+const SAVE_DATA = (navigator.connection &&
+  (navigator.connection.saveData ||
+   /(^|-)2g\$/.test(navigator.connection.effectiveType || "")));
+async function warmCoreShell() {
+  if (SAVE_DATA) return;
+  try {
+    const c = await caches.open(CORE);
+    const shellUrl = new URL("main.dart.js?v=$buildConst", self.location.origin).href;
+    const already = await c.match(shellUrl);
+    if (already) return;
+    if (navigator.onLine === false) return;
+    const res = await fetch(shellUrl, { cache: "no-store" });
+    if (!res || !res.ok) return;
+    await c.put(shellUrl, res.clone());
+  } catch {}
+}
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
@@ -134,7 +159,8 @@ self.addEventListener("activate", (e) => {
           }
         } catch {}
       })
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      .then(() => warmCoreShell()),
   );
 });
 self.addEventListener("fetch", (e) => {

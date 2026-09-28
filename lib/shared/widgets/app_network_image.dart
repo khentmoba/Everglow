@@ -99,6 +99,46 @@ class AppNetworkImage extends StatefulWidget {
 
   static bool get _isWeb => debugUseWebImplementation ?? kIsWeb;
 
+  /// Decode width to use for a remote image, in physical pixels.
+  ///
+  /// An explicit [declaredCacheWidth] always wins. Otherwise the display width
+  /// is doubled (a common rule of thumb: CSS pixels x ~2 device pixels) and
+  /// clamped so a tiny thumb still decodes at a sane floor and a hero cannot
+  /// allocate an unbounded texture.
+  ///
+  /// Extracted as a pure static so the memory figures in
+  /// `docs/pr-proof/pr-400/BENCHMARKS.md` are computed from the logic the app
+  /// actually ships, rather than from a hardcoded 400px the app never uses.
+  @visibleForTesting
+  static int? resolveCacheWidth({
+    required int? declaredCacheWidth,
+    required double? displayWidth,
+  }) {
+    if (declaredCacheWidth != null && declaredCacheWidth > 0) {
+      return declaredCacheWidth;
+    }
+    if (displayWidth == null || displayWidth <= 0) return null;
+    return (displayWidth * 2).clamp(120, 1200).round();
+  }
+
+  /// Decode height to use, mirroring [resolveCacheWidth].
+  ///
+  /// When an explicit width was declared the decode is width-driven (the image
+  /// keeps its aspect ratio), so no height is forced.
+  @visibleForTesting
+  static int? resolveCacheHeight({
+    required int? declaredCacheHeight,
+    required double? displayHeight,
+    required int? explicitWidth,
+  }) {
+    if (declaredCacheHeight != null && declaredCacheHeight > 0) {
+      return declaredCacheHeight;
+    }
+    if (explicitWidth != null) return null;
+    if (displayHeight == null || displayHeight <= 0) return null;
+    return (displayHeight * 2).clamp(120, 1800).round();
+  }
+
   /// Global notification triggered when the app resumes (e.g. alt-tab return
   /// or browser tab focus) to immediately re-attempt failed image loads.
   static final ValueNotifier<int> appResumeNotifier = ValueNotifier<int>(0);
@@ -252,14 +292,15 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
         },
       );
     } else {
-      final safeCacheWidth =
-          (widget.cacheWidth != null && widget.cacheWidth! > 0)
-              ? widget.cacheWidth
-              : null;
-      final safeCacheHeight =
-          (widget.cacheHeight != null && widget.cacheHeight! > 0)
-              ? widget.cacheHeight
-              : null;
+      final safeCacheWidth = AppNetworkImage.resolveCacheWidth(
+        declaredCacheWidth: widget.cacheWidth,
+        displayWidth: widget.width,
+      );
+      final safeCacheHeight = AppNetworkImage.resolveCacheHeight(
+        declaredCacheHeight: widget.cacheHeight,
+        displayHeight: widget.height,
+        explicitWidth: widget.cacheWidth,
+      );
       image = CachedNetworkImage(
         key: ValueKey('${widget.imageUrl}#$_generation'),
         imageUrl: widget.imageUrl,

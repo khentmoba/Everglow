@@ -102,8 +102,9 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-    if (!auth.isCoupleUser) {
+    final isCoupleUser =
+        context.select<AuthService, bool>((a) => a.isCoupleUser);
+    if (!isCoupleUser) {
       // Cinema-only profiles (Breyan, Octagram) can't host a party.
       return const SizedBox.shrink();
     }

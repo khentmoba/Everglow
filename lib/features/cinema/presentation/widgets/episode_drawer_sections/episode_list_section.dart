@@ -3,6 +3,7 @@ import '../../../../../core/theme/app_colors.dart';
 import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
+import '../../../../../shared/widgets/app_network_image.dart';
 
 /// Data class for anime season navigation entries. Each entry represents one
 /// season of a multi-season anime series, built from AniList SEQUEL/PREQUEL
@@ -385,14 +386,12 @@ class _EpisodeTileState extends State<EpisodeTile> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              widget.stillUrl!,
+            AppNetworkImage(
+              imageUrl: widget.stillUrl!,
               fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return _buildThumbSkeleton();
-              },
-              errorBuilder: (_, _, _) => _buildNumberedRail(),
+              cacheWidth: 300,
+              placeholder: _buildThumbSkeleton(),
+              errorWidget: _buildNumberedRail(),
             ),
             // Dark gradient on the left so the number stays legible
             // on bright frames.

@@ -61,6 +61,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   final ValueNotifier<double> _offset = ValueNotifier<double>(0);
   bool _hovered = false;
   bool _canScroll = true;
+  bool _isVisible = true;
+  ScrollPosition? _scrollPosition;
   List<Widget> _items = const [];
   double _loopWidth = 1;
 
@@ -113,6 +115,40 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (pos != _scrollPosition) {
+      _scrollPosition?.removeListener(_onScroll);
+      _scrollPosition = pos;
+      _scrollPosition?.addListener(_onScroll);
+    }
+  }
+
+  void _onScroll() {
+    _checkVisibility();
+  }
+
+  void _checkVisibility() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    if (viewportHeight <= 0) return;
+    try {
+      final top = box.localToGlobal(Offset.zero).dy;
+      final bottom = top + box.size.height;
+      final isVisible = top < viewportHeight + 150 && bottom > -150;
+      if (_isVisible != isVisible) {
+        _isVisible = isVisible;
+        _syncTicker();
+      }
+    } catch (_) {
+      // Element unmounted or geometry not readable during layout transition.
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final c = _controller;
     if (c == null) return;
@@ -134,7 +170,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   void _syncTicker() {
     final c = _controller;
     if (c == null) return;
-    final shouldRun = _canScroll && !_hovered;
+    final shouldRun = _canScroll && !_hovered && _isVisible;
     if (shouldRun && !c.isAnimating) {
       c.repeat();
     } else if (!shouldRun && c.isAnimating) {
@@ -145,6 +181,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollPosition?.removeListener(_onScroll);
     _controller?.dispose();
     _offset.dispose();
     super.dispose();

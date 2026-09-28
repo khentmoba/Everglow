@@ -37,8 +37,12 @@ class KeepsakesCluster extends StatelessWidget {
               offset: const Offset(0, 12),
             ),
             BoxShadow(
-              color: AppColors.blushGold.withValues(alpha: 0.04),
-              blurRadius: 32,
+              // Ambient starlight glow, not an edge shadow: at 0.04 alpha a
+              // 32px blur was a very wide filter for an effect this faint.
+              // Tighter and a touch more opaque reads the same for a third of
+              // the blur area.
+              color: AppColors.blushGold.withValues(alpha: 0.07),
+              blurRadius: 18,
               spreadRadius: -6,
             ),
           ],

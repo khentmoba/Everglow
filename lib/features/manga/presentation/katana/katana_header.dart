@@ -135,9 +135,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthService>();
-    final user = auth.currentUser ?? '';
-    final showBack = auth.isCoupleUser;
+    final user =
+        context.select<AuthService, String>((a) => a.currentUser ?? '');
+    final showBack =
+        context.select<AuthService, bool>((a) => a.isCoupleUser);
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 900;
 

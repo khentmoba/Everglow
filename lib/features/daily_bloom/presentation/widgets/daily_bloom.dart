@@ -81,9 +81,19 @@ class _DailyBloomState extends State<DailyBloom> {
         // Auth is optional here: widget tests pump DailyBloom with only a
         // GardenProvider. Without a couple session we render the classic
         // single-garden card.
+        bool isCouple = false;
+        String? currentUser;
+        try {
+          isCouple =
+              context.select<AuthService, bool>((a) => a.isCoupleUser);
+          currentUser =
+              context.select<AuthService, String?>((a) => a.currentUser);
+        } catch (_) {
+          // Optional in widget tests pumped without an AuthService.
+        }
         AuthService? auth;
         try {
-          auth = context.watch<AuthService>();
+          auth = context.read<AuthService>();
         } catch (_) {
           auth = null;
         }
@@ -110,9 +120,7 @@ class _DailyBloomState extends State<DailyBloom> {
           });
         }
 
-        if (coupleAuth == null ||
-            !coupleAuth.isCoupleUser ||
-            coupleAuth.currentUser == null) {
+        if (coupleAuth == null || !isCouple || currentUser == null) {
           return _SingleGardenCard(
             provider: provider,
             stats: stats,
