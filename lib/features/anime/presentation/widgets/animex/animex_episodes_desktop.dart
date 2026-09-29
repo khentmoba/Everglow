@@ -284,7 +284,7 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
         nextEp?.title ??
         (widget.selectedEpisode < widget.episodes.length
             ? 'Episode ${widget.selectedEpisode + 1}'
-            : (nextSeason != null ? '${nextSeason.title} (Episode 1)' : null));
+            : (nextSeason != null ? '${nextSeason.label} (Episode 1)' : null));
 
     final displayList = _filteredEpisodes();
 
@@ -554,53 +554,57 @@ class _SeasonDropdownButton extends StatelessWidget {
             }
             final meta = metaParts.join(' • ');
 
+            final content = Row(
+              children: [
+                Icon(
+                  isCurrent
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 16,
+                  color: isCurrent
+                      ? AnimeXTokens.accentWarm
+                      : AnimeXTokens.textMuted,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        season.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: dmSansStyle(
+                          size: 12.5,
+                          color: isCurrent
+                              ? AnimeXTokens.accentWarm
+                              : AnimeXTokens.textPrimary,
+                          weight: isCurrent
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                      if (meta.isNotEmpty)
+                        Text(
+                          meta,
+                          style: dmSansStyle(
+                            size: 10.5,
+                            color: AnimeXTokens.textMuted,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+
             return PopupMenuItem<AniListSeason>(
               value: season,
               height: 48,
-              child: Row(
-                children: [
-                  Icon(
-                    isCurrent
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    size: 16,
-                    color: isCurrent
-                        ? AnimeXTokens.accentWarm
-                        : AnimeXTokens.textMuted,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          season.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: dmSansStyle(
-                            size: 12.5,
-                            color: isCurrent
-                                ? AnimeXTokens.accentWarm
-                                : AnimeXTokens.textPrimary,
-                            weight: isCurrent
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                        ),
-                        if (meta.isNotEmpty)
-                          Text(
-                            meta,
-                            style: dmSansStyle(
-                              size: 10.5,
-                              color: AnimeXTokens.textMuted,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              child: season.title != season.label
+                  ? Tooltip(message: season.title, child: content)
+                  : content,
             );
           }).toList();
         },
@@ -623,7 +627,7 @@ class _SeasonDropdownButton extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  current.title,
+                  current.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: dmSansStyle(

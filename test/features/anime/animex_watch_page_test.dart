@@ -941,15 +941,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Episode 2');
       await tester.pump();
 
-      // Verify server notice banner is present and can be dismissed
-      expect(
-        find.text(
-          "If the current server doesn't work, feel free to try the other available servers.",
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(find.byIcon(Icons.close_rounded).first);
-      await tester.pump();
+      // Verify server notice banner is removed
       expect(
         find.text(
           "If the current server doesn't work, feel free to try the other available servers.",
@@ -1105,20 +1097,130 @@ void main() {
       expect(seasons[0].id, 108465);
       expect(seasons[0].isCurrent, isTrue);
       expect(seasons[0].title, 'Mushoku Tensei: Jobless Reincarnation');
+      expect(seasons[0].label, 'Season 1');
       expect(seasons[0].year, 2021);
       expect(seasons[0].episodeCount, 11);
 
       expect(seasons[1].id, 127720);
       expect(seasons[1].isCurrent, isFalse);
       expect(seasons[1].title, 'Mushoku Tensei: Jobless Reincarnation Cour 2');
+      expect(seasons[1].label, 'Season 1 Part 2');
       expect(seasons[1].year, 2021);
       expect(seasons[1].episodeCount, 12);
 
       expect(seasons[2].id, 146065);
       expect(seasons[2].isCurrent, isFalse);
       expect(seasons[2].title, 'Mushoku Tensei: Jobless Reincarnation Season 2');
+      expect(seasons[2].label, 'Season 2');
       expect(seasons[2].year, 2023);
       expect(seasons[2].episodeCount, 13);
+    });
+
+    test('AniListService.assignSeasonLabels generates clean concise labels for seasons, parts, OVAs, ONAs, and movies', () {
+      final input = [
+        const AniListSeason(
+          id: 108465,
+          title: 'Mushoku Tensei: Jobless Reincarnation',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+        const AniListSeason(
+          id: 127720,
+          title: 'Mushoku Tensei: Jobless Reincarnation Cour 2',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+        const AniListSeason(
+          id: 141534,
+          title: 'Mushoku Tensei: Jobless Reincarnation Cour 2 - Eris the Goblin Slayer',
+          coverImageUrl: '',
+          format: 'SPECIAL',
+        ),
+        const AniListSeason(
+          id: 146065,
+          title: 'Mushoku Tensei: Jobless Reincarnation Season 2',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+        const AniListSeason(
+          id: 166873,
+          title: 'Mushoku Tensei: Jobless Reincarnation Season 2 Part 2',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+        const AniListSeason(
+          id: 178789,
+          title: 'Mushoku Tensei: Jobless Reincarnation Season 3',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+        const AniListSeason(
+          id: 217434,
+          title: 'Mushoku Tensei III: Isekai Ittara Honki Dasu Part 2',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+      ];
+
+      final labeled = AniListService.assignSeasonLabels(input);
+
+      expect(labeled[0].label, 'Season 1');
+      expect(labeled[1].label, 'Season 1 Part 2');
+      expect(labeled[2].label, 'Special');
+      expect(labeled[3].label, 'Season 2');
+      expect(labeled[4].label, 'Season 2 Part 2');
+      expect(labeled[5].label, 'Season 3');
+      expect(labeled[6].label, 'Season 3 Part 2');
+    });
+
+    test('AniListService.assignSeasonLabels numbers multiple OVAs, ONAs, and Movies', () {
+      final input = [
+        const AniListSeason(
+          id: 1,
+          title: 'Anime Season 1',
+          coverImageUrl: '',
+          format: 'TV',
+        ),
+        const AniListSeason(
+          id: 2,
+          title: 'Anime: The First OVA',
+          coverImageUrl: '',
+          format: 'OVA',
+        ),
+        const AniListSeason(
+          id: 3,
+          title: 'Anime: The Second OVA',
+          coverImageUrl: '',
+          format: 'OVA',
+        ),
+        const AniListSeason(
+          id: 4,
+          title: 'Anime The Movie',
+          coverImageUrl: '',
+          format: 'MOVIE',
+        ),
+        const AniListSeason(
+          id: 5,
+          title: 'Anime The Movie 2',
+          coverImageUrl: '',
+          format: 'MOVIE',
+        ),
+        const AniListSeason(
+          id: 6,
+          title: 'Anime Net Animation',
+          coverImageUrl: '',
+          format: 'ONA',
+        ),
+      ];
+
+      final labeled = AniListService.assignSeasonLabels(input);
+
+      expect(labeled[0].label, 'Season 1');
+      expect(labeled[1].label, 'OVA 1');
+      expect(labeled[2].label, 'OVA 2');
+      expect(labeled[3].label, 'Movie 1');
+      expect(labeled[4].label, 'Movie 2');
+      expect(labeled[5].label, 'ONA');
     });
 
     testWidgets('desktop episodes sidebar shows season dropdown and allows selecting another season',
@@ -1135,7 +1237,8 @@ void main() {
         const AniListSeason(
           id: 108465,
           malId: 39535,
-          title: 'Mushoku Tensei Season 1',
+          title: 'Mushoku Tensei: Jobless Reincarnation',
+          label: 'Season 1',
           coverImageUrl: '',
           format: 'TV',
           year: 2021,
@@ -1145,7 +1248,8 @@ void main() {
         const AniListSeason(
           id: 146065,
           malId: 51179,
-          title: 'Mushoku Tensei Season 2',
+          title: 'Mushoku Tensei: Jobless Reincarnation Season 2',
+          label: 'Season 2',
           coverImageUrl: '',
           format: 'TV',
           year: 2023,
@@ -1178,15 +1282,15 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Mushoku Tensei Season 1'), findsOneWidget);
+      expect(find.text('Season 1'), findsOneWidget);
       expect(find.byTooltip('Change Season'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Change Season'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Mushoku Tensei Season 2'), findsOneWidget);
+      expect(find.text('Season 2'), findsOneWidget);
 
-      await tester.tap(find.text('Mushoku Tensei Season 2'));
+      await tester.tap(find.text('Season 2'));
       await tester.pumpAndSettle();
 
       expect(selected?.id, 146065);

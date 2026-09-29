@@ -116,6 +116,7 @@ class AniListSeason {
   final int id;
   final int? malId;
   final String title;
+  final String label;
   final String coverImageUrl;
   final String format; // TV, MOVIE, OVA, ONA, SPECIAL
   final int? year;
@@ -128,6 +129,7 @@ class AniListSeason {
     required this.id,
     this.malId,
     required this.title,
+    String? label,
     required this.coverImageUrl,
     required this.format,
     this.year,
@@ -135,7 +137,35 @@ class AniListSeason {
     this.day = 0,
     this.episodeCount,
     this.isCurrent = false,
-  });
+  }) : label = label ?? title;
+
+  AniListSeason copyWith({
+    int? id,
+    int? malId,
+    String? title,
+    String? label,
+    String? coverImageUrl,
+    String? format,
+    int? year,
+    int? month,
+    int? day,
+    int? episodeCount,
+    bool? isCurrent,
+  }) {
+    return AniListSeason(
+      id: id ?? this.id,
+      malId: malId ?? this.malId,
+      title: title ?? this.title,
+      label: label ?? this.label,
+      coverImageUrl: coverImageUrl ?? this.coverImageUrl,
+      format: format ?? this.format,
+      year: year ?? this.year,
+      month: month ?? this.month,
+      day: day ?? this.day,
+      episodeCount: episodeCount ?? this.episodeCount,
+      isCurrent: isCurrent ?? this.isCurrent,
+    );
+  }
 }
 
 class AniListRelated {

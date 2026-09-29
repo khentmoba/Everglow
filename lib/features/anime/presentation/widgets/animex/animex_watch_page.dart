@@ -145,7 +145,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final Set<int> _failedServerIndices = {};
   bool _showErrorCard = false;
   bool _probingServer = false;
-  bool _hideServerNotice = false;
 
   AniListEpisode? get _activeEpisode {
     for (final e in _episodes) {
@@ -1138,54 +1137,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildServerNotice(BuildContext context) {
-    if (_hideServerNotice) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.only(top: 10, bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0x33FF2E63),
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-        border: Border.all(color: const Color(0x55FF2E63)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
-              color: Color(0x44FF2E63),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.info_outline_rounded,
-              size: 13,
-              color: AnimeXTokens.accentWarm,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              "If the current server doesn't work, feel free to try the other available servers.",
-              style: dmSansStyle(
-                size: 11.5,
-                color: Colors.white,
-                weight: FontWeight.w500,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => _hideServerNotice = true),
-            child: const Icon(
-              Icons.close_rounded,
-              size: 15,
-              color: AnimeXTokens.textSecondary,
-            ),
-          ),
-        ],
       ),
     );
   }
