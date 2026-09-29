@@ -9,26 +9,31 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { cappedHttps } = require('./common.js');
 
+const { proxyBookText, proxyBookFile } = require('./media_proxy_books.js');
 const {
-  proxyBookText,
-  proxyBookFile,
-  proxyCatalog,
   proxyMangaImage,
   proxyMangaKakalotImage,
   proxyMangaKatana,
   proxyComick,
-  proxyAnimeImage,
-  proxyLastfmImage,
+  proxyMangaDex,
+} = require('./media_proxy_manga.js');
+const { proxyAnimeImage } = require('./media_proxy_anime.js');
+const { proxyLastfmImage } = require('./media_proxy_music.js');
+const {
   proxyGalleryImage,
   cleanupGallery,
   deleteGalleryPhoto,
+} = require('./media_proxy_gallery.js');
+const {
   proxyScanlation,
   proxyFetchHtml,
   proxyEmbed,
-  proxyMangaDex,
+} = require('./media_proxy_html.js');
+const {
   proxyVideoStream,
   proxyWatchStream,
-} = require('./media_proxies.js');
+} = require('./media_proxy_video.js');
+const { proxyCatalog } = require('./media_proxy_catalog.js');
 
 const {
   onNewChatMessage,

@@ -1,7 +1,7 @@
 'use strict';
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildWatchPost, buildEndedPost } = require('../discord');
+const { buildWatchPost, buildEndedPost } = require('../discord_functions');
 
 describe('buildWatchPost', () => {
   it('mentions partner, shows S/E for tv, keeps End button', () => {
@@ -33,7 +33,7 @@ describe('buildEndedPost', () => {
   });
 });
 
-const { postToWebhook } = require('../discord');
+const { postToWebhook } = require('../discord_functions');
 
 describe('postToWebhook', () => {
   it('appends wait=true and returns parsed id', async () => {
@@ -53,7 +53,7 @@ describe('postToWebhook', () => {
   });
 });
 
-const { isAllowedDiscordUser } = require('../discord');
+const { isAllowedDiscordUser } = require('../discord_functions');
 
 describe('isAllowedDiscordUser', () => {
   it('allows only the two configured ids', () => {
