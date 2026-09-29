@@ -511,7 +511,175 @@ class AniListService with ConnectivityAware {
       return a.day.compareTo(b.day);
     });
 
-    return list;
+    return assignSeasonLabels(list);
+  }
+
+  /// Assigns clean, human-readable labels to seasons (e.g. "Season 1",
+  /// "Season 1 Part 2", "Season 2", "OVA", "Movie", "Special").
+  static List<AniListSeason> assignSeasonLabels(List<AniListSeason> seasons) {
+    if (seasons.isEmpty) return seasons;
+
+    int? parseSeasonNumber(String title) {
+      if (RegExp(r'\bFinal\s+Season\b', caseSensitive: false).hasMatch(title)) {
+        return 999;
+      }
+      final sMatch = RegExp(
+        r'\b(?:Season|Series)\s*(\d+)\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (sMatch != null) return int.tryParse(sMatch.group(1)!);
+
+      final ordMatch = RegExp(
+        r'\b(\d+)(?:st|nd|rd|th)\s+(?:Season|Stage)\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (ordMatch != null) return int.tryParse(ordMatch.group(1)!);
+
+      const words = {
+        'first': 1,
+        'second': 2,
+        'third': 3,
+        'fourth': 4,
+        'fifth': 5,
+        'sixth': 6,
+      };
+      final wordMatch = RegExp(
+        r'\b(First|Second|Third|Fourth|Fifth|Sixth)\s+(?:Season|Stage)\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (wordMatch != null) {
+        final w = wordMatch.group(1)!.toLowerCase();
+        if (words.containsKey(w)) return words[w];
+      }
+
+      final romanMatch = RegExp(
+        r'\b(?:Season\s+)?(II|III|IV|VI|VII|VIII|IX)\b',
+      ).firstMatch(title);
+      if (romanMatch != null) {
+        const romans = {
+          'II': 2,
+          'III': 3,
+          'IV': 4,
+          'VI': 6,
+          'VII': 7,
+          'VIII': 8,
+          'IX': 9,
+        };
+        final val = romans[romanMatch.group(1)!];
+        if (val != null) return val;
+      }
+
+      final romanV = RegExp(
+        r'\bSeason\s+V\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (romanV != null) return 5;
+
+      final endNumMatch = RegExp(
+        r'(?<!(?:Part|Cour|Ep|Episode|Movie|OVA|ONA|Vol|Volume)\s*)(?:^|\s+)(\d{1,2})(?:\s*[:\-\—]|\s*$)',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (endNumMatch != null) {
+        final n = int.tryParse(endNumMatch.group(1)!);
+        if (n != null && n >= 2 && n <= 20) return n;
+      }
+
+      return null;
+    }
+
+    int? parsePartNumber(String title) {
+      final pMatch = RegExp(
+        r'\b(?:Part|Cour)\s*(\d+)\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (pMatch != null) return int.tryParse(pMatch.group(1)!);
+
+      final ordCour = RegExp(
+        r'\b(\d+)(?:st|nd|rd|th)\s+Cour\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (ordCour != null) return int.tryParse(ordCour.group(1)!);
+
+      final romanPart = RegExp(
+        r'\bPart\s+(II|III|IV|V)\b',
+        caseSensitive: false,
+      ).firstMatch(title);
+      if (romanPart != null) {
+        const romans = {'II': 2, 'III': 3, 'IV': 4, 'V': 5};
+        return romans[romanPart.group(1)!.toUpperCase()];
+      }
+
+      return null;
+    }
+
+    final formatCounts = <String, int>{};
+    for (final s in seasons) {
+      final fmt = s.format.toUpperCase().trim();
+      formatCounts[fmt] = (formatCounts[fmt] ?? 0) + 1;
+    }
+
+    final hasTv =
+        (formatCounts['TV'] ?? 0) > 0 || (formatCounts['TV_SHORT'] ?? 0) > 0;
+
+    final formatIndices = <String, int>{};
+    var currentSeasonNum = 0;
+    final results = <AniListSeason>[];
+
+    for (final s in seasons) {
+      final fmt = s.format.toUpperCase().trim();
+      formatIndices[fmt] = (formatIndices[fmt] ?? 0) + 1;
+      final indexInFormat = formatIndices[fmt]!;
+      final totalInFormat = formatCounts[fmt] ?? 0;
+
+      String label;
+      final isEpisodic =
+          fmt == 'TV' || fmt == 'TV_SHORT' || (!hasTv && fmt == 'ONA');
+
+      if (isEpisodic) {
+        final explicitSeason = parseSeasonNumber(s.title);
+        final explicitPart = parsePartNumber(s.title);
+
+        if (explicitSeason == 999) {
+          label = 'Final Season';
+          if (explicitPart != null && explicitPart > 1) {
+            label += ' Part $explicitPart';
+          }
+        } else if (explicitSeason != null) {
+          currentSeasonNum = explicitSeason;
+          label = 'Season $explicitSeason';
+          if (explicitPart != null && explicitPart > 1) {
+            label += ' Part $explicitPart';
+          }
+        } else {
+          if (explicitPart != null &&
+              explicitPart > 1 &&
+              currentSeasonNum > 0) {
+            label = 'Season $currentSeasonNum Part $explicitPart';
+          } else {
+            currentSeasonNum =
+                currentSeasonNum == 0 ? 1 : currentSeasonNum + 1;
+            label = 'Season $currentSeasonNum';
+            if (explicitPart != null && explicitPart > 1) {
+              label += ' Part $explicitPart';
+            }
+          }
+        }
+      } else if (fmt == 'OVA') {
+        label = totalInFormat > 1 ? 'OVA $indexInFormat' : 'OVA';
+      } else if (fmt == 'ONA') {
+        label = totalInFormat > 1 ? 'ONA $indexInFormat' : 'ONA';
+      } else if (fmt == 'MOVIE') {
+        label = totalInFormat > 1 ? 'Movie $indexInFormat' : 'Movie';
+      } else if (fmt == 'SPECIAL') {
+        label = totalInFormat > 1 ? 'Special $indexInFormat' : 'Special';
+      } else {
+        label = s.title;
+      }
+
+      results.add(s.copyWith(label: label));
+    }
+
+    return results;
   }
 
   List<AniListRecommended> _mapRecommendations(Map<String, dynamic>? r) {

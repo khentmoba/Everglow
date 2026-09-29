@@ -844,7 +844,7 @@ void _showSeasonPickerSheet(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    season.title,
+                                    season.label,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: dmSansStyle(
