@@ -127,7 +127,7 @@ class EverglowApp extends StatelessWidget {
     return MultiProvider(
       providers: appProviders,
       child: MaterialApp.router(
-        title: 'Everglow ${AppVersion.display}',
+        title: 'Everglow',
         debugShowCheckedModeBanner: false,
         theme: custom_theme.AppTheme.gamifiedTheme,
         routerConfig: createAppRouter(),
