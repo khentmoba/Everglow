@@ -941,15 +941,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, 'Episode 2');
       await tester.pump();
 
-      // Verify server notice banner is present and can be dismissed
-      expect(
-        find.text(
-          "If the current server doesn't work, feel free to try the other available servers.",
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(find.byIcon(Icons.close_rounded).first);
-      await tester.pump();
+      // Verify server notice banner is removed
       expect(
         find.text(
           "If the current server doesn't work, feel free to try the other available servers.",

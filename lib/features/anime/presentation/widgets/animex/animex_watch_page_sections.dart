@@ -29,7 +29,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         _buildPlayer(context),
         const SizedBox(height: 12),
         _buildCurrentEpisodeHeader(context),
-        _buildServerNotice(context),
         if (!_showErrorCard && _playerUrl.isNotEmpty && _skipRowVisible) ...[
           const SizedBox(height: 4),
           _buildSkipRow(context),
