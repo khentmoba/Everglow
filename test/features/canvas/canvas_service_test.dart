@@ -1,7 +1,30 @@
+import 'dart:ui' show Offset, Size;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/canvas/data/services/canvas_point_utils.dart';
 
 void main() {
+  test('maps portrait views into the original canvas aspect ratio', () {
+    expect(
+      mapCanvasPointToViewport(
+        x: 0,
+        y: 0,
+        viewportSize: const Size(200, 400),
+        canvasAspectRatio: 2,
+      ),
+      const Offset(0, 150),
+    );
+    expect(
+      mapCanvasPointToViewport(
+        x: 1,
+        y: 1,
+        viewportSize: const Size(200, 400),
+        canvasAspectRatio: 2,
+      ),
+      const Offset(200, 250),
+    );
+  });
+
   group('simplifyCanvasPoints', () {
     test('returns same list when 2 or fewer points', () {
       final points = [

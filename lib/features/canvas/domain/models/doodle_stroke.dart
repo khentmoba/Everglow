@@ -1,10 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DoodleStroke {
+  /// Legacy strokes were saved without their source canvas dimensions.
+  static const legacyCanvasAspectRatio = 2.0;
+
   final String id;
   final List<Map<String, double>> points;
   final String color;
   final double strokeWidth;
+  final double canvasAspectRatio;
   final DateTime? createdAt;
   final String userId;
 
@@ -17,6 +21,7 @@ class DoodleStroke {
     required this.points,
     required this.color,
     required this.strokeWidth,
+    this.canvasAspectRatio = legacyCanvasAspectRatio,
     this.createdAt,
     required this.userId,
     this.text,
@@ -39,6 +44,9 @@ class DoodleStroke {
           .toList(),
       color: data['color'] ?? '#FFC0CB',
       strokeWidth: (data['strokeWidth'] as num?)?.toDouble() ?? 3.0,
+      canvasAspectRatio:
+          (data['canvasAspectRatio'] as num?)?.toDouble() ??
+          legacyCanvasAspectRatio,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       userId: data['userId'] ?? '',
       text: data['text'] as String?,
@@ -50,6 +58,7 @@ class DoodleStroke {
       'points': points,
       'color': color,
       'strokeWidth': strokeWidth,
+      'canvasAspectRatio': canvasAspectRatio,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
@@ -63,6 +72,7 @@ class DoodleStroke {
     List<Map<String, double>>? points,
     String? color,
     double? strokeWidth,
+    double? canvasAspectRatio,
     DateTime? createdAt,
     String? userId,
     String? text,
@@ -72,6 +82,7 @@ class DoodleStroke {
       points: points ?? this.points,
       color: color ?? this.color,
       strokeWidth: strokeWidth ?? this.strokeWidth,
+      canvasAspectRatio: canvasAspectRatio ?? this.canvasAspectRatio,
       createdAt: createdAt ?? this.createdAt,
       userId: userId ?? this.userId,
       text: text ?? this.text,
