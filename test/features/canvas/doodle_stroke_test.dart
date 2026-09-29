@@ -19,6 +19,7 @@ void main() {
 
       expect(map['color'], '#FFC0CB');
       expect(map['strokeWidth'], 3.0);
+      expect(map['canvasAspectRatio'], 2.0);
       expect(map['userId'], 'user1');
       expect(map['points'], [
         {'x': 0.1, 'y': 0.2},
@@ -62,6 +63,7 @@ void main() {
       expect(copied.id, 'orig'); // unchanged
       expect(copied.color, '#98FB98'); // changed
       expect(copied.strokeWidth, 8.0); // changed
+      expect(copied.canvasAspectRatio, original.canvasAspectRatio);
       expect(copied.userId, 'user1'); // unchanged
       expect(copied.points, original.points); // unchanged
     });

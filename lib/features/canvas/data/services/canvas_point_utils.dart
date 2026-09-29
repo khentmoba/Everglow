@@ -4,6 +4,29 @@
 /// visual fidelity. Extracted here so it can be unit-tested without Firebase.
 library;
 
+import 'dart:math' show min;
+import 'dart:ui' show Offset, Size;
+
+/// Maps normalized points to a viewport while preserving the source aspect ratio.
+Offset mapCanvasPointToViewport({
+  required double x,
+  required double y,
+  required Size viewportSize,
+  required double canvasAspectRatio,
+}) {
+  final aspectRatio = canvasAspectRatio.isFinite && canvasAspectRatio > 0
+      ? canvasAspectRatio
+      : 2.0;
+  final scale = min(viewportSize.width / aspectRatio, viewportSize.height);
+  final canvasWidth = aspectRatio * scale;
+  final canvasHeight = scale;
+
+  return Offset(
+    (viewportSize.width - canvasWidth) / 2 + x * canvasWidth,
+    (viewportSize.height - canvasHeight) / 2 + y * canvasHeight,
+  );
+}
+
 /// Simplifies a list of normalized canvas points (each `x`/`y` in [0,1])
 /// using the Ramer-Douglas-Peucker algorithm.
 ///

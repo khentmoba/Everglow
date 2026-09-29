@@ -10,6 +10,7 @@ import '../../../../core/utils/logger.dart';
 import '../../../../shared/widgets/partner_doodle_indicator.dart';
 import '../../domain/models/doodle_stroke.dart';
 import '../../data/services/canvas_service.dart';
+import '../../data/services/canvas_point_utils.dart';
 import '../widgets/canvas_painter.dart';
 import '../widgets/canvas_toolbar.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -88,9 +89,12 @@ class _CanvasScreenState extends State<CanvasScreen> {
         ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: EverglowIconButton.back(
-          onPressed: () => Navigator.of(context).pop(),
-          iconColor: AppColors.roseQuartz,
+        leading: Center(
+          child: EverglowIconButton.back(
+            size: 36,
+            onPressed: () => Navigator.of(context).pop(),
+            iconColor: AppColors.roseQuartz,
+          ),
         ),
       ),
       body: Stack(
@@ -295,6 +299,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
           userId: userId,
           color: _currentColor,
           strokeWidth: _currentWidth,
+          canvasAspectRatio: box.size.width / box.size.height,
           points: [
             {
               'x': (localPosition.dx / box.size.width).clamp(0.0, 1.0),
@@ -375,6 +380,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
     final localPosition = box.globalToLocal(globalPosition);
     final normX = localPosition.dx / box.size.width;
     final normY = localPosition.dy / box.size.height;
+    final canvasAspectRatio = box.size.width / box.size.height;
 
     final controller = TextEditingController();
     showDialog(
@@ -400,7 +406,13 @@ class _CanvasScreenState extends State<CanvasScreen> {
             ),
           ),
           onSubmitted: (_) {
-            _saveTextAnnotation(controller.text, normX, normY, userId);
+            _saveTextAnnotation(
+              controller.text,
+              normX,
+              normY,
+              userId,
+              canvasAspectRatio,
+            );
             Navigator.pop(context);
           },
         ),
@@ -416,7 +428,13 @@ class _CanvasScreenState extends State<CanvasScreen> {
           ),
           TextButton(
             onPressed: () {
-              _saveTextAnnotation(controller.text, normX, normY, userId);
+              _saveTextAnnotation(
+                controller.text,
+                normX,
+                normY,
+                userId,
+                canvasAspectRatio,
+              );
               Navigator.pop(context);
             },
             child: Text(
@@ -437,6 +455,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
     double normX,
     double normY,
     String userId,
+    double canvasAspectRatio,
   ) {
     if (text.trim().isEmpty) return;
     final stroke = DoodleStroke(
@@ -444,6 +463,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
       userId: userId,
       color: _currentColor,
       strokeWidth: _currentWidth,
+      canvasAspectRatio: canvasAspectRatio,
       points: [
         {'x': normX, 'y': normY},
       ],
@@ -461,21 +481,19 @@ class _CanvasScreenState extends State<CanvasScreen> {
     if (box == null) return;
 
     final localPosition = box.globalToLocal(globalPosition);
-    final normX = localPosition.dx / box.size.width;
-    final normY = localPosition.dy / box.size.height;
-
-    final normRadiusX = _eraserRadius / box.size.width;
-    final normRadiusY = _eraserRadius / box.size.height;
 
     _canvasService.getStrokesStream().first.then((strokes) {
       for (var stroke in strokes) {
         for (var point in stroke.points) {
-          final dx = point['x']! - normX;
-          final dy = point['y']! - normY;
+          final strokePosition = mapCanvasPointToViewport(
+            x: point['x']!,
+            y: point['y']!,
+            viewportSize: box.size,
+            canvasAspectRatio: stroke.canvasAspectRatio,
+          );
 
-          if ((dx * dx) / (normRadiusX * normRadiusX) +
-                  (dy * dy) / (normRadiusY * normRadiusY) <
-              1.0) {
+          if ((strokePosition - localPosition).distanceSquared <
+              _eraserRadius * _eraserRadius) {
             _canvasService.deleteStroke(stroke.id);
             break;
           }
