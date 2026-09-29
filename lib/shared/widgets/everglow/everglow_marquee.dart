@@ -4,14 +4,9 @@ import '../../../core/theme/app_motion.dart';
 
 /// Infinite horizontal marquee — constant-speed, hover-to-pause.
 ///
-/// Replaces `ShelfMarquee`. When `AppMotion.reduced` is true,
-/// the ticker is paused (content shown statically).
-///
-/// Rows that fit the viewport render statically with each child shown
-/// exactly once. Only rows that overflow the viewport auto-scroll, using
-/// a second copy of the set for a seamless wrap. Tiling short rows to
-/// fill the viewport reads as duplicate data (the same cover N times),
-/// so it is deliberately not done.
+/// When `AppMotion.reduced` is true, the ticker is paused (content shown statically).
+/// Tiles sufficient copies of the children to seamlessly fill the viewport
+/// and loop infinitely without visual gaps across all shelves.
 ///
 /// Performance notes (why this file looks the way it does):
 /// - The offset is a [ValueNotifier] consumed by a single [AnimatedBuilder]
@@ -218,25 +213,14 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   Widget _buildContent(double viewportWidth) {
-    final singleSetWidth = _estimateSetWidth();
-
-    // Short rows fit entirely on screen: show each child exactly once
-    // with no auto-scroll. (An unbounded viewport trivially fits.)
-    final overflows = viewportWidth.isFinite && singleSetWidth > viewportWidth;
-    // Plain field write — no setState — consumed by the ticker only.
-    _canScroll = overflows;
-    // ...and the ticker only runs when there is somewhere to scroll to.
+    _canScroll = widget.children.isNotEmpty;
     _syncTicker();
-    if (!overflows) {
-      return SizedBox(
-        height: widget.height,
-        child: Row(children: _items),
-      );
-    }
 
-    // Overflowing rows keep the infinite marquee. Two copies plus the
-    // inter-set gap form one seamless wrap period of exactly _loopWidth,
-    // so the second set slides in as the first slides out (no blank gap).
+    final sets =
+        (viewportWidth.isFinite && viewportWidth > 0 && _loopWidth > 0)
+            ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
+            : 2;
+
     Widget row = SizedBox(
       height: widget.height,
       child: OverflowBox(
@@ -250,9 +234,10 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
           ),
           child: Row(
             children: [
-              Row(children: _items),
-              SizedBox(width: widget.itemSpacing),
-              Row(children: _items),
+              for (var s = 0; s < sets; s++) ...[
+                if (s > 0) SizedBox(width: widget.itemSpacing),
+                Row(children: _items),
+              ],
             ],
           ),
         ),
