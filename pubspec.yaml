@@ -21,10 +21,8 @@ dependencies:
   firebase_messaging: ^15.1.0
   animate_do: ^3.3.4
   image_picker: ^1.1.2
-  image_picker_web: ^3.1.1
   intl: ^0.19.0
   provider: ^6.1.2
-  age_calculator: ^1.0.0
   http: ^1.6.0
   confetti: ^0.8.0
   html_unescape: ^2.0.0
