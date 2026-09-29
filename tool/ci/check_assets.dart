@@ -15,13 +15,9 @@
 // this check fails the PR.
 //
 // Usage: dart tool/ci/check_assets.dart
-import 'dart:convert';
 import 'dart:io';
 
-// Lenient read: one non-UTF8 source file (extended-ASCII) must not break
-// the scan; all markers we look for are ASCII.
-Future<String> readTolerant(File f) =>
-    f.readAsBytes().then((b) => utf8.decode(b, allowMalformed: true));
+import '_io.dart';
 
 Future<void> main() async {
   final failures = <String>[];

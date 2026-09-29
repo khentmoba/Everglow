@@ -1,12 +1,11 @@
 import 'dart:convert';
 import '../../../../../core/utils/connectivity_aware.dart';
-import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import 'tmdb_base.dart';
 
 /// Fetches YouTube trailer keys for movies and TV shows, with in-memory
 /// caching to avoid redundant network requests.
-class TMDBTrailerService with TMDBBase, ConnectivityAware, ErrorAware {
+class TMDBTrailerService with TMDBBase, ConnectivityAware {
   /// Cache for trailer keys: 'mediaType_tmdbId' -> Trailer Key
   final Map<String, String?> _trailerCache = {};
 
