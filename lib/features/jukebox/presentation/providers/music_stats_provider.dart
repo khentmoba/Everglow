@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/env_config.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
 import '../../data/services/music_sync_service.dart';
@@ -13,14 +15,17 @@ class MusicStatsProvider extends ChangeNotifier {
     MusicSyncService? syncService,
     Future<Uri> Function(Uri url)? signLastfmUrl,
     Duration artworkRetryCooldown = _defaultArtworkRetryCooldown,
+    SharedPreferences? prefs,
   })  : _syncService = syncService ?? MusicSyncService(signUrl: signLastfmUrl),
-        _artworkRetryCooldown = artworkRetryCooldown {
+        _artworkRetryCooldown = artworkRetryCooldown,
+        _prefs = prefs {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     _init();
   }
 
   final MusicSyncService _syncService;
+  SharedPreferences? _prefs;
   late final String _khentUser;
   late final String _clairUser;
 
@@ -40,8 +45,8 @@ class MusicStatsProvider extends ChangeNotifier {
   bool _isLoading = true;
   bool _disposed = false;
 
-  /// All-time scrobble totals from Last.fm `user.getInfo` (0 while loading
-  /// or when the API is unreachable — the UI falls back to the top-10 sum).
+  /// All-time scrobble totals from Last.fm (0 while loading or when
+  /// unavailable; cached in SharedPreferences across app sessions).
   int _khentTotalPlays = 0;
   int _clairTotalPlays = 0;
 
@@ -62,19 +67,13 @@ class MusicStatsProvider extends ChangeNotifier {
       _clairTopTracks.isNotEmpty ||
       _clairRecentTracks.isNotEmpty;
 
-  /// Effective totals — prefers the authoritative Last.fm playcount, falls
-  /// back to the sum of the loaded top-10 when that count is still 0.
-  int get khentTotalPlays =>
-      _khentTotalPlays > 0 ? _khentTotalPlays : _topTracksSum(_topTracks);
-  int get clairTotalPlays =>
-      _clairTotalPlays > 0 ? _clairTotalPlays : _topTracksSum(_clairTopTracks);
+  /// All-time total plays from Last.fm scrobble counters.
+  int get khentTotalPlays => _khentTotalPlays;
+  int get clairTotalPlays => _clairTotalPlays;
 
   /// Raw API totals (0 means not yet loaded / unavailable).
   int get khentRawTotalPlays => _khentTotalPlays;
   int get clairRawTotalPlays => _clairTotalPlays;
-
-  static int _topTracksSum(List<TopMusicTrack> tracks) =>
-      tracks.fold<int>(0, (s, t) => s + t.playCount);
 
   /// Whether Khent is the current listening champion (strictly more plays).
   bool get isKhentLeader =>
@@ -91,6 +90,7 @@ class MusicStatsProvider extends ChangeNotifier {
       khentTotalPlays == clairTotalPlays;
 
   Future<void> _init() async {
+    unawaited(_loadCachedTotals());
     await Future.wait([
       _refreshTopTracks(_khentUser, _topTracks),
       _refreshRecentTracks(_khentUser, _recentTracks),
@@ -158,6 +158,51 @@ class MusicStatsProvider extends ChangeNotifier {
     ]);
   }
 
+  Future<void> _loadCachedTotals() async {
+    try {
+      final prefs = _prefs ?? await SharedPreferences.getInstance();
+      _prefs = prefs;
+      final khent = prefs.getInt('jukebox_total_plays_$_khentUser') ?? 0;
+      final clair = prefs.getInt('jukebox_total_plays_$_clairUser') ?? 0;
+      if (_disposed) return;
+      var changed = false;
+      if (khent > 0 && _khentTotalPlays == 0) {
+        _khentTotalPlays = khent;
+        changed = true;
+      }
+      if (clair > 0 && _clairTotalPlays == 0) {
+        _clairTotalPlays = clair;
+        changed = true;
+      }
+      if (changed) _safeNotify();
+    } catch (e, st) {
+      Logger.e(
+        'MusicStatsProvider: Failed to load cached totals',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  Future<void> _saveCachedTotals() async {
+    try {
+      final prefs = _prefs ?? await SharedPreferences.getInstance();
+      _prefs = prefs;
+      if (_khentTotalPlays > 0) {
+        await prefs.setInt('jukebox_total_plays_$_khentUser', _khentTotalPlays);
+      }
+      if (_clairTotalPlays > 0) {
+        await prefs.setInt('jukebox_total_plays_$_clairUser', _clairTotalPlays);
+      }
+    } catch (e, st) {
+      Logger.e(
+        'MusicStatsProvider: Failed to save cached totals',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
   Future<void> _refreshUserTotals() async {
     final results = await Future.wait([
       _syncService.fetchUserTotalPlays(_khentUser),
@@ -177,7 +222,10 @@ class MusicStatsProvider extends ChangeNotifier {
       _clairTotalPlays = clair;
       changed = true;
     }
-    if (changed) _safeNotify();
+    if (changed) {
+      _safeNotify();
+      unawaited(_saveCachedTotals());
+    }
   }
 
   Future<void> _refreshTopTracks(
@@ -209,6 +257,16 @@ class MusicStatsProvider extends ChangeNotifier {
       limit: _recentTracksLimit,
     );
     if (_disposed) return;
+    final total = _syncService.getLastObservedTotalPlays(username);
+    if (total > 0) {
+      if (username == _khentUser && total != _khentTotalPlays) {
+        _khentTotalPlays = total;
+        unawaited(_saveCachedTotals());
+      } else if (username == _clairUser && total != _clairTotalPlays) {
+        _clairTotalPlays = total;
+        unawaited(_saveCachedTotals());
+      }
+    }
     if (tracks.isEmpty && destination.isNotEmpty) return;
     destination
       ..clear()

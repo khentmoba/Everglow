@@ -147,5 +147,73 @@ void main() {
         expect(tracks.first.trackName, 'Only Song');
       },
     );
+
+    test('couple users are never marked invalid on 404', () async {
+      final notFound = _service(
+        () async => _jsonResponse({
+          'error': 6,
+          'message': 'User not found',
+        }, status: 404),
+      );
+      expect(await notFound.fetchTopTracks('khentsgdz'), isEmpty);
+      expect(notFound.isUserInvalid('khentsgdz'), isFalse);
+      expect(await notFound.fetchTopTracks('clairjassen'), isEmpty);
+      expect(notFound.isUserInvalid('clairjassen'), isFalse);
+    });
+  });
+
+  group('MusicSyncService total scrobbles tracking', () {
+    test('fetchRecentTracks captures @attr.total as observed total plays', () async {
+      final service = _service(
+        () async => _jsonResponse({
+          'recenttracks': {
+            '@attr': {'total': '6716'},
+            'track': [_recentEntry()],
+          },
+        }),
+      );
+      await service.fetchRecentTracks('khentsgdz');
+      expect(service.getLastObservedTotalPlays('khentsgdz'), 6716);
+    });
+
+    test('fetchUserTotalPlays returns parsed playcount and updates observed total', () async {
+      final service = _service(
+        () async => _jsonResponse({
+          'user': {'name': 'khentsgdz', 'playcount': '6716'},
+        }),
+      );
+      final plays = await service.fetchUserTotalPlays('khentsgdz');
+      expect(plays, 6716);
+      expect(service.getLastObservedTotalPlays('khentsgdz'), 6716);
+    });
+
+    test('fetchUserTotalPlays falls back to observed total when user.getinfo fails', () async {
+      final service = MusicSyncService(
+        client: MockClient((request) async {
+          final method = request.url.queryParameters['method'];
+          if (method == 'user.getrecenttracks') {
+            return _jsonResponse({
+              'recenttracks': {
+                '@attr': {'total': '6716'},
+                'track': [_recentEntry()],
+              },
+            });
+          }
+          // user.getinfo fails with Last.fm 503 or error payload
+          return _jsonResponse({'error': 16, 'message': 'temporary error'});
+        }),
+        signUrl: (url) async => url.replace(
+          queryParameters: {...url.queryParameters, '__auth': 'test-token'},
+        ),
+      );
+
+      // Seed via recent tracks
+      await service.fetchRecentTracks('khentsgdz');
+      expect(service.getLastObservedTotalPlays('khentsgdz'), 6716);
+
+      // user.getinfo fails but returns the seeded total from recenttracks
+      final plays = await service.fetchUserTotalPlays('khentsgdz');
+      expect(plays, 6716);
+    });
   });
 }
