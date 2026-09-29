@@ -4,12 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/shared/widgets/everglow/everglow_marquee.dart';
 
-/// Regression tests for the dashboard "duplicate covers" bug.
+/// Tests for [EverglowMarquee] infinite carousel behavior across shelves.
 ///
-/// With only 1–2 titles in Currently Watching / Reading, the shelf showed
-/// each cover 3 times (A B A B A B) because [EverglowMarquee] tiled short
-/// rows to fill the viewport. Short rows must render each child exactly
-/// once and stay put; only overflowing rows should auto-scroll.
+/// Shelves with any items (short or overflowing) tile seamlessly and auto-scroll
+/// so all media rails (Cinema, Anime, Books, Reading, Gallery) smoothly carousel.
 void main() {
   Widget harness({
     required double width,
@@ -40,7 +38,7 @@ void main() {
     for (final t in titles) SizedBox(width: 128, height: 186, child: Text(t)),
   ];
 
-  testWidgets('short row renders each child exactly once (no tiling)', (
+  testWidgets('short row tiles and auto-scrolls seamlessly without gaps', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -48,25 +46,19 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Movie A'), findsOneWidget);
-    expect(find.text('Movie B'), findsOneWidget);
-  });
+    // Tiles enough sets to fill the viewport + seamless wrap
+    expect(find.text('Movie A'), findsWidgets);
+    expect(find.text('Movie B'), findsWidgets);
 
-  testWidgets('short row does not auto-scroll', (tester) async {
-    await tester.pumpWidget(
-      harness(width: 800, children: cards(['Movie A', 'Movie B'])),
-    );
-    await tester.pump();
-    final before = tester.getTopLeft(find.text('Movie A'));
+    final before = tester.getTopLeft(find.text('Movie A').first);
 
     // Advance ~2 seconds of ticker frames.
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
 
-    expect(tester.getTopLeft(find.text('Movie A')), before);
-    expect(find.text('Movie A'), findsOneWidget);
-    expect(find.text('Movie B'), findsOneWidget);
+    final after = tester.getTopLeft(find.text('Movie A').first);
+    expect(after.dx, lessThan(before.dx));
   });
 
   testWidgets('overflowing row still auto-scrolls without going blank', (
@@ -105,24 +97,15 @@ void main() {
     expect(edgeFadeOverlay(), findsOneWidget);
   });
 
-  testWidgets('fitting row renders no edge fade', (tester) async {
+  testWidgets('short row fades its clip edges when edgeFade is true', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       harness(width: 800, children: cards(['Movie A', 'Movie B'])),
     );
     await tester.pump();
 
-    expect(edgeFadeOverlay(), findsNothing);
-  });
-
-  testWidgets('fitting row does not keep the frame loop alive', (tester) async {
-    await tester.pumpWidget(
-      harness(width: 800, children: cards(['Movie A', 'Movie B'])),
-    );
-    await tester.pump();
-
-    // Nothing on screen can move, so no ticker should be scheduled: a fitting
-    // row used to repeat the controller forever, waking the whole app 60x/sec.
-    expect(tester.binding.transientCallbackCount, 0);
+    expect(edgeFadeOverlay(), findsOneWidget);
   });
 
   testWidgets('drifting row ticks, and stops while hovered', (tester) async {
