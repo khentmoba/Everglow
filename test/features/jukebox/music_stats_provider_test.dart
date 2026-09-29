@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:everglow/features/jukebox/data/models/music_status.dart';
 import 'package:everglow/features/jukebox/data/models/top_music_track.dart';
@@ -119,6 +120,10 @@ Future<void> _waitFor(bool Function() condition) async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('MusicStatsProvider leaderboard', () {
     test('populates the Top 10 from fetchTopTracks', () async {
       final provider = MusicStatsProvider(
@@ -188,6 +193,48 @@ void main() {
       expect(provider.topTracks, isEmpty);
       expect(provider.recentTracks, isEmpty);
       expect(provider.hasData, isFalse);
+    });
+
+    test('total plays does not fall back to top 10 sum when user plays is 0', () async {
+      final provider = MusicStatsProvider(
+        syncService: _FakeSync(
+          topTracks: [
+            _topTrack('Song A', 293),
+            _topTrack('Song B', 280),
+            _topTrack('Song C', 262),
+          ],
+          totalPlays: 0,
+        ),
+      );
+      addTearDown(provider.dispose);
+
+      await _waitFor(() => !provider.isLoading);
+
+      expect(provider.topTracks, hasLength(3));
+      // Must NOT return 835 (293+280+262) as total plays!
+      expect(provider.khentTotalPlays, 0);
+      expect(provider.isKhentLeader, isFalse);
+    });
+
+    test('restores cached total plays from SharedPreferences on boot', () async {
+      SharedPreferences.setMockInitialValues({
+        'jukebox_total_plays_khentsgdz': 6716,
+        'jukebox_total_plays_clairjassen': 4583,
+      });
+
+      final provider = MusicStatsProvider(
+        syncService: _FakeSync(
+          topTracks: [_topTrack('Song A', 100)],
+          totalPlays: 0, // remote not available yet
+        ),
+      );
+      addTearDown(provider.dispose);
+
+      await _waitFor(() => provider.khentTotalPlays > 0);
+
+      expect(provider.khentTotalPlays, 6716);
+      expect(provider.clairTotalPlays, 4583);
+      expect(provider.isKhentLeader, isTrue);
     });
   });
 }

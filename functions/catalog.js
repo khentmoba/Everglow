@@ -176,7 +176,9 @@ const proxyLastfm = cappedHttps(20, async (req, res) => {
     const response = await fetch(upstream, { signal: AbortSignal.timeout(12000) });
     const body = await response.text();
     const contentType = response.headers.get('content-type') || 'application/json';
-    if (response.status === 200) {
+    // Only cache successful Last.fm payloads (Last.fm returns error payloads
+    // with HTTP 200 — errors must never stick in the cache).
+    if (response.status === 200 && !body.includes('"error":')) {
       _setExternalCache(cacheKey, { status: 200, contentType, body });
     }
     res.status(response.status)
