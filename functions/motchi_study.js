@@ -14,7 +14,7 @@ const {
 } = require('./common.js');
 
 const TOKENHARBOR_URL = 'https://tokenharbor.ai/v1/chat/completions';
-const MODEL = 'qwen3.8-flash';
+const MODEL = 'glm-5.3-flash';
 
 const STUDY_CATEGORIES = [
   'engineering',

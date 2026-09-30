@@ -531,7 +531,7 @@ function shouldExtractMemory(userMessage, motchiReply) {
   return user.length >= 120;
 }
 
-// Qwen 3.8 Flash via TokenHarbor: 1M context window. Keep the proven 120K
+// GLM 5.3 Flash via TokenHarbor: 1M context window. Keep the proven 120K
 // input budget as a cost guard; the extra headroom is reserve, not license.
 const LLM_INPUT_TOKEN_BUDGET = 120000;
 

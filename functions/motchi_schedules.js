@@ -126,7 +126,7 @@ const motchiDailyDigest = onSchedule({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'qwen3.8-flash',
+          model: 'glm-5.3-flash',
           messages: [
             {
               role: 'system',
@@ -381,7 +381,7 @@ const motchiWeeklyRecap = onSchedule({
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'qwen3.8-flash',
+            model: 'glm-5.3-flash',
             messages: [
               { role: 'system', content: 'You are Motchi 🍡, a warm white cat companion for Khent and Clair. Write a cozy 3-4 sentence weekly recap for their week — reference real moods, activities, starlight notes, and watchlist naturally. Stay warm, celebrate their rhythm, and don\'t list raw fields.' },
               { role: 'user', content: `Week ${weekStartStr} to ${todayStr} data:\n${dataBlob}` },

@@ -694,8 +694,8 @@ ${HTML_GAME_GUIDE}
     return;
   }
 
-  // Model: Qwen 3.8 Flash via TokenHarbor — 1M context, tool calling, thinking, image understanding
-  const model = 'qwen3.8-flash';
+  // Model: GLM 5.3 Flash via TokenHarbor — 1M context, tool calling, thinking, image understanding
+  const model = 'glm-5.3-flash';
 
   // ── Custom Motchi Tools (OpenAI function calling format) ──
 
@@ -757,7 +757,7 @@ ${HTML_GAME_GUIDE}
   }
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
-  // Qwen thinks by default, so the flag goes out explicitly both ways:
+  // The flag goes out explicitly both ways:
   // true for deep-think, false for everyday chat (cheaper, faster).
   // enableThinking is already destructured from req.body above.
 
@@ -771,7 +771,7 @@ ${HTML_GAME_GUIDE}
   const maxTokens = (feature === 'study' || enableThinkingFlag || wantsArtifact) ? 16384 : 4096;
 
   // ── Payload size guard ──────────────────────────────
-  // Cloud Run max request size is 32MB; Qwen 3.8 Flash supports 1M context.
+  // Cloud Run max request size is 32MB; GLM 5.3 Flash supports 1M context.
   // Trim aggressively as best-effort so the model doesn't
   // waste context on stale history, but don't hard-block — let the model handle
   // it if trimming can't fit within Cloud Run's limit.

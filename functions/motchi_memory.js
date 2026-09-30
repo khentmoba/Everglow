@@ -115,7 +115,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'qwen3.8-flash',
+        model: 'glm-5.3-flash',
         messages: [
           {
             role: 'system',
