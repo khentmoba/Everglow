@@ -1,5 +1,4 @@
 import '../../../../core/utils/connectivity_aware.dart';
-import '../../../../core/utils/error_aware.dart';
 import '../models/media_item.dart';
 import './tmdb/tmdb_cache_service.dart';
 import './tmdb/tmdb_details_service.dart';
@@ -15,7 +14,7 @@ import './tmdb/tmdb_watchlist_service.dart';
 /// unchanged — every method is forwarded to the appropriate sub-service.
 /// Sub-services are also exposed as getters for callers that need direct
 /// access (e.g. stream subscriptions).
-class TMDBService with ConnectivityAware, ErrorAware {
+class TMDBService with ConnectivityAware {
   // ─── Sub-services ──────────────────────────────────────────────────────
 
   late final TMDBDiscoveryService _discovery;

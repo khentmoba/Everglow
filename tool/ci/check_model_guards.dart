@@ -11,13 +11,9 @@
 // test with null + garbage cases and pin it here.
 //
 // Usage: dart tool/ci/check_model_guards.dart
-import 'dart:convert';
 import 'dart:io';
 
-// Lenient read: one non-UTF8 source file (extended-ASCII) must not break
-// the scan; all markers we look for are ASCII.
-Future<String> readTolerant(File f) =>
-    f.readAsBytes().then((b) => utf8.decode(b, allowMalformed: true));
+import '_io.dart';
 
 const pinned = {
   'test/features/daily_bloom/garden_stats_test.dart': ['frommap', 'lastvisit'],

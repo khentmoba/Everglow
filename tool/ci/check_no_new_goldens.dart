@@ -11,12 +11,9 @@
 // shelf_card_thumbnail_test.dart.
 //
 // Usage: dart tool/ci/check_no_new_goldens.dart
-import 'dart:convert';
 import 'dart:io';
 
-// Lenient read; all markers we look for are ASCII.
-Future<String> readTolerant(File f) =>
-    f.readAsBytes().then((b) => utf8.decode(b, allowMalformed: true));
+import '_io.dart';
 
 Future<void> main() async {
   final failures = <String>[];

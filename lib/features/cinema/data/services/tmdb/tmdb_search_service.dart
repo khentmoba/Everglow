@@ -1,12 +1,11 @@
 import 'dart:convert';
 import '../../../../../core/utils/connectivity_aware.dart';
-import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
 /// TMDB search endpoints (multi-search and targeted TV/movie search).
-class TMDBSearchService with TMDBBase, ConnectivityAware, ErrorAware {
+class TMDBSearchService with TMDBBase, ConnectivityAware {
   /// Search for movies and TV shows
   Future<List<MediaItem>> searchMedia(String query) async {
     if (query.isEmpty) return [];

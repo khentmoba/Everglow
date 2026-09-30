@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { resolveCatalogUpstream } = require('./media_proxies.js');
+const { resolveCatalogUpstream } = require('./media_proxy_catalog.js');
 const indexExports = require('./index.js');
 
 test('proxyCatalog allow-list rejects unknown base', () => {

@@ -24,7 +24,7 @@ import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
-import '../../../../shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import '../../../../shared/widgets/everglow/everglow_pill_nav.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
@@ -92,9 +92,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
               ],
             ),
           ),
+          _buildBottomNavBar(),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -1060,21 +1060,21 @@ class _BooksScreenState extends _BooksScreenStateBase {
   // ── BOTTOM NAV ─────────────────────────────────────────────────────
 
   Widget _buildBottomNavBar() {
-    return ShelfPillBottomNav(
+    return EverglowPillNav(
       currentIndex: _currentIndex,
       onTap: _switchTab,
       items: const [
-        ShelfNavItem(
+        EverglowNavItem(
           icon: Icons.home_outlined,
           activeIcon: Icons.home_rounded,
           label: 'Home',
         ),
-        ShelfNavItem(
+        EverglowNavItem(
           icon: Icons.search_rounded,
           activeIcon: Icons.search_rounded,
           label: 'Search',
         ),
-        ShelfNavItem(
+        EverglowNavItem(
           icon: Icons.library_books_outlined,
           activeIcon: Icons.library_books_rounded,
           label: 'Library',

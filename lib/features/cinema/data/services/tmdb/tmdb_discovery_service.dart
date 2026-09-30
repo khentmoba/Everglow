@@ -1,13 +1,12 @@
 import 'dart:convert';
 import '../../../../../core/utils/connectivity_aware.dart';
-import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
 /// TMDB discovery, trending, top rated, popular, and genre-based
 /// catalogue endpoints.
-class TMDBDiscoveryService with TMDBBase, ConnectivityAware, ErrorAware {
+class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
   /// Fetch trending anime (Japanese animation) from TMDB.
   ///
   /// Anime is a content descriptor, not a separate catalog on TMDB, so we

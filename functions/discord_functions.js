@@ -2,12 +2,91 @@
 
 // Everglow Cloud Functions — Discord group.
 // Watch-party posts + button taps + stale-session sweep.
-// Pure message builders stay in discord.js; HTTP + schedule wiring lives here.
 
 const { onRequest } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
+
+function epLabel(mediaType, season, episode) {
+  if (mediaType !== 'tv' || season == null || episode == null) return null;
+  return `S${season} E${episode}`;
+}
+
+function buildWatchPost({ title, posterPath, mediaType, season, episode, voiceUrl, hostDisplay, partnerMention }) {
+  const ep = epLabel(mediaType, season, episode);
+  const description = [
+    `${hostDisplay} is hosting — join voice, then they Go Live.`,
+    ep ? ep : null,
+    `[Join voice](${voiceUrl})`,
+  ].filter(Boolean).join('\n');
+  return {
+    content: `${partnerMention} movie night: ${title}`,
+    embeds: [{
+      title: `Now hosting: ${title}`,
+      description,
+      image: posterPath ? { url: posterPath } : undefined,
+    }],
+    components: [{
+      type: 1,
+      components: [
+        { type: 2, style: 5, label: 'Join voice', url: voiceUrl },
+        { type: 2, style: 4, label: 'End', custom_id: 'end_watch' },
+      ],
+    }],
+  };
+}
+
+function buildEndedPost({ title, hostDisplay }) {
+  return {
+    content: `Movie night ended: ${title} (hosted by ${hostDisplay})`,
+    embeds: [{ title: `Ended: ${title}`, description: 'Thanks for watching.' }],
+    components: [],
+  };
+}
+
+async function verifyDiscordSignature({ publicKeyHex, signatureHex, timestamp, body }) {
+  const sodium = require('libsodium-wrappers-sumo');
+  await sodium.ready;
+  const msg = Buffer.concat([Buffer.from(timestamp, 'utf8'), Buffer.from(body)]);
+  return sodium.crypto_sign_verify_detached(
+    Buffer.from(signatureHex, 'hex'),
+    msg,
+    Buffer.from(publicKeyHex, 'hex'),
+  );
+}
+
+async function postToWebhook({ webhookUrl, payload, fetchImpl }) {
+  const useFetch = fetchImpl || fetch;
+  const sep = webhookUrl.includes('?') ? '&' : '?';
+  const resp = await useFetch(`${webhookUrl}${sep}wait=true&with_components=true`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!resp.ok) throw new Error(`Discord post failed: ${resp.status}`);
+  const data = await resp.json();
+  return data.id;
+}
+
+async function patchWebhookMessage({ webhookUrl, messageId, payload, fetchImpl }) {
+  const useFetch = fetchImpl || fetch;
+  const sep = webhookUrl.includes('?') ? '&' : '?';
+  const resp = await useFetch(`${webhookUrl}/messages/${messageId}${sep}with_components=true`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!resp.ok) throw new Error(`Discord edit failed: ${resp.status}`);
+}
+
+function isAllowedDiscordUser({ userId, env }) {
+  if (!userId || !env) return false;
+  const allowed = [env.khent, env.clair, env.clair1, env.clair2].filter(Boolean);
+  return allowed.includes(userId);
+}
 
 const notifyDiscordWatch = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
@@ -24,7 +103,6 @@ const notifyDiscordWatch = cappedHttps(10, async (req, res) => {
   if (enforceRateLimit(req, res, { endpoint: 'notifyDiscordWatch', limit: 30, windowMs: 60000, uid: decoded.uid })) return;
   const { title, posterPath, mediaType, season, episode } = req.body || {};
   if (!title || (mediaType !== 'movie' && mediaType !== 'tv')) { res.status(400).json({ error: 'title + mediaType required' }); return; }
-  const { buildWatchPost, postToWebhook, patchWebhookMessage } = require('./discord.js');
   const hostDisplay = username === 'khentsgdz' ? 'Khent' : 'Clair';
   const clairMention = [(process.env.DISCORD_CLAIR_ID1 || '').trim(), (process.env.DISCORD_CLAIR_ID2 || '').trim(), (process.env.DISCORD_CLAIR_ID || '').trim()].filter(Boolean).map((id) => `<@${id}>`).join(' ');
   const partnerMention = username === 'khentsgdz'
@@ -65,7 +143,6 @@ const discordInteractions = onRequest({ invoker: 'public', maxInstances: 10 }, a
   const sig = req.get('X-Signature-Ed25519') || '';
   const ts = req.get('X-Signature-Timestamp') || '';
   const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
-  const { verifyDiscordSignature, buildEndedPost, patchWebhookMessage, isAllowedDiscordUser } = require('./discord.js');
   let ok = false;
   try {
     ok = await verifyDiscordSignature({ publicKeyHex: (process.env.DISCORD_PUBLIC_KEY || '').trim(), signatureHex: sig, timestamp: ts, body: raw });
@@ -102,7 +179,6 @@ const sweepStaleDiscordWatch = onSchedule({ schedule: 'every 60 minutes' }, asyn
     const snap = await ref.get();
     if (!snap.exists || !snap.data().active) return;
     if (Date.now() - (snap.data().startedAtMs || 0) < 12 * 60 * 60 * 1000) return;
-    const { patchWebhookMessage } = require('./discord.js');
     const webhookUrl = (process.env.DISCORD_WEBHOOK_URL || '').trim();
     try {
       await patchWebhookMessage({ webhookUrl, messageId: snap.data().messageId, payload: { content: `Expired: ${snap.data().title}`, components: [] } });
@@ -115,4 +191,10 @@ module.exports = {
   notifyDiscordWatch,
   discordInteractions,
   sweepStaleDiscordWatch,
+  // Pure builders, exported for unit tests.
+  buildWatchPost,
+  buildEndedPost,
+  postToWebhook,
+  patchWebhookMessage,
+  isAllowedDiscordUser,
 };

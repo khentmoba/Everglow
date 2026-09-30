@@ -11,12 +11,9 @@
 // log. Comment-only bodies are out of scope: the author documented intent.
 //
 // Usage: dart tool/ci/check_silent_catches.dart
-import 'dart:convert';
 import 'dart:io';
 
-// Lenient read: one non-UTF8 source file must not break the scan.
-Future<String> readTolerant(File f) =>
-    f.readAsBytes().then((b) => utf8.decode(b, allowMalformed: true));
+import '_io.dart';
 
 /// Fully-empty catch blocks. `\s` spans newlines, so `catch (_) {` followed
 /// by a lone `}` on its own line still counts.

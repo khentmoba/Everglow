@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/utils/connectivity_aware.dart';
-import '../../../../core/utils/error_aware.dart';
 import '../models/book_item.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -22,7 +21,7 @@ import '../../../../core/utils/logger.dart';
 ///   * Read source — derived from `ia` field: Internet Archive
 ///     borrowable copies, with a Project Gutenberg fallback when
 ///     possible.
-class OpenLibraryService with ConnectivityAware, ErrorAware {
+class OpenLibraryService with ConnectivityAware {
   final CatalogProxyClient _proxy = CatalogProxyClient();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
