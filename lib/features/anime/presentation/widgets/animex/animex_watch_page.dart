@@ -449,85 +449,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// Merges AniList streaming-episode data (clean titles, licensed
   /// stills) with ani.zip per-episode metadata (English/x-jat titles,
   /// overview/summary synopsis, TVDB stills, runtime, air date).
-  /// AniList wins on title/thumbnail when present; ani.zip fills every
-  /// gap so each episode card has a name, a thumbnail, and a
-  /// "what happened" synopsis.
   List<AniListEpisode> _buildEpisodeList(
     AniListDetail? detail, {
     Map<int, Map<String, dynamic>> aniZipEpisodes = const {},
   }) {
-    final fromDetail = detail?.episodes ?? const <AniListEpisode>[];
-    final detailMap = <int, AniListEpisode>{
-      for (final e in fromDetail) e.number: e,
-    };
-
-    final countFromDetail = detail?.episodeCount ?? _item.episodeCount ?? 0;
-    final maxNum = [
-      countFromDetail,
-      if (detailMap.isNotEmpty) detailMap.keys.reduce((a, b) => a > b ? a : b),
-      if (aniZipEpisodes.isNotEmpty)
-        aniZipEpisodes.keys.reduce((a, b) => a > b ? a : b),
-    ].fold<int>(0, (a, b) => a > b ? a : b);
-
-    final effectiveCount = maxNum > 0 ? maxNum : 12;
-
-    final out = <AniListEpisode>[];
-    for (var i = 1; i <= effectiveCount; i++) {
-      final base = detailMap[i];
-      final az = aniZipEpisodes[i];
-      final azTitles = az?['title'] as Map<String, dynamic>?;
-
-      final azEnTitle = azTitles?['en'] as String?;
-      final azJatTitle = azTitles?['x-jat'] as String?;
-      final azJaTitle = azTitles?['ja'] as String?;
-
-      final baseTitle = base?.title;
-      final title = (baseTitle != null &&
-              baseTitle.isNotEmpty &&
-              !baseTitle.toLowerCase().startsWith('episode $i'))
-          ? baseTitle
-          : (azEnTitle ?? azJatTitle ?? baseTitle ?? 'Episode $i');
-
-      final titleRomaji = base?.titleRomaji ?? azJatTitle ?? azJaTitle;
-
-      final baseSynopsis = base?.synopsis;
-      final synopsis = (baseSynopsis != null && baseSynopsis.isNotEmpty)
-          ? baseSynopsis
-          : ((az?['overview'] as String?)?.isNotEmpty == true
-              ? (az?['overview'] as String?)
-              : (az?['summary'] as String?));
-
-      final baseThumb = base?.thumbnail;
-      final thumbnail = (baseThumb != null && baseThumb.isNotEmpty)
-          ? baseThumb
-          : (az?['image'] as String?);
-
-      final rawDuration = az?['runtime'] ?? az?['length'];
-      final duration = base?.duration ??
-          (rawDuration is num ? rawDuration.toInt() : null) ??
-          detail?.duration;
-
-      DateTime? airedAt = base?.airedAt;
-      if (airedAt == null) {
-        final rawAir = az?['airDate'] ?? az?['airdate'];
-        if (rawAir is String && rawAir.isNotEmpty) {
-          airedAt = DateTime.tryParse(rawAir);
-        }
-      }
-
-      out.add(
-        AniListEpisode(
-          number: i,
-          title: title,
-          titleRomaji: titleRomaji,
-          synopsis: synopsis,
-          airedAt: airedAt,
-          duration: duration,
-          thumbnail: thumbnail,
-        ),
-      );
-    }
-    return out;
+    return AnimeXWatchPage.buildEpisodeList(
+      detail: detail,
+      fallbackEpisodeCount: _item.episodeCount,
+      aniZipEpisodes: aniZipEpisodes,
+    );
   }
 
   /// True when this title is a film rather than a series. The route

@@ -86,6 +86,14 @@ class AniListService with ConnectivityAware {
     return AniListService()._mapSeasons(m);
   }
 
+  @visibleForTesting
+  static List<AniListEpisode> mapEpisodesForTesting(
+    List? streaming, {
+    int? episodeCount,
+  }) {
+    return AniListService()._mapEpisodes(streaming, episodeCount: episodeCount);
+  }
+
   /// Single comprehensive query for the anime detail page. Resolves
   /// either by AniList id (preferred) or MAL id (via the `idMal` filter).
   /// Cached in memory for [_detailTtl] after the first fetch.
@@ -765,15 +773,14 @@ class AniListService with ConnectivityAware {
         );
       }
     }
-    // Fill out any missing slots so the episode list is complete even
-    // when AniList only ships a partial feed.
+    // When the canonical count is known, keep stray multi-season feed entries
+    // from creating ghost episodes that won't exist on the streaming servers.
     final maxAnilistEp = byNum.isEmpty
         ? null
         : byNum.keys.reduce((a, b) => a > b ? a : b);
-    final maxEp = [
-      ?episodeCount,
-      ?maxAnilistEp,
-    ].fold<int>(0, (a, b) => a > b ? a : b);
+    final maxEp = (episodeCount != null && episodeCount > 0)
+        ? episodeCount
+        : (maxAnilistEp ?? 0);
 
     final out = <AniListEpisode>[];
     for (var i = 1; i <= maxEp; i++) {
