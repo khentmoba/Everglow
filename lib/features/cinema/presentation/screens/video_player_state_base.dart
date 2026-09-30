@@ -672,6 +672,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _upNextFallbackTimer?.cancel();
     _progressHeartbeatTimer?.cancel();
     _hasSavedWatchProgress = false;
+    // New episode starts from the beginning — same as
+    // [_resetUpNextForNewEpisode], which this path inlines.
+    _resolvedStartSeconds = null;
     setState(() {
       _currentSeason = next.season;
       _currentEpisode = next.episode;
@@ -698,7 +701,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   }
 
   /// Resets Up Next state when the episode changes by any other path
-  /// (navigator, season switch). The caller re-resolves + reschedules.
+  /// (navigator, season switch, player auto-advance). The caller
+  /// re-resolves + reschedules. The resume offset is dropped too: it
+  /// belongs to the previous episode, and keeping it would seek the
+  /// new episode into the middle (or past its end).
   void _resetUpNextForNewEpisode() {
     _upNextTimer?.cancel();
     _upNextFallbackTimer?.cancel();
@@ -707,6 +713,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _upNextDismissed = false;
     _nextEpisode = null;
     _hasRealProgress = false;
+    _resolvedStartSeconds = null;
   }
 
   /// Auto-enters theater mode when a phone rotates to landscape, and
@@ -796,8 +803,13 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       }
     }
 
-    // Position: only when the route didn't carry one.
+    // Position: only when the route didn't carry one, and only when the
+    // saved position belongs to the episode being opened — otherwise a
+    // resume point from one episode would seek a different episode.
+    final sameEpisode =
+        memory.season == _currentSeason && memory.episode == _currentEpisode;
     if ((_resolvedStartSeconds == null || _resolvedStartSeconds == 0) &&
+        sameEpisode &&
         memory.positionSeconds != null &&
         memory.positionSeconds! > 0) {
       _resolvedStartSeconds = memory.positionSeconds;
