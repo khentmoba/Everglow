@@ -19,6 +19,10 @@ class NextEpisodeService {
   }) async {
     // Same season first — one cheap call covers the common case.
     final current = await _tmdb.fetchSeasonEpisodes(tmdbId, season);
+    // An empty list means the fetch failed (the service reports errors
+    // as []) or the season has no episodes — either way there is
+    // nothing to advance from, so don't leap into the next season.
+    if (current.isEmpty) return null;
     final sameSeason = nextInSeason(
       season: season,
       currentEpisode: episode,

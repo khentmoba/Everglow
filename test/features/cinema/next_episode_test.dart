@@ -1,5 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/cinema/data/models/next_episode.dart';
+import 'package:everglow/features/cinema/data/services/next_episode_service.dart';
+import 'package:everglow/features/cinema/data/services/tmdb_service.dart';
+
+/// Fake TMDB facade: [seasons] answers per-season episode lists ([] stands
+/// in for a failed fetch, which the real service also reports as []).
+class _FakeTmdb implements TMDBService {
+  _FakeTmdb({required this.seasons, required this.show});
+  final Map<int, List<Map<String, dynamic>>> seasons;
+  final Map<String, dynamic>? show;
+
+  @override
+  Future<List<dynamic>> fetchSeasonEpisodes(int tvId, int seasonNumber) async =>
+      seasons[seasonNumber] ?? [];
+
+  @override
+  Future<Map<String, dynamic>?> fetchTVShowDetails(int tvId) async => show;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   group('nextInSeason', () {
@@ -102,6 +122,82 @@ void main() {
 
     test('returns null for an empty season', () {
       expect(firstInSeason(season: 2, episodes: []), isNull);
+    });
+  });
+
+  group('unaired episodes', () {
+    test('nextInSeason never offers an episode dated in the future', () {
+      expect(
+        nextInSeason(season: 1, currentEpisode: 1, episodes: [
+          {'episode_number': 1, 'name': 'Released', 'air_date': '2020-01-01'},
+          {'episode_number': 2, 'name': 'Not released', 'air_date': '2099-01-01'},
+        ]),
+        isNull,
+      );
+    });
+
+    test('nextInSeason still offers episodes with no air date', () {
+      final next = nextInSeason(season: 1, currentEpisode: 1, episodes: [
+        {'episode_number': 1, 'name': 'One'},
+        {'episode_number': 2, 'name': 'Two'},
+      ]);
+      expect(next?.episode, 2);
+    });
+
+    test('firstInSeason returns null when the premiere is unaired', () {
+      expect(
+        firstInSeason(season: 2, episodes: [
+          {'episode_number': 1, 'name': 'Future premiere', 'air_date': '2099-01-01'},
+          {'episode_number': 2, 'name': 'Later', 'air_date': '2020-01-01'},
+        ]),
+        isNull,
+      );
+    });
+  });
+
+  group('NextEpisodeService.resolve', () {
+    Map<String, dynamic> show() => {
+      'seasons': [
+        {'season_number': 1},
+        {'season_number': 2},
+      ],
+    };
+
+    test('a failed season fetch is not treated as the finale', () async {
+      final service = NextEpisodeService(
+        tmdb: _FakeTmdb(
+          seasons: {
+            1: [],
+            2: [
+              {'episode_number': 1, 'name': 'Season 2 premiere'},
+            ],
+          },
+          show: show(),
+        ),
+      );
+      expect(
+        await service.resolve(tmdbId: 42, season: 1, episode: 2),
+        isNull,
+      );
+    });
+
+    test('a real finale still crosses into the next season', () async {
+      final service = NextEpisodeService(
+        tmdb: _FakeTmdb(
+          seasons: {
+            1: [
+              {'episode_number': 2, 'name': 'Finale'},
+            ],
+            2: [
+              {'episode_number': 1, 'name': 'Premiere'},
+            ],
+          },
+          show: show(),
+        ),
+      );
+      final next = await service.resolve(tmdbId: 42, season: 1, episode: 2);
+      expect(next?.season, 2);
+      expect(next?.episode, 1);
     });
   });
 }
