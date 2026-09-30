@@ -49,7 +49,7 @@ flowchart LR
   subgraph External
     TMDB[TMDB]
     OL[Open Library]
-    AGNES[Agnes 3.0 Flash LLM]
+    GLM[GLM 5.3 Flash LLM]
     AGNESIMG[Agnes image gen]
     LF[Last.fm]
     MD[MangaDex / Bato / Comick / etc.]
@@ -66,7 +66,7 @@ flowchart LR
   FN --> M
   FN --> TMDB
   FN --> OL
-  FN --> AGNES
+  FN --> GLM
   FN --> AGNESIMG
   FN --> LF
   FN --> MD
@@ -262,9 +262,9 @@ sequenceDiagram
   participant C as Motchi client
   participant F as proxyAI / proxyAIv2
   participant DB as Firestore
-  participant L as Agnes 3.0 Flash LLM
+  participant L as GLM 5.3 Flash LLM
 
-  C->>F: POST /api/proxyAI(v2) {messages, feature, caller} -> apihub.agnes-ai.com
+  C->>F: POST /api/proxyAI(v2) {messages, feature, caller} -> tokenharbor.ai
   F->>DB: fetch user context + ranked memories
   F->>L: stream request with tool schemas
   loop max tool rounds
@@ -345,7 +345,7 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 
 | Provider | Use | Key handling |
 |----------|-----|--------------|
-| Agnes 3.0 Flash (apihub.agnes-ai.com) | AI chat — 512K context, 120K input budget, 50+ tool calls, thinking | server-side AGNES_API_KEY only |
+| GLM 5.3 Flash (tokenharbor.ai) | AI chat — 1M context, 120K input budget, 50+ tool calls, thinking | server-side TOKENHARBOR_API_KEY only |
 | Agnes image (apihub.agnes-ai.com) | Image gen (`agnes-image-2.0-flash`) + embedding fallback | server-side AGNES_API_KEY only |
 | TMDB | cinema/anime metadata | server-side via `proxyTmdb` (authenticated, ID-token required) |
 | Open Library | book text | `proxyBookText` server fetch |

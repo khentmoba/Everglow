@@ -11,7 +11,7 @@ const {
   estimateTokens,
   shouldExtractMemory,
   phtDateString,
-  AGNES_INPUT_TOKEN_BUDGET,
+  LLM_INPUT_TOKEN_BUDGET,
 } = require('./motchi_core.js');
 const {
   serverExtractAndSaveMemory,
@@ -606,16 +606,16 @@ ${HTML_GAME_GUIDE}
   }
 
   // ── Token budget guard ────────────────────────────────
-  // Ensure total input (system + messages) stays within Agnes's context (512K).
+  // Ensure total input (system + messages) stays within the model's context (1M).
   // Work directly on systemPrompt + messages before nimMessages is built.
   {
     let inputTokens = estimateTokens(systemPrompt);
     for (const m of messages) inputTokens += estimateTokens(getMessageText(m.content));
-    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', AGNES_INPUT_TOKEN_BUDGET);
+    console.log('[proxyAI] Estimated input tokens:', inputTokens, '/ budget:', LLM_INPUT_TOKEN_BUDGET);
 
     // Phase 1: Drop oldest conversation message pairs
     const msgs = [...messages]; // mutable copy
-    while (inputTokens > AGNES_INPUT_TOKEN_BUDGET && msgs.length > 2) {
+    while (inputTokens > LLM_INPUT_TOKEN_BUDGET && msgs.length > 2) {
       const removed = msgs.splice(0, 2); // remove oldest user + assistant pair
       inputTokens -= removed
         .map((m) => estimateTokens(getMessageText(m?.content)))
@@ -626,7 +626,7 @@ ${HTML_GAME_GUIDE}
     }
 
     // Phase 2: If still over budget, progressively shorten system prompt
-    if (inputTokens > AGNES_INPUT_TOKEN_BUDGET) {
+    if (inputTokens > LLM_INPUT_TOKEN_BUDGET) {
       let sys = systemPrompt;
       // Drop Previous Conversations section
       const pcIdx = sys.indexOf('## Previous Conversations');
@@ -679,7 +679,7 @@ ${HTML_GAME_GUIDE}
   ];
 
   // Get API key from environment variables (loaded from .env or Cloud Run env)
-  const apiKey = process.env.AGNES_API_KEY;
+  const apiKey = process.env.TOKENHARBOR_API_KEY;
 
   if (!apiKey) {
     // No LLM key configured: return deterministic fallback.
@@ -694,8 +694,8 @@ ${HTML_GAME_GUIDE}
     return;
   }
 
-  // Model: Agnes 3.0 Flash — 512K context, tool calling, thinking, image understanding
-  const model = 'agnes-3.0-flash';
+  // Model: GLM 5.3 Flash via TokenHarbor — 1M context, tool calling, thinking, image understanding
+  const model = 'glm-5.3-flash';
 
   // ── Custom Motchi Tools (OpenAI function calling format) ──
 
@@ -757,7 +757,8 @@ ${HTML_GAME_GUIDE}
   }
 
   // Thinking mode: pass enableThinking: true from the client for enhanced reasoning.
-  // Agnes uses chat_template_kwargs.enable_thinking instead of reasoning_effort.
+  // The flag goes out explicitly both ways:
+  // true for deep-think, false for everyday chat (cheaper, faster).
   // enableThinking is already destructured from req.body above.
 
   // ── Output budget tiers ───────────────────────────────
@@ -770,7 +771,7 @@ ${HTML_GAME_GUIDE}
   const maxTokens = (feature === 'study' || enableThinkingFlag || wantsArtifact) ? 16384 : 4096;
 
   // ── Payload size guard ──────────────────────────────
-  // Cloud Run max request size is 32MB; Agnes supports up to 512K context.
+  // Cloud Run max request size is 32MB; GLM 5.3 Flash supports 1M context.
   // Trim aggressively as best-effort so the model doesn't
   // waste context on stale history, but don't hard-block — let the model handle
   // it if trimming can't fit within Cloud Run's limit.
@@ -804,7 +805,7 @@ ${HTML_GAME_GUIDE}
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+        enable_thinking: enableThinkingFlag === true,
       });
       llmBodyBytes = Buffer.byteLength(llmBody, 'utf8');
       payloadMeasured = true;
@@ -825,7 +826,7 @@ ${HTML_GAME_GUIDE}
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+        enable_thinking: enableThinkingFlag === true,
       });
       llmBodyBytes = Buffer.byteLength(trimmedBody, 'utf8');
     }
@@ -865,7 +866,7 @@ ${HTML_GAME_GUIDE}
         temperature: 0.6,
         top_p: 0.95,
         stream: req.body.stream === true,
-        ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+        enable_thinking: enableThinkingFlag === true,
       });
       llmBodyBytes = Buffer.byteLength(finalBody, 'utf8');
     }
@@ -912,10 +913,9 @@ ${HTML_GAME_GUIDE}
         const noToolsThisRound = forceTextNextRound;
         forceTextNextRound = false;
 
-        // Retry transient Agnes API errors (429, 502, 503) up to 2 times
+        // Retry transient TokenHarbor API errors (429, 502, 503) up to 2 times
         let streamResp = null;
         let lastFetchError = null;
-        let lastWas429 = false;
         for (let attempt = 0; attempt < 3; attempt++) {
           if (llmCalls >= MAX_LLM_CALLS_PER_MESSAGE) {
             lastFetchError = 'message call budget spent';
@@ -923,7 +923,7 @@ ${HTML_GAME_GUIDE}
           }
           llmCalls++;
           try {
-            streamResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+            streamResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -941,7 +941,7 @@ ${HTML_GAME_GUIDE}
                 temperature: 0.6,
                 top_p: 0.95,
                 stream: true,
-                ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+                enable_thinking: enableThinkingFlag === true,
               }),
               // Artifact builds (games, quizzes) stream far longer than
               // chat — 280s sits inside the 300s function budget so a slow
@@ -952,25 +952,20 @@ ${HTML_GAME_GUIDE}
 
             if (streamResp.ok) break; // success
             if (![429, 502, 503].includes(streamResp.status)) break; // non-retryable
-            lastFetchError = `Agnes HTTP ${streamResp.status}`;
-            lastWas429 = streamResp.status === 429;
+            lastFetchError = `TokenHarbor HTTP ${streamResp.status}`;
           } catch (fetchErr) {
             lastFetchError = fetchErr.message;
-            lastWas429 = false;
           }
-          // Backoff before retry: 429s get a short breather (3s/6s) so a
-          // rate-limited turn fails over to the friendly fallback within
-          // ~9s instead of freezing the chat for 36s; the client's own
-          // 1s/2s retry covers residual blips with a fresh request.
-          // 502/503 and network blips keep the fast 1s-step retry.
+          // Backoff before retry: TokenHarbor is pay-as-you-go with no
+          // free-tier RPM window, so every retry keeps the fast 1s step.
           if (attempt < 2) {
-            const waitMs = lastWas429 ? 3000 * (attempt + 1) : 1000 * (attempt + 1);
+            const waitMs = 1000 * (attempt + 1);
             await new Promise((r) => setTimeout(r, waitMs));
           }
         }
 
         if (!streamResp || !streamResp.ok) {
-          console.warn(`proxyAI Agnes fetch failed after retries: ${lastFetchError || streamResp?.status}`);
+          console.warn(`proxyAI TokenHarbor fetch failed after retries: ${lastFetchError || streamResp?.status}`);
           try {
             const fallback = composeTodayRecap({
               dateLabel: phtDateString(),
@@ -1209,7 +1204,7 @@ ${HTML_GAME_GUIDE}
         currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
         sendEvent({ tool_status: 'repairing' });
         try {
-          const repairResp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+          const repairResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${apiKey}`,
@@ -1223,6 +1218,7 @@ ${HTML_GAME_GUIDE}
               temperature: 0.6,
               top_p: 0.95,
               stream: false,
+              enable_thinking: false,
             }),
             signal: AbortSignal.timeout(60000),
           });
@@ -1302,7 +1298,7 @@ ${HTML_GAME_GUIDE}
 
   async function callLlmOnce(msgs, withoutTools = false) {
     const resp = await fetch(
-      'https://apihub.agnes-ai.com/v1/chat/completions',
+      'https://tokenharbor.ai/v1/chat/completions',
       {
         method: 'POST',
         headers: {
@@ -1317,7 +1313,7 @@ ${HTML_GAME_GUIDE}
           temperature: 0.6,
           top_p: 0.95,
           stream: false,
-          ...(enableThinkingFlag ? { chat_template_kwargs: { enable_thinking: true } } : {}),
+          enable_thinking: enableThinkingFlag === true,
         }),
         // Same artifact headroom as the streaming path (280s < 300s budget).
         signal: AbortSignal.timeout(wantsArtifact ? 280000 : 60000),
