@@ -1,4 +1,3 @@
-import 'dart:ui_web' as ui_web;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
@@ -19,35 +18,59 @@ class CanvasHtmlView extends StatefulWidget {
 }
 
 class _CanvasHtmlViewState extends State<CanvasHtmlView> {
-  late final String _viewType;
+  web.HTMLIFrameElement? _iframe;
+
+  @visibleForTesting
+  web.HTMLIFrameElement? get debugIframe => _iframe;
 
   @override
   void initState() {
     super.initState();
-    _viewType =
-        'canvas-html-${widget.html.hashCode}-${DateTime.now().millisecondsSinceEpoch}';
-    if (kIsWeb) {
-      final source = widget.html;
-      ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
-        final iframe =
-            web.document.createElement('iframe') as web.HTMLIFrameElement;
-        // setAttribute (not IDL properties) so huge inline docs and the
-        // sandbox token list apply reliably across browsers.
-        iframe.setAttribute('srcdoc', source);
-        iframe.setAttribute('sandbox', 'allow-scripts');
-        iframe.setAttribute('referrerpolicy', 'no-referrer');
-        iframe.setAttribute('title', 'Motchi canvas preview');
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        iframe.style.border = '0';
-        return iframe;
-      });
+    if (kIsWeb) _createFrame(widget.html);
+  }
+
+  void _createFrame(String source) {
+    _iframe = web.HTMLIFrameElement()
+      // setAttribute (not IDL properties) so huge inline docs and the
+      // sandbox token list apply reliably across browsers.
+      ..setAttribute('srcdoc', source)
+      ..setAttribute('sandbox', 'allow-scripts')
+      ..setAttribute('referrerpolicy', 'no-referrer')
+      ..setAttribute('title', 'Motchi canvas preview')
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.border = '0';
+  }
+
+  @override
+  void didUpdateWidget(covariant CanvasHtmlView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.html != widget.html) {
+      _iframe?.setAttribute('srcdoc', widget.html);
     }
+  }
+
+  @override
+  void dispose() {
+    _iframe?.removeAttribute('srcdoc');
+    _iframe?.src = 'about:blank';
+    _iframe?.remove();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (!kIsWeb) return const SizedBox.shrink();
-    return HtmlElementView(viewType: _viewType);
+    // Built-in factory: no per-message registration to retain, and the
+    // stored frame is blanked when the chat moves on.
+    return HtmlElementView.fromTagName(
+      tagName: 'div',
+      onElementCreated: (element) {
+        final iframe = _iframe;
+        if (iframe != null) {
+          (element as web.HTMLElement).appendChild(iframe);
+        }
+      },
+    );
   }
 }
