@@ -76,7 +76,8 @@
 > to 138 with session-recall coverage. Tool calls harden:
 > `normalizeToolArgs` (trim/coerce/alias/enum) runs pre-validation,
 > validation errors carry a `fix` hint, and transient throws get one
-> retry. Bump to
+> retry. Eval gate scores routing: reachability, group-name typos,
+> fast-path zero-arg, recall, and attached-schema cap (24). Bump to
 > `motchi_prompt_v12.md` (and update `eval_gate.js`
 > `EXPECTED_PROMPT_VERSION`) when the persona or routing policy
 > changes.
