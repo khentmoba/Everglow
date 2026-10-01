@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCalendarEvents } = require('./calendar_core.js');
+
 // Motchi feature-context builders (Firestore reads for the AI system prompt).
 // Moved verbatim from index.js; index.js requires back only what it calls.
 const {
@@ -436,14 +438,10 @@ async function getCalendarContext() {
     const db = getDb();
     const now = new Date();
     const end = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const snap = await db.collection('calendar_events')
-      .where('date', '>=', getAdmin().firestore.Timestamp.fromDate(now))
-      .where('date', '<=', getAdmin().firestore.Timestamp.fromDate(end))
-      .orderBy('date', 'asc').limit(12).get();
-    if (snap.empty) return '';
-    const lines = snap.docs.map(d => {
-      const v = d.data();
-      const dt = v.date?.toDate?.()?.toISOString()?.slice(0,10) || '';
+    const events = await getCalendarEvents(db, getAdmin().firestore.Timestamp, now, end, 12);
+    if (!events.length) return '';
+    const lines = events.map(v => {
+      const dt = new Date(v.date.getTime() + PHT_OFFSET_MS).toISOString().slice(0,10);
       return `${dt} ${v.title || 'Untitled'} (${v.type || 'event'}) ${v.location ? '@'+v.location : ''}`.trim();
     }).join('\n');
     return `Upcoming calendar (14d):\n${lines}`;

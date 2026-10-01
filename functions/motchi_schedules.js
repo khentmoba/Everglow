@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCalendarEvents } = require('./calendar_core.js');
+
 // Everglow Cloud Functions — Motchi schedules group.
 // Morning digest, night recap, mood check-in, smart nudges,
 // weekly recap, special-day nudge, reminder checker, memory sweep.
@@ -323,12 +325,9 @@ const motchiSmartNudge = onSchedule({
     } catch (e) { console.warn('[smartNudge] journal', e.message); }
     try {
       const { start: startTomorrow, end: endTomorrow } = phtDayBounds(now.getTime() + 24 * 60 * 60 * 1000);
-      const calSnap = await db.collection('calendar_events')
-        .where('date','>=', getAdmin().firestore.Timestamp.fromDate(startTomorrow))
-        .where('date','<=', getAdmin().firestore.Timestamp.fromDate(endTomorrow))
-        .limit(3).get();
-      if (!calSnap.empty && !logged.calendar) {
-        const titles = calSnap.docs.map(d => d.data().title || 'Untitled').join(', ');
+      const events = await getCalendarEvents(db, getAdmin().firestore.Timestamp, startTomorrow, endTomorrow, 3);
+      if (events.length && !logged.calendar) {
+        const titles = events.map(event => event.title || 'Untitled').join(', ');
         await sendFCMToBoth({
           title: `Tomorrow: ${titles}`,
           body: 'Motchi sees you have plans — sleep well and enjoy tomorrow together!',

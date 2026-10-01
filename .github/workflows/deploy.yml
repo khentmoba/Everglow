@@ -62,13 +62,11 @@ jobs:
           OCTAGRAM_PASSWORD: ${{ secrets.OCTAGRAM_PASSWORD }}
           BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
           OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
-          CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
-          KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
         run: |
           # tool/build_web.dart forwards to `flutter build web` and adds the
           # engine-pinned gstatic CanvasKit URL when reachable (safe fallback).
           ARGS=(--release --no-source-maps) # prod: no maps; staging uses --source-maps
-          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD BREYAN_PASSCODE OCTAGRAM_PASSCODE CLAIR_PASSCODE KHENT_PASSCODE; do
+          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD BREYAN_PASSCODE OCTAGRAM_PASSCODE; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
               ARGS+=(--dart-define="$KEY=$VAL")

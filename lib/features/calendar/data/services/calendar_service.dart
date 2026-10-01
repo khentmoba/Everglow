@@ -8,7 +8,7 @@ class CalendarService {
   static CalendarService? _instance;
   factory CalendarService({FirebaseFirestore? db}) {
     if (db != null) {
-      return _instance = CalendarService._internal(db: db);
+      return CalendarService._internal(db: db);
     }
     return _instance ??= CalendarService._internal();
   }
@@ -23,6 +23,30 @@ class CalendarService {
 
   final Map<int, _SharedUpcomingStream> _sharedUpcoming = {};
 
+  // ponytail: capped at 100 saved entries; add pagination if the calendar outgrows this.
+  Query<Map<String, dynamic>> _eventsQuery(DateTime start, DateTime end) => _db
+      .collection(_collection)
+      .where(
+        Filter.or(
+          Filter.and(
+            Filter('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start)),
+            Filter('date', isLessThan: Timestamp.fromDate(end)),
+          ),
+          Filter('recurring', whereIn: ['monthly', 'yearly']),
+        ),
+      )
+      .orderBy('date')
+      .limit(100);
+
+  List<CalendarEvent> _expandEvents(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    DateTime start,
+    DateTime end,
+  ) => [
+    for (final doc in snapshot.docs)
+      ...CalendarEvent.fromFirestore(doc).occurrencesBetween(start, end),
+  ]..sort((a, b) => a.date.compareTo(b.date));
+
   /// Stream of events for a specific month.
   ///
   /// Re-attaches once when the first snapshot is slow: cold dashboard
@@ -31,23 +55,10 @@ class CalendarService {
   Stream<List<CalendarEvent>> getEventsForMonth(DateTime month) {
     Stream<List<CalendarEvent>> subscribe() {
       final startOfMonth = DateTime(month.year, month.month, 1);
-      final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
-
-      return _db
-          .collection(_collection)
-          .where(
-            'date',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth),
-          )
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfMonth))
-          .orderBy('date', descending: false)
-          .limit(50)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => CalendarEvent.fromFirestore(doc))
-                .toList(),
-          );
+      final endOfMonth = DateTime(month.year, month.month + 1);
+      return _eventsQuery(startOfMonth, endOfMonth).snapshots().map(
+        (snapshot) => _expandEvents(snapshot, startOfMonth, endOfMonth),
+      );
     }
 
     return withFirestoreTimeout(
@@ -97,20 +108,14 @@ class CalendarService {
   Stream<List<CalendarEvent>> _createUpcomingStream(int days) {
     Stream<List<CalendarEvent>> subscribe() {
       final now = DateTime.now();
+      final start = DateTime(now.year, now.month, now.day);
       final endDate = now.add(Duration(days: days));
-
-      return _db
-          .collection(_collection)
-          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(now))
-          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-          .orderBy('date', descending: false)
-          .limit(20)
-          .snapshots()
-          .map(
-            (snapshot) => snapshot.docs
-                .map((doc) => CalendarEvent.fromFirestore(doc))
-                .toList(),
-          );
+      return _eventsQuery(start, endDate).snapshots().map(
+        (snapshot) => _expandEvents(snapshot, start, endDate)
+            .where((event) => event.isAllDay || !event.date.isBefore(now))
+            .take(20)
+            .toList(),
+      );
     }
 
     return withFirestoreTimeout(
@@ -137,6 +142,7 @@ class CalendarService {
       Logger.i("Calendar event added: ${event.title}");
     } catch (e) {
       Logger.e("Error adding calendar event", error: e);
+      rethrow;
     }
   }
 
@@ -146,6 +152,7 @@ class CalendarService {
       await _db.collection(_collection).doc(id).update(data);
     } catch (e) {
       Logger.e("Error updating calendar event", error: e);
+      rethrow;
     }
   }
 
@@ -156,31 +163,22 @@ class CalendarService {
       Logger.i("Calendar event deleted: $id");
     } catch (e) {
       Logger.e("Error deleting calendar event", error: e);
+      rethrow;
     }
   }
 
   /// Get all events for a specific day.
   Future<List<CalendarEvent>> getEventsForDay(DateTime day) async {
     final startOfDay = DateTime(day.year, day.month, day.day);
-    final endOfDay = DateTime(day.year, day.month, day.day, 23, 59, 59);
+    final endOfDay = DateTime(day.year, day.month, day.day + 1);
 
     try {
       final snapshot = await withGetTimeout(
-        _db
-            .collection(_collection)
-            .where(
-              'date',
-              isGreaterThanOrEqualTo: Timestamp.fromDate(startOfDay),
-            )
-            .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endOfDay))
-            .orderBy('date', descending: false)
-            .get(),
+        _eventsQuery(startOfDay, endOfDay).get(),
         label: 'calendar events for day',
       );
 
-      return snapshot.docs
-          .map((doc) => CalendarEvent.fromFirestore(doc))
-          .toList();
+      return _expandEvents(snapshot, startOfDay, endOfDay);
     } catch (e) {
       Logger.e("Error getting events for day", error: e);
       return [];

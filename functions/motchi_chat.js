@@ -201,14 +201,15 @@ async function handleProxyAI(req, res) {
   const verifiedUsername = await getVerifiedUsername(decoded);
   const _tUserMs = Date.now() - _tUser0;
   const normalizedClientCaller = typeof clientCaller === 'string' ? clientCaller.trim().toLowerCase() : '';
-  const caller = verifiedUsername || normalizedClientCaller || '';
+  if (!['khentsgdz', 'clairjassen'].includes(verifiedUsername)) {
+    res.status(403).json({ error: 'Couple only' });
+    return;
+  }
+  const caller = verifiedUsername;
   // Shared services for tool executors (built once per request).
   const toolCtx = createToolCtx({ callerUid: caller, caller });
   if (verifiedUsername && normalizedClientCaller && verifiedUsername !== normalizedClientCaller) {
     console.warn(`[auth] caller mismatch: token=${verifiedUsername} client=${normalizedClientCaller} — using token`);
-  }
-  if (!verifiedUsername && normalizedClientCaller) {
-    console.warn(`[auth] no verified username for uid=${decoded.uid}, falling back to client caller=${normalizedClientCaller}`);
   }
   // Daily usage cap, counted across instances (fails open if Firestore
   // hiccups — never break Clair's chat over a counter write).
