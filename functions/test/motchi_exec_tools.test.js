@@ -952,3 +952,52 @@ test('subs executors roll renewals forward and guard add args', async () => {
   assert.equal(addedDocs[0].name, 'Spotify');
   assert.equal(addedDocs[0].payer, 'clair');
 });
+
+test('dispatcher retries a transient throw once, then succeeds', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('502 Bad Gateway');
+    return { text: async () => 'Sunny +27C' };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'get_weather', { location: 'Retryville' }));
+    assert.equal(calls, 2);
+    assert.equal(out.location, 'Retryville');
+    assert.match(out.weather, /Sunny/);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('dispatcher does not retry a permanent throw', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => { calls += 1; throw new Error('boom'); };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'get_weather', { location: 'Boomtown' }));
+    assert.equal(calls, 1);
+    assert.match(out.error, /boom/);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('dispatcher passes normalized args and hints fixes', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  let seenUrl = '';
+  global.fetch = async (url) => { seenUrl = String(url); return { text: async () => 'ok' }; };
+  try {
+    await executeToolCall(ctx, 'get_weather', { location: '  Cabadbaran  ' });
+    assert.ok(seenUrl.includes('Cabadbaran') && !seenUrl.includes('%20'), `url=${seenUrl}`);
+  } finally {
+    global.fetch = realFetch;
+  }
+  const bad = JSON.parse(await executeToolCall(ctx, 'delete_memory', {}));
+  assert.match(bad.error, /memory_id required/);
+  assert.match(bad.fix, /read_memories/);
+});

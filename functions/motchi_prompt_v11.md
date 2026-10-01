@@ -73,7 +73,10 @@
 > gains a Mem0-style merge pass (`findDuplicateGroups`: cosine ≥
 > 0.93 + same subject/relation; survivor = pinned, confidence,
 > oldest; max 5 groups/night, never deletes pinned). Eval set grows
-> to 138 with session-recall coverage. Bump to
+> to 138 with session-recall coverage. Tool calls harden:
+> `normalizeToolArgs` (trim/coerce/alias/enum) runs pre-validation,
+> validation errors carry a `fix` hint, and transient throws get one
+> retry. Bump to
 > `motchi_prompt_v12.md` (and update `eval_gate.js`
 > `EXPECTED_PROMPT_VERSION`) when the persona or routing policy
 > changes.

@@ -14,6 +14,8 @@
  *   of running with junk args.
  * - TOOL_TIMEOUT_MS / MAX_TOOL_ROUNDS come from motchi_tools.js
  *   (single source; the chat.js duplicates are gone).
+ * - normalizeToolArgs cleans args pre-validation, validation errors
+ *   carry a fix hint, and transient throws get one retry.
  */
 
 const functions = require('firebase-functions/v1');
@@ -27,7 +29,7 @@ const {
 const { sendFCMToUser } = require('./triggers.js');
 const { getTmdbKey } = require('./motchi_context.js');
 const { phtDateString } = require('./motchi_core.js');
-const { validateToolArgs, TOOL_TIMEOUT_MS } = require('./motchi_tools.js');
+const { validateToolArgs, normalizeToolArgs, fixHintFor, TOOL_TIMEOUT_MS } = require('./motchi_tools.js');
 
 const {
   exec_add_to_watchlist,
@@ -268,16 +270,38 @@ function visionMessageForResults(fullResults) {
   };
 }
 
-/** Validated, time-boxed tool call. Always resolves to a JSON string. */
-async function executeToolCall(ctx, toolName, args) {
-  const v = validateToolArgs(toolName, args);
-  if (!v.ok) return JSON.stringify({ error: v.error || 'Invalid tool args' });
+/**
+ * Validated, time-boxed tool call. Always resolves to a JSON string.
+ * Args are normalized (trim/coerce/alias) before validation; validation
+ * failures carry a fix hint; thrown transient errors (timeouts, 429/
+ * 502/503, reset sockets) get exactly one retry after a short pause.
+ */
+const TRANSIENT_TOOL_ERROR_RE = /tool timeout|timeout|timed out|econnreset|econnrefused|enotfound|etimedout|eai_again|429|502|503|rate.?limit|temporar|unavailable/i;
+
+async function executeToolCall(ctx, toolName, args, opts = {}) {
+  const normalized = normalizeToolArgs(toolName, args);
+  const v = validateToolArgs(toolName, normalized);
+  if (!v.ok) {
+    const out = { error: v.error || 'Invalid tool args' };
+    const fix = fixHintFor(toolName, out.error);
+    if (fix) out.fix = fix;
+    return JSON.stringify(out);
+  }
   const fn = TOOL_EXECUTORS[toolName];
   if (!fn) return JSON.stringify({ error: `Unknown tool: ${toolName}` });
   try {
-    return await Promise.race([fn(ctx, args || {}), _timeout(TOOL_TIMEOUT_MS)]);
+    return await Promise.race([fn(ctx, normalized), _timeout(TOOL_TIMEOUT_MS)]);
   } catch (e) {
-    return JSON.stringify({ error: (e && e.message) || 'Tool execution failed' });
+    const msg = (e && e.message) || 'Tool execution failed';
+    if (opts.retry !== false && TRANSIENT_TOOL_ERROR_RE.test(msg)) {
+      await new Promise((r) => setTimeout(r, 800));
+      try {
+        return await Promise.race([fn(ctx, normalized), _timeout(TOOL_TIMEOUT_MS)]);
+      } catch (e2) {
+        return JSON.stringify({ error: (e2 && e2.message) || 'Tool execution failed' });
+      }
+    }
+    return JSON.stringify({ error: msg });
   }
 }
 

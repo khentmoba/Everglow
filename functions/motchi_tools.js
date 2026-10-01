@@ -582,6 +582,71 @@ function validateToolArgs(toolName, args = {}) {
   }
 }
 
+// Model-shaped args, cleaned before validation runs: trimmed strings,
+// numeric strings coerced (Firestore `.limit('5')` throws on a string),
+// common alias keys copied to canonical (originals kept — some
+// executors read the alias), and enum-ish fields lowercased so
+// "High" doesn't fall through to a default. Pure; never mutates in.
+const NORMALIZE_NUMERIC_KEYS = new Set([
+  'tmdb_id', 'limit', 'count', 'price', 'lat', 'lng', 'percent',
+  'progress', 'budget', 'amount', 'days', 'renewing_within_days',
+]);
+const NORMALIZE_ALIAS_KEYS = {
+  tmdbId: 'tmdb_id',
+  entryId: 'id',
+  entry_id: 'id',
+  reminderId: 'id',
+  reminder_id: 'id',
+  memoryId: 'memory_id',
+  runId: 'run_id',
+  tripId: 'trip_id',
+};
+const NORMALIZE_ENUM_KEYS = new Set(['media_type', 'cycle', 'payer', 'priority', 'frequency']);
+
+function normalizeToolArgs(toolName, args) {
+  void toolName;
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return {};
+  const out = {};
+  for (const [key, value] of Object.entries(args)) {
+    let v = typeof value === 'string' ? value.trim() : value;
+    if (NORMALIZE_NUMERIC_KEYS.has(key) && typeof v === 'string' && v !== '' && !Number.isNaN(Number(v))) {
+      v = Number(v);
+    }
+    if (NORMALIZE_ENUM_KEYS.has(key) && typeof v === 'string') {
+      v = v.toLowerCase();
+    }
+    out[key] = v;
+  }
+  for (const [alias, canonical] of Object.entries(NORMALIZE_ALIAS_KEYS)) {
+    if (out[alias] !== undefined && out[canonical] === undefined) out[canonical] = out[alias];
+  }
+  return out;
+}
+
+/**
+ * One-line fix hint the model can act on after a validation error, or
+ * null when the error is already actionable. Keeps the model's natural
+ * next-round retry landing instead of circling on the same bad call.
+ */
+function fixHintFor(toolName, error) {
+  void toolName;
+  const msg = String(error || '');
+  if (!msg || /Unknown tool/.test(msg)) return null;
+  if (/memory_id required/.test(msg)) return 'Call read_memories first to get the memory_id, then re-call with it.';
+  if (/memory_id and fact required/.test(msg)) return 'Call read_memories first to get the memory_id, and include the corrected fact.';
+  if (/id or title required/.test(msg)) return 'Call the matching list tool first (list_reminders, get_journal_entries, get_calendar_events, get_bucket_list), then re-call with the id.';
+  if (/No title provided|Provide title or tmdb_id/.test(msg)) return 'Provide the title, or tmdb_id from a prior search_movies result.';
+  if (/No search query provided/.test(msg)) return 'Provide the query text to search for.';
+  if (/No (fact|note|text|goal) provided/.test(msg)) return 'Include the content from the conversation — the tool cannot invent it.';
+  if (/Invalid date|date required/.test(msg)) return 'Use ISO YYYY-MM-DD or plain words like "tomorrow at 3pm".';
+  if (/too long/.test(msg)) return 'Shorten the text and re-call.';
+  if (/http\(s\) URLs? provided/.test(msg)) return 'Pass 1-3 full https URLs from a prior web_search result.';
+  if (/remind_at/.test(msg)) return 'Use ISO datetime or plain words like "tomorrow at 3pm" or "in 2 hours".';
+  if (/price must be/.test(msg)) return 'Provide price as a positive number in pesos.';
+  if (/Invalid start_date or end_date/.test(msg)) return 'Provide both start_date and end_date as ISO YYYY-MM-DD.';
+  return null;
+}
+
 /** `Math.min(args.x || def, max)` clamps used by read/count tools. */
 function clampWithDefault(value, def, max) {
   return Math.min(value || def, max);
@@ -816,6 +881,8 @@ module.exports = {
   dropRepeatCalls,
   toolListSection,
   validateToolArgs,
+  normalizeToolArgs,
+  fixHintFor,
   isValidHttpUrl,
   clampWithDefault,
   clampBounded,

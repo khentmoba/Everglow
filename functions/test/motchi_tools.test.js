@@ -474,3 +474,24 @@ test('isLightChat matches the greeting/smalltalk routing exactly', () => {
   assert.equal(selectToolsForRequest('assistant', 'how are you', '', '').length, 3);
   assert.ok(selectToolsForRequest('assistant', 'what movies should we watch?', '', '').length > 3);
 });
+
+test('normalizeToolArgs trims, coerces numerics, maps aliases, lowercases enums', () => {
+  assert.deepEqual(tools.normalizeToolArgs('x', null), {});
+  assert.deepEqual(tools.normalizeToolArgs('x', 'nope'), {});
+  const out = tools.normalizeToolArgs('get_watchlist', { limit: '5', title: '  Dune  ', tmdbId: 123, media_type: 'TV' });
+  assert.deepEqual(out, { limit: 5, title: 'Dune', tmdbId: 123, tmdb_id: 123, media_type: 'tv' });
+  assert.equal(tools.normalizeToolArgs('add_xp', { amount: 'junk' }).amount, 'junk');
+  assert.equal(tools.normalizeToolArgs('cancel_reminder', { id: 'r1', reminderId: 'r2' }).id, 'r1');
+  const src = { title: '  Dune  ' };
+  tools.normalizeToolArgs('x', src);
+  assert.equal(src.title, '  Dune  '); // never mutates the input
+});
+
+test('fixHintFor points at the read tool that unblocks the write', () => {
+  assert.match(tools.fixHintFor('delete_memory', 'memory_id required'), /read_memories/);
+  assert.match(tools.fixHintFor('edit_reminder', 'id or title required'), /list_reminders/);
+  assert.match(tools.fixHintFor('add_to_watchlist', 'No title provided'), /tmdb_id/);
+  assert.match(tools.fixHintFor('add_trip', 'Invalid start_date or end_date'), /YYYY-MM-DD/);
+  assert.equal(tools.fixHintFor('nope', 'Unknown tool: nope'), null);
+  assert.equal(tools.fixHintFor('x', ''), null);
+});
