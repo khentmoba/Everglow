@@ -1,5 +1,4 @@
 import 'dart:js_interop';
-import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
@@ -49,8 +48,10 @@ class AnimeXPlayerFrame extends StatefulWidget {
 }
 
 class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
-  late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
+
+  @visibleForTesting
+  web.HTMLIFrameElement get debugIframe => _iframe;
   JSFunction? _onLoad;
   JSFunction? _onMessage;
   bool _loaded = false;
@@ -59,15 +60,15 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   @override
   void initState() {
     super.initState();
-    _viewType =
-        'animex-frame-${widget.url.hashCode}-${DateTime.now().microsecondsSinceEpoch}';
     // Per-host policy: MegaPlay/AniXo block sandboxed frames, and all
     // three third-party servers reject referrer-less loads — without
     // this the frame shows their 410/403/Embed-Only cards instead.
     final sandboxed =
         widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url);
-    final referrer =
-        AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy);
+    final referrer = AnimeXEmbedPolicy.referrerFor(
+      widget.url,
+      widget.referrerPolicy,
+    );
     _iframe = web.HTMLIFrameElement()
       ..src = widget.url
       ..allow =
@@ -131,11 +132,6 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (progress != null && mounted) widget.onProgress?.call(progress);
     }).toJS;
     web.window.addEventListener('message', _onMessage);
-
-    ui_web.platformViewRegistry.registerViewFactory(
-      _viewType,
-      (int viewId) => _iframe,
-    );
   }
 
   @override
@@ -146,6 +142,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     if (_onMessage != null) {
       web.window.removeEventListener('message', _onMessage!);
     }
+    _iframe.src = 'about:blank';
+    _iframe.remove();
     super.dispose();
   }
 
@@ -159,7 +157,14 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
           fit: StackFit.expand,
           children: [
             const ColoredBox(color: Colors.black),
-            HtmlElementView(viewType: _viewType),
+            // The built-in factory does not retain a closure over this State
+            // for every episode/server change.
+            HtmlElementView.fromTagName(
+              tagName: 'div',
+              onElementCreated: (element) {
+                (element as web.HTMLElement).appendChild(_iframe);
+              },
+            ),
             if (!_loaded)
               const Center(
                 child: SizedBox(

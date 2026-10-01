@@ -45,6 +45,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   static const Duration _stillHoldDuration = Duration(seconds: 10);
   static const Duration _trailerHoldDuration = Duration(seconds: 25);
 
+  bool _active = false;
   bool _muted = true;
   bool _playing = true;
   bool _trailerArmed = false;
@@ -74,7 +75,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   void _armTrailerForCurrent({bool immediate = false}) {
     _armTimer?.cancel();
     _fallbackTimer?.cancel();
-    if (widget.items.isEmpty) return;
+    if (!_active || widget.items.isEmpty) return;
     final item = widget.items[_index % widget.items.length];
     final key = _cacheKey(item);
 
@@ -85,7 +86,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     }
 
     void arm() {
-      if (!mounted) return;
+      if (!mounted || !_active) return;
       setState(() {
         _trailerArmed = true;
         if (_inTest) {
@@ -116,7 +117,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
   void _onTrailerLoaded() {
     _fallbackTimer?.cancel();
-    if (mounted) {
+    if (mounted && _active) {
       setState(() => _trailerReady = true);
       // Give Clair 25 full seconds of uninterrupted trailer playback starting
       // only after the video has actually loaded and began playing.
@@ -138,7 +139,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       if (mounted) {
         setState(() {
           _trailerCache[key] = ytId;
-          if (_trailerArmed && ytId != null && ytId.isNotEmpty) {
+          if (_active && _trailerArmed && ytId != null && ytId.isNotEmpty) {
             _trailerReady = _inTest;
             if (!_inTest) {
               _fallbackTimer?.cancel();
@@ -184,6 +185,9 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   }
 
   void _pauseTrailer() {
+    _timer?.cancel();
+    _armTimer?.cancel();
+    _fallbackTimer?.cancel();
     if (_playing || !_muted) {
       setState(() {
         _playing = false;
@@ -193,17 +197,28 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    _startTimer();
-    _armTrailerForCurrent(immediate: true);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = TickerMode.valuesOf(context).enabled;
+    if (_active == active) return;
+    _active = active;
+    if (active) {
+      _startTimer();
+      _armTrailerForCurrent(immediate: true);
+    } else {
+      _timer?.cancel();
+      _armTimer?.cancel();
+      _fallbackTimer?.cancel();
+      _trailerReady = false;
+    }
   }
 
   void _startTimer({Duration? duration}) {
     _timer?.cancel();
     // Do not auto-advance when Clair unmuted to listen or paused playback.
-    if (!_muted || !_playing) return;
-    final hold = duration ??
+    if (!_active || !_muted || !_playing) return;
+    final hold =
+        duration ??
         (_hasTrailerForCurrent && _trailerReady
             ? _trailerHoldDuration
             : _stillHoldDuration);
@@ -267,12 +282,19 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. High-resolution backdrop image (always ready as base layer).
-          for (var i = 0; i < items.length; i++)
-            _SlideLayer(item: items[i], visible: i == activeIndex),
+          // Keep only the current backdrop (plus the outgoing fade), not
+          // five full-resolution images with four hidden at zero opacity.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 700),
+            child: _SlideLayer(
+              key: ValueKey(_cacheKey(active)),
+              item: active,
+              visible: true,
+            ),
+          ),
 
           // 2. Active trailer player, smoothly cross-faded in when loaded.
-          if (hasTrailer && _trailerArmed)
+          if (_active && hasTrailer && _trailerArmed)
             AnimatedOpacity(
               key: ValueKey('hero-trailer-layer-$trailerKey'),
               opacity: (_trailerReady && _playing) ? 1.0 : 0.0,
@@ -457,7 +479,7 @@ class _SlideLayer extends StatelessWidget {
   final MediaItem item;
   final bool visible;
 
-  const _SlideLayer({required this.item, required this.visible});
+  const _SlideLayer({super.key, required this.item, required this.visible});
 
   @override
   Widget build(BuildContext context) {
@@ -537,14 +559,9 @@ class _SlideContent extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [
-                      AnimeXTokens.accent,
-                      AnimeXTokens.accentHover,
-                    ],
+                    colors: [AnimeXTokens.accent, AnimeXTokens.accentHover],
                   ),
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusMd,
-                  ),
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
                   boxShadow: AnimeXTokens.accentGlowShadow(0.4),
                 ),
                 child: Text(
@@ -566,10 +583,7 @@ class _SlideContent extends StatelessWidget {
                     color: AnimeXTokens.success,
                     shape: BoxShape.circle,
                     boxShadow: [
-                      BoxShadow(
-                        color: AnimeXTokens.success,
-                        blurRadius: 8,
-                      ),
+                      BoxShadow(color: AnimeXTokens.success, blurRadius: 8),
                     ],
                   ),
                 ),
@@ -634,8 +648,8 @@ class _SlideContent extends StatelessWidget {
                 label: hasTrailer && !muted ? 'Full Trailer' : 'Trailer',
                 icon: hasTrailer
                     ? (muted
-                        ? Icons.volume_off_rounded
-                        : Icons.volume_up_rounded)
+                          ? Icons.volume_off_rounded
+                          : Icons.volume_up_rounded)
                     : Icons.play_circle_outline_rounded,
                 onTap: () => onTrailer?.call(item),
               ),
@@ -691,7 +705,8 @@ class _MetaRow extends StatelessWidget {
         if (item.format.isNotEmpty) _chip(_label(item.format)),
         if (item.episodeCount != null && item.episodeCount! > 0)
           _chip(_label('EP ${item.episodeCount}')),
-        for (final genre in item.genres.take(3)) _chip(_label(genre), ghost: true),
+        for (final genre in item.genres.take(3))
+          _chip(_label(genre), ghost: true),
       ],
     );
   }
@@ -781,9 +796,7 @@ class _HeroMediaControls extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.52),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.14),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.4),
