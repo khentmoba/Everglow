@@ -128,3 +128,12 @@ jobs:
         run: node eval_gate.js
       - working-directory: functions
         run: npm audit --omit=dev --audit-level=moderate
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test couple privacy rules in emulators
+        run: >-
+          npx --yes firebase-tools@15 emulators:exec --only firestore,storage
+          --config firebase.emulators.json --project demo-everglow
+          "node --test functions/security_rules.emulator.test.js"

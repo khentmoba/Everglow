@@ -2,6 +2,7 @@
 
 const net = require('net');
 const dns = require('dns').promises;
+const { trustedProfileUsername } = require('./auth_core.js');
 
 /** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
 const APP_VERSION = '6.0.0+1';
@@ -96,29 +97,16 @@ function isAllowedBookTextUrl(url) {
   return allowed;
 }
 
-/** Verified caller cache — maps Firebase UID -> {username, ts} (5m TTL). */
-const _verifiedCallerCache = new Map();
-const VERIFIED_CALLER_TTL_MS = 5 * 60 * 1000;
-
-/**
- * Resolve the trusted username for a verified Firebase Auth token.
- * Uses `users/{uid}.username` (written by AuthService._syncUserDoc) and
- * caches for 5 minutes. Returns null if not found or on error.
- */
+/** Resolve couple identity from the verified token, never a client profile. */
 async function getVerifiedUsername(decoded) {
-  if (!decoded || !decoded.uid) return null;
-  const cached = _verifiedCallerCache.get(decoded.uid);
-  if (cached && (Date.now() - cached.ts) < VERIFIED_CALLER_TTL_MS) {
-    return cached.username;
-  }
+  if (!decoded?.uid || decoded.firebase?.sign_in_provider === 'anonymous') return null;
+  const signed = trustedProfileUsername(decoded);
+  if (signed) return signed;
   try {
     const snap = await getAdmin().firestore().collection('users').doc(decoded.uid).get();
     if (snap.exists) {
       const username = (snap.data()?.username || '').toString().trim().toLowerCase();
-      if (username) {
-        _verifiedCallerCache.set(decoded.uid, { username, ts: Date.now() });
-        return username;
-      }
+      return trustedProfileUsername(decoded, username);
     }
   } catch (e) {
     console.warn('[auth] getVerifiedUsername lookup failed:', e.message);
