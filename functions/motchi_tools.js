@@ -89,13 +89,16 @@ const TOOL_NAMES = [
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.
 
-// Always available: memory reads + proactive XP awards. The old core also
-// carried set_mood, save_to_starlight_jar, and remember_fact on EVERY
-// intent turn; those now ride their intent groups (mood, starlight,
-// memory) so read-only asks stop paying for write schemas they can't use.
+// Always available on normal questions: memory, XP, and web lookups.
+// Web access cannot depend on the user knowing to say "search": current
+// questions (match times, results, releases) often have no web keywords.
+// Writes still ride their intent groups; greetings skip this set entirely.
 const CORE_TOOLS = [
   'read_memories',
   'add_xp',
+  'web_search',
+  'read_web_page',
+  'browse_web',
 ];
 
 // Read-only lookups, added only when no intent group matches, so plain
@@ -371,7 +374,12 @@ function toolListSection(toolNames) {
   if (names.length === 0) {
     return 'No tools are attached to this request — answer directly from context and memory, without calling anything.';
   }
-  return `You have access to these custom tools right now (and no others):\n${names.map((n) => `- ${n}`).join('\n')}`;
+  const webGuidance = names.includes('web_search')
+    ? '\nYou CAN search the web. For current facts (next matches, live brackets/results, schedules, news, prices, releases), use web_search without waiting for them to ask you to search. Do not guess from training knowledge or claim you lack web access. Name the sources you actually used. If a lookup fails, say it failed rather than pretending you cannot search.' +
+      (names.includes('read_web_page') ? ' Use read_web_page for missing details.' : '') +
+      (names.includes('browse_web') ? ' Use browse_web for dynamic or blocked sites.' : '')
+    : '';
+  return `You have access to these custom tools right now (and no others):\n${names.map((n) => `- ${n}`).join('\n')}${webGuidance}`;
 }
 
 function _text(value) {

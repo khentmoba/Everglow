@@ -704,18 +704,13 @@ ${HTML_GAME_GUIDE}
   let tools = selectToolsForRequest(feature, lastUserMessage, prevAssistantText, prevUserText);
   if (fastPath) tools = []; // pre-executed below; the model only answers
 
-  // Render the persona's tool list from the ATTACHED tools, so the prompt
-  // never advertises tools that routing removed. Custom/Firestore
-  // personas carry their own prose and skip this (no placeholder).
-  if (systemPrompt.includes('%%MOTCHI_TOOL_LIST%%')) {
-    systemPrompt = systemPrompt.replace(
-      '%%MOTCHI_TOOL_LIST%%',
-      toolListSection(tools.map((t) => t.function.name)),
-    );
-    // nimMessages captured the placeholder version — point it at the
-    // rendered prompt (the payload guard below still measures the body).
-    if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
-  }
+  // Runtime capabilities apply to every persona, including the cached
+  // Firestore one: older persona prose must not hide attached web tools.
+  const toolSection = toolListSection(tools.map((t) => t.function.name));
+  systemPrompt = systemPrompt.includes('%%MOTCHI_TOOL_LIST%%')
+    ? systemPrompt.replace('%%MOTCHI_TOOL_LIST%%', toolSection)
+    : `${systemPrompt}\n## Tools available this turn\n${toolSection}`;
+  if (nimMessages[0]?.role === 'system') nimMessages[0].content = systemPrompt;
 
   // Fast-path execution: run the zero-arg tool now and append a synthetic
   // assistant+tool pair, so both answer paths below stream one direct
