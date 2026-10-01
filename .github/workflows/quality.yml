@@ -27,8 +27,7 @@ jobs:
       #   flutter test --tags=network test/katana_smoke_test.dart
       - run: flutter test --exclude-tags="golden,network"
       # DOM/iframe lifecycle needs the web implementation, not native WebView.
-      - run: flutter test --platform chrome test/features/anime/anime_web_memory_test.dart
-      - run: flutter test --platform chrome test/embedded_media_web_memory_test.dart
+      - run: flutter test --platform chrome test/features/anime/anime_web_memory_test.dart test/embedded_media_web_memory_test.dart
 
   # Regression guards: static tripwires for breakage classes that
   # `flutter analyze` + unit tests did not catch (PRs #1-#119 audit).

@@ -286,11 +286,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
           // five full-resolution images with four hidden at zero opacity.
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 700),
-            child: _SlideLayer(
-              key: ValueKey(_cacheKey(active)),
-              item: active,
-              visible: true,
-            ),
+            child: _SlideLayer(key: ValueKey(_cacheKey(active)), item: active),
           ),
 
           // 2. Active trailer player, smoothly cross-faded in when loaded.
@@ -477,32 +473,27 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
 class _SlideLayer extends StatelessWidget {
   final MediaItem item;
-  final bool visible;
 
-  const _SlideLayer({super.key, required this.item, required this.visible});
+  const _SlideLayer({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
     final url = item.backdropUrl.isNotEmpty ? item.backdropUrl : item.posterUrl;
-    return AnimatedOpacity(
-      opacity: visible ? 1 : 0,
-      duration: const Duration(milliseconds: 700),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 1.04, end: 1.0),
-        duration: const Duration(seconds: 7),
-        curve: Curves.easeOutCubic,
-        builder: (context, scale, child) {
-          return Transform.scale(scale: scale, child: child);
-        },
-        child: url.isEmpty
-            ? Container(color: AnimeXTokens.surfaceRaised)
-            : AppNetworkImage(
-                imageUrl: url,
-                fit: BoxFit.cover,
-                cacheWidth: heroCacheWidth(context),
-                errorWidget: Container(color: AnimeXTokens.surfaceRaised),
-              ),
-      ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 1.04, end: 1.0),
+      duration: const Duration(seconds: 7),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: url.isEmpty
+          ? Container(color: AnimeXTokens.surfaceRaised)
+          : AppNetworkImage(
+              imageUrl: url,
+              fit: BoxFit.cover,
+              cacheWidth: heroCacheWidth(context),
+              errorWidget: Container(color: AnimeXTokens.surfaceRaised),
+            ),
     );
   }
 }

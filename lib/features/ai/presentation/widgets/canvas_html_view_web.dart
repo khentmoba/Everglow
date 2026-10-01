@@ -26,20 +26,18 @@ class _CanvasHtmlViewState extends State<CanvasHtmlView> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) _createFrame(widget.html);
-  }
-
-  void _createFrame(String source) {
-    _iframe = web.HTMLIFrameElement()
-      // setAttribute (not IDL properties) so huge inline docs and the
-      // sandbox token list apply reliably across browsers.
-      ..setAttribute('srcdoc', source)
-      ..setAttribute('sandbox', 'allow-scripts')
-      ..setAttribute('referrerpolicy', 'no-referrer')
-      ..setAttribute('title', 'Motchi canvas preview')
-      ..style.width = '100%'
-      ..style.height = '100%'
-      ..style.border = '0';
+    if (kIsWeb) {
+      _iframe = web.HTMLIFrameElement()
+        // setAttribute (not IDL properties) so huge inline docs and the
+        // sandbox token list apply reliably across browsers.
+        ..setAttribute('srcdoc', widget.html)
+        ..setAttribute('sandbox', 'allow-scripts')
+        ..setAttribute('referrerpolicy', 'no-referrer')
+        ..setAttribute('title', 'Motchi canvas preview')
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.border = '0';
+    }
   }
 
   @override
