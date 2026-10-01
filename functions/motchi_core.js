@@ -183,7 +183,10 @@ const MEMORY_QUERY_STOP_WORDS = new Set(('what which who when where how why does
 function selectPromptMemories(facts, query, maxResults = 10, maxChars = 2000) {
   if (maxResults <= 0 || maxChars <= 0) return [];
   const tokens = tokenize(query).filter((t) => !MEMORY_QUERY_STOP_WORDS.has(t));
-  const ranked = rankMemories(facts, query, Math.max(facts.length, maxResults));
+  // Profile notes ride the always-on core block, not ranking — they
+  // must never be cut from (or duplicated into) Remembered Facts.
+  const pool = (facts || []).filter((f) => f && f.category !== 'profile');
+  const ranked = rankMemories(pool, query, Math.max(pool.length, maxResults));
   const personal = isPersonalQuery(query);
   const matching = ranked.filter((f) => {
     const text = [f.fact, f.subject, f.object].filter(Boolean).join(' ').toLowerCase();

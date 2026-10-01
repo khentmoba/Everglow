@@ -9,6 +9,7 @@ test('motchi memory group exposes its helpers (no remote embeddings)', () => {
   assert.equal(typeof mem.serverExtractAndSaveMemory, 'function');
   assert.equal(typeof mem.checkHallucinations, 'function');
   assert.equal(typeof mem.selectRelevantMemories, 'function');
+  assert.equal(typeof mem.selectCoreProfileNotes, 'function');
   assert.equal(typeof mem.loadMemoryFacts, 'function');
   assert.equal(typeof mem.invalidateMemoryCache, 'function');
   assert.equal(mem.getEmbedding, undefined);
@@ -112,4 +113,19 @@ test('checkHallucinations samples telemetry and caps title checks', async () => 
   } finally {
     global.fetch = realFetch;
   }
+});
+
+test('selectCoreProfileNotes returns pinned profile facts only, oldest first, capped', async () => {
+  const facts = [
+    { id: 'new', fact: 'we love horror marathons', category: 'profile', pinned: true, createdAt: { toDate: () => new Date('2026-03-01') } },
+    { id: 'old', fact: 'we are night owls', category: 'profile', pinned: true, createdAt: { toDate: () => new Date('2026-01-01') } },
+    { id: 'unpinned', fact: 'we like ramen', category: 'profile', pinned: false },
+    { id: 'plain', fact: 'Khent prefers black coffee', category: 'fact', pinned: true },
+  ];
+  const { db } = memoryDb(facts);
+  const notes = await mem.selectCoreProfileNotes(db);
+  assert.deepEqual(notes, ['we are night owls', 'we love horror marathons']);
+  const many = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, fact: `profile note ${i}`, category: 'profile', pinned: true }));
+  const capped = await mem.selectCoreProfileNotes(memoryDb(many).db);
+  assert.equal(capped.length, 8);
 });

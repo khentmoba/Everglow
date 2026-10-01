@@ -429,6 +429,17 @@ test('findDuplicateGroups survivor prefers pinned, confidence, then oldest', () 
   assert.equal(age[0].survivor.id, 'older');
 });
 
+test('selectPromptMemories leaves profile facts for the core block', () => {
+  const { selectPromptMemories } = require('../motchi_core.js');
+  const facts = [
+    { fact: 'Clair loves strawberry cake', category: 'fact' },
+    { fact: 'we are night owls', category: 'profile', pinned: true },
+  ];
+  const picked = selectPromptMemories(facts, 'what cake does Clair love');
+  assert.ok(picked.some((f) => f.fact === facts[0].fact));
+  assert.ok(!picked.some((f) => f.category === 'profile'));
+});
+
 test('findDuplicateGroups will not merge across subjects', () => {
   const { findDuplicateGroups } = require('../motchi_core.js');
   const groups = findDuplicateGroups([

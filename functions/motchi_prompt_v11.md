@@ -73,11 +73,15 @@
 > gains a Mem0-style merge pass (`findDuplicateGroups`: cosine ≥
 > 0.93 + same subject/relation; survivor = pinned, confidence,
 > oldest; max 5 groups/night, never deletes pinned). Eval set grows
-> to 138 with session-recall coverage. Tool calls harden:
+> to 140 with session-recall + profile coverage. Tool calls harden:
 > `normalizeToolArgs` (trim/coerce/alias/enum) runs pre-validation,
 > validation errors carry a `fix` hint, and transient throws get one
 > retry. Eval gate scores routing: reachability, group-name typos,
-> fast-path zero-arg, recall, and attached-schema cap (24). Bump to
+> fast-path zero-arg, recall, and attached-schema cap (24). Core
+> memory: new `save_profile_note` tool (confirm-gated) writes pinned
+> `profile` facts that ride an always-on ## About Them block via
+> `selectCoreProfileNotes` (shared cache, zero extra reads) instead
+> of ranking (67 tools). Bump to
 > `motchi_prompt_v12.md` (and update `eval_gate.js`
 > `EXPECTED_PROMPT_VERSION`) when the persona or routing policy
 > changes.
@@ -130,7 +134,7 @@
    (`read_memories`, `add_xp`, `web_search`, `read_web_page`,
    `browse_web`) plus only the intent groups whose
    keywords match the message — reads always, writes only when the
-   group's action-verb trigger matches (typically 4-8 of 66
+   group's action-verb trigger matches (typically 4-8 of 67
    schemas). Pure greetings send none; unmatched messages add the
    read-only awareness set. Every eval case's expectedTools must stay
    a subset of `selectToolNames(message)`. When the message names no
@@ -167,7 +171,7 @@
     follow-ups, and a bare yes to an offered quiz/game/flashcards
     upgrade to the full guide for the build turn.
 
-## Tool inventory (66)
+## Tool inventory (67)
 
 add_to_watchlist, save_to_starlight_jar, set_mood, search_movies,
 get_weather, create_reminder, list_reminders, cancel_reminder,
@@ -186,4 +190,5 @@ get_bucket_list, get_journal_entries, search_journal_entries,
 read_journal_entry, get_trips, edit_journal_entry, delete_journal_entry,
 update_calendar_event, delete_calendar_event, complete_bucket_item,
 delete_bucket_item, edit_bucket_item, edit_habit, edit_reminder,
-edit_trip, get_subscriptions, add_subscription, search_sessions
+edit_trip, get_subscriptions, add_subscription, search_sessions,
+save_profile_note

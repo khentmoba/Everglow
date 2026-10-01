@@ -129,6 +129,60 @@ async function exec_search_sessions(ctx, args) {
     return JSON.stringify({ turns: top, count: top.length });
 }
 
+async function exec_save_profile_note(ctx, args) {
+    const note = String(args.note || '').trim();
+    if (!note) return JSON.stringify({ error: 'No note provided' });
+    if (note.length > 500) return JSON.stringify({ error: 'Note too long (max 500)' });
+    if (!args.confirm) {
+      return JSON.stringify({ needs_confirmation: true, message: `Save this to your core profile? "${note.slice(0, 180)}" — re-call save_profile_note with confirm:true to proceed.`, note });
+    }
+    const parsed = parseFactStructure(note);
+    const factsCol = ctx.db.collection('ai_memories').doc('shared').collection('facts');
+    // Contradiction: same subject + relation with a different object
+    // updates the stale note — core truths never stack twins.
+    if (parsed.subject && parsed.relation) {
+      try {
+        const snap = await factsCol.where('subject', '==', parsed.subject).limit(15).get();
+        const cands = (snap.docs || []).map((d) => {
+          const v = (d.data && d.data()) || {};
+          return { id: d.id, fact: v.fact || '', category: v.category || 'fact' };
+        });
+        const hit = findContradiction(parsed, note, cands);
+        if (hit && hit.id) {
+          await factsCol.doc(hit.id).update({
+            fact: note,
+            category: 'profile',
+            object: parsed.object || null,
+            confidence: 1.0,
+            pinned: true,
+            updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+            embedding: simpleEmbedding(note),
+          });
+          invalidateMemoryCache();
+          return JSON.stringify({ success: true, updated: true, id: hit.id, fact: note, previous: hit.fact });
+        }
+      } catch (_) {}
+    }
+    await factsCol.add({
+      fact: note,
+      category: 'profile',
+      subject: parsed.subject || null,
+      relation: parsed.relation || null,
+      object: parsed.object || null,
+      topic: String(args.topic || '').trim().slice(0, 60) || null,
+      addedBy: ctx.callerUid || 'motchi',
+      createdAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+      confidence: 1.0,
+      accessCount: 0,
+      lastAccessed: null,
+      pinned: true,
+      source: ctx.callerUid || 'motchi',
+      embedding: simpleEmbedding(note),
+    });
+    invalidateMemoryCache();
+    return JSON.stringify({ success: true, fact: note });
+}
+
 async function exec_pin_memory(ctx, args) {
     const mid = String(args.memory_id || '').trim();
     if (!mid) return JSON.stringify({ error: 'memory_id required' });
@@ -500,4 +554,5 @@ module.exports = {
   exec_edit_journal_entry,
   exec_delete_journal_entry,
   exec_search_sessions,
+  exec_save_profile_note,
 };

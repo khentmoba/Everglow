@@ -1001,3 +1001,16 @@ test('dispatcher passes normalized args and hints fixes', async () => {
   assert.match(bad.error, /memory_id required/);
   assert.match(bad.fix, /read_memories/);
 });
+
+test('save_profile_note proposes first, saves pinned on confirm', async () => {
+  const { ctx, addedDocs } = makeCtx();
+  const probe = JSON.parse(await executeToolCall(ctx, 'save_profile_note', { note: 'we are night owls' }));
+  assert.equal(probe.needs_confirmation, true);
+  assert.equal(addedDocs.length, 0);
+  const saved = JSON.parse(await executeToolCall(ctx, 'save_profile_note', { note: 'we are night owls', topic: 'sleep', confirm: true }));
+  assert.equal(saved.success, true);
+  assert.equal(addedDocs.length, 1);
+  assert.equal(addedDocs[0].category, 'profile');
+  assert.equal(addedDocs[0].pinned, true);
+  assert.equal(addedDocs[0].topic, 'sleep');
+});

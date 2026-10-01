@@ -18,6 +18,7 @@ const {
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,
+  selectCoreProfileNotes,
 } = require('./motchi_memory.js');
 const {
   getAdmin,
@@ -333,11 +334,21 @@ async function handleProxyAI(req, res) {
         return '';
       })
     : Promise.resolve('');
-  const _memoriesPromise = ((fastPath || lightChat || req.body.includeMemories === false || (feature === 'assistant' && !isPersonalQuery(retrievalQuery)))
+  const _skipMemoryReads = fastPath || lightChat || req.body.includeMemories === false || (feature === 'assistant' && !isPersonalQuery(retrievalQuery));
+  const _memoriesPromise = (_skipMemoryReads
     ? Promise.resolve([])
     : selectRelevantMemories(retrievalQuery, 10)
   ).catch((e) => {
     console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
+    return [];
+  });
+  // Core profile block rides the same cached fetch, chained AFTER memories
+  // resolve — parallel calls would stampede the empty cache on a cold
+  // turn and double the reads. Costs nothing once cached.
+  const _corePromise = _memoriesPromise.then(
+    () => (_skipMemoryReads ? [] : selectCoreProfileNotes()),
+  ).catch((e) => {
+    console.warn('[proxyAI] core profile select failed, continuing without it:', e.message);
     return [];
   });
   // Persona doc is cached in memory for 5 min; only a cold cache reads.
@@ -364,8 +375,8 @@ async function handleProxyAI(req, res) {
         }
         return null;
       })();
-  const [serverContext, relevantMemories, personaBase] = await Promise.all([
-    _contextPromise, _memoriesPromise, _personaPromise,
+  const [serverContext, relevantMemories, coreProfileNotes, personaBase] = await Promise.all([
+    _contextPromise, _memoriesPromise, _corePromise, _personaPromise,
   ]);
   const _tCtxMs = Date.now() - _tCtx0;
   const resolvedContext = context || serverContext || '';
@@ -393,7 +404,7 @@ async function handleProxyAI(req, res) {
 ## How You Behave
 - **Be proactive, not reactive.** If it's close to a birthday or anniversary, mention it. If one of them seems stressed, check in. If they haven't logged a mood today, gently ask.
 - **Use context deeply.** Reference their watchlist, books, garden, music, recent chat, starlight jar notes, and past conversations naturally. Don't just list data — weave it into warm, personal responses.
-- **Remember everything.** The ## Remembered Facts section contains things you've learned about them over time. Use these naturally — "Didn't you say you were grinding ranked last week?" or "How's that book you started?"
+- **Remember everything.** The ## Remembered Facts section contains things you've learned about them over time. Use these naturally — "Didn't you say you were grinding ranked last week?" or "How's that book you started?" The ## About Them section lists core truths that are always true — treat them as ground, never contradict them, and offer to update them when life changes.
 - **Match energy.** If they're excited, be excited with them. If they're down, be gentle and supportive. If they're casual, keep it light. Don't be performatively upbeat when they're having a rough day.
 - **Be concise by default, thorough when needed.** Quick check-ins = 1-2 sentences. Deep questions or emotional moments = take your space. Use your judgment.
 - **Mix languages naturally.** You can code-switch between English, Bisaya (Cebuano), and Tagalog when it fits the conversation. Don't force it — let it flow naturally like how they actually talk.
@@ -443,6 +454,9 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
   // Fetched in parallel with context + persona above; `lastUserMessage`
   // is plain text, so downstream scoring never crashes on multimodal
   // content blocks.
+  if (coreProfileNotes.length > 0) {
+    systemPrompt += `\n## About Them (core — always true)\n${coreProfileNotes.map(m => `- ${m}`).join('\n')}`;
+  }
   if (relevantMemories.length > 0) {
     systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
   }

@@ -81,6 +81,7 @@ const TOOL_NAMES = [
   'get_subscriptions',
   'add_subscription',
   'search_sessions',
+  'save_profile_note',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -178,12 +179,14 @@ const TOOL_GROUPS = [
     writeMatch: /my mood|\bfeels?\b|\bfeeling\b|\bfelt\b|i'm\b|i am|right now/i,
   },
   {
-    match: /memor|remember|forget|trivia|\bquiz\b|keep in mind|don't forget|note that/i,
+    match: /memor|remember|forget|trivia|\bquiz\b|keep in mind|don't forget|note that|profile|about us/i,
     tools: ['get_memory_trivia'],
-    write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory'],
+    write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory', 'save_profile_note'],
     // "forget the memory" deletes; "I forget what we watched" is chat.
     // Corrections ("is wrong", "actually it was") attach edits.
-    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|is wrong|was wrong|actually.{0,15}was|meant\b|correction|forget (the|that|this|about|my|our)/i,
+    // Profile writes need an action verb + profile ("save X to our
+    // profile"); bare "what is our profile" stays a read.
+    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|is wrong|was wrong|actually.{0,15}was|meant\b|correction|forget (the|that|this|about|my|our)|(save|add|pin|put|write).{0,20}(to|in|on).{0,10}(our |my |the )?profile/i,
   },
   {
     match: /\bdates?\b|dating|anniversary|romantic|date night|datenight|\bideas?\b/i,
@@ -428,6 +431,10 @@ function validateToolArgs(toolName, args = {}) {
       return { ok: true };
     case 'remember_fact':
       if (!_text(a.fact)) return { ok: false, error: 'No fact provided' };
+      return { ok: true };
+    case 'save_profile_note':
+      if (!_text(a.note)) return { ok: false, error: 'No note provided' };
+      if (_text(a.note).length > 500) return { ok: false, error: 'Note too long (max 500)' };
       return { ok: true };
     case 'send_note_to_partner':
       if (!_text(a.note)) return { ok: false, error: 'No note provided' };
@@ -833,6 +840,7 @@ const FOLLOW_THROUGH_TOOLS = [
   'save_to_starlight_jar',
   'set_mood',
   'remember_fact',
+  'save_profile_note',
 ];
 
 const BARE_YES_RE = /^(yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|sounds good|perfect|yes please|yes do it|yeah do it|ok do it|let'?s do it)[!.,\s]*$/i;

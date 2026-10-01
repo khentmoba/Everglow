@@ -1016,6 +1016,22 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'save_profile_note',
+      description: 'Save a core truth about Khent & Clair to their always-on profile (e.g. "we are night owls"). First call proposes and asks for confirmation; re-call with confirm:true after they approve.',
+      parameters: {
+        type: 'object',
+        properties: {
+          note: { type: 'string', description: 'The core truth to remember (max 500 chars)' },
+          topic: { type: 'string', description: 'Short label like "sleep", "food", "movies"' },
+          confirm: { type: 'boolean', description: 'Set true after they approve the proposed note' },
+        },
+        required: ['note'],
+      },
+    },
+  },
 ];
 
 // Light chat: a bare greeting or smalltalk one-liner with no real ask.
