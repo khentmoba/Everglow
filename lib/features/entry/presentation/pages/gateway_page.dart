@@ -33,7 +33,6 @@ class GatewayPage extends StatefulWidget {
 class _GatewayPageState extends State<GatewayPage> {
   final GatewayNotifier _notifier = GatewayNotifier();
   bool _hasNavigated = false;
-  bool _didCheckLocalDev = false;
   GatewayState? _lastProcessedState;
 
   @override
@@ -47,9 +46,10 @@ class _GatewayPageState extends State<GatewayPage> {
     super.didChangeDependencies();
     _notifier.verifyCouplePasscode = (code) =>
         context.read<AuthService>().verifyCouplePasscode(code);
-    _notifier.tryOfflineUnlock =
-        (code) => context.read<AuthService>().tryOfflineRememberedLogin(code);
-    _checkLocalDevAutoLogin();
+    _notifier.tryOfflineUnlock = (code) =>
+        context.read<AuthService>().tryOfflineRememberedLogin(code);
+    _notifier.hasOfflineRememberedCode = () =>
+        context.read<AuthService>().hasOfflineRememberedCode;
   }
 
   bool get _isLocalDev =>
@@ -58,29 +58,6 @@ class _GatewayPageState extends State<GatewayPage> {
           (Uri.base.host == 'localhost' ||
               Uri.base.host == '127.0.0.1' ||
               Uri.base.host == '0.0.0.0'));
-
-  void _checkLocalDevAutoLogin() {
-    if (_didCheckLocalDev || !_isLocalDev) return;
-    _didCheckLocalDev = true;
-
-    if (kIsWeb) {
-      final devParam =
-          Uri.base.queryParameters['dev']?.toLowerCase() ??
-          Uri.base.queryParameters['user']?.toLowerCase();
-      if (devParam == 'khent' || devParam == 'khentsgdz') {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _quickLogin(EnvConfig.khentPasscode);
-        });
-        return;
-      }
-      if (devParam == 'clair' || devParam == 'clairjassen') {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _quickLogin(EnvConfig.clairPasscode);
-        });
-        return;
-      }
-    }
-  }
 
   void _quickLogin(String passcode) {
     if (passcode.isEmpty) return;
@@ -270,27 +247,10 @@ class _GatewayPageState extends State<GatewayPage> {
       final isOctagram =
           EnvConfig.octagramPasscode.isNotEmpty &&
           passcode == EnvConfig.octagramPasscode;
-      final isClair =
-          EnvConfig.clairPasscode.isNotEmpty &&
-          passcode == EnvConfig.clairPasscode;
-      final isKhent =
-          EnvConfig.khentPasscode.isNotEmpty &&
-          passcode == EnvConfig.khentPasscode;
       if (isBreyan) {
         authTask = authService.loginWithPasscode('breyan');
       } else if (isOctagram) {
         authTask = authService.loginWithPasscode('octagram');
-      } else if (isClair || isKhent) {
-        if (authService.currentUser == null) {
-          // Server verify failed but client fallback allowed unlocking.
-          // Offline login refuses anonymous sessions (firestore.rules
-          // blocks them, which used to surface as empty shelves), so a
-          // failure here keeps the user on the gateway with an error.
-          final fallbackUser = isClair ? 'clairjassen' : 'khentsgdz';
-          authTask = authService.loginCoupleOffline(fallbackUser);
-        } else {
-          authTask = Future.value();
-        }
       } else {
         authTask = authService.ensureAuthenticated();
       }
@@ -339,8 +299,8 @@ class _GatewayPageState extends State<GatewayPage> {
         // which renders cached Firestore data with an offline banner.
         // Without either, every stream fails and the dashboard renders
         // false-empty shelves.
-        final hasRealSession = authService.user != null &&
-            !authService.isAnonymousSession;
+        final hasRealSession =
+            authService.user != null && !authService.isAnonymousSession;
         if (!hasRealSession && !authService.isOfflineMode) {
           // The code validated but no Firebase session exists (offline or
           // anonymous): a connection problem, never a wrong code.
@@ -355,9 +315,7 @@ class _GatewayPageState extends State<GatewayPage> {
         }
         if (isCinemaOnlyAccess) {
           _hasNavigated = true;
-          context.go(
-            _postLoginTarget(cinemaOnly: true, fallback: '/cinema'),
-          );
+          context.go(_postLoginTarget(cinemaOnly: true, fallback: '/cinema'));
         } else {
           _notifier.updateState(GatewayState.revealingSite);
         }
@@ -369,9 +327,7 @@ class _GatewayPageState extends State<GatewayPage> {
     } else if (newState == GatewayState.complete) {
       if (!_hasNavigated) {
         _hasNavigated = true;
-        context.go(
-          _postLoginTarget(cinemaOnly: false, fallback: '/dashboard'),
-        );
+        context.go(_postLoginTarget(cinemaOnly: false, fallback: '/dashboard'));
       }
     }
   }
@@ -551,10 +507,6 @@ class _GatewayPageState extends State<GatewayPage> {
 
   Widget _buildDevLoginBar() {
     final chips = <Widget>[
-      if (EnvConfig.khentPasscode.isNotEmpty)
-        _devUserChip('Khent', () => _quickLogin(EnvConfig.khentPasscode)),
-      if (EnvConfig.clairPasscode.isNotEmpty)
-        _devUserChip('Clair', () => _quickLogin(EnvConfig.clairPasscode)),
       if (EnvConfig.breyanPasscode.isNotEmpty)
         _devUserChip('Cinema', () => _quickLogin(EnvConfig.breyanPasscode)),
     ];
@@ -590,10 +542,7 @@ class _GatewayPageState extends State<GatewayPage> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          for (final chip in chips) ...[
-            const SizedBox(width: 6),
-            chip,
-          ],
+          for (final chip in chips) ...[const SizedBox(width: 6), chip],
         ],
       ),
     );
@@ -786,8 +735,7 @@ class _OfflineRememberHint extends StatelessWidget {
   Widget build(BuildContext context) {
     String? remembered;
     try {
-      remembered =
-          context.select<AuthService, String?>((a) => a.currentUser);
+      remembered = context.select<AuthService, String?>((a) => a.currentUser);
     } catch (_) {
       // No auth provider above us (tests, odd shells): no hint, like the
       // AppErrorPage fallback. Production always provides AuthService.
@@ -796,8 +744,8 @@ class _OfflineRememberHint extends StatelessWidget {
     final name = remembered == 'clairjassen'
         ? 'Clair'
         : remembered == 'khentsgdz'
-            ? 'Khent'
-            : null;
+        ? 'Khent'
+        : null;
     if (name == null) return const SizedBox.shrink();
     return StreamBuilder<bool>(
       stream: ConnectivityService.instance.onConnectivityChanged,

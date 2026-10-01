@@ -52,19 +52,13 @@ void main() {
 
     test('drifted username needs repair', () {
       expect(
-        AuthService.needsUserDocRepair(
-          {'username': 'Khent'},
-          'khentsgdz',
-        ),
+        AuthService.needsUserDocRepair({'username': 'Khent'}, 'khentsgdz'),
         isTrue,
       );
     });
 
     test('missing username needs repair', () {
-      expect(
-        AuthService.needsUserDocRepair(const {}, 'khentsgdz'),
-        isTrue,
-      );
+      expect(AuthService.needsUserDocRepair(const {}, 'khentsgdz'), isTrue);
     });
 
     test('extra fields need repair', () {
@@ -204,88 +198,37 @@ void main() {
     });
   });
 
-  group('AuthService.offlineCodeMatches', () {
-    test('remembered user opens with their own code', () {
+  group('AuthService device-local offline verifier', () {
+    final verifier = AuthService.buildOfflineVerifier('clairjassen', '1234');
+
+    test('remembers only a salted digest, not a plain code', () {
+      expect(verifier['salt'], isNotEmpty);
+      expect(verifier['digest'], hasLength(64));
+      expect(verifier.values, isNot(contains('1234')));
+      final other = AuthService.buildOfflineVerifier('clairjassen', '1234');
+      expect(other['digest'], isNot(verifier['digest']));
+    });
+
+    test('only the remembered user and their own code unlock', () {
+      bool matches(String? user, String code, {Map<String, dynamic>? saved}) =>
+          AuthService.offlineCodeMatches(
+            rememberedUser: user,
+            passcode: code,
+            verifier: saved ?? verifier,
+          );
+      expect(matches('clairjassen', '1234'), isTrue);
+      expect(matches('clairjassen', '5678'), isFalse);
+      expect(matches('khentsgdz', '1234'), isFalse);
+      expect(matches(null, '1234'), isFalse);
+      expect(matches('breyan', '1234'), isFalse);
+      expect(matches('clairjassen', ''), isFalse);
+      expect(matches('clairjassen', '12345'), isFalse);
+      expect(matches('clairjassen', '1234', saved: {}), isFalse);
       expect(
         AuthService.offlineCodeMatches(
           rememberedUser: 'clairjassen',
-          passcode: '0221',
-          clairCode: '0221',
-          khentCode: '0938',
-        ),
-        isTrue,
-      );
-    });
-
-    test('wrong code never matches the remembered user', () {
-      expect(
-        AuthService.offlineCodeMatches(
-          rememberedUser: 'clairjassen',
-          passcode: '0000',
-          clairCode: '0221',
-          khentCode: '0938',
-        ),
-        isFalse,
-      );
-    });
-
-    test('offline unlock never switches users', () {
-      // Khent's valid code on Clair's remembered phone stays locked:
-      // switching users requires the server.
-      expect(
-        AuthService.offlineCodeMatches(
-          rememberedUser: 'clairjassen',
-          passcode: '0938',
-          clairCode: '0221',
-          khentCode: '0938',
-        ),
-        isFalse,
-      );
-    });
-
-    test('fresh device with nobody remembered never unlocks', () {
-      expect(
-        AuthService.offlineCodeMatches(
-          rememberedUser: null,
-          passcode: '0221',
-          clairCode: '0221',
-          khentCode: '0938',
-        ),
-        isFalse,
-      );
-    });
-
-    test('cinema-only users cannot offline-unlock the couple app', () {
-      expect(
-        AuthService.offlineCodeMatches(
-          rememberedUser: 'breyan',
-          passcode: '9132',
-          clairCode: '0221',
-          khentCode: '0938',
-        ),
-        isFalse,
-      );
-    });
-
-    test('empty configured codes never match', () {
-      expect(
-        AuthService.offlineCodeMatches(
-          rememberedUser: 'clairjassen',
-          passcode: '',
-          clairCode: '',
-          khentCode: '',
-        ),
-        isFalse,
-      );
-    });
-
-    test('empty configured codes never match even with non-empty input', () {
-      expect(
-        AuthService.offlineCodeMatches(
-          rememberedUser: 'clairjassen',
-          passcode: '0221',
-          clairCode: '',
-          khentCode: '',
+          passcode: '1234',
+          verifier: null,
         ),
         isFalse,
       );

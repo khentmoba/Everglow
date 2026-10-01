@@ -13,12 +13,17 @@ void main() {
     });
 
     test('passcodes and cinema passwords have no literal source fallbacks', () {
-      expect(EnvConfig.clairPasscode, isEmpty);
-      expect(EnvConfig.khentPasscode, isEmpty);
       expect(EnvConfig.breyanPasscode, isEmpty);
       expect(EnvConfig.octagramPasscode, isEmpty);
       expect(EnvConfig.breyanPassword, isEmpty);
       expect(EnvConfig.octagramPassword, isEmpty);
+    });
+
+    test('couple-only env values cannot enable client passcodes', () {
+      dotenv.loadFromString(
+        envString: 'CLAIR_PASSCODE=1111\nKHENT_PASSCODE=2222',
+      );
+      expect(EnvConfig.hasAnyPasscodes, isFalse);
     });
 
     test('has* flags reflect unconfigured state without env defines', () {
@@ -71,8 +76,6 @@ OCTAGRAM_PASSWORD=octagram_secret
     });
 
     test('picks up configured passcodes and credentials', () {
-      expect(EnvConfig.clairPasscode, '1111');
-      expect(EnvConfig.khentPasscode, '2222');
       expect(EnvConfig.breyanPasscode, '3333');
       expect(EnvConfig.octagramPasscode, '4444');
       expect(EnvConfig.breyanPassword, 'breyan_secret');

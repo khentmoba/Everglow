@@ -122,42 +122,45 @@ KHENT_PASSCODE=0938
       expect(notifier.lastFailureReason, isNull);
     });
 
-    testWidgets('offline wrong code reports invalid, not connection', (
-      tester,
-    ) async {
-      // 9999 matches nobody's code, so even offline the gate knows it is
-      // simply wrong instead of blaming the connection.
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
+    testWidgets(
+      'offline remembered wrong code reports invalid, not connection',
+      (tester) async {
+        final notifier = GatewayNotifier()
+          ..verifyCouplePasscode = (_) async {
+            throw Exception('offline');
+          }
+          ..tryOfflineUnlock = (_) {
+            return null;
+          }
+          ..hasOfflineRememberedCode = () => true;
+        for (final d in ['9', '9', '9', '9']) {
+          notifier.appendDigit(d);
         }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['9', '9', '9', '9']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.lastFailureReason, GatewayFailureReason.invalidCode);
-    });
+        await tester.pump(const Duration(milliseconds: 1200));
+        expect(notifier.currentState, GatewayState.awaitingInput);
+        expect(notifier.lastFailureReason, GatewayFailureReason.invalidCode);
+      },
+    );
 
-    testWidgets('offline code that is not remembered stays a connection issue', (
-      tester,
-    ) async {
-      // A valid-shaped code (Khent's) with no remembered match: the gate
-      // must not unlock, and must say "couldn't connect" rather than
-      // "wrong code" since the server never answered.
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
+    testWidgets(
+      'offline code that is not remembered stays a connection issue',
+      (tester) async {
+        // A valid-shaped code (Khent's) with no remembered match: the gate
+        // must not unlock, and must say "couldn't connect" rather than
+        // "wrong code" since the server never answered.
+        final notifier = GatewayNotifier()
+          ..verifyCouplePasscode = (_) async {
+            throw Exception('offline');
+          }
+          ..tryOfflineUnlock = (_) => null;
+        for (final d in ['0', '9', '3', '8']) {
+          notifier.appendDigit(d);
         }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['0', '9', '3', '8']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.lastFailureReason, GatewayFailureReason.connection);
-    });
+        await tester.pump(const Duration(milliseconds: 1200));
+        expect(notifier.currentState, GatewayState.awaitingInput);
+        expect(notifier.lastFailureReason, GatewayFailureReason.connection);
+      },
+    );
   });
 
   group('GatewayNotifier without configured environment passcodes', () {
@@ -169,7 +172,9 @@ KHENT_PASSCODE=0938
       dotenv.clean();
     });
 
-    testWidgets('unconfigured cinema code does not unlock locally', (tester) async {
+    testWidgets('unconfigured cinema code does not unlock locally', (
+      tester,
+    ) async {
       final notifier = GatewayNotifier();
       for (final d in ['8', '0', '8', '0']) {
         notifier.appendDigit(d);
@@ -178,20 +183,21 @@ KHENT_PASSCODE=0938
       expect(notifier.currentState, GatewayState.awaitingInput);
     });
 
-    testWidgets('server unreachable reports connection error when codes unconfigured', (
-      tester,
-    ) async {
-      final notifier = GatewayNotifier()
-        ..verifyCouplePasscode = (_) async {
-          throw Exception('offline');
+    testWidgets(
+      'server unreachable reports connection error when codes unconfigured',
+      (tester) async {
+        final notifier = GatewayNotifier()
+          ..verifyCouplePasscode = (_) async {
+            throw Exception('offline');
+          }
+          ..tryOfflineUnlock = (_) => null;
+        for (final d in ['9', '9', '9', '9']) {
+          notifier.appendDigit(d);
         }
-        ..tryOfflineUnlock = (_) => null;
-      for (final d in ['9', '9', '9', '9']) {
-        notifier.appendDigit(d);
-      }
-      await tester.pump(const Duration(milliseconds: 1200));
-      expect(notifier.currentState, GatewayState.awaitingInput);
-      expect(notifier.lastFailureReason, GatewayFailureReason.connection);
-    });
+        await tester.pump(const Duration(milliseconds: 1200));
+        expect(notifier.currentState, GatewayState.awaitingInput);
+        expect(notifier.lastFailureReason, GatewayFailureReason.connection);
+      },
+    );
   });
 }

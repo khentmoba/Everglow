@@ -14,8 +14,6 @@ class EnvConfig {
     'BREYAN_PASSWORD': String.fromEnvironment('BREYAN_PASSWORD'),
     'OCTAGRAM_EMAIL': String.fromEnvironment('OCTAGRAM_EMAIL'),
     'OCTAGRAM_PASSWORD': String.fromEnvironment('OCTAGRAM_PASSWORD'),
-    'CLAIR_PASSCODE': String.fromEnvironment('CLAIR_PASSCODE'),
-    'KHENT_PASSCODE': String.fromEnvironment('KHENT_PASSCODE'),
     'BREYAN_PASSCODE': String.fromEnvironment('BREYAN_PASSCODE'),
     'OCTAGRAM_PASSCODE': String.fromEnvironment('OCTAGRAM_PASSCODE'),
     'LASTFM_USER_KHENT': String.fromEnvironment('LASTFM_USER_KHENT'),
@@ -30,8 +28,7 @@ class EnvConfig {
     try {
       final val = dotenv.env[name]?.trim();
       if (val != null && val.isNotEmpty) return val;
-    } catch (_) {
-    }
+    } catch (_) {}
     return fallback;
   }
 
@@ -45,8 +42,6 @@ class EnvConfig {
   // Gateway passcodes: server-verified for Khent/Clair; Breyan/Octagram are
   // client-verified cinema-only profiles. Passcodes and passwords must be
   // passed via --dart-define or .env; no hardcoded literal fallbacks in source.
-  static String get clairPasscode => _from('CLAIR_PASSCODE');
-  static String get khentPasscode => _from('KHENT_PASSCODE');
   static String get breyanPasscode => _from('BREYAN_PASSCODE');
   static String get octagramPasscode => _from('OCTAGRAM_PASSCODE');
 
@@ -68,10 +63,7 @@ class EnvConfig {
   static bool get hasSpotifyClientId => spotifyClientId.isNotEmpty;
 
   static bool get hasAnyPasscodes =>
-      clairPasscode.isNotEmpty ||
-      khentPasscode.isNotEmpty ||
-      breyanPasscode.isNotEmpty ||
-      octagramPasscode.isNotEmpty;
+      breyanPasscode.isNotEmpty || octagramPasscode.isNotEmpty;
 
   static List<String> missingRequired() {
     final missing = <String>[];
