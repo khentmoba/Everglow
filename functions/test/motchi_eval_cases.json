@@ -949,5 +949,19 @@
     "expectedTools": [
       "add_subscription"
     ]
+  },
+  {
+    "id": "sessions-recall",
+    "message": "what did we talk about last week",
+    "expectedTools": [
+      "search_sessions"
+    ]
+  },
+  {
+    "id": "sessions-recall-you",
+    "message": "what did you tell me about the beach trip",
+    "expectedTools": [
+      "search_sessions"
+    ]
   }
 ]

@@ -6,7 +6,7 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
-const { parseFactStructure, rankMemories, findContradiction, simpleEmbedding } = require('./motchi_core.js');
+const { parseFactStructure, rankMemories, findContradiction, simpleEmbedding, tokenize } = require('./motchi_core.js');
 const { loadMemoryFacts, invalidateMemoryCache } = require('./motchi_memory.js');
 
 async function exec_remember_fact(ctx, args) {
@@ -89,6 +89,44 @@ async function exec_read_memories(ctx, args) {
       facts = facts.slice(0, limit);
     }
     return JSON.stringify({ memories: facts, count: facts.length });
+}
+
+async function exec_search_sessions(ctx, args) {
+    // Archival recall: keyword search over the 12 freshest session docs
+    // (both partners — "what did we talk about" is a couple question).
+    // Single-field orderBy, so no composite index. Docs can be big (50
+    // turns), so snippets stay short and the list stays capped.
+    const query = String(args.query || '').trim();
+    if (!query) return JSON.stringify({ error: 'No query provided' });
+    const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 10);
+    const tokens = tokenize(query);
+    if (tokens.length === 0) return JSON.stringify({ turns: [], count: 0 });
+    const snap = await ctx.db.collection('motchi_sessions')
+      .orderBy('updatedAt', 'desc').limit(12).get();
+    if (snap.empty) return JSON.stringify({ turns: [], count: 0 });
+    const hits = [];
+    for (const d of snap.docs) {
+      const v = (d.data && d.data()) || {};
+      const turns = Array.isArray(v.turns) ? v.turns : [];
+      for (const t of turns) {
+        const user = String(t.userMessage || '');
+        const reply = String(t.assistantReply || '');
+        const hay = (user + ' ' + reply).toLowerCase();
+        let score = 0;
+        for (const tok of tokens) if (hay.includes(tok)) score += 1;
+        if (score === 0) continue;
+        hits.push({
+          score,
+          when: t.timestamp || v.updatedAtIso || null,
+          who: v.caller || null,
+          user: user.slice(0, 300),
+          motchi: reply.slice(0, 300),
+        });
+      }
+    }
+    hits.sort((a, b) => b.score - a.score);
+    const top = hits.slice(0, limit).map((h) => ({ when: h.when, who: h.who, user: h.user, motchi: h.motchi }));
+    return JSON.stringify({ turns: top, count: top.length });
 }
 
 async function exec_pin_memory(ctx, args) {
@@ -461,4 +499,5 @@ module.exports = {
   exec_read_journal_entry,
   exec_edit_journal_entry,
   exec_delete_journal_entry,
+  exec_search_sessions,
 };

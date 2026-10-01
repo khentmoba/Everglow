@@ -80,6 +80,7 @@ const TOOL_NAMES = [
   'edit_trip',
   'get_subscriptions',
   'add_subscription',
+  'search_sessions',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -154,6 +155,13 @@ const TOOL_GROUPS = [
     // chat" reads. Bare "send me X" never matches the group (it means
     // answer here, not post to sanctuary).
     writeMatch: /\btell (clair|khent|her|him|them|mama|dada)\b|\bsend\b|relay|write|message (to|for|her|him|them|clair|khent|mama|dada)/i,
+  },
+  {
+    // Past Motchi conversations (Letta-style archival recall). Kept
+    // specific — past-tense recall only — so everyday "said/tell"
+    // chat doesn't pay for the extra schema.
+    match: /talk(ed|ing)? about|discuss|conversat|previous (chat|talk|session)|last (week|night|time)|we talked|you (said|told|mentioned)|what did (we|you)/i,
+    tools: ['search_sessions'],
   },
   {
     match: /starlight|\bjar\b|grateful|gratitude|thankful|\bnotes?\b/i,
@@ -550,6 +558,7 @@ function validateToolArgs(toolName, args = {}) {
       return { ok: true };
     }
     case 'search_everglow':
+    case 'search_sessions':
     case 'web_search':
       if (!_text(a.query)) return { ok: false, error: 'No search query provided' };
       return { ok: true };

@@ -1001,6 +1001,21 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'search_sessions',
+      description: 'Search past Motchi conversations for what you talked about before. Use when they ask what was said, discussed, or decided in an earlier chat.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Keywords to search for in past conversations' },
+          limit: { type: 'number', description: 'Max past turns to return (default 5, max 10)' },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
 
 // Light chat: a bare greeting or smalltalk one-liner with no real ask.

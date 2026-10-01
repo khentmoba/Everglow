@@ -55,6 +55,7 @@ const {
   exec_read_journal_entry,
   exec_edit_journal_entry,
   exec_delete_journal_entry,
+  exec_search_sessions,
 } = require('./motchi_exec_memory.js');
 const {
   exec_set_mood,
@@ -182,6 +183,7 @@ const TOOL_EXECUTORS = {
   read_journal_entry: exec_read_journal_entry,
   edit_journal_entry: exec_edit_journal_entry,
   delete_journal_entry: exec_delete_journal_entry,
+  search_sessions: exec_search_sessions,
   set_mood: exec_set_mood,
   read_chat_messages: exec_read_chat_messages,
   send_sanctuary_message: exec_send_sanctuary_message,
