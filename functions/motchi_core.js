@@ -226,6 +226,63 @@ function isNearDuplicate(a, b, threshold = 0.88) {
   }
   return cosineSimilarity(embA, embB) >= threshold;
 }
+
+/**
+ * Groups near-duplicate facts for the nightly tidy (Mem0-style UPDATE).
+ * Two facts merge only when BOTH hold: local-embedding cosine >=
+ * threshold (default 0.93 — stricter than the 0.88 read-time check,
+ * because a merge deletes) AND the same subject+relation shape (or
+ * both unparsed prose). Survivor per group: pinned first, then highest
+ * confidence, then oldest. Pure — the sweep enforces its own safety
+ * caps (never delete pinned, max groups/night) around this.
+ */
+function findDuplicateGroups(facts, threshold = 0.93) {
+  const list = (facts || []).filter((f) => f && String(f.fact || '').trim());
+  const embs = list.map((f) => {
+    try { return simpleEmbedding(f.fact, 64); } catch (_) { return null; }
+  });
+  const parsed = list.map((f) => {
+    try { return parseFactStructure(f.fact); } catch (_) { return { subject: null, relation: null, object: null }; }
+  });
+  const sameShape = (a, b) => {
+    const sa = String(a.subject || '').toLowerCase();
+    const sb = String(b.subject || '').toLowerCase();
+    const ra = String(a.relation || '').toLowerCase();
+    const rb = String(b.relation || '').toLowerCase();
+    if (!sa && !sb && !ra && !rb) return true;
+    return !!sa && sa === sb && !!ra && ra === rb;
+  };
+  const groups = [];
+  list.forEach((_, i) => {
+    if (!embs[i]) return;
+    for (const g of groups) {
+      if (!embs[g.rep]) continue;
+      if (cosineSimilarity(embs[i], embs[g.rep]) >= threshold && sameShape(parsed[i], parsed[g.rep])) {
+        g.members.push(i);
+        return;
+      }
+    }
+    groups.push({ rep: i, members: [i] });
+  });
+  const timeOf = (f) => {
+    const d = toDate(f.createdAt);
+    return d ? d.getTime() : 0;
+  };
+  return groups
+    .filter((g) => g.members.length > 1)
+    .map((g) => {
+      const members = g.members.map((i) => list[i]);
+      const pinned = members.filter((m) => m.pinned === true);
+      const pool = pinned.length > 0 ? pinned : members;
+      let survivor = pool[0];
+      for (const m of pool) {
+        const mc = Number(m.confidence ?? 1);
+        const sc = Number(survivor.confidence ?? 1);
+        if (mc > sc + 1e-9 || (Math.abs(mc - sc) <= 1e-9 && timeOf(m) < timeOf(survivor))) survivor = m;
+      }
+      return { survivor, dupes: members.filter((m) => m !== survivor) };
+    });
+}
 // ── Context block pre-selection ────────────────────────────────
 // Picks which Firestore-backed context blocks to fetch BEFORE any read
 // happens, so a chat turn fetches ~8 small blocks instead of ~20.
@@ -777,6 +834,7 @@ module.exports = {
   isPersonalQuery,
   simpleEmbedding,
   isNearDuplicate,
+  findDuplicateGroups,
   needsEmbeddingBackfill,
   selectContextBlocks,
   selectBlockKeys,
