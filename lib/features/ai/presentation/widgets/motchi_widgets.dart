@@ -787,7 +787,6 @@ class _MessageBubble extends StatefulWidget {
   final bool isStreaming;
   final String? reasoning;
   final List<String> imageUrls;
-  final String? senderName;
   // Canvas toggle from the chat bar — when false the bubble stays plain
   // text (hidden blocks still stripped so raw JSON never shows).
   final bool showArtifacts;
@@ -806,7 +805,6 @@ class _MessageBubble extends StatefulWidget {
     this.isStreaming = false,
     this.reasoning,
     this.imageUrls = const [],
-    this.senderName,
     this.showArtifacts = true,
     this.keepFullText = false,
   });

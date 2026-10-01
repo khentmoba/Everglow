@@ -9,7 +9,9 @@ import 'package:everglow/shared/widgets/everglow/everglow_markdown.dart';
 void main() {
   Future<void> pumpMarkdown(WidgetTester tester, String text) async {
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: EverglowMarkdown(text: text))),
+      MaterialApp(
+        home: Scaffold(body: EverglowMarkdown(text: text)),
+      ),
     );
     await tester.pump();
   }
@@ -18,10 +20,7 @@ void main() {
     tester,
   ) async {
     await pumpMarkdown(tester, '###Flowcharts\n\n## DETAILS TO REMEMBER');
-    expect(
-      find.textContaining('###', findRichText: true),
-      findsNothing,
-    );
+    expect(find.textContaining('###', findRichText: true), findsNothing);
     expect(find.textContaining('Flowcharts', findRichText: true), findsWidgets);
     expect(find.textContaining('DETAILS', findRichText: true), findsWidgets);
   });
@@ -63,7 +62,10 @@ void main() {
     );
     expect(find.byType(EverglowDivider), findsOneWidget);
     expect(find.textContaining('---', findRichText: true), findsNothing);
-    expect(find.textContaining('First point', findRichText: true), findsWidgets);
+    expect(
+      find.textContaining('First point', findRichText: true),
+      findsWidgets,
+    );
     expect(find.textContaining('Step one', findRichText: true), findsWidgets);
   });
 
@@ -76,6 +78,51 @@ void main() {
       find.textContaining('Edward Gaming', findRichText: true),
       findsWidgets,
     );
+  });
+
+  testWidgets('plain chat lists keep formatting without card shells', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: EverglowMarkdown(
+            text:
+                '- **First** point\n- Second point\n\n1. Step one\n2. Step two',
+            plainLists: true,
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester
+          .widget<EverglowBulletGroup>(find.byType(EverglowBulletGroup))
+          .plain,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<EverglowNumberedGroup>(find.byType(EverglowNumberedGroup))
+          .plain,
+      isTrue,
+    );
+    for (final type in [EverglowBulletGroup, EverglowNumberedGroup]) {
+      expect(
+        find
+            .descendant(of: find.byType(type), matching: find.byType(Container))
+            .evaluate()
+            .where(
+              (element) =>
+                  (element.widget as Container).decoration is BoxDecoration &&
+                  ((element.widget as Container).decoration as BoxDecoration)
+                          .border !=
+                      null,
+            ),
+        isEmpty,
+      );
+    }
+    expect(find.textContaining('**', findRichText: true), findsNothing);
+    expect(find.textContaining('Step two', findRichText: true), findsWidgets);
   });
 
   testWidgets('numbered steps share one grouped card', (tester) async {

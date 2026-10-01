@@ -14,6 +14,7 @@ class _MarkdownText extends StatelessWidget {
   Widget build(BuildContext context) {
     return EverglowMarkdown(
       text: text,
+      plainLists: true,
       baseStyle:
           baseStyle ??
           AppTypography.bodyMedium().copyWith(

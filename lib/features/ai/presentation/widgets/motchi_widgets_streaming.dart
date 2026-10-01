@@ -438,7 +438,14 @@ class _ComposerInputState extends State<_ComposerInput> {
   @override
   void initState() {
     super.initState();
+    _hasText = widget.controller.text.trim().isNotEmpty;
     widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
   }
 
   Future<void> _startVoice() async {
@@ -473,7 +480,6 @@ class _ComposerInputState extends State<_ComposerInput> {
     return Selector<AIService, bool>(
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
-        final ai = context.read<AIService>();
         final canSend = _hasText || widget.attachedImages.isNotEmpty;
         final inner = Container(
           key: widget.inputKey,
@@ -522,7 +528,9 @@ class _ComposerInputState extends State<_ComposerInput> {
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
                                   decoration: BoxDecoration(
-                                    color: AppColors.inkDeep.withValues(alpha: 0.72),
+                                    color: AppColors.inkDeep.withValues(
+                                      alpha: 0.72,
+                                    ),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -543,34 +551,13 @@ class _ComposerInputState extends State<_ComposerInput> {
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.inkDeep.withValues(alpha: 0.95),
-                      AppColors.velvet.withValues(alpha: 0.82),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(26),
+                  color: AppColors.moonlight.withValues(alpha: 0.055),
+                  borderRadius: BorderRadius.circular(22),
                   border: Border.all(
                     color: _focused
-                        ? AppColors.blushGold.withValues(alpha: 0.55)
-                        : AppColors.blushGold.withValues(alpha: 0.16),
-                    width: 1.1,
+                        ? AppColors.roseQuartz.withValues(alpha: 0.45)
+                        : AppColors.border,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.38),
-                      blurRadius: 22,
-                      offset: const Offset(0, 8),
-                    ),
-                    if (_focused)
-                      BoxShadow(
-                        color: AppColors.blushGold.withValues(alpha: 0.20),
-                        blurRadius: 24,
-                        offset: const Offset(0, 3),
-                      ),
-                  ],
                 ),
                 child: Focus(
                   onFocusChange: (v) => setState(() => _focused = v),
@@ -584,218 +571,187 @@ class _ComposerInputState extends State<_ComposerInput> {
                     }
                     return KeyEventResult.ignored;
                   },
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Container(
-                          decoration: widget.attachedImages.isNotEmpty
-                              ? BoxDecoration(
-                                  color: AppColors.blushGold.withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppColors.blushGold.withValues(alpha: 0.35),
-                                    width: 0.8,
-                                  ),
-                                )
-                              : null,
-                          child: IconButton(
-                            onPressed: widget.onPickImages,
-                            icon: Icon(
-                              Icons.add_photo_alternate_rounded,
-                              color: widget.attachedImages.isNotEmpty
-                                  ? AppColors.blushGold
-                                  : AppColors.textMuted,
-                              size: 21,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: widget.controller,
+                              focusNode: widget.focusNode,
+                              style: AppTypography.bodyMedium().copyWith(
+                                color: AppColors.petalWhite,
+                                height: 1.5,
+                                fontSize: 14.5,
+                              ),
+                              minLines: 1,
+                              maxLines: 6,
+                              textInputAction: TextInputAction.newline,
+                              decoration: InputDecoration(
+                                hintText: 'Message Motchi…',
+                                hintStyle: AppTypography.bodyMedium().copyWith(
+                                  color: AppColors.textDisabled,
+                                  fontSize: 14,
+                                ),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                              ),
                             ),
-                            tooltip: 'Attach images',
                           ),
-                        ),
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              right: 10,
+                              bottom: 8,
+                            ),
+                            child: IconButton(
+                              onPressed: isLoading
+                                  ? widget.onStop
+                                  : (canSend ? widget.onSend : null),
+                              tooltip: isLoading
+                                  ? 'Stop generating'
+                                  : 'Send message',
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.roseQuartz,
+                                disabledBackgroundColor: AppColors.glassSoft,
+                                foregroundColor: AppColors.inkDeep,
+                                disabledForegroundColor: AppColors.textDisabled,
+                                minimumSize: const Size(44, 44),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              icon: Icon(
+                                isLoading
+                                    ? Icons.stop_rounded
+                                    : Icons.arrow_upward_rounded,
+                                size: 21,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      if (_bridge.isSpeechSupported)
-                        IconButton(
-                          onPressed: _isListening ? null : _startVoice,
-                          icon: _isListening
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.blushGold,
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.mic_none_rounded,
-                                  color: AppColors.textMuted,
-                                  size: 22,
+                      Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: Container(
+                              decoration: widget.attachedImages.isNotEmpty
+                                  ? BoxDecoration(
+                                      color: AppColors.blushGold.withValues(
+                                        alpha: 0.16,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.blushGold.withValues(
+                                          alpha: 0.35,
+                                        ),
+                                        width: 0.8,
+                                      ),
+                                    )
+                                  : null,
+                              child: IconButton(
+                                onPressed: widget.onPickImages,
+                                icon: Icon(
+                                  Icons.add_photo_alternate_rounded,
+                                  color: widget.attachedImages.isNotEmpty
+                                      ? AppColors.blushGold
+                                      : AppColors.textMuted,
+                                  size: 21,
                                 ),
-                          tooltip: _isListening
-                              ? 'Listening...'
-                              : 'Voice input',
-                        ),
-                      // Canvas toggle — glowing gold pill when ON.
-                      Padding(
-                        padding: const EdgeInsets.only(left: 2),
-                        child: Tooltip(
-                          message: widget.canvasEnabled
-                              ? 'Canvas: on — quizzes open as interactive cards'
-                              : 'Canvas: off — Motchi chats normally',
-                          child: InkWell(
-                            onTap: widget.onToggleCanvas,
-                            borderRadius: BorderRadius.circular(12),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 7,
+                                tooltip: 'Attach images',
                               ),
-                              decoration: BoxDecoration(
-                                color: widget.canvasEnabled
-                                    ? AppColors.blushGold.withValues(alpha: 0.18)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: widget.canvasEnabled
-                                      ? AppColors.blushGold.withValues(alpha: 0.40)
-                                      : Colors.transparent,
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    widget.canvasEnabled
-                                        ? Icons.dashboard_customize_rounded
-                                        : Icons.dashboard_customize_outlined,
-                                    color: widget.canvasEnabled
-                                        ? AppColors.blushGold
-                                        : AppColors.textMuted,
-                                    size: 20,
-                                  ),
-                                  if (widget.canvasEnabled) ...[
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Canvas',
-                                      style: AppTypography.labelSmall().copyWith(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (_bridge.isSpeechSupported)
+                            IconButton(
+                              onPressed: _isListening ? null : _startVoice,
+                              icon: _isListening
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
                                         color: AppColors.blushGold,
                                       ),
+                                    )
+                                  : Icon(
+                                      Icons.mic_none_rounded,
+                                      color: AppColors.textMuted,
+                                      size: 22,
                                     ),
-                                  ],
-                                ],
-                              ),
+                              tooltip: _isListening
+                                  ? 'Listening...'
+                                  : 'Voice input',
                             ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: widget.focusNode,
-                          style: AppTypography.bodyMedium().copyWith(
-                            color: AppColors.petalWhite,
-                            height: 1.5,
-                            fontSize: 14.5,
-                          ),
-                          minLines: 1,
-                          maxLines: 6,
-                          textInputAction: TextInputAction.newline,
-                          decoration: InputDecoration(
-                            hintText: 'Whisper to Motchi… 🐾',
-                            hintStyle: AppTypography.bodyMedium().copyWith(
-                              color: AppColors.textDisabled,
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8, bottom: 4),
-                        child: GestureDetector(
-                          onTap: ai.isLoading
-                              ? widget.onStop
-                              : (!canSend ? null : widget.onSend),
-                          child: Tooltip(
-                            message: ai.isLoading
-                                ? 'Stop generating'
-                                : 'Send message',
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                gradient: (!ai.isLoading && canSend)
-                                    ? const LinearGradient(
-                                        colors: [
-                                          AppColors.deepRose,
-                                          AppColors.auroraRose,
-                                        ],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      )
-                                    : null,
-                                color: ai.isLoading
-                                    ? AppColors.deepRose.withValues(alpha: 0.45)
-                                    : (!canSend
-                                          ? AppColors.velvet.withValues(
-                                              alpha: 0.55,
+                          // Canvas toggle — glowing gold pill when ON.
+                          Padding(
+                            padding: const EdgeInsets.only(left: 2),
+                            child: Tooltip(
+                              message: widget.canvasEnabled
+                                  ? 'Canvas: on — quizzes open as interactive cards'
+                                  : 'Canvas: off — Motchi chats normally',
+                              child: InkWell(
+                                onTap: widget.onToggleCanvas,
+                                borderRadius: BorderRadius.circular(12),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: widget.canvasEnabled
+                                        ? AppColors.blushGold.withValues(
+                                            alpha: 0.18,
+                                          )
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: widget.canvasEnabled
+                                          ? AppColors.blushGold.withValues(
+                                              alpha: 0.40,
                                             )
-                                          : null),
-                                borderRadius: BorderRadius.circular(16),
-                                border: (!ai.isLoading && canSend)
-                                    ? Border.all(
-                                        color: AppColors.blushGold.withValues(
-                                          alpha: 0.50,
-                                        ),
-                                        width: 1.1,
-                                      )
-                                    : null,
-                                boxShadow: (!ai.isLoading && canSend)
-                                    ? [
-                                        BoxShadow(
-                                          color: AppColors.deepRose.withValues(
-                                            alpha: 0.45,
-                                          ),
-                                          blurRadius: 14,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                        BoxShadow(
-                                          color: AppColors.blushGold.withValues(
-                                            alpha: 0.25,
-                                          ),
-                                          blurRadius: 10,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: ai.isLoading
-                                    ? const Icon(
-                                        Icons.stop_rounded,
-                                        color: AppColors.petalWhite,
-                                        size: 21,
-                                      )
-                                    : Icon(
-                                        canSend
-                                            ? Icons.pets_rounded
-                                            : Icons.arrow_upward_rounded,
-                                        color: canSend
-                                            ? AppColors.petalWhite
-                                            : AppColors.textDisabled,
-                                        size: canSend ? 19 : 21,
+                                          : Colors.transparent,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        widget.canvasEnabled
+                                            ? Icons.dashboard_customize_rounded
+                                            : Icons
+                                                  .dashboard_customize_outlined,
+                                        color: widget.canvasEnabled
+                                            ? AppColors.blushGold
+                                            : AppColors.textMuted,
+                                        size: 20,
                                       ),
+                                      if (widget.canvasEnabled) ...[
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Canvas',
+                                          style: AppTypography.labelSmall()
+                                              .copyWith(
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.blushGold,
+                                              ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
@@ -805,7 +761,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    '🐾 Motchi remembers privately for you two · history in the left panel',
+                    'Just for you two · Motchi can make mistakes',
                     style: AppTypography.bodySmall().copyWith(
                       color: AppColors.textDisabled,
                       fontSize: 10.5,
