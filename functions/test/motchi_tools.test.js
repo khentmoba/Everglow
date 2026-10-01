@@ -461,11 +461,16 @@ test('isLightChat matches the greeting/smalltalk routing exactly', () => {
   for (const m of ['hi', 'Hello!', 'good morning', 'mew', 'how are you?', 'thanks!', 'ok', 'lol']) {
     assert.equal(isLightChat(m), true, m);
   }
-  for (const m of ['hi, remember that I love lilies', 'what movies should we watch?', 'remember that I love lilies', 'plan a date night', '']) {
+  // Real greetings name her — the tail keeps them in the fast lane.
+  for (const m of ['hi motchi', 'hello motchi!', 'hi, motchi', 'hey motchii', 'good morning motchi', 'thanks motchi', 'thank you motchi!', 'love you motchi', 'how are you motchi?']) {
+    assert.equal(isLightChat(m), true, m);
+  }
+  for (const m of ['hi, remember that I love lilies', 'hi motchi, remember that I love lilies', 'what movies should we watch?', 'remember that I love lilies', 'plan a date night', 'hi dada', 'motchi', '']) {
     assert.equal(isLightChat(m), false, m);
   }
   // Routing parity: the extracted regexes still drive the same tool sets.
   assert.equal(selectToolsForRequest('assistant', 'hi', '', '').length, 0);
+  assert.equal(selectToolsForRequest('assistant', 'hi motchi', '', '').length, 0);
   assert.equal(selectToolsForRequest('assistant', 'how are you', '', '').length, 3);
   assert.ok(selectToolsForRequest('assistant', 'what movies should we watch?', '', '').length > 3);
 });
