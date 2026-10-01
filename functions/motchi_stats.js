@@ -2,8 +2,6 @@
 
 // Everglow Cloud Functions — Motchi stats group.
 // 7-day observability rollup for Khent's Creator tab.
-// (The old Agnes image endpoint lived here; it had zero callers and
-// was deleted — git history restores it if AI images come back.)
 
 const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
 
