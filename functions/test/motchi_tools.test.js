@@ -234,6 +234,25 @@ test('tool routing covers every eval case intent', () => {
   }
 });
 
+test('web access does not require users to ask for a search', () => {
+  const { selectToolsForRequest } = require('../motchi_tool_schemas.js');
+  for (const message of [
+    'motchi, whats the next match in valorant champs',
+    'who won the finals?',
+    'when does the next iPhone come out?',
+    'what can you do?',
+  ]) {
+    const selected = selectToolsForRequest('assistant', message).map(t => t.function.name);
+    for (const name of ['web_search', 'read_web_page', 'browse_web']) {
+      assert.ok(selected.includes(name), `${message}: missing ${name}`);
+    }
+    assert.ok(tools.toolListSection(selected).includes('You CAN search the web'));
+  }
+  assert.deepEqual(selectToolsForRequest('assistant', 'hi'), []);
+  assert.ok(!tools.toolListSection(['read_memories']).includes('You CAN search the web'));
+  assert.ok(!tools.toolListSection(['web_search', 'read_web_page']).includes('browse_web'));
+});
+
 test('tool routing stays small', () => {
   const plain = tools.selectToolNames('today was a long day, just wanted to say hi');
   assert.ok(plain.length <= 20, `plain chat selected ${plain.length}`);
@@ -385,8 +404,8 @@ test('read/write split: reads travel light, writes ride action verbs', () => {
   assert.ok(has('remember that Khent likes black coffee', 'remember_fact'));
   assert.ok(has('move our dentist appointment to Friday', 'update_calendar_event'));
   assert.ok(has('rename our reading habit to morning pages', 'edit_habit'));
-  // Core stays lean: reads + XP only.
-  assert.deepEqual([...tools.CORE_TOOLS].sort(), ['add_xp', 'read_memories']);
+  // Core stays lean: web reads, memory, and XP — no private-data writes.
+  assert.deepEqual([...tools.CORE_TOOLS].sort(), ['add_xp', 'browse_web', 'read_memories', 'read_web_page', 'web_search']);
   // Follow-through keeps the ex-core writes for offered plans.
   assert.ok(tools.selectToolNames('yes', 'Want me to save this to the jar?').includes('save_to_starlight_jar'));
   assert.ok(tools.selectToolNames('yes', 'Want me to remember that for you?').includes('remember_fact'));

@@ -27,12 +27,16 @@ class EverglowMarkdown extends StatelessWidget {
   final double paragraphGap;
   final bool selectable;
 
+  /// Open lists for conversational replies; other surfaces keep their cards.
+  final bool plainLists;
+
   const EverglowMarkdown({
     super.key,
     required this.text,
     this.baseStyle,
     this.paragraphGap = 10,
     this.selectable = true,
+    this.plainLists = false,
   });
 
   @override
@@ -160,17 +164,16 @@ class EverglowMarkdown extends StatelessWidget {
       if (bullet != null) {
         final items = <String>[];
         while (i < lines.length) {
-          final m = RegExp(
-            r'^([-*•])\s+(.*)$',
-          ).firstMatch(lines[i].trim());
+          final m = RegExp(r'^([-*•])\s+(.*)$').firstMatch(lines[i].trim());
           if (m == null) break;
           final buf = StringBuffer(m.group(2) ?? '');
           var j = i + 1;
           while (j < lines.length) {
             final next = lines[j];
             if (next.trim().isEmpty) break;
-            if (RegExp(r'^([-*•]|\d+[.)]|#{1,4}|```|\||>)')
-                .hasMatch(next.trim())) {
+            if (RegExp(
+              r'^([-*•]|\d+[.)]|#{1,4}|```|\||>)',
+            ).hasMatch(next.trim())) {
               break;
             }
             if (next.startsWith('  ') || next.startsWith('\t')) {
@@ -194,7 +197,9 @@ class EverglowMarkdown extends StatelessWidget {
             break;
           }
         }
-        blocks.add(EverglowBulletGroup(items: items, base: base));
+        blocks.add(
+          EverglowBulletGroup(items: items, base: base, plain: plainLists),
+        );
         continue;
       }
 
@@ -203,9 +208,7 @@ class EverglowMarkdown extends StatelessWidget {
       if (numbered != null) {
         final items = <(String, String)>[];
         while (i < lines.length) {
-          final m = RegExp(
-            r'^(\d+)[.)]\s+(.*)$',
-          ).firstMatch(lines[i].trim());
+          final m = RegExp(r'^(\d+)[.)]\s+(.*)$').firstMatch(lines[i].trim());
           if (m == null) break;
           items.add((m.group(1)!, m.group(2) ?? ''));
           var k = i + 1;
@@ -220,7 +223,9 @@ class EverglowMarkdown extends StatelessWidget {
             break;
           }
         }
-        blocks.add(EverglowNumberedGroup(items: items, base: base));
+        blocks.add(
+          EverglowNumberedGroup(items: items, base: base, plain: plainLists),
+        );
         continue;
       }
 
@@ -289,10 +294,7 @@ class EverglowMarkdown extends StatelessWidget {
 
   Widget _paragraph(String text, TextStyle base) {
     if (text.isEmpty) return const SizedBox.shrink();
-    return Text.rich(
-      TextSpan(children: parseInline(text, base)),
-      style: base,
-    );
+    return Text.rich(TextSpan(children: parseInline(text, base)), style: base);
   }
 
   Widget? _buildTable(List<String> lines, TextStyle base) {
@@ -386,8 +388,8 @@ class _EverglowTable extends StatelessWidget {
                 color: r == 0
                     ? AppColors.blushGold.withValues(alpha: 0.12)
                     : (r.isOdd
-                        ? AppColors.moonlight.withValues(alpha: 0.035)
-                        : null),
+                          ? AppColors.moonlight.withValues(alpha: 0.035)
+                          : null),
               ),
               children: [
                 for (var c = 0; c < columnCount; c++)
@@ -428,9 +430,7 @@ class _EverglowTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.inkDeep.withValues(alpha: 0.45),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.16)),
         boxShadow: AppElevation.e2,
       ),
       clipBehavior: Clip.antiAlias,
@@ -440,13 +440,10 @@ class _EverglowTable extends StatelessWidget {
               ? constraints.maxWidth
               : MediaQuery.sizeOf(context).width;
           if (columnCount >= 4) {
-            return table(
-              {
-                for (var c = 0; c < columnCount; c++)
-                  c: const FixedColumnWidth(130),
-              },
-              minWidth: maxW,
-            );
+            return table({
+              for (var c = 0; c < columnCount; c++)
+                c: const FixedColumnWidth(130),
+            }, minWidth: maxW);
           }
           return table({
             for (var c = 0; c < columnCount; c++)
@@ -642,16 +639,23 @@ class _SectionLabel extends StatelessWidget {
 class EverglowBulletGroup extends StatelessWidget {
   final List<String> items;
   final TextStyle base;
-  const EverglowBulletGroup({super.key, required this.items, required this.base});
+  final bool plain;
+  const EverglowBulletGroup({
+    super.key,
+    required this.items,
+    required this.base,
+    this.plain = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return _ListGroupShell(
+      plain: plain,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const _ListDivider(),
+            if (i > 0 && !plain) const _ListDivider(),
             _BulletRow(content: items[i], base: base),
           ],
         ],
@@ -697,10 +701,7 @@ class _BulletRow extends StatelessWidget {
           Expanded(
             child: Text.rich(
               TextSpan(
-                children: parseInline(
-                  split != null ? split.$2 : content,
-                  base,
-                ),
+                children: parseInline(split != null ? split.$2 : content, base),
               ),
               style: base,
             ),
@@ -715,67 +716,71 @@ class _BulletRow extends StatelessWidget {
 /// Public so regression tests can lock the grouped (not per-item) look.
 class EverglowNumberedGroup extends StatelessWidget {
   final List<(String, String)> items; // (number, content)
+  final bool plain;
   final TextStyle base;
   const EverglowNumberedGroup({
     super.key,
     required this.items,
     required this.base,
+    this.plain = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return _ListGroupShell(
+      plain: plain,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const _ListDivider(),
+            if (i > 0 && !plain) const _ListDivider(),
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 9,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    margin: const EdgeInsets.only(right: 11, top: 1),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.blushGold, AppColors.deepRose],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.deepRose.withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                  if (plain)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 11),
+                      child: Text('${items[i].$1}.', style: base),
+                    )
+                  else
+                    Container(
+                      width: 22,
+                      height: 22,
+                      margin: const EdgeInsets.only(right: 11, top: 1),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.blushGold, AppColors.deepRose],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        items[i].$1,
-                        style: AppTypography.bodySmall().copyWith(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.petalWhite,
-                          height: 1.0,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.deepRose.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          items[i].$1,
+                          style: AppTypography.bodySmall().copyWith(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.petalWhite,
+                            height: 1.0,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 1),
                       child: Text.rich(
-                        TextSpan(
-                          children: parseInline(items[i].$2, base),
-                        ),
+                        TextSpan(children: parseInline(items[i].$2, base)),
                         style: base,
                       ),
                     ),
@@ -793,19 +798,19 @@ class EverglowNumberedGroup extends StatelessWidget {
 /// Shared shell for grouped lists — one soft card, hairline border.
 class _ListGroupShell extends StatelessWidget {
   final Widget child;
-  const _ListGroupShell({required this.child});
+  final bool plain;
+  const _ListGroupShell({required this.child, this.plain = false});
 
   @override
   Widget build(BuildContext context) {
+    if (plain) return child;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 3),
       decoration: BoxDecoration(
         color: AppColors.moonlight.withValues(alpha: 0.045),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
       ),
       child: child,
     );
@@ -943,9 +948,7 @@ class _CodeBlock extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.inkDeep.withValues(alpha: 0.65),
         borderRadius: AppRadius.radiusMd,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.16)),
         boxShadow: AppElevation.e2,
       ),
       clipBehavior: Clip.antiAlias,
@@ -1202,7 +1205,8 @@ bool _startsWithEmoji(String text) {
   if (t.isEmpty) return false;
   final first = t.runes.first;
   // Fast path: the markers Motchi actually emits.
-  const markers = '💡🧠✨📌🔑⭐🌙💭🎯📝📚❤️💖🔥✅❌⚠️👉🏷️📦🔹🔸🟣🟢🔵🟡🟠🔴💬🗺️🧭🎓📖📎';
+  const markers =
+      '💡🧠✨📌🔑⭐🌙💭🎯📝📚❤️💖🔥✅❌⚠️👉🏷️📦🔹🔸🟣🟢🔵🟡🟠🔴💬🗺️🧭🎓📖📎';
   if (markers.contains(String.fromCharCode(first))) return true;
   // General ranges: emoticons, pictographs, dingbats, enclosed chars,
   // regional-indicator flags (🇨🇳🇰🇷🇺🇸 — common in sports answers).

@@ -699,7 +699,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       userAskedForVisibleQuiz(_prevUserText(allMsgs, i)),
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
-                  senderName: isUserMsg ? callerName : null,
                 );
                 // Web answers keep their tappable sources under the
                 // finished bubble (persisted on the message).
