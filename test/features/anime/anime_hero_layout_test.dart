@@ -132,10 +132,9 @@ void main() {
     );
     await tester.pump();
 
-    // Exactly one slide layer should be visible (opacity > 0)
-    final opacities = tester.widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity));
-    final visibleCount = opacities.where((op) => op.opacity > 0).length;
-    expect(visibleCount, 1, reason: 'Active slide layer must be visible, never 0');
+    // One switcher holds the single current slide (index wraps to item 1).
+    expect(find.byType(AnimatedSwitcher), findsOneWidget);
+    expect(find.text('#1 TRENDING'), findsOneWidget);
   });
 
   testWidgets('AnimeXSpotlight survives repeated fullscreen toggle cycles without error', (
@@ -168,9 +167,8 @@ void main() {
     }
 
     expect(tester.takeException(), isNull);
-    final opacities = tester.widgetList<AnimatedOpacity>(find.byType(AnimatedOpacity));
-    final visibleCount = opacities.where((op) => op.opacity > 0).length;
-    expect(visibleCount, 1, reason: 'Active slide must stay visible after repeated toggles');
+    expect(find.byType(AnimatedSwitcher), findsOneWidget);
+    expect(find.text('#1 TRENDING'), findsOneWidget);
   });
 
   testWidgets('AnimeXSpotlight renders trailer controls and toggles mute and play/pause', (

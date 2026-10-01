@@ -11,8 +11,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   int _currentChapter = 0;
   double _fontSize = 17.0;
   BookReaderMode _readerMode = BookReaderMode.text;
-  late final String _viewType;
-  static int _viewTypeCounter = 0;
+  html.IFrameElement? _embedIframe;
   ReaderTheme _theme = ReaderTheme.dark;
 
   // Persisted state keys
@@ -25,13 +24,14 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
-    _viewType = 'reader-iframe-${_viewTypeCounter++}';
     _loadAndSplit();
   }
 
   @override
   void dispose() {
     _tts.stop();
+    _embedIframe?.src = 'about:blank';
+    _embedIframe?.remove();
     super.dispose();
   }
 
@@ -205,15 +205,13 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
 
   void _registerIframe(String iaId) {
     try {
-      ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
-        return html.IFrameElement()
-          ..src = 'https://archive.org/stream/$iaId?ui=embed'
-          ..style.width = '100%'
-          ..style.height = '100%'
-          ..style.border = 'none';
-      });
+      _embedIframe = html.IFrameElement()
+        ..src = 'https://archive.org/stream/$iaId?ui=embed'
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.border = 'none';
     } catch (e) {
-      debugPrint('[ReaderScreen] Archive.org iframe registration failed: $e');
+      debugPrint('[ReaderScreen] Archive.org iframe creation failed: $e');
     }
   }
 

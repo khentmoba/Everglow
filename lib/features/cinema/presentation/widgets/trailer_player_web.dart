@@ -1,5 +1,4 @@
 import 'dart:js_interop';
-import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
@@ -26,10 +25,14 @@ class TrailerPlayer extends StatefulWidget {
 }
 
 class _TrailerPlayerState extends State<TrailerPlayer> {
-  late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
+
+  @visibleForTesting
+  web.HTMLIFrameElement get debugIframe => _iframe;
+  late final web.HTMLDivElement _wrapper;
   JSFunction? _onLoadListener;
   bool _loaded = false;
+  bool _active = true;
 
   String _buildEmbedUrl(String key) {
     final queryParams = [
@@ -68,9 +71,6 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
   @override
   void initState() {
     super.initState();
-    _viewType =
-        'everglow-trailer-player-${widget.videoKey}-${DateTime.now().microsecondsSinceEpoch}';
-
     final embedUrl = _buildEmbedUrl(widget.videoKey);
 
     _iframe = web.HTMLIFrameElement()
@@ -99,7 +99,7 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       ..pointerEvents = 'none';
 
     // Wrapper clips the iframe overflow (hides the title bar shifted above)
-    final wrapper = web.document.createElement('div') as web.HTMLDivElement;
+    final wrapper = _wrapper = web.HTMLDivElement();
     wrapper.style
       ..position = 'relative'
       ..width = '100%'
@@ -130,7 +130,7 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
 
     _onLoadListener = ((web.Event _) {
       _loaded = true;
-      if (mounted) {
+      if (mounted && _active) {
         if (!widget.muted) {
           _postCommand('unMute');
           _postCommand('setVolume', 100);
@@ -151,16 +151,22 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
     // the constructor chain could miss a fast cached load, leaving the
     // hover preview stuck on the still frame with the trailer hidden.
     _iframe.src = embedUrl;
+  }
 
-    ui_web.platformViewRegistry.registerViewFactory(
-      _viewType,
-      (int viewId) => wrapper,
-    );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = TickerMode.valuesOf(context).enabled;
+    if (_active == active) return;
+    _active = active;
+    _loaded = false;
+    _iframe.src = active ? _buildEmbedUrl(widget.videoKey) : 'about:blank';
   }
 
   @override
   void didUpdateWidget(covariant TrailerPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!_active) return;
     if (oldWidget.videoKey != widget.videoKey) {
       _loadVideo(widget.videoKey);
     } else {
@@ -184,11 +190,18 @@ class _TrailerPlayerState extends State<TrailerPlayer> {
       _iframe.removeEventListener('load', _onLoadListener);
     }
     _iframe.src = 'about:blank';
+    _iframe.remove();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return HtmlElementView(viewType: _viewType);
+    if (!_active) return const SizedBox.shrink();
+    return HtmlElementView.fromTagName(
+      tagName: 'div',
+      onElementCreated: (element) {
+        (element as web.HTMLElement).appendChild(_wrapper);
+      },
+    );
   }
 }

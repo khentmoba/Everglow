@@ -7,7 +7,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// within [_loadTimeout], or fails three URL-form retries. The error
   /// card takes over from the spinner in that case.
   bool _iframeFailed = false;
-  late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
   JSFunction? _onErrorListener;
@@ -166,9 +165,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     };
     _sourceService.addListener(_serviceListener!);
 
-    _viewType =
-        'everglow-cinema-player-${widget.tmdbId}-${widget.mediaType}-${widget.season ?? 0}-${widget.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
-
     _iframe = web.HTMLIFrameElement()
       ..allow =
           'autoplay *; fullscreen *; encrypted-media *; picture-in-picture *; accelerometer *; gyroscope *; clipboard-write *'
@@ -220,11 +216,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     } else {
       _iframe.src = _buildPlayerUrl(_selectedProvider);
     }
-
-    ui_web.platformViewRegistry.registerViewFactory(
-      _viewType,
-      (int viewId) => _iframe,
-    );
 
     // All orientations allowed — phones auto-enter theater mode in
     // landscape (see [_maybeAutoFullscreen]) instead of being locked.
@@ -601,20 +592,15 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _upNextFallbackTimer?.cancel();
     if (widget.mediaType != 'tv' || widget.isAnime) return;
     var minutes = runtimeMinutes;
-    minutes ??= await _nextService.fetchEpisodeRuntime(
-      tmdbId: widget.tmdbId,
-    );
+    minutes ??= await _nextService.fetchEpisodeRuntime(tmdbId: widget.tmdbId);
     if (!mounted || _hasRealProgress) return;
     final totalSeconds = (minutes ?? 42) * 60;
     final delaySeconds = totalSeconds - _upNextLeadSeconds;
     if (delaySeconds <= 10) return;
-    _upNextFallbackTimer = Timer(
-      Duration(seconds: delaySeconds),
-      () {
-        if (!mounted || _hasRealProgress) return;
-        _showUpNext();
-      },
-    );
+    _upNextFallbackTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (!mounted || _hasRealProgress) return;
+      _showUpNext();
+    });
   }
 
   /// Checks real playback position against the end of the episode.
@@ -1010,6 +996,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     }
     _hideFullscreenExitButton();
     _iframe.src = 'about:blank';
+    _iframe.remove();
     _scrollController.dispose();
 
     SystemChrome.setPreferredOrientations([

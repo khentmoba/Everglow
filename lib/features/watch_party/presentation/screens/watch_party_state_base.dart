@@ -57,7 +57,6 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   // ─── iframe plumbing (mirrors VideoPlayerScreen) ──────────────────
   bool _isLoading = true;
   bool _iframeFailed = false;
-  late final String _viewType;
   late final web.HTMLIFrameElement _iframe;
   JSFunction? _onLoadListener;
   JSFunction? _onErrorListener;
@@ -115,8 +114,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   Future<void> _restoreHlsVolume() async {
     final memory = await _playerMemory.load(_hlsVolumeKey);
     if (!mounted) return;
-    final volume = (memory.volume ?? PlayerMemoryService.defaultVolume)
-        .clamp(0.0, 1.0);
+    final volume = (memory.volume ?? PlayerMemoryService.defaultVolume).clamp(
+      0.0,
+      1.0,
+    );
     setState(() => _hlsVolume = volume);
     _hlsController.setVolume(volume);
   }
@@ -242,9 +243,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     };
     _sourceService.addListener(_serviceListener!);
 
-    _viewType =
-        'everglow-watchparty-${_room.tmdbId}-${_room.mediaType}-${_room.season ?? 0}-${_room.episode ?? 0}-${DateTime.now().microsecondsSinceEpoch}';
-
     _iframe = web.HTMLIFrameElement()
       ..allow =
           'autoplay *; fullscreen *; encrypted-media *; picture-in-picture *; accelerometer *; gyroscope *; clipboard-write *'
@@ -313,11 +311,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         );
       }
     }
-
-    ui_web.platformViewRegistry.registerViewFactory(
-      _viewType,
-      (int viewId) => _iframe,
-    );
 
     // Subscribe to the room. Updates are debounced by Firestore's
     // snapshot pipeline (1-3s in practice) which is fine for our
@@ -395,6 +388,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       web.window.removeEventListener('message', _messageListener);
     }
     _iframe.src = 'about:blank';
+    _iframe.remove();
     _pageScrollController.dispose();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,

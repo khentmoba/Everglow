@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:js_interop';
-import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -160,7 +159,14 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                     },
                   )
                 else if (!_iframeFailed)
-                  HtmlElementView(viewType: _viewType),
+                  // Built-in factory: server/media switches reuse this
+                  // one frame instead of registering new ones.
+                  HtmlElementView.fromTagName(
+                    tagName: 'div',
+                    onElementCreated: (element) {
+                      (element as web.HTMLElement).appendChild(_iframe);
+                    },
+                  ),
                 if (_isHlsServer && !_hlsReady && !_hlsFailed)
                   _WatchPartyCinematicLoader(serverName: _activeServerLabel),
                 if (_isLoading && !_iframeFailed && !_isHlsServer)
@@ -663,8 +669,8 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               _hlsVolume <= 0
                   ? Icons.volume_off_rounded
                   : _hlsVolume < 0.5
-                      ? Icons.volume_down_rounded
-                      : Icons.volume_up_rounded,
+                  ? Icons.volume_down_rounded
+                  : Icons.volume_up_rounded,
               color: AppColors.textMuted,
               size: 16,
             ),

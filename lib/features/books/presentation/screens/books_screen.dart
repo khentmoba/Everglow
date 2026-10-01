@@ -32,6 +32,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/utils/scroll_memory.dart';
+import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 part 'books_screen_widgets.dart';
 part 'books_screen_state_base.dart';
 
@@ -43,7 +44,7 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Main entry for the books feature. Three-tab IndexedStack
+/// Main entry for the books feature. Three-tab lazy stack
 /// (Home, Search, Library) with a custom glassmorphic bottom nav.
 /// Mirrors `CinemaScreen` from the cinema feature.
 class BooksScreen extends StatefulWidget {
@@ -83,7 +84,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
           SafeArea(
             top: false,
             bottom: false,
-            child: IndexedStack(
+            child: LazyIndexedStack(
               index: _currentIndex,
               children: [
                 _buildHomeTab(),
@@ -156,8 +157,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
   Widget _buildTopHeader() {
     final top = MediaQuery.paddingOf(context).top;
     final canPop = Navigator.canPop(context);
-    final isCouple =
-        context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(

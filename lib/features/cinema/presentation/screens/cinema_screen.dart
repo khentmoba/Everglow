@@ -20,6 +20,7 @@ import '../widgets/tabs/cinema_search_tab.dart' show CinemaSearchTab;
 import '../widgets/tabs/cinema_browse_tab.dart' show CinemaBrowseTab;
 import '../widgets/tabs/cinema_library_tab.dart' show CinemaLibraryTab;
 import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
+import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Cinema Color Tokens
@@ -77,9 +78,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   bool _isLoadingHome = true;
 
-  /// Watch Together mounts lazily (see build) — flipped on first visit.
-  bool _hasVisitedTogether = false;
-
   /// Below-the-fold rails (genre + discovery rows) wait for the first scroll
   /// so opening Cinema only pays for the rows Claire can actually see.
   bool _deepRowsStarted = false;
@@ -95,7 +93,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     } else {
       _currentIndex = widget.initialTab.clamp(0, 4);
     }
-    if (_currentIndex == 4) _hasVisitedTogether = true;
     _fetchHomeData();
     // Read auth-dependent state after the first frame so Provider is available.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -360,7 +357,11 @@ class _CinemaScreenState extends State<CinemaScreen> {
         ),
       ]);
     } catch (e, st) {
-      Logger.e('Cinema: discovery rails fetch failed', error: e, stackTrace: st);
+      Logger.e(
+        'Cinema: discovery rails fetch failed',
+        error: e,
+        stackTrace: st,
+      );
       return;
     }
 
@@ -415,7 +416,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     HapticFeedback.selectionClick();
     setState(() {
       _currentIndex = index;
-      if (index == 4) _hasVisitedTogether = true;
     });
   }
 
@@ -648,12 +648,15 @@ class _CinemaScreenState extends State<CinemaScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = AppBreakpoint.isDesktop(context);
-    final isCoupleUser =
-        context.select<AuthService, bool>((a) => a.isCoupleUser);
-    final isCinemaOnlyUser =
-        context.select<AuthService, bool>((a) => a.isCinemaOnlyUser);
-    final userName =
-        context.select<AuthService, String>((a) => a.currentUser ?? '');
+    final isCoupleUser = context.select<AuthService, bool>(
+      (a) => a.isCoupleUser,
+    );
+    final isCinemaOnlyUser = context.select<AuthService, bool>(
+      (a) => a.isCinemaOnlyUser,
+    );
+    final userName = context.select<AuthService, String>(
+      (a) => a.currentUser ?? '',
+    );
 
     // Main cinema content. The desktop top bar overlays it so the hero
     // can remain full bleed, just like the streaming-service pattern.
@@ -663,7 +666,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
         child: Stack(
           children: [
             const ColoredBox(color: NetflixColors.background),
-            IndexedStack(
+            LazyIndexedStack(
               index: _currentIndex,
               children: [
                 CinemaHomeTab(
@@ -723,17 +726,13 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onRemoveProgress: _removeProgress,
                   onSwitchTab: _switchTab,
                 ),
-                // Watch Together holds a room stream, so it
-                // only mounts once visited — otherwise every Cinema open pays
-                // for a tab Claire may never tap.
-                if (_hasVisitedTogether)
-                  CinemaWatchTogetherTab(
-                    watchlist: _watchlist,
-                    onMediaTap: _showMediaDetails,
-                    onSwitchTab: _switchTab,
-                  )
-                else
-                  const SizedBox.shrink(),
+                // The lazy stack mounts every tab on first visit, so the
+                // room stream here costs nothing until Claire opens the tab.
+                CinemaWatchTogetherTab(
+                  watchlist: _watchlist,
+                  onMediaTap: _showMediaDetails,
+                  onSwitchTab: _switchTab,
+                ),
               ],
             ),
             // Floating back button (mobile/tablet): couple users return to
