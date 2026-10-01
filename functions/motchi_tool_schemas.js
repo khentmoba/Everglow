@@ -1007,9 +1007,12 @@ const MOTCHI_TOOLS = [
 // The chat handler skips Firestore context + memory + persona reads for
 // these and answers from a slim prompt — same warmth, far faster TTFT.
 // Anchored whole-message patterns: compound asks ("hi, remember X")
-// don't match, so they keep the full pipeline.
-const PURE_GREETING_RE = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i;
-const SMALLTALK_RE = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i;
+// don't match, so they keep the full pipeline. Both accept an optional
+// " motchi" tail ("hi motchi", "thanks motchi!", "hi, motchi") —
+// real greetings name her, and without this the fast lane only caught
+// bare "hi" while the most common messages paid full price.
+const PURE_GREETING_RE = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)(?:[!.,\s]+(?:motchi+|mochi+))?[!.,\s]*$/i;
+const SMALLTALK_RE = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)(?:[!.,\s]+(?:motchi+|mochi+))?[!.,\s?]*$/i;
 
 function isLightChat(message) {
   const trimmed = String(message || '').trim();
