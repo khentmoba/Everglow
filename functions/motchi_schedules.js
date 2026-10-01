@@ -11,7 +11,6 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { getAdmin, getDb } = require('./common.js');
 const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
-const { getRemoteEmbedding } = require('./motchi_memory.js');
 const { subNextRenewal } = require('./motchi_exec_planning.js');
 
 /**
@@ -534,21 +533,15 @@ const motchiMemorySweep = onSchedule({
     let pruned = 0;
     let updated = 0;
     let backfilled = 0;
-    let remoteBudget = 25;
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
-      // Backfill: invalid embeddings (missing, malformed, odd dims)
-      // recompute remote-first within budget, else locally. Runs for
-      // pinned docs too. (Check-and-decrement is sync, so the budget
-      // holds exactly even though the jobs run concurrently.)
+      // Backfill invalid embeddings (missing, malformed, odd dims) with
+      // local vectors. Runs for pinned docs too. Legacy remote-space
+      // vectors are left alone — ranking falls back to recomputing
+      // their local vector, so they still rank correctly.
       if (data.fact && needsEmbeddingBackfill(data.embedding)) {
         try {
-          let emb = null;
-          if (remoteBudget > 0) {
-            remoteBudget--;
-            emb = await getRemoteEmbedding(String(data.fact));
-          }
-          if (!emb) emb = simpleEmbedding(String(data.fact), 64);
+          const emb = simpleEmbedding(String(data.fact), 64);
           if (emb) {
             await doc.ref.update({ embedding: emb });
             backfilled++;

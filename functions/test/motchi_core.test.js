@@ -7,6 +7,7 @@ const {
   tokenize,
   parseFactStructure,
   rankMemories,
+  selectPromptMemories,
   needsEmbeddingBackfill,
   selectContextBlocks,
   selectBlockKeys,
@@ -121,6 +122,19 @@ test('selectContextBlocks keeps proactive plus relevant blocks', () => {
   assert.ok(!selected.some((b) => b.key === 'music'));
 });
 
+test('prompt memories have a relevance and text budget, not a filled quota', () => {
+  const irrelevant = Array.from({ length: 12 }, (_, i) => ({ fact: `Clair visited island ${i}` }));
+  assert.deepEqual(selectPromptMemories(irrelevant, 'Explain binary search'), []);
+  assert.ok(selectPromptMemories(facts, 'Clair music').some((f) => f.id === 'b'));
+  assert.ok(selectPromptMemories(facts, 'unsa paborito ni Khent nga coffee?').some((f) => f.id === 'a'));
+  assert.ok(selectPromptMemories(facts, 'what drink does she enjoy?').length <= 4, 'broad personal paraphrases retain a conservative fallback');
+  assert.ok(selectPromptMemories(facts, 'tell me about our lives').length <= 4);
+  const long = Array.from({ length: 20 }, (_, i) => ({ fact: `coffee ${i} ${'x'.repeat(200)}` }));
+  const chosen = selectPromptMemories(long, 'coffee', 10, 500);
+  assert.ok(chosen.length > 0);
+  assert.ok(chosen.reduce((n, f) => n + f.fact.length + 3, 0) <= 500);
+});
+
 test('generateTrivia answers come from real facts', () => {
   const questions = generateTrivia(facts, 3, () => 0.5);
   assert.equal(questions.length, 3);
@@ -225,14 +239,13 @@ test('getProactiveContext always leads with the PHT date', () => {
   assert.ok(anniv.includes('Anniversary in 4 days'));
 });
 
-test('selectBlockKeys falls back to the awareness set', () => {
-  assert.deepEqual(selectBlockKeys(''), DEFAULT_CONTEXT_KEYS.slice(0, 4));
-  assert.deepEqual(selectBlockKeys('zzzq blorp fnord'), DEFAULT_CONTEXT_KEYS.slice(0, 4));
-  assert.equal(selectBlockKeys('hi motchi').length, 4);
-  // Hits ride above the floor; filler never includes the sessions scan.
+test('selectBlockKeys avoids filler except for vague personal questions', () => {
+  assert.deepEqual(selectBlockKeys(''), []);
+  assert.deepEqual(selectBlockKeys('Explain binary search'), []);
+  assert.deepEqual(selectBlockKeys('hi motchi'), []);
+  assert.deepEqual(selectBlockKeys('how are we doing'), DEFAULT_CONTEXT_KEYS.slice(0, 2));
   const garden = selectBlockKeys('how is our garden doing');
-  assert.ok(garden.includes('garden'));
-  assert.equal(garden.length, 4);
+  assert.deepEqual(garden, ['garden']);
   assert.ok(!selectBlockKeys('zzzq blorp fnord').includes('sessions'));
   assert.ok(selectBlockKeys('what did we talk about at the start').includes('sessions'));
   // Rich queries still scale up to the cap.
@@ -347,27 +360,17 @@ test('formatSessionContext bounds summaries, blocks, and chars', () => {
   assert.ok(trunc.includes('… [truncated]'));
 });
 
-test('rankMemories compares each fact in its shared space', () => {
-  // Remote query vector (fake 4-dim space): fact A matches it closely,
-  // fact B carries a local 64-dim vector, fact C carries nothing.
-  const remoteQuery = [1, 0, 0, 0];
+test('rankMemories uses local vectors and ignores foreign dims', () => {
   const facts = [
     { fact: 'Clair adores lilies more than roses', embedding: [0.9, 0.1, 0, 0] },
-    { fact: 'Clair adores lilies daily forever', embedding: new Array(64).fill(0.01) },
+    { fact: 'Clair adores lilies daily forever' },
     { fact: 'zzz qqq xxx', createdAt: new Date('2020-01-01') },
   ];
-  const ranked = rankMemories(facts, 'lilies', 3, new Date(), remoteQuery);
-  // A wins via remote cosine even though B shares more tokens.
-  assert.equal(ranked[0].fact, facts[0].fact);
-  // Without the remote vector, everything still ranks (local fallback).
-  const local = rankMemories(facts, 'lilies', 3, new Date());
-  assert.equal(local.length, 3);
-  // Dimension mismatch never crashes and never matches.
-  const odd = rankMemories(
-    [{ fact: 'unrelated words here', embedding: [1, 2, 3] }],
-    'lilies', 3, new Date(), [1, 2],
-  );
-  assert.equal(odd.length, 1);
+  // The 4-dim vector is a legacy foreign space: ignored, never a crash,
+  // and the local recompute still ranks the lily facts above noise.
+  const ranked = rankMemories(facts, 'lilies', 3, new Date());
+  assert.equal(ranked.length, 3);
+  assert.equal(ranked[2].fact, facts[2].fact);
 });
 
 test('findContradiction spots same-subject same-relation updates', () => {

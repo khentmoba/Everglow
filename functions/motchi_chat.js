@@ -12,6 +12,7 @@ const {
   shouldExtractMemory,
   phtDateString,
   LLM_INPUT_TOKEN_BUDGET,
+  isPersonalQuery,
 } = require('./motchi_core.js');
 const {
   serverExtractAndSaveMemory,
@@ -142,6 +143,7 @@ function endsWithDanglingColon(text) {
 }
 
 async function handleProxyAI(req, res) {
+  const requestStartedAt = Date.now();
   // V1 fallback — kept for non-streaming compatibility.
   // V2 equivalent (proxyAIv2) below supports true SSE streaming.
   res.set('Access-Control-Allow-Origin', '*');
@@ -176,11 +178,11 @@ async function handleProxyAI(req, res) {
   if (enforceRateLimit(req, res, { endpoint: 'proxyAI', limit: 15, windowMs: 60000, uid: decoded.uid })) return;
 
   const {
-    messages, context, systemPrompt: customSystemPrompt, memories, feature,
+    messages, context, systemPrompt: customSystemPrompt, feature,
     caller: clientCaller, enableThinking, canvas, sessionId,
   } = req.body;
-  const requestStartedAt = Date.now();
   const turnTools = [];
+  const requestTrace = { modelCalls: 0, retries: 0, toolRounds: 0, repairs: 0, firstTokenMs: null };
   // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
   // never makes artifacts proactively — but an explicit ask ("make chess",
   // "quiz us") always wins and still builds the artifact. Defaults ON so
@@ -323,15 +325,17 @@ async function handleProxyAI(req, res) {
   // instead of three in a row. Each fails soft: a hiccup just means Motchi
   // answers with less context, never a failed chat for Clair.
   const _tCtx0 = Date.now();
+  const retrievalQuery = (isBareYes(lastUserMessage) || /\b(it|that|this|those|these)\b/i.test(lastUserMessage)) && prevUserText
+    ? `${prevUserText}\n${lastUserMessage}` : lastUserMessage;
   const _contextPromise = (feature && !context && !fastPath && !lightChat)
-    ? buildContextForFeature(feature, caller, lastUserMessage).catch((e) => {
+    ? buildContextForFeature(feature, caller, retrievalQuery).catch((e) => {
         console.warn('[proxyAI] server context failed, continuing without it:', e.message);
         return '';
       })
     : Promise.resolve('');
-  const _memoriesPromise = ((fastPath || lightChat)
+  const _memoriesPromise = ((fastPath || lightChat || req.body.includeMemories === false || (feature === 'assistant' && !isPersonalQuery(retrievalQuery)))
     ? Promise.resolve([])
-    : selectRelevantMemories(memories, lastUserMessage, 10)
+    : selectRelevantMemories(retrievalQuery, 10)
   ).catch((e) => {
     console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
     return [];
@@ -422,8 +426,17 @@ When they say "plan our anniversary", "surprise us", "help us decide", or any la
 3. Synthesize into one warm, actionable plan — don't just dump tool JSON
 Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(location:"Cabadbaran") → search_movies(query:"cozy romance") → final answer weaving weather + ideas + watchlist. If a step fails, acknowledge and propose an alternative.
 
-${identityContext ? `\n${identityContext}` : ''}
-${resolvedContext ? `\n## What You Know\n${resolvedContext}` : ''}`;
+`;
+
+  // Dynamic awareness must also reach a saved/custom persona, not just
+  // the fallback template. Light chat already carries its identity.
+  if (!lightChat) {
+    systemPrompt += identityContext ? `\n${identityContext}` : '';
+    systemPrompt += resolvedContext ? `\n## What You Know\n${resolvedContext}` : '';
+  }
+  if (relevantMemories.length) {
+    systemPrompt += '\nUse supplied facts when relevant. Do not add unsupported personal details. If a personal detail is missing, use read_memories before guessing.';
+  }
 
   // Server-side memory filtering: top 10 relevant memories ride along.
   // (Was 30 — the tail rarely mattered and cost tokens every call.)
@@ -874,6 +887,14 @@ ${HTML_GAME_GUIDE}
   // give before/after TTFT compares without any new infra. ──
   {
     const _fpMs = (fastPath && turnTools.length) ? turnTools[0].elapsedMs : 0;
+    Object.assign(requestTrace, {
+      preparedMs: Date.now() - requestStartedAt,
+      contextChars: resolvedContext.length,
+      memoryCount: relevantMemories.length,
+      memoryChars: relevantMemories.join('\n').length,
+      promptChars: systemPrompt.length,
+      attachedTools: tools.length,
+    });
     console.log(`[proxyAI] pre-llm auth=${_tAuthMs}ms user=${_tUserMs}ms cap=${_tCapMs}ms ctx=${_tCtxMs}ms fp=${_fpMs}ms prompt=${systemPrompt.length}ch msgs=${nimMessages.length} tools=${tools.length} fastpath=${!!fastPath} light=${!!lightChat} staleArt=${_strippedArtifacts} stream=${isStreaming}`);
   }
 
@@ -918,6 +939,8 @@ ${HTML_GAME_GUIDE}
             break;
           }
           llmCalls++;
+          requestTrace.modelCalls++;
+          if (attempt > 0) requestTrace.retries++;
           try {
             streamResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
               method: 'POST',
@@ -968,7 +991,16 @@ ${HTML_GAME_GUIDE}
               moods: [], activities: [], watchlist: [], starlight: [],
               memories: [], insights: [],
             });
-            sendEvent({ content: fallback + " 🍡 Motchi is a little sleepy right now, but I'm still here. Try again in a moment?" });
+            const fallbackReply = fallback + " 🍡 Motchi is a little sleepy right now, but I'm still here. Try again in a moment?";
+            requestTrace.firstTokenMs = Date.now() - requestStartedAt;
+            sendEvent({ content: fallbackReply });
+            recordMotchiTurn({
+              sessionId, caller, feature: feature || 'assistant',
+              userMessage: lastUserMessage, assistantReply: fallbackReply,
+              tools: turnTools, model, requestTrace,
+              durationMs: Date.now() - requestStartedAt,
+              error: lastFetchError || `Provider HTTP ${streamResp?.status}`,
+            }).catch(() => {});
             sendEvent({ tool_status: 'done' });
             sendEvent('[DONE]');
             stopKeepalive(); stopHeartbeat();
@@ -1015,6 +1047,7 @@ ${HTML_GAME_GUIDE}
                 _streamedFinalReply += delta.content;
                 sendEvent({ content: delta.content });
                 stopHeartbeat();
+                if (requestTrace.firstTokenMs === null) requestTrace.firstTokenMs = Date.now() - requestStartedAt;
                 if (_ttftMs === null && toolRound === 1) {
                   _ttftMs = Date.now() - _round0;
                   console.log(`[proxyAI] ttft round=1 llm=${_ttftMs}ms total=${Date.now() - requestStartedAt}ms`);
@@ -1056,6 +1089,7 @@ ${HTML_GAME_GUIDE}
           // after the warm text, so the client parses both together).
           if (!didArtifactRepair && canvasSectionOn && wantsArtifact && !hasCompleteArtifact(_streamedFinalReply)) {
             didArtifactRepair = true;
+            requestTrace.repairs++;
             if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
             currentMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
             sendEvent({ tool_status: 'repairing' });
@@ -1069,6 +1103,7 @@ ${HTML_GAME_GUIDE}
           // client parses both together as one finished reply).
           if (!didDanglingRepair && endsWithDanglingColon(_streamedFinalReply)) {
             didDanglingRepair = true;
+            requestTrace.repairs++;
             if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
             currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
             sendEvent({ tool_status: 'repairing' });
@@ -1088,6 +1123,7 @@ ${HTML_GAME_GUIDE}
         }
 
         // ── Execute tool calls found in the stream ──
+        requestTrace.toolRounds++;
         sendEvent({ tool_status: 'executing' });
 
         // Build assistant message with tool_calls
@@ -1195,7 +1231,9 @@ ${HTML_GAME_GUIDE}
         llmCalls < MAX_LLM_CALLS_PER_MESSAGE;
       if (needsPostLoopRepair) {
         didDanglingRepair = true;
+        requestTrace.repairs++;
         llmCalls++;
+        requestTrace.modelCalls++;
         if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
         currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
         sendEvent({ tool_status: 'repairing' });
@@ -1222,6 +1260,7 @@ ${HTML_GAME_GUIDE}
             const repairData = await repairResp.json();
             const repairText = repairData.choices?.[0]?.message?.content || '';
             if (repairText) {
+              if (requestTrace.firstTokenMs === null) requestTrace.firstTokenMs = Date.now() - requestStartedAt;
               _streamedFinalReply += repairText;
               sendEvent({ content: repairText });
             }
@@ -1261,6 +1300,7 @@ ${HTML_GAME_GUIDE}
         tools: turnTools,
         reasoning: _streamedReasoning,
         model,
+        requestTrace,
         durationMs: Date.now() - requestStartedAt,
         error: null,
         imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
@@ -1280,6 +1320,7 @@ ${HTML_GAME_GUIDE}
         tools: turnTools,
         reasoning: _streamedReasoning,
         model,
+        requestTrace,
         durationMs: Date.now() - requestStartedAt,
         error: e.message,
         imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
@@ -1293,6 +1334,7 @@ ${HTML_GAME_GUIDE}
   }
 
   async function callLlmOnce(msgs, withoutTools = false) {
+    requestTrace.modelCalls++;
     const resp = await fetch(
       'https://tokenharbor.ai/v1/chat/completions',
       {
@@ -1369,6 +1411,7 @@ ${HTML_GAME_GUIDE}
       return true;
     });
     if (freshCalls.length === 0) break;
+    requestTrace.toolRounds++;
     nsMessages.push({
       role: 'assistant',
       content: message.content || null,
@@ -1424,6 +1467,7 @@ ${HTML_GAME_GUIDE}
   // Missing-block repair (mirror of the streaming path): one strict
   // follow-up call when an artifact ask yielded no fenced block.
   if (canvasSectionOn && wantsArtifact && !hasCompleteArtifact(nsReply)) {
+    requestTrace.repairs++;
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
     nsMessages.push({ role: 'user', content: ARTIFACT_REPAIR_NUDGE });
     try {
@@ -1439,6 +1483,7 @@ ${HTML_GAME_GUIDE}
   // Dangling-list repair (mirror of the streaming path): one strict
   // follow-up call when the reply ends with ":" and no list after it.
   if (endsWithDanglingColon(nsReply)) {
+    requestTrace.repairs++;
     if (nsReply) nsMessages.push({ role: 'assistant', content: nsReply });
     nsMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
     try {
@@ -1463,6 +1508,7 @@ ${HTML_GAME_GUIDE}
     tools: turnTools,
     reasoning: nsReasoning,
     model: nsModel || model,
+    requestTrace,
     durationMs: Date.now() - requestStartedAt,
     error: null,
     imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,

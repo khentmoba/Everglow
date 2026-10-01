@@ -56,7 +56,8 @@ class _FakeConversationRepo implements IAIConversationRepository {
   Future<List<AISession>> listSessions({int limit = 50}) async => archived;
 
   @override
-  Stream<List<AISession>> watchSessions({int limit = 50}) => const Stream.empty();
+  Stream<List<AISession>> watchSessions({int limit = 50}) =>
+      const Stream.empty();
 
   @override
   Future<void> loadSession(String sessionId) async {}
@@ -68,6 +69,7 @@ class _FakeConversationRepo implements IAIConversationRepository {
 }
 
 class _FakeMemoryRepo implements IAIMemoryRepository {
+  int loadCalls = 0;
   @override
   List<String> get all => [];
 
@@ -78,7 +80,9 @@ class _FakeMemoryRepo implements IAIMemoryRepository {
   bool get isLoaded => true;
 
   @override
-  Future<void> load() async {}
+  Future<void> load() async {
+    loadCalls++;
+  }
 
   @override
   Future<void> save(String fact, {String category = 'fact'}) async {}
@@ -107,6 +111,18 @@ class _FakeMemoryRepo implements IAIMemoryRepository {
 }
 
 void main() {
+  test('opening chat does not load the Memory Book', () async {
+    final memories = _FakeMemoryRepo();
+    final ai = AIService(
+      memoryRepo: memories,
+      conversationRepo: _FakeConversationRepo(),
+    );
+    await ai.loadAssistantConversation();
+    expect(memories.loadCalls, 0);
+    expect(ai.assistantConversation, isNotNull);
+    ai.dispose();
+  });
+
   test('AIService starts with null lastError and cleans up on cancel', () {
     final ai = AIService(
       memoryRepo: _FakeMemoryRepo(),

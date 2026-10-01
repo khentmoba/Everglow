@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
 import 'dart:math' as math;
+
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+
 import '../../domain/models/ai_conversation.dart';
 import '../../domain/motchi_quality.dart';
 import 'ai_memory_repo.dart';
@@ -65,7 +67,8 @@ class AIService extends ChangeNotifier {
   );
   final ValueNotifier<List<String>> activeToolsNotifier =
       ValueNotifier<List<String>>(const []);
-  final ValueNotifier<List<Map<String, dynamic>>> toolResultsNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
+  final ValueNotifier<List<Map<String, dynamic>>> toolResultsNotifier =
+      ValueNotifier<List<Map<String, dynamic>>>([]);
   List<Map<String, dynamic>> _toolResults = [];
   List<Map<String, dynamic>> get toolResults => List.unmodifiable(_toolResults);
   List<String> get activeTools => List.unmodifiable(_activeTools);
@@ -112,9 +115,7 @@ class AIService extends ChangeNotifier {
       final payload = payloads[i];
       final content = payload['content'];
       final blocks = content is List ? content : const [];
-      final hasImages = blocks.any(
-        (b) => b is Map && b['type'] == 'image_url',
-      );
+      final hasImages = blocks.any((b) => b is Map && b['type'] == 'image_url');
       if (!hasImages) {
         out.add(payload);
         continue;
@@ -157,7 +158,11 @@ class AIService extends ChangeNotifier {
         if (results is List) {
           for (final s in results) {
             if (s is Map) {
-              add('${s['title'] ?? ''}', '${s['url'] ?? ''}', '${s['site'] ?? ''}');
+              add(
+                '${s['title'] ?? ''}',
+                '${s['url'] ?? ''}',
+                '${s['site'] ?? ''}',
+              );
             }
           }
         }
@@ -291,11 +296,9 @@ class AIService extends ChangeNotifier {
       final context =
           contextOverride ?? ''; // server builds from feature+caller
 
-      // Load permanent memories (trimmed for the tiny mascot).
-      await _ensureMemoriesLoaded();
-      final memoriesForRequest = feature == 'guardian' && _memoryRepo.all.length > 10
-          ? _memoryRepo.all.sublist(0, 10)
-          : _memoryRepo.all;
+      // Chat memory is retrieved server-side. The Memory Book loads its
+      // own display cache; sending it here loses metadata and stays stale.
+      const memoriesForRequest = <String>[];
 
       // Build the API messages payload (recent history only — older turns
       // live on in archived sessions + summaries server-side).
@@ -479,8 +482,7 @@ class AIService extends ChangeNotifier {
   Future<String> quickAsk({
     required String message,
     String? context,
-    String systemPrompt =
-        'You are the Everglow AI — a helpful, loving assistant for Khent and Clair. Be warm, insightful, and concise.',
+    String systemPrompt = 'You are the Everglow AI — a helpful, loving assistant for Khent and Clair. Be warm, insightful, and concise.',
     bool includeMemories = true,
   }) async {
     try {
@@ -493,29 +495,23 @@ class AIService extends ChangeNotifier {
         {'role': 'user', 'content': message},
       ];
 
-      final List<String> memories;
-      if (includeMemories) {
-        await _ensureMemoriesLoaded();
-        memories = _memoryRepo.all;
-      } else {
-        memories = const [];
-      }
-
       final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
-      final response = await http.post(
-        Uri.parse(_cloudFunctionUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-        body: jsonEncode({
-          'systemPrompt': systemMsg,
-          'messages': messages,
-          'context': contextData,
-          'memories': memories,
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse(_cloudFunctionUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $idToken',
+            },
+            body: jsonEncode({
+              'systemPrompt': systemMsg,
+              'messages': messages,
+              'context': contextData,
+              'includeMemories': includeMemories,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -564,10 +560,7 @@ class AIService extends ChangeNotifier {
       final messages = <Map<String, dynamic>>[
         for (final turn in history)
           {'role': turn['role'], 'content': turn['content']},
-        {
-          'role': 'user',
-          'content': '$sourcesBlock\n\n$question',
-        },
+        {'role': 'user', 'content': '$sourcesBlock\n\n$question'},
       ];
 
       final reply = await _callProxyAIStream(
@@ -649,14 +642,11 @@ class AIService extends ChangeNotifier {
       message: message,
       // Thinking mode off: mascot replies should be instant, not deep reasoned.
       enableThinking: false,
-      contextOverride:
-          'You are Motchi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
+      contextOverride: 'You are Motchi 🍡 — the magical white cat who lives inside Everglow and watches over Khent and Clair. Your Guardian form appears as a cute floating cat on the dashboard. Speak in warm, playful, expressive messages. You can be 1-4 sentences depending on what feels right. Use emojis sometimes. Be genuinely helpful — answer questions, give suggestions, check in on how they\'re doing.',
     );
   }
 
   // ─── Permanent Memory System ───────────────────────────────────
-
-  Future<void> _ensureMemoriesLoaded() => _memoryRepo.load();
 
   Future<void> saveMemory(String fact, {String category = 'fact'}) async {
     await _memoryRepo.save(fact, category: category);
@@ -766,7 +756,7 @@ class AIService extends ChangeNotifier {
           body: jsonEncode({
             'messages': messages,
             'context': context,
-            'memories': memories,
+            if (memories.isNotEmpty) 'memories': memories,
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
             'sessionId': currentSessionId,
@@ -863,7 +853,7 @@ class AIService extends ChangeNotifier {
     final body = jsonEncode({
       'messages': messages,
       'context': context,
-      'memories': memories,
+      if (memories.isNotEmpty) 'memories': memories,
       'feature': feature,
       'caller': caller,
       'sessionId': currentSessionId,
@@ -910,15 +900,9 @@ class AIService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load the assistant conversation on panel open.
-  /// Memories ride along in parallel so the first send doesn't pay the
-  /// 150-doc Firestore read after the user already tapped send — by the
-  /// time they type, both are warm and the request leaves immediately.
+  /// Opening chat needs only the conversation, not the Memory Book.
   Future<void> loadAssistantConversation() async {
-    await Future.wait([
-      _conversationRepo.loadAssistant(),
-      _ensureMemoriesLoaded(),
-    ]);
+    await _conversationRepo.loadAssistant();
     notifyListeners();
   }
 

@@ -5,21 +5,15 @@ const test = require('node:test');
 
 const mem = require('./motchi_memory');
 
-test('motchi memory group exposes four helpers', () => {
+test('motchi memory group exposes its helpers (no remote embeddings)', () => {
   assert.equal(typeof mem.serverExtractAndSaveMemory, 'function');
   assert.equal(typeof mem.checkHallucinations, 'function');
-  assert.equal(typeof mem.getEmbedding, 'function');
   assert.equal(typeof mem.selectRelevantMemories, 'function');
-  assert.equal(typeof mem.isCasualMemoryQuery, 'function');
+  assert.equal(typeof mem.loadMemoryFacts, 'function');
   assert.equal(typeof mem.invalidateMemoryCache, 'function');
-});
-
-test('isCasualMemoryQuery gates the remote embedding round-trip', () => {
-  assert.equal(mem.isCasualMemoryQuery('hi motchi!'), true);
-  assert.equal(mem.isCasualMemoryQuery('good morning motchi, we love you!'), true);
-  assert.equal(mem.isCasualMemoryQuery(''), true);
-  assert.equal(mem.isCasualMemoryQuery('what do you remember about our coffee habits?'), false);
-  assert.equal(mem.isCasualMemoryQuery('Khent prefers black coffee and rides a Winner X'), false);
+  assert.equal(mem.getEmbedding, undefined);
+  assert.equal(mem.getRemoteEmbedding, undefined);
+  assert.equal(mem.isCasualMemoryQuery, undefined);
 });
 
 test('invalidateMemoryCache is safe to call any time', () => {
@@ -27,27 +21,56 @@ test('invalidateMemoryCache is safe to call any time', () => {
   mem.invalidateMemoryCache();
 });
 
-test('selectRelevantMemories ranks client facts without Firestore', async () => {
+function memoryDb(facts) {
+  const calls = { reads: 0, limits: [], writes: 0 };
+  const chain = (pinned = false) => ({
+    collection: () => chain(),
+    doc: () => ({ collection: () => chain(), update: async () => { calls.writes++; } }),
+    orderBy: () => chain(),
+    where: () => chain(true),
+    limit: (n) => { calls.limits.push(n); return chain(pinned); },
+    get: async () => {
+      calls.reads++;
+      const docs = facts.filter((f) => !pinned || f.pinned)
+        .map((f, i) => ({ id: f.id || String(i), data: () => f }));
+      return { docs };
+    },
+  });
+  return { db: { collection: () => chain() }, calls };
+}
+
+test('server retrieval preserves metadata and caches candidates, not stale selections', async () => {
   const facts = [
-    'Clair loves strawberry cake',
-    'Khent prefers black coffee',
-    'The sky is blue today',
+    { id: 'cake', fact: 'Clair loves strawberry cake' },
+    { id: 'coffee', fact: 'Khent prefers black coffee' },
+    { id: 'pin', fact: 'Clair loves lilies', pinned: true },
   ];
-  const ranked = await mem.selectRelevantMemories(facts, 'What cake does Clair love?');
-  assert.ok(Array.isArray(ranked));
-  assert.equal(ranked.length, 3);
-  assert.match(ranked[0].toLowerCase(), /clair|cake/);
+  const { db, calls } = memoryDb(facts);
+  const ranked = await mem.selectRelevantMemories('What cake does Clair love?', 10, db);
+  assert.ok(ranked.includes(facts[0].fact));
+  assert.ok(ranked.includes(facts[2].fact));
+  assert.ok(!ranked.includes(facts[1].fact));
+  assert.equal(calls.reads, 2);
+  assert.deepEqual(calls.limits, [150, 20]);
+  await mem.selectRelevantMemories('What cake does Clair love?', 10, db);
+  assert.equal(calls.reads, 2);
+  assert.equal(calls.writes, 2, 'access writes are deduped within the cache window');
+  assert.deepEqual(await mem.selectRelevantMemories('Explain binary search', 10, db), []);
+  facts.push({ id: 'fresh', fact: 'Clair loves mango cake' });
+  mem.invalidateMemoryCache();
+  assert.ok((await mem.selectRelevantMemories('Clair cake', 10, db)).includes('Clair loves mango cake'));
+  assert.equal(calls.reads, 4);
 });
 
-test('selectRelevantMemories respects maxResults', async () => {
-  const facts = ['fact one', 'fact two', 'fact three'];
-  const ranked = await mem.selectRelevantMemories(facts, 'fact', 2);
-  assert.equal(ranked.length, 2);
-});
-
-test('getEmbedding returns null for empty input', async () => {
-  assert.equal(await mem.getEmbedding(''), null);
-  assert.equal(await mem.getEmbedding('   '), null);
+test('prompt retrieval uses no remote embedding request', async () => {
+  const realFetch = global.fetch;
+  const { db } = memoryDb([{ fact: 'Clair loves coffee', embedding: new Array(1536).fill(0) }]);
+  global.fetch = async () => { throw new Error('network must not be touched'); };
+  try {
+    assert.deepEqual(await mem.selectRelevantMemories('What coffee does Clair love?', 1, db), ['Clair loves coffee']);
+  } finally {
+    global.fetch = realFetch;
+  }
 });
 
 test('checkHallucinations ignores short replies', async () => {
@@ -76,29 +99,6 @@ test('index still loads with the memory group extracted', () => {
   const indexExports = require('./index');
   assert.ok(indexExports.proxyAI);
   assert.ok(indexExports.proxyAIv2);
-});
-
-test('getRemoteEmbedding returns null without an API key', async () => {
-  const saved = process.env.AGNES_API_KEY;
-  delete process.env.AGNES_API_KEY;
-  try {
-    assert.equal(await mem.getRemoteEmbedding('hello'), null);
-    assert.equal(await mem.getRemoteEmbedding(''), null);
-  } finally {
-    if (saved !== undefined) process.env.AGNES_API_KEY = saved;
-  }
-});
-
-test('getEmbedding falls back to a local 64-dim vector', async () => {
-  const saved = process.env.AGNES_API_KEY;
-  delete process.env.AGNES_API_KEY;
-  try {
-    const emb = await mem.getEmbedding('Clair loves lilies');
-    assert.ok(Array.isArray(emb));
-    assert.equal(emb.length, 64);
-  } finally {
-    if (saved !== undefined) process.env.AGNES_API_KEY = saved;
-  }
 });
 
 test('checkHallucinations samples telemetry and caps title checks', async () => {
