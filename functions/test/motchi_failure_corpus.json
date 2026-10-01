@@ -168,5 +168,13 @@
   {"id": "vok-subs-read", "kind": "validate-ok", "tool": "get_subscriptions", "args": {}},
   {"id": "vok-subs-add", "kind": "validate-ok", "tool": "add_subscription", "args": {"name": "Netflix", "price": 549, "renewal_date": "2026-10-15"}},
   {"id": "verr-subs-price", "kind": "validate-err", "tool": "add_subscription", "args": {"name": "Netflix", "price": -5, "renewal_date": "2026-10-15"}},
-  {"id": "rt-subs-read-no-write", "kind": "routing", "message": "which subs renew soon", "mustInclude": ["get_subscriptions"], "mustExclude": ["add_subscription"]}
+  {"id": "rt-subs-read-no-write", "kind": "routing", "message": "which subs renew soon", "mustInclude": ["get_subscriptions"], "mustExclude": ["add_subscription"]},
+  {"id": "vok-sessions", "kind": "validate-ok", "tool": "search_sessions", "args": {"query": "beach trip"}},
+  {"id": "verr-sessions", "kind": "validate-err", "tool": "search_sessions", "args": {}},
+  {"id": "rt-sessions-recall", "kind": "routing", "message": "what did we talk about last week", "mustInclude": ["search_sessions"], "mustExclude": []},
+  {"id": "rt-sessions-nochat", "kind": "routing", "message": "what do you say we watch Dune tonight", "mustInclude": ["search_movies"], "mustExclude": ["search_sessions"]},
+  {"id": "vok-profile", "kind": "validate-ok", "tool": "save_profile_note", "args": {"note": "we are night owls", "confirm": true}},
+  {"id": "verr-profile", "kind": "validate-err", "tool": "save_profile_note", "args": {}},
+  {"id": "rt-profile-save", "kind": "routing", "message": "save to our profile that we love ramen", "mustInclude": ["save_profile_note"], "mustExclude": []},
+  {"id": "rt-profile-read", "kind": "routing", "message": "what is our profile", "mustInclude": ["read_memories"], "mustExclude": ["save_profile_note", "remember_fact"]}
 ]

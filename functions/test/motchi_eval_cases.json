@@ -949,5 +949,34 @@
     "expectedTools": [
       "add_subscription"
     ]
+  },
+  {
+    "id": "sessions-recall",
+    "message": "what did we talk about last week",
+    "expectedTools": [
+      "search_sessions"
+    ]
+  },
+  {
+    "id": "sessions-recall-you",
+    "message": "what did you tell me about the beach trip",
+    "expectedTools": [
+      "search_sessions"
+    ]
+  },
+  {
+    "id": "profile-save",
+    "message": "save to our profile that we are night owls",
+    "expectedTools": [
+      "save_profile_note"
+    ]
+  },
+  {
+    "id": "profile-save-pin",
+    "message": "remember that we love horror movies and pin it to our profile",
+    "expectedTools": [
+      "remember_fact",
+      "save_profile_note"
+    ]
   }
 ]

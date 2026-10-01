@@ -394,3 +394,59 @@ test('findContradiction spots same-subject same-relation updates', () => {
   assert.equal(findContradiction(parseFactStructure('Khent prefers oat lattes'), 'Khent prefers oat lattes', []), null);
   assert.equal(findContradiction(null, 'x', cands), null);
 });
+
+test('findDuplicateGroups merges exact and near-dupe facts only', () => {
+  const { findDuplicateGroups } = require('../motchi_core.js');
+  const facts = [
+    { id: 'a', fact: 'Khent prefers black coffee' },
+    { id: 'b', fact: 'Khent prefers black coffee!' },
+    { id: 'c', fact: 'Clair loves lilies' },
+  ];
+  const groups = findDuplicateGroups(facts);
+  assert.equal(groups.length, 1);
+  assert.deepEqual(groups[0].dupes.map((d) => d.id).sort(), ['a', 'b'].filter((id) => id !== groups[0].survivor.id));
+  assert.ok(['a', 'b'].includes(groups[0].survivor.id));
+});
+
+test('findDuplicateGroups survivor prefers pinned, confidence, then oldest', () => {
+  const { findDuplicateGroups } = require('../motchi_core.js');
+  const groups = findDuplicateGroups([
+    { id: 'old', fact: 'Khent prefers black coffee', pinned: false, confidence: 1.0, createdAt: '2026-01-01' },
+    { id: 'pin', fact: 'Khent prefers black coffee!', pinned: true, confidence: 0.4, createdAt: '2026-03-01' },
+    { id: 'new', fact: 'Khent prefers black coffee.', pinned: false, confidence: 1.0, createdAt: '2026-02-01' },
+  ]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].survivor.id, 'pin');
+  const conf = findDuplicateGroups([
+    { id: 'lo', fact: 'Clair loves lilies', confidence: 0.6, createdAt: '2026-01-01' },
+    { id: 'hi', fact: 'Clair loves lilies!', confidence: 0.9, createdAt: '2026-02-01' },
+  ]);
+  assert.equal(conf[0].survivor.id, 'hi');
+  const age = findDuplicateGroups([
+    { id: 'newer', fact: 'Clair loves lilies?', confidence: 1.0, createdAt: '2026-02-01' },
+    { id: 'older', fact: 'Clair loves lilies.', confidence: 1.0, createdAt: '2026-01-01' },
+  ]);
+  assert.equal(age[0].survivor.id, 'older');
+});
+
+test('selectPromptMemories leaves profile facts for the core block', () => {
+  const { selectPromptMemories } = require('../motchi_core.js');
+  const facts = [
+    { fact: 'Clair loves strawberry cake', category: 'fact' },
+    { fact: 'we are night owls', category: 'profile', pinned: true },
+  ];
+  const picked = selectPromptMemories(facts, 'what cake does Clair love');
+  assert.ok(picked.some((f) => f.fact === facts[0].fact));
+  assert.ok(!picked.some((f) => f.category === 'profile'));
+});
+
+test('findDuplicateGroups will not merge across subjects', () => {
+  const { findDuplicateGroups } = require('../motchi_core.js');
+  const groups = findDuplicateGroups([
+    { id: 'k', fact: 'Khent loves lilies' },
+    { id: 'c', fact: 'Clair loves lilies' },
+  ]);
+  assert.equal(groups.length, 0);
+  assert.deepEqual(findDuplicateGroups([]), []);
+  assert.deepEqual(findDuplicateGroups([{ id: 'x', fact: '  ' }]), []);
+});

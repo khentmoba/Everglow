@@ -9,7 +9,7 @@ const { getCalendarEvents } = require('./calendar_core.js');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
-const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
+const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, findDuplicateGroups, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
 const { subNextRenewal } = require('./motchi_exec_planning.js');
 
@@ -533,6 +533,7 @@ const motchiMemorySweep = onSchedule({
     let pruned = 0;
     let updated = 0;
     let backfilled = 0;
+    const deletedIds = new Set(); // decay-pruned docs skip the merge pass below
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
       // Backfill invalid embeddings (missing, malformed, odd dims) with
@@ -555,6 +556,7 @@ const motchiMemorySweep = onSchedule({
       const currentConf = Number(data.confidence ?? 1);
       const decayed = currentConf * Math.pow(0.5, daysSince / 90);
       if (decayed < 0.15) {
+        deletedIds.add(doc.id);
         await doc.ref.delete();
         pruned++;
       } else if (Math.abs(decayed - currentConf) > 0.05) {
@@ -564,7 +566,29 @@ const motchiMemorySweep = onSchedule({
       return null; // map-to-promises: values unused, allSettled joins only
     });
     await Promise.allSettled(jobs);
-    if (pruned > 0 || updated > 0 || backfilled > 0) console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} scanned=${snap.size}`);
+    // Mem0-style tidy: near-dupe facts merge into one survivor (pinned
+    // wins, then highest confidence, then oldest). Capped at 5 groups
+    // a night; pinned docs are never deleted. Runs after decay so
+    // already-pruned docs are out of the picture.
+    let merged = 0;
+    try {
+      const live = snap.docs
+        .filter((d) => !deletedIds.has(d.id))
+        .map((d) => ({ id: d.id, ref: d.ref, ...(d.data() || {}) }));
+      const groups = findDuplicateGroups(live).slice(0, 5);
+      for (const g of groups) {
+        const victims = g.dupes.filter((m) => m.pinned !== true && m.ref);
+        if (victims.length === 0) continue;
+        for (const v of victims) {
+          try { await v.ref.delete(); merged++; } catch (_) {}
+        }
+      }
+    } catch (e) {
+      console.warn('[motchiMemorySweep] merge pass failed:', e.message);
+    }
+    if (pruned > 0 || updated > 0 || backfilled > 0 || merged > 0) {
+      console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} merged=${merged} scanned=${snap.size}`);
+    }
   } catch (e) {
     console.warn('[motchiMemorySweep] failed:', e.message);
   }
