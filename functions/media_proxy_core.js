@@ -59,6 +59,23 @@ function buildLastfmUpstream(query = {}, apiKey = '') {
   return upstream;
 }
 
+/** Accept only this project's HTTPS Storage download URLs. */
+function parseProjectStorageUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch (err) {
+    throw new Error('Invalid imageUrl', { cause: err });
+  }
+  const match = parsed.pathname.match(/^\/v0\/b\/([^/]+)\/o\/(.+)$/);
+  const buckets = ['everglow-1c6db.firebasestorage.app', 'everglow-1c6db.appspot.com'];
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'firebasestorage.googleapis.com' ||
+      parsed.port || parsed.username || parsed.password || !match || !buckets.includes(match[1])) {
+    throw new Error('URL must be from the project Storage bucket');
+  }
+  return parsed;
+}
+
 /**
  * Maps a Firebase Storage download URL to the bucket-relative path that
  * the Admin SDK needs for deletion. Only allows this project bucket
@@ -69,18 +86,7 @@ function resolveGalleryDeletePath(imageUrl) {
   if (typeof imageUrl !== 'string' || imageUrl.length === 0) {
     throw new Error('Missing imageUrl');
   }
-  let parsed;
-  try {
-    parsed = new URL(imageUrl);
-  } catch (err) {
-    throw new Error('Invalid imageUrl', { cause: err });
-  }
-  if (parsed.hostname !== 'firebasestorage.googleapis.com') {
-    throw new Error('URL must be from the project Storage bucket');
-  }
-  if (!parsed.pathname.includes('everglow-1c6db')) {
-    throw new Error('URL must be from the project Storage bucket');
-  }
+  const parsed = parseProjectStorageUrl(imageUrl);
   const marker = '/o/';
   const at = parsed.pathname.indexOf(marker);
   if (at < 0) throw new Error('Not a Storage download URL');
@@ -114,6 +120,7 @@ module.exports = {
   isAllowedLastfmMethod,
   isAllowedTmdbPath,
   normalizeTmdbPath,
+  parseProjectStorageUrl,
   resolveGalleryDeletePath,
   resolveKatanaServerCookie,
 };
