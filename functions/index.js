@@ -58,8 +58,7 @@ const { notifyDiscordWatch, discordInteractions, sweepStaleDiscordWatch } = requ
 exports.notifyDiscordWatch = notifyDiscordWatch;
 exports.discordInteractions = discordInteractions;
 exports.sweepStaleDiscordWatch = sweepStaleDiscordWatch;
-const { agnesImage, motchiStats } = require('./motchi_image_stats.js');
-exports.agnesImage = agnesImage;
+const { motchiStats } = require('./motchi_stats.js');
 exports.motchiStats = motchiStats;
 const { sweepApiUsageAnomalies } = require('./usage_alerts.js');
 exports.sweepApiUsageAnomalies = sweepApiUsageAnomalies;
@@ -100,7 +99,7 @@ exports.generateStudySet = cappedHttps(10, handleGenerateStudySet, { timeoutSeco
 // Motchi schedules live in motchi_schedules.js.
 // Re-exported at the top of this file to keep the deploy surface identical.
 
-// Motchi stats lives in motchi_image_stats.js (see top re-exports).
+// Motchi stats lives in motchi_stats.js (see top re-exports).
 
 // Re-exports: keep the deploy surface identical.
 module.exports = Object.assign({}, module.exports, {

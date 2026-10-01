@@ -174,7 +174,6 @@ test('deploy surface still includes chat + schedules + catalog', () => {
   for (const name of [
     'proxyAI',
     'proxyAIv2',
-    'agnesImage',
     'motchiStats',
     'motchiDailyDigest',
     'motchiMemorySweep',

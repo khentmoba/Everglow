@@ -152,7 +152,7 @@ function _setExternalCache(key, data) {
 // Per-instance sliding-window counters. Each Cloud Functions instance
 // keeps its own map, so this is not a hard global cap — but it stops
 // single-client floods and bot loops cheaply with zero Firestore cost.
-// Expensive endpoints (proxyAI, agnesImage) additionally use the
+// Expensive endpoints (proxyAI) additionally use the
 // Firestore-backed daily caps below, which hold across instances.
 const _rateBuckets = new Map();
 const RATE_LIMIT_MAX_BUCKETS = 2000;

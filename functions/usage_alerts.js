@@ -13,11 +13,10 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { getAdmin, getDb } = require('./common.js');
 const { sendFCMToUser } = require('./triggers.js');
 
-// Warn levels sit just under the caps enforced in motchi_chat.js and
-// motchi_image_stats.js. Bump these together with those files.
+// Warn levels sit just under the caps enforced in motchi_chat.js.
+// Bump these together with that file.
 const WARN_LEVELS = {
   proxyAI: 250,
-  agnesImage: 25,
 };
 
 const SPIKE_RATIO = 5; // today >= 5x yesterday…
