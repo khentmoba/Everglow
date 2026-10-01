@@ -35,6 +35,7 @@ async function recordMotchiTurn({
   durationMs = 0,
   error = null,
   imageCount = 0,
+  requestTrace = null,
 }) {
   try {
     const db = common.getDb();
@@ -93,6 +94,11 @@ async function recordMotchiTurn({
       durationMs: Number(durationMs) || 0,
       error: error ? String(error).slice(0, 500) : null,
       imageCount: Number(imageCount) || 0,
+      // Numeric-only diagnostics: no prompts, memory text, or credentials.
+      requestTrace: requestTrace ? Object.fromEntries(
+        ['modelCalls', 'retries', 'toolRounds', 'repairs', 'firstTokenMs', 'preparedMs', 'contextChars', 'memoryCount', 'memoryChars', 'promptChars', 'attachedTools']
+          .map((key) => [key, Number.isFinite(requestTrace[key]) ? requestTrace[key] : null]),
+      ) : null,
     };
 
     const docRef = db.collection('motchi_sessions').doc(targetId);

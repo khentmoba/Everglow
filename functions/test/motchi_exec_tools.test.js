@@ -777,11 +777,24 @@ test('remember_fact adds fresh facts with no contradiction', async () => {
     db: { collection: () => ({ doc: () => ({ collection: () => factsCol }) }) },
     callerUid: 'khentsgdz',
   };
-  const res = JSON.parse(await exec_remember_fact(ctx, { fact: 'Clair loves dachshunds' }));
-  assert.equal(res.success, true);
-  assert.equal(res.updated, undefined);
-  assert.equal(added.length, 1);
-  assert.equal(added[0].fact, 'Clair loves dachshunds');
+  const realFetch = global.fetch;
+  const key = process.env.AGNES_API_KEY;
+  let networkCalls = 0;
+  process.env.AGNES_API_KEY = 'demo-test-key';
+  global.fetch = async () => { networkCalls++; throw new Error('Must not wait for remote embedding'); };
+  try {
+    const res = JSON.parse(await exec_remember_fact(ctx, { fact: 'Clair loves dachshunds' }));
+    assert.equal(res.success, true);
+    assert.equal(res.updated, undefined);
+    assert.equal(added.length, 1);
+    assert.equal(added[0].fact, 'Clair loves dachshunds');
+    assert.equal(added[0].embedding.length, 64);
+    assert.equal(networkCalls, 0);
+  } finally {
+    global.fetch = realFetch;
+    if (key === undefined) delete process.env.AGNES_API_KEY;
+    else process.env.AGNES_API_KEY = key;
+  }
 });
 
 test('edit executors patch by title and reject bad fields', async () => {

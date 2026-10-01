@@ -14,50 +14,16 @@ const {
 const {
   parseFactStructure,
   findContradiction,
-  rankMemories,
+  selectPromptMemories,
   simpleEmbedding,
   isNearDuplicate,
   shouldExtractMemory,
 } = require('./motchi_core.js');
 const { getTmdbKey } = require('./motchi_context.js');
 
-// ── Embeddings (hybrid retrieval) ───────────────────────────────
-// Remote Agnes vectors when the endpoint answers, local 64-dim hash
-// vectors otherwise. Stored facts may carry either space; rankMemories
-// compares each fact in the space it shares with the query vector.
-async function getRemoteEmbedding(text) {
-  const normalized = String(text||'').trim();
-  if (!normalized) return null;
-  const apiKey = process.env.AGNES_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const resp = await fetch('https://apihub.agnes-ai.com/v1/embeddings', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'text-embedding-3-small', input: normalized }),
-      signal: AbortSignal.timeout(3500),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const emb = data.data?.[0]?.embedding || data.embedding;
-    if (!Array.isArray(emb) || emb.length === 0) return null;
-    const norm = Math.sqrt(emb.reduce((s,v)=>s+v*v,0));
-    return norm ? emb.map(v=>v/norm) : emb;
-  } catch (_) {
-    return null;
-  }
-}
-
-/**
- * True for greetings, smalltalk, and short asks that rank fine on
- * keywords alone — no point spending an embedding round-trip on them.
- */
-function isCasualMemoryQuery(text) {
-  const t = String(text || '').trim();
-  if (t.length < 24) return true;
-  if (t.length > 80) return false;
-  return /^(hi|hello|hey|good (morning|afternoon|evening|night)|thanks|thank you|ok(ay)?|haha+|lol|love you|mew|prr|nya|how are you|what'?s up)\b/i.test(t);
-}
+// Memory vectors are local 64-dim hash embeddings (motchi_core.js).
+// Nothing on the chat path — or the nightly sweep — spends an
+// embedding API call; ranking is keywords plus local cosine.
 
 // ── Facts cache ──────────────────────────────────────────────
 // selectRelevantMemories runs every turn but the book barely moves
@@ -70,14 +36,6 @@ let _factsCache = { at: 0, facts: null };
 
 function invalidateMemoryCache() {
   _factsCache = { at: 0, facts: null };
-}
-
-async function getEmbedding(text) {
-  const normalized = String(text||'').trim();
-  if (!normalized) return null;
-  const remote = await getRemoteEmbedding(normalized);
-  if (remote) return remote;
-  try { return simpleEmbedding(normalized, 64); } catch (_) { return null; }
 }
 
 // ── Extraction throttle ──────────────────────────────────────
@@ -182,10 +140,8 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         hit.fact = fact;
         continue;
       }
-      // Remote-first embedding (local fallback): rankMemories compares
-      // each fact in the space it shares with the query vector.
       let embedding = null;
-      try { embedding = await getEmbedding(fact); } catch (_) {}
+      try { embedding = simpleEmbedding(fact); } catch (_) {}
       try {
         const ref = await db.collection('ai_memories').doc('shared').collection('facts').add({
         fact,
@@ -279,118 +235,71 @@ async function checkHallucinations(replyText, rand = Math.random) {
 // Replaces client-side memory injection with TF-IDF keyword matching.
 // Fetches all memories from Firestore, filters by relevance, decays stale ones.
 
-async function selectRelevantMemories(clientMemories, userMessage, maxResults = 30) {
-  // Client-provided memories are plain strings in older clients; treat
-  // them as unstructured facts and let the shared scorer rank them.
-  if (Array.isArray(clientMemories) && clientMemories.length > 0) {
-    const ranked = rankMemories(
-      clientMemories.map(fact => ({ fact })),
-      userMessage || '',
-      maxResults
-    );
-    return ranked.map(m => m.fact);
+// Shared by prompt retrieval and read_memories. Preserve the app's former
+// 150-fact coverage, plus old pins; cache structured facts, not plain text.
+async function loadMemoryFacts(db = getDb()) {
+  if (_factsCache.db === db && _factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS) {
+    return _factsCache.facts;
   }
-
-  // Otherwise fetch structured facts from Firestore with confidence
-  // decay and rank with the same pure scorer used by tests.
-  try {
-    const db = getDb();
-    // Slim: 60 freshest + pinned top-up (was: 150 freshest). Pinned facts
-    // ride their own tiny query so an old pin can never fall off the
-    // tail when the book grows past the fresh window.
-    // Cached raw fetch when fresh (ranking below still runs per message).
-    let memories = (_factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS)
-      ? _factsCache.facts
-      : null;
-    if (!memories) {
-      const factsCol = db.collection('ai_memories').doc('shared').collection('facts');
-      const [snapshot, pinnedSnap] = await Promise.all([
-        factsCol.orderBy('createdAt', 'desc').limit(60).get(),
-        factsCol.where('pinned', '==', true).limit(20).get(),
-      ]);
-
-      memories = [];
-      const seenIds = new Set();
-      for (const snap of [snapshot, pinnedSnap]) {
-      snap.forEach(doc => {
-        if (seenIds.has(doc.id)) return;
-        seenIds.add(doc.id);
-        const data = doc.data();
-        memories.push({
-          id: doc.id,
-          fact: data.fact || '',
-          category: data.category || 'fact',
-          subject: data.subject || null,
-          relation: data.relation || null,
-          object: data.object || null,
-          occurredAt: data.occurredAt?.toDate?.() || null,
-          createdAt: data.createdAt?.toDate?.() || null,
-          pinned: data.pinned === true,
-          confidence: data.confidence ?? 1.0,
-          lastAccessed: data.lastAccessed?.toDate?.() || null,
-          embedding: Array.isArray(data.embedding) ? data.embedding : null,
-        });
+  const factsCol = db.collection('ai_memories').doc('shared').collection('facts');
+  const [recent, pinned] = await Promise.all([
+    factsCol.orderBy('createdAt', 'desc').limit(150).get(),
+    factsCol.where('pinned', '==', true).limit(20).get(),
+  ]);
+  const facts = new Map();
+  for (const snap of [recent, pinned]) {
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      facts.set(doc.id, {
+        ...data,
+        id: doc.id,
+        fact: data.fact || '',
+        createdAt: data.createdAt?.toDate?.() || null,
+        occurredAt: data.occurredAt?.toDate?.() || null,
+        lastAccessed: data.lastAccessed?.toDate?.() || null,
       });
-      }
-      _factsCache = { at: Date.now(), facts: memories };
     }
+  }
+  const memories = [...facts.values()].filter((f) => f.fact);
+  _factsCache = { at: Date.now(), facts: memories, db, accessed: new Set() };
+  return memories;
+}
 
-    // Decay: halve confidence if not accessed in 90 days. Cloned — the
-    // cached originals must not rot (or collect _cos tags) turn by turn.
+async function selectRelevantMemories(userMessage, maxResults = 10, db = getDb()) {
+  try {
+    const memories = await loadMemoryFacts(db);
     const now = new Date();
-    const decayed = memories.map(m => {
+    const decayed = memories.map((m) => {
       const c = { ...m };
-      if (c.lastAccessed) {
-        const daysSince = (now - c.lastAccessed) / (1000 * 60 * 60 * 24);
-        if (daysSince > 90) {
-          c.confidence *= Math.pow(0.5, daysSince / 90);
-        }
+      if (!c.pinned && c.lastAccessed) {
+        const days = (now - c.lastAccessed) / 86400000;
+        if (days > 90) c.confidence = (c.confidence ?? 1) * Math.pow(0.5, days / 90);
       }
       return c;
-    }).filter(m => m.confidence >= 0.15);
-
-    // One remote query vector per turn when the endpoint answers AND the
-    // book actually holds remote-space facts — otherwise the vector has
-    // nothing to match against and the HTTP round-trip is pure waste.
-    // Casual asks rank fine on keywords alone. Fails soft to local-only.
-    const anyRemote = decayed.some((f) => Array.isArray(f.embedding) && f.embedding.length >= 256);
-    let remoteQueryEmb = null;
-    if (anyRemote && !isCasualMemoryQuery(userMessage)) {
-      try { remoteQueryEmb = await getRemoteEmbedding(userMessage || ''); } catch (_) {}
+    }).filter((m) => m.pinned || (m.confidence ?? 1) >= 0.15);
+    const ranked = selectPromptMemories(decayed, userMessage || '', maxResults);
+    // At most one access write per selected fact per cache window.
+    for (const m of ranked) {
+      if (_factsCache.accessed.has(m.id)) continue;
+      _factsCache.accessed.add(m.id);
+      db.collection('ai_memories').doc('shared').collection('facts').doc(m.id).update({
+        accessCount: getAdmin().firestore.FieldValue.increment(1),
+        lastAccessed: getAdmin().firestore.FieldValue.serverTimestamp(),
+      }).catch((e) => console.warn('[memory] access update failed:', e.message));
     }
-    const ranked = rankMemories(decayed, userMessage || '', maxResults, undefined, remoteQueryEmb);
-    // W3-C12: bump accessCount/lastAccessed for the memories that were injected (fire-and-forget)
-    if (ranked.length > 0) {
-      const idsToBump = ranked.map(m => m.id).filter(Boolean).slice(0, 15);
-      if (idsToBump.length > 0) {
-        // Fire-and-forget: don't block the LLM response path
-        (async () => {
-          try {
-            await Promise.all(idsToBump.map(id =>
-              db.collection('ai_memories').doc('shared').collection('facts').doc(id).update({
-                accessCount: getAdmin().firestore.FieldValue.increment(1),
-                lastAccessed: getAdmin().firestore.FieldValue.serverTimestamp(),
-              }).catch(() => {})
-            ));
-          } catch (_) {}
-        })();
-      }
-    }
-    return ranked.map(m => m.fact);
+    return ranked.map((m) => m.fact);
   } catch (e) {
     console.warn('selectRelevantMemories error:', e.message);
-    return Array.isArray(clientMemories) ? clientMemories.slice(0, maxResults) : [];
+    return [];
   }
 }
 
 module.exports = {
-  getEmbedding,
-  getRemoteEmbedding,
-  isCasualMemoryQuery,
   invalidateMemoryCache,
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,
+  loadMemoryFacts,
   claimMemoryExtractSlot,
   EXTRACT_THROTTLE_MS,
 };

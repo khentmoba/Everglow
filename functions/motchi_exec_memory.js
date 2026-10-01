@@ -6,8 +6,8 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
-const { parseFactStructure, rankMemories, findContradiction } = require('./motchi_core.js');
-const { getEmbedding, invalidateMemoryCache } = require('./motchi_memory.js');
+const { parseFactStructure, rankMemories, findContradiction, simpleEmbedding } = require('./motchi_core.js');
+const { loadMemoryFacts, invalidateMemoryCache } = require('./motchi_memory.js');
 
 async function exec_remember_fact(ctx, args) {
     const fact = (args.fact || '').trim();
@@ -32,13 +32,15 @@ async function exec_remember_fact(ctx, args) {
             object: parsed.object || null,
             confidence: 1.0,
             updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+            embedding: simpleEmbedding(fact),
           });
           invalidateMemoryCache();
           return JSON.stringify({ success: true, updated: true, id: hit.id, fact, previous: hit.fact });
         }
       } catch (_) {}
     }
-    const emb = await getEmbedding(fact).catch(() => null);
+    // Save immediately with a local vector; nightly maintenance can enrich it.
+    const emb = simpleEmbedding(fact);
     await ctx.db.collection('ai_memories').doc('shared').collection('facts').add({
       fact,
       category: args.category || 'fact',
@@ -67,23 +69,16 @@ async function exec_remember_fact(ctx, args) {
 
 async function exec_read_memories(ctx, args) {
     const limit = Math.min(args.limit || 20, 50);
-    let query = ctx.db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc')
-      .limit(150);
-    const snapshot = await query.get();
-    let facts = snapshot.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        fact: data.fact || '',
-        category: data.category || 'fact',
-        subject: data.subject || null,
-        relation: data.relation || null,
-        object: data.object || null,
-        occurredAt: data.occurredAt?.toDate?.()?.toISOString() || null,
-        pinned: data.pinned === true,
-      };
-    }).filter(f => f.fact);
+    let facts = (await loadMemoryFacts(ctx.db)).map((data) => ({
+      id: data.id,
+      fact: data.fact,
+      category: data.category || 'fact',
+      subject: data.subject || null,
+      relation: data.relation || null,
+      object: data.object || null,
+      occurredAt: data.occurredAt?.toISOString() || null,
+      pinned: data.pinned === true,
+    }));
     if (args.category) {
       facts = facts.filter(f => f.category === args.category);
     }
@@ -149,6 +144,7 @@ async function exec_edit_memory(ctx, args) {
       relation: parsed.relation || null,
       object: parsed.object || null,
       lastAccessed: ctx.admin.firestore.FieldValue.serverTimestamp(),
+      embedding: simpleEmbedding(fact),
     };
     if (args.category) update.category = String(args.category).trim().toLowerCase();
     await ref.update(update);

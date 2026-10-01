@@ -62,6 +62,7 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
       reasoning: 'Checking calendar for events',
       model: 'glm-5.3-flash',
       durationMs: 1500,
+      requestTrace: { modelCalls: 2, memoryCount: 3, firstTokenMs: 900, secret: 'must not persist', promptChars: Infinity },
     });
 
     assert.equal(returnedId, 'test_sess_123');
@@ -80,6 +81,11 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
     assert.equal(docData.turns[0].reasoning, 'Checking calendar for events');
     assert.equal(docData.turns[0].model, 'glm-5.3-flash');
     assert.equal(docData.turns[0].durationMs, 1500);
+    assert.equal(docData.turns[0].requestTrace.modelCalls, 2);
+    assert.equal(docData.turns[0].requestTrace.memoryCount, 3);
+    assert.equal(docData.turns[0].requestTrace.firstTokenMs, 900);
+    assert.equal(docData.turns[0].requestTrace.promptChars, null);
+    assert.ok(!('secret' in docData.turns[0].requestTrace));
   } finally {
     common.getDb = originalGetDb;
     common.getAdmin = originalGetAdmin;
