@@ -237,7 +237,6 @@ The workflow:
 | `proxyLastfm` | Authenticated Last.fm proxy (server-side API key) |
 | `proxySpotifySearch` / `spotifyExchange` / `spotifyRefresh` / `spotifyCurrentlyPlaying` | Spotify OAuth + search + playback |
 | `proxyAI` / `proxyAIv2` | Motchi AI proxy — GLM 5.3 Flash (tokenharbor.ai) via SSE streaming, 1M context, 50+ tools |
-| `agnesImage` | Agnes image generation proxy (`agnes-image-2.0-flash`) |
 | `verifyPasscode` | Server-verified passcode login (Khent/Clair) |
 | `health` | Public liveness + Firestore reachability |
 | `onNewChatMessage` + 6 triggers | Firestore triggers: push + Discord fan-out for chat, moods, stars, watchlist, gallery, milestones, invites |

@@ -647,7 +647,7 @@ class _CreatorSystemTabState extends State<CreatorSystemTab> {
               for (final e in entries)
                 _buildPill(
                   label:
-                      '${e.key} · AI ${(e.value as Map)['proxyAI'] ?? 0} · img ${(e.value as Map)['agnesImage'] ?? 0}',
+                      '${e.key} · AI ${(e.value as Map)['proxyAI'] ?? 0}',
                   ok: true,
                 ),
             ],

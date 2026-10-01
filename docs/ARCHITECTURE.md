@@ -50,7 +50,6 @@ flowchart LR
     TMDB[TMDB]
     OL[Open Library]
     GLM[GLM 5.3 Flash LLM]
-    AGNESIMG[Agnes image gen]
     LF[Last.fm]
     MD[MangaDex / Bato / Comick / etc.]
   end
@@ -67,7 +66,6 @@ flowchart LR
   FN --> TMDB
   FN --> OL
   FN --> GLM
-  FN --> AGNESIMG
   FN --> LF
   FN --> MD
 ```
@@ -169,7 +167,7 @@ web/                            # PWA shell, service worker, icons
 | Kind | Functions | Responsibility |
 |------|-----------|----------------|
 | HTTP proxy | `proxyBookText`, `proxyManga*`, `proxyComick`, `proxyAnimeImage`, `proxyLastfmImage`, `proxyGalleryImage`, `proxyScanlation`, `proxyFetchHtml`, `proxyEmbed`, `proxyVideoStream`, `proxyWatchStream` | CORS/hotlink bypass with host allow-lists |
-| AI | `proxyAI`, `proxyAIv2`, `agnesImage` | SSE streaming, tool execution, image generation |
+| AI | `proxyAI`, `proxyAIv2` | SSE streaming, tool execution (GLM 5.3 Flash via TokenHarbor) |
 | Ops | `health` | public liveness + Firestore reachability |
 | Trigger | `onNewChatMessage`, `onNewMood`, `onNewStarDrop`, `onNewWatchlistItem`, `onNewGalleryPhoto`, `onWatchPartyInvite`, `onNewMilestone` | FCM partner notifications |
 | Schedule | `motchiDailyDigest`, `motchiNightRecap`, `motchiMoodCheckIn`, `motchiSpecialDayNudge`, `sweepStalePresence` | maintenance + proactive features |
@@ -346,7 +344,6 @@ Errors follow `{error: string}` with conventional status codes: `400` shape,
 | Provider | Use | Key handling |
 |----------|-----|--------------|
 | GLM 5.3 Flash (tokenharbor.ai) | AI chat — 1M context, 120K input budget, 50+ tool calls, thinking | server-side TOKENHARBOR_API_KEY only |
-| Agnes image (apihub.agnes-ai.com) | Image gen (`agnes-image-2.0-flash`) + embedding fallback | server-side AGNES_API_KEY only |
 | TMDB | cinema/anime metadata | server-side via `proxyTmdb` (authenticated, ID-token required) |
 | Open Library | book text | `proxyBookText` server fetch |
 | MangaDex / Bato / Comick / Mangakakalot / Mangasee123 | manga catalog + images | allow-listed host proxies |

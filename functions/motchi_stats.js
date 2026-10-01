@@ -1,87 +1,9 @@
 'use strict';
 
-// Everglow Cloud Functions — Motchi image + stats group.
-// Agnes image generation proxy + 7-day observability rollup.
+// Everglow Cloud Functions — Motchi stats group.
+// 7-day observability rollup for Khent's Creator tab.
 
-const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, checkDailyCap, getVerifiedUsername } = require('./common.js');
-
-// ── Agnes Image Generation Proxy ────────────────────────────────────
-const agnesImage = cappedHttps(5, async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
-
-  const decoded = await requireAuth(req, res);
-  if (!decoded) return;
-  // Couple-only: image credits are the priciest per call, so cinema
-  // profiles stay out (mirrors motchiStats below).
-  const _imgUser = await getVerifiedUsername(decoded);
-  if (!['khentsgdz', 'clairjassen'].includes(_imgUser || '')) {
-    res.status(403).json({ error: 'Couple-only' });
-    return;
-  }
-  if (enforceRateLimit(req, res, { endpoint: 'agnesImage', limit: 10, windowMs: 60000, uid: decoded.uid })) return;
-  const _imgUsage = await checkDailyCap(decoded.uid, 'agnesImage', 30);
-  if (!_imgUsage.allowed) {
-    res.status(429).json({ error: 'Daily image limit reached — try again tomorrow.' });
-    return;
-  }
-
-  const apiKey = process.env.AGNES_API_KEY;
-  if (!apiKey) {
-    res.status(503).json({ error: 'AI image generation is not configured' });
-    return;
-  }
-
-  const { prompt, size = '1024x1024', image, return_base64 = false } = req.body;
-
-  if (!prompt) {
-    res.status(400).json({ error: 'prompt is required' });
-    return;
-  }
-
-  try {
-    const body = {
-      model: 'agnes-image-2.0-flash',
-      prompt,
-      size,
-      ...(return_base64 ? { return_base64: true } : {}),
-      ...(image ? { extra_body: { image, response_format: return_base64 ? 'b64_json' : 'url' } } : { extra_body: { response_format: 'url' } }),
-    };
-
-    const resp = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000),
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text().catch(() => '');
-      console.error('[agnesImage] Agnes image API error:', resp.status, errText);
-      return res.status(resp.status).json({ error: `Agnes image API returned ${resp.status}`, detail: errText });
-    }
-
-    const data = await resp.json();
-    res.json(data);
-  } catch (e) {
-    console.error('[agnesImage] Error:', e.message);
-    res.status(500).json({ error: e.message || 'Image generation failed' });
-  }
-});
+const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
 
 /**
  * W5-F21: Eval harness — aggregate Motchi observability.
@@ -147,7 +69,7 @@ const motchiStats = cappedHttps(5, async (req, res) => {
         const snap = await db.collection('api_usage').doc(u.id).collection('days').doc(usageDay).get().catch(() => null);
         if (snap && snap.exists) {
           const d = snap.data() || {};
-          usage[u.data()?.username || u.id] = { proxyAI: d.proxyAI || 0, agnesImage: d.agnesImage || 0 };
+          usage[u.data()?.username || u.id] = { proxyAI: d.proxyAI || 0 };
         }
       }));
       const alertSnap = await db.collection('api_usage').doc('_alerts').collection('keys').orderBy('lastAlertAt', 'desc').limit(10).get().catch(() => ({ docs: [] }));
@@ -172,6 +94,5 @@ const motchiStats = cappedHttps(5, async (req, res) => {
 });
 
 module.exports = {
-  agnesImage,
   motchiStats,
 };
