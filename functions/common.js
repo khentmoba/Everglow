@@ -195,17 +195,16 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
 }
 
 /**
- * Best-effort client IP behind Google's frontend. `req.ip` here is the
- * load balancer, not the caller — the first X-Forwarded-For hop is the
- * real client. Authed endpoints key by UID instead, so a spoofed header
- * can only move an anonymous caller between IP buckets, never dodge
- * the UID limits on the expensive endpoints.
+ * Google's load balancer appends client-ip, load-balancer-ip to XFF.
+ * Everything before that trusted suffix can be supplied by the caller.
+ * https://cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
  */
 function clientIp(req) {
-  const fwd = (req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '').toString();
-  const first = fwd.split(',')[0].trim();
-  const ip = ((first || req.ip || 'unknown').toString().trim() || 'unknown').slice(0, 64);
-  return ip;
+  const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
+  const hops = fwd.split(',').map((hop) => hop.trim());
+  const client = hops.length >= 2 ? hops.at(-2) : req.ip;
+  if (net.isIP(client || '')) return client;
+  return net.isIP(req.ip || '') ? req.ip : 'unknown';
 }
 
 /**

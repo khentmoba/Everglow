@@ -77,13 +77,23 @@ test('enforceRateLimit keys authed callers by uid, not IP', () => {
   assert.equal(enforceRateLimit(fakeReq(), mkRes(), b), false);
 });
 
-test('clientIp prefers X-Forwarded-For first hop, falls back safely', () => {
-  assert.equal(
-    clientIp(fakeReq({ ip: '1.2.3.4', fwd: '5.6.7.8, 9.9.9.9' })),
-    '5.6.7.8',
-  );
+test('clientIp uses Google appended client/LB suffix, not a spoofable prefix', () => {
+  assert.equal(clientIp(fakeReq({ ip: '1.2.3.4', fwd: '5.6.7.8, 9.9.9.9' })), '5.6.7.8');
+  assert.equal(clientIp(fakeReq({ ip: '1.2.3.4', fwd: 'attacker, 5.6.7.8, 9.9.9.9' })), '5.6.7.8');
+  assert.equal(clientIp(fakeReq({ ip: '1.2.3.4', fwd: 'untrusted' })), '1.2.3.4');
+  assert.equal(clientIp(fakeReq({ ip: '1.2.3.4', fwd: 'bad, invalid' })), '1.2.3.4');
   assert.equal(clientIp(fakeReq({ ip: '1.2.3.4', fwd: '' })), '1.2.3.4');
   assert.equal(clientIp(fakeReq({ ip: '', fwd: '' })), 'unknown');
+});
+
+test('rotating forged forwarded prefixes cannot reset the rate-limit bucket', () => {
+  const opts = { endpoint: `spoof:${Date.now()}`, limit: 2, windowMs: 60000 };
+  const hit = (prefix) => enforceRateLimit(
+    fakeReq({ fwd: `${prefix}, 203.0.113.42, 9.9.9.9` }), fakeRes(), opts,
+  );
+  assert.equal(hit('198.51.100.1'), false);
+  assert.equal(hit('198.51.100.2'), false);
+  assert.equal(hit('198.51.100.3'), true);
 });
 
 test('_todayDayKey returns a YYYY-MM-DD day bucket', () => {
