@@ -44,10 +44,8 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
     final result = await showDialog<bool>(
       context: context,
       barrierColor: Colors.transparent,
-      builder: (_) => AddEventDialog(
-        selectedDay: widget.day,
-        initialType: initialType,
-      ),
+      builder: (_) =>
+          AddEventDialog(selectedDay: widget.day, initialType: initialType),
     );
     if (result == true) widget.onEventAdded();
   }
@@ -266,7 +264,8 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                     // Events list or enhanced empty state
                     Expanded(
                       child: StreamBuilder<List<CalendarEvent>>(
-                        stream: widget.eventsStream ??
+                        stream:
+                            widget.eventsStream ??
                             _calendarService.getEventsForMonth(widget.day),
                         builder: (context, snapshot) {
                           final allEvents = snapshot.data ?? [];
@@ -296,10 +295,24 @@ class _DayDetailSheetState extends State<DayDetailSheet> {
                               return _EventTile(
                                 event: dayEvents[index],
                                 onDelete: () async {
-                                  await _calendarService.deleteEvent(
-                                    dayEvents[index].id,
-                                  );
-                                  widget.onEventAdded();
+                                  try {
+                                    await _calendarService.deleteEvent(
+                                      dayEvents[index].id,
+                                    );
+                                    widget.onEventAdded();
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Could not delete this event. Please try again.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }
                                 },
                               );
                             },
@@ -530,9 +543,7 @@ class _EventTile extends StatelessWidget {
         backgroundColor: AppColors.velvet,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.x2),
-          side: BorderSide(
-            color: AppColors.blushGold.withValues(alpha: 0.25),
-          ),
+          side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.25)),
         ),
         title: Text(
           'Delete Event',
@@ -559,9 +570,7 @@ class _EventTile extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
               'Delete',
-              style: AppTypography.outfitBold.copyWith(
-                color: AppColors.error,
-              ),
+              style: AppTypography.outfitBold.copyWith(color: AppColors.error),
             ),
           ),
         ],
@@ -647,10 +656,7 @@ class _EventTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.twilight.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(
-            color: hue.withValues(alpha: 0.35),
-            width: 1.2,
-          ),
+          border: Border.all(color: hue.withValues(alpha: 0.35), width: 1.2),
           boxShadow: [
             BoxShadow(
               color: hue.withValues(alpha: 0.08),
@@ -681,10 +687,7 @@ class _EventTile extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Text(
-                  info.$1,
-                  style: const TextStyle(fontSize: 20),
-                ),
+                child: Text(info.$1, style: const TextStyle(fontSize: 20)),
               ),
             ),
             const SizedBox(width: 14),
@@ -732,8 +735,9 @@ class _EventTile extends StatelessWidget {
                             Icon(
                               Icons.schedule_rounded,
                               size: 11,
-                              color:
-                                  AppColors.petalWhite.withValues(alpha: 0.7),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -750,17 +754,14 @@ class _EventTile extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (event.location != null &&
-                          event.location!.isNotEmpty)
+                      if (event.location != null && event.location!.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 7,
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.auroraTeal.withValues(
-                              alpha: 0.12,
-                            ),
+                            color: AppColors.auroraTeal.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(AppRadius.xs),
                           ),
                           child: Row(
@@ -789,9 +790,7 @@ class _EventTile extends StatelessWidget {
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.blushGold.withValues(
-                              alpha: 0.12,
-                            ),
+                            color: AppColors.blushGold.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(AppRadius.xs),
                           ),
                           child: Row(

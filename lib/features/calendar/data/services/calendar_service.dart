@@ -137,6 +137,7 @@ class CalendarService {
       Logger.i("Calendar event added: ${event.title}");
     } catch (e) {
       Logger.e("Error adding calendar event", error: e);
+      rethrow;
     }
   }
 
@@ -146,6 +147,7 @@ class CalendarService {
       await _db.collection(_collection).doc(id).update(data);
     } catch (e) {
       Logger.e("Error updating calendar event", error: e);
+      rethrow;
     }
   }
 
@@ -156,6 +158,7 @@ class CalendarService {
       Logger.i("Calendar event deleted: $id");
     } catch (e) {
       Logger.e("Error deleting calendar event", error: e);
+      rethrow;
     }
   }
 

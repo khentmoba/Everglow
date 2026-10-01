@@ -10,7 +10,6 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../data/models/date_poll.dart';
 import '../../data/services/calendar_poll_service.dart';
-import '../../data/services/calendar_service.dart';
 import '../../domain/models/calendar_event.dart';
 import 'add_poll_dialog.dart';
 
@@ -298,11 +297,11 @@ class _PollCard extends StatelessWidget {
                     onPressed: poll.options.isEmpty
                         ? null
                         : () => _vote(
-                              context,
-                              poll,
-                              poll.options.first.id,
-                              currentUser,
-                            ),
+                            context,
+                            poll,
+                            poll.options.first.id,
+                            currentUser,
+                          ),
                     icon: const Icon(
                       Icons.how_to_vote_rounded,
                       size: 14,
@@ -442,8 +441,7 @@ class _PollCard extends StatelessWidget {
       ),
     );
     if (confirm != true) return;
-    await CalendarPollService().close(poll.id, winning);
-    // Create calendar event for winners
+    // Save the event and poll decision together, or leave both unchanged.
     if (poll.options.isEmpty) return;
     final opt = poll.options.firstWhere(
       (o) => o.id == winning,
@@ -458,7 +456,20 @@ class _PollCard extends StatelessWidget {
       createdBy: poll.createdBy,
       attendees: poll.votes.keys.toList(),
     );
-    await CalendarService().addEvent(event);
+    try {
+      await CalendarPollService().finalize(poll.id, winning, event);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not save the event. Your poll is still open — please try again.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

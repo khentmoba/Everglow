@@ -9,11 +9,14 @@ import '../models/journal_entry.dart';
 ///
 /// Collection: journal_entries (couple-only, see firestore.rules)
 class JournalService {
-  static final JournalService _instance = JournalService._internal();
-  factory JournalService() => _instance;
-  JournalService._internal();
+  static JournalService? _instance;
+  factory JournalService({FirebaseFirestore? db}) => db == null
+      ? _instance ??= JournalService._internal()
+      : JournalService._internal(db);
+  JournalService._internal([this._customDb]);
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore? _customDb;
+  FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'journal_entries';
 
   Stream<List<JournalEntry>> watchAll() {
@@ -232,6 +235,7 @@ class JournalService {
       Logger.i('Journal added: ${entry.title}');
     } catch (e) {
       Logger.e('Error adding journal', error: e);
+      rethrow;
     }
   }
 
@@ -244,6 +248,7 @@ class JournalService {
       Logger.i('Journal updated: ${entry.id}');
     } catch (e) {
       Logger.e('Error updating journal', error: e);
+      rethrow;
     }
   }
 
@@ -253,6 +258,7 @@ class JournalService {
       Logger.i('Journal deleted: $id');
     } catch (e) {
       Logger.e('Error deleting journal', error: e);
+      rethrow;
     }
   }
 
@@ -264,6 +270,7 @@ class JournalService {
       });
     } catch (e) {
       Logger.e('Error toggling pin', error: e);
+      rethrow;
     }
   }
 
@@ -284,6 +291,7 @@ class JournalService {
       Logger.i('Journal lock toggled: $id -> $locked');
     } catch (e) {
       Logger.e('Error toggling lock', error: e);
+      rethrow;
     }
   }
 }

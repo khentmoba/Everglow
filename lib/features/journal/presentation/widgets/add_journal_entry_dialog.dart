@@ -13,8 +13,14 @@ import '../widgets/journal_ui.dart';
 class AddJournalEntryDialog extends StatefulWidget {
   final String author;
   final JournalEntry? existing;
+  final JournalService? service;
 
-  const AddJournalEntryDialog({super.key, required this.author, this.existing});
+  const AddJournalEntryDialog({
+    super.key,
+    required this.author,
+    this.existing,
+    this.service,
+  });
 
   @override
   State<AddJournalEntryDialog> createState() => _AddJournalEntryDialogState();
@@ -30,6 +36,8 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   bool _isLocked = false;
   List<String> _tags = [];
   bool _saving = false;
+  String? _saveError;
+  final _saveErrorKey = GlobalKey();
 
   @override
   void initState() {
@@ -81,57 +89,78 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   Future<void> _save() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
-    if (title.isEmpty && content.isEmpty) return;
-    setState(() => _saving = true);
+    if (_saving || (title.isEmpty && content.isEmpty)) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     final now = DateTime.now();
     final wordCount = _countWords(content);
 
-    if (widget.existing != null) {
-      final updated = widget.existing!.copyWith(
-        title: title.isEmpty ? 'Untitled' : title,
-        content: content,
-        category: _category,
-        mood: _mood,
-        clearMood: _mood == null,
-        tags: _tags,
-        isPinned: _isPinned,
-        isLocked: _isLocked,
-        updatedAt: now,
-        wordCount: wordCount,
-      );
-      await JournalService().update(updated);
-    } else {
-      final entry = JournalEntry(
-        id: '',
-        title: title.isEmpty ? 'Untitled' : title,
-        content: content,
-        author: widget.author,
-        createdAt: now,
-        updatedAt: now,
-        category: _category,
-        mood: _mood,
-        tags: _tags,
-        isPinned: _isPinned,
-        isLocked: _isLocked,
-        wordCount: wordCount,
-      );
-      await JournalService().add(entry);
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null && uid.isNotEmpty) {
-        try {
-          await XPService().awardJournal(uid);
-        } catch (e) {
-          Logger.e('Journal: XP award failed', error: e);
+    try {
+      if (widget.existing != null) {
+        final updated = widget.existing!.copyWith(
+          title: title.isEmpty ? 'Untitled' : title,
+          content: content,
+          category: _category,
+          mood: _mood,
+          clearMood: _mood == null,
+          tags: _tags,
+          isPinned: _isPinned,
+          isLocked: _isLocked,
+          updatedAt: now,
+          wordCount: wordCount,
+        );
+        await (widget.service ?? JournalService()).update(updated);
+      } else {
+        final entry = JournalEntry(
+          id: '',
+          title: title.isEmpty ? 'Untitled' : title,
+          content: content,
+          author: widget.author,
+          createdAt: now,
+          updatedAt: now,
+          category: _category,
+          mood: _mood,
+          tags: _tags,
+          isPinned: _isPinned,
+          isLocked: _isLocked,
+          wordCount: wordCount,
+        );
+        await (widget.service ?? JournalService()).add(entry);
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (uid != null && uid.isNotEmpty) {
+          try {
+            await XPService().awardJournal(uid);
+          } catch (e) {
+            Logger.e('Journal: XP award failed', error: e);
+          }
         }
       }
+      if (widget.existing == null) {
+        // Words are saved now — forget the draft so it never comes back
+        // stale. (Edit-saves leave new-entry drafts alone.)
+        await _titleController.clearDraft();
+        await _contentController.clearDraft();
+      }
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      Logger.e('Journal save failed; keeping draft', error: e);
+      if (mounted) {
+        setState(
+          () => _saveError =
+              'Could not save your page. Your words are still here — please try again.',
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final errorContext = _saveErrorKey.currentContext;
+          if (mounted && errorContext != null) {
+            Scrollable.ensureVisible(errorContext, alignment: 0.5);
+          }
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-    if (widget.existing == null) {
-      // Words are saved now — forget the draft so it never comes back
-      // stale. (Edit-saves leave new-entry drafts alone.)
-      await _titleController.clearDraft();
-      await _contentController.clearDraft();
-    }
-    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -486,6 +515,14 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ],
               ),
               const SizedBox(height: 20),
+              if (_saveError != null) ...[
+                Text(
+                  _saveError!,
+                  key: _saveErrorKey,
+                  style: const TextStyle(color: AppColors.error),
+                ),
+                const SizedBox(height: 12),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: GestureDetector(

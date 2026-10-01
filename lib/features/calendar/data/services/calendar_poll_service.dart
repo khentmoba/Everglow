@@ -2,13 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/date_poll.dart';
+import '../../domain/models/calendar_event.dart';
 
 class CalendarPollService {
-  static final CalendarPollService _instance = CalendarPollService._internal();
-  factory CalendarPollService() => _instance;
-  CalendarPollService._internal();
+  static CalendarPollService? _instance;
+  factory CalendarPollService({FirebaseFirestore? db}) => db == null
+      ? _instance ??= CalendarPollService._internal()
+      : CalendarPollService._internal(db);
+  CalendarPollService._internal([this._customDb]);
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore? _customDb;
+  FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'calendar_polls';
 
   Stream<List<DatePoll>> watchAll() => withFirestoreTimeout(
@@ -59,6 +63,30 @@ class CalendarPollService {
       });
     } catch (e) {
       Logger.e('Error unvoting', error: e);
+    }
+  }
+
+  /// Close the poll and save its event atomically. A stable event id makes
+  /// retries safe, without duplicate dates or a closed poll with no event.
+  Future<void> finalize(
+    String pollId,
+    String winning,
+    CalendarEvent event,
+  ) async {
+    try {
+      final batch = _db.batch();
+      batch.set(
+        _db.collection('calendar_events').doc('poll_$pollId'),
+        event.toFirestore(),
+      );
+      batch.update(_db.collection(_collection).doc(pollId), {
+        'status': 'closed',
+        'decidedOptionId': winning,
+      });
+      await batch.commit();
+    } catch (e) {
+      Logger.e('Error finalizing calendar poll', error: e);
+      rethrow;
     }
   }
 

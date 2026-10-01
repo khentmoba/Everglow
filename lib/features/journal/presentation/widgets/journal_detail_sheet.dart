@@ -392,12 +392,18 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
     );
     if (confirm == true) {
       if (!context.mounted) return;
-      Navigator.pop(context);
-      OptimisticAction.run(
-        apply: () {},
-        action: () => JournalService().delete(_entry.id),
-        rollback: () {},
-      );
+      try {
+        await JournalService().delete(_entry.id);
+        if (context.mounted) Navigator.pop(context);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not delete this page. Please try again.'),
+            ),
+          );
+        }
+      }
     }
   }
 }
