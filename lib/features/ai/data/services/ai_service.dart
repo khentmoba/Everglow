@@ -384,8 +384,11 @@ class AIService extends ChangeNotifier {
           caller,
           canvasEnabled,
           shouldThink,
+          (data) => details = MotchiReplyDetails.fromJson(data),
         );
-        details = MotchiReplyDetails.fromResults(_toolResults);
+        if (myRequest != _activeRequest) {
+          return MotchiReplyDetails.visibleText(reply);
+        }
       }
 
       // An empty reply means the stream was cut before any text arrived
@@ -745,6 +748,7 @@ class AIService extends ChangeNotifier {
     String caller = '',
     bool canvasEnabled = true,
     bool enableThinking = true,
+    void Function(Map<String, dynamic>)? onDetails,
   ]) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -757,6 +761,7 @@ class AIService extends ChangeNotifier {
           caller,
           canvasEnabled,
           enableThinking,
+          onDetails,
         );
       } catch (e) {
         final isTransient =
@@ -784,6 +789,7 @@ class AIService extends ChangeNotifier {
     String caller = '',
     bool canvasEnabled = true,
     bool enableThinking = true,
+    void Function(Map<String, dynamic>)? onDetails,
   ]) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
@@ -810,10 +816,7 @@ class AIService extends ChangeNotifier {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (data['details'] is Map) {
-        _toolResults.add({
-          'tool': 'reply_details',
-          ...Map<String, dynamic>.from(data['details'] as Map),
-        });
+        onDetails?.call(Map<String, dynamic>.from(data['details'] as Map));
       }
       return data['reply'] as String? ?? '';
     }
