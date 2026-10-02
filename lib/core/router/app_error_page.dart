@@ -24,6 +24,20 @@ class AppErrorPage extends StatelessWidget {
     return isCinemaOnlyUser ? '/cinema' : '/dashboard';
   }
 
+  /// Where a cinema-only profile (Breyan / Octagram) may go. Returns the
+  /// bounce target (`/cinema`) for couple-only pages, else null. Anime
+  /// stays allowed: the cinema shell gives these profiles an Anime button
+  /// (their only ride to `/anime` on mobile) and the anime header links
+  /// back to `/cinema`. Pure so it unit-tests without Firebase.
+  static String? cinemaOnlyRedirect(String loc) {
+    if (loc == '/' ||
+        loc.startsWith('/cinema') ||
+        loc.startsWith('/anime')) {
+      return null;
+    }
+    return '/cinema';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
