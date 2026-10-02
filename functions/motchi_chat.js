@@ -17,7 +17,7 @@ const {
 const {
   serverExtractAndSaveMemory,
   checkHallucinations,
-  selectRelevantMemories,
+  selectRelevantMemoryFacts,
   selectCoreProfileNotes,
 } = require('./motchi_memory.js');
 const {
@@ -33,6 +33,7 @@ const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, hasOffer, dr
 const { selectToolsForRequest, isLightChat } = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
+const { REPLY_DETAILS_PROMPT, memoryReference, citedMemories, stripMemoryCitations, toolReceipt } = require('./motchi_reply_details.js');
 
 const TOOL_INVALIDATIONS = {
   add_to_watchlist: 'watchlist',
@@ -71,7 +72,7 @@ const _PERSONA_TTL_MS = 5 * 60 * 1000;
  * movie titles. Mirrors the client's stripArtifactBlocks.
  */
 function stripArtifactsForChecks(text) {
-  let out = String(text || '');
+  let out = stripMemoryCitations(text);
   // Complete fenced blocks.
   out = out.replace(/```[ \t]*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[ \t]*\n?[\s\S]*?```/gi, '');
   // Trailing unterminated fence (reply cut off mid-artifact).
@@ -183,6 +184,24 @@ async function handleProxyAI(req, res) {
     caller: clientCaller, enableThinking, canvas, sessionId,
   } = req.body;
   const turnTools = [];
+  const steps = [];
+  const availableMemories = [];
+  function captureResult(tool, args, raw) {
+    const step = toolReceipt(tool, args, raw);
+    const pending = steps.findIndex((s) => s.status === 'waiting' && s.tool === tool && s.target && s.target === step.target);
+    if (pending >= 0) steps[pending] = step;
+    else steps.push(step);
+    try {
+      const result = JSON.parse(raw);
+      if (tool === 'read_memories' && Array.isArray(result.memories)) availableMemories.push(...result.memories);
+    } catch (err) {
+      console.warn('[proxyAI] receipt result could not be parsed:', err.message);
+    }
+    return step;
+  }
+  function replyDetails(reply, interrupted = false) {
+    return { memories: citedMemories(reply, availableMemories), steps, interrupted };
+  }
   const requestTrace = { modelCalls: 0, retries: 0, toolRounds: 0, repairs: 0, firstTokenMs: null };
   // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
   // never makes artifacts proactively — but an explicit ask ("make chess",
@@ -337,7 +356,7 @@ async function handleProxyAI(req, res) {
   const _skipMemoryReads = fastPath || lightChat || req.body.includeMemories === false || (feature === 'assistant' && !isPersonalQuery(retrievalQuery));
   const _memoriesPromise = (_skipMemoryReads
     ? Promise.resolve([])
-    : selectRelevantMemories(retrievalQuery, 10)
+    : selectRelevantMemoryFacts(retrievalQuery, 10)
   ).catch((e) => {
     console.warn('[proxyAI] memory select failed, continuing without it:', e.message);
     return [];
@@ -346,7 +365,7 @@ async function handleProxyAI(req, res) {
   // resolve — parallel calls would stampede the empty cache on a cold
   // turn and double the reads. Costs nothing once cached.
   const _corePromise = _memoriesPromise.then(
-    () => (_skipMemoryReads ? [] : selectCoreProfileNotes()),
+    () => (_skipMemoryReads ? [] : selectCoreProfileNotes(undefined, true)),
   ).catch((e) => {
     console.warn('[proxyAI] core profile select failed, continuing without it:', e.message);
     return [];
@@ -380,6 +399,7 @@ async function handleProxyAI(req, res) {
   ]);
   const _tCtxMs = Date.now() - _tCtx0;
   const resolvedContext = context || serverContext || '';
+  availableMemories.push(...relevantMemories, ...coreProfileNotes);
 
   // Light chat answers from the slim prompt (no context, memories, or
   // persona doc rode along) so the model prefills ~500 chars instead of
@@ -455,10 +475,15 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
   // is plain text, so downstream scoring never crashes on multimodal
   // content blocks.
   if (coreProfileNotes.length > 0) {
-    systemPrompt += `\n## About Them (core — always true)\n${coreProfileNotes.map(m => `- ${m}`).join('\n')}`;
+    systemPrompt += `\n## About Them (core profile notes)\n${coreProfileNotes.map(m => `- ${JSON.stringify(memoryReference(m))}`).join('\n')}`;
   }
   if (relevantMemories.length > 0) {
-    systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${m}`).join('\n')}`;
+    systemPrompt += `\n## Remembered Facts\n${relevantMemories.map(m => `- ${JSON.stringify(memoryReference(m))}`).join('\n')}`;
+  }
+
+  if (!lightChat) {
+    systemPrompt += REPLY_DETAILS_PROMPT;
+    if (feature !== 'assistant') systemPrompt += '\nMemory citation markers are only supported in assistant chat. Do not emit them in this feature.';
   }
 
   // ── Study mode: interactive artifacts (quiz / flashcards) ──
@@ -764,6 +789,8 @@ ${HTML_GAME_GUIDE}
       resultSummary: typeof fpResult === 'string' ? fpResult.slice(0, 500) : JSON.stringify(fpResult).slice(0, 500),
       elapsedMs: Date.now() - fpStarted,
     });
+    const step = captureResult(fastPath.tool, fastPath.args, fpResult);
+    sendEvent({ tool_result: { tool: fastPath.tool, step } });
     nimMessages.push(
       {
         role: 'assistant',
@@ -905,7 +932,7 @@ ${HTML_GAME_GUIDE}
       preparedMs: Date.now() - requestStartedAt,
       contextChars: resolvedContext.length,
       memoryCount: relevantMemories.length,
-      memoryChars: relevantMemories.join('\n').length,
+      memoryChars: relevantMemories.map((m) => m.fact).join('\n').length,
       promptChars: systemPrompt.length,
       attachedTools: tools.length,
     });
@@ -930,6 +957,7 @@ ${HTML_GAME_GUIDE}
       let forceTextNextRound = false; // repair rounds carry no tools: the nudge demands text only
       let fullContent = ''; // this round's streamed text (loop scope so post-loop repair can keep it)
       let _ttftMs = null; // round-1 first-content latency (the TTFT number)
+      let streamInterrupted = true;
       let _hitLengthLimit = false; // set when the model stops mid-reply (finish_reason=length)
       // Loop guard: tool+args pairs already executed for this message.
       // A repeat means the model is circling — stop instead of burning
@@ -1008,6 +1036,7 @@ ${HTML_GAME_GUIDE}
             const fallbackReply = fallback + " 🍡 Motchi is a little sleepy right now, but I'm still here. Try again in a moment?";
             requestTrace.firstTokenMs = Date.now() - requestStartedAt;
             sendEvent({ content: fallbackReply });
+            sendEvent({ tool_result: { tool: 'reply_details', ...replyDetails(_streamedFinalReply, true) } });
             recordMotchiTurn({
               sessionId, caller, feature: feature || 'assistant',
               userMessage: lastUserMessage, assistantReply: fallbackReply,
@@ -1032,6 +1061,7 @@ ${HTML_GAME_GUIDE}
         const reader = streamResp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
+        let roundFinished = false;
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -1046,6 +1076,7 @@ ${HTML_GAME_GUIDE}
               const parsed = JSON.parse(raw);
               const delta = parsed.choices?.[0]?.delta || {};
               const finishReason = parsed.choices?.[0]?.finish_reason;
+              if (finishReason) roundFinished = true;
 
               // Stream content tokens to client immediately
           if (delta.reasoning) {
@@ -1096,6 +1127,8 @@ ${HTML_GAME_GUIDE}
           }
         }
 
+        if (!roundFinished) throw new Error('Model stream ended before confirming completion');
+
         // If no tool calls, we're done — stream completed naturally
         if (collectedToolCalls.length === 0) {
           // Missing-block repair: an artifact ask with no fenced block
@@ -1125,6 +1158,7 @@ ${HTML_GAME_GUIDE}
             forceTextNextRound = true;
             continue;
           }
+          streamInterrupted = false;
           break;
         }
 
@@ -1163,7 +1197,7 @@ ${HTML_GAME_GUIDE}
           try {
             result = await executeToolCall(toolCtx, fnName, fnArgs);
           } catch (err) {
-            result = JSON.stringify({ error: err.message || 'Tool execution failed' });
+            result = JSON.stringify({ error: err.message || 'Tool execution failed', outcome_unknown: true });
           }
 
           // Invalidate feature context block if this tool mutated persisted data
@@ -1192,13 +1226,15 @@ ${HTML_GAME_GUIDE}
           // Send rich tool result to client for inline cards
           try {
             const parsed = JSON.parse(result);
-            sendEvent({ tool_result: { tool: fnName, ...parsed } });
+            const step = captureResult(fnName, fnArgs, result);
+            sendEvent({ tool_result: { tool: fnName, ...parsed, step } });
             // Also send a friendly status for UI (e.g., needs_confirmation)
             if (parsed.needs_confirmation) {
               sendEvent({ tool_status: `${fnName}:needs_confirmation` });
             }
           } catch (_) {
-            sendEvent({ tool_result: { tool: fnName, raw: result } });
+            const step = captureResult(fnName, fnArgs, result);
+            sendEvent({ tool_result: { tool: fnName, step } });
           }
 
           // The client already got the full result above for its cards;
@@ -1289,6 +1325,7 @@ ${HTML_GAME_GUIDE}
       if (_hitLengthLimit) {
         console.warn('[proxyAI] model hit max_tokens mid-reply — artifact may be truncated (no closing fence, no Preview button).');
       }
+      sendEvent({ tool_result: { tool: 'reply_details', ...replyDetails(_streamedFinalReply, _hitLengthLimit || streamInterrupted) } });
       sendEvent({ tool_status: 'done' });
       sendEvent('[DONE]');
       // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
@@ -1321,6 +1358,7 @@ ${HTML_GAME_GUIDE}
       }).catch(() => {});
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
+      sendEvent({ tool_result: { tool: 'reply_details', ...replyDetails(_streamedFinalReply, true) } });
       if (!_streamedFinalReply.trim()) {
         sendEvent({ error: 'Motchi got distracted and lost her train of thought. Try asking again?' });
       }
@@ -1400,6 +1438,7 @@ ${HTML_GAME_GUIDE}
   let nsReasoning = '';
   let _nsRememberSaved = false; // skip auto-extract when remember_fact already saved
   let nsModel = model;
+  let nsInterrupted = true;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     let response;
     try {
@@ -1424,7 +1463,7 @@ ${HTML_GAME_GUIDE}
       nsSeen.add(key);
       return true;
     });
-    if (freshCalls.length === 0) break;
+    if (freshCalls.length === 0) { nsInterrupted = false; break; }
     requestTrace.toolRounds++;
     nsMessages.push({
       role: 'assistant',
@@ -1444,7 +1483,7 @@ ${HTML_GAME_GUIDE}
       try {
         result = await executeToolCall(toolCtx, fnName, fnArgs);
       } catch (err) {
-        result = JSON.stringify({ error: err.message || 'Tool execution failed' });
+        result = JSON.stringify({ error: err.message || 'Tool execution failed', outcome_unknown: true });
       }
       if (TOOL_INVALIDATIONS[fnName]) {
         try { invalidateContextBlock(TOOL_INVALIDATIONS[fnName]); } catch (_) {}
@@ -1460,6 +1499,7 @@ ${HTML_GAME_GUIDE}
         resultSummary: typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500),
         elapsedMs: Date.now() - toolStartedAt,
       });
+      captureResult(fnName, fnArgs, result);
       // A successful explicit save makes auto-extraction redundant.
       if (fnName === 'remember_fact') {
         try { if (JSON.parse(result).success) _nsRememberSaved = true; } catch (_) {}
@@ -1510,8 +1550,9 @@ ${HTML_GAME_GUIDE}
     } catch (_) {}
   }
 
-  const reply = nsReply.trim();
-  res.json({ reply, reasoning: nsReasoning, model: nsModel });
+  const details = replyDetails(nsReply, nsInterrupted);
+  const reply = stripMemoryCitations(nsReply).trim();
+  res.json({ reply, reasoning: nsReasoning, model: nsModel, details });
   // Fire-and-forget session recording
   recordMotchiTurn({
     sessionId,

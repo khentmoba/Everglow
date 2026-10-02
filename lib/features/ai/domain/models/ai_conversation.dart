@@ -1,3 +1,5 @@
+import '../motchi_reply_details.dart';
+
 /// A single message in an AI conversation.
 class AIMessage {
   final String role; // 'user' or 'assistant'
@@ -7,6 +9,7 @@ class AIMessage {
   /// Tappable web sources on assistant replies (from web_search /
   /// read_web_page). Each entry: {title, url, site}. Empty otherwise.
   final List<Map<String, String>> sources;
+  final MotchiReplyDetails details;
 
   AIMessage({
     required this.role,
@@ -14,6 +17,7 @@ class AIMessage {
     DateTime? timestamp,
     this.imageUrls = const [],
     this.sources = const [],
+    this.details = const MotchiReplyDetails(),
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -22,6 +26,7 @@ class AIMessage {
     'timestamp': timestamp.toIso8601String(),
     if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
     if (sources.isNotEmpty) 'sources': sources,
+    if (!details.isEmpty) 'details': details.toJson(),
   };
 
   factory AIMessage.fromJson(Map<String, dynamic> json) => AIMessage(
@@ -31,6 +36,11 @@ class AIMessage {
         ? DateTime.parse(json['timestamp'])
         : DateTime.now(),
     imageUrls: (json['imageUrls'] as List?)?.cast<String>() ?? [],
+    details: json['details'] is Map
+        ? MotchiReplyDetails.fromJson(
+            Map<String, dynamic>.from(json['details'] as Map),
+          )
+        : const MotchiReplyDetails(),
     sources:
         (json['sources'] as List?)
             ?.map(
@@ -46,7 +56,10 @@ class AIMessage {
   /// If images are present, uses the multimodal content array format.
   Map<String, dynamic> toApiPayload() {
     if (imageUrls.isEmpty) {
-      return {'role': role, 'content': content};
+      final receipts = role == 'assistant' && details.steps.isNotEmpty
+          ? '\n[Verified previous action results: ${details.steps.map((s) => '${s['tool']}: ${s['status']} ${s['title'] ?? ''}').join('; ')}. Do not repeat completed actions.]'
+          : '';
+      return {'role': role, 'content': '$content$receipts'};
     }
     // Multimodal format: array of text and image_url blocks
     final List<Map<String, dynamic>> contentBlocks = [];

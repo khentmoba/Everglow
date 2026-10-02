@@ -232,7 +232,8 @@ async function exec_edit_memory(ctx, args) {
     const parsed = parseFactStructure(fact);
     const update = {
       fact,
-      subject: parsed.subject || null,
+      // A wording correction must not silently erase the fact's owner.
+      subject: parsed.subject || snap.data()?.subject || parseFactStructure(snap.data()?.fact || '').subject || null,
       relation: parsed.relation || null,
       object: parsed.object || null,
       lastAccessed: ctx.admin.firestore.FieldValue.serverTimestamp(),

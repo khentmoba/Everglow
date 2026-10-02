@@ -24,6 +24,8 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_chat_bubble.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../domain/motchi_quality.dart';
+import '../../domain/motchi_reply_details.dart';
+import 'motchi_reply_details_card.dart';
 import '../../../books/data/services/web_tts_service.dart';
 import 'motchi_web_bridge.dart';
 import 'motchi_sidebar.dart';
@@ -232,7 +234,16 @@ class _MotchiScreenState extends State<MotchiScreen> {
 
   Future<void> _send({bool retry = false}) async {
     if (_isSending) return;
-    final text = retry ? (_lastSentMessage ?? '').trim() : _input.text.trim();
+    final lastReply = context
+        .read<AIService>()
+        .assistantConversation
+        ?.messages
+        .lastOrNull;
+    final text = retry && lastReply?.details.steps.isNotEmpty == true
+        ? 'Help finish only the unfinished steps from my last request: ${_lastSentMessage ?? ''}. Check existing records for any unconfirmed action first; do not repeat completed saves or sends.'
+        : retry
+        ? (_lastSentMessage ?? '').trim()
+        : _input.text.trim();
     final hasImages = !retry && _attachedImageUrls.isNotEmpty;
     if (text.isEmpty && !hasImages) return;
     // Explicit artifact asks turn Canvas on so the game/quiz actually builds.
@@ -440,8 +451,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                         opacity: _isSidebarOpen ? 1 : 0,
                         child: MotchiSidebar(
                           isOpen: true,
-                          onClose: () =>
-                              setState(() => _isSidebarOpen = false),
+                          onClose: () => setState(() => _isSidebarOpen = false),
                           onNewChat: _newChat,
                         ),
                       ),
@@ -491,9 +501,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                         onRemoveImage: _removeImage,
                         centered: true,
                         canvasEnabled: _canvasEnabled,
-                        onToggleCanvas: () => setState(
-                          () => _canvasEnabled = !_canvasEnabled,
-                        ),
+                        onToggleCanvas: () =>
+                            setState(() => _canvasEnabled = !_canvasEnabled),
                       ),
                     ],
                   ),
@@ -573,9 +582,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                   onRemoveImage: _removeImage,
                   centered: false,
                   canvasEnabled: _canvasEnabled,
-                  onToggleCanvas: () => setState(
-                    () => _canvasEnabled = !_canvasEnabled,
-                  ),
+                  onToggleCanvas: () =>
+                      setState(() => _canvasEnabled = !_canvasEnabled),
                 ),
               ],
             ),
@@ -654,7 +662,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   _MessageBubble(
-                                    text: ai.draftResponse,
+                                    text: MotchiReplyDetails.visibleText(
+                                      ai.draftResponse,
+                                    ),
                                     isUser: false,
                                     isStreaming: true,
                                     // Always show: if Motchi emitted a block, Clair asked for it.
@@ -668,6 +678,18 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                         : null,
                                   ),
                                   _LiveToolStrip(ai: ai),
+                                  if (ai.toolResults.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        left: 46,
+                                        top: 6,
+                                      ),
+                                      child: MotchiReplyDetailsCard(
+                                        details: MotchiReplyDetails.fromResults(
+                                          ai.toolResults,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               );
                             }
@@ -695,7 +717,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                   // Always show past artifacts — turning Canvas off must not
                   // hide games/quizzes Motchi already made.
                   showArtifacts: true,
-                  keepFullText: !isUserMsg &&
+                  keepFullText:
+                      !isUserMsg &&
                       userAskedForVisibleQuiz(_prevUserText(allMsgs, i)),
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
@@ -712,6 +735,29 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 46),
                         child: WebSourcesCard(sources: msg.sources),
+                      ),
+                    ],
+                  );
+                }
+                if (!isUserMsg && !msg.details.isEmpty) {
+                  bubble = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      bubble,
+                      Padding(
+                        padding: const EdgeInsets.only(left: 46, top: 6),
+                        child: MotchiReplyDetailsCard(
+                          details: msg.details,
+                          onOpenMemoryBook: () =>
+                              context.push('/motchi-memory'),
+                          onCorrectMemory: loading ? null : _sendQuick,
+                          onContinue: loading
+                              ? null
+                              : () => _sendQuick(
+                                  'Help finish only the unfinished steps from this request: ${_prevUserText(allMsgs, i)}. Check existing records for any unconfirmed action first; do not repeat completed saves or sends.',
+                                ),
+                        ),
                       ),
                     ],
                   );
