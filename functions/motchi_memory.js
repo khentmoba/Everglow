@@ -265,7 +265,7 @@ async function loadMemoryFacts(db = getDb()) {
   return memories;
 }
 
-async function selectRelevantMemories(userMessage, maxResults = 10, db = getDb()) {
+async function selectRelevantMemoryFacts(userMessage, maxResults = 10, db = getDb()) {
   try {
     const memories = await loadMemoryFacts(db);
     const now = new Date();
@@ -287,24 +287,28 @@ async function selectRelevantMemories(userMessage, maxResults = 10, db = getDb()
         lastAccessed: getAdmin().firestore.FieldValue.serverTimestamp(),
       }).catch((e) => console.warn('[memory] access update failed:', e.message));
     }
-    return ranked.map((m) => m.fact);
+    return ranked;
   } catch (e) {
     console.warn('selectRelevantMemories error:', e.message);
     return [];
   }
 }
 
+async function selectRelevantMemories(userMessage, maxResults = 10, db = getDb()) {
+  return (await selectRelevantMemoryFacts(userMessage, maxResults, db)).map((m) => m.fact);
+}
+
 // Letta-style core block: pinned profile notes ride every memory turn,
 // unranked and guaranteed — the essentials Motchi never forgets, even
 // when ranking would cut them. Shares the facts cache: zero extra reads.
-async function selectCoreProfileNotes(db = getDb()) {
+async function selectCoreProfileNotes(db = getDb(), structured = false) {
   try {
     const memories = await loadMemoryFacts(db);
     return memories
       .filter((m) => m.pinned === true && m.category === 'profile' && String(m.fact || '').trim())
       .sort((a, b) => (a.createdAt?.getTime?.() || 0) - (b.createdAt?.getTime?.() || 0))
       .slice(0, 8)
-      .map((m) => String(m.fact).trim());
+      .map((m) => structured ? m : String(m.fact).trim());
   } catch (e) {
     console.warn('selectCoreProfileNotes error:', e.message);
     return [];
@@ -316,6 +320,7 @@ module.exports = {
   serverExtractAndSaveMemory,
   checkHallucinations,
   selectRelevantMemories,
+  selectRelevantMemoryFacts,
   selectCoreProfileNotes,
   loadMemoryFacts,
   claimMemoryExtractSlot,

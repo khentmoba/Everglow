@@ -19,6 +19,7 @@
  */
 
 const functions = require('firebase-functions/v1');
+const { isWriteTool } = require('./motchi_reply_details.js');
 
 const {
   getAdmin,
@@ -291,11 +292,21 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
   }
   const fn = TOOL_EXECUTORS[toolName];
   if (!fn) return JSON.stringify({ error: `Unknown tool: ${toolName}` });
+  if (ctx.uncertainWrites?.has(toolName)) {
+    return JSON.stringify({ error: 'A previous write could not be confirmed. Check the saved record before trying again in a new request.', outcome_unknown: true });
+  }
   try {
     return await Promise.race([fn(ctx, normalized), _timeout(TOOL_TIMEOUT_MS)]);
   } catch (e) {
     const msg = (e && e.message) || 'Tool execution failed';
-    if (opts.retry !== false && TRANSIENT_TOOL_ERROR_RE.test(msg)) {
+    if (isWriteTool(toolName)) {
+      // ponytail: pause this write tool for the turn; per-record locks only
+      // if a real workflow needs independent writes after an unknown result.
+      ctx.uncertainWrites ??= new Set();
+      ctx.uncertainWrites.add(toolName);
+    }
+    // A timed-out write can still finish. Repeating it could save/send twice.
+    if (!isWriteTool(toolName) && opts.retry !== false && TRANSIENT_TOOL_ERROR_RE.test(msg)) {
       await new Promise((r) => setTimeout(r, 800));
       try {
         return await Promise.race([fn(ctx, normalized), _timeout(TOOL_TIMEOUT_MS)]);
@@ -303,7 +314,7 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
         return JSON.stringify({ error: (e2 && e2.message) || 'Tool execution failed' });
       }
     }
-    return JSON.stringify({ error: msg });
+    return JSON.stringify({ error: msg, ...(isWriteTool(toolName) ? { outcome_unknown: true } : {}) });
   }
 }
 
