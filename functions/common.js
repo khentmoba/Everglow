@@ -5,7 +5,7 @@ const dns = require('dns').promises;
 const { trustedProfileUsername } = require('./auth_core.js');
 
 /** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
-const APP_VERSION = '6.0.0+1';
+const APP_VERSION = '6.1.0+1';
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out.
  *  admin_compat restores the legacy namespace API (admin.auth(),
