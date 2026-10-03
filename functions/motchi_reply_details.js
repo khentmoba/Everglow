@@ -42,12 +42,27 @@ function toolReceipt(tool, args, raw) {
   else if (write && result.success !== true) status = 'unknown';
   // Don't expose raw provider errors or entire personal records in receipts.
   const title = String(
-    result?.title || result?.fact || args?.title || args?.name || args?.query || '',
+    result?.title || result?.fact || args?.title || args?.name || args?.query || urlHosts(args) || '',
   ).slice(0, 120);
   const target = String(
     result?.id || result?.memory_id || args?.id || args?.memory_id || args?.title || args?.name || '',
   );
   return { tool, status, write, title, target };
+}
+
+// read_web_page takes urls, not a query, so it used to be the one step
+// with a blank receipt — "Did not complete · read web page" told Clair
+// nothing. The host is what she recognises from the sources above it.
+function urlHosts(args) {
+  const urls = Array.isArray(args?.urls) ? args.urls : [args?.url];
+  const hosts = [];
+  for (const raw of urls) {
+    try {
+      const host = new URL(String(raw || '')).hostname.replace(/^www\./, '');
+      if (host && !hosts.includes(host)) hosts.push(host);
+    } catch (_) { /* not a URL — nothing to show */ }
+  }
+  return hosts.join(', ');
 }
 
 module.exports = {

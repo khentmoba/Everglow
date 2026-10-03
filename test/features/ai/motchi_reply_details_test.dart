@@ -219,4 +219,94 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'a read that did not complete stays visible without raising an alarm',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      // The anime sidechat: web_search landed, one page read landed, one
+      // page read did not. The reply itself answered fine.
+      final details = MotchiReplyDetails.fromResults([
+        {
+          'tool': 'web_search',
+          'step': {
+            'tool': 'web_search',
+            'status': 'done',
+            'write': false,
+            'title': 'Mushoku Tensei Season 3 announcement',
+          },
+        },
+        {
+          'tool': 'read_web_page',
+          'step': {
+            'tool': 'read_web_page',
+            'status': 'done',
+            'write': false,
+            'title': 'fandom.com',
+          },
+        },
+        {
+          'tool': 'read_web_page',
+          'step': {
+            'tool': 'read_web_page',
+            'status': 'failed',
+            'write': false,
+            'title': 'facebook.com',
+          },
+        },
+      ]);
+      var continued = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: MotchiReplyDetailsCard(
+                details: details,
+                onContinue: () => continued = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(details.summary, 'Information found — nothing saved yet.');
+      expect(details.needsAttention, isFalse);
+      expect(find.textContaining('Some steps still need attention'), findsNothing);
+      // The failed read is still reported — trust means showing it.
+      expect(find.textContaining('Done · read web page'), findsOneWidget);
+      expect(find.textContaining('fandom.com'), findsOneWidget);
+      expect(find.textContaining('Did not complete · read web page'), findsOneWidget);
+      expect(find.textContaining('facebook.com'), findsOneWidget);
+      expect(find.text('Help finish unfinished steps'), findsNothing);
+      expect(continued, isFalse);
+    },
+  );
+
+  testWidgets('a write that did not complete still demands attention', (
+    tester,
+  ) async {
+    final details = MotchiReplyDetails.fromResults([
+      {
+        'tool': 'add_calendar_event',
+        'step': {
+          'tool': 'add_calendar_event',
+          'status': 'failed',
+          'write': true,
+          'title': 'Date night',
+        },
+      },
+    ]);
+    expect(details.summary, 'Some steps still need attention.');
+    expect(details.needsAttention, isTrue);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: MotchiReplyDetailsCard(details: details)),
+      ),
+    );
+    expect(find.text('Some steps still need attention.'), findsOneWidget);
+    expect(find.textContaining('Did not complete · add calendar event'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -9,6 +9,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const tools = require('../motchi_tools.js');
+const { toolReceipt } = require('../motchi_reply_details.js');
 const {
   createToolCtx,
   executeToolCall,
@@ -1119,3 +1120,72 @@ test('search_anime returns empty results safely when both sources fail without t
   }
 });
 
+
+// ── read_web_page: one blocked page must not discard the rest ──
+// Mirrors the anime sidechat receipt: web_search landed, one read landed,
+// one read did not. The reply was complete; only the provenance is partial.
+
+function withFetch(handler, fn) {
+  const realFetch = global.fetch;
+  global.fetch = handler;
+  return Promise.resolve()
+    .then(fn)
+    .finally(() => { global.fetch = realFetch; });
+}
+
+test('read_web_page keeps the pages that loaded when one URL is blocked', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  await withFetch(async (_url, opts) => {
+    const [url] = JSON.parse(opts.body).urls;
+    if (url.includes('facebook')) {
+      return { ok: true, status: 200, json: async () => ({ results: [], errors: [{ url, error: 'bot_protected' }] }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ results: [{ url, title: 'MT Wiki', text: 'Season 3 in April 2026.' }] }) };
+  }, async () => {
+    const out = JSON.parse(await executeToolCall(ctx, 'read_web_page', {
+      urls: ['https://fandom.com/mt', 'https://facebook.com/muse', 'https://reddit.com/r/anime'],
+    }));
+    assert.deepEqual(out.pages.map((p) => p.url), ['https://fandom.com/mt', 'https://reddit.com/r/anime']);
+    assert.match(out.pages[0].content, /April 2026/);
+    assert.deepEqual(out.errors.map((e) => e.url), ['https://facebook.com/muse']);
+  });
+  if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+  else process.env.TINYFISH_API_KEY = realKey;
+});
+
+test('read_web_page retries one timed-out page instead of giving up', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  let attempts = 0;
+  await withFetch(async (_url, opts) => {
+    attempts++;
+    if (attempts === 1) { const e = new Error('aborted'); e.name = 'TimeoutError'; throw e; }
+    const [url] = JSON.parse(opts.body).urls;
+    return { ok: true, status: 200, json: async () => ({ results: [{ url, title: 'Crunchyroll', text: 'Listed for April.' }] }) };
+  }, async () => {
+    const out = JSON.parse(await executeToolCall(ctx, 'read_web_page', { urls: ['https://crunchyroll.com/news'] }));
+    assert.equal(attempts, 2, 'a timeout gets exactly one more try');
+    assert.match(out.pages[0].content, /April/);
+    assert.deepEqual(out.errors, []);
+  });
+  if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+  else process.env.TINYFISH_API_KEY = realKey;
+});
+
+test('a read that did not complete never alarms, a write that did still does', () => {
+  const readOnly = [
+    toolReceipt('web_search', { query: 'Mushoku Tensei season 3' }, { results: [] }),
+    toolReceipt('read_web_page', { urls: ['https://fandom.com/mt'] }, { pages: [{}], errors: [] }),
+    toolReceipt('read_web_page', { urls: ['https://facebook.com/muse'] }, { error: 'Reading the page timed out' }),
+  ];
+  assert.deepEqual(readOnly.map((s) => s.status), ['done', 'done', 'failed']);
+  // The rows stay meaningful — which site each read was for.
+  assert.equal(readOnly[1].title, 'fandom.com');
+  assert.equal(readOnly[2].title, 'facebook.com');
+  const writeFailed = toolReceipt('add_calendar_event', { title: 'Date night' }, { error: 'bad date' });
+  assert.equal(writeFailed.status, 'failed');
+  assert.equal(writeFailed.write, true);
+});

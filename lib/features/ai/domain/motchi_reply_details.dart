@@ -12,16 +12,28 @@ class MotchiReplyDetails {
   });
 
   bool get isEmpty => memories.isEmpty && steps.isEmpty && !interrupted;
-  bool get needsAttention =>
-      interrupted || steps.any((s) => s['status'] != 'done');
+
+  /// Only a step that can leave something half-saved demands action. Reads
+  /// (web_search, read_web_page, browse_web) are informational: a page
+  /// Motchi could not open changes where the answer came from, which the
+  /// reply already says, and leaves Clair nothing to finish herself.
+  /// Anything not explicitly marked `write: false` still counts — older
+  /// saved replies predate that flag, and silence is the wrong default.
+  bool get needsAttention => interrupted || steps.any(_needsAction);
+
+  static bool _needsAction(Map<String, dynamic> step) =>
+      step['status'] != 'done' &&
+      (step['write'] != false || step['status'] == 'unknown');
 
   String get summary {
     if (interrupted) return 'Stopped before finishing — check the steps below.';
-    if (steps.any((s) => s['status'] == 'unknown')) {
+    if (steps.any((s) => s['status'] == 'unknown' && _needsAction(s))) {
       return 'Some actions could not be confirmed. Check before trying again.';
     }
     if (steps.any(
-      (s) => s['status'] == 'failed' || s['status'] == 'unscheduled',
+      (s) =>
+          _needsAction(s) &&
+          (s['status'] == 'failed' || s['status'] == 'unscheduled'),
     )) {
       return 'Some steps still need attention.';
     }
