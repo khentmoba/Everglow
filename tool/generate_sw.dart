@@ -68,6 +68,11 @@ function isCore(path) {
   // shell URL routes here while the cache key keeps the full query.
   return path.endsWith("main.dart.js");
 }
+// Flutter tree-shakes MaterialIcons on every app build. Its stable URL is
+// NOT engine-immutable: an old subset leaves newly added icons blank.
+function isIconAsset(path) {
+  return path === "/assets/fonts/MaterialIcons-Regular.otf" || path === "/assets/FontManifest.json";
+}
 function isImmutable(url) {
   let p;
   try {
@@ -75,7 +80,7 @@ function isImmutable(url) {
   } catch {
     return false;
   }
-  if (isNoStore(p)) return false;
+  if (isNoStore(p) || isIconAsset(p)) return false;
   if (p.endsWith(".part.js")) return false;
   if (p.startsWith("/canvaskit/")) return true;
   if (p.startsWith("/assets/") || p.startsWith("/icons/")) return true;
@@ -153,7 +158,7 @@ self.addEventListener("activate", (e) => {
           const keys = await imm.keys();
           for (const req of keys) {
             const u = req.url.split("?")[0];
-            if (u.endsWith(".part.js") || (u.endsWith(".js") && u.indexOf("/canvaskit/") === -1)) {
+            if (isIconAsset(new URL(u).pathname) || u.endsWith(".part.js") || (u.endsWith(".js") && u.indexOf("/canvaskit/") === -1)) {
               await imm.delete(req);
             }
           }
@@ -223,7 +228,7 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // Immutable bytes (CanvasKit/WASM/fonts/models) live in the
+  // Immutable bytes (CanvasKit/static fonts/models) live in the
   // engine-revision cache so app deploys do not evict them.
   if (isImmutable(e.request.url) && !isCore(path)) {
     e.respondWith(
@@ -265,9 +270,10 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // Default: network-first, fall back to cache when offline.
+  // Default: network-first, fall back to cache when offline. Icon assets
+  // also revalidate HTTP: previously they had a one-year immutable header.
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, isIconAsset(path) ? { cache: "no-cache" } : {})
       .then((res) => {
         if (res && res.ok) {
           const copy = res.clone();
@@ -278,7 +284,7 @@ self.addEventListener("fetch", (e) => {
         return res;
       })
       .catch(async () => {
-        const cached = await caches.match(e.request);
+        const cached = await caches.match(e.request, isIconAsset(path) ? { cacheName: SHELL } : {});
         return cached || (e.request.mode === "navigate" ? fallbackNavigate() : Response.error());
       }),
   );
