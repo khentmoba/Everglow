@@ -73,6 +73,23 @@ class EmbedWebView extends StatefulWidget {
     }
   }
 
+  /// Failure messages are accepted only from our owned wrapper document.
+  static bool isOwnedPlayerUrl(String url) {
+    final uri = Uri.tryParse(url);
+    return uri?.scheme == 'https' &&
+        uri?.host == 'everglow-1c6db.web.app' &&
+        uri?.path == '/embed.html';
+  }
+
+  static bool isPlayerFailure(String raw) {
+    try {
+      final data = jsonDecode(raw);
+      return data is Map && data['type'] == 'everglow-embed-failed';
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   State<EmbedWebView> createState() => _EmbedWebViewState();
 }
@@ -113,8 +130,15 @@ class _EmbedWebViewState extends State<EmbedWebView> {
       if (widget.onPlayerMessage != null) {
         await controller.addJavaScriptChannel(
           'EverglowPlayer',
-          onMessageReceived: (message) =>
-              widget.onPlayerMessage?.call(message.message),
+          onMessageReceived: (message) {
+            if (!mounted || controller != _controller) return;
+            if (EmbedWebView.isOwnedPlayerUrl(widget.url) &&
+                EmbedWebView.isPlayerFailure(message.message)) {
+              _fail();
+              return;
+            }
+            widget.onPlayerMessage?.call(message.message);
+          },
         );
       }
 
@@ -130,6 +154,14 @@ class _EmbedWebViewState extends State<EmbedWebView> {
       controller.setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (request) {
+            // Main-frame only: the owned wrapper intentionally loads
+            // cross-origin upstream frames, which must not be blocked.
+            if (request.isMainFrame &&
+                EmbedWebView.isOwnedPlayerUrl(widget.url) &&
+                Uri.tryParse(request.url)?.host !=
+                    Uri.tryParse(widget.url)?.host) {
+              return NavigationDecision.prevent;
+            }
             final allowed = widget.allowedHosts;
             if (allowed == null) return NavigationDecision.navigate;
             final host = Uri.tryParse(request.url)?.host ?? '';
@@ -139,7 +171,7 @@ class _EmbedWebViewState extends State<EmbedWebView> {
           },
           onPageFinished: (url) {
             _loadTimer?.cancel();
-            if (!mounted) return;
+            if (!mounted || controller != _controller || _failed) return;
             setState(() => _loading = false);
             widget.onLoaded?.call();
           },
@@ -182,7 +214,7 @@ class _EmbedWebViewState extends State<EmbedWebView> {
   }
 
   void _fail() {
-    if (!mounted) return;
+    if (!mounted || _failed) return;
     _loadTimer?.cancel();
     setState(() {
       _loading = false;
@@ -240,47 +272,50 @@ class _EmbedWebViewState extends State<EmbedWebView> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  const Icon(
-                    Icons.error_outline_rounded,
-                    color: AppColors.roseQuartz,
-                    size: 42,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'This source couldn\'t load',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.petalWhite,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.roseQuartz,
+                      size: 42,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Try again or switch to another source below.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _retry,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: const Text('Try again'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.roseQuartz,
-                      side: BorderSide(
-                        color: AppColors.roseQuartz.withValues(alpha: 0.6),
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.full),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'This source couldn\'t load',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.petalWhite,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Try again or switch to another source below.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _retry,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      label: const Text('Try again'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.roseQuartz,
+                        side: BorderSide(
+                          color: AppColors.roseQuartz.withValues(alpha: 0.6),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
 

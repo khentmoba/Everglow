@@ -12,6 +12,9 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../data/services/ani_zip_service.dart';
 import '../../data/services/player_memory_service.dart';
+import '../../data/services/playback_progress_writer.dart';
+import '../../data/services/cinema_preferences.dart';
+import '../widgets/cinema_viewing_preferences.dart';
 import '../../data/services/tmdb_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/cinema_video_sources.dart';
@@ -144,7 +147,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                         bottom: 12,
                                         child: _upNextVisible
                                             ? UpNextOverlay(
-                                                next: _nextEpisode!,
+                                                next: _safeNextEpisode,
                                                 secondsLeft: _upNextLeft,
                                                 totalSeconds:
                                                     _VideoPlayerScreenStateBase
@@ -153,7 +156,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                                 onCancel: _cancelUpNext,
                                               )
                                             : NextEpisodeButton(
-                                                next: _nextEpisode!,
+                                                next: _safeNextEpisode,
                                                 onTap: _playNextEpisode,
                                               ),
                                       ),
@@ -179,6 +182,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                         onSeasonChanged: _onSeasonChanged,
                         onEpisodeChanged: _onEpisodeChanged,
                       ),
+                    const CinemaViewingPreferences(),
                     RepaintBoundary(child: _buildMetadataSection()),
                     RepaintBoundary(child: _buildServerSelectorSection()),
                     const SizedBox(height: 40),
