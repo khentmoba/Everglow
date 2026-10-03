@@ -168,8 +168,10 @@ class MediaItem {
     return true;
   }
 
-  static final _seasonInTitleRegex =
-      RegExp(r'season\s+(\d+)', caseSensitive: false);
+  static final _seasonInTitleRegex = RegExp(
+    r'season\s+(\d+)',
+    caseSensitive: false,
+  );
 
   /// Season number to show in shelves.
   ///
@@ -222,8 +224,7 @@ class MediaItem {
   /// Always returns a full backdrop URL, or `''` when none is available.
   /// Mirrors [posterUrl] so relative TMDB paths stored in Firestore (e.g.
   /// `/abc.jpg`) resolve against the image CDN instead of failing to load.
-  String get backdropUrl =>
-      TmdbImages.backdropFor(backdropPath, large: true);
+  String get backdropUrl => TmdbImages.backdropFor(backdropPath, large: true);
 
   bool get isToWatch => _normalizedStatus == 'to-watch';
 
@@ -499,6 +500,7 @@ class MediaItem {
   }
 
   MediaItem copyWith({
+    bool clearProgress = false,
     String? id,
     int? tmdbId,
     String? title,
@@ -552,10 +554,18 @@ class MediaItem {
       score: score ?? this.score,
       userRating: userRating ?? this.userRating,
       ratedAt: ratedAt ?? this.ratedAt,
-      currentSeason: currentSeason ?? this.currentSeason,
-      currentEpisode: currentEpisode ?? this.currentEpisode,
-      currentTimestamp: currentTimestamp ?? this.currentTimestamp,
-      durationSeconds: durationSeconds ?? this.durationSeconds,
+      currentSeason: clearProgress
+          ? null
+          : (currentSeason ?? this.currentSeason),
+      currentEpisode: clearProgress
+          ? null
+          : (currentEpisode ?? this.currentEpisode),
+      currentTimestamp: clearProgress
+          ? null
+          : (currentTimestamp ?? this.currentTimestamp),
+      durationSeconds: clearProgress
+          ? null
+          : (durationSeconds ?? this.durationSeconds),
       progressUpdatedAt: progressUpdatedAt ?? this.progressUpdatedAt,
       remindMe: remindMe ?? this.remindMe,
       trailerYoutubeId: trailerYoutubeId ?? this.trailerYoutubeId,
