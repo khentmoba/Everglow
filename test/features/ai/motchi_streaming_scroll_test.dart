@@ -318,8 +318,11 @@ void main() {
     await tester.pumpAndSettle();
     final field = find.byType(TextField).first;
     await tester.enterText(field, 'A quiet evening');
+    // Typing schedules the rebuild that enables the Send button.
+    await tester.pump();
     await tester.tap(find.byTooltip('Send message'));
     await tester.pump();
+    expect(ai.requests, hasLength(1));
     expect(ai.requests.single, (
       message: 'A quiet evening',
       thinking: false,
