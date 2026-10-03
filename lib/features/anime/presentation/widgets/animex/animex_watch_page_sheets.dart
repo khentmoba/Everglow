@@ -1,5 +1,56 @@
 part of 'animex_watch_page.dart';
 
+// Keep spoiler metadata out of both text and thumbnail widgets (not blurred).
+AniListEpisode _episodeWithoutSpoilers(AniListEpisode episode) =>
+    AniListEpisode(
+      number: episode.number,
+      duration: episode.duration,
+      airedAt: episode.airedAt,
+    );
+
+class _HideSpoilersSwitch extends StatelessWidget {
+  const _HideSpoilersSwitch();
+
+  @override
+  Widget build(BuildContext context) {
+    final hideSpoilers = context.select<AnimexStores?, bool>(
+      (stores) => stores?.hideSpoilers ?? true,
+    );
+    return Material(
+      color: Colors.transparent,
+      child: SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: Text(
+          'Hide spoilers',
+          style: dmSansStyle(size: 12, color: AnimeXTokens.textPrimary),
+        ),
+        activeTrackColor: AnimeXTokens.accent,
+        value: hideSpoilers,
+        onChanged: context.read<AnimexStores?>()?.setHideSpoilers,
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+void showEpisodeInfoSheetForTesting(
+  BuildContext context, {
+  required AniListEpisode episode,
+  required String animeTitle,
+  required String fallbackPoster,
+  required bool isPlaying,
+  required VoidCallback onPlay,
+  bool hideSpoilers = true,
+}) => _showEpisodeInfoSheet(
+  context,
+  episode: episode,
+  animeTitle: animeTitle,
+  fallbackPoster: fallbackPoster,
+  isPlaying: isPlaying,
+  onPlay: onPlay,
+  hideSpoilers: hideSpoilers,
+);
+
 void _showPlaylistSheet(BuildContext context) {
   final stores = context.read<AnimexStores>();
   final state = context.findAncestorStateOfType<_AnimeXWatchPageState>();

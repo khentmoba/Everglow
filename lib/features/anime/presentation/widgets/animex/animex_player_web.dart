@@ -17,6 +17,10 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final VoidCallback? onContentError;
   final void Function(VideasyProgress progress)? onProgress;
 
+  /// In-place seek for our Megavid player; other providers ignore it.
+  final int? seekSeconds;
+  final int seekRequest;
+
   /// Fires when the embed changes episodes on its own (CineSrc
   /// auto-play or its built-in episode picker), reporting the TMDB
   /// season/episode it moved to. Our embed.html wrapper forwards the
@@ -39,6 +43,8 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.referrerPolicy = 'no-referrer',
     this.onContentError,
     this.onProgress,
+    this.seekSeconds,
+    this.seekRequest = 0,
     this.onPlayerEpisodeChanged,
     this.sandbox = true,
   });
@@ -93,7 +99,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
 
     _onLoad = (() {
-      if (mounted) setState(() => _loaded = true);
+      if (!mounted) return;
+      setState(() => _loaded = true);
+      _sendSeek();
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
@@ -102,17 +110,45 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     // the iframe element can never fire.
 
     _onMessage = ((web.MessageEvent event) {
+      // Origin alone also admits unrelated iframes from the same host.
+      // Gate EVERY message, including errors and episode changes.
+      if (!mounted ||
+          _iframe.contentWindow == null ||
+          event.source != _iframe.contentWindow ||
+          !animeXPlayerMessageOriginAllowed(widget.url, event.origin)) {
+        return;
+      }
       final raw = event.data;
+      Object? obj;
+      try {
+        obj = raw?.dartify();
+      } catch (_) {
+        return;
+      }
+      final ownedProgress = parseAnimeXProgress(event.origin, widget.url, obj);
+      if (ownedProgress != null) {
+        widget.onProgress?.call(ownedProgress);
+        return;
+      }
       // CineSrc episode changes arrive as objects (forwarded by our
       // embed.html wrapper, which already origin-checked the upstream).
       if (raw != null) {
         try {
-          final obj = raw.dartify();
           if (obj is Map && obj['type'] == 'cinesrc:nextepisode') {
-            final season = (obj['season'] as num?)?.toInt();
-            final episode = (obj['episode'] as num?)?.toInt();
-            if (season != null && episode != null && mounted) {
-              widget.onPlayerEpisodeChanged?.call(season, episode);
+            final season = obj['season'];
+            final episode = obj['episode'];
+            if (season is num &&
+                season.isFinite &&
+                season > 0 &&
+                season == season.toInt() &&
+                episode is num &&
+                episode.isFinite &&
+                episode > 0 &&
+                episode == episode.toInt()) {
+              widget.onPlayerEpisodeChanged?.call(
+                season.toInt(),
+                episode.toInt(),
+              );
             }
             return;
           }
@@ -120,8 +156,10 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
           // Not an object message — fall through to string handling.
         }
       }
-      final data = raw == null ? '' : raw.toString();
-      if (data == 'animex-content-error' && mounted && !_contentError) {
+      final data = obj is String ? obj : '';
+      if ((data == 'animex-content-error' ||
+              (obj is Map && obj['type'] == 'everglow-embed-failed')) &&
+          !_contentError) {
         setState(() => _contentError = true);
         widget.onContentError?.call();
         return;
@@ -132,6 +170,45 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (progress != null && mounted) widget.onProgress?.call(progress);
     }).toJS;
     web.window.addEventListener('message', _onMessage);
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimeXPlayerFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.url != oldWidget.url) {
+      _loaded = false;
+      _contentError = false;
+      _iframe.setAttribute(
+        'referrerpolicy',
+        AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy),
+      );
+      if (widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url)) {
+        _iframe.setAttribute(
+          'sandbox',
+          'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
+        );
+      } else {
+        _iframe.removeAttribute('sandbox');
+      }
+      _iframe.src = widget.url;
+    } else if (widget.seekSeconds != oldWidget.seekSeconds ||
+        widget.seekRequest != oldWidget.seekRequest) {
+      _sendSeek();
+    }
+  }
+
+  void _sendSeek() {
+    final seconds = widget.seekSeconds;
+    if (!_loaded ||
+        seconds == null ||
+        seconds < 0 ||
+        !isAnimeXProxyPlayerUrl(widget.url)) {
+      return;
+    }
+    _iframe.contentWindow?.postMessage(
+      {'type': 'animex-seek', 'seconds': seconds}.jsify(),
+      animeXProxyOrigin.toJS,
+    );
   }
 
   @override

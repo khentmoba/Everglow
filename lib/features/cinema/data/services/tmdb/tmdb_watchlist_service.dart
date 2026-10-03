@@ -238,19 +238,52 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   /// (or the read failed). Lets the player resume on a device that never
   /// played the title. Only ever reads the caller's own document, and
   /// never throws: resuming is a comfort, not a reason to block playback.
-  Future<MediaItem?> getSavedProgress(int tmdbId, String userName) async {
-    if (userName.isEmpty || tmdbId <= 0) return null;
+  Future<MediaItem?> getSavedProgress(
+    int tmdbId,
+    String userName, {
+    int? anilistId,
+  }) async {
+    if (userName.isEmpty || (tmdbId <= 0 && (anilistId ?? 0) <= 0)) return null;
     try {
+      // Anime catalog cards can carry only AniList, while the stored entry
+      // was opened from MAL. Resolve that identity before numeric ID fallback.
+      if (anilistId != null && anilistId > 0) {
+        final anime = await withGetTimeout(
+          firestore
+              .collection('watch_list')
+              .where('anilistId', isEqualTo: anilistId)
+              .where('userName', isEqualTo: userName)
+              .where('isAnime', isEqualTo: true)
+              .limit(1)
+              .get(),
+          label: 'saved anime progress lookup',
+        );
+        if (anime.docs.isNotEmpty) {
+          return MediaItem.fromFirestore(
+            anime.docs.first.data(),
+            anime.docs.first.id,
+          );
+        }
+      }
+      if (tmdbId <= 0) return null;
+      Query<Map<String, dynamic>> query = firestore
+          .collection('watch_list')
+          .where('tmdbId', isEqualTo: tmdbId)
+          .where('userName', isEqualTo: userName);
+      if ((anilistId ?? 0) > 0) {
+        query = query.where('isAnime', isEqualTo: true);
+      }
       final snap = await withGetTimeout(
-        firestore
-            .collection('watch_list')
-            .where('tmdbId', isEqualTo: tmdbId)
-            .where('userName', isEqualTo: userName)
-            .limit(1)
-            .get(),
+        query.limit(1).get(),
         label: 'saved watch progress lookup',
       );
       if (snap.docs.isEmpty) return null;
+      final savedAniListId = snap.docs.first.data()['anilistId'];
+      if ((anilistId ?? 0) > 0 &&
+          savedAniListId != null &&
+          savedAniListId != anilistId) {
+        return null;
+      }
       return MediaItem.fromFirestore(
         snap.docs.first.data(),
         snap.docs.first.id,
@@ -280,27 +313,45 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
           : (item.anilistId ?? 0);
       if (effectiveTmdbId <= 0) return;
 
+      // Anime MAL/AniList numbers can collide with cinema TMDB numbers.
+      // Keep every anime lookup source-scoped, and match AniList first just
+      // like account resume. Cinema keeps its existing TMDB-first behavior.
+      Query<Map<String, dynamic>> query = collection.where(
+        'userName',
+        isEqualTo: userName,
+      );
+      if (item.isAnime) query = query.where('isAnime', isEqualTo: true);
+      final animeIdFirst = item.isAnime && (item.anilistId ?? 0) > 0;
       var existing = await withGetTimeout(
-        collection
-            .where('tmdbId', isEqualTo: effectiveTmdbId)
-            .where('userName', isEqualTo: userName)
+        query
+            .where(
+              animeIdFirst ? 'anilistId' : 'tmdbId',
+              isEqualTo: animeIdFirst ? item.anilistId : effectiveTmdbId,
+            )
             .limit(1)
             .get(),
         label: 'watch progress lookup',
       );
 
-      if (existing.docs.isEmpty &&
-          item.anilistId != null &&
-          item.anilistId! > 0) {
+      if (existing.docs.isEmpty && (item.anilistId ?? 0) > 0) {
         existing = await withGetTimeout(
-          collection
-              .where('anilistId', isEqualTo: item.anilistId)
-              .where('userName', isEqualTo: userName)
+          query
+              .where(
+                animeIdFirst ? 'tmdbId' : 'anilistId',
+                isEqualTo: animeIdFirst ? effectiveTmdbId : item.anilistId,
+              )
               .limit(1)
               .get(),
-          label: 'watch progress anime lookup',
+          label: 'watch progress fallback lookup',
         );
       }
+      final document = existing.docs.isEmpty ? null : existing.docs.first;
+      final savedAniListId = document?.data()['anilistId'];
+      final conflictingAnime =
+          item.isAnime &&
+          item.anilistId != null &&
+          savedAniListId != null &&
+          savedAniListId != item.anilistId;
 
       // NOTE: no partner fallback (see saveToWatchList). Progress and
       // removals only ever touch the caller's own document; when none
@@ -320,11 +371,8 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       // with saveToWatchList.
       if (status != null) data['status'] = _toSelfStatus(status);
 
-      if (existing.docs.isNotEmpty) {
-        final existingData = existing.docs.first.data();
-        if (item.isAnime && existingData['isAnime'] != true) {
-          data['isAnime'] = true;
-        }
+      if (document != null && !conflictingAnime) {
+        final existingData = document.data();
         final existingPoster = existingData['posterPath'] as String?;
         if (item.posterPath.isNotEmpty &&
             (existingPoster == null || existingPoster.isEmpty)) {
@@ -335,7 +383,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
             (existingTitle == null || existingTitle.isEmpty)) {
           data['title'] = item.title;
         }
-        await collection.doc(existing.docs.first.id).update(data);
+        await collection.doc(document.id).update(data);
       } else {
         await collection.add(
           item

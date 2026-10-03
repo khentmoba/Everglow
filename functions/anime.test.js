@@ -133,12 +133,20 @@ test('hlsPlayerHtml inline script parses', () => {
 /** Minimal DOM + Hls stubs so the player script can run inside a vm.
  *  Elements need style/hidden/addEventListener; the video also needs
  *  src/play for the native-HLS fallback branch. */
-function playerScriptContext(calls) {
+function playerScriptContext(calls, { search = '', native = false, hls = true } = {}) {
   const element = () => ({
     style: {},
     hidden: true,
     src: '',
-    addEventListener() {},
+    currentTime: 0,
+    duration: NaN,
+    listeners: {},
+    addEventListener(event, handler) {
+      (this.listeners[event] ||= []).push(handler);
+    },
+    dispatch(event, data) {
+      for (const handler of this.listeners[event] || []) handler(data);
+    },
     play() {},
   });
   const els = {
@@ -160,9 +168,26 @@ function playerScriptContext(calls) {
   Hls.prototype.destroy = () => {};
   Hls.prototype.startLoad = () => {};
   Hls.prototype.recoverMediaError = () => {};
+  calls.postMessages = [];
+  calls.nativeMessages = [];
+  calls.now = 0;
+  const window = element();
+  window.Hls = hls ? Hls : null;
+  window.location = {
+    search,
+    origin: 'https://us-central1-everglow-1c6db.cloudfunctions.net',
+    pathname: '/proxyAnime',
+  };
+  window.parent = native ? window : {};
+  window.parent.postMessage = (data) => calls.postMessages.push(data);
+  if (native) window.EverglowPlayer = {
+    postMessage: (data) => calls.nativeMessages.push(data),
+  };
   const context = {
-    window: { Hls, parent: { postMessage() {} } },
+    window,
     Hls,
+    URLSearchParams,
+    Date: { now: () => calls.now },
     document: { getElementById: (id) => els[id] || null },
   };
   context.elements = els;
@@ -186,6 +211,136 @@ test('hlsPlayerHtml inline script actually runs and starts the stream', () => {
   assert.deepEqual(calls.loadSource, ['https://x/y.m3u8']);
   assert.equal(calls.attachMedia.length, 1);
   assert.ok(calls.handlers.manifestParsed, 'manifest handler registered');
+});
+
+function runPlayer(options = {}) {
+  const calls = { loadSource: [], attachMedia: [], handlers: {} };
+  const context = playerScriptContext(calls, options);
+  const html = hlsPlayerHtml({ src: 'https://x/y.m3u8', ep: 3 });
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  new vm.Script(code).runInNewContext(context);
+  return { calls, window: context.window, video: context.elements.v };
+}
+
+test('start seeks on metadata, clamps to duration and never reapplies', () => {
+  for (const hls of [true, false]) {
+    for (const [start, expected] of [['95', 95], ['0', 0], ['9999', 100], ['12.5', 12.5]]) {
+      const { video } = runPlayer({ search: `?start=${start}`, hls });
+      assert.equal(video.currentTime, 0, 'waits for metadata');
+      video.duration = 100;
+      video.dispatch('durationchange');
+      assert.equal(video.currentTime, 0, 'start waits for loadedmetadata');
+      video.dispatch('loadedmetadata');
+      assert.equal(video.currentTime, expected);
+      video.currentTime = 17;
+      video.dispatch('loadedmetadata');
+      video.dispatch('durationchange');
+      assert.equal(video.currentTime, 17, 'does not rewind on a later metadata event');
+    }
+  }
+  for (const start of ['', '-5', 'NaN', 'Infinity', '1e309', '0x10', '12oops', ' ', '9'.repeat(400)]) {
+    const { video } = runPlayer({ search: `?start=${encodeURIComponent(start)}` });
+    video.currentTime = 8;
+    video.duration = 100;
+    video.dispatch('loadedmetadata');
+    assert.equal(video.currentTime, 8, `invalid start ${start}`);
+  }
+});
+
+test('seek requires trusted parent source AND exact app origin, queues until metadata', () => {
+  const { calls, window, video } = runPlayer({ search: '?start=5' });
+  const seek = (seconds, source = window.parent, origin = 'https://everglow-1c6db.web.app') =>
+    window.dispatch('message', { source, origin, data: { type: 'animex-seek', seconds } });
+  seek(40);
+  assert.equal(video.currentTime, 0);
+  video.duration = 100;
+  video.dispatch('loadedmetadata');
+  assert.equal(video.currentTime, 40, 'pending seek overrides start');
+  for (const origin of ['https://evil.example', 'null', 'https://everglow-1c6db.web.app.evil.com',
+    'https://everglow-1c6db.web.app:443', 'https://another-project--pr-1.web.app',
+    'https://everglow-1c6db--pr-1.web.app.evil.com', 'http://192.168.1.1:5000']) {
+    seek(70, window.parent, origin);
+    assert.equal(video.currentTime, 40, origin);
+  }
+  seek(70, {}, 'https://everglow-1c6db.web.app');
+  assert.equal(video.currentTime, 40, 'same-origin foreign frame is ignored');
+  for (const seconds of [NaN, Infinity, -1, '20', null, {}, true]) {
+    seek(seconds);
+    assert.equal(video.currentTime, 40, `invalid seek ${seconds}`);
+  }
+  for (const origin of ['https://everglow-1c6db.firebaseapp.com',
+    'https://everglow-1c6db--pr-123-abc.web.app', 'http://localhost:5000',
+    'http://127.0.0.1:8080', 'http://[::1]:8080']) {
+    seek(150, window.parent, origin);
+    assert.equal(video.currentTime, 100, origin);
+    seek(40);
+  }
+  seek(0);
+  assert.equal(video.currentTime, 0);
+  assert.equal(calls.loadSource.length, 1, 'seek does not reload the stream');
+});
+
+test('progress has strict finite seconds, throttled timeupdates and forced pause/end', () => {
+  const { calls, video } = runPlayer();
+  video.duration = 100;
+  video.currentTime = 12.5;
+  video.dispatch('timeupdate');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls.postMessages[0])), {
+    type: 'animex-progress', position: 12.5, duration: 100, episode: 3,
+  });
+  calls.now = 500;
+  video.currentTime = 13;
+  video.dispatch('timeupdate');
+  assert.equal(calls.postMessages.length, 1);
+  calls.now = 1000;
+  video.dispatch('timeupdate');
+  video.dispatch('pause');
+  video.currentTime = 100;
+  video.dispatch('ended');
+  assert.equal(calls.postMessages.length, 4);
+  assert.equal(calls.postMessages[3].position, 100);
+  for (const [position, duration] of [[NaN, 100], [Infinity, 100], [-1, 100], [101, 100],
+    ['10', 100], [1, '100'], [1, Infinity], [1, NaN], [0, 0]]) {
+    video.currentTime = position;
+    video.duration = duration;
+    video.dispatch('pause');
+  }
+  assert.equal(calls.postMessages.length, 4);
+});
+
+test('native owned top-level EverglowPlayer bridges progress, seek and playback errors', () => {
+  const { calls, window, video } = runPlayer({ native: true });
+  video.duration = 100;
+  video.dispatch('loadedmetadata');
+  window.dispatch('message', {
+    source: window, origin: window.location.origin, data: { type: 'animex-seek', seconds: 60 },
+  });
+  assert.equal(video.currentTime, 60);
+  window.dispatch('message', {
+    source: {}, origin: window.location.origin, data: { type: 'animex-seek', seconds: 80 },
+  });
+  assert.equal(video.currentTime, 60);
+  video.dispatch('pause');
+  assert.deepEqual(JSON.parse(calls.nativeMessages[0]), {
+    type: 'animex-progress', position: 60, duration: 100, episode: 3,
+  });
+  for (let i = 0; i < 4; i++) calls.handlers.error(null, { fatal: true, type: 'networkError' });
+  assert.equal(calls.nativeMessages.at(-1), 'animex-content-error');
+  window.location.pathname = '/unrelated';
+  window.dispatch('message', {
+    source: window, origin: window.location.origin, data: { type: 'animex-seek', seconds: 80 },
+  });
+  assert.equal(video.currentTime, 60, 'native self exception is confined to proxyAnime');
+});
+
+test('browser top-level cannot masquerade as a native player', () => {
+  const { window, video } = runPlayer();
+  window.parent = window;
+  video.duration = 100;
+  window.dispatch('message', {
+    source: window, origin: window.location.origin, data: { type: 'animex-seek', seconds: 80 },
+  });
+  assert.equal(video.currentTime, 0);
 });
 
 test('playlistUris resolves variants and skips comments', () => {

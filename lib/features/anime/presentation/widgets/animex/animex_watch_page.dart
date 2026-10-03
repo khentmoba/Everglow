@@ -36,7 +36,6 @@ part 'animex_episodes_mobile.dart';
 part 'animex_watch_page_config.dart';
 part 'animex_watch_page_sections.dart';
 
-
 @visibleForTesting
 Widget buildDesktopEpisodesSidebarForTesting({
   required List<AniListEpisode> episodes,
@@ -96,15 +95,22 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// Community OP/ED timestamps for the current episode, if anyone marked it.
   AniSkipTimes? _skipTimes;
 
-  /// One-shot jump target (seconds) appended as Videasy `progress=`.
-  /// Cleared on episode/server change so it never leaks across videos.
-  int? _skipJumpSeconds;
+  int? _seekSeconds;
+  int _seekRequest = 0;
+  int? _startSeconds;
+  double? _lastKnownPosition;
+  MediaItem? _accountProgress;
+  double? _playbackDuration;
+  bool _ready = false;
+  bool _episodeChosen = false;
+  AuthService? _auth;
+  String _owner = '';
 
-  /// Last Videasy-reported playback position (seconds). Null on other
-  /// servers or before the first progress event — the skip buttons stay
-  /// manually visible until position is known.
+  /// Last reported playback position. Providers without a progress bridge
+  /// only get manual timestamp guidance, never simulated playback ticks.
   double? _playbackPosition;
 
+  late final MediaItem _watchItem;
   AniListDetail? _detail;
   List<AniListEpisode> _episodes = [];
   late int _selectedEpisode;
@@ -120,7 +126,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final PlayerMemoryService _memoryService = PlayerMemoryService();
   late final TMDBService _tmdbService = TMDBService();
   Timer? _progressThrottler;
-  Timer? _heartbeatTimer;
 
   /// Server name remembered from the last visit; applied once the
   /// server list resolves in [_load].
@@ -156,23 +161,30 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   String get _activeEpisodeTitle {
     final ep = _activeEpisode;
     final t = ep?.title;
+    if (context.select<AnimexStores, bool>((stores) => stores.hideSpoilers)) {
+      return 'Episode $_selectedEpisode';
+    }
     if (t != null && t.isNotEmpty) return t;
     return 'Episode $_selectedEpisode';
   }
 
   void _openEpisodeInfo(AniListEpisode ep) {
+    if (!_ready) return;
     _showEpisodeInfoSheet(
       context,
       episode: ep,
       animeTitle: _displayTitle,
       fallbackPoster: _item.posterUrl,
       isPlaying: ep.number == _selectedEpisode,
+      hideSpoilers:
+          context.read<AnimexStores>().hideSpoilers &&
+          ep.number >= _selectedEpisode,
       onPlay: () => _selectEpisode(ep.number),
     );
   }
 
-  MediaItem get _item => widget.controller.watchItem!;
-  int get _malId => _item.tmdbId;
+  MediaItem get _item => _watchItem;
+  int get _malId => _detail?.malId ?? _item.tmdbId;
   int? get _anilistId => _item.anilistId;
 
   List<AniListSeason> get _seasons => _detail?.seasons ?? const [];
@@ -193,9 +205,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       id: '',
       tmdbId: season.malId ?? 0,
       title: season.title,
-      mediaType: season.format.trim().toLowerCase() == 'movie'
-          ? 'movie'
-          : 'tv',
+      mediaType: season.format.trim().toLowerCase() == 'movie' ? 'movie' : 'tv',
       posterPath: season.coverImageUrl,
       year: season.year != null && season.year! > 0 ? '${season.year}' : '',
       status: '',
@@ -212,28 +222,98 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   @override
   void initState() {
     super.initState();
+    _watchItem = widget.controller.watchItem!;
     final resume = context.read<AnimexStores>().findHistory(
       'animex-${_anilistId ?? _malId}',
     );
-    _selectedEpisode = resume?.episode ?? _item.currentEpisode ?? 1;
+    try {
+      _auth = context.read<AuthService>();
+      _owner = _auth?.currentUser ?? '';
+    } catch (_) {
+      // Isolated demo/tests intentionally have no signed-in profile.
+    }
+    _selectedEpisode = AnimeXWatchPage.resolveResume(
+      item: _item,
+      saved: widget.controller.savedAnime(_item),
+      local: resume,
+      requestedEpisode: widget.controller.watchEpisode,
+    ).episode;
     _playerEpisode = _selectedEpisode;
     _isFilm = _item.isMovie;
     _servers = _buildServers();
     _serverIndex = AnimeXWatchPage.defaultServerIndex(_servers);
     _episodes = _buildEpisodeList(null);
-    _load();
-    _fetchSkipTimes();
-    _restoreMemory();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _saveWatchProgress(episode: _selectedEpisode);
-    });
+    _initialize();
   }
 
-  /// Restores this anime's last-used server and sub/dub choice.
-  /// The episode itself already resumes via [AnimexStores] history.
+  Future<void> _initialize() async {
+    try {
+      await Future.wait([_load(), _restoreMemory()]);
+    } catch (e, st) {
+      Logger.e('AnimeX: watch initialization failed', error: e, stackTrace: st);
+    }
+    if (!mounted) return;
+    if (_episodes.isNotEmpty) {
+      final knownCount = _detail?.episodeCount ?? _item.episodeCount;
+      final episode = knownCount != null && knownCount > 0
+          ? _selectedEpisode.clamp(1, knownCount).toInt()
+          : _selectedEpisode;
+      if (episode > _episodes.length) {
+        _episodes = [
+          ..._episodes,
+          for (var n = _episodes.length + 1; n <= episode; n++)
+            AniListEpisode(number: n),
+        ];
+      }
+      if (episode != _selectedEpisode) {
+        _startSeconds = null;
+        _playbackPosition = null;
+      }
+      _selectedEpisode = episode;
+      _playerEpisode = episode;
+    }
+    setState(() => _ready = true);
+    _fetchSkipTimes();
+    _recordHistory(_selectedEpisode);
+    _saveWatchProgress();
+    _probeCurrentServer();
+  }
+
+  /// The account's progress wins over this device's comfort preferences.
   Future<void> _restoreMemory() async {
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted) return;
+    MediaItem? saved;
+    if (widget.loadSavedProgress != null) {
+      saved = await widget.loadSavedProgress!(_item);
+    } else if (_currentUserName().isNotEmpty) {
+      saved =
+          widget.controller.savedAnime(_item) ??
+          await _tmdbService.getSavedProgress(
+            _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0),
+            _owner,
+            anilistId: _anilistId,
+          );
+    }
+    if (!mounted || (_auth != null && _currentUserName().isEmpty)) return;
+    _accountProgress = saved;
+    if (!_episodeChosen) {
+      final local = context.read<AnimexStores>().findHistory(
+        'animex-${_anilistId ?? _malId}',
+      );
+      final resume = AnimeXWatchPage.resolveResume(
+        item: _item,
+        saved: saved,
+        local: local,
+        requestedEpisode: widget.controller.watchEpisode,
+      );
+      _selectedEpisode = resume.episode;
+      _playerEpisode = resume.episode;
+      _startSeconds = resume.seconds;
+      _lastKnownPosition = resume.seconds?.toDouble();
+      _playbackPosition = null;
+      _playbackDuration = (saved ?? _item).durationSeconds?.toDouble();
+    }
     final audio = memory.audio ?? '';
     final server = memory.server;
     if ((audio == 'sub' || audio == 'dub') && audio != _audio) {
@@ -262,11 +342,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _skipTimes = times);
   }
 
-  /// Jumps past the opening/ending. Videasy honors `progress=` so the
-  /// player reloads at the destination; other servers have no known seek
-  /// param, so Clair gets the exact time to drag to instead.
-  /// Videasy progress events drive the auto-appearing skip buttons. Only
-  /// visibility flips rebuild — the page doesn't repaint on every tick.
+  /// Owned-player progress drives skip visibility and account resume.
+  /// Only visibility flips rebuild — not every playback tick.
   /// Stale events (previous episode still talking) are dropped.
   void _onPlayerProgress(VideasyProgress progress) {
     if (!mounted) return;
@@ -274,11 +351,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     if (episode != null && episode != _selectedEpisode) return;
     final before = _skipRowVisible;
     _playbackPosition = progress.positionSeconds;
+    _lastKnownPosition = progress.positionSeconds;
+    _playbackDuration = progress.durationSeconds;
     if (before != _skipRowVisible) setState(() {});
-    _scheduleProgressHeartbeat(
-      progress.positionSeconds,
-      progress.durationSeconds,
-    );
+    _scheduleProgressSave();
   }
 
   /// Whether the skip row shows anything right now: without a known
@@ -288,40 +364,23 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   bool get _skipRowVisible {
     final times = _skipTimes;
     if (times == null || times.isEmpty) return false;
-    final pos = _playbackPosition;
-    if (pos == null) return true;
     return _skipButtonVisible(times.opening) ||
         _skipButtonVisible(times.ending);
   }
 
-  bool _skipButtonVisible(AniSkipTime? time) {
-    if (time == null) return false;
-    final pos = _playbackPosition;
-    if (pos == null) return true;
-    return skipVisibleAt(time, pos);
-  }
-
-  void _skipTo(AniSkipTime time, String label) {
-    if (_playerUrl.contains('videasy')) {
-      // Position resets so the buttons stay visible while the player
-      // reloads at the destination, then auto-hide on the next event.
-      setState(() {
-        _skipJumpSeconds = time.end.round();
-        _playbackPosition = null;
-      });
-      return;
-    }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            "This server can't auto-jump — drag the bar to ${time.endLabel} to skip the $label.",
-          ),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-        ),
+  bool _skipButtonVisible(AniSkipTime? time) =>
+      AnimeXWatchPage.skipGuidanceVisible(
+        time,
+        _playbackPosition,
+        supportsSeek: _currentServer?.supportsSeek == true,
       );
+
+  void _skipTo(AniSkipTime time) {
+    if (_currentServer?.supportsSeek != true) return;
+    setState(() {
+      _seekSeconds = time.end.round();
+      _seekRequest++;
+    });
   }
 
   Future<void> _load() async {
@@ -419,10 +478,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() {
       _detail = detail;
       _episodes = _buildEpisodeList(detail, aniZipEpisodes: aniZipEpisodes);
-      if (_episodes.isNotEmpty) {
-        _selectedEpisode = _selectedEpisode.clamp(1, _episodes.length).toInt();
-        _playerEpisode = _playerEpisode.clamp(1, _episodes.length).toInt();
-      }
       _servers = nextServers;
       // Fresh visits open on Everglow whenever it is available (it is
       // ours: no ads, no popups); an explicit remembered choice wins.
@@ -431,17 +486,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         rememberedServer: _rememberedServer,
       );
     });
-    _recordHistory(_selectedEpisode);
-    _saveWatchProgress(episode: _selectedEpisode);
-    _startPeriodicHeartbeat();
-    _probeCurrentServer();
   }
 
   @override
   void dispose() {
     _progressThrottler?.cancel();
-    _heartbeatTimer?.cancel();
-    _saveWatchProgress();
+    if (_ready) _saveWatchProgress();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -524,6 +574,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   void _selectEpisode(int episode) {
+    _episodeChosen = true;
     if (_selectedEpisode == episode) return;
     // Manual navigation drives BOTH the UI and the player frame: the new
     // URL key reloads the embed on the picked episode.
@@ -533,7 +584,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     });
     _resetForNewEpisode();
     _recordHistory(episode);
-    _saveWatchProgress(episode: episode, positionSeconds: 0);
+    if (_ready) _saveWatchProgress(episode: episode, positionSeconds: 0);
     _fetchSkipTimes();
   }
 
@@ -561,7 +612,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
     if (mapped == null || mapped == _selectedEpisode) return;
     setState(() => _selectedEpisode = mapped);
+    // The frame advanced internally: keep its original URL (including
+    // start=) byte-identical while resetting progress for the new episode.
+    final loadedStart = _startSeconds;
     _resetForNewEpisode();
+    _startSeconds = loadedStart;
     _recordHistory(mapped);
     _saveWatchProgress(episode: mapped, positionSeconds: 0);
     _fetchSkipTimes();
@@ -596,27 +651,22 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     }
   }
 
-  String _currentUserName() {
-    try {
-      return Provider.of<AuthService>(context, listen: false).currentUser ?? '';
-    } catch (_) {
-      return '';
-    }
-  }
+  String _currentUserName() => _auth?.currentUser == _owner ? _owner : '';
 
   void _saveWatchProgress({int? episode, double? positionSeconds}) {
     final userName = _currentUserName();
     if (userName.isEmpty) return;
 
     final ep = episode ?? _selectedEpisode;
-    final pos = positionSeconds ?? _playbackPosition;
-    final duration = (_detail?.duration != null && _detail!.duration! > 0)
-        ? _detail!.duration! * 60
-        : null;
+    final pos = positionSeconds ?? _lastKnownPosition;
+    final duration = _playbackDuration?.round();
 
     final status = _watchingStatusFor(userName);
-    final effectiveTmdbId =
-        _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
+    final effectiveTmdbId = (_accountProgress?.tmdbId ?? 0) > 0
+        ? _accountProgress!.tmdbId
+        : _item.tmdbId > 0
+        ? _item.tmdbId
+        : (_anilistId ?? 0);
     if (effectiveTmdbId <= 0) return;
 
     final mediaItem = MediaItem(
@@ -624,8 +674,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       tmdbId: effectiveTmdbId,
       title: _item.title,
       mediaType: _item.mediaType.isNotEmpty ? _item.mediaType : 'tv',
-      posterPath:
-          _item.posterPath.isNotEmpty ? _item.posterPath : _item.posterUrl,
+      posterPath: _item.posterPath.isNotEmpty
+          ? _item.posterPath
+          : _item.posterUrl,
       backdropPath: _item.backdropPath,
       year: _item.year,
       status: status,
@@ -633,7 +684,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       userName: userName,
       addedAt: DateTime.now(),
       source: _item.source.isNotEmpty ? _item.source : 'jikan',
-      anilistId: _anilistId,
+      anilistId: _anilistId ?? _accountProgress?.anilistId,
       synopsis: _item.synopsis,
       episodeCount: _item.episodeCount ?? _detail?.episodeCount,
       airingStatus: _item.airingStatus,
@@ -664,63 +715,20 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     );
   }
 
-  void _scheduleProgressHeartbeat(double position, double duration) {
+  void _scheduleProgressSave() {
     if (_progressThrottler?.isActive ?? false) return;
     _progressThrottler = Timer(const Duration(seconds: 15), () {
-      if (!mounted) return;
-      final userName = _currentUserName();
-      if (userName.isEmpty) return;
-      final effectiveTmdbId =
-          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
-      if (effectiveTmdbId <= 0) return;
-      _tmdbService.heartbeatProgress(
-        effectiveTmdbId,
-        userName,
-        season: AnimeXWatchPage.resolveProgressSeason(
-          isMovie: _item.isMovie,
-          title: _item.title,
-          episode: _selectedEpisode,
-          episodeSlots: _episodeSlots,
-        ),
-        episode: _item.isMovie ? null : _selectedEpisode,
-        timestamp: position.round(),
-        durationSeconds: duration.round(),
-      );
+      if (mounted && _ready) _saveWatchProgress();
     });
   }
 
-  void _startPeriodicHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (!mounted) return;
-      final userName = _currentUserName();
-      if (userName.isEmpty) return;
-      final effectiveTmdbId =
-          _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0);
-      if (effectiveTmdbId <= 0) return;
-      _tmdbService.heartbeatProgress(
-        effectiveTmdbId,
-        userName,
-        season: AnimeXWatchPage.resolveProgressSeason(
-          isMovie: _item.isMovie,
-          title: _item.title,
-          episode: _selectedEpisode,
-          episodeSlots: _episodeSlots,
-        ),
-        episode: _item.isMovie ? null : _selectedEpisode,
-        timestamp: _playbackPosition?.round(),
-        durationSeconds:
-            (_detail?.duration != null && _detail!.duration! > 0)
-                ? _detail!.duration! * 60
-                : null,
-      );
-    });
+  AnimeServerOption? get _currentServer {
+    if (_serverIndex < 0 || _serverIndex >= _servers.length) return null;
+    return _servers[_serverIndex];
   }
-
-
 
   String get _playerUrl {
-    if (_servers.isEmpty) return '';
+    if (!_ready || _servers.isEmpty) return '';
     AnimeServerOption? current;
     if (_serverIndex >= 0 &&
         _serverIndex < _servers.length &&
@@ -738,14 +746,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     // Built from the LOADED episode, not the selection: after a
     // player-driven advance the selection moves on while the frame keeps
     // playing, and the URL must stay byte-identical so Flutter reuses it.
-    final url = current.urlBuilder(_playerEpisode, _audio);
-    // Skip-button jump: Videasy honors ?progress=<seconds>; other anime
-    // servers have no known seek param, so the override only applies here.
-    final jump = _skipJumpSeconds;
-    if (jump != null && jump > 0 && url.contains('videasy')) {
-      return url.contains('?') ? '$url&progress=$jump' : '$url?progress=$jump';
-    }
-    return url;
+    return current.urlFor(_playerEpisode, _audio, startSeconds: _startSeconds);
   }
 
   void _handleContentError() {
@@ -763,8 +764,17 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       setState(() => _showErrorCard = true);
       return;
     }
+    final nextStart =
+        _playbackPosition?.round() ??
+        (_currentServer?.supportsResume == true &&
+                _playerEpisode == _selectedEpisode
+            ? _startSeconds
+            : null);
     setState(() {
       _serverIndex = next.first;
+      _startSeconds = nextStart;
+      _playbackPosition = null;
+      _seekSeconds = null;
       // A new server must load the episode actually being watched, which
       // may have drifted ahead of the loaded frame via player auto-play.
       _playerEpisode = _selectedEpisode;
@@ -775,15 +785,23 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   void _selectServer(int index) {
+    if (!_ready) return;
+    final nextStart =
+        _playbackPosition?.round() ??
+        (_currentServer?.supportsResume == true &&
+                _playerEpisode == _selectedEpisode
+            ? _startSeconds
+            : null);
     setState(() {
       _serverIndex = index;
+      _startSeconds = nextStart;
+      _playbackPosition = null;
       // A new server must load the episode actually being watched, which
       // may have drifted ahead of the loaded frame via player auto-play.
       _playerEpisode = _selectedEpisode;
       _failedServerIndices.clear();
       _showErrorCard = false;
-      _skipJumpSeconds = null;
-      _playbackPosition = null;
+      _seekSeconds = null;
     });
     _persistServer(index);
     _probeCurrentServer(autoAdvance: false);
@@ -815,9 +833,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// marker the failure pages already carry.
   Future<String?> _fetchProbeBody(Uri url) async {
     try {
-      final response = await http
-          .get(url)
-          .timeout(const Duration(seconds: 10));
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return 'no playable stream sources';
       return utf8.decode(response.bodyBytes);
     } catch (_) {
@@ -853,7 +869,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _probingServer = true);
     try {
       final body = await _fetchProbeBody(Uri.parse(url));
-      if (body != null && AnimeXWatchPage.isProviderErrorPage(body) && mounted) {
+      if (mounted &&
+          url == _playerUrl &&
+          body != null &&
+          AnimeXWatchPage.isProviderErrorPage(body)) {
         if (autoAdvance) {
           _handleContentError();
         } else {
@@ -872,8 +891,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     _failedServerIndices.clear();
     _showErrorCard = false;
     _skipTimes = null;
-    _skipJumpSeconds = null;
+    _seekSeconds = null;
+    _startSeconds = null;
     _playbackPosition = null;
+    _lastKnownPosition = null;
+    _playbackDuration = null;
+    _progressThrottler?.cancel();
   }
 
   String get _displayTitle {
@@ -941,9 +964,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   height: 38,
                   decoration: BoxDecoration(
                     color: const Color(0x990A0A0F),
-                    borderRadius: BorderRadius.circular(
-                      AnimeXTokens.radiusLg,
-                    ),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
                     border: Border.all(color: AnimeXTokens.borderStrong),
                   ),
                   child: const Icon(
@@ -971,7 +992,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                     ),
                   ),
                   Text(
-                    'Episode $_selectedEpisode${_activeEpisodeTitle.isNotEmpty ? ' \u2022 $_activeEpisodeTitle' : ''}',
+                    'Episode $_selectedEpisode${_activeEpisodeTitle != 'Episode $_selectedEpisode' ? ' \u2022 $_activeEpisodeTitle' : ''}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: dmSansStyle(
@@ -995,10 +1016,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                 child: MouseRegion(
                   cursor: SystemMouseCursors.click,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                      borderRadius: BorderRadius.circular(
+                        AnimeXTokens.radiusSm,
+                      ),
                       border: Border.all(color: AnimeXTokens.border),
                     ),
                     child: Row(
@@ -1155,6 +1181,18 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   Widget _buildSkipRow(BuildContext context) {
+    if (_currentServer?.supportsSeek != true) {
+      return Text(
+        [
+          if (_skipButtonVisible(_skipTimes!.opening))
+            'Opening ends at ${_skipTimes!.opening!.endLabel}',
+          if (_skipButtonVisible(_skipTimes!.ending))
+            'Ending ends at ${_skipTimes!.ending!.endLabel}',
+          'Seek using the player controls',
+        ].join(' · '),
+        style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+      );
+    }
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -1164,14 +1202,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
             label: 'Skip Opening \u2192 ${_skipTimes!.opening!.endLabel}',
             icon: Icons.skip_next_rounded,
             color: AnimeXTokens.accentWarm,
-            onTap: () => _skipTo(_skipTimes!.opening!, 'opening'),
+            onTap: () => _skipTo(_skipTimes!.opening!),
           ),
         if (_skipButtonVisible(_skipTimes!.ending))
           AnimeXGhostButton(
             label: 'Skip Ending \u2192 ${_skipTimes!.ending!.endLabel}',
             icon: Icons.skip_next_rounded,
             color: AnimeXTokens.accentWarm,
-            onTap: () => _skipTo(_skipTimes!.ending!, 'ending'),
+            onTap: () => _skipTo(_skipTimes!.ending!),
           ),
       ],
     );
@@ -1196,9 +1234,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
                   color: _serverIndex == i
                       ? AnimeXTokens.accent.withValues(alpha: 0.18)
                       : Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusSm,
-                  ),
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
                   border: Border.all(
                     color: _serverIndex == i
                         ? AnimeXTokens.accent.withValues(alpha: 0.45)
@@ -1218,21 +1254,33 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
               ),
             ),
         const SizedBox(width: 6),
-        _AudioToggle(
-          audio: _audio,
-          onChanged: (a) {
-            setState(() {
-              _audio = a;
-              // The reloaded URL must carry the episode actually being
-              // watched, which may have drifted ahead via auto-play.
-              _playerEpisode = _selectedEpisode;
-            });
-            _memoryService.save(_memoryKey, audio: a);
-            _failedServerIndices.clear();
-            _showErrorCard = false;
-            _probeCurrentServer();
-          },
-        ),
+        if (_currentServer?.supportsAudioSelection != true)
+          Text(
+            'Choose audio inside the player',
+            style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+          )
+        else
+          _AudioToggle(
+            audio: _audio,
+            onChanged: (a) {
+              if (!_ready) return;
+              setState(() {
+                _audio = a;
+                _startSeconds =
+                    _playbackPosition?.round() ??
+                    (_playerEpisode == _selectedEpisode ? _startSeconds : null);
+                _seekSeconds = null;
+                _playbackPosition = null;
+                // The reloaded URL must carry the episode actually being
+                // watched, which may have drifted ahead via auto-play.
+                _playerEpisode = _selectedEpisode;
+              });
+              _memoryService.save(_memoryKey, audio: a);
+              _failedServerIndices.clear();
+              _showErrorCard = false;
+              _probeCurrentServer();
+            },
+          ),
       ],
     );
   }
@@ -1262,5 +1310,4 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       ],
     );
   }
-
 }

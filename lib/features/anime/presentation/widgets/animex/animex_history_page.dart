@@ -16,9 +16,44 @@ class AnimeXHistoryPage extends StatelessWidget {
   const AnimeXHistoryPage({super.key, required this.controller});
 
   @override
-  Widget build(BuildContext context) {
-    final stores = context.watch<AnimexStores>();
-    final history = stores.history;
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Future<void> _clear(
+    BuildContext context,
+    List<AnimexHistoryEntry> entries,
+  ) async {
+    final stores = context.read<AnimexStores>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear watching progress?'),
+        content: const Text(
+          'This clears the saved resume points on all your devices. Your titles stay in My List.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    for (final entry in entries) {
+      await controller.clearWatchProgress(entry.savedItem!);
+      await stores.removeHistoryEntry(entry.key);
+    }
+  }
+
+  Widget _buildContent(BuildContext context) {
+    final history = controller.watchHistory;
 
     return ListView(
       physics: const BouncingScrollPhysics(),
@@ -52,7 +87,7 @@ class AnimeXHistoryPage extends StatelessWidget {
             ),
             if (history.isNotEmpty)
               GestureDetector(
-                onTap: () => stores.clearHistory(),
+                onTap: () => _clear(context, history),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -108,10 +143,10 @@ class AnimeXHistoryPage extends StatelessWidget {
               onTap: () {
                 controller.openWatch(
                   mediaItemFromHistory(e),
-                  episode: e.episode,
+                  episode: e.isMovie ? null : e.episode,
                 );
               },
-              onRemove: () => stores.removeHistoryEntry(e.key),
+              onRemove: () => _clear(context, [e]),
             ),
           ),
         const SizedBox(height: 24),
@@ -185,7 +220,7 @@ class _HistoryRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'EP ${entry.episode} · $ago',
+                      '${entry.isMovie ? 'Movie' : 'EP ${entry.episode}'} · $ago',
                       style: dmSansStyle(
                         size: 11.5,
                         color: AnimeXTokens.textSecondary,
@@ -207,9 +242,7 @@ class _HistoryRow extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     Text(
-                      progress == null
-                          ? 'Resume EP ${entry.episode}'
-                          : '${(progress * 100).toStringAsFixed(0)}% · Resume EP ${entry.episode} of ${entry.totalEpisodes}',
+                      entry.resumeLabel,
                       style: dmSansStyle(
                         size: 11,
                         color: AnimeXTokens.accentWarm,

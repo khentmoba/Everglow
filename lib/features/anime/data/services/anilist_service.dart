@@ -1116,46 +1116,66 @@ class AniListService with ConnectivityAware {
     return id == null ? const [] : [id];
   }
 
-  /// Weekly airing schedule via AniList's `airingSchedules`. AniList has
-  /// no weekday filter, so we query the window covering the current week
-  /// (starting at the most recent occurrence of [weekday]) and filter the
-  /// results client-side. Weekday is 0 = Monday .. 6 = Sunday.
+  /// Selected local day in the current Monday–Sunday week, including past
+  /// and upcoming broadcasts. Weekday is 0 = Monday .. 6 = Sunday.
+  /// Fetches at most four pages (200 rows); [perPage] is clamped to 1..50.
+  /// [now] is an optional clock for tests. Failed requests throw for retry.
   Future<List<AnimexScheduleEntry>> fetchAiringSchedule({
     int weekday = 0,
-    int perPage = 100,
+    int perPage = 50,
+    DateTime? now,
   }) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final todayIndex = now.weekday - 1; // 0 = Monday
-    final daysBack = (todayIndex - weekday + 7) % 7;
-    final start = today.subtract(Duration(days: daysBack));
-    final end = start.add(const Duration(days: 7));
-    final data = await _postGraphQL(_airingScheduleQuery, {
-      'airingAtGreater': start.millisecondsSinceEpoch ~/ 1000,
-      'airingAtLesser': end.millisecondsSinceEpoch ~/ 1000,
-      'perPage': perPage,
-    });
-    final pageData = data?['Page'] as Map<String, dynamic>?;
-    final schedule = (pageData?['airingSchedules'] as List?) ?? const [];
+    if (weekday < 0 || weekday > 6) {
+      throw RangeError.range(weekday, 0, 6, 'weekday');
+    }
+    final localNow = (now ?? DateTime.now()).toLocal();
+    // Calendar constructors preserve local midnights across DST changes.
+    final start = DateTime(
+      localNow.year,
+      localNow.month,
+      localNow.day - (localNow.weekday - 1) + weekday,
+    );
+    final end = DateTime(start.year, start.month, start.day + 1);
+    final pageSize = perPage.clamp(1, 50).toInt();
+    const maxPages = 4;
     final out = <AnimexScheduleEntry>[];
-    for (final s in schedule.whereType<Map<String, dynamic>>()) {
-      final airingAt = s['airingAt'];
-      if (airingAt is! num) continue;
-      final airingTime = DateTime.fromMillisecondsSinceEpoch(
-        airingAt.toInt() * 1000,
-      );
-      if (airingTime.weekday - 1 != weekday) continue;
-      final media = s['media'] as Map<String, dynamic>?;
-      if (media == null) continue;
-      final mapped = _mapAnimexMedia(media);
-      if (mapped == null) continue;
-      out.add(
-        AnimexScheduleEntry(
-          media: mapped.item,
-          episode: (s['episode'] as num?)?.toInt() ?? 1,
-          airingAt: airingTime,
-        ),
-      );
+    for (var page = 1; page <= maxPages; page++) {
+      final data = await _postGraphQL(_airingScheduleQuery, {
+        // AniList's bounds are strict: include start, exclude end.
+        'airingAtGreater': start.millisecondsSinceEpoch ~/ 1000 - 1,
+        'airingAtLesser': end.millisecondsSinceEpoch ~/ 1000,
+        'page': page,
+        'perPage': pageSize,
+      });
+      final pageData = data?['Page'] as Map<String, dynamic>?;
+      final schedule = pageData?['airingSchedules'] as List?;
+      if (schedule == null) {
+        throw StateError('AniList airing schedule unavailable');
+      }
+      for (final s in schedule.take(pageSize).whereType<Map<String, dynamic>>()) {
+        final airingAt = s['airingAt'];
+        if (airingAt is! num) continue;
+        final airingTime = DateTime.fromMillisecondsSinceEpoch(
+          airingAt.toInt() * 1000,
+        );
+        if (airingTime.isBefore(start) || !airingTime.isBefore(end)) continue;
+        final media = s['media'] as Map<String, dynamic>?;
+        if (media == null) continue;
+        final mapped = _mapAnimexMedia(media);
+        if (mapped == null) continue;
+        out.add(
+          AnimexScheduleEntry(
+            media: mapped.item,
+            episode: (s['episode'] as num?)?.toInt() ?? 1,
+            airingAt: airingTime,
+          ),
+        );
+      }
+      final pageInfo = pageData?['pageInfo'] as Map<String, dynamic>?;
+      if (schedule.isEmpty || pageInfo?['hasNextPage'] != true) break;
+      if (page == maxPages) {
+        Logger.w('[AnimeX] AniList daily schedule capped at $maxPages pages');
+      }
     }
     return out;
   }
@@ -1453,19 +1473,16 @@ query (
 }
 ''';
 
-/// Weekly airing schedule query over a unix-timestamp window.
+/// Daily airing schedule query over a unix-timestamp window.
 const String _airingScheduleQuery = r'''
-query ($airingAtGreater: Int, $airingAtLesser: Int, $perPage: Int) {
-  Page(page: 1, perPage: $perPage) {
+query ($airingAtGreater: Int, $airingAtLesser: Int, $page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
     pageInfo {
-      currentPage
-      lastPage
       hasNextPage
     }
     airingSchedules(
       airingAt_greater: $airingAtGreater
       airingAt_lesser: $airingAtLesser
-      notYetAired: false
       sort: TIME
     ) {
       id

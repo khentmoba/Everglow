@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../data/models/animex_models.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../data/services/animex_home_cache.dart';
 import '../../../data/services/anilist_service.dart';
-import '../../../data/services/animex_stores.dart';
 
 import 'animex_badges.dart';
 import 'animex_controller.dart';
@@ -15,6 +13,7 @@ import 'animex_footer.dart';
 import 'animex_player.dart';
 import 'animex_poster_row.dart';
 import 'animex_section_header.dart';
+import 'animex_schedule_list.dart';
 import 'animex_skeleton.dart';
 import 'animex_spotlight.dart';
 import 'animex_ticker.dart';
@@ -45,7 +44,15 @@ class _HomeRow {
 class AnimeXHomePage extends StatefulWidget {
   final AnimeXController controller;
 
-  const AnimeXHomePage({super.key, required this.controller});
+  final Future<AnimexMediaPage> Function(String id)? loadRow;
+  final AnimexScheduleLoader? loadSchedule;
+
+  const AnimeXHomePage({
+    super.key,
+    required this.controller,
+    this.loadRow,
+    this.loadSchedule,
+  });
 
   @override
   State<AnimeXHomePage> createState() => _AnimeXHomePageState();
@@ -179,7 +186,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
     }
 
     try {
-      final page = await builder();
+      final page = await (widget.loadRow?.call(id) ?? builder());
       _rows[id] = buildRow(page.items, loading: false);
       await _cache.saveRow(id, page.items);
       return page.items.isNotEmpty;
@@ -263,8 +270,13 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final history = context.watch<AnimexStores>().history;
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.controller,
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
+    final history = widget.controller.continueWatching;
     final trending = _rows['trending']!;
     final airing = _rows['airing']!;
 
@@ -284,6 +296,20 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
             title: item.title,
           ),
         ),
+        if (history.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          _buildContinueWatching(context, history),
+        ],
+        if (widget.controller.library.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: AnimeXScheduleList(
+              controller: widget.controller,
+              weekday: DateTime.now().weekday - 1,
+              maxEntries: 3,
+              loadSchedule: widget.loadSchedule,
+            ),
+          ),
         AnimeXTicker(
           items: airing.items.take(14).toList(),
           onTap: (item) => widget.controller.openWatch(item),
@@ -298,7 +324,6 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           _rows['completed']!,
         ])
           _buildRowSection(context, row),
-        if (history.isNotEmpty) ...[_buildContinueWatching(context, history)],
         const SizedBox(height: 24),
         _buildScheduleCta(context),
         const SizedBox(height: 40),
@@ -488,7 +513,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
                   entry: e,
                   onTap: () => widget.controller.openWatch(
                     mediaItemFromHistory(e),
-                    episode: e.episode,
+                    episode: e.isMovie ? null : e.episode,
                   ),
                 );
               },
@@ -573,14 +598,9 @@ class _ScheduleCtaState extends State<_ScheduleCta> {
                   gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      AnimeXTokens.accent,
-                      AnimeXTokens.accentHover,
-                    ],
+                    colors: [AnimeXTokens.accent, AnimeXTokens.accentHover],
                   ),
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusXl,
-                  ),
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusXl),
                   boxShadow: AnimeXTokens.accentGlowShadow(0.4),
                 ),
                 child: const Icon(
@@ -697,7 +717,9 @@ class _ContinueCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AnimeXBadge(
-                      label: total > 1
+                      label: entry.isMovie
+                          ? 'MOVIE'
+                          : total > 1
                           ? 'EP ${entry.episode}/$total'
                           : 'EP ${entry.episode}',
                       kind: AnimeXBadgeKind.airing,
@@ -708,6 +730,17 @@ class _ContinueCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: bebasStyle(size: 24, color: Colors.white),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      entry.resumeSeconds == null
+                          ? entry.resumeLabel
+                          : '${entry.resumeLabel} · ${Duration(seconds: entry.resumeSeconds!).inMinutes}:${(entry.resumeSeconds! % 60).toString().padLeft(2, '0')}',
+                      style: dmSansStyle(
+                        size: 12,
+                        color: AnimeXTokens.accentWarm,
+                        weight: FontWeight.w600,
+                      ),
                     ),
                     if (progress != null) ...[
                       const SizedBox(height: 10),

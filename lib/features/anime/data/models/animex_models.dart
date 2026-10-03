@@ -48,6 +48,13 @@ class AnimexHistoryEntry {
   final int totalEpisodes;
   final DateTime updatedAt;
 
+  /// The account watchlist owns progress; old local entries remain readable.
+  final MediaItem? savedItem;
+  int? get resumeSeconds => savedItem?.resumeSeconds;
+  bool get isMovie => savedItem?.isMovie ?? totalEpisodes == 1;
+  String get resumeLabel =>
+      isMovie ? 'Resume movie' : 'Resume Episode $episode';
+
   const AnimexHistoryEntry({
     required this.key,
     this.anilistId,
@@ -57,7 +64,22 @@ class AnimexHistoryEntry {
     required this.episode,
     this.totalEpisodes = 0,
     required this.updatedAt,
+    this.savedItem,
   });
+
+  factory AnimexHistoryEntry.fromMediaItem(MediaItem item) {
+    return AnimexHistoryEntry(
+      key: 'animex-${item.anilistId ?? item.tmdbId}',
+      anilistId: item.anilistId,
+      malId: item.tmdbId,
+      title: item.title,
+      coverUrl: item.posterUrl,
+      episode: item.currentEpisode ?? 1,
+      totalEpisodes: item.isMovie ? 1 : (item.episodeCount ?? 0),
+      updatedAt: item.progressUpdatedAt ?? item.addedAt,
+      savedItem: item,
+    );
+  }
 
   /// Completed-episodes share, or null when there is nothing truthful
   /// to draw (unknown total, or a single-episode film).
@@ -189,6 +211,7 @@ class AnimexPlaylistItem {
 /// Builds a [MediaItem] from a watch-history entry so history and
 /// continue-watching surfaces can open the watch page directly.
 MediaItem mediaItemFromHistory(AnimexHistoryEntry e) {
+  if (e.savedItem != null) return e.savedItem!;
   return MediaItem(
     id: '',
     tmdbId: e.malId,
