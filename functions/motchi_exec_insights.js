@@ -184,34 +184,58 @@ async function exec_web_search(ctx, args) {
     let topPage = null;
     const topUrl = results.length > 0 ? results[0].url : '';
     if (/^https?:\/\//i.test(topUrl || '')) {
-      const topKey = `webpage:top:${topUrl}`;
-      const cachedTop = ctx.cacheGet(topKey, ctx.cacheTTLs.web_page);
-      if (cachedTop && cachedTop.text) {
-        topPage = { url: topUrl, title: results[0].title || '', content: String(cachedTop.text).slice(0, 1800) };
-      } else {
-        try {
-          const topRes = await fetch('https://api.fetch.tinyfish.ai', {
-            method: 'POST',
-            headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls: [topUrl], format: 'markdown' }),
-            signal: AbortSignal.timeout(8000),
-          });
-          if (topRes.ok) {
-            const topData = await topRes.json();
-            const first = (topData.results || [])[0];
-            if (first && first.text) {
-              ctx.cacheSet(topKey, { text: String(first.text).slice(0, 1800) });
-              topPage = { url: topUrl, title: first.title || results[0].title || '', content: String(first.text).slice(0, 1800) };
-            }
-          }
-        } catch (_) {
-          // Top-page fetch is a bonus — snippets alone still answer.
-        }
+      try {
+        const page = await readOnePage(ctx, apiKey, topUrl, 8000);
+        topPage = { url: page.url || topUrl, title: page.title || results[0].title || '', content: page.text.slice(0, 1800) };
+      } catch (_) {
+        // Top-page fetch is a bonus — snippets alone still answer.
       }
     }
     // top_page first: the model's trimmed copy keeps the most useful
     // content when the payload is long.
     return JSON.stringify({ query, top_page: topPage, results, total: searchData.total_results || results.length });
+}
+
+// One page per request, cached per URL under the same key web_search and
+// read_web_page both use, so the top hit a search already fetched is free
+// to read later. Throws on a hard API error or an unreadable page; the
+// caller decides whether that is fatal. Text is trimmed once here and each
+// caller slices it down further for its own payload budget.
+async function readOnePage(ctx, apiKey, url, timeoutMs) {
+    const key = `webpage:${url}`;
+    const cached = ctx.cacheGet(key, ctx.cacheTTLs.web_page);
+    if (cached && cached.text) return cached;
+    // A slow page gets exactly one more try (2 x 10s + a pause stays
+    // inside the 25s tool budget). The retry lives here rather than in
+    // executeToolCall because a per-URL failure never throws out of the
+    // batch, so the outer retry cannot see it.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const res = await fetch('https://api.fetch.tinyfish.ai', {
+          method: 'POST',
+          headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: [url], format: 'markdown' }),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        if (res.status === 401 || res.status === 403) throw new Error('Web page reading API key is invalid or forbidden.');
+        if (res.status === 402) throw new Error('Web page reading account needs a top-up at agent.tinyfish.ai/wallet.');
+        if (res.status === 429) throw new Error('Web page reading rate limit hit — try again in a minute.');
+        if (!res.ok) throw new Error(`Web page reading failed (HTTP ${res.status}).`);
+        const data = await res.json();
+        const first = (data.results || [])[0];
+        if (!first || !first.text) {
+          const err = (data.errors || [])[0];
+          throw new Error((err && err.error) || 'The page returned no readable text.');
+        }
+        const page = { url: first.url || url, title: first.title || '', text: String(first.text).slice(0, 4000) };
+        ctx.cacheSet(key, page);
+        return page;
+      } catch (err) {
+        const slow = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
+        if (!slow || attempt >= 2) throw err;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
 }
 
 async function exec_read_web_page(ctx, args) {
@@ -220,35 +244,25 @@ async function exec_read_web_page(ctx, args) {
     const urlsRaw = Array.isArray(args.urls) ? args.urls : [args.urls];
     const urls = urlsRaw.map(u => String(u || '').trim()).filter(u => /^https?:\/\//i.test(u)).slice(0, 3);
     if (urls.length === 0) return JSON.stringify({ error: 'No valid http(s) URLs provided' });
-    const fetchKey = `webpage:${urls.join('|')}`;
-    let fetchData;
-    const cachedPage = ctx.cacheGet(fetchKey, ctx.cacheTTLs.web_page);
-    if (cachedPage) {
-      fetchData = cachedPage;
-    } else {
-      let fetchRes;
-      try {
-        fetchRes = await fetch('https://api.fetch.tinyfish.ai', {
-          method: 'POST',
-          headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls, format: 'markdown' }),
-          signal: AbortSignal.timeout(12000),
-        });
-      } catch (_) {
-        return JSON.stringify({ error: 'Reading the page timed out — answer from the search snippets and say the page was slow.' });
+    // One request per URL, all in parallel: a single blocked or slow page
+    // (Facebook, Reddit) used to take the whole batch down with it and left
+    // Motchi with nothing. Same wall-clock as one batched call, and the
+    // pages that did load still reach the model.
+    const settled = await Promise.allSettled(urls.map(url => readOnePage(ctx, apiKey, url, 10000)));
+    const pages = [];
+    const pageErrors = [];
+    settled.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        pages.push({ url: r.value.url, title: r.value.title, content: r.value.text.slice(0, 4000) });
+      } else {
+        pageErrors.push({ url: urls[i], error: (r.reason && r.reason.message) || 'unknown' });
       }
-      if (fetchRes.status === 401 || fetchRes.status === 403) return JSON.stringify({ error: 'Web page reading API key is invalid or forbidden.' });
-      if (fetchRes.status === 429) return JSON.stringify({ error: 'Web page reading rate limit hit — try again in a minute.' });
-      if (!fetchRes.ok) return JSON.stringify({ error: `Web page reading failed (HTTP ${fetchRes.status}).` });
-      fetchData = await fetchRes.json();
-      ctx.cacheSet(fetchKey, fetchData);
+    });
+    // Every URL failed: report one honest error, with the per-URL detail
+    // kept alongside it so the receipt still shows what was attempted.
+    if (pages.length === 0 && pageErrors.length > 0) {
+      return JSON.stringify({ error: pageErrors[0].error, pages, errors: pageErrors });
     }
-    const pages = (fetchData.results || []).map(r => ({
-      url: r.url || '',
-      title: r.title || '',
-      content: (r.text || '').slice(0, 4000),
-    }));
-    const pageErrors = (fetchData.errors || []).map(e => ({ url: e.url || '', error: e.error || 'unknown' }));
     return JSON.stringify({ pages, errors: pageErrors });
 }
 
