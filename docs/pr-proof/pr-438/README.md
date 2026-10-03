@@ -59,6 +59,12 @@ not hiding it — only the alarm framing changed.
   identically on the base commit).
 - All 12 `tool/ci/check_*.dart` guards pass.
 - Chrome via CDP, fake demo data only, no console errors or exceptions.
+- The CI preview deploy for this PR was opened over CDP after navigating from
+  `about:blank` (so a stale service-worker shell could not be what was
+  inspected). It boots to the logged-out lock screen with no console errors or
+  exceptions — see `shot-preview-deploy-430.png`. Reaching the receipt card
+  needs a signed-in account, which was deliberately not done: this repo is
+  public and only fake demo data belongs in proof.
 
 `shot-receipts-phone-430.png` and `shot-receipts-tablet-800.png` show both cases
 side by side: the read failure stays visible without the alarm, and a failed
