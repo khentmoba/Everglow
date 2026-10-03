@@ -33,7 +33,7 @@ Future<void> main() async {
 
   for (final file in files) {
     final lines = (await readTolerant(file)).split('\n');
-    final isLegacyMapHolder = file.path.endsWith(
+    final isLegacyMapHolder = file.path.replaceAll('\\', '/').endsWith(
       'lib/features/dashboard/domain/models/milestone.dart',
     );
     // Line range of the deliberate legacyAssetPathFixes rename map

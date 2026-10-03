@@ -655,6 +655,135 @@ class AIService extends ChangeNotifier {
     }
   }
 
+  // ─── Temporary Chat Mode (Anime sidebar, session-only) ────────
+
+  /// Sends a temporary chat message without saving to Firestore conversations
+  /// or archiving sessions. Full Motchi agent capabilities (memories, tools,
+  /// streaming, reasoning) are preserved.
+  Future<AIMessage> sendTemporaryMessage({
+    required String message,
+    required List<AIMessage> history,
+    String? callerName,
+    bool? enableThinking,
+    bool canvasEnabled = true,
+    List<String> imageUrls = const [],
+    String? sessionId,
+    String? contextOverride,
+  }) async {
+    _isLoading = true;
+    _activeRequest++;
+    final myRequest = _activeRequest;
+    _lastError = null;
+    _resetDraftState();
+    notifyListeners();
+
+    final caller = callerName ?? _auth.currentUser?.uid ?? 'unknown';
+
+    try {
+      final userMessage = AIMessage(
+        role: 'user',
+        content: message,
+        imageUrls: imageUrls,
+      );
+      final allMessages = [...history, userMessage];
+      final allPayloads = allMessages.map((m) => m.toApiPayload()).toList();
+      final recentMessages = stripStaleImages(
+        trimHistoryForRequest(allPayloads, limit: historyLimit),
+      );
+
+      final shouldThink =
+          enableThinking ?? const MotchiQuality().shouldAutoThink(message);
+      final artifactExpected = motchiWantsArtifact(message);
+      final effectiveSessionId =
+          sessionId ?? 'temp_anime_${DateTime.now().millisecondsSinceEpoch}';
+
+      var reply = await _callProxyAIStream(
+        recentMessages,
+        contextOverride ?? '',
+        const [],
+        'assistant',
+        caller,
+        (chunk) {
+          if (myRequest != _activeRequest) return;
+          _draftResponse += chunk;
+          draftResponseNotifier.value = _draftResponse;
+          draftRevisionNotifier.value++;
+        },
+        onReasoning: (reasoning) {
+          if (myRequest != _activeRequest) return;
+          _draftReasoning += reasoning;
+          draftReasoningNotifier.value = _draftReasoning;
+          draftRevisionNotifier.value++;
+        },
+        onToolStatus: (status) {
+          if (myRequest != _activeRequest) return;
+          _trackToolStarted(status);
+          draftRevisionNotifier.value++;
+        },
+        onToolResult: (result) {
+          if (myRequest != _activeRequest) return;
+          _toolResults.add(result);
+          final tool = result['tool'];
+          if (tool is String && tool.isNotEmpty) _trackToolFinished(tool);
+          toolResultsNotifier.value = List.from(_toolResults);
+          draftRevisionNotifier.value++;
+        },
+        onError: (error) {
+          if (myRequest != _activeRequest) return;
+          _lastError = error;
+          notifyListeners();
+        },
+        enableThinking: shouldThink,
+        canvasEnabled: canvasEnabled,
+        artifactExpected: artifactExpected,
+        sessionIdOverride: effectiveSessionId,
+        temporary: true,
+      );
+
+      if (myRequest != _activeRequest) {
+        return AIMessage(
+          role: 'assistant',
+          content: MotchiReplyDetails.visibleText(reply),
+        );
+      }
+
+      final webSources = webSourcesFromToolResults(_toolResults);
+      var details = MotchiReplyDetails.fromResults(_toolResults);
+
+      if (reply.trim().isEmpty && !details.isEmpty) {
+        reply = details.summary;
+      }
+      if (reply.trim().isEmpty) {
+        throw Exception(
+          'Motchi got distracted and lost her train of thought. Try asking again?',
+        );
+      }
+
+      final cleaned = MotchiReplyDetails.visibleText(reply).trimLeft();
+
+      _isLoading = false;
+      _lastError = null;
+      _resetDraftState();
+      notifyListeners();
+
+      return AIMessage(
+        role: 'assistant',
+        content: cleaned,
+        sources: webSources,
+        details: details,
+      );
+    } catch (e) {
+      if (myRequest != _activeRequest) {
+        return AIMessage(role: 'assistant', content: '');
+      }
+      _isLoading = false;
+      _lastError = e.toString();
+      _resetDraftState();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   // ─── Feature-Specific Methods ──────────────────────────────────
 
   Future<String> getRecommendation({String? mood}) async {
@@ -847,6 +976,8 @@ class AIService extends ChangeNotifier {
     bool enableThinking = true,
     bool canvasEnabled = true,
     bool artifactExpected = false,
+    String? sessionIdOverride,
+    bool temporary = false,
   }) async {
     const maxRetries = 2;
     var receivedEvent = false;
@@ -879,6 +1010,8 @@ class AIService extends ChangeNotifier {
           enableThinking: enableThinking,
           canvasEnabled: canvasEnabled,
           artifactExpected: artifactExpected,
+          sessionIdOverride: sessionIdOverride,
+          temporary: temporary,
         );
       } catch (e) {
         final isTransient =
@@ -914,6 +1047,8 @@ class AIService extends ChangeNotifier {
     bool enableThinking = true,
     bool canvasEnabled = true,
     bool artifactExpected = false,
+    String? sessionIdOverride,
+    bool temporary = false,
   }) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
     final body = jsonEncode({
@@ -922,7 +1057,8 @@ class AIService extends ChangeNotifier {
       if (memories.isNotEmpty) 'memories': memories,
       'feature': feature,
       'caller': caller,
-      'sessionId': currentSessionId,
+      'sessionId': sessionIdOverride ?? currentSessionId,
+      if (temporary) 'temporary': true,
       'stream': true, // enables real SSE streaming from the backend
       'enableThinking': enableThinking,
       'canvas': canvasEnabled,
