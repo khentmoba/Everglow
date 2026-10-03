@@ -45,7 +45,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   // Accumulated horizontal drag distance for the current swipe gesture.
   double _dragDx = 0;
   // Trailer lookups stay off the open path on phones: details (runtime,
-  // synopsis, match %) load immediately, the YouTube key only resolves
+  // synopsis, TMDB rating) load immediately, the YouTube key only resolves
   // after the still has painted or the user taps Play.
   bool _trailerArmed = false;
 
@@ -191,12 +191,6 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
     final v = _details?['vote_average'] as num?;
     if (v == null || v <= 0) return 0;
     return v.toDouble();
-  }
-
-  int get _matchPercent {
-    final v = _voteAverage;
-    if (v <= 0) return 0;
-    return (v * 10).round().clamp(50, 99);
   }
 
   /// Age certification ("PG-13", "TV-MA") from the appended TMDB payload.
@@ -421,12 +415,12 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _TopTenPill(rank: _index + 1),
-                if (_matchPercent > 0)
+                if (_voteAverage > 0)
                   Text(
-                    '$_matchPercent% Match',
+                    'TMDB ${_voteAverage.toStringAsFixed(1)}/10',
                     style: AppTypography.outfitHeading.copyWith(
                       fontSize: 14,
-                      color: NetflixColors.match,
+                      color: NetflixColors.textSecondary,
                     ),
                   ),
                 if (_item.year.isNotEmpty) _MetaText(_item.year),
@@ -468,15 +462,15 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
               ),
             ],
             const SizedBox(height: 22),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 _BillboardButton.primary(
                   label: 'Play',
                   icon: Icons.play_arrow_rounded,
                   onTap: () => widget.onPlay(_item),
                 ),
-                const SizedBox(width: 12),
                 _BillboardButton.secondary(
                   label: 'More Info',
                   icon: Icons.info_outline_rounded,
@@ -626,36 +620,27 @@ class _BillboardButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    return TextButton.icon(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        minimumSize: const Size(48, 48),
+        foregroundColor: primary
+            ? NetflixColors.background
+            : NetflixColors.textPrimary,
+        backgroundColor: primary
+            ? NetflixColors.textPrimary
+            : NetflixColors.textPrimary.withValues(alpha: 0.2),
         padding: EdgeInsets.symmetric(
           horizontal: isDesktop ? 26 : 18,
-          vertical: isDesktop ? 12 : 10,
+          vertical: 12,
         ),
-        decoration: BoxDecoration(
-          color: primary ? Colors.white : Colors.white.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: primary ? Colors.black : Colors.white,
-              size: isDesktop ? 20 : 18,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: AppTypography.outfitHeading.copyWith(
-                fontSize: isDesktop ? 15 : 13.5,
-                color: primary ? Colors.black : Colors.white,
-              ),
-            ),
-          ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        textStyle: AppTypography.outfitHeading.copyWith(
+          fontSize: isDesktop ? 15 : 13.5,
         ),
       ),
+      icon: Icon(icon, size: isDesktop ? 20 : 18),
+      label: Text(label),
     );
   }
 }

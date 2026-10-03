@@ -99,6 +99,7 @@ class NetflixHoverPreview extends StatefulWidget {
   final double? anchorWidth;
   final VoidCallback? onTap;
   final VoidCallback? onPlay;
+  final VoidCallback? onRestart;
   final ValueChanged<bool>? onToggleList;
   final ValueChanged<double?>? onRate;
   final bool inList;
@@ -110,6 +111,7 @@ class NetflixHoverPreview extends StatefulWidget {
     this.anchorWidth,
     this.onTap,
     this.onPlay,
+    this.onRestart,
     this.onToggleList,
     this.onRate,
     this.inList = false,
@@ -193,11 +195,8 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
     return widget.item.posterUrl;
   }
 
-  int get _matchPercent {
-    final vote = _details?['vote_average'] as num?;
-    if (vote == null || vote <= 0) return 0;
-    return (vote * 10).round().clamp(50, 99);
-  }
+  double get _voteAverage =>
+      (_details?['vote_average'] as num?)?.toDouble() ?? 0;
 
   String get _year {
     if (widget.item.year.isNotEmpty) return widget.item.year;
@@ -280,8 +279,8 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
       ),
       child: Material(
         color: Colors.transparent,
-        child: GestureDetector(
-          onTap: widget.onTap,
+        child: Semantics(
+          explicitChildNodes: true,
           child: Container(
             width: widget.width,
             decoration: BoxDecoration(
@@ -321,9 +320,7 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           imageUrl: _backdropUrl,
                           fit: BoxFit.cover,
                           cacheWidth: 720,
-                          errorWidget: Container(
-                            color: NetflixColors.surface,
-                          ),
+                          errorWidget: Container(color: NetflixColors.surface),
                         )
                       else
                         Container(color: NetflixColors.surface),
@@ -412,60 +409,69 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // ── Actions first: Play leads, info docks right ──
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          _HoverActionButton.play(
-                            onTap: () {
-                              widget.onTap?.call();
-                              widget.onPlay?.call();
-                            },
-                          ),
-                          const SizedBox(width: 8),
+                          _HoverActionButton.play(onTap: widget.onPlay),
                           _HoverActionButton(
                             icon: _inList
                                 ? Icons.check_rounded
                                 : Icons.add_rounded,
                             tooltip: _inList ? 'In My List' : 'Add to My List',
-                            onTap: () {
-                              final next = !_inList;
-                              setState(() => _inList = next);
-                              widget.onToggleList?.call(next);
-                            },
+                            onTap: widget.onToggleList == null
+                                ? null
+                                : () {
+                                    final next = !_inList;
+                                    setState(() => _inList = next);
+                                    widget.onToggleList?.call(next);
+                                  },
                           ),
-                          const SizedBox(width: 8),
                           _HoverActionButton(
                             icon: _rating == 1
                                 ? Icons.thumb_up_rounded
                                 : Icons.thumb_up_outlined,
                             selected: _rating == 1,
                             tooltip: 'I like this',
-                            onTap: () {
-                              final next = _rating == 1 ? null : 1.0;
-                              setState(() => _rating = next);
-                              widget.onRate?.call(next);
-                            },
+                            onTap: widget.onRate == null
+                                ? null
+                                : () {
+                                    final next = _rating == 1 ? null : 1.0;
+                                    setState(() => _rating = next);
+                                    widget.onRate?.call(next);
+                                  },
                           ),
-                          const SizedBox(width: 8),
                           _HoverActionButton(
                             icon: _rating == -1
                                 ? Icons.thumb_down_rounded
                                 : Icons.thumb_down_outlined,
                             selected: _rating == -1,
                             tooltip: 'Not for me',
-                            onTap: () {
-                              final next = _rating == -1 ? null : -1.0;
-                              setState(() => _rating = next);
-                              widget.onRate?.call(next);
-                            },
+                            onTap: widget.onRate == null
+                                ? null
+                                : () {
+                                    final next = _rating == -1 ? null : -1.0;
+                                    setState(() => _rating = next);
+                                    widget.onRate?.call(next);
+                                  },
                           ),
-                          const Spacer(),
                           _HoverActionButton(
                             icon: Icons.keyboard_arrow_down_rounded,
-                            tooltip: 'More Info',
+                            tooltip: 'Details for ${widget.item.title}',
                             onTap: widget.onTap,
                           ),
                         ],
                       ),
+                      if (widget.onRestart != null)
+                        TextButton.icon(
+                          onPressed: widget.onRestart,
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(48, 48),
+                            foregroundColor: NetflixColors.textPrimary,
+                          ),
+                          icon: const Icon(Icons.restart_alt_rounded),
+                          label: const Text('Restart'),
+                        ),
                       const SizedBox(height: 12),
                       // ── Metadata ──
                       Wrap(
@@ -473,16 +479,15 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          if (_matchPercent > 0)
+                          if (_voteAverage > 0)
                             Text(
-                              '$_matchPercent% Match',
+                              'TMDB ${_voteAverage.toStringAsFixed(1)}/10',
                               style: AppTypography.outfitHeading.copyWith(
                                 fontSize: 13,
-                                color: NetflixColors.match,
+                                color: NetflixColors.textSecondary,
                               ),
                             ),
-                          if (_year.isNotEmpty)
-                            _MetaText(_year),
+                          if (_year.isNotEmpty) _MetaText(_year),
                           if (_runtime != null) _MetaText(_runtime!),
                           if (_seriesInfo != null) _MetaText(_seriesInfo!),
                           const _HdBadge(),
@@ -506,9 +511,11 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           runSpacing: 4,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            for (var i = 0;
-                                i < _genres.take(3).length;
-                                i++) ...[
+                            for (
+                              var i = 0;
+                              i < _genres.take(3).length;
+                              i++
+                            ) ...[
                               if (i > 0)
                                 Container(
                                   width: 3,
@@ -588,7 +595,7 @@ class _HdBadge extends StatelessWidget {
   }
 }
 
-class _HoverActionButton extends StatefulWidget {
+class _HoverActionButton extends StatelessWidget {
   final IconData icon;
   final String tooltip;
   final bool selected;
@@ -599,102 +606,27 @@ class _HoverActionButton extends StatefulWidget {
     required this.icon,
     required this.tooltip,
     this.selected = false,
-    this.isPlay = false,
     this.onTap,
-  });
+  }) : isPlay = false;
 
-  factory _HoverActionButton.play({VoidCallback? onTap}) =>
-      const _HoverActionButton(
-        icon: Icons.play_arrow_rounded,
-        tooltip: 'Play',
-        isPlay: true,
-      )._withTap(onTap);
+  const _HoverActionButton.play({this.onTap})
+    : icon = Icons.play_arrow_rounded,
+      tooltip = 'Play',
+      isPlay = true,
+      selected = false;
 
-  _HoverActionButton _withTap(VoidCallback? tap) => _HoverActionButton(
-    icon: icon,
+  @override
+  Widget build(BuildContext context) => IconButton(
     tooltip: tooltip,
-    selected: selected,
-    isPlay: isPlay,
-    onTap: tap,
+    onPressed: onTap,
+    style: IconButton.styleFrom(
+      fixedSize: const Size(48, 48),
+      backgroundColor: isPlay || selected ? NetflixColors.textPrimary : null,
+      foregroundColor: isPlay || selected
+          ? NetflixColors.background
+          : NetflixColors.textPrimary,
+      side: const BorderSide(color: NetflixColors.textSecondary),
+    ),
+    icon: Icon(icon, size: isPlay ? 26 : 22),
   );
-
-  @override
-  State<_HoverActionButton> createState() => _HoverActionButtonState();
-}
-
-class _HoverActionButtonState extends State<_HoverActionButton> {
-  bool _hovered = false;
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPlay = widget.isPlay;
-    final size = isPlay ? 38.0 : 34.0;
-    final bg = isPlay
-        ? (_hovered
-              ? AppColors.petalWhite.withValues(alpha: 0.92)
-              : AppColors.petalWhite)
-        : (widget.selected || _pressed
-              ? AppColors.petalWhite
-              : (_hovered
-                    ? AppColors.petalWhite.withValues(alpha: 0.14)
-                    : Colors.transparent));
-    return Tooltip(
-      message: widget.tooltip,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: widget.onTap == null
-              ? null
-              : (_) => setState(() => _pressed = true),
-          onTapUp: widget.onTap == null
-              ? null
-              : (_) {
-                  setState(() => _pressed = false);
-                  widget.onTap?.call();
-                },
-          onTapCancel: widget.onTap == null
-              ? null
-              : () => setState(() => _pressed = false),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOutCubic,
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: bg,
-              shape: BoxShape.circle,
-              border: isPlay
-                  ? Border.all(color: AppColors.petalWhite, width: 2)
-                  : Border.all(
-                      color: AppColors.petalWhite.withValues(
-                        alpha: widget.selected || _hovered ? 0.9 : 0.45,
-                      ),
-                      width: 1.5,
-                    ),
-              boxShadow: isPlay
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
-            ),
-            child: Icon(
-              widget.icon,
-              size: isPlay ? 24 : 17,
-              color: isPlay || widget.selected || _pressed
-                  ? Colors.black.withValues(alpha: 0.9)
-                  : AppColors.petalWhite,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

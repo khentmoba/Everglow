@@ -229,6 +229,10 @@ class _NetflixRowState extends State<NetflixRow> {
                     return NetflixPosterCard(
                       item: item,
                       onTap: () => widget.onTapItem(item),
+                      onPlay: widget.onPlayItem,
+                      onToggleList: widget.onToggleListItem,
+                      onRate: widget.onRateItem,
+                      isInList: widget.isInList,
                       onHover: isDesktop ? _onCardHover : null,
                       rank: widget.ranked && index < 10 ? index + 1 : null,
                     );
@@ -275,6 +279,7 @@ class NetflixContinueRow extends StatefulWidget {
   final void Function(MediaItem, double? rating)? onRateItem;
   final bool Function(MediaItem)? isInList;
   final void Function(MediaItem)? onRemoveItem;
+  final void Function(MediaItem)? onRestart;
 
   const NetflixContinueRow({
     super.key,
@@ -288,6 +293,7 @@ class NetflixContinueRow extends StatefulWidget {
     this.onRateItem,
     this.isInList,
     this.onRemoveItem,
+    this.onRestart,
   });
 
   @override
@@ -357,7 +363,14 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                 _removePreview();
                 widget.onTapItem(item);
               },
-              onPlay: () => widget.onPlayItem?.call(item),
+              onPlay: () =>
+                  (widget.onPlayContinue ?? widget.onPlayItem)?.call(item),
+              onRestart: widget.onRestart == null
+                  ? null
+                  : () {
+                      _removePreview();
+                      widget.onRestart!(item);
+                    },
               onToggleList: (add) => widget.onToggleListItem?.call(item, add),
               onRate: (rating) => widget.onRateItem?.call(item, rating),
             ),
@@ -380,7 +393,8 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
     if (widget.items.isEmpty) return const SizedBox.shrink();
     final isDesktop = AppBreakpoint.isDesktop(context);
     final cardWidth = isDesktop ? 230.0 : 170.0;
-    final rowHeight = cardWidth * 0.5625 + (isDesktop ? 30 : 26);
+    final subtitleHeight = MediaQuery.textScalerOf(context).scale(11.5) * 1.5;
+    final rowHeight = cardWidth * 0.5625 + 10 + subtitleHeight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -421,6 +435,10 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                   item: item,
                   subtitle: widget.subtitleOf(item),
                   progress: widget.progressOf(item),
+                  onDetails: () => widget.onTapItem(item),
+                  onRestart: widget.onRestart == null
+                      ? null
+                      : () => widget.onRestart!(item),
                   onTap: () {
                     final play = widget.onPlayContinue;
                     if (play != null) {
@@ -430,7 +448,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                     }
                   },
                   onHover: isDesktop ? _onCardHover : null,
-                  onPlay: widget.onPlayItem,
+                  onPlay: widget.onPlayContinue ?? widget.onPlayItem,
                   onToggleList: widget.onToggleListItem,
                   onRate: widget.onRateItem,
                   isInList: widget.isInList,
@@ -446,6 +464,7 @@ class _NetflixContinueRowState extends State<NetflixContinueRow> {
                       right: 6,
                       child: NetflixRemoveBadge(
                         onTap: () => remove(item),
+                        tooltip: 'Remove ${item.title} from Continue Watching',
                       ),
                     ),
                   ],
