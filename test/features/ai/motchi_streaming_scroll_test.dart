@@ -1,6 +1,9 @@
 @TestOn('browser')
 library;
 
+import 'dart:async';
+
+import 'package:go_router/go_router.dart';
 import 'package:everglow/core/services/auth_service.dart';
 import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/features/ai/domain/memory/memory_fact.dart';
@@ -136,7 +139,236 @@ class _FakeAuthService extends ChangeNotifier implements AuthService {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
+class _InteractionAIService extends AIService {
+  _InteractionAIService()
+    : super(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: _FakeConversationRepo(
+          AIConversation(id: 'demo', feature: 'assistant'),
+        ),
+      );
+
+  bool loading = false;
+  Completer<String>? pending;
+  final requests = <({String message, bool? thinking, bool canvas})>[];
+
+  @override
+  bool get isLoading => loading;
+
+  @override
+  Future<String> sendMessage({
+    required String feature,
+    required String message,
+    String? contextOverride,
+    bool stream = false,
+    bool? enableThinking,
+    String? callerName,
+    void Function(String)? onToolStatus,
+    void Function(Map<String, dynamic>)? onToolResult,
+    List<String> imageUrls = const [],
+    bool canvasEnabled = true,
+  }) {
+    requests.add((
+      message: message,
+      thinking: enableThinking,
+      canvas: canvasEnabled,
+    ));
+    assistantConversation!.messages.add(
+      AIMessage(role: 'user', content: message),
+    );
+    loading = true;
+    pending = Completer<String>();
+    notifyListeners();
+    return pending!.future;
+  }
+
+  @override
+  bool cancelCurrentReply() {
+    loading = false;
+    pending?.complete('');
+    pending = null;
+    notifyListeners();
+    return true;
+  }
+}
+
 void main() {
+  testWidgets(
+    'quiet welcome and composer fit small phones, tablets and keyboards',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      for (final width in [320.0, 390.0, 820.0, 1280.0]) {
+        tester.view.physicalSize = Size(width, 844);
+        final ai = _InteractionAIService();
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AIService>.value(value: ai),
+              ChangeNotifierProvider<AuthService>.value(
+                value: _FakeAuthService(),
+              ),
+            ],
+            child: MaterialApp(
+              key: ValueKey(width),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: TextScaler.linear(width == 320 ? 1.6 : 1),
+                ),
+                child: child!,
+              ),
+              home: const MotchiScreen(),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+        expect(find.byType(ActionChip), findsNWidgets(4));
+        expect(find.text('CAT'), findsNothing);
+        expect(find.text('Purring & ready for you two'), findsNothing);
+        expect(find.text('Morning recap ☀️'), findsNothing);
+        expect(find.byTooltip('Add to message'), findsOneWidget);
+        expect(
+          tester
+              .getSize(
+                find.byWidgetPredicate(
+                  (widget) =>
+                      widget is TextField &&
+                      widget.decoration?.hintText == 'Message Motchi…',
+                ),
+              )
+              .width,
+          lessThanOrEqualTo(720),
+        );
+        if (width == 320) {
+          await tester.tap(find.byTooltip('Add to message'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Canvas'));
+          await tester.pumpAndSettle();
+          expect(
+            find.byTooltip('Canvas: on — tap to turn off'),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        }
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+        expect(
+          tester.getBottomRight(find.byTooltip('Send message')).dy,
+          lessThanOrEqualTo(564),
+        );
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpWidget(const SizedBox.shrink());
+        ai.dispose();
+      }
+    },
+  );
+
+  testWidgets('tucked-away controls preserve thinking, Canvas, send and stop', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final ai = _InteractionAIService();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: const MaterialApp(home: MotchiScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auto'));
+    await tester.pump();
+    expect(find.text('Deep'), findsOneWidget);
+    await tester.tap(find.text('Deep'));
+    await tester.pump();
+    expect(find.text('Fast'), findsOneWidget);
+    await tester.tap(find.byTooltip('Add to message'));
+    await tester.pumpAndSettle();
+    expect(find.text('Attach images'), findsOneWidget);
+    await tester.tap(find.text('Canvas'));
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField).first;
+    await tester.enterText(field, 'A quiet evening');
+    await tester.tap(find.byTooltip('Send message'));
+    await tester.pump();
+    expect(ai.requests.single, (
+      message: 'A quiet evening',
+      thinking: false,
+      canvas: true,
+    ));
+    expect(find.byTooltip('Stop generating'), findsOneWidget);
+    await tester.tap(find.byTooltip('Stop generating'));
+    await tester.pumpAndSettle();
+    expect(ai.isLoading, isFalse);
+    await tester.tap(find.byTooltip('New chat'));
+    await tester.pumpAndSettle();
+    expect(ai.assistantConversation!.messages, isEmpty);
+    expect(find.byType(ActionChip), findsNWidgets(4));
+    await tester.tap(find.byTooltip('History'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byTooltip('Close history'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    ai.dispose();
+  });
+
+  testWidgets('more menu keeps every Motchi destination reachable on phones', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final ai = _InteractionAIService();
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const MotchiScreen()),
+        for (final path in ['motchi-memory', 'motchi-trivia', 'motchi-today'])
+          GoRoute(
+            path: '/$path',
+            builder: (_, _) => Scaffold(body: Center(child: Text(path))),
+          ),
+      ],
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final (label, path) in [
+      ('Memory Book', 'motchi-memory'),
+      ('Memory Trivia', 'motchi-trivia'),
+      ('Motchi Today', 'motchi-today'),
+    ]) {
+      await tester.tap(find.byTooltip('More from Motchi'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+      expect(find.text(path), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    router.dispose();
+    ai.dispose();
+  });
+
   testWidgets('chat leaves room to type on phone and tablet', (tester) async {
     final composer = find.byWidgetPredicate(
       (widget) =>
