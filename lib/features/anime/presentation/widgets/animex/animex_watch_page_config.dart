@@ -131,10 +131,11 @@ class AnimeXWatchPage extends StatefulWidget {
         return 'VidLink';
       case 'Server 3':
         return 'Megavid';
-      // Prior branch names ('Mega Play', 'Anixo') map to the current
-      // spellings so remembered choices survive the rename.
+      // Prior branch names ('Mega Play', 'MegaPlay', 'Anixo') map to the
+      // current spellings so remembered choices survive the rename.
       case 'Mega Play':
-        return 'MegaPlay';
+      case 'MegaPlay':
+        return 'Everglow';
       case 'Anixo':
         return 'AniXo';
       default:
@@ -184,7 +185,7 @@ class AnimeXWatchPage extends StatefulWidget {
 
   /// Maps a player-reported TMDB season/episode back to our episode number.
   ///
-  /// The Everglow embed (CineSrc) announces internal episode changes with
+  /// The CineSrc embed announces internal episode changes with
   /// the TMDB season/episode it moved to. Shows whose MAL entry starts
   /// mid-series resolve through [episodeSlots] (the same table the player
   /// URL is built from); plain 1:1 shows map season 1 straight across.
@@ -262,20 +263,18 @@ class AnimeXWatchPage extends StatefulWidget {
   /// themselves and a working reference site) — the player frame
   /// applies them per host:
   ///
-  /// - Everglow: our own embed.html shell around CineSrc. Default for
-  ///   fresh titles. TMDB-keyed, so it only becomes available once
-  ///   ani.zip supplies a `themoviedb_id`. Sandboxed, no referrer,
-  ///   100% ad-free.
+  /// - Everglow: third-party embed (MegaPlay) keyed on the AniList id
+  ///   (falls back to MAL). Refuses sandboxed iframes ("Remove sandbox
+  ///   to use it") and answers 410 with no Referer, so it plays
+  ///   unsandboxed with the origin sent, ads included. Displayed as
+  ///   "Everglow" in the server selector.
   /// - Megavid: our ad-free resolver ([proxyAnimeBase]) keyed on the
   ///   AniList id (falls back to MAL). Sandboxed, no referrer. A dead
   ///   episode answers with the failover marker so the probe advances
   ///   to the next server instead of spinning.
-  /// - MegaPlay: third-party embed keyed on the AniList id (falls back
-  ///   to MAL). Last resort for titles without a TMDB mapping — it
-  ///   refuses sandboxed iframes ("Remove sandbox to use it") and
-  ///   answers 410 with no Referer, so it plays unsandboxed with the
-  ///   origin sent, ads included. When it answers with its 410 card
-  ///   the probe advances to the next server.
+  /// - CineSrc: our own embed.html shell around CineSrc. TMDB-keyed,
+  ///   so it only becomes available once ani.zip supplies a
+  ///   `themoviedb_id`. Sandboxed, no referrer, 100% ad-free.
   ///
   /// AniXo used to sit between the last two, but it is only a scraper
   /// relay over MegaPlay behind a bot-check ticket that embedded
@@ -341,19 +340,12 @@ class AnimeXWatchPage extends StatefulWidget {
       AnimeServerOption(
         name: 'Everglow',
         urlBuilder: (ep, audio) {
-          if (isMovie) {
-            return 'https://everglow-1c6db.web.app/embed.html'
-                '?tmdbId=$effectiveTmdb&type=movie';
+          if (hasAni) {
+            return 'https://megaplay.buzz/stream/ani/$aniId/$ep/$audio';
           }
-          final slot = episodeSlots[ep];
-          final season = slot?.season ?? 1;
-          final episode = slot?.episode ?? ep;
-          return 'https://everglow-1c6db.web.app/embed.html'
-              '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
+          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
         },
-        available: effectiveTmdb > 0,
-        supportsAudioSelection: false,
-        supportsResume: true,
+        available: hasSource,
       ),
       AnimeServerOption(
         name: 'Megavid',
@@ -368,14 +360,21 @@ class AnimeXWatchPage extends StatefulWidget {
         supportsResume: true,
       ),
       AnimeServerOption(
-        name: 'MegaPlay',
+        name: 'CineSrc',
         urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://megaplay.buzz/stream/ani/$aniId/$ep/$audio';
+          if (isMovie) {
+            return 'https://everglow-1c6db.web.app/embed.html'
+                '?tmdbId=$effectiveTmdb&type=movie';
           }
-          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
+          final slot = episodeSlots[ep];
+          final season = slot?.season ?? 1;
+          final episode = slot?.episode ?? ep;
+          return 'https://everglow-1c6db.web.app/embed.html'
+              '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
         },
-        available: hasSource,
+        available: effectiveTmdb > 0,
+        supportsAudioSelection: false,
+        supportsResume: true,
       ),
     ];
   }

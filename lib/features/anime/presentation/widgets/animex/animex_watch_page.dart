@@ -598,12 +598,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// leaving the loaded frame untouched — no reload, no lost position.
   void _onPlayerEpisodeChanged(int tmdbSeason, int tmdbEpisode) {
     if (!mounted || _episodes.isEmpty) return;
-    // Only the Everglow server reports internal episode changes. Anything
+    // Only the CineSrc server reports internal episode changes. Anything
     // else arriving here is stale — a server switch already moved on.
     final current = (_serverIndex >= 0 && _serverIndex < _servers.length)
         ? _servers[_serverIndex]
         : null;
-    if (current == null || current.name != 'Everglow') return;
+    if (current == null || current.name != 'CineSrc') return;
     final mapped = AnimeXWatchPage.mapPlayerEpisodeToMal(
       tmdbSeason: tmdbSeason,
       tmdbEpisode: tmdbEpisode,
