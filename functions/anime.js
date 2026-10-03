@@ -108,7 +108,7 @@ function failHtml(title, detail) {
  *  instead of spinning forever. The card deliberately avoids the failover
  *  marker text, so the app's server probe never mistakes a healthy player
  *  page for a dead one. */
-function hlsPlayerHtml({ src, title, tracks, token }) {
+function hlsPlayerHtml({ src, title, tracks, token, ep }) {
   // When the page was loaded with a login token, hls.js sends it back as
   // an Authorization header — never inside media URLs (which land in
   // browser history and request logs). Native-HLS Safari keeps using the
@@ -167,13 +167,46 @@ function hlsPlayerHtml({ src, title, tracks, token }) {
     'var tapw=document.getElementById("tapw");' +
     'var tap=document.getElementById("tap");' +
     'var dead=document.getElementById("dead");' +
+    'var episode=' + JSON.stringify(Number.isSafeInteger(ep) && ep > 0 ? ep : null) + ';' +
+    'var start=new URLSearchParams(window.location.search).get("start");' +
+    'var pendingSeek=start!==null&&/^\\d+(?:\\.\\d+)?$/.test(start)?Number(start):null;' +
+    'if(!Number.isFinite(pendingSeek)){pendingSeek=null;}' +
+    'var hasMetadata=false;' +
+    'function applySeek(){if(!hasMetadata||pendingSeek===null||!Number.isFinite(v.duration)||v.duration<=0){return;}' +
+    'try{v.currentTime=Math.min(pendingSeek,v.duration);pendingSeek=null;}catch(e){}}' +
+    'v.addEventListener("loadedmetadata",function(){hasMetadata=true;applySeek();});' +
+    'v.addEventListener("durationchange",applySeek);' +
+    'function trustedParent(origin){return origin==="https://everglow-1c6db.web.app"||' +
+    'origin==="https://everglow-1c6db.firebaseapp.com"||' +
+    '/^https:\\/\\/everglow-1c6db--[a-z0-9-]+\\.web\\.app$/.test(origin)||' +
+    '/^https?:\\/\\/(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::[0-9]+)?$/.test(origin);}' +
+    'function nativeBridge(){return window.parent===window&&window.EverglowPlayer&&' +
+    'window.location.origin==="https://us-central1-everglow-1c6db.cloudfunctions.net"&&' +
+    'window.location.pathname==="/proxyAnime";}' +
+    'window.addEventListener("message",function(e){' +
+    'if(e.source!==window.parent||(!trustedParent(e.origin)&&' +
+    '!(nativeBridge()&&e.origin===window.location.origin))){return;}' +
+    'var d=e.data;if(!d||d.type!=="animex-seek"||typeof d.seconds!=="number"||' +
+    '!Number.isFinite(d.seconds)||d.seconds<0){return;}' +
+    'pendingSeek=d.seconds;applySeek();});' +
+    'function post(data){try{window.parent.postMessage(data,"*");}catch(e){}' +
+    'try{if(nativeBridge()){window.EverglowPlayer.postMessage(' +
+    'typeof data==="string"?data:JSON.stringify(data));}}catch(e){}}' +
+    'var lastProgress=null;' +
+    'function progress(force){var position=v.currentTime,duration=v.duration;' +
+    'if(!Number.isFinite(position)||position<0||!Number.isFinite(duration)||' +
+    'duration<=0||position>duration){return;}' +
+    'var now=Date.now();if(!force&&lastProgress!==null&&now-lastProgress<1000){return;}' +
+    'lastProgress=now;post({type:"animex-progress",position:position,duration:duration,episode:episode});}' +
+    'v.addEventListener("timeupdate",function(){progress(false);});' +
+    'v.addEventListener("pause",function(){progress(true);});' +
+    'v.addEventListener("ended",function(){progress(true);});' +
     'function hideBoot(){boot.style.display="none";}' +
     'function showTap(){tapw.hidden=false;}' +
     'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
     'if(p&&p.catch){p.catch(function(){showTap();});}}' +
     'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
-    'try{window.parent.postMessage("animex-content-error","*");}' +
-    'catch(e){}}' +
+    'post("animex-content-error");}' +
     'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
     'v.addEventListener("playing",function(){hideBoot();tapw.hidden=true;});' +
     'v.addEventListener("waiting",function(){' +
@@ -659,6 +692,7 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
       tracks,
       title: `Episode ${ep}`,
       token,
+      ep,
     }),
   };
 }
@@ -754,7 +788,7 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
     res.set('Cache-Control', 'public, max-age=300');
     res
       .status(200)
-      .send(hlsPlayerHtml({ src: seg, title: titles[0], tracks: [] }));
+      .send(hlsPlayerHtml({ src: seg, title: titles[0], tracks: [], ep }));
   } catch (e) {
     sendFail('No stream found — try another server.');
   }

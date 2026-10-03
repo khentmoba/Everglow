@@ -312,4 +312,40 @@ void main() {
       );
     });
   });
+
+  group('MediaItem.resumeSeconds', () {
+    MediaItem at({String status = 'watching-clair', int? ts, int? total}) =>
+        MediaItem(
+          id: 'm1',
+          tmdbId: 1,
+          title: 'Test',
+          mediaType: 'movie',
+          posterPath: '',
+          status: status,
+          addedAt: DateTime(2026, 1, 1),
+          currentTimestamp: ts,
+          durationSeconds: total,
+        );
+
+    test('resumes mid-movie', () {
+      expect(at(ts: 1200, total: 6000).resumeSeconds, 1200);
+    });
+
+    test('resumes when the length is unknown', () {
+      expect(at(ts: 300).resumeSeconds, 300);
+    });
+
+    test('starts over when nothing is saved', () {
+      expect(at().resumeSeconds, isNull);
+      expect(at(ts: 0).resumeSeconds, isNull);
+    });
+
+    test('starts over when already watched', () {
+      expect(at(status: 'watched-both', ts: 1200).resumeSeconds, isNull);
+    });
+
+    test('starts over when parked in the credits', () {
+      expect(at(ts: 5800, total: 6000).resumeSeconds, isNull);
+    });
+  });
 }

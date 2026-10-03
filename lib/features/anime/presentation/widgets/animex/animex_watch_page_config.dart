@@ -4,12 +4,31 @@ class AnimeServerOption {
   final String name;
   final String Function(int episode, String audio) urlBuilder;
   final bool available;
+  final bool supportsAudioSelection;
+  final bool supportsSeek;
+  final bool supportsResume;
 
   const AnimeServerOption({
     required this.name,
     required this.urlBuilder,
     this.available = true,
+    this.supportsAudioSelection = true,
+    this.supportsSeek = false,
+    this.supportsResume = false,
   });
+
+  String urlFor(int episode, String audio, {int? startSeconds}) {
+    final url = urlBuilder(episode, audio);
+    if (!supportsResume || startSeconds == null || startSeconds <= 0) {
+      return url;
+    }
+    final uri = Uri.parse(url);
+    return uri
+        .replace(
+          queryParameters: {...uri.queryParameters, 'start': '$startSeconds'},
+        )
+        .toString();
+  }
 }
 
 typedef _ServerOption = AnimeServerOption;
@@ -20,7 +39,51 @@ typedef _ServerOption = AnimeServerOption;
 class AnimeXWatchPage extends StatefulWidget {
   final AnimeXController controller;
 
-  const AnimeXWatchPage({super.key, required this.controller});
+  final Future<MediaItem?> Function(MediaItem item)? loadSavedProgress;
+
+  const AnimeXWatchPage({
+    super.key,
+    required this.controller,
+    this.loadSavedProgress,
+  });
+
+  @visibleForTesting
+  static ({int episode, int? seconds}) resolveResume({
+    required MediaItem item,
+    MediaItem? saved,
+    AnimexHistoryEntry? local,
+    int? requestedEpisode,
+  }) {
+    final progress = saved ?? item;
+    final accountIsAuthoritative =
+        saved != null &&
+        (saved.progressUpdatedAt != null ||
+            saved.currentEpisode != null ||
+            saved.currentTimestamp != null ||
+            saved.isWatched);
+    final episode =
+        requestedEpisode ??
+        (progress.isWatched ? 1 : progress.currentEpisode) ??
+        (accountIsAuthoritative ? 1 : local?.episode) ??
+        1;
+    final sameEpisode = progress.isMovie || progress.currentEpisode == episode;
+    return (
+      episode: episode > 0 ? episode : 1,
+      seconds: sameEpisode ? progress.resumeSeconds : null,
+    );
+  }
+
+  @visibleForTesting
+  static bool skipGuidanceVisible(
+    AniSkipTime? time,
+    double? observedPosition, {
+    required bool supportsSeek,
+  }) {
+    if (time == null) return false;
+    return !supportsSeek ||
+        observedPosition == null ||
+        skipVisibleAt(time, observedPosition);
+  }
 
   /// True when a fetched embed page is the provider's "can't play this"
   /// error instead of a player. Static so the regression tests can pin
@@ -289,6 +352,8 @@ class AnimeXWatchPage extends StatefulWidget {
               '?tmdbId=$effectiveTmdb&type=tv&s=$season&e=$episode';
         },
         available: effectiveTmdb > 0,
+        supportsAudioSelection: false,
+        supportsResume: true,
       ),
       AnimeServerOption(
         name: 'Megavid',
@@ -299,6 +364,8 @@ class AnimeXWatchPage extends StatefulWidget {
           audio: audio,
         ),
         available: hasSource,
+        supportsSeek: true,
+        supportsResume: true,
       ),
       AnimeServerOption(
         name: 'MegaPlay',

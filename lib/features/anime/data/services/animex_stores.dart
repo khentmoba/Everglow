@@ -26,13 +26,17 @@ class AnimexStores extends ChangeNotifier {
   List<AnimexHistoryEntry> _history = [];
   List<AnimexPlaylist> _playlists = [];
   bool _titleJapanese = false;
+  bool _hideSpoilers = true;
   final Map<String, bool> _scheduleAlerts = {};
   bool _loaded = false;
+  // A username check alone misses a switch away and back to the same profile.
+  int _loadGeneration = 0;
   String _currentUser = '';
 
   List<AnimexHistoryEntry> get history => List.unmodifiable(_history);
   List<AnimexPlaylist> get playlists => List.unmodifiable(_playlists);
   bool get titleJapanese => _titleJapanese;
+  bool get hideSpoilers => _hideSpoilers;
 
   /// Username this store is currently loaded for ('' when logged out).
   String get currentUser => _currentUser;
@@ -49,15 +53,18 @@ class AnimexStores extends ChangeNotifier {
   Future<void> load({String? username}) async {
     final user = username ?? '';
     if (_loaded && user == _currentUser) return;
+    final generation = ++_loadGeneration;
 
     // Switch: drop the previous profile's data first.
     _currentUser = user;
     _history = [];
     _playlists = [];
     _titleJapanese = false;
+    _hideSpoilers = true;
     _scheduleAlerts.clear();
     _loaded = false;
     notifyListeners();
+    if (generation != _loadGeneration) return;
 
     // Logged out: stay empty and never touch shared keys.
     if (user.isEmpty) {
@@ -67,6 +74,7 @@ class AnimexStores extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (generation != _loadGeneration) return;
       _readInto(
         historyRaw: prefs.getString(_keyFor(_historyKeyBase, user)),
         playlistsRaw: prefs.getString(_keyFor(_playlistsKeyBase, user)),
@@ -76,9 +84,7 @@ class AnimexStores extends ChangeNotifier {
       // One-time migration of the old global (unscoped) keys. Only couple
       // profiles inherit legacy data, and only when their own store is
       // empty — cinema-only profiles never see another profile's past.
-      if (_history.isEmpty &&
-          _playlists.isEmpty &&
-          _isCoupleUser(user)) {
+      if (_history.isEmpty && _playlists.isEmpty && _isCoupleUser(user)) {
         final legacyHistory = prefs.getString(_historyKeyBase);
         final legacyPlaylists = prefs.getString(_playlistsKeyBase);
         final legacyPrefs = prefs.getString(_prefsKeyBase);
@@ -90,12 +96,18 @@ class AnimexStores extends ChangeNotifier {
             prefsRaw: legacyPrefs,
           );
           await _persist();
-          await prefs.remove(_historyKeyBase);
-          await prefs.remove(_playlistsKeyBase);
-          await prefs.remove(_prefsKeyBase);
+          for (final key in [
+            _historyKeyBase,
+            _playlistsKeyBase,
+            _prefsKeyBase,
+          ]) {
+            if (generation != _loadGeneration) return;
+            await prefs.remove(key);
+          }
         }
       }
 
+      if (generation != _loadGeneration) return;
       _loaded = true;
       notifyListeners();
     } catch (e) {
@@ -128,6 +140,7 @@ class AnimexStores extends ChangeNotifier {
     if (prefsRaw != null && prefsRaw.isNotEmpty) {
       final data = json.decode(prefsRaw) as Map<String, dynamic>;
       _titleJapanese = data['titleJapanese'] == true;
+      _hideSpoilers = data['hideSpoilers'] != false;
       final alerts = data['scheduleAlerts'] as Map<String, dynamic>?;
       if (alerts != null) {
         alerts.forEach((k, v) => _scheduleAlerts[k] = v == true);
@@ -137,23 +150,29 @@ class AnimexStores extends ChangeNotifier {
 
   Future<void> _persist() async {
     // Never write when logged out: there is no profile to own the data.
-    if (_currentUser.isEmpty) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _keyFor(_historyKeyBase, _currentUser),
-      json.encode(_history.map((e) => e.toJson()).toList()),
-    );
-    await prefs.setString(
-      _keyFor(_playlistsKeyBase, _currentUser),
-      json.encode(_playlists.map((e) => e.toJson()).toList()),
-    );
-    await prefs.setString(
-      _keyFor(_prefsKeyBase, _currentUser),
-      json.encode({
+    final user = _currentUser;
+    final generation = _loadGeneration;
+    if (user.isEmpty) return;
+    // Capture both ownership and values before any await; a profile switch
+    // must never redirect the remaining writes or supply another user's data.
+    final values = {
+      _keyFor(_historyKeyBase, user): json.encode(
+        _history.map((e) => e.toJson()).toList(),
+      ),
+      _keyFor(_playlistsKeyBase, user): json.encode(
+        _playlists.map((e) => e.toJson()).toList(),
+      ),
+      _keyFor(_prefsKeyBase, user): json.encode({
         'titleJapanese': _titleJapanese,
+        'hideSpoilers': _hideSpoilers,
         'scheduleAlerts': _scheduleAlerts,
       }),
-    );
+    };
+    final prefs = await SharedPreferences.getInstance();
+    for (final entry in values.entries) {
+      if (generation != _loadGeneration) return;
+      await prefs.setString(entry.key, entry.value);
+    }
   }
 
   // ── Watch history ────────────────────────────────────────────────
@@ -277,6 +296,13 @@ class AnimexStores extends ChangeNotifier {
 
   // ── Preferences ─────────────────────────────────────────────────
 
+  Future<void> setHideSpoilers(bool value) async {
+    if (_hideSpoilers == value) return;
+    _hideSpoilers = value;
+    notifyListeners();
+    await _persist();
+  }
+
   Future<void> setTitleJapanese(bool value) async {
     _titleJapanese = value;
     notifyListeners();
@@ -294,9 +320,11 @@ class AnimexStores extends ChangeNotifier {
   /// Test-only reset so the singleton never leaks state between tests.
   @visibleForTesting
   void resetForTest() {
+    _loadGeneration++;
     _history = [];
     _playlists = [];
     _titleJapanese = false;
+    _hideSpoilers = true;
     _scheduleAlerts.clear();
     _loaded = false;
     _currentUser = '';

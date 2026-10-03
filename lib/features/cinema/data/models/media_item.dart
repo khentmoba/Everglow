@@ -130,6 +130,16 @@ class MediaItem {
   /// or casing in Firestore so shelves never silently empty out.
   String get _normalizedStatus => status.trim().toLowerCase();
 
+  /// Seconds to resume from, or null when starting over is the better
+  /// default: nothing saved, already watched, or parked in the credits.
+  int? get resumeSeconds {
+    final at = currentTimestamp ?? 0;
+    if (at <= 0 || isWatched) return null;
+    final total = durationSeconds ?? 0;
+    if (total > 0 && at >= total * 0.95) return null;
+    return at;
+  }
+
   bool get isWatched =>
       _normalizedStatus == 'watched' ||
       _normalizedStatus == 'watched-khent' ||

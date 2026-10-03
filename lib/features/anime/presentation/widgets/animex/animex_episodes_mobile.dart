@@ -6,6 +6,7 @@ class _MobileEpisodeCard extends StatelessWidget {
   final String fallbackPoster;
   final String animeTitle;
   final bool isPlaying;
+  final bool hideSpoilers;
   final VoidCallback onTap;
   final VoidCallback onInfoTap;
 
@@ -14,13 +15,14 @@ class _MobileEpisodeCard extends StatelessWidget {
     required this.fallbackPoster,
     required this.animeTitle,
     required this.isPlaying,
+    required this.hideSpoilers,
     required this.onTap,
     required this.onInfoTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final ep = episode;
+    final ep = hideSpoilers ? _episodeWithoutSpoilers(episode) : episode;
     final title = (ep.title != null && ep.title!.isNotEmpty)
         ? ep.title!
         : 'Episode ${ep.number}';
@@ -89,7 +91,17 @@ class _MobileEpisodeCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    if (hasSynopsis) ...[
+                    if (hideSpoilers)
+                      TextButton.icon(
+                        onPressed: onInfoTap,
+                        icon: const Icon(Icons.visibility_outlined, size: 16),
+                        label: const Text('Reveal details'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AnimeXTokens.accentWarm,
+                          padding: EdgeInsets.zero,
+                        ),
+                      )
+                    else if (hasSynopsis) ...[
                       GestureDetector(
                         onTap: onInfoTap,
                         child: Text(
@@ -222,14 +234,15 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
     );
   }
 
-  List<AniListEpisode> _filteredEpisodes() {
+  List<AniListEpisode> _filteredEpisodes(bool hideSpoilers) {
     var list = widget.episodes;
     if (_query.isNotEmpty) {
       list = list.where((e) {
         final numStr = e.number.toString();
         final padded = numStr.padLeft(2, '0');
-        final t = (e.title ?? '').toLowerCase();
-        final s = (e.synopsis ?? '').toLowerCase();
+        final hidden = hideSpoilers && e.number >= widget.selectedEpisode;
+        final t = hidden ? '' : (e.title ?? '').toLowerCase();
+        final s = hidden ? '' : (e.synopsis ?? '').toLowerCase();
         return numStr == _query ||
             padded == _query ||
             'episode $numStr'.contains(_query) ||
@@ -246,7 +259,11 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
 
   @override
   Widget build(BuildContext context) {
-    final displayList = _filteredEpisodes();
+    // ponytail: selected episode is the conservative boundary; no watch-status system.
+    final hideSpoilers = context.select<AnimexStores?, bool>(
+      (stores) => stores?.hideSpoilers ?? true,
+    );
+    final displayList = _filteredEpisodes(hideSpoilers);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,6 +415,8 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
           ],
         ),
 
+        const _HideSpoilersSwitch(),
+
         if (_showSearch) ...[
           const SizedBox(height: 10),
           Container(
@@ -479,8 +498,23 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
                   fallbackPoster: widget.fallbackPoster,
                   animeTitle: widget.animeTitle,
                   isPlaying: active,
+                  hideSpoilers:
+                      hideSpoilers && ep.number >= widget.selectedEpisode,
                   onTap: () => widget.onSelectEpisode(ep.number),
-                  onInfoTap: () => widget.onShowInfo(ep),
+                  onInfoTap: () {
+                    if (hideSpoilers && ep.number >= widget.selectedEpisode) {
+                      _showEpisodeInfoSheet(
+                        context,
+                        episode: ep,
+                        animeTitle: widget.animeTitle,
+                        fallbackPoster: widget.fallbackPoster,
+                        isPlaying: active,
+                        onPlay: () => widget.onSelectEpisode(ep.number),
+                      );
+                    } else {
+                      widget.onShowInfo(ep);
+                    }
+                  },
                 );
               },
             ),
@@ -498,12 +532,9 @@ void _showEpisodeInfoSheet(
   required String fallbackPoster,
   required bool isPlaying,
   required VoidCallback onPlay,
+  bool hideSpoilers = true,
 }) {
-  final ep = episode;
-  final title = (ep.title != null && ep.title!.isNotEmpty)
-      ? ep.title!
-      : 'Episode ${ep.number}';
-  final synopsis = ep.synopsis?.trim() ?? '';
+  var revealed = !hideSpoilers;
 
   showModalBottomSheet<void>(
     context: context,
@@ -512,211 +543,236 @@ void _showEpisodeInfoSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (sheetContext) {
-      return SafeArea(
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.75,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) {
+        final ep = revealed ? episode : _episodeWithoutSpoilers(episode);
+        final title = (ep.title != null && ep.title!.isNotEmpty)
+            ? ep.title!
+            : 'Episode ${ep.number}';
+        final synopsis = ep.synopsis?.trim() ?? '';
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 12),
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AnimeXTokens.textMuted,
-                      borderRadius: BorderRadius.circular(2),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.75,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AnimeXTokens.textMuted,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                Flexible(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Episode Header with Thumbnail
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _EpisodeThumbnail(
-                              episode: ep,
-                              fallbackPoster: fallbackPoster,
-                              isPlaying: isPlaying,
-                              width: 120,
-                              height: 68,
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: dmSansStyle(
-                                      size: 15,
-                                      color: AnimeXTokens.textPrimary,
-                                      weight: FontWeight.w700,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    animeTitle,
-                                    style: dmSansStyle(
-                                      size: 12,
-                                      color: AnimeXTokens.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 6,
-                                    children: [
-                                      if (ep.duration != null &&
-                                          ep.duration! > 0)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.08,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '${ep.duration} min',
-                                            style: dmSansStyle(
-                                              size: 10.5,
-                                              color: AnimeXTokens.textSecondary,
-                                              weight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      if (ep.airedAt != null)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.08,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Aired ${ep.airedAt!.year}-${ep.airedAt!.month.toString().padLeft(2, '0')}-${ep.airedAt!.day.toString().padLeft(2, '0')}',
-                                            style: dmSansStyle(
-                                              size: 10.5,
-                                              color: AnimeXTokens.textSecondary,
-                                              weight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Episode Header with Thumbnail
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _EpisodeThumbnail(
+                                episode: ep,
+                                fallbackPoster: fallbackPoster,
+                                isPlaying: isPlaying,
+                                width: 120,
+                                height: 68,
                               ),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      style: dmSansStyle(
+                                        size: 15,
+                                        color: AnimeXTokens.textPrimary,
+                                        weight: FontWeight.w700,
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      animeTitle,
+                                      style: dmSansStyle(
+                                        size: 12,
+                                        color: AnimeXTokens.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 6,
+                                      children: [
+                                        if (ep.duration != null &&
+                                            ep.duration! > 0)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.08,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              '${ep.duration} min',
+                                              style: dmSansStyle(
+                                                size: 10.5,
+                                                color:
+                                                    AnimeXTokens.textSecondary,
+                                                weight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        if (ep.airedAt != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.08,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              'Aired ${ep.airedAt!.year}-${ep.airedAt!.month.toString().padLeft(2, '0')}-${ep.airedAt!.day.toString().padLeft(2, '0')}',
+                                              style: dmSansStyle(
+                                                size: 10.5,
+                                                color:
+                                                    AnimeXTokens.textSecondary,
+                                                weight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
 
-                        const SizedBox(height: 18),
-                        const Divider(height: 1, color: AnimeXTokens.border),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 18),
+                          const Divider(height: 1, color: AnimeXTokens.border),
+                          const SizedBox(height: 14),
 
-                        // "What Happened" Info Section
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.auto_stories_outlined,
-                              size: 18,
-                              color: AnimeXTokens.accentWarm,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'What happened in this episode',
-                              style: dmSansStyle(
-                                size: 13.5,
+                          // "What Happened" Info Section
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.auto_stories_outlined,
+                                size: 18,
                                 color: AnimeXTokens.accentWarm,
-                                weight: FontWeight.w700,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  revealed
+                                      ? 'What happened in this episode'
+                                      : 'Episode details hidden',
+                                  style: dmSansStyle(
+                                    size: 13.5,
+                                    color: AnimeXTokens.accentWarm,
+                                    weight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            !revealed
+                                ? 'Reveal the title, image, and synopsis for this episode?'
+                                : synopsis.isNotEmpty
+                                ? synopsis
+                                : 'No detailed synopsis is available for this episode yet.',
+                            style: interBodyStyle(
+                              size: 13,
+                              color: AnimeXTokens.textSecondary,
+                              height: 1.6,
+                            ),
+                          ),
+
+                          if (!revealed) ...[
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: () =>
+                                  setSheetState(() => revealed = true),
+                              icon: const Icon(Icons.visibility_outlined),
+                              label: const Text('Reveal details'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AnimeXTokens.accentWarm,
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          synopsis.isNotEmpty
-                              ? synopsis
-                              : 'No detailed synopsis is available for this episode yet.',
-                          style: interBodyStyle(
-                            size: 13,
-                            color: AnimeXTokens.textSecondary,
-                            height: 1.6,
-                          ),
-                        ),
+                          const SizedBox(height: 20),
 
-                        const SizedBox(height: 20),
-
-                        // Action button
-                        if (!isPlaying)
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(sheetContext);
-                                onPlay();
-                              },
-                              icon: const Icon(
-                                Icons.play_arrow_rounded,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                              label: Text(
-                                'Play Episode ${ep.number}',
-                                style: dmSansStyle(
-                                  size: 13.5,
+                          // Action button
+                          if (!isPlaying)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(sheetContext);
+                                  onPlay();
+                                },
+                                icon: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 20,
                                   color: Colors.white,
-                                  weight: FontWeight.w700,
                                 ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AnimeXTokens.accent,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                                label: Text(
+                                  'Play Episode ${ep.number}',
+                                  style: dmSansStyle(
+                                    size: 13.5,
+                                    color: Colors.white,
+                                    weight: FontWeight.w700,
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AnimeXTokens.radiusMd,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AnimeXTokens.accent,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AnimeXTokens.radiusMd,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    },
+        );
+      },
+    ),
   );
 }
 

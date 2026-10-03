@@ -1,4 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+
+import '../../../../../core/utils/logger.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../data/services/anilist_service.dart';
@@ -116,6 +122,10 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final VoidCallback? onContentError;
   final void Function(VideasyProgress progress)? onProgress;
 
+  /// In-place seek for our Megavid player; other providers ignore it.
+  final int? seekSeconds;
+  final int seekRequest;
+
   /// Fires when the embed changes episodes on its own (CineSrc
   /// auto-play or its built-in episode picker), reporting the TMDB
   /// season/episode it moved to. Mirrors the web frame's postMessage
@@ -130,6 +140,8 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.referrerPolicy = 'no-referrer',
     this.onContentError,
     this.onProgress,
+    this.seekSeconds,
+    this.seekRequest = 0,
     this.onPlayerEpisodeChanged,
   });
 
@@ -150,8 +162,169 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     'us-central1-everglow-1c6db.cloudfunctions.net',
   };
 
+  WebViewController? _controller;
+  Timer? _loadTimer;
+  bool _loaded = false;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isAnimeXProxyPlayerUrl(widget.url)) _loadOwnedPlayer();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimeXPlayerFrame oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.url != oldWidget.url) {
+      _loadTimer?.cancel();
+      _controller = null;
+      _loaded = false;
+      _failed = false;
+      if (isAnimeXProxyPlayerUrl(widget.url)) _loadOwnedPlayer();
+    } else if (widget.seekSeconds != oldWidget.seekSeconds ||
+        widget.seekRequest != oldWidget.seekRequest) {
+      _sendSeek();
+    }
+  }
+
+  Future<void> _loadOwnedPlayer() async {
+    final url = widget.url;
+    final controller = WebViewController();
+    _controller = controller;
+    try {
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await controller.setBackgroundColor(Colors.black);
+      await controller.addJavaScriptChannel(
+        'EverglowPlayer',
+        onMessageReceived: (message) {
+          if (!mounted ||
+              _failed ||
+              _controller != controller ||
+              widget.url != url) {
+            return;
+          }
+          if (message.message == 'animex-content-error') {
+            _fail();
+            return;
+          }
+          final progress = parseAnimeXProgress(
+            animeXProxyOrigin,
+            url,
+            message.message,
+          );
+          if (progress != null) widget.onProgress?.call(progress);
+        },
+      );
+      if (controller.platform is AndroidWebViewController) {
+        final android = controller.platform as AndroidWebViewController;
+        await android.setMediaPlaybackRequiresUserGesture(false);
+        await android.setMixedContentMode(MixedContentMode.compatibilityMode);
+        await android.setAllowFileAccess(false);
+      }
+      await controller.setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) =>
+              !request.isMainFrame || request.url == url
+              ? NavigationDecision.navigate
+              : NavigationDecision.prevent,
+          onPageFinished: (loadedUrl) {
+            if (!mounted || _controller != controller || loadedUrl != url) {
+              return;
+            }
+            _loadTimer?.cancel();
+            setState(() => _loaded = true);
+            _sendSeek();
+          },
+          onWebResourceError: (error) {
+            if (_controller == controller && error.isForMainFrame == true) {
+              _fail();
+            }
+          },
+        ),
+      );
+      await controller.loadRequest(
+        Uri.parse(url),
+        headers: const {'Referer': 'https://everglow-1c6db.web.app'},
+      );
+      if (!mounted || _controller != controller || _loaded || _failed) return;
+      _loadTimer = Timer(const Duration(seconds: 15), _fail);
+    } catch (e) {
+      Logger.e('AnimeX native player failed to load', error: e);
+      if (_controller == controller) _fail();
+    }
+  }
+
+  Future<void> _sendSeek() async {
+    final seconds = widget.seekSeconds;
+    final controller = _controller;
+    if (!_loaded ||
+        _failed ||
+        controller == null ||
+        seconds == null ||
+        seconds < 0 ||
+        !isAnimeXProxyPlayerUrl(widget.url)) {
+      return;
+    }
+    try {
+      // The owned top-level page accepts self messages only when the
+      // native EverglowPlayer channel exists; browser parents still need
+      // their exact app origin AND window.parent as the source.
+      await controller.runJavaScript(
+        'window.postMessage({type:"animex-seek",seconds:$seconds},'
+        '"$animeXProxyOrigin");',
+      );
+    } catch (e) {
+      Logger.e('AnimeX native player seek failed', error: e);
+    }
+  }
+
+  void _fail() {
+    if (!mounted || _failed) return;
+    _loadTimer?.cancel();
+    setState(() => _failed = true);
+    widget.onContentError?.call();
+  }
+
+  @override
+  void dispose() {
+    _loadTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (isAnimeXProxyPlayerUrl(widget.url)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+        child: AspectRatio(
+          aspectRatio: widget.aspectRatio,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              const ColoredBox(color: Colors.black),
+              if (!_failed && _controller != null)
+                WebViewWidget(controller: _controller!),
+              if (!_loaded && !_failed)
+                const Center(child: CircularProgressIndicator()),
+              if (_failed)
+                Center(
+                  child: TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _loaded = false;
+                        _failed = false;
+                      });
+                      _loadOwnedPlayer();
+                    },
+                    child: const Text('This source couldn’t load — try again'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
     return EmbedWebView(
       key: ValueKey(widget.url),
       url: widget.url,

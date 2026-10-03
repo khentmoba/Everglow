@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../../../data/models/animex_models.dart';
 import '../../../../cinema/data/models/media_item.dart';
+import '../../../../../core/utils/logger.dart';
 import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../core/utils/optimistic_action.dart';
@@ -23,9 +25,21 @@ enum AnimexPage {
 /// live in an [IndexedStack] so their scroll/data survive tab switches;
 /// detail pages (watch, playlist detail) stack on top as full overlays.
 class AnimeXController extends ChangeNotifier {
+  AnimeXController({
+    Stream<List<MediaItem>> Function(String)? watchlistStream,
+    Future<List<MediaItem>> Function(List<MediaItem>)? refreshPosters,
+  }) : _watchlistStream = watchlistStream,
+       _refreshPosters = refreshPosters;
+
+  final Stream<List<MediaItem>> Function(String)? _watchlistStream;
+  final Future<List<MediaItem>> Function(List<MediaItem>)? _refreshPosters;
   late final TMDBService _tmdbService = TMDBService();
   StreamSubscription<List<MediaItem>>? _watchlistSub;
   bool _postersRefreshed = false;
+  String _libraryOwner = '';
+  int _subscriptionGeneration = 0;
+  int _snapshotGeneration = 0;
+  bool _disposed = false;
 
   AnimexPage page = AnimexPage.home;
   final List<MediaItem> _library = [];
@@ -34,7 +48,7 @@ class AnimeXController extends ChangeNotifier {
   bool _libraryLoading = true;
 
   MediaItem? watchItem;
-  int watchEpisode = 1;
+  int? watchEpisode;
   String? playlistId;
   bool dmcaOpen = false;
 
@@ -49,9 +63,67 @@ class AnimeXController extends ChangeNotifier {
   bool get libraryLoading => _libraryLoading;
   bool get hasDetail => watchItem != null || playlistId != null || dmcaOpen;
 
+  /// Both History and Continue Watching read the same live account progress.
+  List<AnimexHistoryEntry> get watchHistory => historyFromLibrary(_library);
+  List<AnimexHistoryEntry> get continueWatching => watchHistory
+      .where((entry) => entry.savedItem!.isCurrentlyWatching)
+      .toList();
+
+  static List<AnimexHistoryEntry> historyFromLibrary(List<MediaItem> library) {
+    return library
+        .where(
+          (item) =>
+              item.isAnime &&
+              (item.currentEpisode != null ||
+                  item.currentTimestamp != null ||
+                  item.isCurrentlyWatching),
+        )
+        .map(AnimexHistoryEntry.fromMediaItem)
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  }
+
+  MediaItem? savedAnime(MediaItem item) {
+    for (final saved in _library) {
+      if (item.anilistId != null && saved.anilistId != null) {
+        if (item.anilistId == saved.anilistId) return saved;
+      } else if (item.tmdbId > 0 && item.tmdbId == saved.tmdbId) {
+        return saved;
+      }
+    }
+    return null;
+  }
+
+  Future<void> clearWatchProgress(MediaItem item) async {
+    final owner = _libraryOwner;
+    if (owner.isEmpty) return;
+    await _tmdbService.updateProgress(
+      item,
+      owner,
+      status: item.isWatched ? 'watched-self' : 'to-watch',
+    );
+  }
+
   void initLibrary(BuildContext context) {
-    final auth = context.read<AuthService>();
-    final userName = auth.currentUser ?? '';
+    loadLibrary(context.read<AuthService>().currentUser ?? '');
+  }
+
+  void loadLibrary(String userName) {
+    if (_disposed) return;
+    final subscription = ++_subscriptionGeneration;
+    bool isCurrentSubscription() =>
+        !_disposed &&
+        subscription == _subscriptionGeneration &&
+        _libraryOwner == userName;
+
+    if (_libraryOwner != userName) {
+      watchItem = null;
+      watchEpisode = null;
+      playlistId = null;
+    }
+    _libraryOwner = userName;
+    _optimisticAnime.clearAll();
+    _optimisticAddedAnime.clear();
     // Drop the previous profile's subscription AND items immediately so
     // one profile's My List never flashes for another on the same PWA.
     _watchlistSub?.cancel();
@@ -60,36 +132,84 @@ class AnimeXController extends ChangeNotifier {
     _library.clear();
     _libraryLoading = userName.isNotEmpty;
     notifyListeners();
-    if (userName.isEmpty) return;
-    _watchlistSub = _tmdbService.getAnimeWatchListStream(userName).listen((
-      items,
-    ) async {
-      _optimisticAnime.reconcile(items.map((m) => m.tmdbId));
-      _optimisticAddedAnime.removeWhere(
-        (id, _) => !_optimisticAnime.isAdded(id),
-      );
+    if (userName.isEmpty || !isCurrentSubscription()) return;
+    _watchlistSub =
+        (_watchlistStream ?? _tmdbService.getAnimeWatchListStream)(
+          userName,
+        ).listen(
+          (items) async {
+            if (!isCurrentSubscription()) return;
+            final snapshot = ++_snapshotGeneration;
+            _optimisticAnime.reconcile(items.map((m) => m.tmdbId));
+            _optimisticAddedAnime.removeWhere(
+              (id, _) => !_optimisticAnime.isAdded(id),
+            );
 
-      final effective = items
-          .where((m) => !_optimisticAnime.isRemoved(m.tmdbId))
-          .toList();
-      for (final id in _optimisticAnime.added) {
-        if (!effective.any((m) => m.tmdbId == id) &&
-            _optimisticAddedAnime.containsKey(id)) {
-          effective.insert(0, _optimisticAddedAnime[id]!);
-        }
-      }
+            final effective = items
+                .where((m) => !_optimisticAnime.isRemoved(m.tmdbId))
+                .toList();
+            for (final id in _optimisticAnime.added) {
+              if (!effective.any((m) => m.tmdbId == id) &&
+                  _optimisticAddedAnime.containsKey(id)) {
+                effective.insert(0, _optimisticAddedAnime[id]!);
+              }
+            }
 
-      var refreshed = effective;
-      if (!_postersRefreshed) {
-        refreshed = await _tmdbService.refreshAnimePosters(effective);
-        _postersRefreshed = true;
-      }
-      _library
-        ..clear()
-        ..addAll(refreshed);
-      _libraryLoading = false;
-      notifyListeners();
-    });
+            // Account progress/removals must not wait for optional poster work.
+            _library
+              ..clear()
+              ..addAll(effective);
+            _libraryLoading = false;
+            notifyListeners();
+            if (_postersRefreshed ||
+                !isCurrentSubscription() ||
+                snapshot != _snapshotGeneration) {
+              return;
+            }
+
+            try {
+              final refreshed =
+                  await (_refreshPosters ?? _tmdbService.refreshAnimePosters)(
+                    effective,
+                  );
+              if (!isCurrentSubscription() || snapshot != _snapshotGeneration) {
+                return;
+              }
+              _postersRefreshed = true;
+              // Merge art only into still-present items, preserving optimistic
+              // additions/removals made while the poster request was pending.
+              final posters = {
+                for (final item in refreshed) item.id: item.posterPath,
+              };
+              for (var i = 0; i < _library.length; i++) {
+                final poster = posters[_library[i].id];
+                if (poster != null) {
+                  _library[i] = _library[i].copyWith(posterPath: poster);
+                }
+              }
+              notifyListeners();
+            } catch (error, stack) {
+              if (!isCurrentSubscription() || snapshot != _snapshotGeneration) {
+                return;
+              }
+              Logger.e(
+                'AnimeX: account poster refresh failed',
+                error: error,
+                stackTrace: stack,
+              );
+            }
+          },
+          onError: (Object error, StackTrace stack) {
+            if (!isCurrentSubscription()) return;
+            _libraryLoading = false;
+            Logger.e(
+              'AnimeX: account watchlist failed',
+              error: error,
+              stackTrace: stack,
+            );
+            notifyListeners();
+          },
+        );
   }
 
   void goTo(AnimexPage next) {
@@ -116,7 +236,7 @@ class AnimeXController extends ChangeNotifier {
     goTo(AnimexPage.browse);
   }
 
-  void openWatch(MediaItem item, {int episode = 1}) {
+  void openWatch(MediaItem item, {int? episode}) {
     watchItem = item;
     watchEpisode = episode;
     playlistId = null;
@@ -202,6 +322,7 @@ class AnimeXController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _watchlistSub?.cancel();
     super.dispose();
   }

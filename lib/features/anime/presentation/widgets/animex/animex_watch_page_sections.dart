@@ -23,20 +23,27 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         .clamp(0.0, maxPlayerHeight)
         .toDouble();
 
+    // Only episode-metadata surfaces wait for resume (finding #7): the
+    // server/audio row carries no spoilers, so it renders immediately in
+    // its usual spot and its taps simply no-op until resume completes.
     final playerColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildPlayer(context),
-        const SizedBox(height: 12),
-        _buildCurrentEpisodeHeader(context),
-        if (!_showErrorCard && _playerUrl.isNotEmpty && _skipRowVisible) ...[
-          const SizedBox(height: 4),
-          _buildSkipRow(context),
+        if (_ready) ...[
+          const SizedBox(height: 12),
+          _buildCurrentEpisodeHeader(context),
+          if (!_showErrorCard && _playerUrl.isNotEmpty && _skipRowVisible) ...[
+            const SizedBox(height: 4),
+            _buildSkipRow(context),
+          ],
         ],
         const SizedBox(height: 10),
         _buildServerAndAudioRow(context),
-        const SizedBox(height: 12),
-        _buildStepButtons(context),
+        if (_ready) ...[
+          const SizedBox(height: 12),
+          _buildStepButtons(context),
+        ],
       ],
     );
 
@@ -56,17 +63,19 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
                 SizedBox(
                   width: 380,
                   height: sidebarHeight,
-                  child: _DesktopEpisodesSidebar(
-                    episodes: episodes,
-                    selectedEpisode: _selectedEpisode,
-                    animeTitle: _displayTitle,
-                    fallbackPoster: _item.posterUrl,
-                    onSelectEpisode: _selectEpisode,
-                    onShowInfo: _openEpisodeInfo,
-                    seasons: _seasons,
-                    onSelectSeason: _openSeason,
-                    nextSeason: _nextSeason,
-                  ),
+                  child: !_ready
+                      ? const SizedBox.shrink()
+                      : _DesktopEpisodesSidebar(
+                          episodes: episodes,
+                          selectedEpisode: _selectedEpisode,
+                          animeTitle: _displayTitle,
+                          fallbackPoster: _item.posterUrl,
+                          onSelectEpisode: _selectEpisode,
+                          onShowInfo: _openEpisodeInfo,
+                          seasons: _seasons,
+                          onSelectSeason: _openSeason,
+                          nextSeason: _nextSeason,
+                        ),
                 ),
               ],
             ),
@@ -86,18 +95,20 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               playerColumn,
-              const SizedBox(height: 24),
-              _MobileEpisodesSection(
-                episodes: episodes,
-                selectedEpisode: _selectedEpisode,
-                animeTitle: _displayTitle,
-                fallbackPoster: _item.posterUrl,
-                onSelectEpisode: _selectEpisode,
-                onShowInfo: _openEpisodeInfo,
-                seasons: _seasons,
-                onSelectSeason: _openSeason,
-                nextSeason: _nextSeason,
-              ),
+              if (_ready) ...[
+                const SizedBox(height: 24),
+                _MobileEpisodesSection(
+                  episodes: episodes,
+                  selectedEpisode: _selectedEpisode,
+                  animeTitle: _displayTitle,
+                  fallbackPoster: _item.posterUrl,
+                  onSelectEpisode: _selectEpisode,
+                  onShowInfo: _openEpisodeInfo,
+                  seasons: _seasons,
+                  onSelectSeason: _openSeason,
+                  nextSeason: _nextSeason,
+                ),
+              ],
             ],
           ),
         ),
@@ -113,13 +124,22 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         .clamp(240.0, AnimeXTokens.playerMaxHeight)
         .toDouble();
 
-    final player = _showErrorCard
+    final player = !_ready
+        ? const AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Center(
+              child: CircularProgressIndicator(color: AnimeXTokens.accent),
+            ),
+          )
+        : _showErrorCard || _playerUrl.isEmpty
         ? _buildErrorCard(context)
         : AnimeXPlayerFrame(
             key: ValueKey('player-$_playerUrl'),
             url: _playerUrl,
             onContentError: _handleContentError,
             onProgress: _onPlayerProgress,
+            seekSeconds: _seekSeconds,
+            seekRequest: _seekRequest,
             onPlayerEpisodeChanged: _onPlayerEpisodeChanged,
           );
 

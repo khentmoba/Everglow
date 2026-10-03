@@ -244,6 +244,12 @@ class TMDBService with ConnectivityAware {
   Future<int> cleanupDuplicatePartnerEntries() =>
       _watchlist.cleanupDuplicatePartnerEntries();
 
+  Future<MediaItem?> getSavedProgress(
+    int tmdbId,
+    String userName, {
+    int? anilistId,
+  }) => _watchlist.getSavedProgress(tmdbId, userName, anilistId: anilistId);
+
   Future<void> updateProgress(
     MediaItem item,
     String userName, {
@@ -308,24 +314,30 @@ class TMDBService with ConnectivityAware {
     String userB = 'clairjassen',
   }) => _watchlist.getCoupleWatchListStream(userA: userA, userB: userB);
 
-  Stream<List<MediaItem>> getAnimeWatchListStream(String userName, {int? limit}) =>
-      _watchlist.getAnimeWatchListStream(userName, limit: limit);
+  Stream<List<MediaItem>> getAnimeWatchListStream(
+    String userName, {
+    int? limit,
+  }) => _watchlist.getAnimeWatchListStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) => _watchlist.getCoupleAnimeStream(userA: userA, userB: userB);
 
-  Stream<List<MediaItem>> getCurrentlyWatchingStream(String userName, {int? limit}) =>
-      _watchlist.getCurrentlyWatchingStream(userName, limit: limit);
+  Stream<List<MediaItem>> getCurrentlyWatchingStream(
+    String userName, {
+    int? limit,
+  }) => _watchlist.getCurrentlyWatchingStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) => _watchlist.getCoupleCurrentlyWatchingStream(userA: userA, userB: userB);
 
-  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(String userName, {int? limit}) =>
-      _watchlist.getCurrentlyWatchingAnimeStream(userName, limit: limit);
+  Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(
+    String userName, {
+    int? limit,
+  }) => _watchlist.getCurrentlyWatchingAnimeStream(userName, limit: limit);
 
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingAnimeStream({
     String userA = 'khentsgdz',

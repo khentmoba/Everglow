@@ -6,6 +6,7 @@ class _DesktopEpisodeTile extends StatefulWidget {
   final String fallbackPoster;
   final String animeTitle;
   final bool isPlaying;
+  final bool hideSpoilers;
   final VoidCallback onTap;
   final VoidCallback onInfoTap;
 
@@ -14,6 +15,7 @@ class _DesktopEpisodeTile extends StatefulWidget {
     required this.fallbackPoster,
     required this.animeTitle,
     required this.isPlaying,
+    required this.hideSpoilers,
     required this.onTap,
     required this.onInfoTap,
   });
@@ -27,7 +29,9 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
 
   @override
   Widget build(BuildContext context) {
-    final ep = widget.episode;
+    final ep = widget.hideSpoilers
+        ? _episodeWithoutSpoilers(widget.episode)
+        : widget.episode;
     final title = (ep.title != null && ep.title!.isNotEmpty)
         ? ep.title!
         : 'Episode ${ep.number}';
@@ -96,7 +100,9 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
                       children: [
                         if (widget.isPlaying) ...[
                           Container(
@@ -117,9 +123,22 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                         ],
-                        if (hasSynopsis)
+                        if (widget.hideSpoilers)
+                          TextButton.icon(
+                            onPressed: widget.onInfoTap,
+                            icon: const Icon(
+                              Icons.visibility_outlined,
+                              size: 14,
+                            ),
+                            label: const Text('Reveal details'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AnimeXTokens.accentWarm,
+                              padding: EdgeInsets.zero,
+                              textStyle: dmSansStyle(size: 11),
+                            ),
+                          )
+                        else if (hasSynopsis)
                           GestureDetector(
                             onTap: widget.onInfoTap,
                             child: MouseRegion(
@@ -244,14 +263,15 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
     );
   }
 
-  List<AniListEpisode> _filteredEpisodes() {
+  List<AniListEpisode> _filteredEpisodes(bool hideSpoilers) {
     var list = widget.episodes;
     if (_query.isNotEmpty) {
       list = list.where((e) {
         final numStr = e.number.toString();
         final padded = numStr.padLeft(2, '0');
-        final t = (e.title ?? '').toLowerCase();
-        final s = (e.synopsis ?? '').toLowerCase();
+        final hidden = hideSpoilers && e.number >= widget.selectedEpisode;
+        final t = hidden ? '' : (e.title ?? '').toLowerCase();
+        final s = hidden ? '' : (e.synopsis ?? '').toLowerCase();
         return numStr == _query ||
             padded == _query ||
             'episode $numStr'.contains(_query) ||
@@ -275,18 +295,26 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
 
   @override
   Widget build(BuildContext context) {
+    final hideSpoilers = context.select<AnimexStores?, bool>(
+      (stores) => stores?.hideSpoilers ?? true,
+    );
     final currentEp = _findEpisode(widget.selectedEpisode);
-    final currentTitle =
-        currentEp?.title ?? 'Episode ${widget.selectedEpisode}';
+    final currentTitle = hideSpoilers
+        ? 'Episode ${widget.selectedEpisode}'
+        : currentEp?.title ?? 'Episode ${widget.selectedEpisode}';
     final nextEp = _findEpisode(widget.selectedEpisode + 1);
     final nextSeason = widget.nextSeason;
     final nextTitle =
-        nextEp?.title ??
+        (nextEp == null
+            ? null
+            : hideSpoilers
+            ? 'Episode ${nextEp.number}'
+            : nextEp.title) ??
         (widget.selectedEpisode < widget.episodes.length
             ? 'Episode ${widget.selectedEpisode + 1}'
             : (nextSeason != null ? '${nextSeason.label} (Episode 1)' : null));
 
-    final displayList = _filteredEpisodes();
+    final displayList = _filteredEpisodes(hideSpoilers);
 
     return Container(
       decoration: BoxDecoration(
@@ -348,7 +376,9 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'Playing Episode ${widget.selectedEpisode} - $currentTitle',
+                  hideSpoilers
+                      ? 'Playing Episode ${widget.selectedEpisode}'
+                      : 'Playing Episode ${widget.selectedEpisode} - $currentTitle',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: dmSansStyle(
@@ -369,6 +399,7 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
                     ),
                   ),
                 ],
+                const _HideSpoilersSwitch(),
                 const SizedBox(height: 12),
                 // Search bar and sort toggle
                 Row(
@@ -495,8 +526,25 @@ class _DesktopEpisodesSidebarState extends State<_DesktopEpisodesSidebar> {
                           fallbackPoster: widget.fallbackPoster,
                           animeTitle: widget.animeTitle,
                           isPlaying: active,
+                          hideSpoilers:
+                              hideSpoilers &&
+                              ep.number >= widget.selectedEpisode,
                           onTap: () => widget.onSelectEpisode(ep.number),
-                          onInfoTap: () => widget.onShowInfo(ep),
+                          onInfoTap: () {
+                            if (hideSpoilers &&
+                                ep.number >= widget.selectedEpisode) {
+                              _showEpisodeInfoSheet(
+                                context,
+                                episode: ep,
+                                animeTitle: widget.animeTitle,
+                                fallbackPoster: widget.fallbackPoster,
+                                isPlaying: active,
+                                onPlay: () => widget.onSelectEpisode(ep.number),
+                              );
+                            } else {
+                              widget.onShowInfo(ep);
+                            }
+                          },
                         );
                       },
                     ),
@@ -512,10 +560,7 @@ class _SeasonDropdownButton extends StatelessWidget {
   final List<AniListSeason> seasons;
   final ValueChanged<AniListSeason>? onSelectSeason;
 
-  const _SeasonDropdownButton({
-    required this.seasons,
-    this.onSelectSeason,
-  });
+  const _SeasonDropdownButton({required this.seasons, this.onSelectSeason});
 
   @override
   Widget build(BuildContext context) {
@@ -580,9 +625,7 @@ class _SeasonDropdownButton extends StatelessWidget {
                           color: isCurrent
                               ? AnimeXTokens.accentWarm
                               : AnimeXTokens.textPrimary,
-                          weight: isCurrent
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                          weight: isCurrent ? FontWeight.w700 : FontWeight.w500,
                         ),
                       ),
                       if (meta.isNotEmpty)
