@@ -29,8 +29,11 @@ class _FakeAuthService extends ChangeNotifier implements AuthService {
 }
 
 class _FakeCinemaOnlyAuthService extends ChangeNotifier implements AuthService {
+  final String _user;
+  _FakeCinemaOnlyAuthService([this._user = 'breyan']);
+
   @override
-  String? get currentUser => 'breyan';
+  String? get currentUser => _user;
 
   @override
   bool get isCoupleUser => false;
@@ -454,6 +457,70 @@ void main() {
 
       expect(find.text('Motchi'), findsNothing);
       cinemaAuth.dispose();
+    });
+
+    testWidgets('cinema accounts (breyan, octagram) never see Motchi even when watching an anime',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      controller.watchItem = MediaItem(
+        id: 'watch-cinema-user',
+        tmdbId: 209867,
+        title: 'Frieren',
+        mediaType: 'tv',
+        posterPath: '',
+        status: 'watching',
+        addedAt: DateTime(2026, 1, 1),
+      );
+
+      for (final username in ['breyan', 'octagram']) {
+        final cinemaAuth = _FakeCinemaOnlyAuthService(username);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthService>.value(value: cinemaAuth),
+              ChangeNotifierProvider<AIService>.value(value: aiService),
+              ChangeNotifierProvider<AnimexStores>.value(
+                value: AnimexStores.instance,
+              ),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Stack(
+                  children: [
+                    AnimeXTopHeader(
+                      controller: controller,
+                      onSearch: () {},
+                      onMotchiToggle: cinemaAuth.isCoupleUser && controller.watchItem != null
+                          ? controller.toggleMotchi
+                          : null,
+                      isMotchiOpen: controller.motchiOpen,
+                    ),
+                    if (cinemaAuth.isCoupleUser && controller.watchItem != null && !controller.motchiOpen)
+                      AnimeXMotchiFloatingTrigger(onTap: controller.openMotchi),
+                    if (cinemaAuth.isCoupleUser && controller.watchItem != null)
+                      AnimeXMotchiSidebar(
+                        isOpen: controller.motchiOpen,
+                        onClose: controller.closeMotchi,
+                        controller: controller,
+                        messages: const [],
+                        onClear: () {},
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Motchi'), findsNothing, reason: 'Failed for $username');
+        expect(find.byType(AnimeXMotchiFloatingTrigger), findsNothing, reason: 'Failed for $username');
+        expect(find.byType(AnimeXMotchiSidebar), findsNothing, reason: 'Failed for $username');
+        cinemaAuth.dispose();
+      }
     });
 
     test('AIService.sendTemporaryMessage does not write to Firestore or archive sessions',
