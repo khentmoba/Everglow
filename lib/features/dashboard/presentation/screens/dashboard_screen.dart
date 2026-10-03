@@ -41,6 +41,7 @@ import '../widgets/letterbox_view.dart';
 import '../widgets/upcoming_countdowns.dart';
 import '../widgets/timeline_view.dart';
 import '../widgets/on_this_day_card.dart';
+import '../widgets/tonight_card.dart';
 
 import '../widgets/anniversary_metrics.dart';
 import '../widgets/dashboard_load_tracker.dart';
@@ -558,6 +559,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                         delayMs: 420,
                         placeholderHeight: 190,
                         deferMs: 0,
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                      _animatedSliver(
+                        const TonightCard(),
+                        delayMs: 430,
+                        placeholderHeight: 160,
+                        deferMs: 30,
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 12)),
                       _animatedSliver(

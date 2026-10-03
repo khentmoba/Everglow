@@ -267,6 +267,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
     ];
     final more = <QuickAction>[
       const QuickAction(
+        label: 'Tonight',
+        icon: Icons.nightlife_rounded,
+        route: '/tonight',
+        hue: AppColors.auroraRose,
+        caption: 'What to do',
+      ),
+      const QuickAction(
         label: 'Journal',
         icon: Icons.menu_book_rounded,
         route: '/journal',

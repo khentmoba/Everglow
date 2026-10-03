@@ -22,6 +22,7 @@ import '../../features/jukebox/presentation/routes/jukebox_routes.dart';
 import '../../features/journal/presentation/routes/journal_routes.dart';
 import '../../features/money/presentation/routes/money_routes.dart';
 import '../../features/trip_kit/presentation/routes/trip_kit_routes.dart';
+import '../../features/tonight/presentation/routes/tonight_routes.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
 import '../di/app_providers.dart' as di;
@@ -106,6 +107,7 @@ GoRouter createAppRouter() {
       ...moneyRoutes,
       ...subsRoutes,
       ...tripKitRoutes,
+      ...tonightRoutes,
     ],
     errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
   );
