@@ -1014,3 +1014,108 @@ test('save_profile_note proposes first, saves pinned on confirm', async () => {
   assert.equal(addedDocs[0].pinned, true);
   assert.equal(addedDocs[0].topic, 'sleep');
 });
+
+test('search_anime queries AniList and maps titles, synopsis, score, and malId', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (String(url).includes('anilist.co')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            Page: {
+              media: [
+                {
+                  id: 146065,
+                  idMal: 51179,
+                  title: { romaji: 'Mushoku Tensei II', english: 'Jobless Reincarnation Season 2' },
+                  episodes: 13,
+                  averageScore: 81,
+                  status: 'FINISHED',
+                  description: '<p>Rudeus travels north.</p>',
+                  genres: ['Adventure', 'Fantasy'],
+                },
+              ],
+            },
+          },
+        }),
+      };
+    }
+    return { ok: false, status: 500, json: async () => ({}) };
+  };
+  try {
+    const raw = await executeToolCall(ctx, 'search_anime', { query: 'Mushoku Tensei' });
+    const parsed = JSON.parse(raw);
+    assert.ok(Array.isArray(parsed.results), 'results should be an array');
+    assert.equal(parsed.results.length, 1);
+    const item = parsed.results[0];
+    assert.equal(item.title, 'Jobless Reincarnation Season 2');
+    assert.equal(item.score, 8.1);
+    assert.equal(item.synopsis, 'Rudeus travels north.');
+    assert.equal(item.malId, 51179);
+    assert.equal(item.episodes, 13);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('search_anime falls back to Jikan when AniList fails', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  global.fetch = async (url) => {
+    if (String(url).includes('anilist.co')) {
+      throw new Error('AniList timeout');
+    }
+    if (String(url).includes('jikan.moe')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: [
+            {
+              title: 'Jikan Fallback Anime',
+              title_english: 'Jikan Fallback English',
+              episodes: 24,
+              score: 8.4,
+              status: 'Finished Airing',
+              synopsis: 'A great anime from Jikan.',
+              genres: [{ name: 'Action' }],
+              mal_id: 12345,
+            },
+          ],
+        }),
+      };
+    }
+    return { ok: false, status: 500, json: async () => ({}) };
+  };
+  try {
+    const raw = await executeToolCall(ctx, 'search_anime', { query: 'Fallback Test' });
+    const parsed = JSON.parse(raw);
+    assert.ok(Array.isArray(parsed.results), 'results should be an array');
+    assert.equal(parsed.results.length, 1);
+    const item = parsed.results[0];
+    assert.equal(item.title, 'Jikan Fallback Anime');
+    assert.equal(item.malId, 12345);
+    assert.equal(item.score, 8.4);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('search_anime returns empty results safely when both sources fail without throwing', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  global.fetch = async () => {
+    throw new Error('Network offline');
+  };
+  try {
+    const raw = await executeToolCall(ctx, 'search_anime', { query: 'Offline Test' });
+    const parsed = JSON.parse(raw);
+    assert.deepEqual(parsed, { results: [] });
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+

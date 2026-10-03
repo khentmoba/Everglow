@@ -212,7 +212,7 @@ const MOTCHI_TOOLS = [
     type: 'function',
     function: {
       name: 'search_anime',
-      description: 'Search for anime titles using the Jikan (MyAnimeList) API. Use when they ask about anime, want recommendations, or mention an anime title.',
+      description: 'Search for anime titles using the AniList and MyAnimeList databases. Use when they ask about anime, want recommendations, or mention an anime title.',
       parameters: {
         type: 'object',
         properties: {

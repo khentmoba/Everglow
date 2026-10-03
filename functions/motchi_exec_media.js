@@ -189,29 +189,107 @@ async function exec_remove_from_watchlist(ctx, args) {
     return JSON.stringify({ success: true, removed: preview, count: preview.length });
 }
 
+const ANILIST_SEARCH_QUERY = `
+query ($search: String, $perPage: Int) {
+  Page(page: 1, perPage: $perPage) {
+    media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+      id
+      idMal
+      title { romaji english }
+      episodes
+      averageScore
+      status
+      description
+      genres
+    }
+  }
+}
+`;
+
+async function fetchAniListAnime(query, limit = 5) {
+  const res = await fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      query: ANILIST_SEARCH_QUERY,
+      variables: { search: query, perPage: limit },
+    }),
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!res.ok) throw new Error(`AniList HTTP ${res.status}`);
+  const data = await res.json();
+  const list = data?.data?.Page?.media;
+  if (!Array.isArray(list)) return [];
+  return list.map((a) => {
+    const rawDesc = a.description || '';
+    const cleanSynopsis = rawDesc
+      .replace(/<[^>]*>/g, '')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;/g, "'")
+      .replace(/&amp;/g, '&')
+      .trim()
+      .slice(0, 300);
+    return {
+      title: a.title?.english || a.title?.romaji || 'Unknown',
+      titleEnglish: a.title?.english || null,
+      episodes: a.episodes || null,
+      score: a.averageScore ? Math.round(a.averageScore) / 10 : null,
+      status: a.status || null,
+      synopsis: cleanSynopsis,
+      genres: Array.isArray(a.genres) ? a.genres : [],
+      malId: a.idMal || null,
+    };
+  });
+}
+
+async function fetchJikanAnime(query, limit = 5) {
+  const animeRes = await fetch(
+    `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=${limit}&sfw=true`,
+    { signal: AbortSignal.timeout(5000) }
+  );
+  if (!animeRes.ok) throw new Error(`Jikan HTTP ${animeRes.status}`);
+  const animeData = await animeRes.json();
+  return (animeData.data || []).slice(0, limit).map((a) => ({
+    title: a.title,
+    titleEnglish: a.title_english || null,
+    episodes: a.episodes || null,
+    score: a.score || null,
+    status: a.status || null,
+    synopsis: (a.synopsis || '').slice(0, 300),
+    genres: (a.genres || []).map((g) => g.name),
+    malId: a.mal_id || null,
+  }));
+}
+
 async function exec_search_anime(ctx, args) {
-    const aKey = `anime:search:${String(args.query || '').toLowerCase().trim()}`;
-    let animeData;
+    const queryRaw = String(args.query || '').trim();
+    if (!queryRaw) return JSON.stringify({ results: [] });
+    const aKey = `anime:search:${queryRaw.toLowerCase()}`;
     const cachedAnime = ctx.cacheGet(aKey, ctx.cacheTTLs.anime);
     if (cachedAnime) {
-      animeData = cachedAnime;
-    } else {
-      const animeRes = await fetch(
-        `https://api.jikan.moe/v4/anime?q=${encodeURIComponent(args.query)}&limit=5&sfw=true`
-      );
-      animeData = await animeRes.json();
-      ctx.cacheSet(aKey, animeData);
+      return JSON.stringify({ results: cachedAnime });
     }
-    const anime = (animeData.data || []).slice(0, 5).map(a => ({
-      title: a.title,
-      titleEnglish: a.title_english || null,
-      episodes: a.episodes || null,
-      score: a.score || null,
-      status: a.status || null,
-      synopsis: (a.synopsis || '').slice(0, 300),
-      genres: (a.genres || []).map(g => g.name),
-      malId: a.mal_id || null,
-    }));
+
+    let anime = [];
+    try {
+      anime = await fetchAniListAnime(queryRaw, 5);
+    } catch (_) {
+      try {
+        anime = await fetchJikanAnime(queryRaw, 5);
+      } catch (_) {
+        anime = [];
+      }
+    }
+
+    if (!anime.length) {
+      try {
+        anime = await fetchJikanAnime(queryRaw, 5);
+      } catch (_) {}
+    }
+
+    if (anime.length > 0) {
+      ctx.cacheSet(aKey, anime);
+    }
     return JSON.stringify({ results: anime });
 }
 
@@ -375,6 +453,8 @@ module.exports = {
   exec_mark_watchlist_item_watched,
   exec_remove_from_watchlist,
   exec_search_anime,
+  fetchAniListAnime,
+  fetchJikanAnime,
   exec_search_books,
   exec_add_book_to_our_books,
   exec_update_book_progress,
