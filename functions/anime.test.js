@@ -415,16 +415,21 @@ test('firstM3u8 digs nested urls out of API payloads', () => {
   assert.deepEqual(firstM3u8({ a: 1 }), []);
 });
 
-test('isMegavidHost only allows Megavid hosts', () => {
+test('isMegavidHost only allows trusted Megavid hosts', () => {
   assert.equal(isMegavidHost('megavid.buzz'), true);
   assert.equal(isMegavidHost('a.megavid.buzz'), true);
   assert.equal(isMegavidHost('MEGAVID.buzz'), true);
   // Segments stream from Megavid's CDN, not its own domain — the proxy
   // and playlist rewriter must accept it or every episode stalls on CORS.
   assert.equal(isMegavidHost('cdn.api-webs.com'), true);
+  assert.equal(isMegavidHost('cdnx.aniwatchtv.site'), true);
+  assert.equal(isMegavidHost('aniwatchtv.site'), false);
+  assert.equal(isMegavidHost('edge.cdnx.aniwatchtv.site'), false);
+  assert.equal(isMegavidHost('unverified-cdn.aniwatchtv.site'), false);
   assert.equal(isMegavidHost('evil.com'), false);
   assert.equal(isMegavidHost('megavid.buzz.evil.com'), false);
   assert.equal(isMegavidHost('cdn.api-webs.com.evil.com'), false);
+  assert.equal(isMegavidHost('aniwatchtv.site.evil.com'), false);
 });
 
 test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {
@@ -470,6 +475,21 @@ test('rewriteMegavidPlaylist proxies CDN segment hosts', () => {
     ),
   );
   assert.ok(!out.includes('https://cdn.api-webs.com/abc/480p/video0.ts\n'));
+});
+
+test('rewriteMegavidPlaylist proxies the active ani.watch CDN', () => {
+  const base = 'https://host/proxyMegavidHls';
+  const segment = 'https://cdnx.aniwatchtv.site/uwu/episode/segment.ts';
+  const playlist = `#EXTM3U\n#EXTINF:4.0,\n${segment}\n`;
+
+  const out = rewriteMegavidPlaylist(
+    playlist,
+    'https://cdnx.aniwatchtv.site/uwu/episode/master.m3u8',
+    base,
+  );
+
+  assert.ok(out.includes(`${base}?u=${encodeURIComponent(segment)}`));
+  assert.ok(!out.includes(segment));
 });
 
 test('megavidProxyUrl carries the upstream URL, never a token', () => {
