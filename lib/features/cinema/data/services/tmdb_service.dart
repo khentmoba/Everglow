@@ -244,6 +244,9 @@ class TMDBService with ConnectivityAware {
   Future<int> cleanupDuplicatePartnerEntries() =>
       _watchlist.cleanupDuplicatePartnerEntries();
 
+  Future<MediaItem?> getSavedProgress(int tmdbId, String userName) =>
+      _watchlist.getSavedProgress(tmdbId, userName);
+
   Future<void> updateProgress(
     MediaItem item,
     String userName, {

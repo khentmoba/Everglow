@@ -234,6 +234,33 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
+  /// The caller's saved progress for [tmdbId], or null when there is none
+  /// (or the read failed). Lets the player resume on a device that never
+  /// played the title. Only ever reads the caller's own document, and
+  /// never throws: resuming is a comfort, not a reason to block playback.
+  Future<MediaItem?> getSavedProgress(int tmdbId, String userName) async {
+    if (userName.isEmpty || tmdbId <= 0) return null;
+    try {
+      final snap = await withGetTimeout(
+        firestore
+            .collection('watch_list')
+            .where('tmdbId', isEqualTo: tmdbId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'saved watch progress lookup',
+      );
+      if (snap.docs.isEmpty) return null;
+      return MediaItem.fromFirestore(
+        snap.docs.first.data(),
+        snap.docs.first.id,
+      );
+    } catch (e) {
+      Logger.e('Error reading saved watch progress', error: e);
+      return null;
+    }
+  }
+
   /// Update watch progress fields for a specific watch_list item.
   /// Creates the entry first if it doesn't exist (for first-time watch).
   Future<void> updateProgress(

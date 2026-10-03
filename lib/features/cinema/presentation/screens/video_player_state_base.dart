@@ -70,6 +70,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// param; per-title memory fills it in when the route carries none.
   int? _resolvedStartSeconds;
 
+  /// Resume lookup in flight. The first progress write waits for it so a
+  /// slow lookup can't be beaten by a write of position 0 that erases the
+  /// very spot we are about to resume from.
+  Future<void> _restoreFuture = Future.value();
+
   /// Per-title comfort memory: last-used server, episode, and position.
   final PlayerMemoryService _memoryService = PlayerMemoryService();
 
@@ -132,8 +137,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         ? srcList.first
         : _sourceService.defaultSource;
     _resolvedStartSeconds = widget.startSeconds;
-    _restorePlayerMemory();
     _currentUserName = context.read<AuthService>().currentUser ?? '';
+    _restoreFuture = _restorePlayerMemory();
 
     // Listen for provider list updates from Firestore. If the iframe
     // has already failed with the hardcoded defaults, retry with the
@@ -321,6 +326,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   void _saveWatchProgress() {
     if (_hasSavedWatchProgress) return;
     _hasSavedWatchProgress = true;
+    _restoreFuture.whenComplete(_writeWatchProgress);
+  }
+
+  void _writeWatchProgress() {
+    if (!mounted) return;
 
     // If the cached username is empty (shouldn't happen since we capture
     // it in initState, but be defensive), attempt a direct read.
@@ -757,6 +767,23 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     if (!mounted) return;
     var needsReload = false;
 
+    // Episode + position follow the account, not the device: what Clair
+    // watched last on the tablet beats what this phone remembers. Only
+    // asked when the route didn't already say where to start.
+    final routeNamedSpot =
+        widget.season != null ||
+        widget.episode != null ||
+        (widget.startSeconds ?? 0) > 0;
+    final saved = routeNamedSpot || _currentUserName.isEmpty
+        ? null
+        : await TMDBService().getSavedProgress(widget.tmdbId, _currentUserName);
+    if (!mounted) return;
+    // A finished title starts over instead of jumping to its credits.
+    final live = saved == null || saved.isWatched ? null : saved;
+    final cloudSeason = live?.currentSeason;
+    final cloudEpisode = live?.currentEpisode;
+    final cloudSeconds = live?.resumeSeconds;
+
     // Server: per-title memory first, then the global default.
     final rememberedId = memory.providerId;
     VideoSourceConfig? match = rememberedId == null
@@ -774,32 +801,43 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     }
 
     // Episode: only when the route didn't name one.
+    final hasCloudEpisode =
+        widget.mediaType == 'tv' &&
+        cloudSeason != null &&
+        cloudSeason > 0 &&
+        cloudEpisode != null &&
+        cloudEpisode > 0;
     if (widget.mediaType == 'tv') {
-      if (widget.season == null &&
-          memory.season != null &&
-          memory.season! > 0) {
-        _currentSeason = memory.season!;
-        needsReload = true;
+      final season = hasCloudEpisode ? cloudSeason : memory.season;
+      final episode = hasCloudEpisode ? cloudEpisode : memory.episode;
+      if (widget.season == null && season != null && season > 0) {
+        if (season != _currentSeason) needsReload = true;
+        _currentSeason = season;
       }
-      if (widget.episode == null &&
-          memory.episode != null &&
-          memory.episode! > 0) {
-        _currentEpisode = memory.episode!;
-        needsReload = true;
+      if (widget.episode == null && episode != null && episode > 0) {
+        if (episode != _currentEpisode) needsReload = true;
+        _currentEpisode = episode;
       }
     }
 
     // Position: only when the route didn't carry one, and only when the
     // saved position belongs to the episode being opened — otherwise a
     // resume point from one episode would seek a different episode.
-    final sameEpisode =
+    final cloudSameEpisode = widget.mediaType != 'tv'
+        ? live != null
+        : hasCloudEpisode &&
+              cloudSeason == _currentSeason &&
+              cloudEpisode == _currentEpisode;
+    final localSameEpisode =
         memory.season == _currentSeason && memory.episode == _currentEpisode;
+    final resumeSeconds = cloudSameEpisode && cloudSeconds != null
+        ? cloudSeconds
+        : (localSameEpisode ? memory.positionSeconds : null);
     if ((_resolvedStartSeconds == null || _resolvedStartSeconds == 0) &&
-        sameEpisode &&
-        memory.positionSeconds != null &&
-        memory.positionSeconds! > 0) {
-      _resolvedStartSeconds = memory.positionSeconds;
-      _playbackPositionSeconds = memory.positionSeconds!;
+        resumeSeconds != null &&
+        resumeSeconds > 0) {
+      _resolvedStartSeconds = resumeSeconds;
+      _playbackPositionSeconds = resumeSeconds;
       needsReload = true;
     }
 
