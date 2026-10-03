@@ -151,6 +151,7 @@ lib/
     manga/                           # Manga library — MangaDex, Bato, Comick, Mangakakalot, Mangasee123
     play_zone/                       # Games hub + Table Tennis (WebGL + Firestore multiplayer)
     starlight_jar/                   # Gratitude notes jar
+    tonight/                         # Shared evening picks, live votes, and calendar plans
     watch_party/                     # Watch party with WebRTC voice chat (Firestore signaling)
     xp/                              # XP/leveling system
   shared/
