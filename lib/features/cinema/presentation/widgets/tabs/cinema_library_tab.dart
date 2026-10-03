@@ -1,5 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../../../core/services/auth_service.dart';
+import '../../../data/services/cinema_preferences.dart';
+import '../cinema_viewing_preferences.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
 import '../../../../../core/utils/logger.dart';
@@ -12,6 +17,8 @@ import '../../../../../core/theme/app_typography.dart';
 
 enum _LibraryFilter { all, watching, toWatch, watched, reminders }
 
+enum _LibrarySort { recentlySaved, lastWatched, title }
+
 /// My List - a quiet poster grid of the couple's cinema collection.
 class CinemaLibraryTab extends StatefulWidget {
   final List<MediaItem> watchlist;
@@ -21,6 +28,7 @@ class CinemaLibraryTab extends StatefulWidget {
   final void Function(MediaItem, double? rating)? onRateItem;
   final void Function(MediaItem)? onRemoveProgress;
   final void Function(int) onSwitchTab;
+  final CinemaPreferences? preferences;
 
   const CinemaLibraryTab({
     super.key,
@@ -31,6 +39,7 @@ class CinemaLibraryTab extends StatefulWidget {
     this.onRateItem,
     this.onRemoveProgress,
     required this.onSwitchTab,
+    this.preferences,
   });
 
   @override
@@ -39,6 +48,25 @@ class CinemaLibraryTab extends StatefulWidget {
 
 class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
   _LibraryFilter _filter = _LibraryFilter.all;
+  _LibrarySort _sort = _LibrarySort.recentlySaved;
+  final _search = TextEditingController();
+  CinemaPreferences get _preferences =>
+      widget.preferences ?? CinemaPreferences.instance;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Nullable lookup keeps standalone previews/tests working without DI.
+    final auth = context.watch<AuthService?>();
+    if (auth != null) unawaited(_preferences.setUser(auth.currentUser));
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
   final TMDBService _service = TMDBService();
   final Set<String> _healAttempted = {};
 
@@ -62,13 +90,34 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
     // Every movie (live-action or anime) plus non-anime TV lives here —
     // see MediaItem.isCinemaItem. Anime series live in the anime section.
     final all = widget.watchlist.cinemaItems;
-    return switch (_filter) {
+    final filtered = switch (_filter) {
       _LibraryFilter.all => all,
       _LibraryFilter.watching => all.currentlyWatching,
       _LibraryFilter.toWatch => all.toWatch,
       _LibraryFilter.watched => all.watched,
       _LibraryFilter.reminders => all.reminded,
     };
+    final query = _search.text.trim().toLowerCase();
+    final visible = filtered
+        .where((item) => item.title.toLowerCase().contains(query))
+        .toList();
+    visible.sort((a, b) {
+      final comparison = switch (_sort) {
+        _LibrarySort.recentlySaved => b.addedAt.compareTo(a.addedAt),
+        // Unwatched titles follow watched titles, rather than looking recent.
+        _LibrarySort.lastWatched =>
+          (b.progressUpdatedAt ?? DateTime(1970)).compareTo(
+            a.progressUpdatedAt ?? DateTime(1970),
+          ),
+        _LibrarySort.title => a.title.toLowerCase().compareTo(
+          b.title.toLowerCase(),
+        ),
+      };
+      if (comparison != 0) return comparison;
+      final titleOrder = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      return titleOrder != 0 ? titleOrder : a.id.compareTo(b.id);
+    });
+    return visible;
   }
 
   double? _progress(MediaItem item) {
@@ -80,15 +129,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
 
   @override
   Widget build(BuildContext context) {
-    final isEmpty = widget.watchlist
-        .where(
-          (i) =>
-              i.isCinemaItem &&
-              (i.isCurrentlyWatching || i.isToWatch || i.isWatched),
-        )
-        .isEmpty;
-
-    if (isEmpty) return _buildEmptyLibrary(context);
+    final isEmpty = widget.watchlist.cinemaItems.isEmpty;
 
     final isDesktop = AppBreakpoint.isDesktop(context);
     final visible = _visible;
@@ -171,13 +212,74 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
             ),
           ),
         ),
-        if (visible.isEmpty)
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            isDesktop ? 48 : 16,
+            0,
+            isDesktop ? 48 : 16,
+            16,
+          ),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              children: [
+                TextField(
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    labelText: 'Search My List',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: _search.text.isEmpty
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear search',
+                            onPressed: () => setState(_search.clear),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<_LibrarySort>(
+                  initialValue: _sort,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Sort My List'),
+                  dropdownColor: NetflixColors.surface,
+                  items: const [
+                    DropdownMenuItem(
+                      value: _LibrarySort.recentlySaved,
+                      child: Text('Recently saved'),
+                    ),
+                    DropdownMenuItem(
+                      value: _LibrarySort.lastWatched,
+                      child: Text('Last watched'),
+                    ),
+                    DropdownMenuItem(
+                      value: _LibrarySort.title,
+                      child: Text('Title'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _sort = value);
+                  },
+                ),
+                ExpansionTile(
+                  title: const Text('Viewing preferences'),
+                  children: [
+                    CinemaViewingPreferences(preferences: _preferences),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (isEmpty)
+          SliverToBoxAdapter(child: _buildEmptyLibrary(context))
+        else if (visible.isEmpty)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 60),
               child: Center(
                 child: Text(
-                  'Nothing here yet.',
+                  'No titles match your search or filter.',
                   style: AppTypography.outfitWhite.copyWith(
                     color: NetflixColors.textMuted,
                     fontSize: 14,
@@ -222,9 +324,7 @@ class _CinemaLibraryTabState extends State<CinemaLibraryTab> {
                     Positioned(
                       top: 6,
                       right: 6,
-                      child: NetflixRemoveBadge(
-                        onTap: () => remove(item),
-                      ),
+                      child: NetflixRemoveBadge(onTap: () => remove(item)),
                     ),
                   ],
                 );
@@ -321,25 +421,30 @@ class _LibraryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : NetflixColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? Colors.white : NetflixColors.hairline,
+    return Semantics(
+      selected: selected,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          backgroundColor: selected
+              ? NetflixColors.textPrimary
+              : NetflixColors.surface,
+          foregroundColor: selected
+              ? NetflixColors.background
+              : NetflixColors.textSecondary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: selected
+                  ? NetflixColors.textPrimary
+                  : NetflixColors.hairline,
+            ),
           ),
+          textStyle: AppTypography.outfitHeading.copyWith(fontSize: 12.5),
         ),
-        child: Text(
-          label,
-          style: AppTypography.outfitHeading.copyWith(
-            color: selected ? Colors.black : NetflixColors.textSecondary,
-            fontSize: 12.5,
-          ),
-        ),
+        child: Text(label),
       ),
     );
   }

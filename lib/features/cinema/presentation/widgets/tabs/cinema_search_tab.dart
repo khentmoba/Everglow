@@ -17,6 +17,7 @@ class CinemaSearchTab extends StatefulWidget {
   final void Function(MediaItem, bool add)? onToggleListItem;
   final void Function(MediaItem, double? rating)? onRateItem;
   final bool Function(MediaItem)? isInList;
+  final TMDBService? service;
   final void Function(int) onSwitchTab;
 
   const CinemaSearchTab({
@@ -27,6 +28,7 @@ class CinemaSearchTab extends StatefulWidget {
     this.onToggleListItem,
     this.onRateItem,
     this.isInList,
+    this.service,
     required this.onSwitchTab,
   });
 
@@ -35,29 +37,36 @@ class CinemaSearchTab extends StatefulWidget {
 }
 
 class _CinemaSearchTabState extends State<CinemaSearchTab> {
-  final TMDBService _tmdbService = TMDBService();
+  TMDBService get _tmdbService => widget.service ?? TMDBService();
   final TextEditingController _searchController = TextEditingController();
   List<MediaItem> _searchResults = [];
   bool _isSearching = false;
   Timer? _searchDebounce;
+  int _requestVersion = 0;
+  int _searchPage = 0;
+  bool _searchHasMore = false;
+  bool _searchFailed = false;
+  bool _isLoadingMore = false;
 
   // Search filter state
   bool _filterMoviesOnly = false;
   bool _filterTVOnly = false;
-  double? _filterMinVote;
   final Set<String> _filterYears = {};
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _requestVersion++;
     _searchDebounce?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
   void _runSearch(String query) {
     _searchController.text = query;
     _searchController.selection = TextSelection.collapsed(offset: query.length);
-    _performSearch(query.trim());
+    _onSearchChanged(query);
+    _searchDebounce?.cancel();
+    if (query.trim().isNotEmpty) _performSearch(query.trim());
   }
 
   @override
@@ -100,7 +109,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Titles, actors, genres',
+                    hintText: 'Search movie and TV titles',
                     hintStyle: AppTypography.outfitWhite.copyWith(
                       color: NetflixColors.textMuted,
                       fontSize: 16,
@@ -117,13 +126,10 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                               color: NetflixColors.textMuted,
                               size: 18,
                             ),
+                            tooltip: 'Clear search',
                             onPressed: () {
                               _searchController.clear();
-                              setState(() {
-                                _searchResults = [];
-                                _isSearching = false;
-                                _clearSearchFilters();
-                              });
+                              _onSearchChanged('');
                             },
                           )
                         : null,
@@ -143,7 +149,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
           Padding(
             padding: EdgeInsets.fromLTRB(horizontalPad, 10, horizontalPad, 4),
             child: SizedBox(
-              height: 32,
+              height: 48,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _searchFilterChips.length,
@@ -172,42 +178,85 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
                     ),
                   ),
                 )
-              : _filteredSearchResults.isEmpty
-              ? (_searchController.text.isEmpty
-                    ? _buildSearchLanding()
-                    : _buildSearchEmptyState())
-              : GridView.builder(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontalPad,
-                    10,
-                    horizontalPad,
-                    120,
-                  ),
-                  physics: const BouncingScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: isDesktop
-                        ? 6
-                        : (AppBreakpoint.isTablet(context) ? 5 : 3),
-                    childAspectRatio: 0.67,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  itemCount: _filteredSearchResults.length,
-                  itemBuilder: (context, index) {
-                    final item = _filteredSearchResults[index];
-                    return NetflixPosterCard(
-                      item: item,
-                      compact: true,
-                      selfPreview: true,
-                      onTap: () => widget.onMediaTap(item),
-                      onPlay: widget.onPlayItem,
-                      onToggleList: widget.onToggleListItem,
-                      onRate: widget.onRateItem,
-                      isInList: widget.isInList,
-                    );
-                  },
-                ),
+              : _searchController.text.trim().isEmpty
+              ? _buildSearchLanding()
+              : _buildSearchResults(horizontalPad),
         ),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults(double horizontalPad) {
+    final items = _filteredSearchResults;
+    return CustomScrollView(
+      slivers: [
+        if (items.isEmpty && !_searchFailed)
+          SliverToBoxAdapter(
+            child: SizedBox(height: 200, child: _buildSearchEmptyState()),
+          ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(horizontalPad, 10, horizontalPad, 0),
+          sliver: SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: AppBreakpoint.isDesktop(context)
+                  ? 6
+                  : (AppBreakpoint.isTablet(context) ? 5 : 3),
+              childAspectRatio: 0.67,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return NetflixPosterCard(
+                item: item,
+                compact: true,
+                selfPreview: true,
+                onTap: () => widget.onMediaTap(item),
+                onPlay: widget.onPlayItem,
+                onToggleList: widget.onToggleListItem,
+                onRate: widget.onRateItem,
+                isInList: widget.isInList,
+              );
+            },
+          ),
+        ),
+        if (_searchFailed || _searchHasMore)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (_searchFailed)
+                    Text(
+                      'Couldn’t search titles. Please try again.',
+                      style: AppTypography.outfitWhite.copyWith(
+                        color: NetflixColors.textSecondary,
+                      ),
+                    ),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                      foregroundColor: NetflixColors.textPrimary,
+                      backgroundColor: NetflixColors.surface,
+                    ),
+                    onPressed: _isLoadingMore
+                        ? null
+                        : () => _performSearch(
+                            _searchController.text.trim(),
+                            page: _searchPage + 1,
+                          ),
+                    child: Text(
+                      _isLoadingMore
+                          ? 'Loading…'
+                          : (_searchFailed ? 'Retry' : 'Load More'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        const SliverPadding(padding: EdgeInsets.only(bottom: 120)),
       ],
     );
   }
@@ -226,7 +275,9 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             ),
             const SizedBox(height: 14),
             Text(
-              'No results found',
+              _searchResults.isEmpty
+                  ? 'No results found'
+                  : 'No titles match these filters',
               style: AppTypography.outfitHeading.copyWith(
                 color: NetflixColors.textPrimary,
                 fontSize: 17,
@@ -234,7 +285,9 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Try a different title or keyword.',
+              _searchResults.isEmpty
+                  ? 'Try a different title.'
+                  : 'Clear the filters or load more titles.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitWhite.copyWith(
                 color: NetflixColors.textMuted,
@@ -329,33 +382,59 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
   }
 
   void _onSearchChanged(String query) {
-    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    _searchDebounce?.cancel();
+    final version = ++_requestVersion;
+    setState(() {
+      _searchResults = [];
+      _searchPage = 0;
+      _searchHasMore = false;
+      _searchFailed = false;
+      _isLoadingMore = false;
+      _isSearching = query.trim().isNotEmpty;
+      _clearSearchFilters();
+    });
+    if (query.trim().isEmpty) return;
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      if (query.trim().isNotEmpty) {
-        _performSearch(query.trim());
-      } else {
-        setState(() {
-          _searchResults = [];
-          _isSearching = false;
-        });
-      }
+      if (mounted && version == _requestVersion) _performSearch(query.trim());
     });
   }
 
-  Future<void> _performSearch(String query) async {
+  Future<void> _performSearch(String query, {int page = 1}) async {
+    final version = _requestVersion;
     setState(() {
-      _isSearching = true;
-      _clearSearchFilters();
+      _isSearching = page == 1;
+      _isLoadingMore = page > 1;
+      _searchFailed = false;
     });
-    final results = await _tmdbService.searchMedia(query);
-    // Exclude anime from cinema search - the dedicated Anime screen
-    // already covers Japanese animation content.
-    final filtered = results.where((m) => !m.isAnime).toList();
-    if (mounted) {
+    try {
+      final results = await _tmdbService.searchMedia(
+        query,
+        page: page,
+        failOnError: true,
+      );
+      if (!mounted || version != _requestVersion) return;
       setState(() {
-        _searchResults = filtered;
+        final seen = _searchResults
+            .map((m) => '${m.mediaType}:${m.tmdbId}')
+            .toSet();
+        _searchResults.addAll(
+          results.where(
+            (m) => !m.isAnime && seen.add('${m.mediaType}:${m.tmdbId}'),
+          ),
+        );
+        _searchPage = page;
+        // The list API has no total-pages metadata. A final empty page
+        // ends pagination even when anime filtering shortened this page.
+        _searchHasMore = results.isNotEmpty && page < 500;
         _isSearching = false;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _requestVersion) return;
+      setState(() {
+        _searchFailed = true;
+        _isSearching = false;
+        _isLoadingMore = false;
       });
     }
   }
@@ -365,9 +444,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
 
     chips.add(
       _SearchFilterChip(
-        icon: Icons.movie_outlined,
         label: 'Movies only',
-        color: NetflixColors.accent,
         selected: _filterMoviesOnly,
         onTap: () {
           setState(() {
@@ -379,9 +456,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
     );
     chips.add(
       _SearchFilterChip(
-        icon: Icons.tv_outlined,
         label: 'TV only',
-        color: NetflixColors.gold,
         selected: _filterTVOnly,
         onTap: () {
           setState(() {
@@ -392,31 +467,12 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
       ),
     );
 
-    for (final rating in [9.0, 8.0]) {
-      final key = rating.toStringAsFixed(1);
-      final isSelected = _filterMinVote == rating;
-      chips.add(
-        _SearchFilterChip(
-          icon: Icons.star_rounded,
-          label: '$key+',
-          color: NetflixColors.gold,
-          selected: isSelected,
-          onTap: () {
-            setState(() {
-              _filterMinVote = isSelected ? null : rating;
-            });
-          },
-        ),
-      );
-    }
-
-    for (final year in ['2025', '2024', '2023']) {
+    for (var offset = 0; offset < 3; offset++) {
+      final year = '${DateTime.now().year - offset}';
       final isSelected = _filterYears.contains(year);
       chips.add(
         _SearchFilterChip(
-          icon: Icons.calendar_today_rounded,
           label: year,
-          color: const Color(0xFF4CAF50),
           selected: isSelected,
           onTap: () {
             setState(() {
@@ -433,9 +489,7 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
 
     chips.add(
       _SearchFilterChip(
-        icon: Icons.clear_rounded,
         label: 'Clear',
-        color: const Color(0xFFE53935),
         selected: false,
         onTap: () {
           setState(_clearSearchFilters);
@@ -463,7 +517,6 @@ class _CinemaSearchTabState extends State<CinemaSearchTab> {
   void _clearSearchFilters() {
     _filterMoviesOnly = false;
     _filterTVOnly = false;
-    _filterMinVote = null;
     _filterYears.clear();
   }
 }
@@ -481,41 +534,38 @@ class _SearchPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : NetflixColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? Colors.white : NetflixColors.hairline,
+    return Semantics(
+      selected: selected,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          foregroundColor: selected
+              ? NetflixColors.background
+              : NetflixColors.textSecondary,
+          backgroundColor: selected
+              ? NetflixColors.textPrimary
+              : NetflixColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: NetflixColors.hairline),
           ),
+          textStyle: AppTypography.outfitHeading.copyWith(fontSize: 12.5),
         ),
-        child: Text(
-          label,
-          style: AppTypography.outfitHeading.copyWith(
-            color: selected ? Colors.black : NetflixColors.textSecondary,
-            fontSize: 12.5,
-          ),
-        ),
+        child: Text(label),
       ),
     );
   }
 }
 
 class _SearchFilterChip {
-  final IconData icon;
   final String label;
-  final Color color;
   final bool selected;
   final VoidCallback onTap;
 
   const _SearchFilterChip({
-    required this.icon,
     required this.label,
-    required this.color,
     required this.selected,
     required this.onTap,
   });

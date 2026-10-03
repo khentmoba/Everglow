@@ -17,6 +17,7 @@ class CinemaBrowseTab extends StatefulWidget {
   final void Function(MediaItem, bool add)? onToggleListItem;
   final void Function(MediaItem, double? rating)? onRateItem;
   final bool Function(MediaItem)? isInList;
+  final TMDBService? service;
 
   /// Browse option to auto-select on first build (used by top nav links).
   final String? initialOptionId;
@@ -28,6 +29,7 @@ class CinemaBrowseTab extends StatefulWidget {
     this.onToggleListItem,
     this.onRateItem,
     this.isInList,
+    this.service,
     this.initialOptionId,
   });
 
@@ -36,13 +38,15 @@ class CinemaBrowseTab extends StatefulWidget {
 }
 
 class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
-  final TMDBService _tmdbService = TMDBService();
+  TMDBService get _tmdbService => widget.service ?? TMDBService();
 
   String? _selectedBrowseOptionId;
   List<MediaItem> _browseResults = [];
   bool _isLoadingBrowse = false;
-  int _browseCurrentPage = 1;
+  int _browseCurrentPage = 0;
   bool _browseHasMore = true;
+  bool _browseFailed = false;
+  int _requestVersion = 0;
 
   @override
   void initState() {
@@ -115,7 +119,7 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
             ),
           ),
           SizedBox(
-            height: 36,
+            height: 48,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 16),
@@ -138,7 +142,7 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
   }
 
   List<Widget> _buildBrowseResultSlivers() {
-    if (_isLoadingBrowse) {
+    if (_isLoadingBrowse && _browseResults.isEmpty) {
       return [
         const SliverToBoxAdapter(
           child: Padding(
@@ -156,6 +160,10 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
           ),
         ),
       ];
+    }
+
+    if (_browseFailed && _browseResults.isEmpty) {
+      return [SliverToBoxAdapter(child: _buildBrowseError())];
     }
 
     if (_browseResults.isEmpty) {
@@ -224,31 +232,21 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
           },
         ),
       ),
-      if (_browseHasMore)
+      if (_browseFailed)
+        SliverToBoxAdapter(child: _buildBrowseError())
+      else if (_browseHasMore)
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
             child: Center(
-              child: GestureDetector(
-                onTap: _loadMoreBrowse,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 26,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: NetflixColors.surface,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: NetflixColors.hairline),
-                  ),
-                  child: Text(
-                    'Load More',
-                    style: AppTypography.outfitHeading.copyWith(
-                      color: NetflixColors.textPrimary,
-                      fontSize: 13,
-                    ),
-                  ),
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  foregroundColor: NetflixColors.textPrimary,
+                  backgroundColor: NetflixColors.surface,
                 ),
+                onPressed: _isLoadingBrowse ? null : _loadMoreBrowse,
+                child: Text(_isLoadingBrowse ? 'Loading…' : 'Load More'),
               ),
             ),
           ),
@@ -256,65 +254,85 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
     ];
   }
 
+  Widget _buildBrowseError() => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      children: [
+        Text(
+          'Couldn’t load titles. Please try again.',
+          style: AppTypography.outfitWhite.copyWith(
+            color: NetflixColors.textSecondary,
+          ),
+        ),
+        TextButton(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            foregroundColor: NetflixColors.textPrimary,
+          ),
+          onPressed: _loadMoreBrowse,
+          child: const Text('Retry'),
+        ),
+      ],
+    ),
+  );
+
   void _selectBrowseOption(BrowseCategoryOption option) {
     HapticFeedback.lightImpact();
+    _requestVersion++;
     setState(() {
       _selectedBrowseOptionId = option.id;
       _browseResults = [];
-      _browseCurrentPage = 1;
+      _browseCurrentPage = 0;
       _browseHasMore = true;
-    });
-    _fetchBrowseResults(option);
-  }
-
-  Future<void> _fetchBrowseResults(BrowseCategoryOption option) async {
-    setState(() => _isLoadingBrowse = true);
-    final results = await _fetchBrowsePage(option);
-    if (!mounted) return;
-    setState(() {
-      _browseResults = results;
-      _browseHasMore = results.length >= 20;
       _isLoadingBrowse = false;
+      _browseFailed = false;
     });
+    _loadMoreBrowse();
   }
 
   Future<void> _loadMoreBrowse() async {
     if (_isLoadingBrowse || !_browseHasMore) return;
-    _browseCurrentPage++;
-
     final option = cinemaBrowseOptions.firstWhere(
       (o) => o.id == _selectedBrowseOptionId,
-      orElse: () => cinemaBrowseOptions.first,
     );
-
-    setState(() => _isLoadingBrowse = true);
-    final results = await _fetchBrowsePage(option);
-    if (!mounted) return;
+    final version = _requestVersion;
+    final page = _browseCurrentPage + 1;
     setState(() {
-      _browseResults.addAll(results);
-      _browseHasMore = results.length >= 20;
-      _isLoadingBrowse = false;
+      _isLoadingBrowse = true;
+      _browseFailed = false;
     });
-  }
-
-  Future<List<MediaItem>> _fetchBrowsePage(BrowseCategoryOption option) async {
-    if (option.genreId != null) {
-      return _tmdbService.discoverByGenre(
-        genreId: option.genreId!,
+    try {
+      final results = await _tmdbService.discoverMedia(
         mediaType: option.mediaType,
         sortBy: option.sortBy,
+        withGenres: option.genreId == null ? null : [option.genreId!],
+        yearGte: option.yearGte,
+        yearLte: option.yearLte,
+        voteAverageGte: option.voteAverageGte,
+        voteCountGte: option.voteCountGte,
+        withOriginalLanguage: option.withOriginalLanguage,
+        page: page,
+        failOnError: true,
       );
+      if (!mounted || version != _requestVersion) return;
+      setState(() {
+        final seen = _browseResults
+            .map((m) => '${m.mediaType}:${m.tmdbId}')
+            .toSet();
+        _browseResults.addAll(
+          results.where((m) => seen.add('${m.mediaType}:${m.tmdbId}')),
+        );
+        _browseCurrentPage = page;
+        _browseHasMore = results.length >= 20 && page < 500;
+        _isLoadingBrowse = false;
+      });
+    } catch (_) {
+      if (!mounted || version != _requestVersion) return;
+      setState(() {
+        _browseFailed = true;
+        _isLoadingBrowse = false;
+      });
     }
-    return _tmdbService.discoverMedia(
-      mediaType: option.mediaType,
-      sortBy: option.sortBy,
-      yearGte: option.yearGte,
-      yearLte: option.yearLte,
-      voteAverageGte: option.voteAverageGte,
-      voteCountGte: option.voteCountGte,
-      withOriginalLanguage: option.withOriginalLanguage,
-      page: _browseCurrentPage,
-    );
   }
 }
 
@@ -331,28 +349,26 @@ class _BrowsePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 15),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : NetflixColors.surface,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? Colors.white : NetflixColors.hairline,
+    return Semantics(
+      selected: selected,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 15),
+          foregroundColor: selected
+              ? NetflixColors.background
+              : NetflixColors.textSecondary,
+          backgroundColor: selected
+              ? NetflixColors.textPrimary
+              : NetflixColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: NetflixColors.hairline),
           ),
+          textStyle: AppTypography.outfitHeading.copyWith(fontSize: 12.5),
         ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTypography.outfitHeading.copyWith(
-            color: selected ? Colors.black : NetflixColors.textSecondary,
-            fontSize: 12.5,
-          ),
-        ),
+        child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
     );
   }

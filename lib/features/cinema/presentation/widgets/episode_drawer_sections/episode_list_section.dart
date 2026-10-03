@@ -37,6 +37,9 @@ class EpisodeListSection extends StatelessWidget {
   final void Function(int season, int episode, String title) onPlayEpisode;
   final void Function(int seasonNumber) onSeasonChanged;
 
+  /// Opt-in for Cinema only; anime keeps its existing metadata behavior.
+  final bool hideSpoilers;
+
   const EpisodeListSection({
     super.key,
     required this.episodes,
@@ -46,6 +49,7 @@ class EpisodeListSection extends StatelessWidget {
     this.tmdbMatchedSeason,
     required this.onPlayEpisode,
     required this.onSeasonChanged,
+    this.hideSpoilers = false,
   });
 
   @override
@@ -166,11 +170,17 @@ class EpisodeListSection extends StatelessWidget {
         : null;
 
     return EpisodeTile(
+      key: ValueKey('$epSeason/$epNum'),
+      hideSpoilers: hideSpoilers,
       epNum: epNum,
       epName: epName,
       epOverview: epOverview,
       stillUrl: epStillUrl,
-      onTap: () => onPlayEpisode(epSeason, epNum, epName),
+      onTap: () => onPlayEpisode(
+        epSeason,
+        epNum,
+        hideSpoilers ? 'Episode $epNum' : epName,
+      ),
     );
   }
 
@@ -204,6 +214,7 @@ class EpisodeTile extends StatefulWidget {
 
   /// Highlights the tile as the currently playing episode (player use).
   final bool selected;
+  final bool hideSpoilers;
 
   const EpisodeTile({
     super.key,
@@ -213,6 +224,7 @@ class EpisodeTile extends StatefulWidget {
     this.stillUrl,
     required this.onTap,
     this.selected = false,
+    this.hideSpoilers = false,
   });
 
   @override
@@ -231,109 +243,187 @@ class _EpisodeTileState extends State<EpisodeTile> {
 
   @override
   Widget build(BuildContext context) {
-    final hasThumb = widget.stillUrl != null && widget.stillUrl!.isNotEmpty;
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 140),
-        height: _tileHeight,
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-        decoration: BoxDecoration(
-          color: _pressed
-              ? AppColors.shimmerBase.withValues(alpha: 0.8)
-              : AppColors.shimmerBase.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: widget.selected
-                ? AppColors.deepRose.withValues(alpha: 0.65)
-                : AppColors.roseQuartz.withValues(alpha: 0.08),
-            width: widget.selected ? 1.4 : 1.0,
+    final hasThumb =
+        !widget.hideSpoilers &&
+        widget.stillUrl != null &&
+        widget.stillUrl!.isNotEmpty;
+    return Semantics(
+      button: true,
+      label: 'Play episode ${widget.epNum}',
+      onTap: widget.onTap,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) {
+          setState(() => _pressed = false);
+          widget.onTap();
+        },
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          height: _tileHeight,
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+          decoration: BoxDecoration(
+            color: _pressed
+                ? AppColors.shimmerBase.withValues(alpha: 0.8)
+                : AppColors.shimmerBase.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: widget.selected
+                  ? AppColors.deepRose.withValues(alpha: 0.65)
+                  : AppColors.roseQuartz.withValues(alpha: 0.08),
+              width: widget.selected ? 1.4 : 1.0,
+            ),
           ),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(15),
-          child: Row(
-            children: [
-              // Left rail: thumbnail (when available) or numbered accent.
-              if (hasThumb) _buildThumbnailRail() else _buildNumberedRail(),
-              const SizedBox(width: 12),
-              // Title + overview
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.epName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitHeading.copyWith(
-                          fontSize: 13,
-                          height: 1.25,
-                        ),
-                      ),
-                      if (widget.epOverview.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(15),
+            child: Row(
+              children: [
+                // Left rail: thumbnail (when available) or numbered accent.
+                if (hasThumb) _buildThumbnailRail() else _buildNumberedRail(),
+                const SizedBox(width: 12),
+                // Title + overview
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      vertical: widget.hideSpoilers ? 0 : 10,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          widget.epOverview,
+                          widget.hideSpoilers
+                              ? 'Episode ${widget.epNum}'
+                              : widget.epName,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitWhite.copyWith(
-                            color: AppColors.mutedPurple,
-                            fontSize: 11,
-                            height: 1.4,
+                          style: AppTypography.outfitHeading.copyWith(
+                            fontSize: 13,
+                            height: 1.25,
                           ),
                         ),
+                        if (widget.hideSpoilers)
+                          SizedBox(
+                            height: 48,
+                            child: TextButton(
+                              style: TextButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                foregroundColor: AppColors.deepRose,
+                              ),
+                              onPressed: () => _revealDetails(context),
+                              child: const Text('Reveal details'),
+                            ),
+                          )
+                        else if (widget.epOverview.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.epOverview,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: AppColors.mutedPurple,
+                              fontSize: 11,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
                       ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                // Right side action column: solo play (top) + Watch
+                // Together (bottom). Two stacked 32px circles fit
+                // within the 80px tile height with vertical padding.
+                // The solo play preserves the existing tap behaviour;
+                // the heart opens a watch-party directly.
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: widget.selected
+                              ? AppColors.deepRose
+                              : AppColors.deepRose.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.deepRose.withValues(alpha: 0.5),
+                            width: 1.2,
+                          ),
+                        ),
+                        child: Icon(
+                          widget.selected
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          color: widget.selected
+                              ? Colors.white
+                              : AppColors.deepRose,
+                          size: 18,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              // Right side action column: solo play (top) + Watch
-              // Together (bottom). Two stacked 32px circles fit
-              // within the 80px tile height with vertical padding.
-              // The solo play preserves the existing tap behaviour;
-              // the heart opens a watch-party directly.
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: widget.selected
-                            ? AppColors.deepRose
-                            : AppColors.deepRose.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.deepRose.withValues(alpha: 0.5),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Icon(
-                        widget.selected
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                        color: widget.selected
-                            ? Colors.white
-                            : AppColors.deepRose,
-                        size: 18,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _revealDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.deepBlack,
+      builder: (sheetContext) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(widget.epName, style: AppTypography.outfitHeading),
+                if (widget.stillUrl != null && widget.stillUrl!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: AppNetworkImage(
+                        imageUrl: widget.stillUrl!,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  ],
+                  ),
+                if (widget.epOverview.isNotEmpty)
+                  Text(widget.epOverview, style: AppTypography.outfitWhite),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    widget.onTap();
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: Text('Play episode ${widget.epNum}'),
                 ),
-              ),
-            ],
+                TextButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: const Text('Close details'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

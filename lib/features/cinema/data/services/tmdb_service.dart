@@ -152,6 +152,7 @@ class TMDBService with ConnectivityAware {
     int? voteCountGte,
     String? withOriginalLanguage,
     int page = 1,
+    bool failOnError = false,
   }) => _discovery.discoverMedia(
     mediaType: mediaType,
     sortBy: sortBy,
@@ -162,12 +163,16 @@ class TMDBService with ConnectivityAware {
     voteCountGte: voteCountGte,
     withOriginalLanguage: withOriginalLanguage,
     page: page,
+    failOnError: failOnError,
   );
 
   // ─── Search ────────────────────────────────────────────────────────────
 
-  Future<List<MediaItem>> searchMedia(String query) =>
-      _search.searchMedia(query);
+  Future<List<MediaItem>> searchMedia(
+    String query, {
+    int page = 1,
+    bool failOnError = false,
+  }) => _search.searchMedia(query, page: page, failOnError: failOnError);
 
   Future<int?> searchTvShow(String title, {String? firstAirDateYear}) =>
       _search.searchTvShow(title, firstAirDateYear: firstAirDateYear);

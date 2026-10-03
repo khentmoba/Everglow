@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 
 import '../../../../../core/theme/app_motion.dart';
@@ -271,25 +272,38 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
     final width = widget.rank != null ? 118.0 : (isDesktop ? 172.0 : 124.0);
     final height = width * 1.5;
 
-    final poster = FocusableActionDetector(
-      mouseCursor: SystemMouseCursors.click,
-      onShowHoverHighlight: isDesktop ? _onHover : null,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) {
-          setState(() => _pressed = true);
-          // Touch has no hover — start the trailer lookup at press-down
-          // so a long-press preview opens with video ready.
-          unawaited(prefetchNetflixPreview(widget.item));
-        },
-        onTapUp: (_) {
-          setState(() => _pressed = false);
-          widget.onTap?.call();
-        },
-        onTapCancel: () => setState(() => _pressed = false),
-        onLongPress: _showTouchPreview,
-        child: _buildPoster(width, height),
-      ),
+    final poster = Stack(
+      fit: StackFit.passthrough,
+      children: [
+        _NetflixCardAction(
+          label: 'Details for ${widget.item.title}',
+          onTap: widget.onTap,
+          onHover: isDesktop ? _onHover : null,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) {
+              setState(() => _pressed = true);
+              // Touch has no hover — start the trailer lookup at press-down
+              // so a long-press preview opens with video ready.
+              unawaited(prefetchNetflixPreview(widget.item));
+            },
+            excludeFromSemantics: true,
+            onTap: widget.onTap,
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            onLongPress: _showTouchPreview,
+            child: ExcludeSemantics(child: _buildPoster(width, height)),
+          ),
+        ),
+        Positioned(
+          right: 2,
+          bottom: 2,
+          child: _NetflixOptionsButton(
+            title: widget.item.title,
+            onPressed: _showTouchPreview,
+          ),
+        ),
+      ],
     );
 
     if (widget.rank == null) return SizedBox(width: width, child: poster);
@@ -341,6 +355,10 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 /// Landscape "continue watching" card with a progress bar.
 class NetflixContinueCard extends StatefulWidget {
   final MediaItem item;
+
+  /// Details are separate from the main tap, which can resume playback.
+  final VoidCallback? onDetails;
+  final VoidCallback? onRestart;
   final String? subtitle;
   final double? progress;
   final VoidCallback? onTap;
@@ -354,6 +372,8 @@ class NetflixContinueCard extends StatefulWidget {
   const NetflixContinueCard({
     super.key,
     required this.item,
+    this.onDetails,
+    this.onRestart,
     this.subtitle,
     this.progress,
     this.onTap,
@@ -384,9 +404,7 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
   Widget _backdropErrorFallback() {
     final backdrop = widget.item.backdropUrl;
     final poster = widget.item.posterUrl;
-    if (backdrop.isNotEmpty &&
-        poster.isNotEmpty &&
-        backdrop != poster) {
+    if (backdrop.isNotEmpty && poster.isNotEmpty && backdrop != poster) {
       return AppNetworkImage(
         imageUrl: poster,
         fit: BoxFit.cover,
@@ -429,7 +447,8 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
       context: context,
       item: widget.item,
       inList: widget.isInList?.call(widget.item) ?? false,
-      onTap: widget.onTap,
+      onTap: widget.onDetails,
+      onRestart: widget.onRestart,
       onPlay: play == null ? null : () => play(widget.item),
       onToggleList: toggle == null ? null : (add) => toggle(widget.item, add),
       onRate: rate == null ? null : (rating) => rate(widget.item, rating),
@@ -443,124 +462,142 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
 
     return SizedBox(
       width: width,
-      child: FocusableActionDetector(
-        mouseCursor: SystemMouseCursors.click,
-        onShowHoverHighlight: isDesktop ? _onHover : null,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onTap,
-          onTapDown: (_) => unawaited(prefetchNetflixPreview(widget.item)),
-          onLongPress: _showTouchPreview,
-          child: AnimatedContainer(
-            duration: AppMotion.orZero(const Duration(milliseconds: 220)),
-            curve: AppMotion.easeOutStrong,
-            transform: Matrix4.diagonal3Values(
-              _hovered ? 1.08 : 1.0,
-              _hovered ? 1.08 : 1.0,
-              1.0,
-            ),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: _hovered ? 20 : 8,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: Stack(
-                      fit: StackFit.expand,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          _NetflixCardAction(
+            label: 'Continue watching ${widget.item.title}',
+            onTap: widget.onTap,
+            onHover: isDesktop ? _onHover : null,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTap,
+              excludeFromSemantics: true,
+              onTapDown: (_) => unawaited(prefetchNetflixPreview(widget.item)),
+              onLongPress: _showTouchPreview,
+              child: ExcludeSemantics(
+                child: AnimatedContainer(
+                  duration: AppMotion.orZero(const Duration(milliseconds: 220)),
+                  curve: AppMotion.easeOutStrong,
+                  transform: Matrix4.diagonal3Values(
+                    _hovered ? 1.08 : 1.0,
+                    _hovered ? 1.08 : 1.0,
+                    1.0,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        blurRadius: _hovered ? 20 : 8,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (_backdropUrl.isNotEmpty)
-                          AppNetworkImage(
-                            imageUrl: _backdropUrl,
-                            fit: BoxFit.cover,
-                            cacheWidth: 520,
-                            errorWidget: _backdropErrorFallback(),
-                            onError: widget.onImageError,
-                          )
-                        else
-                          _PosterFallback(title: widget.item.title),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Colors.black.withValues(alpha: 0.72),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 10,
-                          right: 10,
-                          bottom: 8,
-                          child: Row(
+                        AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Stack(
+                            fit: StackFit.expand,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  widget.item.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.outfitHeading.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 13,
+                              if (_backdropUrl.isNotEmpty)
+                                AppNetworkImage(
+                                  imageUrl: _backdropUrl,
+                                  fit: BoxFit.cover,
+                                  cacheWidth: 520,
+                                  errorWidget: _backdropErrorFallback(),
+                                  onError: widget.onImageError,
+                                )
+                              else
+                                _PosterFallback(title: widget.item.title),
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.transparent,
+                                      Colors.black.withValues(alpha: 0.72),
+                                    ],
                                   ),
                                 ),
                               ),
-                              const Icon(
-                                Icons.play_circle_fill_rounded,
-                                color: Colors.white,
-                                size: 26,
+                              Positioned(
+                                left: 10,
+                                right: 10,
+                                bottom: 8,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        widget.item.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.outfitHeading
+                                            .copyWith(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                            ),
+                                      ),
+                                    ),
+                                    const Icon(
+                                      Icons.play_circle_fill_rounded,
+                                      color: Colors.white,
+                                      size: 26,
+                                    ),
+                                  ],
+                                ),
                               ),
+                              if (widget.progress != null)
+                                Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: LinearProgressIndicator(
+                                    value: widget.progress!.clamp(0.0, 1.0),
+                                    minHeight: 3,
+                                    backgroundColor: Colors.white.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                    valueColor: const AlwaysStoppedAnimation(
+                                      NetflixColors.accent,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
-                        if (widget.progress != null)
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: LinearProgressIndicator(
-                              value: widget.progress!.clamp(0.0, 1.0),
-                              minHeight: 3,
-                              backgroundColor: Colors.white.withValues(
-                                alpha: 0.25,
-                              ),
-                              valueColor: const AlwaysStoppedAnimation(
-                                NetflixColors.accent,
-                              ),
+                        if (widget.subtitle != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            widget.subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitWhite.copyWith(
+                              color: NetflixColors.textSecondary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),
-                  if (widget.subtitle != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.subtitle!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: NetflixColors.textSecondary,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
+          Positioned(
+            left: 6,
+            top: 6,
+            child: _NetflixOptionsButton(
+              title: widget.item.title,
+              onPressed: _showTouchPreview,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -583,30 +620,96 @@ class NetflixRemoveBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(48, 48),
+        backgroundColor: NetflixColors.background.withValues(alpha: 0.8),
+        foregroundColor: NetflixColors.textPrimary,
+        side: const BorderSide(color: NetflixColors.textSecondary),
+      ),
+      icon: const Icon(Icons.close_rounded, size: 20),
+    );
+  }
+}
+
+/// Shared activation keeps keyboard and screen-reader taps on the same path.
+class _NetflixCardAction extends StatefulWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final ValueChanged<bool>? onHover;
+  final Widget child;
+
+  const _NetflixCardAction({
+    required this.label,
+    required this.onTap,
+    required this.child,
+    this.onHover,
+  });
+
+  @override
+  State<_NetflixCardAction> createState() => _NetflixCardActionState();
+}
+
+class _NetflixCardActionState extends State<_NetflixCardAction> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: widget.label,
+      button: true,
+      enabled: widget.onTap != null,
+      onTap: widget.onTap,
+      child: FocusableActionDetector(
+        enabled: widget.onTap != null,
+        mouseCursor: SystemMouseCursors.click,
+        onShowHoverHighlight: widget.onHover,
+        onShowFocusHighlight: (focused) => setState(() => _focused = focused),
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap?.call();
+              return null;
+            },
+          ),
+        },
         child: Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.65),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: _focused
+                ? Border.all(color: NetflixColors.gold, width: 3)
+                : null,
           ),
-          child: const Icon(
-            Icons.close_rounded,
-            color: Colors.white,
-            size: 15,
-          ),
+          child: widget.child,
         ),
       ),
     );
   }
+}
+
+class _NetflixOptionsButton extends StatelessWidget {
+  final String title;
+  final VoidCallback onPressed;
+
+  const _NetflixOptionsButton({required this.title, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: 'More options for $title',
+    onPressed: onPressed,
+    style: IconButton.styleFrom(
+      fixedSize: const Size(48, 48),
+      backgroundColor: NetflixColors.background.withValues(alpha: 0.85),
+      foregroundColor: NetflixColors.textPrimary,
+    ),
+    icon: const Icon(Icons.more_horiz_rounded),
+  );
 }
 
 /// Bell dot marking posters with "Remind me" set. Sits top-left so it

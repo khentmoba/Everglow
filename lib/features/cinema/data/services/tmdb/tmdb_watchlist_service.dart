@@ -484,6 +484,52 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
+  /// Undo only a still-cleared entry; never overwrite newer device progress.
+  Future<bool> restoreWatchProgress(MediaItem item, String userName) async {
+    if (userName.isEmpty) return false;
+    try {
+      final existing = await withGetTimeout(
+        firestore
+            .collection('watch_list')
+            .where('tmdbId', isEqualTo: item.tmdbId)
+            .where('userName', isEqualTo: userName)
+            .limit(1)
+            .get(),
+        label: 'watch progress undo lookup',
+      );
+      if (existing.docs.isEmpty) return false;
+      final ref = existing.docs.first.reference;
+      return await firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(ref);
+        final data = snapshot.data();
+        if (data == null ||
+            data['userName'] != userName ||
+            data['status'] != 'to-watch' ||
+            data['currentTimestamp'] != null ||
+            data['currentSeason'] != null ||
+            data['currentEpisode'] != null) {
+          return false;
+        }
+        transaction.update(ref, {
+          'status': item.status,
+          'currentSeason': item.currentSeason,
+          'currentEpisode': item.currentEpisode,
+          'currentTimestamp': item.currentTimestamp,
+          'durationSeconds': item.durationSeconds,
+          'progressUpdatedAt': Timestamp.now(),
+        });
+        return true;
+      });
+    } catch (e, st) {
+      Logger.e(
+        'Cinema: could not undo progress removal',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
   /// Adds or removes a lightweight "My List" entry from hover previews.
   Future<bool> setListMembership(
     MediaItem item,

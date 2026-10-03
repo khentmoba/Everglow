@@ -51,7 +51,7 @@
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (!d || d.type !== 'cinesrc:nextepisode') return;
-    if (e.origin !== 'https://cinesrc.st') return;
+    if (e.origin !== 'https://cinesrc.st' || e.source !== frame.contentWindow) return;
     var season = parseInt(d.season, 10) || 0;
     var episode = parseInt(d.episode, 10) || 0;
     if (season <= 0 || episode <= 0) return;
@@ -128,6 +128,11 @@
     errorBox.classList.add('visible');
     try {
       window.parent.postMessage({ type: 'everglow-embed-failed' }, '*');
+    } catch (e) {}
+    try {
+      if (window.EverglowPlayer && window.EverglowPlayer.postMessage) {
+        window.EverglowPlayer.postMessage(JSON.stringify({ type: 'everglow-embed-failed' }));
+      }
     } catch (e) {}
   }
 

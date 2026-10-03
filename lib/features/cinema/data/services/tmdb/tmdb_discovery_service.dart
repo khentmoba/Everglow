@@ -455,6 +455,7 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     int? voteCountGte,
     String? withOriginalLanguage,
     int page = 1,
+    bool failOnError = false,
   }) async {
     final params = <String, String>{'include_adult': 'false', 'page': '$page'};
     if (sortBy != null) params['sort_by'] = sortBy;
@@ -497,8 +498,10 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
             )
             .toList();
       }
+      throw Exception('Failed to discover TMDB: ${response.statusCode}');
     } catch (e) {
       Logger.e('TMDB Discover Media Error', error: e);
+      if (failOnError) rethrow;
     }
     return [];
   }

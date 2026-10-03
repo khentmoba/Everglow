@@ -15,6 +15,8 @@ import '../../data/models/video_source_config.dart';
 import '../../data/services/cinema_video_sources.dart';
 import '../../data/services/next_episode_service.dart';
 import '../../data/services/player_memory_service.dart';
+import '../../data/services/cinema_preferences.dart';
+import '../widgets/cinema_viewing_preferences.dart';
 import '../../data/services/tmdb_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
@@ -27,9 +29,7 @@ import '../widgets/up_next_overlay.dart';
 /// inside an in-app WebView. The provider list and URL shape match the web
 /// player exactly; only the delivery mechanism differs.
 ///
-/// TV episodes get the same Up Next flow as the web player: a persistent
-/// Next pill plus a "Next episode in 10..." auto countdown near the end
-/// (runtime-estimate fallback — WebViews never report real position).
+/// WebViews without real progress keep manual Next; no timer guesses an ending.
 /// Phones auto-fullscreen in landscape.
 class VideoPlayerScreen extends StatefulWidget {
   final int tmdbId;
@@ -79,14 +79,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late int _playerEpisode;
 
   NextEpisode? _nextEpisode;
-  bool _upNextVisible = false;
-  int _upNextLeft = 10;
   bool _hasSavedWatchProgress = false;
-  Timer? _upNextTimer;
-  Timer? _upNextFallbackTimer;
-  bool _upNextDismissed = false;
-  static const int _upNextCountdownSeconds = 10;
-  static const int _upNextLeadSeconds = 90;
+  int? _startSeconds;
+  final Set<String> _failedProviderIds = {};
 
   int get _externalId =>
       widget.isAnime ? (widget.malId ?? widget.tmdbId) : widget.tmdbId;
@@ -106,12 +101,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _currentEpisode = widget.episode ?? 1;
     _playerSeason = _currentSeason;
     _playerEpisode = _currentEpisode;
+    _startSeconds = widget.startSeconds;
+    unawaited(
+      CinemaPreferences.instance.setUser(
+        context.read<AuthService>().currentUser,
+      ),
+    );
     _sourceService.addListener(_onSourcesChanged);
     _providers = _resolveProviders();
     _currentProvider = _resolveCurrent(_providers);
     _restoreDefaultSource();
     _resolveNextEpisode();
-    _scheduleUpNextFallback();
     WidgetsBinding.instance.addPostFrameCallback((_) => _saveWatchProgress());
   }
 
@@ -146,7 +146,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       userName,
       season: widget.mediaType == 'tv' ? _currentSeason : null,
       episode: widget.mediaType == 'tv' ? _currentEpisode : null,
-      timestamp: widget.startSeconds,
+      timestamp:
+          _currentSeason == _playerSeason && _currentEpisode == _playerEpisode
+          ? _startSeconds
+          : 0,
       status: status,
     );
   }
@@ -164,8 +167,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _upNextTimer?.cancel();
-    _upNextFallbackTimer?.cancel();
     _sourceService.removeListener(_onSourcesChanged);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -212,9 +213,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     // This title's last-used server wins; the global default is fallback.
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted || _userSelectedSource) return;
-    final id =
-        memory.providerId ??
-        await _sourceService.loadDefaultSourceId();
+    final id = memory.providerId ?? await _sourceService.loadDefaultSourceId();
     if (!mounted || id == null) return;
     setState(() {
       _savedProviderId = id;
@@ -225,8 +224,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _selectProvider(VideoSourceConfig provider) async {
+    _failedProviderIds.clear();
     _userSelectedSource = true;
     _savedProviderId = provider.id;
+    // The resume offset belongs to the loaded episode. When the selection
+    // drifted ahead via auto-play, the new server loads the new episode
+    // from its start instead of seeking into the old offset.
+    if (_playerSeason != _currentSeason || _playerEpisode != _currentEpisode) {
+      _startSeconds = null;
+    }
     setState(() {
       _currentProvider = provider;
       // A new server must load the episode actually being watched, which
@@ -255,6 +261,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       providerId: _currentProvider.id,
       season: _currentSeason,
       episode: _currentEpisode,
+      clearPosition:
+          _startSeconds == null ||
+          _currentSeason != _playerSeason ||
+          _currentEpisode != _playerEpisode,
     );
   }
 
@@ -272,92 +282,35 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     setState(() => _nextEpisode = next);
   }
 
-  /// Runtime-estimate fallback: WebViews never report playback position,
-  /// so the countdown is scheduled for 90 seconds before the estimated
-  /// end (TMDB runtime, defaulting to 42 minutes).
-  Future<void> _scheduleUpNextFallback() async {
-    _upNextFallbackTimer?.cancel();
-    if (widget.mediaType != 'tv' || widget.isAnime) return;
-    final minutes = await _nextService.fetchEpisodeRuntime(
-      tmdbId: widget.tmdbId,
-    );
-    if (!mounted) return;
-    final totalSeconds = (minutes ?? 42) * 60;
-    final delaySeconds = totalSeconds - _upNextLeadSeconds;
-    if (delaySeconds <= 10) return;
-    _upNextFallbackTimer = Timer(
-      Duration(seconds: delaySeconds),
-      () {
-        if (!mounted) return;
-        _showUpNext();
-      },
-    );
-  }
-
-  void _showUpNext() {
-    if (_upNextVisible || _upNextDismissed) return;
-    if (_nextEpisode == null || !mounted) return;
-    setState(() {
-      _upNextVisible = true;
-      _upNextLeft = _upNextCountdownSeconds;
-    });
-    _upNextTimer?.cancel();
-    _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_upNextLeft <= 1) {
-        timer.cancel();
-        _playNextEpisode();
-        return;
-      }
-      setState(() => _upNextLeft--);
-    });
-  }
-
-  void _cancelUpNext() {
-    _upNextTimer?.cancel();
-    if (!mounted) return;
-    setState(() {
-      _upNextVisible = false;
-      _upNextDismissed = true;
-    });
-  }
-
   void _playNextEpisode() {
     final next = _nextEpisode;
     if (next == null) return;
-    _upNextTimer?.cancel();
-    _upNextFallbackTimer?.cancel();
     setState(() {
       _currentSeason = next.season;
       _currentEpisode = next.episode;
       _playerSeason = next.season;
       _playerEpisode = next.episode;
-      _upNextVisible = false;
-      _upNextDismissed = false;
       _nextEpisode = null;
+      _startSeconds = null;
+      _hasSavedWatchProgress = false;
     });
     _resolveNextEpisode();
-    _scheduleUpNextFallback();
+    _saveWatchProgress();
     _persistEpisodeMemory();
   }
 
   void _playPreviousEpisode() {
     if (_currentEpisode <= 1) return;
-    _upNextTimer?.cancel();
-    _upNextFallbackTimer?.cancel();
     setState(() {
       _currentEpisode--;
       _playerSeason = _currentSeason;
       _playerEpisode = _currentEpisode;
-      _upNextVisible = false;
-      _upNextDismissed = false;
       _nextEpisode = null;
+      _startSeconds = null;
+      _hasSavedWatchProgress = false;
     });
     _resolveNextEpisode();
-    _scheduleUpNextFallback();
+    _saveWatchProgress();
     _persistEpisodeMemory();
   }
 
@@ -371,6 +324,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       id: _externalId.toString(),
       season: _playerSeason,
       episode: _playerEpisode,
+      startSeconds: _startSeconds,
     );
   }
 
@@ -384,25 +338,37 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     if (season <= 0 || episode <= 0) return;
     if (_currentProvider.id != 'everglow-embed') return;
     if (season == _currentSeason && episode == _currentEpisode) return;
-    _upNextTimer?.cancel();
-    _upNextFallbackTimer?.cancel();
     setState(() {
       _currentSeason = season;
       _currentEpisode = episode;
-      _upNextVisible = false;
-      _upNextDismissed = false;
       _nextEpisode = null;
+      _hasSavedWatchProgress = false;
     });
-    _hasSavedWatchProgress = false;
-    _saveWatchProgress();
     _resolveNextEpisode();
-    _scheduleUpNextFallback();
+    _saveWatchProgress();
     _persistEpisodeMemory();
   }
 
   void _onPlayerMessage(String raw) {
     final ep = EmbedWebView.parsePlayerEpisode(raw);
     if (ep != null) _onPlayerEpisodeChanged(ep.$1, ep.$2);
+  }
+
+  void _onSourceError() {
+    if (!mounted) return;
+    _failedProviderIds.add(_currentProvider.id);
+    final remaining = _providers.where(
+      (p) => !_failedProviderIds.contains(p.id),
+    );
+    if (remaining.isEmpty) return; // The WebView already offers Retry.
+    if (_playerSeason != _currentSeason || _playerEpisode != _currentEpisode) {
+      _startSeconds = null;
+    }
+    setState(() {
+      _currentProvider = remaining.first;
+      _playerSeason = _currentSeason;
+      _playerEpisode = _currentEpisode;
+    });
   }
 
   Future<void> _openInBrowser() async {
@@ -596,18 +562,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 Positioned(
                   right: 12,
                   bottom: 12,
-                  child: _upNextVisible
-                      ? UpNextOverlay(
-                          next: _nextEpisode!,
-                          secondsLeft: _upNextLeft,
-                          totalSeconds: _upNextCountdownSeconds,
-                          onPlayNow: _playNextEpisode,
-                          onCancel: _cancelUpNext,
-                        )
-                      : NextEpisodeButton(
-                          next: _nextEpisode!,
-                          onTap: _playNextEpisode,
-                        ),
+                  child: NextEpisodeButton(
+                    next: _nextEpisode!,
+                    onTap: _playNextEpisode,
+                  ),
                 ),
             ],
           ),
@@ -643,6 +601,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             _buildEpisodeStepper(),
           ],
           const SizedBox(height: AppSpacing.lg),
+          const CinemaViewingPreferences(),
           _buildSourceCard(),
           const SizedBox(height: AppSpacing.lg),
           Center(
@@ -715,6 +674,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 ),
                 url: _buildUrl(),
                 onPlayerMessage: _onPlayerMessage,
+                onError: _onSourceError,
                 onLoaded: () {
                   debugPrint(
                     '[VideoPlayerScreen] Loaded ${_currentProvider.id} for '
@@ -728,18 +688,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 Positioned(
                   right: 8,
                   bottom: 8,
-                  child: _upNextVisible
-                      ? UpNextOverlay(
-                          next: _nextEpisode!,
-                          secondsLeft: _upNextLeft,
-                          totalSeconds: _upNextCountdownSeconds,
-                          onPlayNow: _playNextEpisode,
-                          onCancel: _cancelUpNext,
-                        )
-                      : NextEpisodeButton(
-                          next: _nextEpisode!,
-                          onTap: _playNextEpisode,
-                        ),
+                  child: NextEpisodeButton(
+                    next: _nextEpisode!,
+                    onTap: _playNextEpisode,
+                  ),
                 ),
             ],
           ),
@@ -755,6 +707,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       ),
       url: _buildUrl(),
       onPlayerMessage: _onPlayerMessage,
+      onError: _onSourceError,
     );
   }
 
@@ -858,9 +811,7 @@ class _StepperButton extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: enabled
-                  ? AppColors.roseQuartz
-                  : AppColors.textDisabled,
+              color: enabled ? AppColors.roseQuartz : AppColors.textDisabled,
             ),
             const SizedBox(width: 6),
             Flexible(
@@ -899,9 +850,7 @@ class _LandscapeBackButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.inkDeep.withValues(alpha: 0.85),
           shape: BoxShape.circle,
-          border: Border.all(
-            color: AppColors.moonlight.withValues(alpha: 0.2),
-          ),
+          border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.2)),
         ),
         child: const Icon(
           Icons.arrow_back_rounded,

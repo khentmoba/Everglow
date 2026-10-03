@@ -33,21 +33,12 @@ Future<void> _pumpHome(
         body: CinemaHomeTab(
           isLoadingHome: false,
           trendingCarousel: const [],
-          topRatedMovies: const [],
           popularTVShows: const [],
-          nowShowing: const [],
           newlyReleased: const [],
-          popularMovies: const [],
-          topRatedTV: const [],
-          airingToday: const [],
-          onTheAir: const [],
-          discoveryRows: const {},
-          genreLists: const {},
           watchingList: const [],
-          watchedList: const [],
           trendingGlobal: trending,
           topTenToday: topTen,
-          onRefresh: () {},
+          onRefresh: () async {},
           onMediaTap: (_) {},
           onPlay: (_) {},
           onSwitchTab: (_) {},
@@ -59,40 +50,40 @@ Future<void> _pumpHome(
 }
 
 void main() {
-  testWidgets('Top 10 Today renders its own feed, not Trending Now again', (
+  testWidgets(
+    'Top 10 in the Philippines renders its own feed, not Trending Now again',
+    (tester) async {
+      final trending = List.generate(
+        12,
+        (i) => _fake('Global Hit ${i + 1}', 1000 + i),
+      );
+      final topTen = List.generate(
+        10,
+        (i) => _fake('PH Favorite ${i + 1}', 2000 + i),
+      );
+
+      await _pumpHome(tester, trending: trending, topTen: topTen);
+      expect(tester.takeException(), isNull);
+
+      expect(find.text('Trending Now'), findsOneWidget);
+      expect(find.text('Top 10 in the Philippines'), findsOneWidget);
+
+      // Each rail must be fed its own list — Top 10 mirroring Trending
+      // renders two identical rails back to back.
+      final rows = tester
+          .widgetList<NetflixRow>(find.byType(NetflixRow))
+          .toList();
+      expect(rows, hasLength(2));
+      expect(rows[0].items.map((m) => m.tmdbId), trending.map((m) => m.tmdbId));
+      expect(rows[0].ranked, isFalse);
+      expect(rows[1].items.map((m) => m.tmdbId), topTen.map((m) => m.tmdbId));
+      expect(rows[1].ranked, isTrue);
+    },
+  );
+
+  testWidgets('Top 10 in the Philippines hides when its feed is empty', (
     tester,
   ) async {
-    final trending = List.generate(
-      12,
-      (i) => _fake('Global Hit ${i + 1}', 1000 + i),
-    );
-    final topTen = List.generate(
-      10,
-      (i) => _fake('PH Favorite ${i + 1}', 2000 + i),
-    );
-
-    await _pumpHome(tester, trending: trending, topTen: topTen);
-    expect(tester.takeException(), isNull);
-
-    expect(find.text('Trending Now'), findsOneWidget);
-    expect(find.text('Top 10 Today'), findsOneWidget);
-
-    // Each rail must be fed its own list — Top 10 mirroring Trending
-    // renders two identical rails back to back.
-    final rows = tester
-        .widgetList<NetflixRow>(find.byType(NetflixRow))
-        .toList();
-    expect(rows, hasLength(2));
-    expect(
-      rows[0].items.map((m) => m.tmdbId),
-      trending.map((m) => m.tmdbId),
-    );
-    expect(rows[0].ranked, isFalse);
-    expect(rows[1].items.map((m) => m.tmdbId), topTen.map((m) => m.tmdbId));
-    expect(rows[1].ranked, isTrue);
-  });
-
-  testWidgets('Top 10 Today hides when its feed is empty', (tester) async {
     final trending = List.generate(
       12,
       (i) => _fake('Global Hit ${i + 1}', 1000 + i),
@@ -102,6 +93,6 @@ void main() {
     expect(tester.takeException(), isNull);
 
     expect(find.text('Trending Now'), findsOneWidget);
-    expect(find.text('Top 10 Today'), findsNothing);
+    expect(find.text('Top 10 in the Philippines'), findsNothing);
   });
 }

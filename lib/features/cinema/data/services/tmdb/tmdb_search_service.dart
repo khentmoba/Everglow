@@ -7,11 +7,17 @@ import 'tmdb_base.dart';
 /// TMDB search endpoints (multi-search and targeted TV/movie search).
 class TMDBSearchService with TMDBBase, ConnectivityAware {
   /// Search for movies and TV shows
-  Future<List<MediaItem>> searchMedia(String query) async {
+  /// Opt in to errors when the caller can offer a retry. Fallback callers
+  /// retain the historical empty-on-error behavior.
+  Future<List<MediaItem>> searchMedia(
+    String query, {
+    int page = 1,
+    bool failOnError = false,
+  }) async {
     if (query.isEmpty) return [];
 
     final url = Uri.parse(
-      '$tmdbBaseUrl/search/multi?query=${Uri.encodeComponent(query)}',
+      '$tmdbBaseUrl/search/multi?query=${Uri.encodeComponent(query)}&page=$page',
     );
 
     try {
@@ -32,6 +38,7 @@ class TMDBSearchService with TMDBBase, ConnectivityAware {
       }
     } catch (e) {
       Logger.e('TMDB Search Error', error: e);
+      if (failOnError) rethrow;
       return [];
     }
   }

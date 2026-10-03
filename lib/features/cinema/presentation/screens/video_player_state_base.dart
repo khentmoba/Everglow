@@ -1,6 +1,7 @@
 part of 'video_player_screen_web.dart';
 
-abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
+abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
+    with WidgetsBindingObserver {
   bool _isLoading = true;
 
   /// Set to true when the iframe fires `error`, returns no response
@@ -13,26 +14,22 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   Timer? _loadTimer;
   Timer? _contentCheckTimer;
   JSFunction? _messageListener;
-  Timer? _progressHeartbeatTimer;
+  final PlaybackProgressWriter _progressWriter = PlaybackProgressWriter();
+  final CinemaPreferences _preferences = CinemaPreferences.instance;
+  int _restoreRevision = 0;
+  int _memoryRevision = 0;
   int _playbackPositionSeconds = 0;
   int _playbackDurationSeconds = 0;
 
-  // Up Next state — Netflix-style "Next episode in 10..." flow for TV.
-  // Auto countdown triggers on real playback position (Videasy/VidLink)
-  // or on a runtime-estimate fallback timer for silent providers
-  // (Everglow/CineSrc). The persistent Next pill shows whenever
-  // [_nextEpisode] exists so Clair never has to back out to pick it.
+  // Opt-in autoplay requires trusted completion. Silent embeds keep manual Next.
   NextEpisode? _nextEpisode;
   bool _upNextVisible = false;
   int _upNextLeft = 10;
   Timer? _upNextTimer;
-  Timer? _upNextFallbackTimer;
   bool _upNextDismissed = false;
-  bool _hasRealProgress = false;
   bool _autoFullscreen = false;
   final NextEpisodeService _nextService = NextEpisodeService();
   static const int _upNextCountdownSeconds = 10;
-  static const int _upNextLeadSeconds = 90;
 
   /// Tracks whether we've saved the initial "watching" status for this
   /// playback session so we don't spam Firestore on every rebuild.
@@ -130,6 +127,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _preferences.addListener(_onPreferencesChanged);
     // Restore this title's last-used server (or the saved global default),
     // falling back to the first recommended source from the service.
     final srcList = _selectableProviders;
@@ -138,6 +137,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         : _sourceService.defaultSource;
     _resolvedStartSeconds = widget.startSeconds;
     _currentUserName = context.read<AuthService>().currentUser ?? '';
+    unawaited(_preferences.setUser(_currentUserName));
     _restoreFuture = _restorePlayerMemory();
 
     // Listen for provider list updates from Firestore. If the iframe
@@ -210,7 +210,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _currentEpisode = widget.episode ?? 1;
     _playbackPositionSeconds = widget.startSeconds ?? 0;
     _resolveNextEpisode();
-    _scheduleUpNextFallback(null);
 
     // For anime we don't have a TMDB id on the MediaItem — the slot
     // holds the MAL id. Resolve MAL→TMDB via ani.zip, then set the
@@ -270,7 +269,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// Rebuilds the iframe URL for the new episode and resets loading state.
   void _onEpisodeChanged(int episode) {
     if (episode == _currentEpisode) return;
-    _progressHeartbeatTimer?.cancel();
+    ++_restoreRevision;
+    unawaited(_progressWriter.flush());
     _resetUpNextForNewEpisode();
     _playbackPositionSeconds = 0;
     _playbackDurationSeconds = 0;
@@ -289,14 +289,14 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
     _resolveNextEpisode();
-    _scheduleUpNextFallback(null);
     _persistPlayerMemory(resetPosition: true);
   }
 
   /// Called when the user picks a different season from [EpisodeNavigator].
   void _onSeasonChanged(int season) {
     if (season == _currentSeason) return;
-    _progressHeartbeatTimer?.cancel();
+    ++_restoreRevision;
+    unawaited(_progressWriter.flush());
     _resetUpNextForNewEpisode();
     _playbackPositionSeconds = 0;
     _playbackDurationSeconds = 0;
@@ -316,7 +316,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
     _resolveNextEpisode();
-    _scheduleUpNextFallback(null);
     _persistPlayerMemory(resetPosition: true);
   }
 
@@ -349,29 +348,37 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     final tmdb = TMDBService();
     final status = _watchingStatusFor(userName);
 
-    tmdb.updateProgress(
-      MediaItem(
-        id: '',
-        tmdbId: widget.tmdbId,
-        title: widget.title,
-        mediaType: widget.mediaType,
-        posterPath: widget.posterPath,
-        status: status,
-        isAnime: widget.isAnime,
-        userName: userName,
-        addedAt: DateTime.now(),
-        source: widget.isAnime ? 'jikan' : 'tmdb',
+    final season = widget.mediaType == 'tv' ? _currentSeason : null;
+    final episode = widget.mediaType == 'tv' ? _currentEpisode : null;
+    final timestamp = _playbackPositionSeconds;
+    final duration = _playbackDurationSeconds > 0
+        ? _playbackDurationSeconds
+        : null;
+    unawaited(
+      _progressWriter.writeNow(
+        () => tmdb.updateProgress(
+          MediaItem(
+            id: '',
+            tmdbId: widget.tmdbId,
+            title: widget.title,
+            mediaType: widget.mediaType,
+            posterPath: widget.posterPath,
+            status: status,
+            isAnime: widget.isAnime,
+            userName: userName,
+            addedAt: DateTime.now(),
+            source: widget.isAnime ? 'jikan' : 'tmdb',
+          ),
+          userName,
+          // Movies don't have episode progress - write null so existing
+          // movie docs get their stale season/episode fields cleared.
+          season: season,
+          episode: episode,
+          timestamp: timestamp,
+          durationSeconds: duration,
+          status: status,
+        ),
       ),
-      userName,
-      // Movies don't have episode progress - write null so existing
-      // movie docs get their stale season/episode fields cleared.
-      season: widget.mediaType == 'tv' ? _currentSeason : null,
-      episode: widget.mediaType == 'tv' ? _currentEpisode : null,
-      timestamp: _playbackPositionSeconds,
-      durationSeconds: _playbackDurationSeconds > 0
-          ? _playbackDurationSeconds
-          : null,
-      status: status,
     );
     _persistPlayerMemory();
   }
@@ -412,7 +419,16 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         final msg = e as web.MessageEvent;
         final origin = msg.origin;
         final data = msg.data;
-        if (data == null) return;
+        if (data == null || msg.source != _iframe.contentWindow) return;
+        // All events must come from the active frame and its exact origin.
+        if (origin != Uri.parse(_iframe.src).origin) return;
+        final wrapperMessage = data.dartify();
+        if (_selectedProvider.id == 'everglow-embed' &&
+            wrapperMessage is Map &&
+            wrapperMessage['type'] == 'everglow-embed-failed') {
+          _onIframeLoadError();
+          return;
+        }
 
         // Videasy progress ticks (JSON string). Origin-checked inside
         // the parser — other providers stay silent here.
@@ -521,7 +537,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     if (!mounted || widget.mediaType != 'tv' || widget.isAnime) return;
     if (season <= 0 || episode <= 0) return;
     if (season == _currentSeason && episode == _currentEpisode) return;
-    _progressHeartbeatTimer?.cancel();
+    ++_restoreRevision;
+    unawaited(_progressWriter.flush());
     _resetUpNextForNewEpisode();
     _playbackPositionSeconds = 0;
     _playbackDurationSeconds = 0;
@@ -533,37 +550,54 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     // progress — with no reload we save explicitly instead.
     _saveWatchProgress();
     _resolveNextEpisode();
-    _scheduleUpNextFallback(null);
     _persistPlayerMemory(resetPosition: true);
   }
 
   void _startProgressHeartbeat() {
-    _progressHeartbeatTimer?.cancel();
-    _progressHeartbeatTimer = Timer(const Duration(seconds: 15), () async {
-      if (!mounted || _playbackPositionSeconds <= 0) return;
+    if (_currentUserName.isEmpty) return;
+    final user = _currentUserName;
+    final season = widget.mediaType == 'tv' ? _currentSeason : null;
+    final episode = widget.mediaType == 'tv' ? _currentEpisode : null;
+    final position = _playbackPositionSeconds;
+    final duration = _playbackDurationSeconds > 0
+        ? _playbackDurationSeconds
+        : null;
+    final provider = _selectedProvider.id;
+    final key = _memoryKey;
+    final memoryRevision = _memoryRevision;
+    _progressWriter.schedule(() async {
       await TMDBService().heartbeatProgress(
         widget.tmdbId,
-        _currentUserName,
-        season: widget.mediaType == 'tv' ? _currentSeason : null,
-        episode: widget.mediaType == 'tv' ? _currentEpisode : null,
-        timestamp: _playbackPositionSeconds,
-        durationSeconds: _playbackDurationSeconds > 0
-            ? _playbackDurationSeconds
-            : null,
+        user,
+        season: season,
+        episode: episode,
+        timestamp: position,
+        durationSeconds: duration,
       );
-      _persistPlayerMemory();
+      // A slow heartbeat must not overwrite newer local memory saved by
+      // an episode/source change or exit after this tick was scheduled.
+      if (!mounted || memoryRevision != _memoryRevision) return;
+      final currentSeason = widget.mediaType == 'tv' ? _currentSeason : null;
+      final currentEpisode = widget.mediaType == 'tv' ? _currentEpisode : null;
+      if (season != currentSeason ||
+          episode != currentEpisode ||
+          provider != _selectedProvider.id ||
+          key != _memoryKey) {
+        return;
+      }
+      await _memoryService.save(
+        key,
+        providerId: provider,
+        season: season,
+        episode: episode,
+        positionSeconds: position,
+      );
     });
   }
 
-  /// Central playback tick for Videasy + VidLink progress events.
-  /// Updates position/duration, keeps the Firestore heartbeat alive,
-  /// and triggers the Up Next countdown near the end of TV episodes.
+  /// Real progress replaces estimates; the throttle never restarts on a tick.
   void _onPlaybackTick(int position, int duration) {
     if (!mounted) return;
-    _hasRealProgress = true;
-    // Real position beats the runtime estimate — cancel the fallback
-    // so the countdown only fires once, on truthful data.
-    _upNextFallbackTimer?.cancel();
     if (position != _playbackPositionSeconds ||
         duration != _playbackDurationSeconds) {
       setState(() {
@@ -573,6 +607,21 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       _startProgressHeartbeat();
     }
     _checkUpNext();
+  }
+
+  void _onPreferencesChanged() {
+    if (!mounted) return;
+    if (!_preferences.autoplayNext && _upNextVisible) _cancelUpNext();
+    setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _startProgressHeartbeat();
+      _persistPlayerMemory();
+      unawaited(_progressWriter.flush());
+    }
   }
 
   /// Resolves the episode after the current one for the Up Next card
@@ -592,41 +641,36 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     // Stale response (user zapped episodes mid-flight) — drop it.
     if (season != _currentSeason || episode != _currentEpisode) return;
     setState(() => _nextEpisode = next);
+    _checkUpNext();
   }
 
-  /// Schedules the runtime-estimate fallback that shows Up Next on
-  /// providers that never report position (Everglow/CineSrc). When
-  /// [runtimeMinutes] is null it is fetched from TMDB; unknown runtimes
-  /// default to 42 minutes. Cancelled as soon as real progress arrives.
-  Future<void> _scheduleUpNextFallback(int? runtimeMinutes) async {
-    _upNextFallbackTimer?.cancel();
-    if (widget.mediaType != 'tv' || widget.isAnime) return;
-    var minutes = runtimeMinutes;
-    minutes ??= await _nextService.fetchEpisodeRuntime(tmdbId: widget.tmdbId);
-    if (!mounted || _hasRealProgress) return;
-    final totalSeconds = (minutes ?? 42) * 60;
-    final delaySeconds = totalSeconds - _upNextLeadSeconds;
-    if (delaySeconds <= 10) return;
-    _upNextFallbackTimer = Timer(Duration(seconds: delaySeconds), () {
-      if (!mounted || _hasRealProgress) return;
-      _showUpNext();
-    });
-  }
-
-  /// Checks real playback position against the end of the episode.
-  /// Shows the countdown when 90 seconds (or less) remain.
+  /// Completion comes from the active player, never from elapsed time.
   void _checkUpNext() {
-    if (widget.mediaType != 'tv') return;
-    if (_upNextVisible || _upNextDismissed) return;
-    if (_nextEpisode == null) return;
-    final duration = _playbackDurationSeconds;
-    final position = _playbackPositionSeconds;
-    if (duration <= 60 || position <= 0) return;
-    final remaining = duration - position;
-    if (remaining <= _upNextLeadSeconds && remaining > 0) {
-      _showUpNext();
+    if (widget.mediaType != 'tv' || _nextEpisode == null) return;
+    final completed = shouldAutoplayNext(
+      enabled: _preferences.autoplayNext,
+      positionSeconds: _playbackPositionSeconds,
+      durationSeconds: _playbackDurationSeconds,
+    );
+    // Rewinding during the countdown hides it so replay isn't
+    // interrupted; reaching the end again re-triggers it.
+    if (_upNextVisible) {
+      if (!completed) {
+        _upNextTimer?.cancel();
+        if (mounted) setState(() => _upNextVisible = false);
+      }
+      return;
     }
+    if (_upNextDismissed) return;
+    if (completed) _showUpNext();
   }
+
+  NextEpisode get _safeNextEpisode => _preferences.hideSpoilers
+      ? NextEpisode(
+          season: _nextEpisode!.season,
+          episode: _nextEpisode!.episode,
+        )
+      : _nextEpisode!;
 
   void _showUpNext() {
     if (_upNextVisible || _upNextDismissed) return;
@@ -637,7 +681,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     });
     _upNextTimer?.cancel();
     _upNextTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
+      if (!mounted || !_preferences.autoplayNext) {
         timer.cancel();
         return;
       }
@@ -664,9 +708,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   void _playNextEpisode() {
     final next = _nextEpisode;
     if (next == null) return;
+    ++_restoreRevision;
     _upNextTimer?.cancel();
-    _upNextFallbackTimer?.cancel();
-    _progressHeartbeatTimer?.cancel();
+    unawaited(_progressWriter.flush());
     _hasSavedWatchProgress = false;
     // New episode starts from the beginning — same as
     // [_resetUpNextForNewEpisode], which this path inlines.
@@ -679,7 +723,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
       _upNextVisible = false;
       _upNextDismissed = false;
       _nextEpisode = null;
-      _hasRealProgress = false;
       _playbackPositionSeconds = 0;
       _playbackDurationSeconds = 0;
     });
@@ -693,7 +736,6 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     _applySandbox(_selectedProvider);
     _iframe.src = _buildPlayerUrl(_selectedProvider);
     _resolveNextEpisode();
-    _scheduleUpNextFallback(null);
   }
 
   /// Resets Up Next state when the episode changes by any other path
@@ -703,12 +745,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// new episode into the middle (or past its end).
   void _resetUpNextForNewEpisode() {
     _upNextTimer?.cancel();
-    _upNextFallbackTimer?.cancel();
     _hasSavedWatchProgress = false;
     _upNextVisible = false;
     _upNextDismissed = false;
     _nextEpisode = null;
-    _hasRealProgress = false;
     _resolvedStartSeconds = null;
   }
 
@@ -743,7 +783,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     if (cfg == null) return '';
     try {
       final uri = Uri.parse(cfg.movieUrl);
-      return '${uri.scheme}://${uri.host}';
+      return uri.origin;
     } catch (_) {
       return '';
     }
@@ -763,8 +803,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// Falls back to the saved global default server when the title has
   /// no memory yet (non-anime only — anime keeps its Videasy default).
   Future<void> _restorePlayerMemory() async {
+    final revision = _restoreRevision;
     final memory = await _memoryService.load(_memoryKey);
-    if (!mounted) return;
+    if (!mounted || revision != _restoreRevision) return;
     var needsReload = false;
 
     // Episode + position follow the account, not the device: what Clair
@@ -773,11 +814,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     final routeNamedSpot =
         widget.season != null ||
         widget.episode != null ||
-        (widget.startSeconds ?? 0) > 0;
+        widget.startSeconds != null;
     final saved = routeNamedSpot || _currentUserName.isEmpty
         ? null
         : await TMDBService().getSavedProgress(widget.tmdbId, _currentUserName);
-    if (!mounted) return;
+    if (!mounted || revision != _restoreRevision) return;
     // A finished title starts over instead of jumping to its credits.
     final live = saved == null || saved.isWatched ? null : saved;
     final cloudSeason = live?.currentSeason;
@@ -791,10 +832,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
         : _providerById(rememberedId);
     if (match == null && !widget.isAnime) {
       final savedId = await _sourceService.loadDefaultSourceId();
-      if (!mounted) return;
+      if (!mounted || revision != _restoreRevision) return;
       match = savedId == null ? null : _providerById(savedId);
     }
-    if (match != null && match.id != _selectedProvider.id) {
+    if (match != null &&
+        !_failedProviderIds.contains(match.id) &&
+        match.id != _selectedProvider.id) {
       _selectedProvider = match;
       _applySandbox(match);
       needsReload = true;
@@ -833,7 +876,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
     final resumeSeconds = cloudSameEpisode && cloudSeconds != null
         ? cloudSeconds
         : (localSameEpisode ? memory.positionSeconds : null);
-    if ((_resolvedStartSeconds == null || _resolvedStartSeconds == 0) &&
+    if (widget.startSeconds == null &&
+        _resolvedStartSeconds == null &&
         resumeSeconds != null &&
         resumeSeconds > 0) {
       _resolvedStartSeconds = resumeSeconds;
@@ -854,6 +898,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// Persists the current server/episode/position for this title so the
   /// next visit reopens exactly where Clair left off. Fire-and-forget.
   void _persistPlayerMemory({bool resetPosition = false}) {
+    ++_memoryRevision;
     _memoryService.save(
       _memoryKey,
       providerId: _selectedProvider.id,
@@ -883,6 +928,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// Find the next untried provider and switch to it. If every
   /// provider has been tried, show the error card.
   void _tryNextProvider() {
+    ++_restoreRevision;
+    _resolvedStartSeconds = _playbackPositionSeconds;
+    _cancelUpNext();
     final next = _selectableProviders.cast<VideoSourceConfig?>().firstWhere(
       (p) => !_failedProviderIds.contains(p!.id),
       orElse: () => null,
@@ -915,6 +963,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
   /// a fresh attempt.
   void _selectProvider(VideoSourceConfig provider) {
     if (provider.id == _selectedProvider.id) return;
+    ++_restoreRevision;
+    _resolvedStartSeconds = _playbackPositionSeconds;
+    _cancelUpNext();
     _failedProviderIds.clear();
     setState(() {
       _selectedProvider = provider;
@@ -1007,10 +1058,14 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _preferences.removeListener(_onPreferencesChanged);
+    _upNextTimer?.cancel();
+    _startProgressHeartbeat();
     _persistPlayerMemory();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
-    _progressHeartbeatTimer?.cancel();
+    unawaited(_progressWriter.flush());
     if (_serviceListener != null) {
       _sourceService.removeListener(_serviceListener!);
     }
