@@ -370,15 +370,18 @@ async function resolvePahe(base, titles, year, ep, audio) {
 
 /** Megavid upstream hosts. Restricted allowlist so the HLS proxy below
  *  can never become an open proxy. Playlists are served from Megavid's own
- *  domain (incl. cp.megavid.buzz), but every media segment streams from its
- *  CDN at cdn.api-webs.com — leaving that host out means the rewritten
- *  playlists point the browser straight at the CDN, whose responses carry
- *  no CORS headers, so playback stalls on every episode. */
+ *  domain (incl. cp.megavid.buzz), and its current video CDN at
+ *  cdnx.aniwatchtv.site — leaving a media host out means rewritten
+ *  playlists point the browser straight at a CDN without CORS headers. */
 const MEGAVID_HOSTS = new Set(['megavid.buzz', 'cdn.api-webs.com']);
+const MEGAVID_EXACT_HOSTS = new Set(['cdnx.aniwatchtv.site']);
 
 function isMegavidHost(hostname) {
   const h = String(hostname || '').toLowerCase();
-  return [...MEGAVID_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
+  return (
+    MEGAVID_EXACT_HOSTS.has(h) ||
+    [...MEGAVID_HOSTS].some((a) => h === a || h.endsWith(`.${a}`))
+  );
 }
 
 /** Resolves a possibly-relative playlist URI against its playlist URL. */
