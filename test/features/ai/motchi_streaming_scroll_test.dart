@@ -246,7 +246,13 @@ void main() {
         if (width == 320) {
           await tester.tap(find.byTooltip('Add to message'));
           await tester.pumpAndSettle();
-          await tester.tap(find.text('Canvas'));
+          await tester.tap(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is CheckedPopupMenuItem<String> &&
+                  widget.value == 'canvas',
+            ),
+          );
           await tester.pumpAndSettle();
           expect(
             find.byTooltip('Canvas: on — tap to turn off'),
@@ -275,6 +281,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // Browser CI otherwise reports only "See exception logs above".
+    final originalOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      debugPrintSynchronously(details.toString());
+      originalOnError?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = originalOnError);
     final ai = _InteractionAIService();
     await tester.pumpWidget(
       MultiProvider(
@@ -295,7 +308,12 @@ void main() {
     await tester.tap(find.byTooltip('Add to message'));
     await tester.pumpAndSettle();
     expect(find.text('Attach images'), findsOneWidget);
-    await tester.tap(find.text('Canvas'));
+    await tester.tap(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is CheckedPopupMenuItem<String> && widget.value == 'canvas',
+      ),
+    );
     await tester.pumpAndSettle();
     final field = find.byType(TextField).first;
     await tester.enterText(field, 'A quiet evening');
