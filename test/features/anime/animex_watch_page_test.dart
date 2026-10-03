@@ -226,8 +226,7 @@ void main() {
       expect(servers[0].available, isTrue);
       expect(
         servers[0].urlBuilder(1, 'sub'),
-        'https://everglow-1c6db.web.app/embed.html'
-        '?tmdbId=37854&type=tv&s=1&e=1',
+        'https://megaplay.buzz/stream/ani/21/1/sub',
       );
 
       // Megavid plays through our ad-free resolver, never the
@@ -240,13 +239,12 @@ void main() {
         '?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
-      // AniXo was removed: a bot-gated relay over MegaPlay with its own
-      // popunder ad tag. MegaPlay stays last as the ad-heavy fallback.
-      expect(servers[2].name, 'MegaPlay');
+      expect(servers[2].name, 'CineSrc');
       expect(servers[2].available, isTrue);
       expect(
         servers[2].urlBuilder(1, 'sub'),
-        'https://megaplay.buzz/stream/ani/21/1/sub',
+        'https://everglow-1c6db.web.app/embed.html'
+        '?tmdbId=37854&type=tv&s=1&e=1',
       );
     });
 
@@ -272,6 +270,12 @@ void main() {
       );
       expect(servers.length, 3);
 
+      expect(servers[0].name, 'Everglow');
+      expect(
+        servers[0].urlBuilder(3, 'sub'),
+        'https://megaplay.buzz/stream/mal/52991/3/sub',
+      );
+
       expect(servers[1].name, 'Megavid');
       expect(
         servers[1].urlBuilder(3, 'sub'),
@@ -279,24 +283,16 @@ void main() {
         '?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
-      expect(servers[2].name, 'MegaPlay');
+      expect(servers[2].name, 'CineSrc');
       expect(
         servers[2].urlBuilder(3, 'sub'),
-        'https://megaplay.buzz/stream/mal/52991/3/sub',
-      );
-
-      expect(servers[0].name, 'Everglow');
-      expect(
-        servers[0].urlBuilder(3, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=209867&type=tv&s=1&e=3',
       );
 
       // AniList-only routes still get every AniList-keyed server.
+      expect(servers[0].available, isTrue);
       expect(servers[1].available, isTrue);
-      expect(servers[1].name, 'Megavid');
-      expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'MegaPlay');
       expect(servers[2].available, isTrue);
     });
 
@@ -313,24 +309,24 @@ void main() {
       );
 
       expect(
-        servers[0].urlBuilder(1, 'sub'),
+        servers[2].urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=2&e=1',
       );
       expect(
-        servers[0].urlBuilder(2, 'sub'),
+        servers[2].urlBuilder(2, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=2&e=2',
       );
       // Episodes without a slot fall back to season 1 and the number itself.
       expect(
-        servers[0].urlBuilder(3, 'sub'),
+        servers[2].urlBuilder(3, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=1429&type=tv&s=1&e=3',
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'Megavid', 'MegaPlay'],
+        ['Everglow', 'Megavid', 'CineSrc'],
       );
     });
 
@@ -341,11 +337,11 @@ void main() {
       );
 
       expect(servers[0].name, 'Everglow');
-      expect(servers[0].available, isFalse);
+      expect(servers[0].available, isTrue);
       expect(servers[1].name, 'Megavid');
       expect(servers[1].available, isTrue);
-      expect(servers[2].name, 'MegaPlay');
-      expect(servers[2].available, isTrue);
+      expect(servers[2].name, 'CineSrc');
+      expect(servers[2].available, isFalse);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -365,10 +361,10 @@ void main() {
         isMovie: true,
       );
       expect(servers.length, 3);
-      expect(servers[0].name, 'Everglow');
-      expect(servers[0].available, isTrue);
+      expect(servers[2].name, 'CineSrc');
+      expect(servers[2].available, isTrue);
       expect(
-        servers[0].urlBuilder(1, 'sub'),
+        servers[2].urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=877957&type=movie',
       );
@@ -379,7 +375,7 @@ void main() {
         tmdbId: 37854,
       );
       expect(
-        series[0].urlBuilder(1, 'sub'),
+        series[2].urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
@@ -574,8 +570,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      // Fresh visits open on Everglow even though MegaPlay sits at the
-      // stale pre-load index — this used to stick Clair on MegaPlay.
+      // Fresh visits open on Everglow.
       expect(
         AnimeXWatchPage.defaultServerIndex(servers),
         0,
@@ -584,9 +579,24 @@ void main() {
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
-          rememberedServer: 'MegaPlay',
+          rememberedServer: 'CineSrc',
         ),
         2,
+      );
+      expect(
+        AnimeXWatchPage.defaultServerIndex(
+          servers,
+          rememberedServer: 'Megavid',
+        ),
+        1,
+      );
+      // Saved 'MegaPlay' normalizes to 'Everglow'.
+      expect(
+        AnimeXWatchPage.defaultServerIndex(
+          servers,
+          rememberedServer: 'MegaPlay',
+        ),
+        0,
       );
       // A remembered server that no longer exists (AniXo, VidLink)
       // falls back to Everglow, never to a dead entry.
@@ -597,17 +607,17 @@ void main() {
         ),
         0,
       );
-      // Without a TMDB mapping Everglow hides, so fresh visits open
-      // on the ad-free Megavid resolver instead of MegaPlay.
-      final noTmdb = AnimeXWatchPage.buildServers(
-        anilistId: 21,
-        malId: 21,
+      // When only CineSrc is available (e.g. no AniList or MAL source):
+      final tmdbOnly = AnimeXWatchPage.buildServers(
+        anilistId: null,
+        malId: 0,
+        tmdbId: 37854,
       );
       expect(
-        AnimeXWatchPage.defaultServerIndex(noTmdb),
-        1,
+        AnimeXWatchPage.defaultServerIndex(tmdbOnly),
+        2,
       );
-      expect(noTmdb[1].name, 'Megavid');
+      expect(tmdbOnly[2].name, 'CineSrc');
       // Nothing available yet — index 0 until _load resolves.
       final none = AnimeXWatchPage.buildServers(
         anilistId: null,
@@ -751,8 +761,11 @@ void main() {
       expect(AnimeXWatchPage.normalizeServerName('Server 2'), 'VidLink');
       expect(AnimeXWatchPage.normalizeServerName('Server 3'), 'Megavid');
       // Prior spellings map forward so remembered choices survive.
-      expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'MegaPlay');
+      expect(AnimeXWatchPage.normalizeServerName('Mega Play'), 'Everglow');
+      expect(AnimeXWatchPage.normalizeServerName('MegaPlay'), 'Everglow');
       expect(AnimeXWatchPage.normalizeServerName('Anixo'), 'AniXo');
+      expect(AnimeXWatchPage.normalizeServerName('CineSrc'), 'CineSrc');
+      expect(AnimeXWatchPage.normalizeServerName('Everglow'), 'Everglow');
       // Server 4 (Anivexa) was removed — the legacy name stays unmapped
       // so an old saved preference renders as its raw string, never as
       // a server that no longer exists.
@@ -894,13 +907,13 @@ void main() {
       // Sep 2026, and AniXo is a bot-gated relay over MegaPlay.
       expect(find.text('VidLink'), findsNothing);
       expect(find.text('AniXo'), findsNothing);
-      // No TMDB mapping resolves in tests, so Everglow hides and the
-      // visible row matches the Megavid / MegaPlay order.
+      // No TMDB mapping resolves in tests, so CineSrc hides and the
+      // visible row matches the Everglow / Megavid order.
+      expect(find.text('Everglow'), findsOneWidget);
       expect(find.text('Megavid'), findsOneWidget);
-      expect(find.text('MegaPlay'), findsOneWidget);
-      // The Everglow wrapper is TMDB-keyed; ani.zip can't resolve an id
+      // The CineSrc wrapper is TMDB-keyed; ani.zip can't resolve an id
       // in tests, so the option stays hidden.
-      expect(find.text('Everglow'), findsNothing);
+      expect(find.text('CineSrc'), findsNothing);
       expect(find.text('SUB'), findsOneWidget);
       expect(find.text('DUB'), findsOneWidget);
 
@@ -1485,10 +1498,10 @@ void main() {
         episodeSlots: {1: (season: 1, episode: 12)},
       );
       expect(
-        servers.last.urlBuilder(1, 'sub'),
+        servers.first.urlBuilder(1, 'sub'),
         'https://megaplay.buzz/stream/ani/127720/1/sub',
       );
-      expect(servers.first.urlBuilder(1, 'sub'), contains('&s=1&e=12'));
+      expect(servers.last.urlBuilder(1, 'sub'), contains('&s=1&e=12'));
     });
 
     test('episode list keeps unknown counts and fills missing metadata', () {
