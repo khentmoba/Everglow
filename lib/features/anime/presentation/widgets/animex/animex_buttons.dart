@@ -161,6 +161,7 @@ class AnimeXSecondaryButton extends StatelessWidget {
 class AnimeXGhostButton extends StatelessWidget {
   final String label;
   final IconData? icon;
+  final Widget? iconWidget;
   final Color color;
   final VoidCallback? onTap;
 
@@ -168,6 +169,7 @@ class AnimeXGhostButton extends StatelessWidget {
     super.key,
     required this.label,
     this.icon,
+    this.iconWidget,
     this.color = AnimeXTokens.textSecondary,
     this.onTap,
   });
@@ -188,7 +190,10 @@ class AnimeXGhostButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (icon != null) ...[
+            if (iconWidget != null) ...[
+              iconWidget!,
+              const SizedBox(width: 6),
+            ] else if (icon != null) ...[
               Icon(
                 icon,
                 size: 14,
@@ -306,14 +311,16 @@ class AnimeXLoginButton extends StatelessWidget {
 
 /// Small circular icon button (search, back).
 class AnimeXIconButton extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
   final String tooltip;
   final VoidCallback? onTap;
   final double size;
 
   const AnimeXIconButton({
     super.key,
-    required this.icon,
+    this.icon,
+    this.iconWidget,
     required this.tooltip,
     this.onTap,
     this.size = 34,
@@ -335,10 +342,13 @@ class AnimeXIconButton extends StatelessWidget {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
           ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: hover ? Colors.white : AnimeXTokens.textSecondary,
+          child: Center(
+            child: iconWidget ??
+                Icon(
+                  icon,
+                  size: 18,
+                  color: hover ? Colors.white : AnimeXTokens.textSecondary,
+                ),
           ),
         ),
       ),

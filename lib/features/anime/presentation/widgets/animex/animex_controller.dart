@@ -51,6 +51,22 @@ class AnimeXController extends ChangeNotifier {
   int? watchEpisode;
   String? playlistId;
   bool dmcaOpen = false;
+  bool motchiOpen = false;
+
+  void toggleMotchi() {
+    motchiOpen = !motchiOpen;
+    notifyListeners();
+  }
+
+  void openMotchi() {
+    motchiOpen = true;
+    notifyListeners();
+  }
+
+  void closeMotchi() {
+    motchiOpen = false;
+    notifyListeners();
+  }
 
   // Browse-page preset applied when navigating from a "View All" link.
   String? browseSort;
@@ -241,6 +257,7 @@ class AnimeXController extends ChangeNotifier {
     watchEpisode = episode;
     playlistId = null;
     dmcaOpen = false;
+    motchiOpen = false;
     notifyListeners();
   }
 
@@ -262,6 +279,7 @@ class AnimeXController extends ChangeNotifier {
     watchItem = null;
     playlistId = null;
     dmcaOpen = false;
+    motchiOpen = false;
     notifyListeners();
   }
 

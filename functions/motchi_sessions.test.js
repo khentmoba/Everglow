@@ -171,3 +171,59 @@ test('recordMotchiTurn updates existing session on subsequent turns', async () =
     common.getAdmin = originalGetAdmin;
   }
 });
+
+test('recordMotchiTurn skips persistence when temporary is true', async () => {
+  let touchedDb = false;
+  const fakeDb = {
+    collection: () => {
+      touchedDb = true;
+      throw new Error('should not touch database for temporary session');
+    },
+  };
+  const originalGetDb = common.getDb;
+  common.getDb = () => fakeDb;
+
+  try {
+    const returnedId = await recordMotchiTurn({
+      sessionId: 'sess_live_123',
+      caller: 'clairjassen',
+      feature: 'assistant',
+      userMessage: 'Recommend an anime',
+      assistantReply: 'Frieren is amazing!',
+      temporary: true,
+    });
+
+    assert.equal(returnedId, 'sess_live_123');
+    assert.equal(touchedDb, false, 'Firestore should not be accessed when temporary is true');
+  } finally {
+    common.getDb = originalGetDb;
+  }
+});
+
+test('recordMotchiTurn skips persistence when sessionId starts with temp_', async () => {
+  let touchedDb = false;
+  const fakeDb = {
+    collection: () => {
+      touchedDb = true;
+      throw new Error('should not touch database for temp_ session id');
+    },
+  };
+  const originalGetDb = common.getDb;
+  common.getDb = () => fakeDb;
+
+  try {
+    const returnedId = await recordMotchiTurn({
+      sessionId: 'temp_anime_123456789',
+      caller: 'clairjassen',
+      feature: 'assistant',
+      userMessage: 'Recommend an anime',
+      assistantReply: 'Frieren is amazing!',
+    });
+
+    assert.equal(returnedId, 'temp_anime_123456789');
+    assert.equal(touchedDb, false, 'Firestore should not be accessed when sessionId starts with temp_');
+  } finally {
+    common.getDb = originalGetDb;
+  }
+});
+

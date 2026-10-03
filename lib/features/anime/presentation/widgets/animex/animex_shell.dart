@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
+import '../../../../ai/domain/models/ai_conversation.dart';
+import '../../../../cinema/data/models/media_item.dart';
 import '../../../data/services/animex_stores.dart';
 
 import 'animex_browse_page.dart';
@@ -10,6 +12,7 @@ import 'animex_controller.dart';
 import 'animex_dmca_page.dart';
 import 'animex_history_page.dart';
 import 'animex_home_page.dart';
+import 'animex_motchi_sidebar.dart';
 import 'animex_mylist_page.dart';
 import 'animex_nav.dart';
 import 'animex_playlist_detail_page.dart';
@@ -35,7 +38,9 @@ class AnimeXShell extends StatefulWidget {
 
 class _AnimeXShellState extends State<AnimeXShell> {
   final AnimeXController _controller = AnimeXController();
+  final List<AIMessage> _motchiMessages = [];
   String? _lastUser;
+  MediaItem? _lastWatchItem;
 
   @override
   void initState() {
@@ -59,6 +64,8 @@ class _AnimeXShellState extends State<AnimeXShell> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isHeaderDesktop = size.width >= 768;
+    final isCoupleUser =
+        context.select<AuthService, bool>((a) => a.isCoupleUser);
     // If the profile changed while the shell is mounted (logout/login on
     // the same PWA), reload both the per-user history store and the
     // per-user watchlist stream so no data bleeds across profiles.
@@ -100,12 +107,22 @@ class _AnimeXShellState extends State<AnimeXShell> {
                           ? AnimeXDmcaPage(controller: _controller)
                           : null));
 
+          final isWatchingAnime = _controller.watchItem != null;
+          if (_lastWatchItem != _controller.watchItem) {
+            _lastWatchItem = _controller.watchItem;
+            _motchiMessages.clear();
+          }
+
           Widget buildAnimeContent() {
             return Column(
               children: [
                 AnimeXTopHeader(
                   controller: _controller,
                   onSearch: () => _controller.goTo(AnimexPage.search),
+                  onMotchiToggle: isCoupleUser && isWatchingAnime
+                      ? _controller.toggleMotchi
+                      : null,
+                  isMotchiOpen: _controller.motchiOpen,
                 ),
                 Expanded(
                   child: Stack(
@@ -121,6 +138,24 @@ class _AnimeXShellState extends State<AnimeXShell> {
                             color: AnimeXTokens.bg,
                             child: detailChild,
                           ),
+                        ),
+                      // Floating trigger: ONLY when actually watching an anime
+                      if (isCoupleUser && isWatchingAnime && !_controller.motchiOpen)
+                        Positioned(
+                          bottom: 20,
+                          right: 18,
+                          child: AnimeXMotchiFloatingTrigger(
+                            onTap: _controller.openMotchi,
+                          ),
+                        ),
+                      // Motchi Sidebar: ONLY when actually watching an anime
+                      if (isCoupleUser && isWatchingAnime)
+                        AnimeXMotchiSidebar(
+                          isOpen: _controller.motchiOpen,
+                          onClose: _controller.closeMotchi,
+                          controller: _controller,
+                          messages: _motchiMessages,
+                          onClear: () => _motchiMessages.clear(),
                         ),
                     ],
                   ),

@@ -14,11 +14,15 @@ import 'animex_tokens.dart';
 class AnimeXTopHeader extends StatelessWidget {
   final AnimeXController controller;
   final VoidCallback onSearch;
+  final VoidCallback? onMotchiToggle;
+  final bool isMotchiOpen;
 
   const AnimeXTopHeader({
     super.key,
     required this.controller,
     required this.onSearch,
+    this.onMotchiToggle,
+    this.isMotchiOpen = false,
   });
 
   @override
@@ -116,6 +120,78 @@ class AnimeXTopHeader extends StatelessWidget {
                   tooltip: 'Search',
                   onTap: onSearch,
                 ),
+                if (isCoupleUser && controller.watchItem != null && onMotchiToggle != null) ...[
+                  if (isDesktop) ...[
+                    const SizedBox(width: 4),
+                    AnimeXGhostButton(
+                      label: 'Motchi',
+                      iconWidget: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isMotchiOpen
+                                ? AppColors.blushGold
+                                : AppColors.blushGold.withValues(alpha: 0.6),
+                            width: 1.2,
+                          ),
+                          boxShadow: isMotchiOpen
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.blushGold.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/motchi_avatar.webp',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      color: isMotchiOpen
+                          ? AppColors.blushGold
+                          : AnimeXTokens.textPrimary,
+                      onTap: onMotchiToggle,
+                    ),
+                  ] else ...[
+                    const SizedBox(width: 2),
+                    AnimeXIconButton(
+                      iconWidget: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isMotchiOpen
+                                ? AppColors.blushGold
+                                : AppColors.blushGold.withValues(alpha: 0.6),
+                            width: 1.2,
+                          ),
+                          boxShadow: isMotchiOpen
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.blushGold.withValues(alpha: 0.45),
+                                    blurRadius: 8,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/motchi_avatar.webp',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      tooltip: 'Motchi Chat',
+                      onTap: onMotchiToggle,
+                    ),
+                  ],
+                ],
                 if (isDesktop) ...[
                   const SizedBox(width: 4),
                   AnimeXGhostButton(

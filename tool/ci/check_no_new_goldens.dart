@@ -35,7 +35,8 @@ Future<void> main() async {
     }
   }
   for (final t in tagged) {
-    if (!allowedGolden.contains(t)) {
+    final normPath = t.replaceAll('\\', '/');
+    if (!allowedGolden.contains(normPath)) {
       failures.add(
         '$t: new golden-tagged test. Goldens are excluded from CI and '
         'cannot gate PRs — write a behavioral test instead (see '

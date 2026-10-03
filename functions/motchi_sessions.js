@@ -36,7 +36,11 @@ async function recordMotchiTurn({
   error = null,
   imageCount = 0,
   requestTrace = null,
+  temporary = false,
 }) {
+  if (temporary || (typeof sessionId === 'string' && (sessionId.startsWith('temp_') || sessionId === 'temporary'))) {
+    return sessionId || null;
+  }
   try {
     const db = common.getDb();
     const admin = common.getAdmin();

@@ -181,7 +181,7 @@ async function handleProxyAI(req, res) {
 
   const {
     messages, context, systemPrompt: customSystemPrompt, feature,
-    caller: clientCaller, enableThinking, canvas, sessionId,
+    caller: clientCaller, enableThinking, canvas, sessionId, temporary,
   } = req.body;
   const turnTools = [];
   const steps = [];
@@ -1043,6 +1043,7 @@ ${HTML_GAME_GUIDE}
               tools: turnTools, model, requestTrace,
               durationMs: Date.now() - requestStartedAt,
               error: lastFetchError || `Provider HTTP ${streamResp?.status}`,
+              temporary: Boolean(temporary),
             }).catch(() => {});
             sendEvent({ tool_status: 'done' });
             sendEvent('[DONE]');
@@ -1355,6 +1356,7 @@ ${HTML_GAME_GUIDE}
         durationMs: Date.now() - requestStartedAt,
         error: null,
         imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
+        temporary: Boolean(temporary),
       }).catch(() => {});
     } catch (e) {
       console.warn('proxyAI streaming error:', e.message);
@@ -1376,6 +1378,7 @@ ${HTML_GAME_GUIDE}
         durationMs: Date.now() - requestStartedAt,
         error: e.message,
         imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
+        temporary: Boolean(temporary),
       }).catch(() => {});
     } finally {
       stopKeepalive();
@@ -1567,6 +1570,7 @@ ${HTML_GAME_GUIDE}
     durationMs: Date.now() - requestStartedAt,
     error: null,
     imageCount: (messages.filter((m) => m && m.role === 'user').pop()?.imageUrls || []).length,
+    temporary: Boolean(temporary),
   }).catch(() => {});
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
