@@ -1275,18 +1275,26 @@ ${HTML_GAME_GUIDE}
       // Post-loop repair: the repeat-guard break and the 8-round cap
       // above both exit with no in-loop nudge, so a preamble like
       // "Let me save the standouts:" can reach Clair with no list.
+      // Also handles empty replies where the model only ran tool calls
+      // (or circled on repeat tool calls) without generating text.
       // Mirror the non-streaming path: one final text-only call whose
       // content streams after the preamble as one finished reply.
-      const needsPostLoopRepair = !didDanglingRepair &&
+      const needsEmptyRepair = !_streamedFinalReply.trim() && llmCalls < MAX_LLM_CALLS_PER_MESSAGE;
+      const needsPostLoopRepair = (!didDanglingRepair &&
         endsWithDanglingColon(_streamedFinalReply) &&
-        llmCalls < MAX_LLM_CALLS_PER_MESSAGE;
+        llmCalls < MAX_LLM_CALLS_PER_MESSAGE) || needsEmptyRepair;
       if (needsPostLoopRepair) {
         didDanglingRepair = true;
         requestTrace.repairs++;
         llmCalls++;
         requestTrace.modelCalls++;
         if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
-        currentMessages.push({ role: 'user', content: DANGLING_REPLY_NUDGE });
+        currentMessages.push({
+          role: 'user',
+          content: needsEmptyRepair
+            ? 'Please answer the user directly and warmly in text based on what we have so far.'
+            : DANGLING_REPLY_NUDGE,
+        });
         sendEvent({ tool_status: 'repairing' });
         try {
           const repairResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {

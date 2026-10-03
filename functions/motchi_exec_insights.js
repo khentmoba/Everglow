@@ -7,6 +7,7 @@
  */
 
 const { computeInsights, generateTrivia, composeTodayRecap } = require('./motchi_core.js');
+const { fetchAniListAnime, fetchJikanAnime } = require('./motchi_exec_media.js');
 
 async function exec_get_relationship_insights(ctx, _args) {
     const [moodSnap, activitySnap] = await Promise.all([
@@ -95,9 +96,16 @@ async function exec_search_everglow(ctx, args) {
         return (d.docs || []).slice(0, 3).map(b => ({ title: b.title, authors: (b.author_name||[]).slice(0,2).join(', '), type: 'book' }));
       })(),
       (async () => {
-        const r = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=3&sfw=true`, { signal: AbortSignal.timeout(8000) });
-        const d = await r.json();
-        return (d.data || []).slice(0, 3).map(a => ({ title: a.title, type: 'anime', score: a.score }));
+        try {
+          const list = await fetchAniListAnime(query, 3);
+          if (list.length > 0) return list.map(a => ({ title: a.title, type: 'anime', score: a.score }));
+        } catch (_) {}
+        try {
+          const list = await fetchJikanAnime(query, 3);
+          return list.map(a => ({ title: a.title, type: 'anime', score: a.score }));
+        } catch (_) {
+          return [];
+        }
       })(),
       (async () => {
         const token = await ctx.getSpotifyAppToken();
