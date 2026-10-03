@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 
 import '../../data/services/tmdb_service.dart';
+import '../../data/services/cinema_preferences.dart';
 import 'episode_drawer_sections/episode_list_section.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -15,6 +16,8 @@ class EpisodeNavigator extends StatefulWidget {
   final int initialEpisode;
   final ValueChanged<int> onSeasonChanged;
   final ValueChanged<int> onEpisodeChanged;
+  final CinemaPreferences? preferences;
+  final TMDBService? tmdbService;
 
   const EpisodeNavigator({
     super.key,
@@ -23,6 +26,8 @@ class EpisodeNavigator extends StatefulWidget {
     required this.initialEpisode,
     required this.onSeasonChanged,
     required this.onEpisodeChanged,
+    this.preferences,
+    this.tmdbService,
   });
 
   @override
@@ -30,7 +35,9 @@ class EpisodeNavigator extends StatefulWidget {
 }
 
 class _EpisodeNavigatorState extends State<EpisodeNavigator> {
-  final TMDBService _tmdbService = TMDBService();
+  late final TMDBService _tmdbService = widget.tmdbService ?? TMDBService();
+  CinemaPreferences get _preferences =>
+      widget.preferences ?? CinemaPreferences.instance;
 
   late int _selectedSeason;
   late int _selectedEpisode;
@@ -39,8 +46,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
   bool _isLoadingSeasons = true;
   bool _isLoadingEpisodes = true;
   bool _expanded = false;
-
-
 
   @override
   void initState() {
@@ -94,75 +99,82 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Toggle bar
-        GestureDetector(
-          onTap: () => setState(() => _expanded = !_expanded),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0D0D14),
-              border: Border(
-                top: BorderSide(color: Colors.grey[900]!, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.list_rounded, color: Colors.white70, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  'Episodes',
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: Colors.white,
-                    fontSize: 13,
-                  ),
+    return ListenableBuilder(
+      listenable: _preferences,
+      builder: (context, _) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Toggle bar
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D0D14),
+                border: Border(
+                  top: BorderSide(color: Colors.grey[900]!, width: 1),
                 ),
-                if (!_isLoadingSeasons && _seasons.isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.list_rounded,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Episodes',
+                    style: AppTypography.outfitHeading.copyWith(
+                      color: Colors.white,
+                      fontSize: 13,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'S$_selectedSeason',
-                      style: AppTypography.outfitBold.copyWith(
-                        color: Colors.white54,
-                        fontSize: 10,
+                  ),
+                  if (!_isLoadingSeasons && _seasons.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
                       ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'S$_selectedSeason',
+                        style: AppTypography.outfitBold.copyWith(
+                          color: Colors.white54,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.expand_more_rounded,
+                      color: Colors.white54,
+                      size: 20,
                     ),
                   ),
                 ],
-                const Spacer(),
-                AnimatedRotation(
-                  turns: _expanded ? 0.5 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const Icon(
-                    Icons.expand_more_rounded,
-                    color: Colors.white54,
-                    size: 20,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-        // Expanded content
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: _buildContent(),
-          crossFadeState: _expanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 200),
-        ),
-      ],
+          // Expanded content
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: _buildContent(),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
     );
   }
 
@@ -258,11 +270,12 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                   final overview = ep['overview'] as String? ?? '';
                   final stillPath = ep['still_path'] as String?;
                   return EpisodeTile(
+                    key: ValueKey('${widget.tmdbId}/$_selectedSeason/$epNum'),
+                    hideSpoilers: _preferences.hideSpoilers,
                     epNum: epNum,
                     epName: name,
                     epOverview: overview,
-                    stillUrl:
-                        (stillPath != null && stillPath.isNotEmpty)
+                    stillUrl: (stillPath != null && stillPath.isNotEmpty)
                         ? TmdbImages.stillFor(stillPath)
                         : null,
                     selected: epNum == _selectedEpisode,

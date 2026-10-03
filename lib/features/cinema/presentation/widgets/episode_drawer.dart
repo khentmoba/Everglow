@@ -13,6 +13,7 @@ import '../../data/services/ani_zip_service.dart';
 import '../../../anime/data/services/anilist_service.dart';
 import '../../../anime/data/services/jikan_service.dart';
 import '../../data/services/tmdb_service.dart';
+import '../../data/services/cinema_preferences.dart';
 import '../../data/services/discord_share_service.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/everglow/everglow_button.dart';
@@ -54,6 +55,24 @@ class EpisodeDrawer extends StatefulWidget {
 
 class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   bool _isSharingDiscord = false;
+
+  Widget _buildEpisodeList() => ListenableBuilder(
+    listenable: CinemaPreferences.instance,
+    builder: (context, _) => EpisodeListSection(
+      episodes: _episodes,
+      seasons: _seasons,
+      selectedSeasonNumber: _selectedSeasonNumber,
+      isLoadingEpisodes: _isLoadingEpisodes,
+      tmdbMatchedSeason: _tmdbMatchedSeason,
+      hideSpoilers:
+          widget.item.isCinemaItem && CinemaPreferences.instance.hideSpoilers,
+      onPlayEpisode: _playEpisode,
+      onSeasonChanged: (sn) {
+        setState(() => _selectedSeasonNumber = sn);
+        _fetchSeasonEpisodes(sn);
+      },
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -203,18 +222,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                       // Films never reach here (_isFilm true shows Play
                       // above). ONA-listed films like Drifting Home used to
                       // fall through and render fake Episode rows.
-                      EpisodeListSection(
-                        episodes: _episodes,
-                        seasons: _seasons,
-                        selectedSeasonNumber: _selectedSeasonNumber,
-                        isLoadingEpisodes: _isLoadingEpisodes,
-                        tmdbMatchedSeason: _tmdbMatchedSeason,
-                        onPlayEpisode: _playEpisode,
-                        onSeasonChanged: (sn) {
-                          setState(() => _selectedSeasonNumber = sn);
-                          _fetchSeasonEpisodes(sn);
-                        },
-                      ),
+                      _buildEpisodeList(),
                     ],
                   ),
                 ),
@@ -242,10 +250,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildExtraTabBody() {
     switch (_extraTab) {
       case 1:
-        return ReviewsSection(
-          reviews: _reviews,
-          isLoading: _isLoadingReviews,
-        );
+        return ReviewsSection(reviews: _reviews, isLoading: _isLoadingReviews);
       case 2:
         return SimilarSection(
           similar: _similar,
@@ -352,8 +357,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           // Khent/Clair semantics never leak.
           Builder(
             builder: (context) {
-              final isCouple =
-                  context.select<AuthService, bool>((a) => a.isCoupleUser);
+              final isCouple = context.select<AuthService, bool>(
+                (a) => a.isCoupleUser,
+              );
               final chips = isCouple
                   ? Row(
                       children: [
@@ -605,18 +611,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                         season: _selectedSeasonNumber,
                       ),
                     ),
-                    EpisodeListSection(
-                      episodes: _episodes,
-                      seasons: _seasons,
-                      selectedSeasonNumber: _selectedSeasonNumber,
-                      isLoadingEpisodes: _isLoadingEpisodes,
-                      tmdbMatchedSeason: _tmdbMatchedSeason,
-                      onPlayEpisode: _playEpisode,
-                      onSeasonChanged: (sn) {
-                        setState(() => _selectedSeasonNumber = sn);
-                        _fetchSeasonEpisodes(sn);
-                      },
-                    ),
+                    _buildEpisodeList(),
                   ],
                 ),
               ),
@@ -749,8 +744,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildCinemaStatusArea() {
     return Builder(
       builder: (context) {
-        final isCouple =
-            context.select<AuthService, bool>((a) => a.isCoupleUser);
+        final isCouple = context.select<AuthService, bool>(
+          (a) => a.isCoupleUser,
+        );
         final chips = isCouple
             ? Row(
                 children: [
@@ -868,56 +864,56 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
         return GestureDetector(
           onTap: () => _updateStatus(status),
           child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    activeColor.withValues(alpha: 0.3),
-                    activeColor.withValues(alpha: 0.08),
-                  ],
-                )
-              : null,
-          color: isSelected ? null : AppColors.surfaceGlass,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: isSelected
-                ? activeColor.withValues(alpha: 0.9)
-                : AppColors.moonlight.withValues(alpha: 0.16),
-            width: 1.2,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: activeColor.withValues(alpha: 0.35),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 15,
-              color: isSelected ? activeColor : AppColors.mutedPurple,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: AppTypography.outfitHeading.copyWith(
-                color: isSelected ? Colors.white : AppColors.mutedPurple,
-                fontSize: 12.5,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: isSelected
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        activeColor.withValues(alpha: 0.3),
+                        activeColor.withValues(alpha: 0.08),
+                      ],
+                    )
+                  : null,
+              color: isSelected ? null : AppColors.surfaceGlass,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: isSelected
+                    ? activeColor.withValues(alpha: 0.9)
+                    : AppColors.moonlight.withValues(alpha: 0.16),
+                width: 1.2,
               ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: activeColor.withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        spreadRadius: -2,
+                      ),
+                    ]
+                  : null,
             ),
-          ],
-        ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 15,
+                  color: isSelected ? activeColor : AppColors.mutedPurple,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  label,
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: isSelected ? Colors.white : AppColors.mutedPurple,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -955,8 +951,9 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   Widget _buildDiscordShareButton({int? season, int? episode}) {
     return Builder(
       builder: (context) {
-        final isCouple =
-            context.select<AuthService, bool>((a) => a.isCoupleUser);
+        final isCouple = context.select<AuthService, bool>(
+          (a) => a.isCoupleUser,
+        );
         if (!isCouple) return const SizedBox.shrink();
         return EverglowButton.glass(
           label: _isSharingDiscord ? 'Sharing…' : 'Share to Discord',
@@ -1086,37 +1083,37 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
         return GestureDetector(
           onTap: () => _updateStatus(status),
           child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : AppColors.shimmerBase,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white
-                : AppColors.moonlight.withValues(alpha: 0.14),
-            width: 1.2,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isSelected ? Colors.black : AppColors.mutedPurple,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTypography.outfitHeading.copyWith(
-                color: isSelected ? Colors.black : AppColors.mutedPurple,
-                fontSize: 12,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeInOut,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              color: isSelected ? Colors.white : AppColors.shimmerBase,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isSelected
+                    ? Colors.white
+                    : AppColors.moonlight.withValues(alpha: 0.14),
+                width: 1.2,
               ),
             ),
-          ],
-        ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: isSelected ? Colors.black : AppColors.mutedPurple,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: AppTypography.outfitHeading.copyWith(
+                    color: isSelected ? Colors.black : AppColors.mutedPurple,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
