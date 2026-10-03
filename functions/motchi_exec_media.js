@@ -274,17 +274,15 @@ async function exec_search_anime(ctx, args) {
     try {
       anime = await fetchAniListAnime(queryRaw, 5);
     } catch (_) {
+      // AniList unavailable; fall through to Jikan fallback
+    }
+
+    if (anime.length === 0) {
       try {
         anime = await fetchJikanAnime(queryRaw, 5);
       } catch (_) {
-        anime = [];
+        // Jikan unavailable as well; leave anime empty
       }
-    }
-
-    if (!anime.length) {
-      try {
-        anime = await fetchJikanAnime(queryRaw, 5);
-      } catch (_) {}
     }
 
     if (anime.length > 0) {
