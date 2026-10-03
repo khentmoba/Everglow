@@ -2,9 +2,10 @@
 
 const net = require('net');
 const dns = require('dns').promises;
+const { trustedProfileUsername } = require('./auth_core.js');
 
 /** Mirrors `pubspec.yaml` / `lib/core/system/app_version.dart`. */
-const APP_VERSION = '6.0.0+1';
+const APP_VERSION = '6.1.0+1';
 
 /** Lazy require+init so Firebase deploy analysis doesn't time out.
  *  admin_compat restores the legacy namespace API (admin.auth(),
@@ -96,29 +97,16 @@ function isAllowedBookTextUrl(url) {
   return allowed;
 }
 
-/** Verified caller cache — maps Firebase UID -> {username, ts} (5m TTL). */
-const _verifiedCallerCache = new Map();
-const VERIFIED_CALLER_TTL_MS = 5 * 60 * 1000;
-
-/**
- * Resolve the trusted username for a verified Firebase Auth token.
- * Uses `users/{uid}.username` (written by AuthService._syncUserDoc) and
- * caches for 5 minutes. Returns null if not found or on error.
- */
+/** Resolve couple identity from the verified token, never a client profile. */
 async function getVerifiedUsername(decoded) {
-  if (!decoded || !decoded.uid) return null;
-  const cached = _verifiedCallerCache.get(decoded.uid);
-  if (cached && (Date.now() - cached.ts) < VERIFIED_CALLER_TTL_MS) {
-    return cached.username;
-  }
+  if (!decoded?.uid || decoded.firebase?.sign_in_provider === 'anonymous') return null;
+  const signed = trustedProfileUsername(decoded);
+  if (signed) return signed;
   try {
     const snap = await getAdmin().firestore().collection('users').doc(decoded.uid).get();
     if (snap.exists) {
       const username = (snap.data()?.username || '').toString().trim().toLowerCase();
-      if (username) {
-        _verifiedCallerCache.set(decoded.uid, { username, ts: Date.now() });
-        return username;
-      }
+      return trustedProfileUsername(decoded, username);
     }
   } catch (e) {
     console.warn('[auth] getVerifiedUsername lookup failed:', e.message);
@@ -164,7 +152,7 @@ function _setExternalCache(key, data) {
 // Per-instance sliding-window counters. Each Cloud Functions instance
 // keeps its own map, so this is not a hard global cap — but it stops
 // single-client floods and bot loops cheaply with zero Firestore cost.
-// Expensive endpoints (proxyAI, agnesImage) additionally use the
+// Expensive endpoints (proxyAI) additionally use the
 // Firestore-backed daily caps below, which hold across instances.
 const _rateBuckets = new Map();
 const RATE_LIMIT_MAX_BUCKETS = 2000;
@@ -195,17 +183,16 @@ function rateLimitHit(key, limit, windowMs, now = Date.now()) {
 }
 
 /**
- * Best-effort client IP behind Google's frontend. `req.ip` here is the
- * load balancer, not the caller — the first X-Forwarded-For hop is the
- * real client. Authed endpoints key by UID instead, so a spoofed header
- * can only move an anonymous caller between IP buckets, never dodge
- * the UID limits on the expensive endpoints.
+ * Google's load balancer appends client-ip, load-balancer-ip to XFF.
+ * Everything before that trusted suffix can be supplied by the caller.
+ * https://cloud.google.com/load-balancing/docs/https#x-forwarded-for_header
  */
 function clientIp(req) {
-  const fwd = (req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '').toString();
-  const first = fwd.split(',')[0].trim();
-  const ip = ((first || req.ip || 'unknown').toString().trim() || 'unknown').slice(0, 64);
-  return ip;
+  const fwd = String(req.get('X-Forwarded-For') || req.headers['x-forwarded-for'] || '');
+  const hops = fwd.split(',').map((hop) => hop.trim());
+  const client = hops.length >= 2 ? hops.at(-2) : req.ip;
+  if (net.isIP(client || '')) return client;
+  return net.isIP(req.ip || '') ? req.ip : 'unknown';
 }
 
 /**

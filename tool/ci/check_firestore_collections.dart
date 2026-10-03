@@ -15,13 +15,9 @@
 //
 // Usage: dart tool/ci/check_firestore_collections.dart
 // Runs from the repo root; exit 0 = pass, exit 1 = fail with details.
-import 'dart:convert';
 import 'dart:io';
 
-// Lenient read: one non-UTF8 source file (extended-ASCII) must not break
-// the scan; all markers we look for are ASCII.
-Future<String> readTolerant(File f) =>
-    f.readAsBytes().then((b) => utf8.decode(b, allowMalformed: true));
+import '_io.dart';
 
 Future<void> main() async {
   final failures = <String>[];

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import 'motion.dart';
+import '../../../core/theme/app_motion.dart';
 
 /// Consistent section header used across the four inside screens
 /// (Cinema, Anime, Books, Manga). Composes a small uppercase eyebrow,
@@ -163,8 +163,8 @@ class _SeeAllChipState extends State<_SeeAllChip> {
           child: GestureDetector(
             onTap: widget.onTap,
             child: AnimatedContainer(
-              duration: ShelfMotion.orZero(ShelfMotion.medium),
-              curve: ShelfMotion.easeOutStrong,
+              duration: AppMotion.orZero(AppMotion.medium),
+              curve: AppMotion.easeOutStrong,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: _hovered

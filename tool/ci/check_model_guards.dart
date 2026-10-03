@@ -3,7 +3,8 @@
 // surface — GardenStats hard-cast on lastVisit (4d83936), gallery photo
 // with text tags / string coords throwing mid-stream (5a0477f), chat
 // month-day padding and bad timestamps (bd505ea), mood check-in retry
-// (b24eca9).
+// (b24eca9), canvas stroke hard-cast on points bricking the shared
+// canvas for both partners (this sweep).
 //
 // Rule: the pinned guard tests below must exist and must exercise bad
 // input (null / wrong-type markers). Deleting or hollowing them fails
@@ -11,18 +12,15 @@
 // test with null + garbage cases and pin it here.
 //
 // Usage: dart tool/ci/check_model_guards.dart
-import 'dart:convert';
 import 'dart:io';
 
-// Lenient read: one non-UTF8 source file (extended-ASCII) must not break
-// the scan; all markers we look for are ASCII.
-Future<String> readTolerant(File f) =>
-    f.readAsBytes().then((b) => utf8.decode(b, allowMalformed: true));
+import '_io.dart';
 
 const pinned = {
   'test/features/daily_bloom/garden_stats_test.dart': ['frommap', 'lastvisit'],
   'test/features/gallery/memory_photo_test.dart': ['frommap', 'odd'],
   'test/features/chat/chat_message_test.dart': ['month-day', 'pad'],
+  'test/features/canvas/doodle_stroke_test.dart': ['frommap', 'malformed'],
 };
 
 Future<void> main() async {

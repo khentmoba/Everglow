@@ -5,7 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
 import '../../../core/theme/app_breakpoints.dart';
-import 'motion.dart';
+import '../../../core/theme/app_motion.dart';
 
 /// Shared poster card used across the four inside screens.
 ///
@@ -101,8 +101,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
         : (_hovered && !disabled && canHover ? 1.05 : 1.0);
 
     final card = AnimatedContainer(
-      duration: ShelfMotion.orZero(const Duration(milliseconds: 200)),
-      curve: ShelfMotion.easeOutStrong,
+      duration: AppMotion.orZero(const Duration(milliseconds: 200)),
+      curve: AppMotion.easeOutStrong,
       transform: Matrix4.identity()
         ..translateByDouble(0.0, liftY, 0.0, 1.0)
         ..scaleByDouble(scaleVal, scaleVal, scaleVal, 1.0),
@@ -158,7 +158,7 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
             // Hover overlay — play button + accent border on hover-capable input
             if (canHover)
               AnimatedOpacity(
-                duration: ShelfMotion.orZero(ShelfMotion.fast),
+                duration: AppMotion.orZero(AppMotion.fast),
                 opacity: _hovered && !disabled ? 1.0 : 0.0,
                 child: Container(
                   decoration: BoxDecoration(
@@ -171,8 +171,8 @@ class _ShelfPosterCardState extends State<ShelfPosterCard> {
                   child: Center(
                     child: AnimatedScale(
                       scale: _hovered ? 1.0 : 0.6,
-                      duration: ShelfMotion.orZero(ShelfMotion.medium),
-                      curve: ShelfMotion.easeOutStrong,
+                      duration: AppMotion.orZero(AppMotion.medium),
+                      curve: AppMotion.easeOutStrong,
                       child: Container(
                         width: 44,
                         height: 44,

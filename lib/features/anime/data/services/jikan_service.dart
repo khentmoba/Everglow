@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:collection';
 import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../../../../core/utils/connectivity_aware.dart';
-import '../../../../core/utils/error_aware.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../cinema/data/models/media_item.dart';
 
@@ -20,7 +19,7 @@ import '../../../cinema/data/models/media_item.dart';
 /// through a FIFO queue and adds a small gap between calls. When the
 /// queue head gets a `429`, we back off for the duration the response
 /// asks for and then resume.
-class JikanService with ConnectivityAware, ErrorAware {
+class JikanService with ConnectivityAware {
   static const String _proxyBase = 'jikan';
   final CatalogProxyClient _proxy = CatalogProxyClient();
 

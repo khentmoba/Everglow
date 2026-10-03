@@ -80,6 +80,8 @@ const TOOL_NAMES = [
   'edit_trip',
   'get_subscriptions',
   'add_subscription',
+  'search_sessions',
+  'save_profile_note',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -89,13 +91,16 @@ const TOOL_NAMES = [
 // expectedTools must be a subset of selectToolNames(message), and every
 // known tool must stay reachable from core + groups.
 
-// Always available: memory reads + proactive XP awards. The old core also
-// carried set_mood, save_to_starlight_jar, and remember_fact on EVERY
-// intent turn; those now ride their intent groups (mood, starlight,
-// memory) so read-only asks stop paying for write schemas they can't use.
+// Always available on normal questions: memory, XP, and web lookups.
+// Web access cannot depend on the user knowing to say "search": current
+// questions (match times, results, releases) often have no web keywords.
+// Writes still ride their intent groups; greetings skip this set entirely.
 const CORE_TOOLS = [
   'read_memories',
   'add_xp',
+  'web_search',
+  'read_web_page',
+  'browse_web',
 ];
 
 // Read-only lookups, added only when no intent group matches, so plain
@@ -153,6 +158,13 @@ const TOOL_GROUPS = [
     writeMatch: /\btell (clair|khent|her|him|them|mama|dada)\b|\bsend\b|relay|write|message (to|for|her|him|them|clair|khent|mama|dada)/i,
   },
   {
+    // Past Motchi conversations (Letta-style archival recall). Kept
+    // specific — past-tense recall only — so everyday "said/tell"
+    // chat doesn't pay for the extra schema.
+    match: /talk(ed|ing)? about|discuss|conversat|previous (chat|talk|session)|last (week|night|time)|we talked|you (said|told|mentioned)|what did (we|you)/i,
+    tools: ['search_sessions'],
+  },
+  {
     match: /starlight|\bjar\b|grateful|gratitude|thankful|\bnotes?\b/i,
     tools: ['read_starlight_jar'],
     write: ['save_to_starlight_jar'],
@@ -167,12 +179,14 @@ const TOOL_GROUPS = [
     writeMatch: /my mood|\bfeels?\b|\bfeeling\b|\bfelt\b|i'm\b|i am|right now/i,
   },
   {
-    match: /memor|remember|forget|trivia|\bquiz\b|keep in mind|don't forget|note that/i,
+    match: /memor|remember|forget|trivia|\bquiz\b|keep in mind|don't forget|note that|profile|about us/i,
     tools: ['get_memory_trivia'],
-    write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory'],
+    write: ['remember_fact', 'pin_memory', 'edit_memory', 'delete_memory', 'save_profile_note'],
     // "forget the memory" deletes; "I forget what we watched" is chat.
     // Corrections ("is wrong", "actually it was") attach edits.
-    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|is wrong|was wrong|actually.{0,15}was|meant\b|correction|forget (the|that|this|about|my|our)/i,
+    // Profile writes need an action verb + profile ("save X to our
+    // profile"); bare "what is our profile" stays a read.
+    writeMatch: /remember|memoriz|don't forget|keep in mind|note that|pin|edit|fix|change|update|delete|remove|is wrong|was wrong|actually.{0,15}was|meant\b|correction|forget (the|that|this|about|my|our)|(save|add|pin|put|write).{0,20}(to|in|on).{0,10}(our |my |the )?profile/i,
   },
   {
     match: /\bdates?\b|dating|anniversary|romantic|date night|datenight|\bideas?\b/i,
@@ -371,7 +385,12 @@ function toolListSection(toolNames) {
   if (names.length === 0) {
     return 'No tools are attached to this request — answer directly from context and memory, without calling anything.';
   }
-  return `You have access to these custom tools right now (and no others):\n${names.map((n) => `- ${n}`).join('\n')}`;
+  const webGuidance = names.includes('web_search')
+    ? '\nYou CAN search the web. For current facts (next matches, live brackets/results, schedules, news, prices, releases), use web_search without waiting for them to ask you to search. Do not guess from training knowledge or claim you lack web access. Name the sources you actually used. If a lookup fails, say it failed rather than pretending you cannot search.' +
+      (names.includes('read_web_page') ? ' Use read_web_page for missing details.' : '') +
+      (names.includes('browse_web') ? ' Use browse_web for dynamic or blocked sites.' : '')
+    : '';
+  return `You have access to these custom tools right now (and no others):\n${names.map((n) => `- ${n}`).join('\n')}${webGuidance}`;
 }
 
 function _text(value) {
@@ -412,6 +431,10 @@ function validateToolArgs(toolName, args = {}) {
       return { ok: true };
     case 'remember_fact':
       if (!_text(a.fact)) return { ok: false, error: 'No fact provided' };
+      return { ok: true };
+    case 'save_profile_note':
+      if (!_text(a.note)) return { ok: false, error: 'No note provided' };
+      if (_text(a.note).length > 500) return { ok: false, error: 'Note too long (max 500)' };
       return { ok: true };
     case 'send_note_to_partner':
       if (!_text(a.note)) return { ok: false, error: 'No note provided' };
@@ -542,6 +565,7 @@ function validateToolArgs(toolName, args = {}) {
       return { ok: true };
     }
     case 'search_everglow':
+    case 'search_sessions':
     case 'web_search':
       if (!_text(a.query)) return { ok: false, error: 'No search query provided' };
       return { ok: true };
@@ -563,6 +587,71 @@ function validateToolArgs(toolName, args = {}) {
       if (!TOOL_NAMES.includes(toolName)) return { ok: false, error: `Unknown tool: ${toolName}` };
       return { ok: true };
   }
+}
+
+// Model-shaped args, cleaned before validation runs: trimmed strings,
+// numeric strings coerced (Firestore `.limit('5')` throws on a string),
+// common alias keys copied to canonical (originals kept — some
+// executors read the alias), and enum-ish fields lowercased so
+// "High" doesn't fall through to a default. Pure; never mutates in.
+const NORMALIZE_NUMERIC_KEYS = new Set([
+  'tmdb_id', 'limit', 'count', 'price', 'lat', 'lng', 'percent',
+  'progress', 'budget', 'amount', 'days', 'renewing_within_days',
+]);
+const NORMALIZE_ALIAS_KEYS = {
+  tmdbId: 'tmdb_id',
+  entryId: 'id',
+  entry_id: 'id',
+  reminderId: 'id',
+  reminder_id: 'id',
+  memoryId: 'memory_id',
+  runId: 'run_id',
+  tripId: 'trip_id',
+};
+const NORMALIZE_ENUM_KEYS = new Set(['media_type', 'cycle', 'payer', 'priority', 'frequency']);
+
+function normalizeToolArgs(toolName, args) {
+  void toolName;
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return {};
+  const out = {};
+  for (const [key, value] of Object.entries(args)) {
+    let v = typeof value === 'string' ? value.trim() : value;
+    if (NORMALIZE_NUMERIC_KEYS.has(key) && typeof v === 'string' && v !== '' && !Number.isNaN(Number(v))) {
+      v = Number(v);
+    }
+    if (NORMALIZE_ENUM_KEYS.has(key) && typeof v === 'string') {
+      v = v.toLowerCase();
+    }
+    out[key] = v;
+  }
+  for (const [alias, canonical] of Object.entries(NORMALIZE_ALIAS_KEYS)) {
+    if (out[alias] !== undefined && out[canonical] === undefined) out[canonical] = out[alias];
+  }
+  return out;
+}
+
+/**
+ * One-line fix hint the model can act on after a validation error, or
+ * null when the error is already actionable. Keeps the model's natural
+ * next-round retry landing instead of circling on the same bad call.
+ */
+function fixHintFor(toolName, error) {
+  void toolName;
+  const msg = String(error || '');
+  if (!msg || /Unknown tool/.test(msg)) return null;
+  if (/memory_id required/.test(msg)) return 'Call read_memories first to get the memory_id, then re-call with it.';
+  if (/memory_id and fact required/.test(msg)) return 'Call read_memories first to get the memory_id, and include the corrected fact.';
+  if (/id or title required/.test(msg)) return 'Call the matching list tool first (list_reminders, get_journal_entries, get_calendar_events, get_bucket_list), then re-call with the id.';
+  if (/No title provided|Provide title or tmdb_id/.test(msg)) return 'Provide the title, or tmdb_id from a prior search_movies result.';
+  if (/No search query provided/.test(msg)) return 'Provide the query text to search for.';
+  if (/No (fact|note|text|goal) provided/.test(msg)) return 'Include the content from the conversation — the tool cannot invent it.';
+  if (/Invalid date|date required/.test(msg)) return 'Use ISO YYYY-MM-DD or plain words like "tomorrow at 3pm".';
+  if (/too long/.test(msg)) return 'Shorten the text and re-call.';
+  if (/http\(s\) URLs? provided/.test(msg)) return 'Pass 1-3 full https URLs from a prior web_search result.';
+  if (/remind_at/.test(msg)) return 'Use ISO datetime or plain words like "tomorrow at 3pm" or "in 2 hours".';
+  if (/price must be/.test(msg)) return 'Provide price as a positive number in pesos.';
+  if (/Invalid start_date or end_date/.test(msg)) return 'Provide both start_date and end_date as ISO YYYY-MM-DD.';
+  return null;
 }
 
 /** `Math.min(args.x || def, max)` clamps used by read/count tools. */
@@ -751,6 +840,7 @@ const FOLLOW_THROUGH_TOOLS = [
   'save_to_starlight_jar',
   'set_mood',
   'remember_fact',
+  'save_profile_note',
 ];
 
 const BARE_YES_RE = /^(yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|please do|sounds good|perfect|yes please|yes do it|yeah do it|ok do it|let'?s do it)[!.,\s]*$/i;
@@ -799,6 +889,8 @@ module.exports = {
   dropRepeatCalls,
   toolListSection,
   validateToolArgs,
+  normalizeToolArgs,
+  fixHintFor,
   isValidHttpUrl,
   clampWithDefault,
   clampBounded,

@@ -777,11 +777,24 @@ test('remember_fact adds fresh facts with no contradiction', async () => {
     db: { collection: () => ({ doc: () => ({ collection: () => factsCol }) }) },
     callerUid: 'khentsgdz',
   };
-  const res = JSON.parse(await exec_remember_fact(ctx, { fact: 'Clair loves dachshunds' }));
-  assert.equal(res.success, true);
-  assert.equal(res.updated, undefined);
-  assert.equal(added.length, 1);
-  assert.equal(added[0].fact, 'Clair loves dachshunds');
+  const realFetch = global.fetch;
+  const key = process.env.AGNES_API_KEY;
+  let networkCalls = 0;
+  process.env.AGNES_API_KEY = 'demo-test-key';
+  global.fetch = async () => { networkCalls++; throw new Error('Must not wait for remote embedding'); };
+  try {
+    const res = JSON.parse(await exec_remember_fact(ctx, { fact: 'Clair loves dachshunds' }));
+    assert.equal(res.success, true);
+    assert.equal(res.updated, undefined);
+    assert.equal(added.length, 1);
+    assert.equal(added[0].fact, 'Clair loves dachshunds');
+    assert.equal(added[0].embedding.length, 64);
+    assert.equal(networkCalls, 0);
+  } finally {
+    global.fetch = realFetch;
+    if (key === undefined) delete process.env.AGNES_API_KEY;
+    else process.env.AGNES_API_KEY = key;
+  }
 });
 
 test('edit executors patch by title and reject bad fields', async () => {
@@ -938,4 +951,66 @@ test('subs executors roll renewals forward and guard add args', async () => {
   assert.equal(addedDocs.length, 1);
   assert.equal(addedDocs[0].name, 'Spotify');
   assert.equal(addedDocs[0].payer, 'clair');
+});
+
+test('dispatcher retries a transient throw once, then succeeds', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error('502 Bad Gateway');
+    return { text: async () => 'Sunny +27C' };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'get_weather', { location: 'Retryville' }));
+    assert.equal(calls, 2);
+    assert.equal(out.location, 'Retryville');
+    assert.match(out.weather, /Sunny/);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('dispatcher does not retry a permanent throw', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  let calls = 0;
+  global.fetch = async () => { calls += 1; throw new Error('boom'); };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'get_weather', { location: 'Boomtown' }));
+    assert.equal(calls, 1);
+    assert.match(out.error, /boom/);
+  } finally {
+    global.fetch = realFetch;
+  }
+});
+
+test('dispatcher passes normalized args and hints fixes', async () => {
+  const { ctx } = makeCtx();
+  const realFetch = global.fetch;
+  let seenUrl = '';
+  global.fetch = async (url) => { seenUrl = String(url); return { text: async () => 'ok' }; };
+  try {
+    await executeToolCall(ctx, 'get_weather', { location: '  Cabadbaran  ' });
+    assert.ok(seenUrl.includes('Cabadbaran') && !seenUrl.includes('%20'), `url=${seenUrl}`);
+  } finally {
+    global.fetch = realFetch;
+  }
+  const bad = JSON.parse(await executeToolCall(ctx, 'delete_memory', {}));
+  assert.match(bad.error, /memory_id required/);
+  assert.match(bad.fix, /read_memories/);
+});
+
+test('save_profile_note proposes first, saves pinned on confirm', async () => {
+  const { ctx, addedDocs } = makeCtx();
+  const probe = JSON.parse(await executeToolCall(ctx, 'save_profile_note', { note: 'we are night owls' }));
+  assert.equal(probe.needs_confirmation, true);
+  assert.equal(addedDocs.length, 0);
+  const saved = JSON.parse(await executeToolCall(ctx, 'save_profile_note', { note: 'we are night owls', topic: 'sleep', confirm: true }));
+  assert.equal(saved.success, true);
+  assert.equal(addedDocs.length, 1);
+  assert.equal(addedDocs[0].category, 'profile');
+  assert.equal(addedDocs[0].pinned, true);
+  assert.equal(addedDocs[0].topic, 'sleep');
 });

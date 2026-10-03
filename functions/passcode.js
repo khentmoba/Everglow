@@ -54,9 +54,7 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
   res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Methods','POST, OPTIONS');res.set('Access-Control-Allow-Headers','Content-Type');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
   if(req.method!=='POST'){res.status(405).json({error:'POST only'});return;}
-  // NOTE: req.ip is Google's load balancer, not the caller — clientIp()
-  // reads the first X-Forwarded-For hop. Keying the lockout on the LB
-  // address would let one attacker lock Clair out, so this matters.
+  // Use Google's appended client hop, never the caller-supplied XFF prefix.
   const ip = clientIp(req);
   if(_pcHit(ip)){res.status(429).json({error:'Too many attempts'});return;}
   const lock = await _pcLockoutRead(_sha256Hex(ip));

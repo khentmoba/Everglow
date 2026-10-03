@@ -1,7 +1,6 @@
 import 'dart:async';
 // ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
-import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -390,7 +389,15 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
     return Column(
       children: [
         _buildTopBar(),
-        Expanded(child: HtmlElementView(viewType: _viewType)),
+        Expanded(
+          child: HtmlElementView.fromTagName(
+            tagName: 'div',
+            onElementCreated: (element) {
+              final iframe = _embedIframe;
+              if (iframe != null) (element as html.Element).append(iframe);
+            },
+          ),
+        ),
         _buildEmbedBottomBar(),
       ],
     );

@@ -313,6 +313,72 @@ class AnimeXWatchPage extends StatefulWidget {
     ];
   }
 
+  /// Merges AniList streaming data with season-specific ani.zip metadata.
+  /// When the canonical count is known, bound the list to it: AniList may attach
+  /// a later season's streaming feed to this entry. Prefer ani.zip's English
+  /// title and still because its mapping is specific to this MAL season.
+  @visibleForTesting
+  static List<AniListEpisode> buildEpisodeList({
+    AniListDetail? detail,
+    int? fallbackEpisodeCount,
+    Map<int, Map<String, dynamic>> aniZipEpisodes = const {},
+  }) {
+    final fromDetail = detail?.episodes ?? const <AniListEpisode>[];
+    final detailMap = <int, AniListEpisode>{
+      for (final e in fromDetail) e.number: e,
+    };
+    final count = detail?.episodeCount ?? fallbackEpisodeCount ?? 0;
+    final maxNum = [
+      count,
+      if (count <= 0 && detailMap.isNotEmpty)
+        detailMap.keys.reduce((a, b) => a > b ? a : b),
+      if (count <= 0 && aniZipEpisodes.isNotEmpty)
+        aniZipEpisodes.keys.reduce((a, b) => a > b ? a : b),
+    ].fold<int>(0, (a, b) => a > b ? a : b);
+
+    return List.generate(maxNum > 0 ? maxNum : 12, (index) {
+      final number = index + 1;
+      final base = detailMap[number];
+      final az = aniZipEpisodes[number];
+      final titles = az?['title'] as Map<String, dynamic>?;
+      final azEnglish = titles?['en'] as String?;
+      final azJat = titles?['x-jat'] as String?;
+      final azJapanese = titles?['ja'] as String?;
+      final baseTitle = base?.title;
+      final title = (azEnglish != null && azEnglish.isNotEmpty)
+          ? azEnglish
+          : (baseTitle != null &&
+                baseTitle.isNotEmpty &&
+                !baseTitle.toLowerCase().startsWith('episode $number'))
+          ? baseTitle
+          : (azJat ?? baseTitle ?? 'Episode $number');
+      final rawAir = az?['airDate'] ?? az?['airdate'];
+      final azImage = az?['image'] as String?;
+      final rawDuration = az?['runtime'] ?? az?['length'];
+
+      return AniListEpisode(
+        number: number,
+        title: title,
+        titleRomaji: base?.titleRomaji ?? azJat ?? azJapanese,
+        synopsis: (base?.synopsis?.isNotEmpty == true)
+            ? base!.synopsis
+            : ((az?['overview'] as String?)?.isNotEmpty == true
+                  ? az!['overview'] as String?
+                  : az?['summary'] as String?),
+        airedAt:
+            base?.airedAt ??
+            (rawAir is String ? DateTime.tryParse(rawAir) : null),
+        duration:
+            base?.duration ??
+            (rawDuration is num ? rawDuration.toInt() : null) ??
+            detail?.duration,
+        thumbnail: (azImage != null && azImage.isNotEmpty)
+            ? azImage
+            : base?.thumbnail,
+      );
+    });
+  }
+
   @override
   State<AnimeXWatchPage> createState() => _AnimeXWatchPageState();
 }

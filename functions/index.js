@@ -9,26 +9,31 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { cappedHttps } = require('./common.js');
 
+const { proxyBookText, proxyBookFile } = require('./media_proxy_books.js');
 const {
-  proxyBookText,
-  proxyBookFile,
-  proxyCatalog,
   proxyMangaImage,
   proxyMangaKakalotImage,
   proxyMangaKatana,
   proxyComick,
-  proxyAnimeImage,
-  proxyLastfmImage,
+  proxyMangaDex,
+} = require('./media_proxy_manga.js');
+const { proxyAnimeImage } = require('./media_proxy_anime.js');
+const { proxyLastfmImage } = require('./media_proxy_music.js');
+const {
   proxyGalleryImage,
   cleanupGallery,
   deleteGalleryPhoto,
+} = require('./media_proxy_gallery.js');
+const {
   proxyScanlation,
   proxyFetchHtml,
   proxyEmbed,
-  proxyMangaDex,
+} = require('./media_proxy_html.js');
+const {
   proxyVideoStream,
   proxyWatchStream,
-} = require('./media_proxies.js');
+} = require('./media_proxy_video.js');
+const { proxyCatalog } = require('./media_proxy_catalog.js');
 
 const {
   onNewChatMessage,
@@ -53,8 +58,7 @@ const { notifyDiscordWatch, discordInteractions, sweepStaleDiscordWatch } = requ
 exports.notifyDiscordWatch = notifyDiscordWatch;
 exports.discordInteractions = discordInteractions;
 exports.sweepStaleDiscordWatch = sweepStaleDiscordWatch;
-const { agnesImage, motchiStats } = require('./motchi_image_stats.js');
-exports.agnesImage = agnesImage;
+const { motchiStats } = require('./motchi_stats.js');
 exports.motchiStats = motchiStats;
 const { sweepApiUsageAnomalies } = require('./usage_alerts.js');
 exports.sweepApiUsageAnomalies = sweepApiUsageAnomalies;
@@ -95,7 +99,7 @@ exports.generateStudySet = cappedHttps(10, handleGenerateStudySet, { timeoutSeco
 // Motchi schedules live in motchi_schedules.js.
 // Re-exported at the top of this file to keep the deploy surface identical.
 
-// Motchi stats lives in motchi_image_stats.js (see top re-exports).
+// Motchi stats lives in motchi_stats.js (see top re-exports).
 
 // Re-exports: keep the deploy surface identical.
 module.exports = Object.assign({}, module.exports, {

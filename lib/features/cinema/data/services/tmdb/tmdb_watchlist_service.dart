@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
-import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
@@ -10,7 +9,7 @@ import 'tmdb_cache_service.dart';
 
 /// Firestore-backed watchlist CRUD, couple-merge streams, currently-watching
 /// streams, progress tracking, and one-time migration helpers.
-class TMDBWatchlistService with TMDBBase, ConnectivityAware, ErrorAware {
+class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   final TMDBCacheService _cacheService;
 
   TMDBWatchlistService(this._cacheService);

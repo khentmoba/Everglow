@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'motion.dart';
+import '../../../core/theme/app_motion.dart';
 
 /// Entrance animation that fades + slides a single child in. When
 /// nested in a list with the [index] wired up, callers can stagger
@@ -20,12 +20,12 @@ class StaggeredEntrance extends StatelessWidget {
     this.delayStep = const Duration(milliseconds: 60),
     this.duration = const Duration(milliseconds: 420),
     this.offsetY = 12,
-    this.curve = ShelfMotion.easeOutExpo,
+    this.curve = AppMotion.easeOutExpo,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (ShelfMotion.reduced) return child;
+    if (AppMotion.reduced) return child;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: duration,

@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "calendar_events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "recurring", "order": "ASCENDING"},
+        {"fieldPath": "date", "order": "ASCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "bucket_list",
       "queryScope": "COLLECTION",
       "fields": [

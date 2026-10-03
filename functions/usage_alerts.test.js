@@ -28,12 +28,3 @@ test('detectAnomalies ignores tiny counts even at high ratios', () => {
 test('detectAnomalies skips the spike check with no yesterday baseline', () => {
   assert.deepEqual(detectAnomalies('khentsgdz', { proxyAI: 100 }, {}), []);
 });
-
-test('detectAnomalies checks every watched endpoint', () => {
-  const lines = detectAnomalies(
-    'khentsgdz',
-    { proxyAI: 10, agnesImage: 28 },
-    { proxyAI: 10, agnesImage: 5 },
-  );
-  assert.ok(lines.some((l) => l.includes('agnesImage at 28')));
-});

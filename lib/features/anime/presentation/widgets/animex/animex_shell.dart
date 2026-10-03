@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/services/auth_service.dart';
+import '../../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 import '../../../data/services/animex_stores.dart';
 
 import 'animex_browse_page.dart';
@@ -61,8 +62,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
     // If the profile changed while the shell is mounted (logout/login on
     // the same PWA), reload both the per-user history store and the
     // per-user watchlist stream so no data bleeds across profiles.
-    final authUser =
-        context.select<AuthService, String?>((a) => a.currentUser);
+    final authUser = context.select<AuthService, String?>((a) => a.currentUser);
     if (_lastUser != null && _lastUser != authUser) {
       _lastUser = authUser;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -110,8 +110,9 @@ class _AnimeXShellState extends State<AnimeXShell> {
                 Expanded(
                   child: Stack(
                     children: [
-                      IndexedStack(
+                      LazyIndexedStack(
                         index: _controller.page.index,
+                        active: detailChild == null,
                         children: pages,
                       ),
                       if (detailChild != null)
@@ -130,10 +131,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
 
           return Scaffold(
             backgroundColor: AnimeXTokens.bg,
-            body: SafeArea(
-              bottom: false,
-              child: buildAnimeContent(),
-            ),
+            body: SafeArea(bottom: false, child: buildAnimeContent()),
             bottomNavigationBar: detailChild == null && !isHeaderDesktop
                 ? AnimeXMobileBottomNav(
                     controller: _controller,

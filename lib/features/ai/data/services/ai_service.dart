@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show SocketException;
 import 'dart:math' as math;
+
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+
 import '../../domain/models/ai_conversation.dart';
 import '../../domain/motchi_quality.dart';
+import '../../domain/motchi_reply_details.dart';
 import 'ai_memory_repo.dart';
 import 'ai_conversation_repo.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
@@ -65,7 +68,8 @@ class AIService extends ChangeNotifier {
   );
   final ValueNotifier<List<String>> activeToolsNotifier =
       ValueNotifier<List<String>>(const []);
-  final ValueNotifier<List<Map<String, dynamic>>> toolResultsNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
+  final ValueNotifier<List<Map<String, dynamic>>> toolResultsNotifier =
+      ValueNotifier<List<Map<String, dynamic>>>([]);
   List<Map<String, dynamic>> _toolResults = [];
   List<Map<String, dynamic>> get toolResults => List.unmodifiable(_toolResults);
   List<String> get activeTools => List.unmodifiable(_activeTools);
@@ -112,9 +116,7 @@ class AIService extends ChangeNotifier {
       final payload = payloads[i];
       final content = payload['content'];
       final blocks = content is List ? content : const [];
-      final hasImages = blocks.any(
-        (b) => b is Map && b['type'] == 'image_url',
-      );
+      final hasImages = blocks.any((b) => b is Map && b['type'] == 'image_url');
       if (!hasImages) {
         out.add(payload);
         continue;
@@ -157,7 +159,11 @@ class AIService extends ChangeNotifier {
         if (results is List) {
           for (final s in results) {
             if (s is Map) {
-              add('${s['title'] ?? ''}', '${s['url'] ?? ''}', '${s['site'] ?? ''}');
+              add(
+                '${s['title'] ?? ''}',
+                '${s['url'] ?? ''}',
+                '${s['site'] ?? ''}',
+              );
             }
           }
         }
@@ -291,11 +297,9 @@ class AIService extends ChangeNotifier {
       final context =
           contextOverride ?? ''; // server builds from feature+caller
 
-      // Load permanent memories (trimmed for the tiny mascot).
-      await _ensureMemoriesLoaded();
-      final memoriesForRequest = feature == 'guardian' && _memoryRepo.all.length > 10
-          ? _memoryRepo.all.sublist(0, 10)
-          : _memoryRepo.all;
+      // Chat memory is retrieved server-side. The Memory Book loads its
+      // own display cache; sending it here loses metadata and stays stale.
+      const memoriesForRequest = <String>[];
 
       // Build the API messages payload (recent history only — older turns
       // live on in archived sessions + summaries server-side).
@@ -319,6 +323,7 @@ class AIService extends ChangeNotifier {
 
       String reply;
       var webSources = <Map<String, String>>[];
+      var details = const MotchiReplyDetails();
 
       if (stream) {
         // ── Streaming mode ─────────────────────────────
@@ -356,7 +361,6 @@ class AIService extends ChangeNotifier {
           onError: (error) {
             if (myRequest != _activeRequest) return;
             _lastError = error;
-            _resetDraftState();
             notifyListeners();
           },
           enableThinking: shouldThink,
@@ -369,7 +373,7 @@ class AIService extends ChangeNotifier {
         // Keep web sources before the draft state (and tool results)
         // is cleared — they persist on the finished reply below.
         webSources = webSourcesFromToolResults(_toolResults);
-        _resetDraftState();
+        details = MotchiReplyDetails.fromResults(_toolResults);
       } else {
         // ── Non-streaming mode ─────────────────────────
         reply = await _callProxyAI(
@@ -380,13 +384,18 @@ class AIService extends ChangeNotifier {
           caller,
           canvasEnabled,
           shouldThink,
+          (data) => details = MotchiReplyDetails.fromJson(data),
         );
+        if (myRequest != _activeRequest) {
+          return MotchiReplyDetails.visibleText(reply);
+        }
       }
 
       // An empty reply means the stream was cut before any text arrived
       // (server timeout mid-tool-round, truncated generation). Surfacing
       // an error with Retry beats silent no-reply — Clair should never
       // stare at her own message wondering if Motchi heard her.
+      if (reply.trim().isEmpty && !details.isEmpty) reply = details.summary;
       if (reply.trim().isEmpty) {
         throw Exception(
           'Motchi got distracted and lost her train of thought. Try asking again?',
@@ -394,9 +403,14 @@ class AIService extends ChangeNotifier {
       }
       // Strip the model's leading blank lines/whitespace so the reply
       // starts right at the first real line instead of a visible gap.
-      final cleaned = reply.trimLeft();
+      final cleaned = MotchiReplyDetails.visibleText(reply).trimLeft();
       conversation.messages.add(
-        AIMessage(role: 'assistant', content: cleaned, sources: webSources),
+        AIMessage(
+          role: 'assistant',
+          content: cleaned,
+          sources: webSources,
+          details: details,
+        ),
       );
 
       // Publish the finished reply to the UI immediately so the loading
@@ -429,11 +443,31 @@ class AIService extends ChangeNotifier {
       // serverExtractAndSaveMemory) to avoid an extra client LLM round-trip.
       // Client-side extraction disabled for latency/cost saving.
 
-      return reply;
+      return cleaned;
     } catch (e) {
       // A superseded request must not clobber the newer request's state.
       if (myRequest != _activeRequest) return '';
       _isLoading = false;
+      final details = MotchiReplyDetails.fromResults(
+        _toolResults,
+        interrupted: true,
+        activeTools: _activeTools,
+      );
+      if (conversation != null &&
+          (details.steps.isNotEmpty || _draftResponse.isNotEmpty)) {
+        conversation.messages.add(
+          AIMessage(
+            role: 'assistant',
+            content:
+                MotchiReplyDetails.visibleText(_draftResponse).trim().isEmpty
+                ? details.summary
+                : MotchiReplyDetails.visibleText(_draftResponse),
+            details: details,
+          ),
+        );
+        _setConversation(feature, conversation);
+        unawaited(_saveConversation(conversation));
+      }
       _resetDraftState();
       _lastError = e.toString();
       // Roll back the optimistic user message so a retry doesn't duplicate it.
@@ -457,11 +491,22 @@ class AIService extends ChangeNotifier {
   /// are ignored via [_activeRequest]. Returns false when nothing is running.
   bool cancelCurrentReply() {
     if (!_isLoading || _activeRequest == 0) return false;
-    _activeRequest = 0;
+    _activeRequest++;
     final conv = _conversationRepo.assistant;
-    final partial = _draftResponse.trimLeft();
-    if (conv != null && partial.isNotEmpty) {
-      conv.messages.add(AIMessage(role: 'assistant', content: partial));
+    final partial = MotchiReplyDetails.visibleText(_draftResponse).trimLeft();
+    final details = MotchiReplyDetails.fromResults(
+      _toolResults,
+      interrupted: true,
+      activeTools: _activeTools,
+    );
+    if (conv != null && (partial.isNotEmpty || details.steps.isNotEmpty)) {
+      conv.messages.add(
+        AIMessage(
+          role: 'assistant',
+          content: partial.isEmpty ? details.summary : partial,
+          details: details,
+        ),
+      );
       if (conv.messages.length > 50) {
         conv.messages.removeRange(0, conv.messages.length - 50);
       }
@@ -493,29 +538,23 @@ class AIService extends ChangeNotifier {
         {'role': 'user', 'content': message},
       ];
 
-      final List<String> memories;
-      if (includeMemories) {
-        await _ensureMemoriesLoaded();
-        memories = _memoryRepo.all;
-      } else {
-        memories = const [];
-      }
-
       final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
-      final response = await http.post(
-        Uri.parse(_cloudFunctionUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
-        },
-        body: jsonEncode({
-          'systemPrompt': systemMsg,
-          'messages': messages,
-          'context': contextData,
-          'memories': memories,
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse(_cloudFunctionUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $idToken',
+            },
+            body: jsonEncode({
+              'systemPrompt': systemMsg,
+              'messages': messages,
+              'context': contextData,
+              'includeMemories': includeMemories,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -564,10 +603,7 @@ class AIService extends ChangeNotifier {
       final messages = <Map<String, dynamic>>[
         for (final turn in history)
           {'role': turn['role'], 'content': turn['content']},
-        {
-          'role': 'user',
-          'content': '$sourcesBlock\n\n$question',
-        },
+        {'role': 'user', 'content': '$sourcesBlock\n\n$question'},
       ];
 
       final reply = await _callProxyAIStream(
@@ -656,8 +692,6 @@ class AIService extends ChangeNotifier {
 
   // ─── Permanent Memory System ───────────────────────────────────
 
-  Future<void> _ensureMemoriesLoaded() => _memoryRepo.load();
-
   Future<void> saveMemory(String fact, {String category = 'fact'}) async {
     await _memoryRepo.save(fact, category: category);
     notifyListeners();
@@ -714,6 +748,7 @@ class AIService extends ChangeNotifier {
     String caller = '',
     bool canvasEnabled = true,
     bool enableThinking = true,
+    void Function(Map<String, dynamic>)? onDetails,
   ]) async {
     const maxRetries = 2;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
@@ -726,6 +761,7 @@ class AIService extends ChangeNotifier {
           caller,
           canvasEnabled,
           enableThinking,
+          onDetails,
         );
       } catch (e) {
         final isTransient =
@@ -734,7 +770,7 @@ class AIService extends ChangeNotifier {
             (e is Exception && e.toString().contains('503')) ||
             (e is Exception && e.toString().contains('502')) ||
             (e is Exception && e.toString().contains('429'));
-        if (attempt < maxRetries && isTransient) {
+        if (attempt < maxRetries && isTransient && feature != 'assistant') {
           await Future.delayed(Duration(seconds: 1 << attempt)); // 1s, 2s
           continue;
         }
@@ -753,6 +789,7 @@ class AIService extends ChangeNotifier {
     String caller = '',
     bool canvasEnabled = true,
     bool enableThinking = true,
+    void Function(Map<String, dynamic>)? onDetails,
   ]) async {
     final idToken = await _auth.currentUser?.getIdToken() ?? '';
 
@@ -766,7 +803,7 @@ class AIService extends ChangeNotifier {
           body: jsonEncode({
             'messages': messages,
             'context': context,
-            'memories': memories,
+            if (memories.isNotEmpty) 'memories': memories,
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
             'sessionId': currentSessionId,
@@ -778,6 +815,9 @@ class AIService extends ChangeNotifier {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['details'] is Map) {
+        onDetails?.call(Map<String, dynamic>.from(data['details'] as Map));
+      }
       return data['reply'] as String? ?? '';
     }
 
@@ -809,6 +849,7 @@ class AIService extends ChangeNotifier {
     bool artifactExpected = false,
   }) async {
     const maxRetries = 2;
+    var receivedEvent = false;
     for (int attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         if (attempt > 0) _lastError = null;
@@ -818,10 +859,22 @@ class AIService extends ChangeNotifier {
           memories,
           feature,
           caller,
-          onChunk,
-          onReasoning,
-          onToolStatus,
-          onToolResult,
+          (chunk) {
+            receivedEvent = true;
+            onChunk(chunk);
+          },
+          (chunk) {
+            receivedEvent = true;
+            onReasoning?.call(chunk);
+          },
+          (status) {
+            receivedEvent = true;
+            onToolStatus?.call(status);
+          },
+          (result) {
+            receivedEvent = true;
+            onToolResult?.call(result);
+          },
           onError,
           enableThinking: enableThinking,
           canvasEnabled: canvasEnabled,
@@ -834,7 +887,10 @@ class AIService extends ChangeNotifier {
             (e is Exception && e.toString().contains('503')) ||
             (e is Exception && e.toString().contains('502')) ||
             (e is Exception && e.toString().contains('429'));
-        if (attempt < maxRetries && isTransient) {
+        if (attempt < maxRetries &&
+            isTransient &&
+            !receivedEvent &&
+            feature != 'assistant') {
           await Future.delayed(Duration(seconds: 1 << attempt));
           continue;
         }
@@ -863,7 +919,7 @@ class AIService extends ChangeNotifier {
     final body = jsonEncode({
       'messages': messages,
       'context': context,
-      'memories': memories,
+      if (memories.isNotEmpty) 'memories': memories,
       'feature': feature,
       'caller': caller,
       'sessionId': currentSessionId,
@@ -910,15 +966,9 @@ class AIService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load the assistant conversation on panel open.
-  /// Memories ride along in parallel so the first send doesn't pay the
-  /// 150-doc Firestore read after the user already tapped send — by the
-  /// time they type, both are warm and the request leaves immediately.
+  /// Opening chat needs only the conversation, not the Memory Book.
   Future<void> loadAssistantConversation() async {
-    await Future.wait([
-      _conversationRepo.loadAssistant(),
-      _ensureMemoriesLoaded(),
-    ]);
+    await _conversationRepo.loadAssistant();
     notifyListeners();
   }
 

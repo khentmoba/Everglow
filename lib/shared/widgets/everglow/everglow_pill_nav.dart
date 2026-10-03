@@ -10,7 +10,7 @@ import 'everglow_keyboard_activation.dart';
 
 /// Floating pill bottom navigation bar.
 ///
-/// Replaces `ShelfPillBottomNav`. App-wide bottom nav for all screens.
+/// App-wide floating pill bottom nav for all screens.
 /// `Semantics(button, selected)` on each item. Reduced-motion-aware.
 class EverglowPillNav extends StatelessWidget {
   final List<EverglowNavItem> items;

@@ -1,13 +1,12 @@
 import 'dart:convert';
 import '../../../../../core/utils/connectivity_aware.dart';
-import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
 
 /// TMDB detail endpoints: credits, reviews, similar titles, TV show
 /// season/episode data, and generic media details.
-class TMDBDetailsService with TMDBBase, ConnectivityAware, ErrorAware {
+class TMDBDetailsService with TMDBBase, ConnectivityAware {
   /// IDs that 404'd on BOTH movie and tv lookups (stale/dead TMDB ids).
   /// Process-wide so the billboard, hover cards, and episode drawer share
   /// one memory of dead ids instead of re-404ing on every rotation.

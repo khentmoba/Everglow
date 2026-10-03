@@ -137,6 +137,74 @@ class _FakeAuthService extends ChangeNotifier implements AuthService {
 }
 
 void main() {
+  testWidgets('chat leaves room to type on phone and tablet', (tester) async {
+    final composer = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Message Motchi…',
+    );
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final width in [390.0, 820.0]) {
+      tester.view.physicalSize = Size(width, 1000);
+      final ai = AIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: _FakeConversationRepo(
+          AIConversation(
+            id: 'demo',
+            feature: 'assistant',
+            messages: [
+              AIMessage(role: 'user', content: 'Hello Motchi'),
+              AIMessage(
+                role: 'assistant',
+                content: '**A little help**\n- One thing\n- Another thing',
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: MaterialApp(key: ValueKey(width), home: const MotchiScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(composer).width, greaterThan(width * 0.65));
+      expect(find.text('Whispered for you two 🐾'), findsNothing);
+      expect(find.text('Plan a date 🥂'), findsNothing);
+      await tester.enterText(composer, 'A cozy night in');
+      await tester.pump();
+      expect(find.text('A cozy night in'), findsOneWidget);
+      // Switching layouts keeps the controller but replaces the composer.
+      for (final resizedWidth in [1280.0, 390.0]) {
+        tester.view.physicalSize = Size(resizedWidth, 1000);
+        await tester.pump();
+        await tester.pump();
+        final send = tester.widget<IconButton>(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is IconButton && widget.tooltip == 'Send message',
+          ),
+        );
+        expect(send.onPressed, isNotNull);
+        await tester.enterText(composer, 'Still cozy');
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    }
+  });
+
   testWidgets('keeps the latest streamed reply in view', (tester) async {
     tester.view.physicalSize = const Size(430, 800);
     tester.view.devicePixelRatio = 1;

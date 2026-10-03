@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../../core/config/env_config.dart';
 import '../models/artist_suggestion.dart';
 import '../models/loved_track.dart';
 import '../models/music_status.dart';
@@ -69,7 +70,7 @@ class MusicSyncService {
     final signUrl = _signUrl;
     if (signUrl != null) {
       final signed = await signUrl(url);
-      return _client.get(signed).timeout(const Duration(seconds: 10));
+      return _client.get(signed).timeout(const Duration(seconds: 15));
     }
     final token = await _getTokenCached();
     if (token == null || token.isEmpty) {
@@ -77,7 +78,7 @@ class MusicSyncService {
     }
     return _client
         .get(url, headers: {'Authorization': "Bearer $token"})
-        .timeout(const Duration(seconds: 10));
+        .timeout(const Duration(seconds: 15));
   }
 
   // Usernames that Last.fm reported as invalid (HTTP 404 / error code 6
@@ -90,6 +91,24 @@ class MusicSyncService {
 
   /// Resets the invalid-user cache (e.g. if a user later creates an account).
   static void resetInvalidUsers() => _invalidUsers.clear();
+
+  static bool _isCoupleUser(String username) {
+    final lower = username.toLowerCase();
+    return lower == EnvConfig.lastfmUserKhent.toLowerCase() ||
+        lower == EnvConfig.lastfmUserClair.toLowerCase();
+  }
+
+  static void _markInvalidUser(String username) {
+    if (_isCoupleUser(username)) return;
+    _invalidUsers.add(username);
+  }
+
+  final Map<String, int> _lastObservedTotalPlays = {};
+
+  /// Returns the latest total play count observed for [username] across any
+  /// Last.fm response (`user.getinfo` or `user.getrecenttracks` @attr.total).
+  int getLastObservedTotalPlays(String username) =>
+      _lastObservedTotalPlays[username.toLowerCase()] ?? 0;
 
   /// Normalizes a Last.fm list node to maps. Last.fm collapses a
   /// single-element list to a bare object, so an `is List` check alone
@@ -145,6 +164,12 @@ class MusicSyncService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        final rawTotal =
+            data['recenttracks']?['@attr']?['total']?.toString() ?? '';
+        final total = int.tryParse(rawTotal);
+        if (total != null && total > 0) {
+          _lastObservedTotalPlays[username.toLowerCase()] = total;
+        }
         final tracks = _asMapList(data['recenttracks']?['track']);
         if (tracks.isNotEmpty) {
           return tracks
@@ -158,7 +183,7 @@ class MusicSyncService {
         // for usernames that don't exist (e.g. placeholders in env.txt).
         // Mark the user as invalid so we never poll for them again this
         // session and just surface a quiet empty state in the UI.
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
         Logger.w(
           'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
         );
@@ -227,7 +252,7 @@ class MusicSyncService {
           _warnOnLastfmError(data, 'top tracks', username);
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
         Logger.w(
           'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
         );
@@ -430,7 +455,7 @@ class MusicSyncService {
           return int.tryParse(raw ?? '') ?? 0;
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
       }
     } on TimeoutException {
       Logger.d(
@@ -566,7 +591,7 @@ class MusicSyncService {
           _warnOnLastfmError(data, 'artist tracks', username);
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
         Logger.w(
           'Jukebox Service: Last.fm user "$username" not found. Skipping future polls this session.',
         );
@@ -594,7 +619,9 @@ class MusicSyncService {
   /// fails. The caller should fall back to summing local top-track playCounts
   /// when this returns 0 so the UI still shows a meaningful total.
   Future<int> fetchUserTotalPlays(String username) async {
-    if (username.isEmpty || _invalidUsers.contains(username)) return 0;
+    if (username.isEmpty || _invalidUsers.contains(username)) {
+      return getLastObservedTotalPlays(username);
+    }
     try {
       final url = Uri.parse(
         '$_baseUrl?method=user.getinfo&user=$username&format=json',
@@ -606,10 +633,15 @@ class MusicSyncService {
         if (user is Map) {
           final raw = user['playcount']?.toString() ?? '';
           final parsed = int.tryParse(raw);
-          if (parsed != null && parsed > 0) return parsed;
+          if (parsed != null && parsed > 0) {
+            _lastObservedTotalPlays[username.toLowerCase()] = parsed;
+            return parsed;
+          }
+        } else {
+          _warnOnLastfmError(data, 'user info', username);
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
         Logger.w(
           'Jukebox Service: Last.fm user "$username" not found (user.getInfo).',
         );
@@ -621,7 +653,7 @@ class MusicSyncService {
     } catch (e) {
       Logger.e('Jukebox Service Exception (user.getInfo, $username)', error: e);
     }
-    return 0;
+    return getLastObservedTotalPlays(username);
   }
 
   /// Looks up real album artwork and metadata for a single track via `track.getinfo`.
@@ -1237,7 +1269,7 @@ class MusicSyncService {
           return artists.map(TopArtist.fromJson).toList();
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
       } else {
         Logger.e(
           'Jukebox Service Error (top artists, $username): ${response.statusCode} - ${response.body}',
@@ -1272,7 +1304,7 @@ class MusicSyncService {
           return albums.map(TopAlbum.fromJson).toList();
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
       } else {
         Logger.e(
           'Jukebox Service Error (top albums, $username): ${response.statusCode} - ${response.body}',
@@ -1306,7 +1338,7 @@ class MusicSyncService {
           return tracks.map(LovedTrack.fromJson).toList();
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
       } else {
         Logger.e(
           'Jukebox Service Error (loved, $username): ${response.statusCode} - ${response.body}',
@@ -1348,7 +1380,7 @@ class MusicSyncService {
               .toList();
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
       } else {
         Logger.e(
           'Jukebox Service Error (recent range, $username): ${response.statusCode} - ${response.body}',
@@ -1442,7 +1474,7 @@ class MusicSyncService {
           );
         }
       } else if (response.statusCode == 404) {
-        _invalidUsers.add(username);
+        _markInvalidUser(username);
       } else {
         Logger.w(
           'Jukebox Service: Track scrobbles ($username, $artist - $track) status ${response.statusCode}',

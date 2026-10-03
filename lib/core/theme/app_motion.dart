@@ -4,7 +4,7 @@ import '../theme/app_theme.dart';
 
 /// Dusk Petal v2 — Motion token system.
 ///
-/// Promotes `ShelfMotion` to app-wide usage. All animations
+/// App-wide motion tokens. All animations
 /// MUST check `AppMotion.reduced` and skip when true.
 ///
 /// Curves follow Emil Kowalski's "strong ease" pattern —

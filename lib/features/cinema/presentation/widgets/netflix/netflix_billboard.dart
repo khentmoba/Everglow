@@ -49,6 +49,10 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   // after the still has painted or the user taps Play.
   bool _trailerArmed = false;
 
+  /// False while the home tab sits behind another tab: rotation and loads
+  /// stay off so a covered billboard costs nothing (mirrors AnimeXSpotlight).
+  bool _active = false;
+
   MediaItem get _item => widget.items[_index];
 
   String? get _trailerKey =>
@@ -58,11 +62,16 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
       _detailCache['${_item.tmdbId}:${_item.mediaType}'];
 
   @override
-  void initState() {
-    super.initState();
-    _startCycle();
-    if (widget.items.isNotEmpty) {
-      _loadFor(_index);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active = TickerMode.valuesOf(context).enabled;
+    if (_active == active) return;
+    _active = active;
+    if (active) {
+      if (widget.items.isNotEmpty) _loadFor(_index);
+      _startCycle();
+    } else {
+      _timer?.cancel();
     }
   }
 
@@ -84,6 +93,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
 
   void _startCycle() {
     _timer?.cancel();
+    if (!_active) return;
     _timer = Timer(_hold, () {
       if (!mounted || widget.items.length < 2) return;
       final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
@@ -101,12 +111,12 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
   }
 
   Future<void> _loadFor(int index) {
+    if (!_active) return Future.value();
     if (index < 0 || index >= widget.items.length) return Future.value();
     final item = widget.items[index];
     final key = '${item.tmdbId}:${item.mediaType}';
     final needsDetails = !_detailCache.containsKey(key);
-    final needsTrailer =
-        _trailerArmed && !_trailerCache.containsKey(key);
+    final needsTrailer = _trailerArmed && !_trailerCache.containsKey(key);
     if (!needsDetails && !needsTrailer) {
       if (!_ready && mounted) setState(() => _ready = true);
       return Future.value();
@@ -200,7 +210,9 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
       if (results == null) return null;
       final dates = _pickRegion(results)?['release_dates'] as List?;
       for (final r in dates ?? const []) {
-        final cert = (r is Map ? r['certification'] ?? '' : '').toString().trim();
+        final cert = (r is Map ? r['certification'] ?? '' : '')
+            .toString()
+            .trim();
         if (cert.isNotEmpty) return cert;
       }
       return null;

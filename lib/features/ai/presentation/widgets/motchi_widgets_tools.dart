@@ -240,7 +240,10 @@ class _QuickReplyChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!enabled) return const SizedBox.shrink();
+    final hasMessages = context.select<AIService, bool>(
+      (ai) => ai.assistantConversation?.messages.isNotEmpty ?? false,
+    );
+    if (!enabled || hasMessages) return const SizedBox.shrink();
     final chips = _getContextualChips();
     final inner = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -300,7 +303,10 @@ class _QuickPillState extends State<_QuickPill> {
             borderRadius: BorderRadius.circular(20),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 7.5,
+              ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -378,10 +384,7 @@ class WebSourcesCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.25),
-          width: 1,
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.25), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.30),
@@ -407,7 +410,11 @@ class WebSourcesCard extends StatelessWidget {
                   color: accent.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.explore_rounded, size: 12, color: accent),
+                child: const Icon(
+                  Icons.explore_rounded,
+                  size: 12,
+                  color: accent,
+                ),
               ),
               const SizedBox(width: 7),
               Text(
@@ -421,7 +428,10 @@ class WebSourcesCard extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 1.5,
+                ),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(8),

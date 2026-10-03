@@ -17,7 +17,7 @@ const MAX_TURNS_PER_SESSION = 50;
  * @param {string} params.assistantReply - Motchi's reply text
  * @param {Array<Object>} [params.tools] - Tools executed: [{ name, args, resultSummary, elapsedMs }]
  * @param {string} [params.reasoning] - Model thinking / reasoning text
- * @param {string} [params.model] - Model name (e.g. agnes-3.0-flash)
+ * @param {string} [params.model] - Model name (e.g. glm-5.3-flash)
  * @param {number} [params.durationMs] - Total turn duration in ms
  * @param {string} [params.error] - Error message if turn failed
  * @param {number} [params.imageCount] - Number of images attached
@@ -35,6 +35,7 @@ async function recordMotchiTurn({
   durationMs = 0,
   error = null,
   imageCount = 0,
+  requestTrace = null,
 }) {
   try {
     const db = common.getDb();
@@ -93,6 +94,11 @@ async function recordMotchiTurn({
       durationMs: Number(durationMs) || 0,
       error: error ? String(error).slice(0, 500) : null,
       imageCount: Number(imageCount) || 0,
+      // Numeric-only diagnostics: no prompts, memory text, or credentials.
+      requestTrace: requestTrace ? Object.fromEntries(
+        ['modelCalls', 'retries', 'toolRounds', 'repairs', 'firstTokenMs', 'preparedMs', 'contextChars', 'memoryCount', 'memoryChars', 'promptChars', 'attachedTools']
+          .map((key) => [key, Number.isFinite(requestTrace[key]) ? requestTrace[key] : null]),
+      ) : null,
     };
 
     const docRef = db.collection('motchi_sessions').doc(targetId);

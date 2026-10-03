@@ -24,7 +24,7 @@ import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
-import '../../../../shared/widgets/shelf/shelf_pill_bottom_nav.dart';
+import '../../../../shared/widgets/everglow/everglow_pill_nav.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
@@ -32,6 +32,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/utils/scroll_memory.dart';
+import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 part 'books_screen_widgets.dart';
 part 'books_screen_state_base.dart';
 
@@ -43,7 +44,7 @@ const _cAmber = AppColors.warmAmber;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
-/// Main entry for the books feature. Three-tab IndexedStack
+/// Main entry for the books feature. Three-tab lazy stack
 /// (Home, Search, Library) with a custom glassmorphic bottom nav.
 /// Mirrors `CinemaScreen` from the cinema feature.
 class BooksScreen extends StatefulWidget {
@@ -83,7 +84,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
           SafeArea(
             top: false,
             bottom: false,
-            child: IndexedStack(
+            child: LazyIndexedStack(
               index: _currentIndex,
               children: [
                 _buildHomeTab(),
@@ -92,9 +93,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
               ],
             ),
           ),
+          _buildBottomNavBar(),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -156,8 +157,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
   Widget _buildTopHeader() {
     final top = MediaQuery.paddingOf(context).top;
     final canPop = Navigator.canPop(context);
-    final isCouple =
-        context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
@@ -1060,21 +1060,21 @@ class _BooksScreenState extends _BooksScreenStateBase {
   // ── BOTTOM NAV ─────────────────────────────────────────────────────
 
   Widget _buildBottomNavBar() {
-    return ShelfPillBottomNav(
+    return EverglowPillNav(
       currentIndex: _currentIndex,
       onTap: _switchTab,
       items: const [
-        ShelfNavItem(
+        EverglowNavItem(
           icon: Icons.home_outlined,
           activeIcon: Icons.home_rounded,
           label: 'Home',
         ),
-        ShelfNavItem(
+        EverglowNavItem(
           icon: Icons.search_rounded,
           activeIcon: Icons.search_rounded,
           label: 'Search',
         ),
-        ShelfNavItem(
+        EverglowNavItem(
           icon: Icons.library_books_outlined,
           activeIcon: Icons.library_books_rounded,
           label: 'Library',

@@ -1,5 +1,7 @@
 'use strict';
 
+const { getCalendarEvents } = require('./calendar_core.js');
+
 // Everglow Cloud Functions — Motchi schedules group.
 // Morning digest, night recap, mood check-in, smart nudges,
 // weekly recap, special-day nudge, reminder checker, memory sweep.
@@ -7,9 +9,8 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
-const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, phtDateString, phtDayBounds } = require('./motchi_core.js');
+const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, findDuplicateGroups, phtDateString, phtDayBounds } = require('./motchi_core.js');
 const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
-const { getRemoteEmbedding } = require('./motchi_memory.js');
 const { subNextRenewal } = require('./motchi_exec_planning.js');
 
 /**
@@ -116,17 +117,17 @@ const motchiDailyDigest = onSchedule({
   // Try a real Motchi voice first; fall back to the deterministic recap.
   let digest = composeTodayRecap(recapData);
   try {
-    const apiKey = process.env.AGNES_API_KEY;
+    const apiKey = process.env.TOKENHARBOR_API_KEY;
     if (apiKey && !_quietDay) {
       const dataBlob = JSON.stringify(recapData).slice(0, 6000);
-      const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+      const resp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'agnes-3.0-flash',
+          model: 'glm-5.3-flash',
           messages: [
             {
               role: 'system',
@@ -140,6 +141,7 @@ const motchiDailyDigest = onSchedule({
           max_tokens: 300,
           temperature: 0.7,
           stream: false,
+          enable_thinking: false,
         }),
         signal: AbortSignal.timeout(30000),
       });
@@ -322,12 +324,9 @@ const motchiSmartNudge = onSchedule({
     } catch (e) { console.warn('[smartNudge] journal', e.message); }
     try {
       const { start: startTomorrow, end: endTomorrow } = phtDayBounds(now.getTime() + 24 * 60 * 60 * 1000);
-      const calSnap = await db.collection('calendar_events')
-        .where('date','>=', getAdmin().firestore.Timestamp.fromDate(startTomorrow))
-        .where('date','<=', getAdmin().firestore.Timestamp.fromDate(endTomorrow))
-        .limit(3).get();
-      if (!calSnap.empty && !logged.calendar) {
-        const titles = calSnap.docs.map(d => d.data().title || 'Untitled').join(', ');
+      const events = await getCalendarEvents(db, getAdmin().firestore.Timestamp, startTomorrow, endTomorrow, 3);
+      if (events.length && !logged.calendar) {
+        const titles = events.map(event => event.title || 'Untitled').join(', ');
         await sendFCMToBoth({
           title: `Tomorrow: ${titles}`,
           body: 'Motchi sees you have plans — sleep well and enjoy tomorrow together!',
@@ -373,14 +372,14 @@ const motchiWeeklyRecap = onSchedule({
     if (_quietWeek) console.log('[motchiWeeklyRecap] quiet week — skipping LLM polish');
     // Try LLM polish (same as daily digest, but weekly)
     try {
-      const apiKey = process.env.AGNES_API_KEY;
+      const apiKey = process.env.TOKENHARBOR_API_KEY;
       if (apiKey && !_quietWeek) {
         const dataBlob = JSON.stringify(recapData).slice(0, 6000);
-        const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
+        const resp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'agnes-3.0-flash',
+            model: 'glm-5.3-flash',
             messages: [
               { role: 'system', content: 'You are Motchi 🍡, a warm white cat companion for Khent and Clair. Write a cozy 3-4 sentence weekly recap for their week — reference real moods, activities, starlight notes, and watchlist naturally. Stay warm, celebrate their rhythm, and don\'t list raw fields.' },
               { role: 'user', content: `Week ${weekStartStr} to ${todayStr} data:\n${dataBlob}` },
@@ -388,6 +387,7 @@ const motchiWeeklyRecap = onSchedule({
             max_tokens: 400,
             temperature: 0.7,
             stream: false,
+            enable_thinking: false,
           }),
           signal: AbortSignal.timeout(30000),
         });
@@ -533,21 +533,16 @@ const motchiMemorySweep = onSchedule({
     let pruned = 0;
     let updated = 0;
     let backfilled = 0;
-    let remoteBudget = 25;
+    const deletedIds = new Set(); // decay-pruned docs skip the merge pass below
     const jobs = snap.docs.map(async (doc) => {
       const data = doc.data();
-      // Backfill: invalid embeddings (missing, malformed, odd dims)
-      // recompute remote-first within budget, else locally. Runs for
-      // pinned docs too. (Check-and-decrement is sync, so the budget
-      // holds exactly even though the jobs run concurrently.)
+      // Backfill invalid embeddings (missing, malformed, odd dims) with
+      // local vectors. Runs for pinned docs too. Legacy remote-space
+      // vectors are left alone — ranking falls back to recomputing
+      // their local vector, so they still rank correctly.
       if (data.fact && needsEmbeddingBackfill(data.embedding)) {
         try {
-          let emb = null;
-          if (remoteBudget > 0) {
-            remoteBudget--;
-            emb = await getRemoteEmbedding(String(data.fact));
-          }
-          if (!emb) emb = simpleEmbedding(String(data.fact), 64);
+          const emb = simpleEmbedding(String(data.fact), 64);
           if (emb) {
             await doc.ref.update({ embedding: emb });
             backfilled++;
@@ -561,6 +556,7 @@ const motchiMemorySweep = onSchedule({
       const currentConf = Number(data.confidence ?? 1);
       const decayed = currentConf * Math.pow(0.5, daysSince / 90);
       if (decayed < 0.15) {
+        deletedIds.add(doc.id);
         await doc.ref.delete();
         pruned++;
       } else if (Math.abs(decayed - currentConf) > 0.05) {
@@ -570,7 +566,29 @@ const motchiMemorySweep = onSchedule({
       return null; // map-to-promises: values unused, allSettled joins only
     });
     await Promise.allSettled(jobs);
-    if (pruned > 0 || updated > 0 || backfilled > 0) console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} scanned=${snap.size}`);
+    // Mem0-style tidy: near-dupe facts merge into one survivor (pinned
+    // wins, then highest confidence, then oldest). Capped at 5 groups
+    // a night; pinned docs are never deleted. Runs after decay so
+    // already-pruned docs are out of the picture.
+    let merged = 0;
+    try {
+      const live = snap.docs
+        .filter((d) => !deletedIds.has(d.id))
+        .map((d) => ({ id: d.id, ref: d.ref, ...(d.data() || {}) }));
+      const groups = findDuplicateGroups(live).slice(0, 5);
+      for (const g of groups) {
+        const victims = g.dupes.filter((m) => m.pinned !== true && m.ref);
+        if (victims.length === 0) continue;
+        for (const v of victims) {
+          try { await v.ref.delete(); merged++; } catch (_) {}
+        }
+      }
+    } catch (e) {
+      console.warn('[motchiMemorySweep] merge pass failed:', e.message);
+    }
+    if (pruned > 0 || updated > 0 || backfilled > 0 || merged > 0) {
+      console.log(`[motchiMemorySweep] pruned=${pruned} updated=${updated} backfilled=${backfilled} merged=${merged} scanned=${snap.size}`);
+    }
   } catch (e) {
     console.warn('[motchiMemorySweep] failed:', e.message);
   }

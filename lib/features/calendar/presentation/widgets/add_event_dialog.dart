@@ -28,6 +28,8 @@ class _AddEventDialogState extends State<AddEventDialog> {
   late CalendarEventType _selectedType;
   String _recurring = 'none';
   bool _isSaving = false;
+  String? _saveError;
+  final _saveErrorKey = GlobalKey();
   TimeOfDay _selectedTime = const TimeOfDay(hour: 19, minute: 0);
   bool _isAllDay = false;
   final List<String> _attendees = []; // usernames
@@ -71,7 +73,10 @@ class _AddEventDialogState extends State<AddEventDialog> {
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty || _isSaving) return;
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _saveError = null;
+    });
 
     try {
       final auth = context.read<AuthService>();
@@ -96,12 +101,16 @@ class _AddEventDialogState extends State<AddEventDialog> {
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to save: $e"),
-            backgroundColor: AppColors.deepRose,
-          ),
+        setState(
+          () => _saveError =
+              'Could not save this event. Your details are still here — please try again.',
         );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final errorContext = _saveErrorKey.currentContext;
+          if (mounted && errorContext != null) {
+            Scrollable.ensureVisible(errorContext, alignment: 0.5);
+          }
+        });
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -319,7 +328,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 : AppColors.twilight,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppColors.blushGold.withValues(alpha: 0.15),
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.15,
+                              ),
                             ),
                           ),
                           child: Row(
@@ -328,7 +339,9 @@ class _AddEventDialogState extends State<AddEventDialog> {
                                 Icons.access_time_rounded,
                                 size: 16,
                                 color: _isAllDay
-                                    ? AppColors.petalWhite.withValues(alpha: 0.3)
+                                    ? AppColors.petalWhite.withValues(
+                                        alpha: 0.3,
+                                      )
                                     : AppColors.blushGold,
                               ),
                               const SizedBox(width: 8),
@@ -504,6 +517,14 @@ class _AddEventDialogState extends State<AddEventDialog> {
 
                 const SizedBox(height: 24),
 
+                if (_saveError != null) ...[
+                  Text(
+                    _saveError!,
+                    key: _saveErrorKey,
+                    style: const TextStyle(color: AppColors.error),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 // ── Buttons ──
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,

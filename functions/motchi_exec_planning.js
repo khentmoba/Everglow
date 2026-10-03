@@ -7,6 +7,7 @@
  */
 
 const { parseReminderDate } = require('./motchi_core.js');
+const { getCalendarEvents } = require('./calendar_core.js');
 
 async function exec_create_reminder(ctx, args) {
     // W1-A2: Parse remind_at into a Firestore Timestamp for the
@@ -66,15 +67,11 @@ async function exec_get_calendar_events(ctx, args) {
     const limit = Math.min(Math.max(Number(args.limit)||10,1),20);
     const now = new Date();
     const end = new Date(now.getTime()+days*24*60*60*1000);
-    const snap = await ctx.db.collection('calendar_events')
-      .where('date','>=', ctx.admin.firestore.Timestamp.fromDate(now))
-      .where('date','<=', ctx.admin.firestore.Timestamp.fromDate(end))
-      .orderBy('date','asc').limit(limit).get();
-    if (snap.empty) return JSON.stringify({ events: [], count: 0 });
-    const events = snap.docs.map(d => {
-      const v = d.data();
-      return { id: d.id, title: v.title||'', date: v.date?.toDate?.()?.toISOString()||null, type: v.type||'custom', location: v.location||null };
-    });
+    const upcoming = await getCalendarEvents(ctx.db, ctx.admin.firestore.Timestamp, now, end, limit);
+    const events = upcoming.map(v => ({
+      id: v.id, title: v.title || '', date: v.date.toISOString(),
+      type: v.type || 'custom', location: v.location || null,
+    }));
     return JSON.stringify({ events, count: events.length });
 }
 

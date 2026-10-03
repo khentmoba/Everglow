@@ -38,7 +38,6 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 ## Workflow — how we ship (agreed with Khent)
 
 - Never push straight to `main`. `main` auto-deploys live to Clair.
-- One small branch per fix or feature, then open a PR and merge only when checks pass.
 - Before every PR: run `flutter analyze`, run `flutter test`, run the regression guards (`dart tool/ci/check_*.dart`), and open the app in Chrome (`flutter run -d chrome`) to look at what you changed. CI enforces all of these plus a release web build on every PR.
 - If functions or hosting checks fail, stop and fix. Do not add `continue-on-error` or hide failures.
 - Every PR shows proof: attach a screenshot of just the changed screen, kept in `docs/pr-proof/` and visible inline in the PR. Repo is public, so couple-only screens use fake demo data only — never real couple data. Also check the auto-posted preview link (alive 12 hours).
@@ -108,7 +107,7 @@ tag — if a release is wrong, cut a new patch version instead.
 
 ## Watch-outs (learned from live breaks)
 
-- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / Agnes keys server-side.
+- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / TokenHarbor keys server-side.
 - **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
 - **History should stay readable:** tiny scoped commits (`fix(dashboard): ...`). One fix per commit so a bad deploy is easy to undo. No "fix live by redeploying to see" — look locally first.

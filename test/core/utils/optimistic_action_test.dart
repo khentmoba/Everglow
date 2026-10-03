@@ -139,43 +139,4 @@ void main() {
       expect(set.removed, contains(202));
     });
   });
-
-  group('OptimisticMap', () {
-    test(
-      'setOptimistic overrides server value and reconciles when matched',
-      () {
-        final map = OptimisticMap<String, double>();
-
-        expect(map.get('movie_1', 0.0), equals(0.0));
-        map.setOptimistic('movie_1', 1.0);
-        expect(map.isPending('movie_1'), isTrue);
-        expect(map.get('movie_1', 0.0), equals(1.0));
-
-        // Server still has old:
-        map.reconcile('movie_1', 0.0);
-        expect(map.isPending('movie_1'), isTrue);
-
-        // Server has confirmed new:
-        map.reconcile('movie_1', 1.0);
-        expect(map.isPending('movie_1'), isFalse);
-        expect(map.get('movie_1', 1.0), equals(1.0));
-      },
-    );
-
-    test('rollback reverts override', () {
-      final map = OptimisticMap<String, String>();
-
-      map.setOptimistic('key', 'optimistic');
-      expect(map.get('key', 'server'), equals('optimistic'));
-
-      map.rollback('key');
-      expect(map.get('key', 'server'), equals('server'));
-    });
-
-    test('exposes overrides map', () {
-      final map = OptimisticMap<String, int>();
-      map.setOptimistic('star', 5);
-      expect(map.overrides['star'], equals(5));
-    });
-  });
 }

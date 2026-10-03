@@ -144,7 +144,7 @@ function cosineSimilarity(a, b) {
   return dot;
 }
 
-function rankMemories(facts, query, maxResults = 30, now = new Date(), remoteQueryEmb = null) {
+function rankMemories(facts, query, maxResults = 30, now = new Date()) {
   const tokens = tokenize(query);
   const current = now || new Date();
   const queryEmb = simpleEmbedding(query);
@@ -154,26 +154,58 @@ function rankMemories(facts, query, maxResults = 30, now = new Date(), remoteQue
       let score = scoreMemory(fact, tokens, current);
       try {
         const stored = Array.isArray(fact.embedding) ? fact.embedding : null;
-        // Remote space wins when both sides share it; otherwise local.
-        if (remoteQueryEmb && stored && stored.length === remoteQueryEmb.length) {
-          const cos = cosineSimilarity(remoteQueryEmb, stored);
-          score += cos * 2;
-          fact._cos = cos;
-        } else {
-          const factEmb = stored && queryEmb && stored.length === queryEmb.length
-            ? stored
-            : simpleEmbedding(fact.fact || '');
-          if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
-            const cos = cosineSimilarity(queryEmb, factEmb);
-            score += cos * 2;
-            fact._cos = cos;
-          }
+        // A stored vector in another space (legacy remote dims) never
+        // matches — recompute the local vector instead of crashing.
+        const factEmb = stored && queryEmb && stored.length === queryEmb.length
+          ? stored
+          : simpleEmbedding(fact.fact || '');
+        if (queryEmb && factEmb && factEmb.length === queryEmb.length) {
+          score += cosineSimilarity(queryEmb, factEmb) * 2;
         }
       } catch (_) {}
       return { fact, score };
     });
   scored.sort((a, b) => b.score - a.score || String(a.fact.fact).localeCompare(String(b.fact.fact)));
   return scored.slice(0, maxResults).map((entry) => entry.fact);
+}
+
+// Keep general questions lean without losing broad personal recall.
+function isPersonalQuery(query) {
+  return /\b(khent|clair|dada|mama|she|her|him|his|our|we|my|i'm|i am|remember|memories|relationship|ako|nako|namo|amo|kami|kita|hinumdumi|tandaan|recommend|suggest|choose|pick|plan|planning|surprise|feeling|feel|sad|stressed|tired)\b/i.test(String(query || ''));
+}
+
+const MEMORY_QUERY_STOP_WORDS = new Set(('what which who when where how why does did can could would should tell explain about please help know think something anything fact facts memory memories remember save saved exactly use then say answer one sentence sentences short two favorite favourite prefers prefer loves love likes like enjoys enjoy khent clair dada mama our your their the and for with that this have has are was were you she her his him they them ako nako namo amo kami kita unsa ang nga mga kay paborito gusto ganahan').split(' '));
+
+/** Relevant prompt facts, not a filled quota. Broad personal asks retain
+ * a small fallback; explicit Memory Book searches still use rankMemories.
+ * No remote query embedding is needed on the chat critical path.
+ */
+function selectPromptMemories(facts, query, maxResults = 10, maxChars = 2000) {
+  if (maxResults <= 0 || maxChars <= 0) return [];
+  const tokens = tokenize(query).filter((t) => !MEMORY_QUERY_STOP_WORDS.has(t));
+  // Profile notes ride the always-on core block, not ranking — they
+  // must never be cut from (or duplicated into) Remembered Facts.
+  const pool = (facts || []).filter((f) => f && f.category !== 'profile');
+  const ranked = rankMemories(pool, query, Math.max(pool.length, maxResults));
+  const personal = isPersonalQuery(query);
+  const matching = ranked.filter((f) => {
+    const text = [f.fact, f.subject, f.object].filter(Boolean).join(' ').toLowerCase();
+    return tokens.some((t) => text.includes(t));
+  });
+  const pinned = personal ? ranked.filter((f) => f.pinned).slice(0, 2) : [];
+  const candidates = [...pinned, ...(matching.length ? matching : personal ? ranked.slice(0, 4) : [])];
+  const selected = [];
+  const seen = new Set();
+  let chars = 0;
+  for (const f of candidates) {
+    const text = String(f.fact || '').trim();
+    if (!text || seen.has(text) || chars + text.length + 3 > maxChars) continue;
+    seen.add(text);
+    chars += text.length + 3;
+    selected.push(f);
+    if (selected.length >= maxResults) break;
+  }
+  return selected;
 }
 
 /**
@@ -196,6 +228,63 @@ function isNearDuplicate(a, b, threshold = 0.88) {
     return na === nb || na.includes(nb) || nb.includes(na);
   }
   return cosineSimilarity(embA, embB) >= threshold;
+}
+
+/**
+ * Groups near-duplicate facts for the nightly tidy (Mem0-style UPDATE).
+ * Two facts merge only when BOTH hold: local-embedding cosine >=
+ * threshold (default 0.93 — stricter than the 0.88 read-time check,
+ * because a merge deletes) AND the same subject+relation shape (or
+ * both unparsed prose). Survivor per group: pinned first, then highest
+ * confidence, then oldest. Pure — the sweep enforces its own safety
+ * caps (never delete pinned, max groups/night) around this.
+ */
+function findDuplicateGroups(facts, threshold = 0.93) {
+  const list = (facts || []).filter((f) => f && String(f.fact || '').trim());
+  const embs = list.map((f) => {
+    try { return simpleEmbedding(f.fact, 64); } catch (_) { return null; }
+  });
+  const parsed = list.map((f) => {
+    try { return parseFactStructure(f.fact); } catch (_) { return { subject: null, relation: null, object: null }; }
+  });
+  const sameShape = (a, b) => {
+    const sa = String(a.subject || '').toLowerCase();
+    const sb = String(b.subject || '').toLowerCase();
+    const ra = String(a.relation || '').toLowerCase();
+    const rb = String(b.relation || '').toLowerCase();
+    if (!sa && !sb && !ra && !rb) return true;
+    return !!sa && sa === sb && !!ra && ra === rb;
+  };
+  const groups = [];
+  list.forEach((_, i) => {
+    if (!embs[i]) return;
+    for (const g of groups) {
+      if (!embs[g.rep]) continue;
+      if (cosineSimilarity(embs[i], embs[g.rep]) >= threshold && sameShape(parsed[i], parsed[g.rep])) {
+        g.members.push(i);
+        return;
+      }
+    }
+    groups.push({ rep: i, members: [i] });
+  });
+  const timeOf = (f) => {
+    const d = toDate(f.createdAt);
+    return d ? d.getTime() : 0;
+  };
+  return groups
+    .filter((g) => g.members.length > 1)
+    .map((g) => {
+      const members = g.members.map((i) => list[i]);
+      const pinned = members.filter((m) => m.pinned === true);
+      const pool = pinned.length > 0 ? pinned : members;
+      let survivor = pool[0];
+      for (const m of pool) {
+        const mc = Number(m.confidence ?? 1);
+        const sc = Number(survivor.confidence ?? 1);
+        if (mc > sc + 1e-9 || (Math.abs(mc - sc) <= 1e-9 && timeOf(m) < timeOf(survivor))) survivor = m;
+      }
+      return { survivor, dupes: members.filter((m) => m !== survivor) };
+    });
 }
 // ── Context block pre-selection ────────────────────────────────
 // Picks which Firestore-backed context blocks to fetch BEFORE any read
@@ -232,13 +321,12 @@ const DEFAULT_CONTEXT_KEYS = ['chat', 'mood', 'activity', 'watchlist', 'starligh
 
 /**
  * Block keys to fetch for a query: keyword hits first (up to maxKeys),
- * defaults fill only to minKeys. Every block is a Firestore query +
- * prompt tokens, so a vague message fetches the 4 most useful blocks
- * instead of all 7 — the model still pulls anything else via the
- * awareness tools. The pricey `sessions` scan still runs only on a
- * history keyword hit, never as filler.
+ * no unrelated filler. Vague personal requests retain chat + mood;
+ * general explanations retain only the free date/identity context.
+ * The model can still pull other spaces through awareness tools.
+ * The pricey sessions scan runs only on a history keyword hit.
  */
-function selectBlockKeys(query, maxKeys = 7, minKeys = 4) {
+function selectBlockKeys(query, maxKeys = 7, minKeys = 0) {
   const lowered = String(query || '').toLowerCase();
   const words = new Set(lowered.split(/[^a-z0-9]+/).filter(Boolean));
   const scored = Object.keys(CONTEXT_BLOCK_KEYWORDS).map((key) => {
@@ -255,8 +343,11 @@ function selectBlockKeys(query, maxKeys = 7, minKeys = 4) {
   });
   scored.sort((a, b) => b.score - a.score || a.rank - b.rank || (a.key < b.key ? -1 : 1));
   const picked = scored.filter((s) => s.score > 0).slice(0, maxKeys).map((s) => s.key);
+  // Don't pad a movie/garden/etc. request with unrelated blocks. Only
+  // vague personal questions need the small chat+mood awareness fallback.
+  const floor = picked.length ? minKeys : Math.max(minKeys, isPersonalQuery(query) ? 2 : 0);
   for (const s of scored) {
-    if (picked.length >= minKeys) break;
+    if (picked.length >= floor) break;
     if (!picked.includes(s.key)) picked.push(s.key);
   }
   return picked;
@@ -531,9 +622,9 @@ function shouldExtractMemory(userMessage, motchiReply) {
   return user.length >= 120;
 }
 
-// Agnes 3.0 Flash: 512K context window, generous token budget.
-// Use ~25% of context for input safety; reserve rest for output + tool loops.
-const AGNES_INPUT_TOKEN_BUDGET = 120000;
+// GLM 5.3 Flash via TokenHarbor: 1M context window. Keep the proven 120K
+// input budget as a cost guard; the extra headroom is reserve, not license.
+const LLM_INPUT_TOKEN_BUDGET = 120000;
 
 /**
  * Parses a reminder/casual date phrase into a UTC instant. Accepts ISO
@@ -742,8 +833,11 @@ module.exports = {
   SESSION_BLOCKS_SHOWN,
   scoreMemory,
   rankMemories,
+  selectPromptMemories,
+  isPersonalQuery,
   simpleEmbedding,
   isNearDuplicate,
+  findDuplicateGroups,
   needsEmbeddingBackfill,
   selectContextBlocks,
   selectBlockKeys,
@@ -760,5 +854,5 @@ module.exports = {
   phtDayBounds,
   PHT_OFFSET_MS,
   parseReminderDate,
-  AGNES_INPUT_TOKEN_BUDGET,
+  LLM_INPUT_TOKEN_BUDGET,
 };

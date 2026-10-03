@@ -6,8 +6,8 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
-const { parseFactStructure, rankMemories, findContradiction } = require('./motchi_core.js');
-const { getEmbedding, invalidateMemoryCache } = require('./motchi_memory.js');
+const { parseFactStructure, rankMemories, findContradiction, simpleEmbedding, tokenize } = require('./motchi_core.js');
+const { loadMemoryFacts, invalidateMemoryCache } = require('./motchi_memory.js');
 
 async function exec_remember_fact(ctx, args) {
     const fact = (args.fact || '').trim();
@@ -32,13 +32,15 @@ async function exec_remember_fact(ctx, args) {
             object: parsed.object || null,
             confidence: 1.0,
             updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+            embedding: simpleEmbedding(fact),
           });
           invalidateMemoryCache();
           return JSON.stringify({ success: true, updated: true, id: hit.id, fact, previous: hit.fact });
         }
       } catch (_) {}
     }
-    const emb = await getEmbedding(fact).catch(() => null);
+    // Save immediately with a local vector; nightly maintenance can enrich it.
+    const emb = simpleEmbedding(fact);
     await ctx.db.collection('ai_memories').doc('shared').collection('facts').add({
       fact,
       category: args.category || 'fact',
@@ -67,23 +69,16 @@ async function exec_remember_fact(ctx, args) {
 
 async function exec_read_memories(ctx, args) {
     const limit = Math.min(args.limit || 20, 50);
-    let query = ctx.db.collection('ai_memories').doc('shared').collection('facts')
-      .orderBy('createdAt', 'desc')
-      .limit(150);
-    const snapshot = await query.get();
-    let facts = snapshot.docs.map(d => {
-      const data = d.data();
-      return {
-        id: d.id,
-        fact: data.fact || '',
-        category: data.category || 'fact',
-        subject: data.subject || null,
-        relation: data.relation || null,
-        object: data.object || null,
-        occurredAt: data.occurredAt?.toDate?.()?.toISOString() || null,
-        pinned: data.pinned === true,
-      };
-    }).filter(f => f.fact);
+    let facts = (await loadMemoryFacts(ctx.db)).map((data) => ({
+      id: data.id,
+      fact: data.fact,
+      category: data.category || 'fact',
+      subject: data.subject || null,
+      relation: data.relation || null,
+      object: data.object || null,
+      occurredAt: data.occurredAt?.toISOString() || null,
+      pinned: data.pinned === true,
+    }));
     if (args.category) {
       facts = facts.filter(f => f.category === args.category);
     }
@@ -94,6 +89,98 @@ async function exec_read_memories(ctx, args) {
       facts = facts.slice(0, limit);
     }
     return JSON.stringify({ memories: facts, count: facts.length });
+}
+
+async function exec_search_sessions(ctx, args) {
+    // Archival recall: keyword search over the 12 freshest session docs
+    // (both partners — "what did we talk about" is a couple question).
+    // Single-field orderBy, so no composite index. Docs can be big (50
+    // turns), so snippets stay short and the list stays capped.
+    const query = String(args.query || '').trim();
+    if (!query) return JSON.stringify({ error: 'No query provided' });
+    const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 10);
+    const tokens = tokenize(query);
+    if (tokens.length === 0) return JSON.stringify({ turns: [], count: 0 });
+    const snap = await ctx.db.collection('motchi_sessions')
+      .orderBy('updatedAt', 'desc').limit(12).get();
+    if (snap.empty) return JSON.stringify({ turns: [], count: 0 });
+    const hits = [];
+    for (const d of snap.docs) {
+      const v = (d.data && d.data()) || {};
+      const turns = Array.isArray(v.turns) ? v.turns : [];
+      for (const t of turns) {
+        const user = String(t.userMessage || '');
+        const reply = String(t.assistantReply || '');
+        const hay = (user + ' ' + reply).toLowerCase();
+        let score = 0;
+        for (const tok of tokens) if (hay.includes(tok)) score += 1;
+        if (score === 0) continue;
+        hits.push({
+          score,
+          when: t.timestamp || v.updatedAtIso || null,
+          who: v.caller || null,
+          user: user.slice(0, 300),
+          motchi: reply.slice(0, 300),
+        });
+      }
+    }
+    hits.sort((a, b) => b.score - a.score);
+    const top = hits.slice(0, limit).map((h) => ({ when: h.when, who: h.who, user: h.user, motchi: h.motchi }));
+    return JSON.stringify({ turns: top, count: top.length });
+}
+
+async function exec_save_profile_note(ctx, args) {
+    const note = String(args.note || '').trim();
+    if (!note) return JSON.stringify({ error: 'No note provided' });
+    if (note.length > 500) return JSON.stringify({ error: 'Note too long (max 500)' });
+    if (!args.confirm) {
+      return JSON.stringify({ needs_confirmation: true, message: `Save this to your core profile? "${note.slice(0, 180)}" — re-call save_profile_note with confirm:true to proceed.`, note });
+    }
+    const parsed = parseFactStructure(note);
+    const factsCol = ctx.db.collection('ai_memories').doc('shared').collection('facts');
+    // Contradiction: same subject + relation with a different object
+    // updates the stale note — core truths never stack twins.
+    if (parsed.subject && parsed.relation) {
+      try {
+        const snap = await factsCol.where('subject', '==', parsed.subject).limit(15).get();
+        const cands = (snap.docs || []).map((d) => {
+          const v = (d.data && d.data()) || {};
+          return { id: d.id, fact: v.fact || '', category: v.category || 'fact' };
+        });
+        const hit = findContradiction(parsed, note, cands);
+        if (hit && hit.id) {
+          await factsCol.doc(hit.id).update({
+            fact: note,
+            category: 'profile',
+            object: parsed.object || null,
+            confidence: 1.0,
+            pinned: true,
+            updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+            embedding: simpleEmbedding(note),
+          });
+          invalidateMemoryCache();
+          return JSON.stringify({ success: true, updated: true, id: hit.id, fact: note, previous: hit.fact });
+        }
+      } catch (_) {}
+    }
+    await factsCol.add({
+      fact: note,
+      category: 'profile',
+      subject: parsed.subject || null,
+      relation: parsed.relation || null,
+      object: parsed.object || null,
+      topic: String(args.topic || '').trim().slice(0, 60) || null,
+      addedBy: ctx.callerUid || 'motchi',
+      createdAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+      confidence: 1.0,
+      accessCount: 0,
+      lastAccessed: null,
+      pinned: true,
+      source: ctx.callerUid || 'motchi',
+      embedding: simpleEmbedding(note),
+    });
+    invalidateMemoryCache();
+    return JSON.stringify({ success: true, fact: note });
 }
 
 async function exec_pin_memory(ctx, args) {
@@ -145,10 +232,12 @@ async function exec_edit_memory(ctx, args) {
     const parsed = parseFactStructure(fact);
     const update = {
       fact,
-      subject: parsed.subject || null,
+      // A wording correction must not silently erase the fact's owner.
+      subject: parsed.subject || snap.data()?.subject || parseFactStructure(snap.data()?.fact || '').subject || null,
       relation: parsed.relation || null,
       object: parsed.object || null,
       lastAccessed: ctx.admin.firestore.FieldValue.serverTimestamp(),
+      embedding: simpleEmbedding(fact),
     };
     if (args.category) update.category = String(args.category).trim().toLowerCase();
     await ref.update(update);
@@ -465,4 +554,6 @@ module.exports = {
   exec_read_journal_entry,
   exec_edit_journal_entry,
   exec_delete_journal_entry,
+  exec_search_sessions,
+  exec_save_profile_note,
 };

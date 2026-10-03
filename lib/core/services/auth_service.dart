@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -36,6 +38,10 @@ class AuthService extends ChangeNotifier {
   bool _isSessionLoaded = false;
   String? _lastAuthError;
   bool _offlineUnlocked = false;
+  Map<String, dynamic>? _offlineVerifier;
+
+  bool get hasOfflineRememberedCode =>
+      isCoupleUser && _offlineVerifier?['username'] == _currentUser;
 
   AuthService() {
     _loadSession();
@@ -69,6 +75,10 @@ class AuthService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _currentUser = prefs.getString('current_user_name');
+      final savedVerifier = prefs.getString('offline_passcode_verifier');
+      if (savedVerifier != null) {
+        _offlineVerifier = jsonDecode(savedVerifier) as Map<String, dynamic>;
+      }
       if (_currentUser != null) {
         Logger.i("Restored session for: $_currentUser");
         // Same heal as the auth-state listener: a persisted anonymous user
@@ -100,12 +110,25 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveSession(String? name) async {
+  Future<void> _saveSession(String? name, {String? passcode}) async {
     final prefs = await SharedPreferences.getInstance();
     if (name != null) {
       await prefs.setString('current_user_name', name);
     } else {
       await prefs.remove('current_user_name');
+    }
+    // Only remember a code after the server accepted it. Never ship either
+    // person's code to every browser just to support one device's cache.
+    _offlineVerifier = passcode == null || name == null
+        ? null
+        : buildOfflineVerifier(name, passcode);
+    if (_offlineVerifier == null) {
+      await prefs.remove('offline_passcode_verifier');
+    } else {
+      await prefs.setString(
+        'offline_passcode_verifier',
+        jsonEncode(_offlineVerifier),
+      );
     }
   }
 
@@ -532,7 +555,7 @@ class AuthService extends ChangeNotifier {
           continue;
         }
         _currentUser = username;
-        await _saveSession(username);
+        await _saveSession(username, passcode: passcode);
         unawaited(_syncUserDoc());
         _lastAuthError = null;
         _offlineUnlocked = false;
@@ -560,8 +583,7 @@ class AuthService extends ChangeNotifier {
     if (!offlineCodeMatches(
       rememberedUser: remembered,
       passcode: passcode,
-      clairCode: EnvConfig.clairPasscode,
-      khentCode: EnvConfig.khentPasscode,
+      verifier: _offlineVerifier,
     )) {
       return null;
     }
@@ -572,25 +594,42 @@ class AuthService extends ChangeNotifier {
     return remembered;
   }
 
-  /// Pure rule behind [tryOfflineRememberedLogin]: the typed code must be
-  /// the remembered user's own code. Never switches users, never unlocks
-  /// a fresh device (null remembered user), and empty configured codes
-  /// never match so builds without config can't be bypassed.
+  // This is an offline convenience for data already cached on this device,
+  // not a server credential. The four-digit code is never stored in plain text.
+  @visibleForTesting
+  static Map<String, String> buildOfflineVerifier(
+    String username,
+    String passcode,
+  ) {
+    final random = Random.secure();
+    final salt = base64UrlEncode(List.generate(32, (_) => random.nextInt(256)));
+    return {
+      'username': username,
+      'salt': salt,
+      'digest': _offlineDigest(username, salt, passcode),
+    };
+  }
+
+  static String _offlineDigest(String username, String salt, String passcode) =>
+      sha256.convert(utf8.encode('$username:$salt:$passcode')).toString();
+
   @visibleForTesting
   static bool offlineCodeMatches({
     required String? rememberedUser,
     required String passcode,
-    required String clairCode,
-    required String khentCode,
+    required Map<String, dynamic>? verifier,
   }) {
-    if (passcode.isEmpty) return false;
-    if (rememberedUser == 'clairjassen') {
-      return clairCode.isNotEmpty && passcode == clairCode;
+    if (!{'clairjassen', 'khentsgdz'}.contains(rememberedUser) ||
+        !RegExp(r'^\d{4}$').hasMatch(passcode) ||
+        verifier?['username'] != rememberedUser) {
+      return false;
     }
-    if (rememberedUser == 'khentsgdz') {
-      return khentCode.isNotEmpty && passcode == khentCode;
-    }
-    return false;
+    final salt = verifier?['salt'];
+    final digest = verifier?['digest'];
+    return salt is String &&
+        salt.isNotEmpty &&
+        digest is String &&
+        digest == _offlineDigest(rememberedUser!, salt, passcode);
   }
 
   /// Offline fallback for Khent/Clair when verifyPasscode is unreachable.

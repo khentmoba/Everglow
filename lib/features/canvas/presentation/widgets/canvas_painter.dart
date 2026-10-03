@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/models/doodle_stroke.dart';
+import '../../data/services/canvas_point_utils.dart';
 
 class CanvasPainter extends CustomPainter {
   final List<DoodleStroke> strokes;
@@ -61,7 +62,9 @@ class CanvasPainter extends CustomPainter {
       hash =
           hash * 31 +
           s.points.length +
-          (s.color.hashCode ^ s.strokeWidth.round());
+          (s.color.hashCode ^
+              s.strokeWidth.round() ^
+              s.canvasAspectRatio.hashCode);
     }
     return hash;
   }
@@ -111,9 +114,16 @@ class CanvasPainter extends CustomPainter {
     if (stroke.points.length < 2) return;
 
     final color = _parseColor(stroke.color);
-    final List<Offset> offsets = stroke.points.map((p) {
-      return Offset(p['x']! * size.width, p['y']! * size.height);
-    }).toList();
+    final offsets = stroke.points
+        .map(
+          (p) => mapCanvasPointToViewport(
+            x: p['x']!,
+            y: p['y']!,
+            viewportSize: size,
+            canvasAspectRatio: stroke.canvasAspectRatio,
+          ),
+        )
+        .toList();
 
     // 1. Draw glowing background shadow
     final shadowPaint = Paint()
@@ -137,9 +147,11 @@ class CanvasPainter extends CustomPainter {
 
   void _drawTextAnnotation(Canvas canvas, Size size, DoodleStroke stroke) {
     if (stroke.points.isEmpty) return;
-    final pos = Offset(
-      stroke.points.first['x']! * size.width,
-      stroke.points.first['y']! * size.height,
+    final pos = mapCanvasPointToViewport(
+      x: stroke.points.first['x']!,
+      y: stroke.points.first['y']!,
+      viewportSize: size,
+      canvasAspectRatio: stroke.canvasAspectRatio,
     );
     final color = _parseColor(stroke.color);
     final fontSize = stroke.strokeWidth * 5.0;

@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/canvas/domain/models/doodle_stroke.dart';
+import 'package:everglow/features/canvas/presentation/widgets/canvas_painter.dart';
 
 void main() {
   group('DoodleStroke', () {
@@ -19,6 +22,7 @@ void main() {
 
       expect(map['color'], '#FFC0CB');
       expect(map['strokeWidth'], 3.0);
+      expect(map['canvasAspectRatio'], 2.0);
       expect(map['userId'], 'user1');
       expect(map['points'], [
         {'x': 0.1, 'y': 0.2},
@@ -62,6 +66,7 @@ void main() {
       expect(copied.id, 'orig'); // unchanged
       expect(copied.color, '#98FB98'); // changed
       expect(copied.strokeWidth, 8.0); // changed
+      expect(copied.canvasAspectRatio, original.canvasAspectRatio);
       expect(copied.userId, 'user1'); // unchanged
       expect(copied.points, original.points); // unchanged
     });
@@ -97,5 +102,145 @@ void main() {
 
       expect(stroke.createdAt, isNull);
     });
+  });
+
+  group('DoodleStroke.fromFirestore', () {
+    test('parses a full valid document', () {
+      final created = DateTime.utc(2026, 9, 17);
+      final stroke = DoodleStroke.fromMap({
+          'points': [
+            {'x': 0.1, 'y': 0.2},
+            {'x': 0.3, 'y': 0.4},
+          ],
+          'color': '#98FB98',
+          'strokeWidth': 5,
+          'canvasAspectRatio': 1.5,
+          'createdAt': Timestamp.fromDate(created),
+          'userId': 'khentsgdz',
+          'text': 'hi',
+        },
+      's1',);
+
+      expect(stroke.id, 's1');
+      expect(stroke.points, [
+        {'x': 0.1, 'y': 0.2},
+        {'x': 0.3, 'y': 0.4},
+      ]);
+      expect(stroke.color, '#98FB98');
+      expect(stroke.strokeWidth, 5.0);
+      expect(stroke.canvasAspectRatio, 1.5);
+      expect(
+        stroke.createdAt?.millisecondsSinceEpoch,
+        created.millisecondsSinceEpoch,
+      );
+      expect(stroke.userId, 'khentsgdz');
+      expect(stroke.text, 'hi');
+    });
+
+    test('missing points yields empty points, not a throw', () {
+      final stroke = DoodleStroke.fromMap({'userId': 'clairjassen'},
+      's2',);
+
+      expect(stroke.id, 's2');
+      expect(stroke.points, isEmpty);
+      expect(stroke.userId, 'clairjassen');
+    });
+
+    test('null or non-list points yields empty points', () {
+      expect(
+        DoodleStroke.fromMap({'points': null},
+        's3',).points,
+        isEmpty,
+      );
+      expect(
+        DoodleStroke.fromMap({'points': 'nope'},
+        's4',).points,
+        isEmpty,
+      );
+    });
+
+    test('skips malformed points but keeps valid ones', () {
+      final stroke = DoodleStroke.fromMap({
+          'points': [
+            {'y': 0.2},
+            {'x': 0.1},
+            {'x': 'a', 'y': 0.2},
+            {'x': 0.1, 'y': null},
+            null,
+            'nope',
+            {'x': 0.5, 'y': 0.6},
+          ],
+        },
+      's5',);
+
+      expect(stroke.points, [
+        {'x': 0.5, 'y': 0.6},
+      ]);
+    });
+
+    test('never crashes on odd field types', () {
+      final stroke = DoodleStroke.fromMap({
+          'points': [
+            {'x': 0, 'y': 0},
+          ],
+          'color': 42,
+          'strokeWidth': 'wide',
+          'canvasAspectRatio': 'tall',
+          'createdAt': 'someday',
+          'userId': 7,
+          'text': 9,
+        },
+      's6',);
+
+      expect(stroke.points, [
+        {'x': 0.0, 'y': 0.0},
+      ]);
+      expect(stroke.color, '#FFC0CB');
+      expect(stroke.strokeWidth, 3.0);
+      expect(
+        stroke.canvasAspectRatio,
+        DoodleStroke.legacyCanvasAspectRatio,
+      );
+      expect(stroke.createdAt, isNull);
+      expect(stroke.userId, isEmpty);
+      expect(stroke.text, isNull);
+    });
+
+    test('null document data yields defaults', () {
+      final stroke = DoodleStroke.fromMap(const {}, 's7');
+
+      expect(stroke.id, 's7');
+      expect(stroke.points, isEmpty);
+      expect(stroke.color, '#FFC0CB');
+      expect(stroke.userId, isEmpty);
+    });
+  });
+
+  testWidgets('CanvasPainter paints sanitized strokes without throwing', (
+    tester,
+  ) async {
+    final broken = DoodleStroke.fromMap({
+        'points': [
+          {'x': 'bad'},
+        ],
+      },
+    's8',);
+    final annotation = DoodleStroke.fromMap({'text': 'hello'},
+    's9',);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CustomPaint(
+            size: const Size(300, 300),
+            painter: CanvasPainter(
+              strokes: [broken, annotation],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
   });
 }

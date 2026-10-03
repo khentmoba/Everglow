@@ -234,6 +234,25 @@ test('tool routing covers every eval case intent', () => {
   }
 });
 
+test('web access does not require users to ask for a search', () => {
+  const { selectToolsForRequest } = require('../motchi_tool_schemas.js');
+  for (const message of [
+    'motchi, whats the next match in valorant champs',
+    'who won the finals?',
+    'when does the next iPhone come out?',
+    'what can you do?',
+  ]) {
+    const selected = selectToolsForRequest('assistant', message).map(t => t.function.name);
+    for (const name of ['web_search', 'read_web_page', 'browse_web']) {
+      assert.ok(selected.includes(name), `${message}: missing ${name}`);
+    }
+    assert.ok(tools.toolListSection(selected).includes('You CAN search the web'));
+  }
+  assert.deepEqual(selectToolsForRequest('assistant', 'hi'), []);
+  assert.ok(!tools.toolListSection(['read_memories']).includes('You CAN search the web'));
+  assert.ok(!tools.toolListSection(['web_search', 'read_web_page']).includes('browse_web'));
+});
+
 test('tool routing stays small', () => {
   const plain = tools.selectToolNames('today was a long day, just wanted to say hi');
   assert.ok(plain.length <= 20, `plain chat selected ${plain.length}`);
@@ -385,8 +404,8 @@ test('read/write split: reads travel light, writes ride action verbs', () => {
   assert.ok(has('remember that Khent likes black coffee', 'remember_fact'));
   assert.ok(has('move our dentist appointment to Friday', 'update_calendar_event'));
   assert.ok(has('rename our reading habit to morning pages', 'edit_habit'));
-  // Core stays lean: reads + XP only.
-  assert.deepEqual([...tools.CORE_TOOLS].sort(), ['add_xp', 'read_memories']);
+  // Core stays lean: web reads, memory, and XP — no private-data writes.
+  assert.deepEqual([...tools.CORE_TOOLS].sort(), ['add_xp', 'browse_web', 'read_memories', 'read_web_page', 'web_search']);
   // Follow-through keeps the ex-core writes for offered plans.
   assert.ok(tools.selectToolNames('yes', 'Want me to save this to the jar?').includes('save_to_starlight_jar'));
   assert.ok(tools.selectToolNames('yes', 'Want me to remember that for you?').includes('remember_fact'));
@@ -442,11 +461,37 @@ test('isLightChat matches the greeting/smalltalk routing exactly', () => {
   for (const m of ['hi', 'Hello!', 'good morning', 'mew', 'how are you?', 'thanks!', 'ok', 'lol']) {
     assert.equal(isLightChat(m), true, m);
   }
-  for (const m of ['hi, remember that I love lilies', 'what movies should we watch?', 'remember that I love lilies', 'plan a date night', '']) {
+  // Real greetings name her — the tail keeps them in the fast lane.
+  for (const m of ['hi motchi', 'hello motchi!', 'hi, motchi', 'hey motchii', 'good morning motchi', 'thanks motchi', 'thank you motchi!', 'love you motchi', 'how are you motchi?']) {
+    assert.equal(isLightChat(m), true, m);
+  }
+  for (const m of ['hi, remember that I love lilies', 'hi motchi, remember that I love lilies', 'what movies should we watch?', 'remember that I love lilies', 'plan a date night', 'hi dada', 'motchi', '']) {
     assert.equal(isLightChat(m), false, m);
   }
   // Routing parity: the extracted regexes still drive the same tool sets.
   assert.equal(selectToolsForRequest('assistant', 'hi', '', '').length, 0);
+  assert.equal(selectToolsForRequest('assistant', 'hi motchi', '', '').length, 0);
   assert.equal(selectToolsForRequest('assistant', 'how are you', '', '').length, 3);
   assert.ok(selectToolsForRequest('assistant', 'what movies should we watch?', '', '').length > 3);
+});
+
+test('normalizeToolArgs trims, coerces numerics, maps aliases, lowercases enums', () => {
+  assert.deepEqual(tools.normalizeToolArgs('x', null), {});
+  assert.deepEqual(tools.normalizeToolArgs('x', 'nope'), {});
+  const out = tools.normalizeToolArgs('get_watchlist', { limit: '5', title: '  Dune  ', tmdbId: 123, media_type: 'TV' });
+  assert.deepEqual(out, { limit: 5, title: 'Dune', tmdbId: 123, tmdb_id: 123, media_type: 'tv' });
+  assert.equal(tools.normalizeToolArgs('add_xp', { amount: 'junk' }).amount, 'junk');
+  assert.equal(tools.normalizeToolArgs('cancel_reminder', { id: 'r1', reminderId: 'r2' }).id, 'r1');
+  const src = { title: '  Dune  ' };
+  tools.normalizeToolArgs('x', src);
+  assert.equal(src.title, '  Dune  '); // never mutates the input
+});
+
+test('fixHintFor points at the read tool that unblocks the write', () => {
+  assert.match(tools.fixHintFor('delete_memory', 'memory_id required'), /read_memories/);
+  assert.match(tools.fixHintFor('edit_reminder', 'id or title required'), /list_reminders/);
+  assert.match(tools.fixHintFor('add_to_watchlist', 'No title provided'), /tmdb_id/);
+  assert.match(tools.fixHintFor('add_trip', 'Invalid start_date or end_date'), /YYYY-MM-DD/);
+  assert.equal(tools.fixHintFor('nope', 'Unknown tool: nope'), null);
+  assert.equal(tools.fixHintFor('x', ''), null);
 });

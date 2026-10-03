@@ -66,14 +66,14 @@ GoRouter createAppRouter() {
           queryParameters: {'from': state.uri.toString()},
         ).toString();
       }
-      // Cinema-only users stay inside /cinema: couple pages would only
-      // render empty for them (Firestore rules deny every read), so bounce
-      // anything else — deep links and restored pages included — to /cinema.
-      if (authed &&
-          di.authService.isCinemaOnlyUser &&
-          loc != '/' &&
-          !loc.startsWith('/cinema')) {
-        return '/cinema';
+      // Cinema-only users stay inside /cinema and /anime (see
+      // [AppErrorPage.cinemaOnlyRedirect]): couple pages would only
+      // render empty for them (Firestore rules deny every read), so
+      // anything else — deep links and restored pages included —
+      // bounces to /cinema.
+      if (authed && di.authService.isCinemaOnlyUser) {
+        final bounce = AppErrorPage.cinemaOnlyRedirect(loc);
+        if (bounce != null) return bounce;
       }
       return null;
     },

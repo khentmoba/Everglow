@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { isAllowedLastfmImageUrl } = require('./media_proxies.js');
+const { isAllowedLastfmImageUrl } = require('./media_proxy_music.js');
 const indexExports = require('./index.js');
 
 const REAL_ART =

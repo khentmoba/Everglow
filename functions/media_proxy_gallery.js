@@ -2,7 +2,7 @@
 
 const { Readable } = require('node:stream');
 const { cappedHttps, enforceRateLimit, getAdmin, getVerifiedUsername, requireAuth } = require('./common.js');
-const { resolveGalleryDeletePath } = require('./media_proxy_core.js');
+const { parseProjectStorageUrl, resolveGalleryDeletePath } = require('./media_proxy_core.js');
 
 /**
  * Proxies gallery images from Firebase Storage so Flutter web isn't
@@ -50,8 +50,9 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   }
 
   // Only allow URLs from the project's own Storage bucket
-  if (!targetUrl.includes('firebasestorage.googleapis.com') ||
-      !targetUrl.includes('everglow-1c6db')) {
+  try {
+    parseProjectStorageUrl(targetUrl);
+  } catch (_) {
     res.status(403).json({ error: 'URL must be from the project Storage bucket' });
     return;
   }
@@ -59,6 +60,7 @@ const proxyGalleryImage = cappedHttps(30, async (req, res) => {
   try {
     const upstream = await fetch(targetUrl, {
       method: 'GET',
+      redirect: 'error', // Even an allowed host cannot redirect this proxy elsewhere.
       headers: { 'Accept': 'image/*,*/*;q=0.8' },
       signal: AbortSignal.timeout(20000),
     });
@@ -151,13 +153,9 @@ const cleanupGallery = cappedHttps(5, async (req, res) => {
     res.status(401).json({ error: 'Invalid or expired auth token' });
     return;
   }
-  if (decoded.uid !== 'Khentsgdz') {
-    // Fall back to the user document so recreated accounts keep working.
-    const userDoc = await admin.firestore().collection('users').doc(decoded.uid).get();
-    if (!userDoc.exists || userDoc.data()?.username !== 'khentsgdz') {
-      res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
-      return;
-    }
+  if (await getVerifiedUsername(decoded) !== 'khentsgdz') {
+    res.status(403).json({ error: 'Only khentsgdz can run cleanup' });
+    return;
   }
   // Destructive + scans up to 2000 docs: keep it rare.
   if (enforceRateLimit(req, res, { endpoint: 'cleanupGallery', limit: 10, windowMs: 60000, uid: decoded.uid })) return;

@@ -1,6 +1,5 @@
 import 'dart:async';
 import '../../../../../core/utils/connectivity_aware.dart';
-import '../../../../../core/utils/error_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
 import '../../models/media_item.dart';
@@ -13,7 +12,7 @@ import 'tmdb_search_service.dart';
 
 /// Poster URL resolution, backfilling missing posters for watchlist items,
 /// and refreshing anime posters from AniList/Jikan.
-class TMDBPosterService with TMDBBase, ConnectivityAware, ErrorAware {
+class TMDBPosterService with TMDBBase, ConnectivityAware {
   final TMDBDetailsService _detailsService;
   final TMDBSearchService _searchService;
 

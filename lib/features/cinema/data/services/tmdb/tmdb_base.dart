@@ -39,8 +39,7 @@ Future<String?> _getIdTokenCached() async {
 }
 
 /// Shared constants, Firestore access, and mapping helpers for all TMDB
-/// sub-services. Mix this into each sub-service alongside [ConnectivityAware]
-/// and [ErrorAware].
+/// sub-services. Mix this into each sub-service alongside [ConnectivityAware].
 mixin TMDBBase {
   /// All metadata requests go through the app's authenticated Cloud Function
   /// so the TMDB key remains server-side and is never compiled into web JS.

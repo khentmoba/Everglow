@@ -1001,15 +1001,49 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'search_sessions',
+      description: 'Search past Motchi conversations for what you talked about before. Use when they ask what was said, discussed, or decided in an earlier chat.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Keywords to search for in past conversations' },
+          limit: { type: 'number', description: 'Max past turns to return (default 5, max 10)' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'save_profile_note',
+      description: 'Save a core truth about Khent & Clair to their always-on profile (e.g. "we are night owls"). First call proposes and asks for confirmation; re-call with confirm:true after they approve.',
+      parameters: {
+        type: 'object',
+        properties: {
+          note: { type: 'string', description: 'The core truth to remember (max 500 chars)' },
+          topic: { type: 'string', description: 'Short label like "sleep", "food", "movies"' },
+          confirm: { type: 'boolean', description: 'Set true after they approve the proposed note' },
+        },
+        required: ['note'],
+      },
+    },
+  },
 ];
 
 // Light chat: a bare greeting or smalltalk one-liner with no real ask.
 // The chat handler skips Firestore context + memory + persona reads for
 // these and answers from a slim prompt — same warmth, far faster TTFT.
 // Anchored whole-message patterns: compound asks ("hi, remember X")
-// don't match, so they keep the full pipeline.
-const PURE_GREETING_RE = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)[!.,\s]*$/i;
-const SMALLTALK_RE = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)[!.,\s?]*$/i;
+// don't match, so they keep the full pipeline. Both accept an optional
+// " motchi" tail ("hi motchi", "thanks motchi!", "hi, motchi") —
+// real greetings name her, and without this the fast lane only caught
+// bare "hi" while the most common messages paid full price.
+const PURE_GREETING_RE = /^(hi|hello|hey|good morning|good afternoon|good evening|good night|mew|prr|nya|love you|i love you|we love you)(?:[!.,\s]+(?:motchi+|mochi+))?[!.,\s]*$/i;
+const SMALLTALK_RE = /^(thanks|thank you|thx|ok(ay)?|haha+|lol|lmao|aw+|cute|nice|cool|great|good|yay|np|you'?re welcome|how are you|how('| i)s it going|what'?s up)(?:[!.,\s]+(?:motchi+|mochi+))?[!.,\s?]*$/i;
 
 function isLightChat(message) {
   const trimmed = String(message || '').trim();

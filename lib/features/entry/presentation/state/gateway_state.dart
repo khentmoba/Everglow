@@ -85,6 +85,7 @@ class GatewayNotifier extends ChangeNotifier {
   /// Returns the remembered username when [passcode] is that user's own
   /// code, null otherwise. Only consulted when the server is unreachable.
   String? Function(String passcode)? tryOfflineUnlock;
+  bool Function()? hasOfflineRememberedCode;
 
   void _validatePasscode() async {
     updateState(GatewayState.evaluating);
@@ -128,21 +129,8 @@ class GatewayNotifier extends ChangeNotifier {
           updateState(GatewayState.unlocking);
           return;
         }
-        // Offline but locally knowable: if the build configured couple codes,
-        // we can tell whether the code matches someone. If passcodes are not
-        // in this build, the server is the sole source of truth and any
-        // server failure is a connection issue.
-        final hasConfiguredCoupleCodes =
-            EnvConfig.clairPasscode.isNotEmpty ||
-            EnvConfig.khentPasscode.isNotEmpty;
-        final matchesKnownCoupleCode =
-            (EnvConfig.clairPasscode.isNotEmpty &&
-                _currentInput == EnvConfig.clairPasscode) ||
-            (EnvConfig.khentPasscode.isNotEmpty &&
-                _currentInput == EnvConfig.khentPasscode);
-        final matchesNobody =
-            hasConfiguredCoupleCodes && !matchesKnownCoupleCode;
-        _lastFailureReason = matchesNobody
+        // Only this device's previously verified code is locally knowable.
+        _lastFailureReason = hasOfflineRememberedCode?.call() == true
             ? GatewayFailureReason.invalidCode
             : GatewayFailureReason.connection;
       }

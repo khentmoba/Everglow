@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:js_interop';
-import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -119,8 +118,14 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                   children: [
                                     const ColoredBox(color: Colors.black),
                                     RepaintBoundary(
-                                      child: HtmlElementView(
-                                        viewType: _viewType,
+                                      // Built-in factory: episode/server switches reuse
+                                      // this one frame instead of registering new ones.
+                                      child: HtmlElementView.fromTagName(
+                                        tagName: 'div',
+                                        onElementCreated: (element) {
+                                          (element as web.HTMLElement)
+                                              .appendChild(_iframe);
+                                        },
                                       ),
                                     ),
                                     if (_isLoading)

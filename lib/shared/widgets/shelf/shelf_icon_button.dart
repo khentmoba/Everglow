@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-import 'motion.dart';
+import '../../../core/theme/app_motion.dart';
 
 /// Accessible circular icon button used in the inside-screen headers.
 /// Defaults to a 44×44 tap target (the iOS HIG / WCAG minimum) and
@@ -40,8 +40,8 @@ class _ShelfIconButtonState extends State<ShelfIconButton> {
   Widget build(BuildContext context) {
     final enabled = widget.onTap != null;
     final btn = AnimatedContainer(
-      duration: ShelfMotion.orZero(ShelfMotion.medium),
-      curve: ShelfMotion.easeOutStrong,
+      duration: AppMotion.orZero(AppMotion.medium),
+      curve: AppMotion.easeOutStrong,
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(

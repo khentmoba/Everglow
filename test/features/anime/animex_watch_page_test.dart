@@ -1391,5 +1391,121 @@ void main() {
       expect(find.text('Select Season'), findsOneWidget);
       expect(find.text('Season 2'), findsWidgets);
     });
+
+    test(
+      'buildEpisodeList bounds a polluted streaming feed and uses season titles',
+      () {
+        final detail = AniListDetail(
+          id: 108465,
+          malId: 39535,
+          titleEnglish: 'Mushoku Tensei',
+          titleRomaji: 'Mushoku Tensei',
+          titleNative: '無職転生',
+          synopsis: '',
+          coverImageUrl: '',
+          bannerImageUrl: '',
+          airingStatus: 'FINISHED',
+          format: 'TV',
+          episodeCount: 11,
+          episodes: List.generate(
+            24,
+            (i) => AniListEpisode(number: i + 1, title: 'Wrong feed ${i + 1}'),
+          ),
+        );
+        final result = AnimeXWatchPage.buildEpisodeList(
+          detail: detail,
+          aniZipEpisodes: {
+            1: {
+              'title': {'en': 'Jobless Reincarnation'},
+              'image': 's1e1.jpg',
+            },
+            11: {
+              'title': {'en': 'Children and Warriors'},
+            },
+            12: {
+              'title': {'en': 'I Want to Tell You'},
+            },
+          },
+        );
+
+        expect(result, hasLength(11));
+        expect(result.first.title, 'Jobless Reincarnation');
+        expect(result.first.thumbnail, 's1e1.jpg');
+        expect(result.last.title, 'Children and Warriors');
+        expect(
+          result.any((episode) => episode.title == 'I Want to Tell You'),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'AniListService.mapEpisodesForTesting caps known counts but retains unknown feeds',
+      () {
+        // AniList's real feed is descending, has no number field, and includes
+        // Season 2 titles on this 11-episode Season 1 entry.
+        final streaming = List.generate(
+          24,
+          (i) => {'title': 'Episode ${24 - i} - Later-season title'},
+        );
+        expect(
+          AniListService.mapEpisodesForTesting(streaming, episodeCount: 11),
+          hasLength(11),
+        );
+        expect(AniListService.mapEpisodesForTesting(streaming), hasLength(24));
+        expect(
+          AniListService.mapEpisodesForTesting(streaming, episodeCount: 0),
+          hasLength(24),
+        );
+      },
+    );
+
+    test('split cour continues with its own catalog id and local episodes', () {
+      final episodes = AnimeXWatchPage.buildEpisodeList(
+        fallbackEpisodeCount: 12,
+        aniZipEpisodes: {
+          1: {
+            'title': {'en': 'The Woman with the Demon Eyes'},
+          },
+          12: {
+            'title': {'en': 'Wake Up and Take a Step'},
+          },
+          24: {
+            'title': {'en': 'Stray feed entry'},
+          },
+        },
+      );
+      expect(episodes, hasLength(12));
+      expect(episodes.first.title, 'The Woman with the Demon Eyes');
+      expect(episodes.last.title, 'Wake Up and Take a Step');
+      final servers = AnimeXWatchPage.buildServers(
+        anilistId: 127720,
+        malId: 45576,
+        tmdbId: 94664,
+        episodeSlots: {1: (season: 1, episode: 12)},
+      );
+      expect(
+        servers.last.urlBuilder(1, 'sub'),
+        'https://megaplay.buzz/stream/ani/127720/1/sub',
+      );
+      expect(servers.first.urlBuilder(1, 'sub'), contains('&s=1&e=12'));
+    });
+
+    test('episode list keeps unknown counts and fills missing metadata', () {
+      final episodes = AnimeXWatchPage.buildEpisodeList(
+        aniZipEpisodes: {
+          3: {
+            'title': {'en': 'Third episode'},
+          },
+        },
+      );
+      expect(episodes, hasLength(3));
+      expect(episodes.first.title, 'Episode 1');
+      expect(episodes.last.title, 'Third episode');
+      expect(
+        AnimeXWatchPage.buildEpisodeList(fallbackEpisodeCount: 2),
+        hasLength(2),
+      );
+    });
   });
 }

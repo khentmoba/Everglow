@@ -86,6 +86,55 @@ class CalendarEvent {
     return CalendarEventType.custom;
   }
 
+  /// Expand this saved series into the requested [start, end) window.
+  /// Month-end and leap-day repeats clamp to that month's last day, while
+  /// keeping the original anchor so Jan 31 returns to Mar 31 after February.
+  List<CalendarEvent> occurrencesBetween(DateTime start, DateTime end) {
+    if (!end.isAfter(start)) return [];
+    if (recurring != 'monthly' && recurring != 'yearly') {
+      return !date.isBefore(start) && date.isBefore(end) ? [this] : [];
+    }
+    final result = <CalendarEvent>[];
+    var year = start.year < date.year ? date.year : start.year;
+    var month = recurring == 'yearly'
+        ? date.month
+        : (start.isBefore(date) ? date.month : start.month);
+    while (DateTime(year, month).isBefore(end)) {
+      final lastDay = DateTime(year, month + 1, 0).day;
+      final occurrence = DateTime(
+        year,
+        month,
+        date.day > lastDay ? lastDay : date.day,
+        date.hour,
+        date.minute,
+        date.second,
+        date.millisecond,
+        date.microsecond,
+      );
+      if (!occurrence.isBefore(date) &&
+          !occurrence.isBefore(start) &&
+          occurrence.isBefore(end)) {
+        result.add(
+          copyWith(
+            date: occurrence,
+            endDate: endDate == null
+                ? null
+                : occurrence.add(endDate!.difference(date)),
+          ),
+        );
+      }
+      if (recurring == 'yearly') {
+        year++;
+      } else if (month == 12) {
+        month = 1;
+        year++;
+      } else {
+        month++;
+      }
+    }
+    return result;
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'title': title,
