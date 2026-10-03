@@ -11,6 +11,7 @@ import 'package:everglow/features/ai/domain/models/ai_conversation.dart';
 import 'package:everglow/features/ai/domain/repositories/ai_conversation_repo_interface.dart';
 import 'package:everglow/features/ai/domain/repositories/ai_memory_repo_interface.dart';
 import 'package:everglow/features/ai/presentation/widgets/motchi_screen.dart';
+import 'package:flutter/foundation.dart' show debugPrintSynchronously;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
