@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -139,13 +138,23 @@ class _TonightScreenState extends State<TonightScreen> {
               children: [
                 EverglowFeatureHeader(
                   title: 'Tonight',
-                  subtitle: '“What should we do?” · 3 picks for two',
-                  icon: Icons.nightlife_rounded,
+                  subtitle: 'An evening for two',
                   hue: AppColors.auroraRose,
                   actions: [
-                    EverglowButton.glass(
-                      label: _isShuffling ? 'Rolling...' : 'Shuffle',
-                      icon: Icons.casino_rounded,
+                    IconButton(
+                      tooltip: _isShuffling
+                          ? 'Finding new picks…'
+                          : 'Shuffle picks',
+                      icon: _isShuffling
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(
+                              Icons.shuffle_rounded,
+                              color: AppColors.roseQuartz,
+                            ),
                       onPressed: _isShuffling ? null : _handleShuffle,
                     ),
                   ],
@@ -266,8 +275,6 @@ class _TonightScreenState extends State<TonightScreen> {
     required String currentUsername,
     required String partnerName,
   }) {
-    final isDesktopOrTablet = !AppBreakpoint.isMobile(context);
-
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
@@ -283,12 +290,47 @@ class _TonightScreenState extends State<TonightScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (decision.status == TonightStatus.voting) ...[
+                Text(
+                  'JUST US, TONIGHT',
+                  style: AppTypography.labelSmall().copyWith(
+                    color: AppColors.blushGold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'A little time for us.',
+                  style: AppTypography.displaySmall().copyWith(
+                    color: AppColors.petalWhite,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'A movie, a date, or a little friendly competition.',
+                  style: AppTypography.bodyMedium(),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
               _buildLiveStatusBar(decision, currentUsername, partnerName),
               const SizedBox(height: AppSpacing.lg),
-              if (isDesktopOrTablet)
-                _buildCardsRow(decision, currentUsername)
+              if (decision.status != TonightStatus.voting &&
+                  decision.winningOption != null)
+                _TonightOptionCard(
+                  option: decision.winningOption!,
+                  decision: decision,
+                  currentUsername: currentUsername,
+                  compact: true,
+                  onVote: _handleVote,
+                  onDecideDirectly: _handleDecideDirectly,
+                )
               else
-                _buildCardsColumn(decision, currentUsername),
+                LayoutBuilder(
+                  builder: (context, constraints) => constraints.maxWidth >= 840
+                      ? _buildCardsRow(decision, currentUsername)
+                      : _buildCardsColumn(decision, currentUsername),
+                ),
               const SizedBox(height: AppSpacing.xl),
               if (decision.status == TonightStatus.decided &&
                   decision.winningOption != null)
@@ -312,72 +354,94 @@ class _TonightScreenState extends State<TonightScreen> {
     final partnerVote = decision
         .votes[currentUsername == 'khentsgdz' ? 'clairjassen' : 'khentsgdz'];
 
-    String statusText;
-    IconData statusIcon = Icons.stars_rounded;
-    Color statusHue = AppColors.auroraGold;
-    Widget? trailingAction;
+    String title;
+    String detail;
+    IconData icon = Icons.favorite_outline_rounded;
+    Color hue = AppColors.roseQuartz;
+    Widget? action;
 
     if (decision.status == TonightStatus.planned) {
-      final timeStr = decision.planTime != null
-          ? DateFormat('h:mm a').format(decision.planTime!)
-          : 'Tonight';
-      statusText = 'Plan is set for $timeStr! 🥂';
-      statusIcon = Icons.celebration_rounded;
-      statusHue = AppColors.auroraTeal;
+      title = 'Our evening is set.';
+      detail = decision.planTime == null
+          ? 'Something lovely to look forward to.'
+          : 'Tonight at ${DateFormat('h:mm a').format(decision.planTime!)} · Saved to our calendar';
+      icon = Icons.check_circle_outline_rounded;
+      hue = AppColors.auroraTeal;
     } else if (decision.status == TonightStatus.decided) {
-      statusText = decision.isMatch
-          ? 'It’s a Match! You both chose ${decision.winningOption?.title ?? "this"}! 🎉'
-          : 'Tonight’s Choice: ${decision.winningOption?.title ?? "Winner chosen"} ✨';
-      statusIcon = Icons.favorite_rounded;
-      statusHue = AppColors.auroraRose;
+      title = decision.isMatch ? 'It’s a match.' : 'Tonight, we’re doing this.';
+      detail = decision.isMatch
+          ? 'Different hearts. The same little wish.'
+          : 'One lovely choice for the two of us.';
+      icon = Icons.favorite_rounded;
     } else if (decision.isTied) {
-      statusText = 'You voted differently! Flip a coin or agree together:';
-      statusIcon = Icons.compare_arrows_rounded;
-      statusHue = AppColors.warmAmber;
-      trailingAction = EverglowButton.glass(
-        label: 'Let Fate Decide 🎲',
+      title = 'Two picks, one evening.';
+      detail = 'Choose one together below, or leave it to chance.';
+      icon = Icons.shuffle_rounded;
+      hue = AppColors.blushGold;
+      action = EverglowButton.glass(
+        label: 'Flip a coin',
         icon: Icons.shuffle_rounded,
-        foregroundColor: AppColors.blushGold,
+        foregroundColor: hue,
         onPressed: () => _handleFlipCoin(decision),
       );
     } else if (userVote != null && partnerVote == null) {
-      statusText = 'Your vote is in! Waiting for $partnerName to choose... 💖';
-      statusIcon = Icons.hourglass_top_rounded;
-      statusHue = AppColors.auroraRose;
+      title = 'Your little wish is in.';
+      detail = 'Waiting for $partnerName. You can still change your pick.';
+      icon = Icons.hourglass_top_rounded;
     } else if (userVote == null && partnerVote != null) {
-      statusText =
-          '$partnerName voted! Tap your pick below to decide together ✨';
-      statusIcon = Icons.mark_chat_unread_rounded;
-      statusHue = AppColors.auroraGold;
+      title = '$partnerName has a pick.';
+      detail = 'Your turn. Choose what sounds lovely tonight.';
     } else {
-      statusText = 'Tap an activity below to cast your vote! First match wins.';
-      statusIcon = Icons.touch_app_rounded;
-      statusHue = AppColors.auroraRose;
+      title = 'What are we in the mood for?';
+      detail = 'Pick your favorite. Choose the same one and it’s a match.';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: statusHue.withValues(alpha: 0.10),
-        borderRadius: AppRadius.radiusLg,
-        border: Border.all(color: statusHue.withValues(alpha: 0.28)),
+        gradient: LinearGradient(
+          colors: [hue.withValues(alpha: 0.10), AppColors.panelGlass],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: AppRadius.radiusXl,
+        border: Border.all(color: hue.withValues(alpha: 0.20)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(statusIcon, color: statusHue, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              statusText,
-              style: AppTypography.bodyMedium().copyWith(
-                color: AppColors.moonlight,
-                fontWeight: FontWeight.w600,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: hue, size: 22),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.titleMedium().copyWith(
+                        color: AppColors.petalWhite,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      detail,
+                      style: AppTypography.bodySmall().copyWith(
+                        color: AppColors.textMedium,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
-          if (trailingAction != null) ...[
-            const SizedBox(width: 8),
-            trailingAction,
+          if (action != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            action,
           ],
         ],
       ),
@@ -385,22 +449,24 @@ class _TonightScreenState extends State<TonightScreen> {
   }
 
   Widget _buildCardsRow(TonightDecision decision, String currentUsername) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < decision.options.length; i++) ...[
-          if (i > 0) const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: _TonightOptionCard(
-              option: decision.options[i],
-              decision: decision,
-              currentUsername: currentUsername,
-              onVote: _handleVote,
-              onDecideDirectly: (optId) => _handleDecideDirectly(optId),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < decision.options.length; i++) ...[
+            if (i > 0) const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _TonightOptionCard(
+                option: decision.options[i],
+                decision: decision,
+                currentUsername: currentUsername,
+                onVote: _handleVote,
+                onDecideDirectly: (optId) => _handleDecideDirectly(optId),
+              ),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -412,6 +478,7 @@ class _TonightScreenState extends State<TonightScreen> {
             option: opt,
             decision: decision,
             currentUsername: currentUsername,
+            compact: true,
             onVote: _handleVote,
             onDecideDirectly: (optId) => _handleDecideDirectly(optId),
           ),
@@ -430,7 +497,7 @@ class _TonightScreenState extends State<TonightScreen> {
     ];
 
     return EverglowCard(
-      fillColor: AppColors.auroraRose.withValues(alpha: 0.08),
+      fillColor: AppColors.roseQuartz.withValues(alpha: 0.06),
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -439,29 +506,30 @@ class _TonightScreenState extends State<TonightScreen> {
             children: [
               const Icon(
                 Icons.calendar_today_rounded,
-                color: AppColors.auroraRose,
+                color: AppColors.roseQuartz,
                 size: 20,
               ),
               const SizedBox(width: 10),
-              Text(
-                'Make it Tonight’s Plan',
-                style: AppTypography.headlineSmall().copyWith(
-                  color: AppColors.moonlight,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Save a little time for us',
+                  style: AppTypography.headlineSmall().copyWith(
+                    color: AppColors.petalWhite,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Lock in ${option.title} to your shared calendar so neither of you forgets.',
+            'Choose a time for ${option.title}. We’ll save it to our shared calendar.',
             style: AppTypography.bodySmall().copyWith(
               color: AppColors.moonlight.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Select time:',
+            'Tonight at',
             style: AppTypography.labelSmall().copyWith(
               color: AppColors.moonlight,
               fontWeight: FontWeight.w600,
@@ -481,10 +549,16 @@ class _TonightScreenState extends State<TonightScreen> {
                   onSelected: (selected) {
                     if (selected) setState(() => _selectedPlanTime = time);
                   },
-                  selectedColor: AppColors.auroraRose.withValues(alpha: 0.35),
-                  backgroundColor: AppColors.surfaceGlass,
+                  showCheckmark: false,
+                  selectedColor: AppColors.roseQuartz,
+                  backgroundColor: AppColors.panelGlass,
+                  side: BorderSide(color: AppColors.border),
                   labelStyle: AppTypography.bodySmall().copyWith(
-                    color: AppColors.moonlight,
+                    color:
+                        _selectedPlanTime.hour == time.hour &&
+                            _selectedPlanTime.minute == time.minute
+                        ? AppColors.inkDeep
+                        : AppColors.textMedium,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -492,11 +566,9 @@ class _TonightScreenState extends State<TonightScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           EverglowButton(
-            label: _isMakingPlan
-                ? 'Adding to Calendar...'
-                : 'Confirm Plan & Add to Calendar 📅',
+            label: _isMakingPlan ? 'Adding to Calendar...' : 'Save our plan',
             icon: Icons.check_circle_rounded,
-            backgroundColor: AppColors.auroraRose,
+            backgroundColor: AppColors.roseQuartz,
             foregroundColor: AppColors.inkDeep,
             onPressed: _isMakingPlan ? null : () => _handleMakePlan(option),
           ),
@@ -537,14 +609,14 @@ class _TonightScreenState extends State<TonightScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'All Planned for $timeStr!',
+                      'See you at $timeStr',
                       style: AppTypography.headlineSmall().copyWith(
                         color: AppColors.moonlight,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
-                      '${winningOption.type.emoji} ${winningOption.title}',
+                      winningOption.title,
                       style: AppTypography.bodyMedium().copyWith(
                         color: AppColors.auroraTeal,
                         fontWeight: FontWeight.w600,
@@ -563,23 +635,24 @@ class _TonightScreenState extends State<TonightScreen> {
               if (winningOption.targetRoute != null)
                 EverglowButton(
                   label: switch (winningOption.type) {
-                    TonightOptionType.movie => 'Open Cinema 🎬',
-                    TonightOptionType.game => 'Play Now 🎮',
-                    TonightOptionType.date => 'View Calendar 📅',
+                    TonightOptionType.movie => 'Open Cinema',
+                    TonightOptionType.game => 'Play together',
+                    TonightOptionType.date => 'View Calendar',
                   },
                   icon: Icons.play_arrow_rounded,
                   backgroundColor: AppColors.auroraTeal,
                   foregroundColor: AppColors.inkDeep,
                   onPressed: () => context.push(winningOption.targetRoute!),
                 ),
+              if (winningOption.targetRoute != '/calendar')
+                EverglowButton.glass(
+                  label: 'View in Calendar',
+                  icon: Icons.calendar_month_rounded,
+                  foregroundColor: AppColors.moonlight,
+                  onPressed: () => context.push('/calendar'),
+                ),
               EverglowButton.glass(
-                label: 'View in Calendar 📅',
-                icon: Icons.calendar_month_rounded,
-                foregroundColor: AppColors.moonlight,
-                onPressed: () => context.push('/calendar'),
-              ),
-              EverglowButton.glass(
-                label: 'Plan Another Tonight 🔄',
+                label: 'New picks',
                 icon: Icons.refresh_rounded,
                 foregroundColor: AppColors.blushGold,
                 onPressed: _handleShuffle,
@@ -596,6 +669,7 @@ class _TonightOptionCard extends StatelessWidget {
   final TonightOption option;
   final TonightDecision decision;
   final String currentUsername;
+  final bool compact;
   final ValueChanged<String> onVote;
   final ValueChanged<String> onDecideDirectly;
 
@@ -603,6 +677,7 @@ class _TonightOptionCard extends StatelessWidget {
     required this.option,
     required this.decision,
     required this.currentUsername,
+    this.compact = false,
     required this.onVote,
     required this.onDecideDirectly,
   });
@@ -610,299 +685,202 @@ class _TonightOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isWinner = decision.winnerOptionId == option.id;
-    final isPlanned = decision.status == TonightStatus.planned && isWinner;
-    final userVotedForThis = decision.votes[currentUsername] == option.id;
-    final khentVoted = decision.votes['khentsgdz'] == option.id;
-    final clairVoted = decision.votes['clairjassen'] == option.id;
-
-    final typeHue = switch (option.type) {
-      TonightOptionType.movie => AppColors.auroraTeal,
-      TonightOptionType.date => AppColors.auroraRose,
-      TonightOptionType.game => AppColors.auroraGold,
+    final selected = decision.votes[currentUsername] == option.id;
+    final canChoose = decision.status == TonightStatus.voting;
+    final hue = switch (option.type) {
+      TonightOptionType.movie => AppColors.auroraLilac,
+      TonightOptionType.date => AppColors.roseQuartz,
+      TonightOptionType.game => AppColors.blushGold,
     };
+    final voters = [
+      if (decision.khentVote == option.id) 'Khent',
+      if (decision.clairVote == option.id) 'Clair',
+    ];
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          isWinner
+              ? 'OUR PICK · ${option.type.label.toUpperCase()}'
+              : option.type.label.toUpperCase(),
+          style: AppTypography.labelSmall().copyWith(
+            color: hue,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          option.title,
+          maxLines: compact ? 3 : 2,
+          overflow: TextOverflow.ellipsis,
+          style: AppTypography.titleMedium().copyWith(
+            color: AppColors.petalWhite,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+          ),
+        ),
+        if (option.subtitle.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            option.subtitle,
+            style: AppTypography.bodySmall().copyWith(color: hue),
+          ),
+        ],
+        if (option.description.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            option.description,
+            maxLines: compact ? 2 : 3,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.bodySmall().copyWith(
+              color: AppColors.textMedium,
+              height: 1.4,
+            ),
+          ),
+        ],
+        if (voters.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Icon(Icons.favorite_rounded, size: 12, color: hue),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  '${voters.join(' + ')}’s pick',
+                  style: AppTypography.labelSmall().copyWith(color: hue),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
 
-    final cardBorderColor = isWinner
-        ? AppColors.auroraGold
-        : userVotedForThis
-        ? typeHue
-        : AppColors.moonlight.withValues(alpha: 0.12);
-
-    final cardGlowColor = isWinner
-        ? AppColors.auroraGold.withValues(alpha: 0.22)
-        : userVotedForThis
-        ? typeHue.withValues(alpha: 0.15)
-        : Colors.transparent;
+    final pickButton = EverglowButton(
+      label: selected ? 'Your pick' : 'Pick this',
+      icon: selected ? Icons.check_rounded : null,
+      backgroundColor: selected ? hue : hue.withValues(alpha: 0.12),
+      foregroundColor: selected ? AppColors.inkDeep : hue,
+      onPressed: () => onVote(option.id),
+    );
+    final togetherButton = TextButton(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.textMedium,
+        minimumSize: const Size(48, 48),
+        textStyle: AppTypography.bodySmall(),
+      ),
+      onPressed: () => onDecideDirectly(option.id),
+      child: const Text('Choose together'),
+    );
+    final stackActions =
+        !compact || MediaQuery.textScalerOf(context).scale(14) > 18;
 
     return Semantics(
-      button: true,
-      label: '${option.type.label}: ${option.title}',
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: AppRadius.radiusXl,
-          boxShadow: [
-            if (isWinner || userVotedForThis)
-              BoxShadow(color: cardGlowColor, blurRadius: 18, spreadRadius: 2),
-          ],
-        ),
-        child: EverglowCard(
-          padding: EdgeInsets.zero,
-          radius: AppRadius.x3,
-          fillColor: isWinner
-              ? AppColors.auroraGold.withValues(alpha: 0.08)
-              : AppColors.surfaceGlass,
-          onTap: decision.status == TonightStatus.voting
-              ? () => onVote(option.id)
-              : null,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.radiusXl,
-              border: Border.all(
-                color: cardBorderColor,
-                width: isWinner
-                    ? 2.2
-                    : userVotedForThis
-                    ? 1.8
-                    : 1.0,
-              ),
+      selected: selected,
+      child: EverglowCard(
+        padding: EdgeInsets.zero,
+        radius: AppRadius.x2,
+        fillColor: AppColors.inkDeep,
+        semanticLabel: '${option.type.label}: ${option.title}',
+        onTap: canChoose ? () => onVote(option.id) : null,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.radiusX2,
+            gradient: LinearGradient(
+              colors: [
+                hue.withValues(alpha: isWinner || selected ? 0.14 : 0.07),
+                AppColors.panelGlass,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildCardHeader(typeHue, isWinner),
-                _buildCardVisual(typeHue),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            border: Border.all(
+              color: isWinner || selected
+                  ? hue.withValues(alpha: 0.7)
+                  : AppColors.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (compact)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 76, height: 114, child: _buildVisual(hue)),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(child: details),
+                  ],
+                )
+              else ...[
+                SizedBox(height: 144, child: _buildVisual(hue)),
+                const SizedBox(height: AppSpacing.md),
+                details,
+              ],
+              if (canChoose) ...[
+                if (!compact) const Spacer(),
+                const SizedBox(height: AppSpacing.md),
+                if (stackActions)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [pickButton, togetherButton],
+                  )
+                else
+                  Row(
                     children: [
-                      Text(
-                        option.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.titleMedium().copyWith(
-                          color: AppColors.moonlight,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (option.subtitle.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          option.subtitle,
-                          style: AppTypography.labelSmall().copyWith(
-                            color: typeHue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 8),
-                      Text(
-                        option.description,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodySmall().copyWith(
-                          color: AppColors.moonlight.withValues(alpha: 0.7),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      _buildVoteStatusBadges(khentVoted, clairVoted),
-                      const SizedBox(height: AppSpacing.sm),
-                      _buildActionButtons(
-                        userVotedForThis,
-                        isPlanned,
-                        decision.status == TonightStatus.voting,
-                      ),
+                      Expanded(child: pickButton),
+                      const SizedBox(width: AppSpacing.sm),
+                      togetherButton,
                     ],
                   ),
-                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCardHeader(Color typeHue, bool isWinner) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+  Widget _buildVisual(Color hue) {
+    final icon = switch (option.type) {
+      TonightOptionType.movie => Icons.movie_outlined,
+      TonightOptionType.date => Icons.favorite_border_rounded,
+      TonightOptionType.game => Icons.sports_esports_outlined,
+    };
+    final placeholder = Container(
       decoration: BoxDecoration(
-        color: typeHue.withValues(alpha: 0.12),
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppRadius.x2),
+        gradient: LinearGradient(
+          colors: [hue.withValues(alpha: 0.16), AppColors.silk],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Text(option.type.emoji, style: const TextStyle(fontSize: 16)),
-          const SizedBox(width: 8),
-          Text(
-            option.type.label.toUpperCase(),
-            style: AppTypography.labelSmall().copyWith(
-              color: typeHue,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.1,
-            ),
+          Positioned(
+            right: -18,
+            bottom: -18,
+            child: Icon(icon, size: 100, color: hue.withValues(alpha: 0.06)),
           ),
-          const Spacer(),
-          if (isWinner)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.auroraGold,
-                borderRadius: AppRadius.radiusSm,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.star_rounded,
-                    color: AppColors.inkDeep,
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'WINNER',
-                    style: AppTypography.labelSmall().copyWith(
-                      color: AppColors.inkDeep,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          Icon(icon, size: compact ? 30 : 48, color: hue),
         ],
       ),
     );
-  }
-
-  Widget _buildCardVisual(Color typeHue) {
-    if (option.imageUrl != null && option.imageUrl!.isNotEmpty) {
-      return SizedBox(
-        height: 140,
-        width: double.infinity,
-        child: Image.network(
-          option.imageUrl!,
-          fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => _buildVisualPlaceholder(typeHue),
-        ),
-      );
-    }
-    return _buildVisualPlaceholder(typeHue);
-  }
-
-  Widget _buildVisualPlaceholder(Color typeHue) {
-    return Container(
-      height: 110,
-      color: typeHue.withValues(alpha: 0.05),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: typeHue.withValues(alpha: 0.14),
-          ),
-          child: Icon(
-            switch (option.type) {
-              TonightOptionType.movie => Icons.movie_filter_rounded,
-              TonightOptionType.date => Icons.favorite_rounded,
-              TonightOptionType.game => Icons.sports_esports_rounded,
-            },
-            color: typeHue,
-            size: 34,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVoteStatusBadges(bool khentVoted, bool clairVoted) {
-    if (!khentVoted && !clairVoted) {
-      return const SizedBox(height: 22);
-    }
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: [
-        if (khentVoted)
-          _buildChip(
-            label: 'Khent’s Pick',
-            icon: Icons.favorite_rounded,
-            hue: AppColors.auroraRose,
-          ),
-        if (clairVoted)
-          _buildChip(
-            label: 'Clair’s Pick',
-            icon: Icons.favorite_rounded,
-            hue: AppColors.auroraGold,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildChip({
-    required String label,
-    required IconData icon,
-    required Color hue,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: hue.withValues(alpha: 0.20),
-        borderRadius: AppRadius.radiusFull,
-        border: Border.all(color: hue.withValues(alpha: 0.40)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: hue),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: AppTypography.labelSmall().copyWith(
-              color: AppColors.moonlight,
-              fontWeight: FontWeight.w600,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(
-    bool userVotedForThis,
-    bool isPlanned,
-    bool canChoose,
-  ) {
-    if (isPlanned || !canChoose) {
-      return const SizedBox.shrink();
-    }
-
-    return Row(
-      children: [
-        Expanded(
-          child: EverglowButton(
-            label: userVotedForThis ? 'Voted' : 'Vote',
-            icon: userVotedForThis ? null : Icons.how_to_vote_rounded,
-            backgroundColor: userVotedForThis
-                ? AppColors.auroraRose
-                : AppColors.surfaceGlass,
-            foregroundColor: userVotedForThis
-                ? AppColors.inkDeep
-                : AppColors.moonlight,
-            onPressed: () => onVote(option.id),
-          ),
-        ),
-        const SizedBox(width: 6),
-        EverglowButton.glass(
-          label: 'Decide',
-          tooltip: 'Pick this together right now',
-          icon: Icons.check_circle_outline_rounded,
-          foregroundColor: AppColors.blushGold,
-          onPressed: () => onDecideDirectly(option.id),
-        ),
-      ],
+    return ClipRRect(
+      borderRadius: AppRadius.radiusLg,
+      child: option.imageUrl?.isNotEmpty == true
+          ? Container(
+              color: AppColors.silk,
+              child: Image.network(
+                option.imageUrl!,
+                fit: BoxFit.contain,
+                errorBuilder: (_, _, _) => placeholder,
+              ),
+            )
+          : placeholder,
     );
   }
 }

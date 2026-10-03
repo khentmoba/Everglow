@@ -27,15 +27,17 @@ class _TonightCardState extends State<TonightCard> {
   @override
   Widget build(BuildContext context) {
     return FeatureSection(
-      icon: Icons.nightlife_rounded,
-      hue: AppColors.auroraRose,
+      icon: Icons.bedtime_outlined,
+      hue: AppColors.roseQuartz,
       title: 'Tonight',
-      subtitle: '“What should we do?”',
+      subtitle: 'A little time for us',
       onTap: () => context.push('/tonight'),
-      trailing: EverglowButton.glass(
-        label: 'Open',
-        icon: Icons.arrow_forward_rounded,
-        foregroundColor: AppColors.auroraRose,
+      trailing: IconButton(
+        tooltip: 'Choose tonight',
+        icon: const Icon(
+          Icons.arrow_forward_rounded,
+          color: AppColors.roseQuartz,
+        ),
         onPressed: () => context.push('/tonight'),
       ),
       child: StreamBuilder<TonightDecision?>(
@@ -45,172 +47,32 @@ class _TonightCardState extends State<TonightCard> {
             : Stream.value(widget.previewDecision),
         builder: (context, snapshot) {
           final decision = snapshot.data;
-
           if (decision == null || decision.options.isEmpty) {
-            return _buildReadyToPickState(context);
+            return _buildReadyState(context);
           }
-
-          if (decision.status == TonightStatus.planned &&
+          if (decision.status != TonightStatus.voting &&
               decision.winningOption != null) {
-            return _buildPlannedState(context, decision);
+            return _buildWinnerState(context, decision);
           }
-
-          if (decision.status == TonightStatus.decided &&
-              decision.winningOption != null) {
-            return _buildDecidedState(context, decision);
-          }
-
-          return _buildVotingState(context, decision);
+          return _buildVotingState(decision);
         },
       ),
     );
   }
 
-  Widget _buildReadyToPickState(BuildContext context) {
+  Widget _buildReadyState(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Roll 3 suggestions for tonight — a movie from your watchlist, a romantic date idea, and a co-op game.',
-          style: AppTypography.bodySmall().copyWith(
-            color: AppColors.moonlight.withValues(alpha: 0.7),
-            height: 1.4,
-          ),
+          'A movie, a date, or a little friendly competition. Let’s find our evening.',
+          style: AppTypography.bodyMedium().copyWith(height: 1.4),
         ),
         const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            _buildCategoryPill('🎬 Movie', AppColors.auroraTeal),
-            const SizedBox(width: 6),
-            _buildCategoryPill('🌹 Date', AppColors.auroraRose),
-            const SizedBox(width: 6),
-            _buildCategoryPill('🎮 Game', AppColors.auroraGold),
-            const Spacer(),
-            EverglowButton(
-              label: 'Choose Tonight ✨',
-              icon: Icons.auto_awesome_rounded,
-              backgroundColor: AppColors.auroraRose,
-              foregroundColor: AppColors.inkDeep,
-              onPressed: () => context.push('/tonight'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVotingState(BuildContext context, TonightDecision decision) {
-    final votesCount = decision.votes.length;
-    final voteStatusText = votesCount == 0
-        ? '3 picks ready · Tap to choose together!'
-        : votesCount == 1
-        ? '1 of 2 voted · Partner’s turn!'
-        : decision.isTied
-        ? 'Votes in · Tied! Let fate decide 🎲'
-        : 'Both votes in!';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppColors.auroraRose.withValues(alpha: 0.18),
-                borderRadius: AppRadius.radiusFull,
-                border: Border.all(
-                  color: AppColors.auroraRose.withValues(alpha: 0.35),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.touch_app_rounded,
-                    color: AppColors.auroraRose,
-                    size: 12,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    voteStatusText,
-                    style: AppTypography.labelSmall().copyWith(
-                      color: AppColors.auroraRose,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            for (final opt in decision.options)
-              _buildOptionSummaryPill(opt, decision),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDecidedState(BuildContext context, TonightDecision decision) {
-    final winner = decision.winningOption!;
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.auroraGold.withValues(alpha: 0.15),
-            border: Border.all(
-              color: AppColors.auroraGold.withValues(alpha: 0.4),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              winner.type.emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'Tonight’s Pick Decided! 🎉',
-                    style: AppTypography.labelSmall().copyWith(
-                      color: AppColors.auroraGold,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                winner.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.titleSmall().copyWith(
-                  color: AppColors.moonlight,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
         EverglowButton(
-          label: 'Make Plan 📅',
-          backgroundColor: AppColors.auroraGold,
+          label: 'Find our tonight',
+          icon: Icons.auto_awesome_rounded,
+          backgroundColor: AppColors.roseQuartz,
           foregroundColor: AppColors.inkDeep,
           onPressed: () => context.push('/tonight'),
         ),
@@ -218,130 +80,126 @@ class _TonightCardState extends State<TonightCard> {
     );
   }
 
-  Widget _buildPlannedState(BuildContext context, TonightDecision decision) {
-    final winner = decision.winningOption!;
-    final timeStr = decision.planTime != null
-        ? DateFormat('h:mm a').format(decision.planTime!)
-        : 'Tonight';
+  Widget _buildVotingState(TonightDecision decision) {
+    final status = decision.votes.isEmpty
+        ? 'Three ideas. Which one feels like us?'
+        : decision.isTied
+        ? 'Two different picks · Choose together'
+        : decision.votes.length == 1
+        ? 'One wish is in · Waiting for the other'
+        : 'Both wishes are in';
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.auroraTeal.withValues(alpha: 0.15),
-            border: Border.all(
-              color: AppColors.auroraTeal.withValues(alpha: 0.4),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              winner.type.emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
-          ),
+        Text(
+          status,
+          style: AppTypography.bodySmall().copyWith(color: AppColors.blushGold),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Tonight at $timeStr 🥂',
-                style: AppTypography.labelSmall().copyWith(
-                  color: AppColors.auroraTeal,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                winner.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.titleSmall().copyWith(
-                  color: AppColors.moonlight,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        if (winner.targetRoute != null)
-          EverglowButton(
-            label: switch (winner.type) {
-              TonightOptionType.movie => 'Watch 🎬',
-              TonightOptionType.game => 'Play 🎮',
-              TonightOptionType.date => 'Details 🌹',
-            },
-            backgroundColor: AppColors.auroraTeal,
-            foregroundColor: AppColors.inkDeep,
-            onPressed: () => context.push(winner.targetRoute!),
-          ),
+        const SizedBox(height: AppSpacing.md),
+        for (final option in decision.options) ...[
+          _buildOptionSummary(option, decision),
+          const SizedBox(height: AppSpacing.sm),
+        ],
       ],
     );
   }
 
-  Widget _buildCategoryPill(String label, Color hue) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: hue.withValues(alpha: 0.12),
-        borderRadius: AppRadius.radiusSm,
-        border: Border.all(color: hue.withValues(alpha: 0.25)),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.labelSmall().copyWith(
-          color: hue,
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
+  Widget _buildWinnerState(BuildContext context, TonightDecision decision) {
+    final winner = decision.winningOption!;
+    final planned = decision.status == TonightStatus.planned;
+    final hue = planned ? AppColors.auroraTeal : AppColors.blushGold;
+    final time = decision.planTime == null
+        ? 'Tonight'
+        : DateFormat('h:mm a').format(decision.planTime!);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          planned
+              ? 'Our evening · $time'
+              : decision.isMatch
+              ? 'It’s a match.'
+              : 'Our pick for tonight',
+          style: AppTypography.labelMedium().copyWith(color: hue),
         ),
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          winner.title,
+          style: AppTypography.headlineSmall().copyWith(
+            color: AppColors.petalWhite,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: EverglowButton(
+            label: !planned
+                ? 'Save our plan'
+                : switch (winner.type) {
+                    TonightOptionType.movie => 'Open Cinema',
+                    TonightOptionType.game => 'Play together',
+                    TonightOptionType.date => 'View Calendar',
+                  },
+            icon: planned
+                ? Icons.arrow_forward_rounded
+                : Icons.calendar_month_rounded,
+            backgroundColor: hue,
+            foregroundColor: AppColors.inkDeep,
+            onPressed: () => context.push(
+              planned ? winner.targetRoute ?? '/calendar' : '/tonight',
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildOptionSummaryPill(
-    TonightOption option,
-    TonightDecision decision,
-  ) {
+  Widget _buildOptionSummary(TonightOption option, TonightDecision decision) {
     final votes = decision.votes.values.where((v) => v == option.id).length;
     final hue = switch (option.type) {
-      TonightOptionType.movie => AppColors.auroraTeal,
-      TonightOptionType.date => AppColors.auroraRose,
-      TonightOptionType.game => AppColors.auroraGold,
+      TonightOptionType.movie => AppColors.auroraLilac,
+      TonightOptionType.date => AppColors.roseQuartz,
+      TonightOptionType.game => AppColors.blushGold,
+    };
+    final icon = switch (option.type) {
+      TonightOptionType.movie => Icons.movie_outlined,
+      TonightOptionType.date => Icons.favorite_border_rounded,
+      TonightOptionType.game => Icons.sports_esports_outlined,
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surfaceGlass,
+        color: hue.withValues(alpha: 0.06),
         borderRadius: AppRadius.radiusMd,
         border: Border.all(
-          color: votes > 0 ? hue : AppColors.moonlight.withValues(alpha: 0.1),
+          color: votes > 0 ? hue.withValues(alpha: 0.45) : AppColors.border,
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(option.type.emoji, style: const TextStyle(fontSize: 12)),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
+          Icon(icon, color: hue, size: 18),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
             child: Text(
               option.title,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.bodySmall().copyWith(
-                color: AppColors.moonlight,
-                fontWeight: votes > 0 ? FontWeight.bold : FontWeight.normal,
+                color: AppColors.textHigh,
               ),
             ),
           ),
           if (votes > 0) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              '$votes',
+              style: AppTypography.labelSmall().copyWith(color: hue),
+            ),
             const SizedBox(width: 4),
-            Text('💖' * votes, style: const TextStyle(fontSize: 10)),
+            Icon(Icons.favorite_rounded, color: hue, size: 12),
           ],
         ],
       ),
