@@ -114,17 +114,16 @@ tag — if a release is wrong, cut a new patch version instead.
 
 ## Web Search Policy (persistent user preference)
 
-- Use `pi-web-access` + TinyFish together, lightest first. They share the same TinyFish key (`TINYFISH_API_KEY` env for CLI, `tinyfishApiKey` in `~/.pi/web-search.json` for Pi).
-- Default to Pi tools for speed:
-  - Quick search / research / docs / current info: `web_search` with `workflow: "none"`, batch 2-3 `queries` in one call, `includeContent: true` when you need full text.
-  - Read pages: `fetch_content` (`url` or `urls` batch), then `get_search_content` with `findText` instead of re-fetching. Use `mode: "answer"` for grounded Q&A.
-  - Verify a claim: `source_check`.
-  - GitHub repos, PDFs, YouTube / local video, images: `fetch_content` (it clones / extracts / transcribes).
-- Escalate to TinyFish CLI when Pi tools are not enough (see `$use-tinyfish` skill at `~/.agents/skills/use-tinyfish/SKILL.md`):
-  - `fetch_content` returns empty / blocked / JS-heavy: try `tinyfish fetch content get`, then `tinyfish agent run`, then `tinyfish browser session create`.
-  - Need clicks, forms, login, bot-protected pages, or structured JSON extraction: go straight to `tinyfish agent run`.
+- Free first. TinyFish costs money (search $0.005/query, fetch $0.001/url, agent $0.016/step) from Khent's wallet, so do NOT use it by default. Same for `pi-web-access` tools — they share the same `TINYFISH_API_KEY` and also cost.
+- Default to free tools:
+  - Quick search / research / docs / current info: `google_search` tool (Antigravity grounding, free).
+  - Read pages, click, fill forms, check Everglow live: `agent_browser` (local Chrome, free).
+  - Simple pages: plain `curl` via bash (free).
+- Only use TinyFish CLI when free tools fail (see `$use-tinyfish` skill at `~/.agents/skills/use-tinyfish/SKILL.md`):
+  - `agent_browser` blocked by bot protection, or need bulk structured JSON extraction.
   - Need geo-targeted results: `tinyfish search query --location --language`.
-- Efficiency rules: batch in one call, never re-fetch what `responseId` already holds, try `fetch_content` before `agent` (agent is slower / costs more).
+  - Ask Khent first before any `tinyfish agent run` / `browser session` — those burn wallet fastest.
+- Note: Motchi (Clair's AI) also uses TinyFish server-side for web search. Leave it for now, revisit if wallet drains.
 
 ## Rules that matter
 
