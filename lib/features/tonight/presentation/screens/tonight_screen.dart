@@ -14,6 +14,7 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_button.dart';
 import '../../../../shared/widgets/everglow/everglow_card.dart';
 import '../../../../shared/widgets/everglow/everglow_feature_header.dart';
+import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../data/models/tonight_decision.dart';
 import '../../data/models/tonight_option.dart';
@@ -809,13 +810,17 @@ class _TonightOptionCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(width: 76, height: 114, child: _buildVisual(hue)),
+                    SizedBox(
+                      width: 76,
+                      height: 114,
+                      child: _buildVisual(hue, cacheWidth: 240),
+                    ),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(child: details),
                   ],
                 )
               else ...[
-                SizedBox(height: 144, child: _buildVisual(hue)),
+                SizedBox(height: 144, child: _buildVisual(hue, cacheWidth: 400)),
                 const SizedBox(height: AppSpacing.md),
                 details,
               ],
@@ -843,7 +848,7 @@ class _TonightOptionCard extends StatelessWidget {
     );
   }
 
-  Widget _buildVisual(Color hue) {
+  Widget _buildVisual(Color hue, {required int cacheWidth}) {
     final icon = switch (option.type) {
       TonightOptionType.movie => Icons.movie_outlined,
       TonightOptionType.date => Icons.favorite_border_rounded,
@@ -872,13 +877,16 @@ class _TonightOptionCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: AppRadius.radiusLg,
       child: option.imageUrl?.isNotEmpty == true
-          ? Container(
-              color: AppColors.silk,
-              child: Image.network(
-                option.imageUrl!,
-                fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => placeholder,
-              ),
+          ? AppNetworkImage(
+              // Decoded at the size it is displayed. Bare Image.network here
+              // meant every date-option thumbnail was decoded at its natural
+              // resolution (~3.5MB each, per the memory table in
+              // docs/PERF_NOTES.md) to fill a 76px slot.
+              imageUrl: option.imageUrl!,
+              cacheWidth: cacheWidth,
+              fit: BoxFit.contain,
+              placeholderColor: AppColors.silk,
+              errorWidget: placeholder,
             )
           : placeholder,
     );
