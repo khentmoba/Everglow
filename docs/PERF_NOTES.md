@@ -65,9 +65,9 @@ even though the visuals are fine. Measured causes, in order:
 > - **4 is fixed**: skeletons share one ref-counted `EverglowShimmerScope`
 >   controller, and each one repaints through a `CustomPaint(painter:)` with a
 >   `repaint:` Listenable plus a `RepaintBoundary`, so no skeleton rebuilds.
-> - **The `everglow_sparkles.dart` file cited in the "Shipped" list below no
->   longer exists** — that item's code moved or was deleted. Treat the note as
->   stale.
+> - **The sparkles widget file named in the "Shipped" list below no longer
+>   exists** — that item's code was moved or deleted. Treat the note as stale,
+>   and find the current implementation before citing it.
 
 1. **Every dashboard section mounts on frame 1.** `SliverToBoxAdapter` mounts
    all of its children eagerly (verified: 20/20 in a probe test) and the whole
@@ -124,7 +124,8 @@ because `index.html` deletes `Intl.v8BreakIterator`, and Safari lacks
    - Offset is a `ValueNotifier` under one `AnimatedBuilder` around the
      `Transform`; children build once. Ticker pauses on app background.
 
-5. **Sparkles halved (`everglow_sparkles.dart`)**
+5. **Sparkles halved** — *STALE: the widget this item names no longer exists
+   in the tree. Kept as history; find the current implementation before citing.*
    - Default count 20 -> 12 (capped at 24), zero-alpha circles skipped,
      ticker pauses on background, static single paint under reduced motion.
 
@@ -495,6 +496,101 @@ history and a live AI backend. The bench covers the *shape* (poster/avatar rows
 over a full-screen ambience) but cannot drive a real stream, and its FPS column
 is meaningless in headless anyway. That bar is a phone check with
 `?perf=1`, and it is now reachable rather than removed.
+
+## Long-tail coverage (2026-10) — every feature accounted for
+
+### The hard constraint: no feature screen is measurable headlessly
+
+`app_router.dart` treats `/` as the only public path and bounces every other
+route to the gateway when logged out. So **not one** feature screen can be
+driven by the headless bench — not because the harness is incomplete, but
+because there is no unauthenticated path to any of them. That is why the bar
+for these screens is a phone check, and why the bench coverage in this document
+is stated as *shape* coverage rather than per-screen numbers.
+
+### What every feature does get: mechanical coverage
+
+Five guards scan all of `lib/` (620 files, 528 of them under `lib/features/`)
+on every PR, so a regression in any feature below fails CI whether or not
+anyone can measure it:
+
+| guard | what it blocks |
+| --- | --- |
+| `check_image_fallback.dart` | bare `Image.network` without `errorBuilder`, and without `cacheWidth` **per call site** |
+| `check_stream_limits.dart` | unbounded `snapshots()` (would need a `limit()` or an explicit waiver) |
+| `check_perf_rules.dart` | `setState` driven by a frame-rate callback |
+| `check_perf_notes.dart` | `docs/PERF_NOTES.md` citing a path that no longer exists |
+| `check_assets.dart` | bundled asset references that do not resolve |
+
+### Inventory
+
+| feature | dart files | bare `Image.network` | `snapshots()` | unbounded waivers |
+| --- | --- | --- | --- | --- |
+| academy | 15 | 0 | 3 | 0 |
+| ai | 50 | 0 | 2 | 0 |
+| anime | 48 | 0 | 0 | 0 |
+| books | 35 | 0 | 5 | 0 |
+| bucket_list | 9 | 0 | 3 | 0 |
+| calendar | 12 | 0 | 4 | 0 |
+| canvas | 7 | 0 | 2 | 0 |
+| chat | 6 | 0 | 1 | 0 |
+| cinema | 62 | 0 | 12 | 0 |
+| daily_bloom | 18 | 0 | 2 | 0 |
+| dashboard | 54 | 2 | 8 | 0 |
+| date_randomizer | 5 | 0 | 0 | 0 |
+| entry | 6 | 0 | 0 | 0 |
+| gallery | 8 | 2 | 2 | 0 |
+| guardian | 8 | 0 | 0 | 0 |
+| heartbeat | 6 | 0 | 1 | 0 |
+| journal | 8 | 0 | 5 | 0 |
+| jukebox | 37 | 0 | 2 | 0 |
+| manga | 41 | 1 | 5 | 0 |
+| money | 5 | 0 | 2 | 0 |
+| play_zone | 17 | 0 | 1 | 0 |
+| starlight_jar | 9 | 0 | 2 | 0 |
+| subs | 6 | 0 | 1 | 0 |
+| tonight | 5 | 0 | 1 | 0 |
+| trip_kit | 6 | 0 | 2 | 0 |
+| watch_party | 33 | 0 | 8 | 0 |
+| xp | 3 | 0 | 1 | 0 |
+
+**Zero unbounded-stream waivers exist anywhere in the app**, so every
+`snapshots()` in the list above is bounded — the `#36`/`#55` class cannot come
+back without a deliberate, visible waiver.
+
+The five remaining bare `Image.network` calls are all deliberate keeps, and the
+photo-viewer and manga-reader files are on the guard's documented keep list:
+`creator_memories_tab.dart` (x2, both with `cacheWidth` 200/600),
+`photo_viewer_screen.dart` (x2, full-screen zoom) and
+`reader_page_image.dart` (x1, manga pages read at high zoom).
+
+### Directly examined during this pass
+
+Beyond the mechanical coverage, these were read and measured rather than assumed:
+
+| surface | what was done |
+| --- | --- |
+| dashboard | causes re-verified, laziness pinned by 8 passing tests |
+| cinema / anime / manga / books | every `cacheWidth` swept against display size; no violations |
+| chat / ai | streaming path confirmed to use `AnimatedBuilder`; privacy rules re-verified |
+| gallery / journal | grid decode sizing confirmed (`AppNetworkImage`, `cacheWidth: 440`) |
+| tonight | real defect found and fixed (uncapped decode into a 76px slot) |
+| shared widgets | skeletons/cursor-glow/blur rules confirmed already in place |
+| boot path | 3 runs x 3 profiles measured; link shaping rebuilt |
+
+### Explicitly out of scope, with reasons
+
+- **Per-feature FPS/jank numbers.** Unreachable headlessly (auth-gated), and a
+  desktop GPU cannot produce a DPR-3 phone verdict anyway. Reachable only via
+  the phone meter.
+- **Full-screen painter frame rates.** Deliberately unchanged: measurable win on
+  the phone, invisible on this rig (0.03ms), and a cadence change risks looking
+  choppy with no way to check unattended.
+- **Service-worker cache-first for the shell.** Would fix the 134s repeat-visit
+  boot, but it changes deploy semantics — Khent's call.
+- **The `kIsWeb ? null : N` avatar decode workaround.** Verified obsolete on
+  Chromium, unverified on Safari, where the failure would be a visible grey
+  avatar on Clair's phone.
 
 ## Verify a perf change
 

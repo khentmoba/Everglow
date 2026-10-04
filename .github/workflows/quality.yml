@@ -53,6 +53,9 @@ jobs:
       # Ticker, or a <=20ms Timer.periodic). Enforces the "Animation rules" in
       # docs/PERF_NOTES.md, which were prose until now.
       - run: dart tool/ci/check_perf_rules.dart
+      # docs/PERF_NOTES.md is the source of truth for perf work; a path it
+      # cites that no longer exists sends the next reader after a deleted tool.
+      - run: dart tool/ci/check_perf_notes.dart
       # P3: list streams stay bounded with .limit() (PR #36, 34d615a).
       - run: dart tool/ci/check_stream_limits.dart
       # Golden tests are excluded from CI so they can't gate PRs; new
