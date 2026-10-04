@@ -93,3 +93,7 @@ web/table_tennis/index.html.bak
 # pi-mesh runtime (agent presence/inbox/feed) - local only, never commit
 .pi/mesh/
 .pi/tasks/
+
+# pi goal runtime state (local only, never commit)
+.pi/goals/
+.pi/.goals-pool-snapshot.json
