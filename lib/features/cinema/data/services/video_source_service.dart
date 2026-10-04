@@ -40,37 +40,80 @@ class VideoSourceService extends ChangeNotifier {
   /// while waiting.
   static const Set<String> _noAdsIds = {
     'everglow-embed',
-    'videasy',
-    'movish',
     'vidbolt',
     'vidcore',
     'vidlink',
-    '111movies',
   };
+
+  /// Sources we stopped offering after the 2026-10-04 live audit, with
+  /// the upstream fact that killed each one:
+  ///
+  /// - `videasy` — `player.videasy.net` 301s to `player.videasy.to`,
+  ///   whose certificate does not chain to a trusted root, so every
+  ///   browser refuses it.
+  /// - `movish` — the `/moviebox-embed/` embed paths return 404.
+  /// - `111movies` — the domain no longer resolves in DNS.
+  /// - `multiembed` — redirects to a Cloudflare Turnstile CAPTCHA wall.
+  ///
+  /// The Firestore config still carries these entries, so the filter
+  /// belongs where the list is resolved rather than in the fallback list
+  /// alone; otherwise dead servers keep coming back the moment a remote
+  /// config is present.
+  static const Set<String> _retiredIds = {
+    'videasy',
+    'movish',
+    '111movies',
+    'multiembed',
+  };
+
+  /// Providers that stream fine but refuse to run inside a sandboxed
+  /// iframe — VidBolt answers "Playback Disabled" and VidLink answers
+  /// "Please Disable Sandbox", so `sandboxSafe: true` was exactly what
+  /// broke them. The remote config still carries that flag.
+  static const Set<String> _noSandboxIds = {'vidbolt', 'vidlink'};
 
   static bool _isNoAds(VideoSourceConfig p) =>
       p.sandboxSafe || _noAdsIds.contains(p.id);
 
-  static List<VideoSourceConfig> _reorderNoAdsFirst(
-    List<VideoSourceConfig> list,
-  ) {
-    final noAds = <VideoSourceConfig>[];
-    final adHeavy = <VideoSourceConfig>[];
+  /// The list we actually offer: retired sources removed, sandbox flags
+  /// corrected, no-ads providers grouped first.
+  ///
+  /// Applies to the Firestore list and the hardcoded fallback alike so a
+  /// stale remote entry can never reintroduce a dead or unplayable server.
+  ///
+  /// Public only so the normalization itself can be tested against a
+  /// stale remote list; production code goes through [providers].
+  @visibleForTesting
+  static List<VideoSourceConfig> currentList(List<VideoSourceConfig> list) {
+    final kept = <VideoSourceConfig>[];
     for (final p in list) {
-      if (_isNoAds(p)) {
-        noAds.add(p);
-      } else {
-        adHeavy.add(p);
-      }
+      if (_retiredIds.contains(p.id)) continue;
+      kept.add(
+        _noSandboxIds.contains(p.id) && p.sandboxSafe
+            ? VideoSourceConfig(
+                id: p.id,
+                name: p.name,
+                shortName: p.shortName,
+                desc: p.desc,
+                movieUrl: p.movieUrl,
+                tvUrl: p.tvUrl,
+                isRecommended: p.isRecommended,
+                sandboxSafe: false,
+              )
+            : p,
+      );
     }
-    return [...noAds, ...adHeavy];
+    return [
+      ...kept.where(_isNoAds),
+      ...kept.where((p) => !_isNoAds(p)),
+    ];
   }
 
   List<VideoSourceConfig> get providers {
-    if (_providers != null) return _reorderNoAdsFirst(_providers!);
+    if (_providers != null) return currentList(_providers!);
     // Start a background fetch; return fallback for now.
     _fetchFromFirestore();
-    return _reorderNoAdsFirst(_hardcodedDefaults);
+    return currentList(_hardcodedDefaults);
   }
 
   /// The first recommended source, or the first source overall.
@@ -138,10 +181,10 @@ class VideoSourceService extends ChangeNotifier {
                     VideoSourceConfig.fromFirestore(e as Map<String, dynamic>),
               )
               .toList();
-          _providers = _reorderNoAdsFirst(loaded);
+          _providers = currentList(loaded);
           _loading = false;
           debugPrint(
-            '[VideoSourceService] Loaded ${_providers!.length} sources from Firestore (reordered no-ads first)',
+            '[VideoSourceService] Loaded ${_providers!.length} sources from Firestore (retired removed, no-ads first)',
           );
           notifyListeners();
           return;
@@ -161,7 +204,12 @@ class VideoSourceService extends ChangeNotifier {
   }
 
   // ---------------------------------------------------------------------------
-  // Hardcoded fallback defaults (mirrors the old 9-provider list)
+  // Hardcoded fallback defaults.
+  //
+  // A live audit on 2026-10-04 removed four servers (see [_retiredIds]) and
+  // dropped the sandbox flag on VidBolt and VidLink (see [_noSandboxIds]).
+  // Everything left here was verified to stream a real movie and TV episode
+  // inside the app's iframe; re-verify before adding a new entry.
   // ---------------------------------------------------------------------------
   static final List<VideoSourceConfig> _hardcodedDefaults = [
     const VideoSourceConfig(
@@ -175,33 +223,13 @@ class VideoSourceService extends ChangeNotifier {
       sandboxSafe: true,
     ),
     const VideoSourceConfig(
-      id: 'videasy',
-      name: 'Videasy',
-      shortName: 'Videasy',
-      desc: 'Clean, modern player',
-      movieUrl: 'https://player.videasy.net/movie/',
-      tvUrl: 'https://player.videasy.net/tv/',
-      isRecommended: true,
-    ),
-    const VideoSourceConfig(
-      id: 'movish',
-      name: 'Movish',
-      shortName: 'Movish',
-      desc: 'No ads — sandbox safe',
-      movieUrl: 'https://movish.to/moviebox-embed/move/',
-      tvUrl: 'https://movish.to/moviebox-embed/tv/',
-      isRecommended: true,
-      sandboxSafe: true,
-    ),
-    const VideoSourceConfig(
       id: 'vidbolt',
       name: 'VidBolt',
       shortName: 'VidBolt',
-      desc: 'No ads — sandbox safe',
+      desc: 'No ads, high quality, multi-server',
       movieUrl: 'https://vidbolt.xyz/movie/',
       tvUrl: 'https://vidbolt.xyz/tv/',
       isRecommended: true,
-      sandboxSafe: true,
     ),
     const VideoSourceConfig(
       id: 'vidcore',
@@ -217,19 +245,9 @@ class VideoSourceService extends ChangeNotifier {
       id: 'vidlink',
       name: 'VidLink',
       shortName: 'VidLink',
-      desc: 'Large library, sandbox safe',
+      desc: 'Large library, no ads',
       movieUrl: 'https://vidlink.pro/movie/',
       tvUrl: 'https://vidlink.pro/tv/',
-      sandboxSafe: true,
-    ),
-    const VideoSourceConfig(
-      id: '111movies',
-      name: '111Movies',
-      shortName: '111Movies',
-      desc: 'Clean player, sandbox safe',
-      movieUrl: 'https://111movies.com/movie/',
-      tvUrl: 'https://111movies.com/tv/',
-      sandboxSafe: true,
     ),
     const VideoSourceConfig(
       id: 'vsembed',
@@ -254,14 +272,6 @@ class VideoSourceService extends ChangeNotifier {
       desc: 'Last resort, has trackers',
       movieUrl: 'https://vidsrc.to/embed/movie/',
       tvUrl: 'https://vidsrc.to/embed/tv/',
-    ),
-    const VideoSourceConfig(
-      id: 'multiembed',
-      name: 'MultiEmbed',
-      shortName: 'MultiEmbed',
-      desc: 'Multi-source fallback',
-      movieUrl: 'https://multiembed.mov/?video_id=',
-      tvUrl: 'https://multiembed.mov/?video_id=',
     ),
   ];
 }

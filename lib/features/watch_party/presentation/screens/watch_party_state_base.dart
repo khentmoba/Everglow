@@ -764,13 +764,14 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     if (_room.mediaType == 'tv') {
       final s = _room.season ?? 1;
       final e = _room.episode ?? 1;
-      if (tvBase.contains('vidsrc.to')) {
-        base = '$tvBase$id?season=$s&episode=$e';
-      } else if (tvBase.contains('multiembed.mov')) {
+      if (tvBase.contains('multiembed.mov')) {
         base = '$tvBase$id&tmdb=1&s=$s&e=$e';
       } else if (provider.id == 'vsembed') {
         base = '$tvBase$id?season=$s&episode=$e';
       } else {
+        // Path form for everyone else. vidsrc.to needs it too: it ignores
+        // ?season=&episode= and answers "This media is unavailable at the
+        // moment." (verified live 2026-10-04).
         final separator = tvBase.endsWith('/') ? '' : '/';
         base = '$tvBase$separator$id/$s/$e';
       }
