@@ -67,6 +67,10 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   // repainting this row 60x/sec. Resumes shortly after the scroll settles.
   Timer? _scrollSettle;
 
+  /// Test hook: true while the drift ticker is running.
+  @visibleForTesting
+  bool get isDrifting => _controller?.isAnimating ?? false;
+
   @override
   void initState() {
     super.initState();
