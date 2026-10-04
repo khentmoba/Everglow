@@ -632,12 +632,47 @@ noise bands in `docs/perf-baseline.md` and
 | grid (browse shape) | idle | 1.66ms | 2.29ms | 10.2ms | 0ms |
 | grid | scroll | 2.18ms | 3.52ms | 20.8ms | 0ms |
 
+(Re-measured after the budget-share column was added; the build figures moved
+inside the noise band, e.g. shelves/scroll 3.20ms vs 3.06ms. Full current tables
+are in the two `docs/perf-baseline*.md` files.)
+
 **Before/after: the numbers did not move, and that is the honest result.** The
 shared layer this goal set out to speed up had already been optimised by the
 earlier ultra-perf pass and #440 — verified by reading the code, not assumed. The
 one real defect found (Tonight's uncapped decode) is a static asset decode and
 therefore invisible to a scroll benchmark. Nothing here moved a number, because
 there was no headroom left in the thing being measured on this hardware.
+
+### What part of the bar *is* measurable, and what it says
+
+FPS needs a display and a vsync, so it is out of reach headlessly. But the
+**CPU-side half of a frame is not**: build time is CPU-bound, and
+`Emulation.setCPUThrottlingRate` genuinely slows the CPU. So `build min /
+16.7ms` is a phone-representable number, and the bench now reports it as a
+column. At 4x CPU throttle:
+
+| scene | phase | build min | **share of a 60fps frame** |
+| --- | --- | --- | --- |
+| shelves (dashboard shape) | idle | 2.79ms | **16.7%** |
+| shelves | scroll | 3.20ms | **19.2%** |
+| grid (browse shape) | idle | 1.65ms | **9.9%** |
+| grid | scroll | 2.33ms | **14.0%** |
+
+Read that as: **the app's own widget and layout work costs roughly a sixth to a
+fifth of a phone's frame budget**, leaving ~81–86% for raster and platform work.
+Two consequences worth having:
+
+- It bounds where the remaining risk lives. It is **not** in rebuild loops —
+  that class is now blocked in CI by `check_perf_rules.dart`. If a frame is
+  ever going to blow its budget, it will be doing it in raster (pixels,
+  gradients, shadows, glyphs) on the device, which is precisely what the phone
+  meter reports as "raster high".
+- It means the honest reading of the phone check is narrower than it looks: if
+  the meter shows build low, no amount of further widget optimisation will help,
+  and the work belongs in paint.
+
+This is the closest thing to the goal bar that can be established without the
+device, and it is a real bound rather than a restatement of the target.
 
 ### The bar: what is met, what is not, stated plainly
 

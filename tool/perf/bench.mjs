@@ -334,9 +334,19 @@ function agg(runs) {
   return { idle: phase('idle'), scroll: phase('scroll') };
 }
 
+/// One 60fps frame is 16.7ms. The app's own CPU-side build cost as a share of
+/// that budget is the one figure here that is genuinely phone-representable:
+/// build time is CPU-bound, and `Emulation.setCPUThrottlingRate` really does
+/// slow the CPU, so "build min / 16.7ms" says how much of a phone's frame the
+/// app's own widget work costs — and therefore how much room is left for
+/// raster and platform work, which is the part a desktop GPU cannot judge.
+const FRAME_BUDGET_MS = 1000 / 60;
+const budgetShare = (buildMs) => (buildMs / FRAME_BUDGET_MS) * 100;
+
 const row = (label, phase, m) =>
   `| ${label} | ${phase} | ${r2(m.fps)} | ${r2(m.jankPct)}% | ` +
-  `${r2(m.avgBuildMs)} | ${r2(m.minBuildMs)} | ${r2(m.avgRasterMs)} | ${r2(m.minRasterMs)} | ` +
+  `${r2(m.avgBuildMs)} | ${r2(m.minBuildMs)} | ${r2(budgetShare(m.minBuildMs))}% | ` +
+  `${r2(m.avgRasterMs)} | ${r2(m.minRasterMs)} | ` +
   `${r2(m.worstTotalMs)} | ${r2(m.minWorstTotalMs)} | ${r2(m.longTaskWorstMs)} |`;
 
 function spreadPct(values) {
@@ -368,6 +378,7 @@ function markdown(results, meta) {
     '| metric | why |',
     '| --- | --- |',
     '| **build min ms** | CPU-side widget/layout work. Moves when a rebuild loop is fixed. Noisiest column — see the band below before trusting a small delta. |',
+'| **build % of frame** | The same number as a share of the 16.7ms/60fps budget. **This is the one phone-representable figure here**: build time is CPU-bound and CPU throttling is real, so it says how much of a phone frame the app own work costs, and therefore how much room is left for raster. |',
     '| **raster min ms** | Pixels painted. Most stable column, so it is the best regression tripwire. |',
     '| **worst frame min ms** | The "slowest frame you would feel". Catches stalls an average hides. |',
     '| **worst long task** | Uninterrupted main-thread work. The freeze check. |',
@@ -399,8 +410,8 @@ function markdown(results, meta) {
     '',
     '## Results',
     '',
-    '| scene | phase | fps | jank | build med | build min | raster med | raster min | worst med | worst min | long task |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '| scene | phase | fps | jank | build med | build min | **build % of frame** | raster med | raster min | worst med | worst min | long task |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
   for (const scene of SCENES) {
     const a = results[scene];
