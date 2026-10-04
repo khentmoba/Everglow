@@ -105,8 +105,11 @@ attributes to a stutter.
 
 So cold boot is expected to be slow on a bad connection and that is not
 something scrolling fixes. What *is* worth checking is first paint, which should
-be instant, and the repeat visit, which is slower than it should be because the
-service worker is network-first for the JS shell.
+be instant.
+
+Re-opening the app should be **instant even with no network** — the service
+worker serves the shell from CacheStorage. If a second visit ever feels slow, that
+is a real bug worth reporting, not expected behaviour.
 
 ## If something does not pass
 
