@@ -25,39 +25,51 @@ void main() {
       expect(PerfSettings.sizedAssetDecode.value, isTrue);
     });
 
-    // The whole point of the switch: off must be byte-for-byte the old
-    // behaviour, so turning the experiment on cannot quietly change what
-    // Clair sees for anyone who never opted in.
-    test('sized asset decode defaults to off', () async {
+    // Safari-verified on 2026-10-04 (identical rendering with the switch on and
+    // off), so the sized decode is now the shipped behaviour. These pin both
+    // halves of that: the default, and the kill switch that has to keep working
+    // from a URL without a deploy.
+    test('sized asset decode defaults to on', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       PerfSettings.debugReset();
 
       await PerfSettings.load();
 
-      expect(PerfSettings.sizedAssetDecode.value, isFalse);
+      expect(PerfSettings.sizedAssetDecode.value, isTrue);
       // On the VM (non-web) the sized decode is used either way, matching the
       // old `kIsWeb ? null : N` behaviour off-web.
       expect(PerfSettings.sizedDecodeWidth(108), 108);
     });
 
-    test('?sizeddecode=1 turns it on and sticks', () async {
+    test('?sizeddecode=0 is a kill switch and it sticks', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
+      PerfSettings.debugReset();
+
+      await PerfSettings.load(queryParameters: {'sizeddecode': '0'});
+
+      expect(PerfSettings.sizedAssetDecode.value, isFalse);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('perf_sized_asset_decode_v1'), isFalse,
+          reason: 'the PWA launches from the manifest start_url and would '
+              'otherwise lose the switch');
+
+      // A later launch with no query string keeps it off.
+      PerfSettings.debugReset();
+      await PerfSettings.load();
+      expect(PerfSettings.sizedAssetDecode.value, isFalse);
+    });
+
+    test('?sizeddecode=1 can turn it back on', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'perf_sized_asset_decode_v1': false,
+      });
       PerfSettings.debugReset();
 
       await PerfSettings.load(queryParameters: {'sizeddecode': '1'});
 
       expect(PerfSettings.sizedAssetDecode.value, isTrue);
       expect(PerfSettings.sizedDecodeWidth(108), 108);
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('perf_sized_asset_decode_v1'), isTrue,
-          reason: 'the PWA launches from the manifest start_url and would '
-              'otherwise lose the switch');
-
-      // A later launch with no query string keeps it on.
-      PerfSettings.debugReset();
-      await PerfSettings.load();
-      expect(PerfSettings.sizedAssetDecode.value, isTrue);
     });
 
     test('defaults to off and device scale when nothing is saved', () async {

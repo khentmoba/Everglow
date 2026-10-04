@@ -46,19 +46,21 @@ class PerfSettings {
   /// in full to fill a 36px slot — about 20x the memory — on exactly the
   /// platform the workaround was supposed to protect.
   ///
-  /// A Chromium probe shows the grey problem is gone on this engine, but Safari
-  /// wasm-decodes images and was never testable here, and a grey avatar in
-  /// Motchi's chat bubbles is a visible regression on Clair's phone. So this
-  /// defaults to **off**: turning it on is a deliberate, reversible experiment.
-  /// Behaviour off-web is identical either way, since those paths already used
+  /// Verified on Safari — the platform the workaround was meant to protect, and
+  /// Clair's actual browser — on 2026-10-04: avatar, chat bubble, dashboard
+  /// emblem and timeline photos render identically with the sized decode on
+  /// and off. So this now defaults to **on**, and `?sizeddecode=0` stays as a
+  /// kill switch so a regression can be undone from a URL without a deploy.
+  ///
+  /// Off-web the answer is unchanged either way, since those paths already used
   /// the sized decode.
-  static final ValueNotifier<bool> sizedAssetDecode = ValueNotifier<bool>(false);
+  static final ValueNotifier<bool> sizedAssetDecode = ValueNotifier<bool>(true);
 
   /// Decode width for a bundled image, honouring [sizedAssetDecode].
   ///
   /// [devicePixels] is the intended decode size (display width x DPR). Returns
-  /// null for "decode at natural resolution", which is what web does while the
-  /// switch is off.
+  /// null for "decode at natural resolution", which is what web does once the
+  /// kill switch has been used.
   static int? sizedDecodeWidth(int devicePixels) =>
       (sizedAssetDecode.value || !kIsWeb) ? devicePixels : null;
 
@@ -76,12 +78,14 @@ class PerfSettings {
 
     var meter = false;
     double? scale;
-    var sizedDecode = false;
+    // Sized decode is the shipped behaviour; the persisted value exists only so
+    // `?sizeddecode=0` survives a PWA relaunch as a kill switch.
+    var sizedDecode = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       meter = prefs.getBool(_meterKey) ?? false;
       scale = prefs.getDouble(_scaleKey);
-      sizedDecode = prefs.getBool(_sizedDecodeKey) ?? false;
+      sizedDecode = prefs.getBool(_sizedDecodeKey) ?? true;
     } catch (e) {
       // Never let a prefs failure block boot: defaults are the safe answer.
       Logger.e('[Perf] could not read perf switches', error: e);
@@ -175,7 +179,7 @@ class PerfSettings {
     _loaded = false;
     frameMeter.value = false;
     renderScale.value = null;
-    sizedAssetDecode.value = false;
+    sizedAssetDecode.value = true;
   }
 
   static bool _isOn(String raw) {
