@@ -85,7 +85,17 @@ class _ChooseTitleButton extends StatelessWidget {
 
   Future<void> _open(BuildContext context) async {
     HapticFeedback.selectionClick();
-    // The sheet reports the chosen title through onSelect and closes
+    // Ask which library first, then open the picker on that tab. Landing
+    // straight on Cinema meant an anime night started with a TMDB search
+    // box and no obvious way to switch — the tab strip was easy to miss.
+    final category = await showModalBottomSheet<WatchPartyPickerCategory>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ChooseSourceSheet(),
+    );
+    if (category == null || !context.mounted) return;
+
+    // The picker reports the chosen title through onSelect and closes
     // itself, so the callback is where the party starts.
     await showModalBottomSheet<void>(
       context: context,
@@ -93,10 +103,135 @@ class _ChooseTitleButton extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => WatchPartyMediaPickerSheet(
         currentTitle: '',
+        initialCategory: category,
         onSelect: (media) {
           Navigator.of(sheetContext).pop();
           startWatchParty(context, media);
         },
+      ),
+    );
+  }
+}
+
+/// First step: Cinema or Anime?
+///
+/// Two large targets rather than a hidden tab strip, because "watch an
+/// anime together" and "watch a film together" are different intentions
+/// and picking the wrong one costs a search to undo.
+class _ChooseSourceSheet extends StatelessWidget {
+  const _ChooseSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        decoration: BoxDecoration(
+          color: NetflixColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: NetflixColors.hairline),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'What are we watching?',
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: 17,
+                color: NetflixColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SourceOption(
+              icon: Icons.movie_filter_rounded,
+              title: 'Movies & TV',
+              subtitle: 'Search films and series',
+              onTap: () => Navigator.of(
+                context,
+              ).pop(WatchPartyPickerCategory.cinema),
+            ),
+            const SizedBox(height: 10),
+            _SourceOption(
+              icon: Icons.animation_rounded,
+              title: 'Anime',
+              subtitle: 'Search anime and episodes',
+              onTap: () =>
+                  Navigator.of(context).pop(WatchPartyPickerCategory.anime),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SourceOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: title,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: NetflixColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: NetflixColors.hairline),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: NetflixColors.accent, size: 24),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 14.5,
+                        color: NetflixColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: NetflixColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: NetflixColors.textMuted,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

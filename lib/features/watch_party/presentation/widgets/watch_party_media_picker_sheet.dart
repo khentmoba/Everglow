@@ -15,7 +15,12 @@ import '../../../cinema/data/services/tmdb/tmdb_discovery_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_search_service.dart';
 import '../../data/models/media_ref.dart';
 
-enum _PickerCategory { cinema, anime }
+/// Which library the picker is searching.
+///
+/// Public so a caller can open the sheet on a chosen tab instead of
+/// always landing on Cinema — the Watch Together tab asks "Cinema or
+/// Anime?" first and then opens the picker already on that tab.
+enum WatchPartyPickerCategory { cinema, anime }
 
 /// Bottom sheet that lets Khent or Clair search and choose any movie,
 /// TV show, or anime to watch together in real time.
@@ -23,10 +28,15 @@ class WatchPartyMediaPickerSheet extends StatefulWidget {
   final String currentTitle;
   final ValueChanged<MediaRef> onSelect;
 
+  /// Tab to open on. Defaults to Cinema, which is what the in-party
+  /// picker has always shown, so existing callers are unaffected.
+  final WatchPartyPickerCategory initialCategory;
+
   const WatchPartyMediaPickerSheet({
     super.key,
     required this.currentTitle,
     required this.onSelect,
+    this.initialCategory = WatchPartyPickerCategory.cinema,
   });
 
   @override
@@ -41,7 +51,7 @@ class _WatchPartyMediaPickerSheetState
   final TMDBDiscoveryService _tmdbDiscovery = TMDBDiscoveryService();
   final AniListService _aniListService = AniListService();
 
-  _PickerCategory _category = _PickerCategory.cinema;
+  late WatchPartyPickerCategory _category = widget.initialCategory;
   Timer? _debounce;
   bool _loading = false;
   String? _errorMessage;
@@ -73,7 +83,7 @@ class _WatchPartyMediaPickerSheetState
       if (mounted) {
         setState(() {
           _trendingCinema = cinema;
-          if (_category == _PickerCategory.cinema &&
+          if (_category == WatchPartyPickerCategory.cinema &&
               _searchController.text.trim().isEmpty) {
             _results = cinema;
             _loading = false;
@@ -97,7 +107,7 @@ class _WatchPartyMediaPickerSheetState
       if (mounted) {
         setState(() {
           _trendingAnime = animePage.items;
-          if (_category == _PickerCategory.anime &&
+          if (_category == WatchPartyPickerCategory.anime &&
               _searchController.text.trim().isEmpty) {
             _results = animePage.items;
             _loading = false;
@@ -113,7 +123,7 @@ class _WatchPartyMediaPickerSheetState
     }
   }
 
-  void _onCategoryChanged(_PickerCategory newCategory) {
+  void _onCategoryChanged(WatchPartyPickerCategory newCategory) {
     if (_category == newCategory) return;
     HapticFeedback.selectionClick();
     setState(() {
@@ -124,7 +134,7 @@ class _WatchPartyMediaPickerSheetState
       _performSearch(query);
     } else {
       setState(() {
-        _results = newCategory == _PickerCategory.cinema
+        _results = newCategory == WatchPartyPickerCategory.cinema
             ? _trendingCinema
             : _trendingAnime;
         _loading = false;
@@ -140,7 +150,7 @@ class _WatchPartyMediaPickerSheetState
       setState(() {
         _loading = false;
         _errorMessage = null;
-        _results = _category == _PickerCategory.cinema
+        _results = _category == WatchPartyPickerCategory.cinema
             ? _trendingCinema
             : _trendingAnime;
       });
@@ -162,7 +172,7 @@ class _WatchPartyMediaPickerSheetState
 
     try {
       List<MediaItem> items;
-      if (_category == _PickerCategory.cinema) {
+      if (_category == WatchPartyPickerCategory.cinema) {
         items = await _tmdbSearch.searchMedia(query);
       } else {
         items = await _aniListService.searchAnime(query);
@@ -328,14 +338,14 @@ class _WatchPartyMediaPickerSheetState
         children: [
           Expanded(
             child: _tabButton(
-              category: _PickerCategory.cinema,
+              category: WatchPartyPickerCategory.cinema,
               icon: Icons.movie_rounded,
               label: 'Movies & TV',
             ),
           ),
           Expanded(
             child: _tabButton(
-              category: _PickerCategory.anime,
+              category: WatchPartyPickerCategory.anime,
               icon: Icons.auto_awesome_rounded,
               label: 'Anime',
             ),
@@ -346,7 +356,7 @@ class _WatchPartyMediaPickerSheetState
   }
 
   Widget _tabButton({
-    required _PickerCategory category,
+    required WatchPartyPickerCategory category,
     required IconData icon,
     required String label,
   }) {
@@ -395,7 +405,7 @@ class _WatchPartyMediaPickerSheetState
   }
 
   Widget _buildSearchBar() {
-    final hint = _category == _PickerCategory.cinema
+    final hint = _category == WatchPartyPickerCategory.cinema
         ? 'Search movies or TV shows...'
         : 'Search anime (English or Romaji)...';
 
@@ -512,7 +522,7 @@ class _WatchPartyMediaPickerSheetState
     final isSearching = _searchController.text.trim().isNotEmpty;
     final headerLabel = isSearching
         ? 'Search Results (${_results.length})'
-        : (_category == _PickerCategory.cinema
+        : (_category == WatchPartyPickerCategory.cinema
             ? '🔥 Trending Movies & TV'
             : '🌸 Trending Anime');
 
@@ -541,7 +551,7 @@ class _WatchPartyMediaPickerSheetState
   }
 
   Widget _buildMediaTile(MediaItem item) {
-    final isAnime = _category == _PickerCategory.anime || item.isAnime;
+    final isAnime = _category == WatchPartyPickerCategory.anime || item.isAnime;
     final isMovie = item.mediaType == 'movie' ||
         (isAnime && item.format.toLowerCase() == 'movie');
 
