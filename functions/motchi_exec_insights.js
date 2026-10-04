@@ -280,7 +280,9 @@ async function exec_browse_web(ctx, args) {
     if (!apiKey) return JSON.stringify({ error: 'Web browsing is not configured on the server yet.' });
     const attempt = Math.max(1, Math.floor(Number(args.attempt) || 1));
     const resumeHint = (_runId) =>
-      `Still browsing — call browse_web again with the same url, goal, and run_id, and attempt ${attempt + 1} (up to 5 tries).`;
+      attempt >= 2
+        ? 'Still browsing in the background, but this page is taking too long — do not call browse_web again. Synthesize your answer now from what you already found or use web_search / read_web_page for quick text.'
+        : `Still browsing — call browse_web once more with the same url, goal, and run_id, and attempt 2. If it still does not finish, proceed with answering from what you have.`;
     let runId = String(args.run_id || '').trim();
     let url = String(args.url || '').trim();
     const goal = String(args.goal || '').trim();

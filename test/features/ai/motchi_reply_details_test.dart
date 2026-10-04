@@ -284,6 +284,47 @@ void main() {
     },
   );
 
+  testWidgets(
+    'interrupted web searches with only reads do not ask to finish unfinished steps',
+    (tester) async {
+      final details = MotchiReplyDetails.fromResults([
+        {
+          'tool': 'web_search',
+          'step': {
+            'tool': 'web_search',
+            'status': 'done',
+            'write': false,
+            'title': 'VCT Champions 2026',
+          },
+        },
+        {
+          'tool': 'read_web_page',
+          'step': {
+            'tool': 'read_web_page',
+            'status': 'done',
+            'write': false,
+            'title': 'vlr.gg',
+          },
+        },
+      ], interrupted: true);
+      expect(details.interrupted, isTrue);
+      expect(details.needsAttention, isFalse);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: MotchiReplyDetailsCard(
+                details: details,
+                onContinue: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Help finish unfinished steps'), findsNothing);
+    },
+  );
+
   testWidgets('a write that did not complete still demands attention', (
     tester,
   ) async {

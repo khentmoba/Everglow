@@ -31,19 +31,18 @@ String buildVideoSourceUrl(
   final isVideasy = movieBase.contains('videasy') || tvBase.contains('videasy');
 
   if (mediaType == 'tv') {
-    if (tvBase.contains('vidsrc.to')) {
-      return '$tvBase$id?season=$season&episode=$episode';
-    } else if (tvBase.contains('multiembed.mov')) {
+    if (tvBase.contains('multiembed.mov')) {
       return '$tvBase$id&tmdb=1&s=$season&e=$episode';
     } else if (provider.id == 'vsembed') {
       return '$tvBase$id?season=$season&episode=$episode';
     } else if (tvBase.contains('embed') && !tvBase.endsWith('/')) {
       return '$tvBase$id?season=$season&episode=$episode';
     } else {
-      // vidlink: https://vidlink.pro/tv/{id}/{season}/{episode}
-      // vidcore: https://vidcore.org/embed/tv/{id}/{season}/{episode}
-      // 111movies: https://111movies.com/tv/{id}/{season}/{episode}
-      // Default path style: base/{id}/{season}/{episode}
+      // vidlink:  https://vidlink.pro/tv/{id}/{season}/{episode}
+      // vidcore:  https://vidcore.org/embed/tv/{id}/{season}/{episode}
+      // vidsrc:   https://vidsrc.to/embed/tv/{id}/{season}/{episode}
+      // vidsrc ignores ?season=&episode= and answers "This media is
+      // unavailable at the moment." — it needs the path form.
       final separator = tvBase.endsWith('/') ? '' : '/';
       final base = '$tvBase$separator$id/$season/$episode';
       final url = isVideasy

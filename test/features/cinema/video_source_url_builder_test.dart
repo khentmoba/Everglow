@@ -55,7 +55,9 @@ void main() {
       );
     });
 
-    test('builds VidSrc TV URLs with season and episode query', () {
+    test('builds VidSrc TV URLs with season and episode in the path', () {
+      // vidsrc.to ignores ?season=&episode= and answers "This media is
+      // unavailable at the moment."; the path form streams. Verified live.
       expect(
         buildVideoSourceUrl(
           vidsrc,
@@ -64,7 +66,21 @@ void main() {
           season: 2,
           episode: 3,
         ),
-        'https://vidsrc.to/embed/tv/1399?season=2&episode=3',
+        'https://vidsrc.to/embed/tv/1399/2/3',
+      );
+    });
+
+    test('passes the resume position through on VidSrc TV URLs', () {
+      expect(
+        buildVideoSourceUrl(
+          vidsrc,
+          mediaType: 'tv',
+          id: '1399',
+          season: 2,
+          episode: 3,
+          startSeconds: 600,
+        ),
+        'https://vidsrc.to/embed/tv/1399/2/3?start=600',
       );
     });
 
