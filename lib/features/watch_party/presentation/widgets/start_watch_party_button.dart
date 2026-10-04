@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/services/auth_service.dart';
+import '../../data/models/media_ref.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
 import '../../data/services/watch_party_chat_service.dart';
@@ -10,6 +11,8 @@ import '../../data/services/temporary_chat_service.dart';
 import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
+
+export '../../data/models/media_ref.dart';
 
 const _cDeepRose = AppColors.deepRose;
 const _cGold = AppColors.animeGold;
@@ -52,31 +55,6 @@ class StartWatchPartyButton extends StatefulWidget {
 }
 
 enum WatchPartyButtonVariant { pill, card, icon }
-
-/// Minimal subset of [MediaItem] we need to start a party. The episode
-/// drawer has the full MediaItem; the dashboard card may not, so we
-/// accept this smaller bundle instead.
-class MediaRef {
-  final int tmdbId;
-  final int? malId;
-  final String mediaType; // 'movie' | 'tv'
-  final bool isAnime;
-  final int? season;
-  final int? episode;
-  final String title;
-  final String posterPath;
-
-  const MediaRef({
-    required this.tmdbId,
-    this.malId,
-    required this.mediaType,
-    this.isAnime = false,
-    this.season,
-    this.episode,
-    required this.title,
-    this.posterPath = '',
-  });
-}
 
 class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
   late final WatchPartyService _service;

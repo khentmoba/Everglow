@@ -16,6 +16,20 @@
 
   var LOAD_TIMEOUT_MS = 12000;
 
+  // Watch Together drives playback through these. CineSrc exposes a
+  // postMessage control API; this wrapper only relays it (see below).
+  var COMMANDS = ['play', 'pause', 'seek', 'setMuted', 'getPaused'];
+  var EVENTS = [
+    'cinesrc:ready',
+    'cinesrc:play',
+    'cinesrc:pause',
+    'cinesrc:timeupdate',
+    'cinesrc:seeking',
+    'cinesrc:seeked',
+    'cinesrc:ended',
+    'cinesrc:response'
+  ];
+
   try { window.open = function () { return null; }; } catch (e) {}
   window.addEventListener('beforeunload', function (e) {
     e.preventDefault();
@@ -50,8 +64,41 @@
   // checked so only the real upstream can drive the app's episode state.
   window.addEventListener('message', function (e) {
     var d = e.data;
-    if (!d || d.type !== 'cinesrc:nextepisode') return;
+    if (!d || typeof d.type !== 'string') return;
+
+    // Parent (the watch party screen) -> player. Only the playback
+    // commands CineSrc understands are passed through, and only from
+    // our direct parent, so no other page can steer the player.
+    if (d.type === 'cinesrc:command') {
+      if (e.source !== window.parent || !frame.contentWindow) return;
+      if (COMMANDS.indexOf(d.command) === -1) return;
+      try {
+        frame.contentWindow.postMessage(
+          { type: 'cinesrc:command', command: d.command, args: d.args || [] },
+          'https://cinesrc.st'
+        );
+      } catch (err) {}
+      return;
+    }
+
+    // Player -> parent. Only the real upstream frame may speak.
     if (e.origin !== 'https://cinesrc.st' || e.source !== frame.contentWindow) return;
+
+    if (EVENTS.indexOf(d.type) !== -1) {
+      var out = { type: d.type };
+      if (typeof d.currentTime === 'number') out.currentTime = d.currentTime;
+      if (typeof d.duration === 'number') out.duration = d.duration;
+      if (typeof d.command === 'string') out.command = d.command;
+      if (typeof d.result === 'boolean' || typeof d.result === 'number') {
+        out.result = d.result;
+      }
+      try {
+        window.parent.postMessage(out, '*');
+      } catch (err) {}
+      return;
+    }
+
+    if (d.type !== 'cinesrc:nextepisode') return;
     var season = parseInt(d.season, 10) || 0;
     var episode = parseInt(d.episode, 10) || 0;
     if (season <= 0 || episode <= 0) return;

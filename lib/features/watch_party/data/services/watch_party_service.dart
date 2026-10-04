@@ -140,22 +140,21 @@ class WatchPartyService {
     }
   }
 
-  /// Cheap, throttled "I'm still here" tick. The host writes
-  /// currentTime every [_tickInterval] seconds while playing so the
-  /// partner's local clock stays roughly in sync even without an
-  /// explicit play/pause action.
+  /// Cheap "I'm still here" tick, written every few seconds by the
+  /// host. It only carries the playback position (and keeps the room
+  /// looking alive). It deliberately does NOT write `state`: if Clair
+  /// pauses a moment before a tick lands, the tick must not flip the
+  /// room back to "playing".
   Future<void> heartbeat({
     required String roomId,
-    required String state,
     required double currentTime,
-    required String updatedBy,
+    required String beatBy,
   }) async {
     try {
       await _db.collection(_collection).doc(roomId).update({
-        'state': state,
         'currentTime': currentTime,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
-        'updatedBy': updatedBy,
+        'beatBy': beatBy,
       });
     } catch (e, st) {
       Logger.e(
@@ -185,22 +184,29 @@ class WatchPartyService {
       await _db.collection(_collection).doc(roomId).update({
         'mediaType': mediaType,
         'tmdbId': tmdbId,
-        // ignore: use_null_aware_elements
-        if (malId != null) 'malId': malId,
-        // ignore: use_null_aware_elements
-        if (season != null) 'season': season,
-        // ignore: use_null_aware_elements
-        if (episode != null) 'episode': episode,
+        'malId': malId ?? FieldValue.delete(),
+        'season': season ?? FieldValue.delete(),
+        'episode': episode ?? FieldValue.delete(),
         'isAnime': isAnime,
         'title': title,
         'posterPath': posterPath,
+        'serverType': FieldValue.delete(),
+        'serverName': FieldValue.delete(),
+        'serverHost': FieldValue.delete(),
+        'streamUrl': FieldValue.delete(),
+        'subtitleUrl': FieldValue.delete(),
+        'proxyEnabled': false,
         'state': 'paused',
         'currentTime': 0.0,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
         'updatedBy': updatedBy,
       });
-    } catch (e) {
-      debugPrint('WatchPartyService.updateMedia failed: $e');
+    } catch (e, st) {
+      Logger.e(
+        'WatchParty: updateMedia failed for $roomId',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 

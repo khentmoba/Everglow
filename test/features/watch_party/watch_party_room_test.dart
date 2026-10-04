@@ -52,4 +52,44 @@ void main() {
       expect(room.isLive(staleAfter: const Duration(minutes: 30)), isTrue);
     });
   });
+
+  group('WatchPartyRoom.beatBy', () {
+    test('defaults to null when omitted', () {
+      final room = _room(active: true, updatedAt: DateTime.now());
+      expect(room.beatBy, isNull);
+    });
+
+    test('preserves beatBy when provided', () {
+      final room = WatchPartyRoom(
+        id: 'a_b',
+        hostUid: 'a',
+        hostName: 'khentsgdz',
+        partnerUid: 'b',
+        partnerName: 'clairjassen',
+        mediaType: 'movie',
+        tmdbId: 1,
+        isAnime: false,
+        title: 'Test night',
+        posterPath: '',
+        state: 'paused',
+        currentTime: 0,
+        updatedAt: DateTime.now(),
+        updatedBy: 'a',
+        beatBy: 'a',
+        createdAt: DateTime.now(),
+        active: true,
+      );
+      expect(room.beatBy, 'a');
+    });
+
+    test('copyWith updates or preserves beatBy', () {
+      final room = _room(active: true, updatedAt: DateTime.now());
+      final updated = room.copyWith(beatBy: 'b');
+      expect(updated.beatBy, 'b');
+
+      final preserved = updated.copyWith(currentTime: 42.0);
+      expect(preserved.beatBy, 'b');
+      expect(preserved.currentTime, 42.0);
+    });
+  });
 }
