@@ -27,15 +27,32 @@ class _DesktopEpisodeTile extends StatefulWidget {
 class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
   bool _hovered = false;
 
+  /// Revealed inline on this row — no drawer.
+  bool _revealed = false;
+
+  @override
+  void didUpdateWidget(covariant _DesktopEpisodeTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The list is built by index, so a sort hands this state to a
+    // different episode; and un-hiding spoilers shows everything.
+    if (oldWidget.episode.number != widget.episode.number) {
+      _revealed = false;
+    } else if (oldWidget.hideSpoilers && !widget.hideSpoilers) {
+      _revealed = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final ep = widget.hideSpoilers
+    final hidden = widget.hideSpoilers && !_revealed;
+    final ep = hidden
         ? _episodeWithoutSpoilers(widget.episode)
         : widget.episode;
-    final title = (ep.title != null && ep.title!.isNotEmpty)
+    final title = !hidden && ep.title != null && ep.title!.isNotEmpty
         ? ep.title!
         : 'Episode ${ep.number}';
-    final hasSynopsis = ep.synopsis != null && ep.synopsis!.trim().isNotEmpty;
+    final synopsis = ep.synopsis?.trim() ?? '';
+    final hasSynopsis = synopsis.isNotEmpty;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -64,8 +81,10 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // The real episode, never the stripped one: a still gives no plot
+              // away, so thumbnails stay visible either way.
               _EpisodeThumbnail(
-                episode: ep,
+                episode: widget.episode,
                 fallbackPoster: widget.fallbackPoster,
                 isPlaying: widget.isPlaying,
                 width: 116,
@@ -124,9 +143,9 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                             ),
                           ),
                         ],
-                        if (widget.hideSpoilers)
+                        if (hidden)
                           TextButton.icon(
-                            onPressed: widget.onInfoTap,
+                            onPressed: () => setState(() => _revealed = true),
                             icon: const Icon(
                               Icons.visibility_outlined,
                               size: 14,
@@ -137,6 +156,53 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                               padding: EdgeInsets.zero,
                               textStyle: dmSansStyle(size: 11),
                             ),
+                          )
+                        else if (_revealed)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                synopsis.isNotEmpty
+                                    ? synopsis
+                                    : 'No detailed synopsis is available for this episode yet.',
+                                maxLines: 4,
+                                overflow: TextOverflow.ellipsis,
+                                style: dmSansStyle(
+                                  size: 11,
+                                  color: AnimeXTokens.textSecondary.withValues(
+                                    alpha: 0.85,
+                                  ),
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              GestureDetector(
+                                onTap: () => setState(() => _revealed = false),
+                                child: MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.visibility_off_outlined,
+                                        size: 12,
+                                        color: AnimeXTokens.accentWarm,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Hide details',
+                                        style: dmSansStyle(
+                                          size: 10.5,
+                                          color: AnimeXTokens.accentWarm,
+                                          weight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           )
                         else if (hasSynopsis)
                           GestureDetector(

@@ -1,7 +1,7 @@
 part of 'animex_watch_page.dart';
 
 /// Mobile episode card matching Reference Image #2 (horizontal swipeable card).
-class _MobileEpisodeCard extends StatelessWidget {
+class _MobileEpisodeCard extends StatefulWidget {
   final AniListEpisode episode;
   final String fallbackPoster;
   final String animeTitle;
@@ -21,16 +21,43 @@ class _MobileEpisodeCard extends StatelessWidget {
   });
 
   @override
+  State<_MobileEpisodeCard> createState() => _MobileEpisodeCardState();
+}
+
+class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
+  /// Revealed inline on this card — no drawer. The list is a fixed
+  /// 300px rail, so the reveal swaps the card's text area rather than
+  /// growing it.
+  bool _revealed = false;
+
+  @override
+  void didUpdateWidget(covariant _MobileEpisodeCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The rail is built by index, so a sort hands this state to a
+    // different episode; and un-hiding spoilers shows everything.
+    if (oldWidget.episode.number != widget.episode.number) {
+      _revealed = false;
+    } else if (oldWidget.hideSpoilers && !widget.hideSpoilers) {
+      _revealed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final ep = hideSpoilers ? _episodeWithoutSpoilers(episode) : episode;
-    final title = (ep.title != null && ep.title!.isNotEmpty)
+    final episode = widget.episode;
+    final isPlaying = widget.isPlaying;
+    final animeTitle = widget.animeTitle;
+    final hidden = widget.hideSpoilers && !_revealed;
+    // Strip only while actually hiding, otherwise revealing shows nothing.
+    final ep = hidden ? _episodeWithoutSpoilers(episode) : episode;
+    final title = !hidden && ep.title != null && ep.title!.isNotEmpty
         ? ep.title!
         : 'Episode ${ep.number}';
     final synopsis = ep.synopsis?.trim() ?? '';
     final hasSynopsis = synopsis.isNotEmpty;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
         width: 260,
         decoration: BoxDecoration(
@@ -53,9 +80,11 @@ class _MobileEpisodeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // The real episode, never the stripped one: a still gives no
+            // plot away, so thumbnails stay visible either way.
             _EpisodeThumbnail(
-              episode: ep,
-              fallbackPoster: fallbackPoster,
+              episode: episode,
+              fallbackPoster: widget.fallbackPoster,
               isPlaying: isPlaying,
               width: 260,
               height: 145,
@@ -91,9 +120,9 @@ class _MobileEpisodeCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    if (hideSpoilers)
+                    if (hidden)
                       TextButton.icon(
-                        onPressed: onInfoTap,
+                        onPressed: () => setState(() => _revealed = true),
                         icon: const Icon(Icons.visibility_outlined, size: 16),
                         label: const Text('Reveal details'),
                         style: TextButton.styleFrom(
@@ -101,9 +130,47 @@ class _MobileEpisodeCard extends StatelessWidget {
                           padding: EdgeInsets.zero,
                         ),
                       )
-                    else if (hasSynopsis) ...[
+                    else if (_revealed) ...[
+                      Text(
+                        synopsis.isNotEmpty
+                            ? synopsis
+                            : 'No detailed synopsis is available for this episode yet.',
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: dmSansStyle(
+                          size: 11.5,
+                          color: AnimeXTokens.textSecondary.withValues(
+                            alpha: 0.85,
+                          ),
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       GestureDetector(
-                        onTap: onInfoTap,
+                        onTap: () => setState(() => _revealed = false),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.visibility_off_outlined,
+                              size: 12,
+                              color: AnimeXTokens.accentWarm,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Hide details',
+                              style: dmSansStyle(
+                                size: 10.5,
+                                color: AnimeXTokens.accentWarm,
+                                weight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (hasSynopsis) ...[
+                      GestureDetector(
+                        onTap: widget.onInfoTap,
                         child: Text(
                           synopsis,
                           maxLines: 2,
@@ -119,7 +186,7 @@ class _MobileEpisodeCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       GestureDetector(
-                        onTap: onInfoTap,
+                        onTap: widget.onInfoTap,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -584,8 +651,10 @@ void _showEpisodeInfoSheet(
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // The real episode, never the stripped
+                              // one: a still gives no plot away.
                               _EpisodeThumbnail(
-                                episode: ep,
+                                episode: episode,
                                 fallbackPoster: fallbackPoster,
                                 isPlaying: isPlaying,
                                 width: 120,
@@ -702,7 +771,7 @@ void _showEpisodeInfoSheet(
                           const SizedBox(height: 8),
                           Text(
                             !revealed
-                                ? 'Reveal the title, image, and synopsis for this episode?'
+                                ? 'Reveal the title and synopsis for this episode?'
                                 : synopsis.isNotEmpty
                                 ? synopsis
                                 : 'No detailed synopsis is available for this episode yet.',
