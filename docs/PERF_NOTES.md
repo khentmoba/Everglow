@@ -21,11 +21,19 @@ installed PWA can't have its start URL edited. So the switches live in the app:
 
 | Switch | Where | What it does |
 | --- | --- | --- |
-| Frame meter | Creator Studio → System, or `?perf=1` | Overlay with FPS, jank %, dropped %, and build/raster avg + worst. Tap it to reset the window — reset, scroll the screen you care about, read the numbers. |
-| Render scale | Creator Studio → System, or `?dpr=2` | Renders at N device pixels per logical pixel instead of the browser DPR. Layout is unchanged (the engine measures the viewport in CSS px and divides by the same DPR); only the backbuffer resolution changes. **Needs a reload.** |
+| Frame meter | `?perf=1` on the URL | Overlay with FPS, jank %, dropped %, and build/raster avg + worst. Tap it to reset the window — reset, scroll the screen you care about, read the numbers. |
+| Render scale | `?dpr=2` | Renders at N device pixels per logical pixel instead of the browser DPR. Layout is unchanged (the engine measures the viewport in CSS px and divides by the same DPR); only the backbuffer resolution changes. **Needs a reload.** |
 
-Both persist (`perf_settings.dart`), so `?perf=1` typed once keeps working inside
-the PWA afterwards. `?perf=0` turns the meter back off.
+`?perf=0` turns the meter back off. Both settings persist
+(`perf_settings.dart`). The in-app Creator Studio → System switches are **not**
+back: they were removed in `cfa3c9c1` and the URL flags are all this pass
+needs. Note the installed PWA cannot have its start URL edited, so to read the
+meter *inside* the PWA, turn it on from a normal browser tab first — the
+setting is remembered.
+
+On web the meter also mirrors every reading to `window.__everglowPerf`, which is
+what `tool/perf/bench.mjs` reads. That is how a headless run measures the app
+instead of guessing: see `docs/perf-baseline.md`.
 
 Reading the numbers: **build high** = widgets re-running every frame; **raster
 high** = too many pixels (full-screen gradients, shadows, blurs, glyphs). iPhone
@@ -180,9 +188,15 @@ backdrops with equivalent custom loading/error states.
 ## Verify a perf change
 
 - `flutter analyze <changed files>` (repo rule: always before commit).
-- On the phone: Creator Studio → System → **Frame meter**, then reset it, scroll
-  the screen you changed, and compare against the numbers in the PR. Raster
+- Headless (no device needed): `node tool/perf/bench.mjs --build` scrolls the
+  fixed bench scenes at a 430x932 / DPR 3 viewport and rewrites
+  `docs/perf-baseline.md`. Gate on the `min` columns and clear the spread in
+  the noise band; ignore its FPS/jank columns, which headless cannot measure
+  honestly.
+- On the phone: open the page with `?perf=1`, reset the meter, scroll the
+  screen you changed, and compare against the numbers in the PR. Raster
   should fall when pixels get cheaper, build when less re-runs per frame.
+  This is the only place the ">= 55 FPS" bar can actually be judged.
 - `flutter build web --release --no-source-maps` and compare
   `build/web/main.dart.js` bytes + `build/web/canvaskit/*` before/after.
 - DevTools Network: confirm 3D/HLS scripts absent on cold gateway load,
