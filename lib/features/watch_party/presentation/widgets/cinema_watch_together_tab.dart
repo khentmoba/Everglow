@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +17,225 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
 import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import 'start_watch_party_button.dart';
+import 'watch_party_media_picker_sheet.dart';
 import 'temporary_chat_panel.dart';
 part 'cinema_watch_together_widgets.dart';
+
+/// Opens the full title picker and starts a party with whatever is chosen.
+///
+/// This is the way in when nothing is saved yet. The tab used to offer
+/// only posters from My List, so a couple who had not saved a single
+/// title saw an empty stage and no way to start — while the good search
+/// picker sat inside the party screen, which needed a party to open.
+/// Classic chicken-and-egg. Search and trending now sit right here, and
+/// picking a title starts (or switches) the party immediately.
+class _ChooseTitleButton extends StatelessWidget {
+  const _ChooseTitleButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Semantics(
+        button: true,
+        label: 'Choose a title to watch together',
+        child: GestureDetector(
+          onTap: () => _open(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 26,
+              vertical: 14,
+            ),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [NetflixColors.accent, AppColors.rosePressed],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: NetflixColors.accent.withValues(alpha: 0.38),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.petalWhite,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Choose a title',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 14,
+                    color: AppColors.petalWhite,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    // Ask which library first, then open the picker on that tab. Landing
+    // straight on Cinema meant an anime night started with a TMDB search
+    // box and no obvious way to switch — the tab strip was easy to miss.
+    final category = await showModalBottomSheet<WatchPartyPickerCategory>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ChooseSourceSheet(),
+    );
+    if (category == null || !context.mounted) return;
+
+    // The picker reports the chosen title through onSelect and closes
+    // itself, so the callback is where the party starts.
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => WatchPartyMediaPickerSheet(
+        currentTitle: '',
+        initialCategory: category,
+        onSelect: (media) {
+          Navigator.of(sheetContext).pop();
+          startWatchParty(context, media);
+        },
+      ),
+    );
+  }
+}
+
+/// First step: Cinema or Anime?
+///
+/// Two large targets rather than a hidden tab strip, because "watch an
+/// anime together" and "watch a film together" are different intentions
+/// and picking the wrong one costs a search to undo.
+class _ChooseSourceSheet extends StatelessWidget {
+  const _ChooseSourceSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+        decoration: BoxDecoration(
+          color: NetflixColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: NetflixColors.hairline),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'What are we watching?',
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: 17,
+                color: NetflixColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _SourceOption(
+              icon: Icons.movie_filter_rounded,
+              title: 'Movies & TV',
+              subtitle: 'Search films and series',
+              onTap: () => Navigator.of(
+                context,
+              ).pop(WatchPartyPickerCategory.cinema),
+            ),
+            const SizedBox(height: 10),
+            _SourceOption(
+              icon: Icons.animation_rounded,
+              title: 'Anime',
+              subtitle: 'Search anime and episodes',
+              onTap: () =>
+                  Navigator.of(context).pop(WatchPartyPickerCategory.anime),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SourceOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: title,
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: NetflixColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: NetflixColors.hairline),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: NetflixColors.accent, size: 24),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 14.5,
+                        color: NetflixColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTypography.outfitWhite.copyWith(
+                        fontSize: 12,
+                        color: NetflixColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: NetflixColors.textMuted,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Dedicated "Watch Together" tab inside Cinema.
 ///
@@ -154,6 +372,16 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
             child: _WatchTogetherStage(isEmpty: widget.watchlist.isEmpty),
           ),
         ),
+        if (isCouple)
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? 48 : 16,
+              18,
+              isDesktop ? 48 : 16,
+              0,
+            ),
+            sliver: const SliverToBoxAdapter(child: _ChooseTitleButton()),
+          ),
         if (isCouple && myUid != null && partnerUid != null)
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
