@@ -12,7 +12,7 @@ import 'perf_probe.dart';
 import 'perf_settings.dart';
 
 /// Mounts [PerfHud] over the whole app, but only while the meter switch is on,
-/// so it costs nothing for Clair.
+/// so no HUD timer or timing callback runs by default.
 class PerfMeterOverlay extends StatelessWidget {
   const PerfMeterOverlay({super.key, required this.child});
 
@@ -38,13 +38,9 @@ class PerfMeterOverlay extends StatelessWidget {
   }
 }
 
-/// Small on-device frame meter: FPS, jank share, and build/raster cost.
-///
-/// Why it exists: Flutter Web has no retained layers, so build and raster share
-/// one thread and one 16.7ms budget. "It feels heavy" is therefore always
-/// either *build* (widgets re-running every frame) or *raster* (too many pixels,
-/// blurs and shadows). This panel tells those apart on the actual phone, which
-/// is the only place the answer matters.
+/// Opt-in diagnostic for reported frame rate and build/raster timings.
+/// Session peaks/counts persist until reset; averages cover recent frames.
+/// This does not measure display presentation skips or every main-thread task.
 ///
 /// Interactions, kept on the card so the tool never needs another screen:
 /// * drag it anywhere (it starts bottom-left, where no app control lives —
@@ -79,6 +75,7 @@ class _PerfHudState extends State<PerfHud> {
   Timer? _timer;
   int _lastFrameCount = 0;
   double _fps = 0;
+  int _sampleSequence = 0;
 
   @override
   void initState() {
@@ -92,6 +89,7 @@ class _PerfHudState extends State<PerfHud> {
   void dispose() {
     _timer?.cancel();
     WidgetsBinding.instance.removeTimingsCallback(_onTimings);
+    clearPerfProbe();
     super.dispose();
   }
 
@@ -105,22 +103,30 @@ class _PerfHudState extends State<PerfHud> {
     _since
       ..reset()
       ..start();
+    _publish();
+    setState(() {});
+  }
+
+  void _publish() {
     publishPerfSnapshot(
       PerfSnapshot.of(
         fps: _fps,
         stats: _stats,
         devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        sampleSequence: ++_sampleSequence,
       ).toMap(),
     );
-    setState(() {});
   }
 
   void _reset() {
+    if (!mounted) return;
     _stats.reset();
     _lastFrameCount = 0;
+    _fps = 0;
     _since
       ..reset()
       ..start();
+    _publish();
     setState(() {});
   }
 
@@ -215,9 +221,8 @@ class _PerfHudState extends State<PerfHud> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${_fps.toStringAsFixed(0)} fps · jank '
-                  '${_stats.jankPercent.toStringAsFixed(0)}% · drop '
-                  '${_stats.droppedPercent.toStringAsFixed(0)}%',
+                  '${_fps.toStringAsFixed(0)} fps · over budget '
+                  '${_stats.sessionOverBudgetPercent.toStringAsFixed(0)}%',
                   style: AppTypography.outfitBold.copyWith(
                     fontSize: 12,
                     color: fpsTone,
@@ -237,8 +242,8 @@ class _PerfHudState extends State<PerfHud> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'worst ${_stats.worstTotalMs.toStringAsFixed(1)} ms · '
-                      '${_stats.frameCount}f',
+                      'session ${_stats.sessionWorstFrameMs.toStringAsFixed(1)} ms · '
+                      '${_stats.totalFrames}f',
                       style: _line(AppColors.textMuted),
                     ),
                     const SizedBox(width: 8),
@@ -263,7 +268,7 @@ class _PerfHudState extends State<PerfHud> {
                   ],
                 ),
                 Text(
-                  'drag · dbl-tap reset',
+                  'timings only · dbl-tap reset',
                   style: AppTypography.outfitWhite.copyWith(
                     fontSize: 9.5,
                     height: 1.3,

@@ -59,6 +59,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   bool _hovered = false;
   bool _canScroll = true;
   bool _isVisible = true;
+  bool _appActive = true;
   ScrollPosition? _scrollPosition;
   List<Widget> _items = const [];
   double _loopWidth = 1;
@@ -75,13 +76,15 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _rebuildItems();
     if (!AppMotion.reduced) {
       _controller = AnimationController(
         vsync: this,
         duration: const Duration(seconds: 1),
       )..addListener(_onTick);
-      _controller!.repeat();
+      _syncTicker();
     }
   }
 
@@ -139,7 +142,9 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     if (c != null && c.isAnimating) c.stop();
     _scrollSettle?.cancel();
     _scrollSettle = Timer(const Duration(milliseconds: 400), () {
-      if (mounted) _syncTicker();
+      if (!mounted) return;
+      _checkVisibility(); // Scroll listeners can fire before layout has moved.
+      _syncTicker();
     });
   }
 
@@ -164,15 +169,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final c = _controller;
-    if (c == null) return;
-    if (state == AppLifecycleState.resumed) {
-      _syncTicker();
-    } else if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached ||
-        state == AppLifecycleState.hidden) {
-      c.stop();
-    }
+    _appActive = state == AppLifecycleState.resumed;
+    _syncTicker();
   }
 
   /// Runs the metronome only while the row can actually drift.
@@ -184,9 +182,12 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   void _syncTicker() {
     final c = _controller;
     if (c == null) return;
-    // A pending settle means the vertical list is still moving — stay paused.
-    if (_scrollSettle?.isActive ?? false) return;
-    final shouldRun = _canScroll && !_hovered && _isVisible;
+    final shouldRun =
+        _appActive &&
+        _canScroll &&
+        !_hovered &&
+        _isVisible &&
+        !(_scrollSettle?.isActive ?? false);
     if (shouldRun && !c.isAnimating) {
       c.repeat();
     } else if (!shouldRun && c.isAnimating) {
@@ -238,10 +239,9 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     _canScroll = widget.children.isNotEmpty;
     _syncTicker();
 
-    final sets =
-        (viewportWidth.isFinite && viewportWidth > 0 && _loopWidth > 0)
-            ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
-            : 2;
+    final sets = (viewportWidth.isFinite && viewportWidth > 0 && _loopWidth > 0)
+        ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
+        : 2;
 
     Widget row = SizedBox(
       height: widget.height,

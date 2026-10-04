@@ -1,510 +1,251 @@
-// Headless perf bench for the Everglow web app.
-//
-// Measures the real frame meter in a real browser: drives a deterministic
-// scene over CDP at a phone viewport, reads the numbers the app itself
-// publishes, and writes a before/after table to docs/perf-baseline.md.
-//
-//   node tool/perf/bench.mjs --build            # build + serve + measure
-//   node tool/perf/bench.mjs                    # measure an existing build
-//   node tool/perf/bench.mjs --runs 5 --throttle 4
-//
-// ## What this can and cannot prove
-//
-// CAN: build/raster cost of the shared render layer, jank and dropped-frame
-// share, worst single frame, long main-thread tasks, and — because the scene
-// is fixed — a trustworthy A/B between two builds. This is the regression net.
-//
-// CANNOT: the goal's ">= 55 FPS on Clair's iPhone" bar. This box has a
-// discrete desktop GPU where a phone has a small power-budgeted one, so paint
-// cost here is not phone-representative; and headless has no steady virtual
-// vsync, so observed FPS wanders on a healthy build. The recorded renderer
-// line in the output says exactly what painted the pixels. Treat raster as a
-// build-to-build signal, and let the on-phone frame meter
-// (`?perf=1`, Creator Studio -> System) carry the device verdict. See
-// docs/perf-baseline.md.
-//
-// ## Hygiene
-//
-// Each run gets a throwaway --user-data-dir, because the app ships a
-// cache-first service worker and a cached shell would otherwise be measured
-// instead of the build under test. The SW is also explicitly unregistered.
-//
-// Usage: node tool/perf/bench.mjs [--build] [--runs N] [--throttle N]
-//                                 [--dpr N] [--scene NAME] [--shot DIR]
-import { spawnSync } from 'node:child_process';
+// Desktop/headless shared-widget benchmark, not a calibrated phone measurement.
+// node tool/perf/bench.mjs [--build | --web-root DIR] [--runs 3]
+//   [--scene shelves,grid] [--throttle 4] [--dpr 3] [--out FILE] [--shot DIR]
+// Requires the compile-time bench route, live meter and runtime-only scroll getter.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
-  LONG_TASK_OBSERVER,
-  cleanup,
-  launch,
-  median,
-  prepare,
-  r2,
-  serve,
-  sha1,
-  sleep,
+  LONG_TASK_OBSERVER, buildWeb, launch, median, prepare, r2,
+  readLongTasks, serve, sleep, stop,
 } from './_harness.mjs';
 
-// ── args ────────────────────────────────────────────────────────────────────
-const argv = process.argv.slice(2);
-const flag = (name, fallback) => {
-  const i = argv.indexOf(name);
-  return i > -1 ? argv[i + 1] : fallback;
-};
-const has = (name) => argv.includes(name);
-
-const RUNS = Number(flag('--runs', 3));
-// 4x CPU throttle is the default and is the whole reason the bench has any
-// sensitivity: unthrottled on a desktop GPU this content costs ~0.6ms build
-// and ~0.7ms raster, so real inefficiencies are invisible. Throttling puts the
-// rig in the same CPU ballpark as a phone, which is the device the goal is
-// about. (This is also the method docs/PERF_NOTES.md already prescribes.)
-const THROTTLE = Number(flag('--throttle', 4));
-const DPR = Number(flag('--dpr', 3));
-const SCENES = (flag('--scene', 'shelves,grid')).split(',').filter(Boolean);
-const SHOT_DIR = flag('--shot', null);
-const PORT = Number(flag('--port', 8946));
-const CDP_PORT = Number(process.env.CDP_PORT || 9251);
-const SETTLE_MS = Number(process.env.SETTLE_MS || 9000);
-const OUT = flag('--out', 'docs/perf-baseline.md');
-const WEB_ROOT = resolve('build/web');
-const BAR = { fps: 55, jankPct: 5, droppedPct: 0, blockMs: 200 };
-
-
-// ── measurement ─────────────────────────────────────────────────────────────
-// Long tasks are the "no freeze" half of the bar: a frame can average 12ms and
-// still hide one 400ms block that Clair feels as a stutter.
-const OBSERVER = `
-  window.__egLongTasks = [];
-  try {
-    new PerformanceObserver((list) => {
-      for (const e of list.getEntries()) {
-        window.__egLongTasks.push({ dur: e.duration, start: e.startTime });
-      }
-    }).observe({ entryTypes: ['longtask'] });
-  } catch (e) { window.__egLongTaskError = String(e); }
-  true;
-`;
-
-const CLEAR_TASKS = 'window.__egLongTasks = []; true;';
-const READ_TASKS = `
-  (() => {
-    const t = window.__egLongTasks || [];
-    const dur = t.map((x) => x.dur);
-    return JSON.stringify({
-      count: t.length,
-      worstMs: dur.length ? Math.max(...dur) : 0,
-      overBar: dur.filter((d) => d > ${BAR.blockMs}).length,
-      over100: dur.filter((d) => d > 100).length,
-    });
-  })()
-`;
-
-async function readMirror(cdp) {
-  const raw = await cdp.eval('JSON.stringify(window.__everglowPerf || null)');
-  if (!raw || raw === 'null') return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+const SCENE_PATHS = {shelves:'/perf-bench', grid:'/perf-bench/grid', 'shelves-plain':'/perf-bench/shelves-plain'};
+const NUMERIC_FIELDS = [
+  'fps','buildAvgMs','buildWorstMs','rasterAvgMs','rasterWorstMs','worstFrameMs',
+  'jankPercent','slowFramePercent','frames','devicePixelRatio','sampleSequence',
+  'sessionFrames','sessionWorstBuildMs','sessionWorstRasterMs','sessionWorstFrameMs',
+  'sessionOver200ms','sessionOverBudgetPercent','sessionSlowFramePercent',
+];
+export function validateMirror(m, previous) {
+  if (!m || NUMERIC_FIELDS.some(k => !Number.isFinite(m[k]) || m[k] < 0)) {
+    throw new Error('missing/invalid perf mirror (including cumulative session fields)');
   }
+  if (!Number.isInteger(m.sampleSequence) || !Number.isInteger(m.sessionFrames) ||
+      m.frames <= 0 || m.sessionFrames <= 0 || m.sampleSequence <= 0 || m.devicePixelRatio <= 0) {
+    throw new Error('zero/missing frame samples');
+  }
+  if (previous) {
+    if (m.sampleSequence <= previous.sampleSequence || m.sessionFrames <= previous.sessionFrames) {
+      throw new Error('stale perf mirror: no fresh frame samples');
+    }
+    for (const k of ['sessionWorstBuildMs','sessionWorstRasterMs','sessionWorstFrameMs']) {
+      if (m[k] < previous[k]) throw new Error('cumulative session worst was reset/lost');
+    }
+  }
+  return m;
 }
-
-async function waitForMirror(cdp, timeoutMs = 25000) {
+export function validateScroll(s, scene) {
+  if (!s || s.scene !== scene || !Number.isFinite(s.offset) ||
+      !Number.isFinite(s.maxScrollExtent) || s.maxScrollExtent <= 1 ||
+      s.offset < -1 || s.offset > s.maxScrollExtent + 1) {
+    throw new Error(`wrong/non-scrollable bench scene: expected ${scene}`);
+  }
+  return s;
+}
+async function readScroll(cdp, scene) {
+  return validateScroll(await cdp.eval(`typeof window.__everglowBenchScroll === 'function'
+    ? window.__everglowBenchScroll() : null`),scene);
+}
+async function readMirror(cdp) { return cdp.eval('window.__everglowPerf || null'); }
+async function waitForMirror(cdp, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
+  let reason = 'missing perf mirror';
   while (Date.now() < deadline) {
-    if (await readMirror(cdp)) return true;
-    await sleep(500);
+    try { return validateMirror(await readMirror(cdp)); }
+    catch (e) { reason = e.message; }
+    await sleep(100);
   }
-  return false;
+  throw new Error(`perf mirror timeout: ${reason}`);
 }
 
-// One window of measurement: reset the meter's rolling window, run `act`,
-// then read. Idle and scroll are measured separately on purpose — #440's win
-// is specifically "ambient tickers stop competing with a scroll", so a single
-// combined number would hide both effects.
-async function measure(cdp, { act, label, shot }) {
-  await cdp.eval(LONG_TASK_OBSERVER);
-  await cdp.eval('window.__everglowResetPerf ? (window.__everglowResetPerf(), true) : false');
-  await cdp.eval(CLEAR_TASKS);
-  await sleep(700); // let the reset frame and the observer settle out of the window
-
+async function measure(cdp, act, phase, previous) {
+  const before = validateMirror(await readMirror(cdp));
   await act();
-
-  const perf = await readMirror(cdp);
-  const tasks = JSON.parse((await cdp.eval(READ_TASKS)) || '{}');
-  const metrics = await cdp.send('Performance.getMetrics');
-  const heapMb =
-    (metrics?.result?.metrics?.find((m) => m.name === 'JSHeapUsedSize')?.value || 0) /
-    1048576;
-
-  if (shot) {
-    const s = await cdp.send('Page.captureScreenshot', { format: 'png' });
-    mkdirSync(shot.replace(/\/[^/]+$/, ''), { recursive: true });
-    writeFileSync(shot, Buffer.from(s.result.data, 'base64'));
-  }
-
+  // Meter publishes periodically, so include its next reading, not old data.
+  await sleep(600);
+  const perf = validateMirror(await readMirror(cdp),before);
+  if (previous) validateMirror(perf,previous);
   return {
-    phase: label,
-    fps: perf ? perf.fps : 0,
-    jankPct: perf ? perf.jankPercent : 0,
-    droppedPct: perf ? perf.droppedPercent : 0,
-    avgBuildMs: perf ? perf.buildAvgMs : 0,
-    worstBuildMs: perf ? perf.buildWorstMs : 0,
-    avgRasterMs: perf ? perf.rasterAvgMs : 0,
-    worstRasterMs: perf ? perf.rasterWorstMs : 0,
-    worstTotalMs: perf ? perf.worstFrameMs : 0,
-    frames: perf ? perf.frames : 0,
-    devicePixelRatio: perf ? perf.devicePixelRatio : 0,
-    longTaskWorstMs: tasks.worstMs || 0,
-    longTaskCount: tasks.count || 0,
-    longTaskOverBar: tasks.overBar || 0,
-    heapMb: r2(heapMb),
+    snapshot:perf,
+    phase, fps:perf.fps, rollingWorkJankPct:perf.jankPercent, rollingSlowFramePct:perf.slowFramePercent,
+    sessionOver200ms:perf.sessionOver200ms, sessionOverBudgetPct:perf.sessionOverBudgetPercent,
+    sessionSlowFramePct:perf.sessionSlowFramePercent,
+    avgBuildMs:perf.buildAvgMs, avgRasterMs:perf.rasterAvgMs,
+    // Full-session maxima survive the HUD's bounded rolling window.
+    worstBuildMs:perf.sessionWorstBuildMs, worstRasterMs:perf.sessionWorstRasterMs,
+    worstFrameMs:perf.sessionWorstFrameMs, sessionFrames:perf.sessionFrames,
+    freshFrames:perf.sessionFrames-before.sessionFrames, sampleSequence:perf.sampleSequence,
   };
 }
-
-// A 10s scripted scroll: down the page in phone-sized flicks, then back up,
-// which is exactly the gesture that used to stutter.
-function scrollPass() {
-  return async () => {
-    for (let i = 0; i < 10; i++) {
-      await scrollOnce(-190);
-      await sleep(180);
-    }
-    for (let i = 0; i < 6; i++) {
-      await scrollOnce(150);
-      await sleep(180);
-    }
-    await sleep(2000); // let late images land outside the window
-  };
-}
-
-let _cdpRef = null;
-async function scrollOnce(distance) {
-  await _cdpRef.send('Input.synthesizeScrollGesture', {
-    x: 215,
-    y: 640,
-    yDistance: distance,
-    speed: 900,
-    gestureSourceType: 'touch',
-  });
-}
-
-/// Scene name to app route. `shelves` is the bare path; other scenes are
-/// sub-routes. Kept in one place so the harness and the router cannot drift
-/// into disagreeing about what `/perf-bench/shelves` even is.
-function scenePath(scene) {
-  return scene === 'shelves' ? '/perf-bench' : `/perf-bench/${scene}`;
-}
-
-// Cheap visual fingerprint of the page. Used to prove the scroll gesture
-// actually moved the scene: if the "scroll" window looks identical to the
-// "idle" one, the harness measured a static page twice and every scroll number
-// it reports is fiction.
-async function pageFingerprint(cdp) {
-  const shot = await cdp.send('Page.captureScreenshot', {
-    format: 'jpeg',
-    quality: 20,
-    optimizeForSpeed: true,
-  });
-  return sha1(shot.result.data);
-}
-
-async function runScene(scene, runIndex, server) {
-  const chrome = await launch(CDP_PORT, { dpr: DPR });
-  _cdpRef = chrome.cdp;
-  const { cdp } = chrome;
-  try {
-    // Keep the page active so rAF is not throttled, and emulate the phone
-    // viewport. Shared with measure_boot so both rigs agree.
-    await prepare(cdp, { dpr: DPR });
-    if (THROTTLE > 1) {
-      await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
-    }
-
-    await cdp.send('Page.navigate', {
-      url: `http://127.0.0.1:${server}${scenePath(scene)}?perf=1`,
+// Scripted wheel gestures exercise the scene's real offset; not a phone flick.
+async function scrollPass(cdp, scene, steps, settleMs) {
+  const initial = await readScroll(cdp,scene);
+  let maxOffset = initial.offset;
+  for (let i=0; i<steps; i++) {
+    await cdp.send('Input.synthesizeScrollGesture', {
+      x:215, y:640, yDistance:-190, speed:900, gestureSourceType:'mouse',
     });
+    await sleep(100);
+    maxOffset = Math.max(maxOffset,(await readScroll(cdp,scene)).offset);
+  }
+  if (maxOffset <= initial.offset + 1) throw new Error('scroll pass did not move the actual scroll offset down');
+  let minOffset = maxOffset;
+  for (let i=0; i<steps; i++) {
+    await cdp.send('Input.synthesizeScrollGesture', {
+      x:215, y:640, yDistance:150, speed:900, gestureSourceType:'mouse',
+    });
+    await sleep(100);
+    minOffset = Math.min(minOffset,(await readScroll(cdp,scene)).offset);
+  }
+  if (minOffset >= maxOffset - 1) throw new Error('scroll pass did not move the actual scroll offset back up');
+  await sleep(settleMs);
+  return {initial:initial.offset, maxOffset, final:(await readScroll(cdp,scene)).offset};
+}
 
-    // Fail loudly if the app bounced somewhere else. The meter is mounted over
-    // the whole app, so its numbers look perfectly healthy on the login gateway
-    // — which is exactly how an earlier version of this bench produced a clean
-    // baseline for a screen it never actually measured.
-    await sleep(1200);
-    const landed = await cdp.eval('location.pathname');
-    if (!String(landed || '').startsWith('/perf-bench')) {
-      throw new Error(
-        `bench was redirected to "${landed}" instead of ${scenePath(scene)} — ` +
-          'these numbers would describe the wrong screen',
-      );
-    }
-
-    // The meter publishes from the first frame, but DeferredSection reveals and
-    // the images decode for a while after. Scrolling into a still-changing
-    // scene is the main source of run-to-run variance, so let it go quiet.
-    const ok = await waitForMirror(cdp, 30000);
-    if (!ok) throw new Error(`perf mirror never appeared on scene "${scene}"`);
-    await sleep(SETTLE_MS);
-
-    // The build ships a cache-first service worker; answer a measurement run
-    // from disk, never from a cached shell.
-    await cdp.eval(
-      'navigator.serviceWorker && navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).then(() => true)',
-    );
-
-    const shot = SHOT_DIR ? `${SHOT_DIR}/${scene}-${runIndex}.png` : null;
-    const idle = await measure(cdp, { act: () => sleep(5000), label: 'idle', shot });
-    const beforeScroll = await pageFingerprint(cdp);
-    const scrolled = await measure(cdp, { act: scrollPass(), label: 'scroll' });
-    const afterScroll = await pageFingerprint(cdp);
-    if (beforeScroll === afterScroll) {
-      throw new Error(
-        `scene "${scene}" did not move during the scroll pass (identical ` +
-          'screenshots before and after) — the idle and scroll numbers would be ' +
-          'the same static page measured twice',
-      );
-    }
-
-    const renderer = await cdp.eval(`(() => {
-      const c = document.querySelector('canvas') || document.createElement('canvas');
+async function runScene(scene, run, url, options) {
+  const chrome = await launch(options.cdpPort,{dpr:options.dpr});
+  const {cdp} = chrome;
+  const row = {scene,run};
+  try {
+    await prepare(cdp,{dpr:options.dpr});
+    await cdp.send('Network.enable');
+    await cdp.send('Network.clearBrowserCache');
+    await cdp.send('Network.setCacheDisabled',{cacheDisabled:false});
+    await cdp.send('Network.setBypassServiceWorker',{bypass:true});
+    await cdp.send('Network.setBlockedURLs',{urls:['*sw.js*']});
+    await cdp.send('Emulation.setCPUThrottlingRate',{rate:options.throttle});
+    // Observe the WHOLE navigation/session, including load and idle. Never clear
+    // tasks between phases: late good samples must not erase an earlier freeze.
+    await cdp.send('Page.addScriptToEvaluateOnNewDocument',{source:LONG_TASK_OBSERVER});
+    const before = await cdp.eval('performance.timeOrigin');
+    const nav = await cdp.send('Page.navigate',{url:`${url}${SCENE_PATHS[scene]}?perf=1`});
+    if (nav.result?.errorText) throw new Error(nav.result.errorText);
+    const initial = await waitForMirror(cdp,options.timeoutMs);
+    await sleep(options.settleMs);
+    const doc = await cdp.eval('({path:location.pathname,timeOrigin:performance.timeOrigin,stamp:window.__EVERGLOW_BUILD__})');
+    if (doc.path !== SCENE_PATHS[scene]) throw new Error(`wrong bench route: ${doc.path}`);
+    if (doc.timeOrigin === before) throw new Error('bench did not open a fresh document');
+    if (typeof doc.stamp !== 'string' || !doc.stamp) throw new Error('missing production build stamp; use --build or a stamped --web-root');
+    row.build = doc.stamp;
+    await readLongTasks(cdp); // missing/unsupported instrumentation is an error
+    await readScroll(cdp,scene);
+    row.idle = await measure(cdp,() => sleep(options.idleMs),'idle',initial);
+    let movement;
+    row.scroll = await measure(cdp,async () => {
+      movement = await scrollPass(cdp,scene,options.scrollSteps,options.scrollSettleMs);
+    },'scroll',row.idle.snapshot);
+    row.movement = movement;
+    row.renderer = await cdp.eval(`(() => {
+      const c = document.createElement('canvas');
       const gl = c.getContext('webgl2') || c.getContext('webgl');
       if (!gl) return 'no-context';
       const d = gl.getExtension('WEBGL_debug_renderer_info');
-      return d ? gl.getParameter(d.UNMASKED_RENDERER_WEBGL) : String(gl.getParameter(gl.RENDERER));
+      return String(gl.getParameter(d ? d.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
     })()`);
-
-    return { scene, run: runIndex + 1, renderer, idle, scroll: scrolled };
-  } finally {
-    chrome.proc.kill();
-    cleanup(chrome.userDataDir);
-    await sleep(400);
-  }
+    if (options.shotDir) {
+      const path = join(options.shotDir,`${scene}-${run}.png`);
+      mkdirSync(dirname(path),{recursive:true});
+      const shot = await cdp.send('Page.captureScreenshot',{format:'png'});
+      writeFileSync(path,Buffer.from(shot.result.data,'base64'));
+    }
+    row.longTasks = await readLongTasks(cdp);
+    if (row.longTasks.overBar > 0) row.error = 'full session exceeded the 200ms long-task budget';
+  } catch (e) {
+    row.error = e.message;
+    try { row.longTasks = await readLongTasks(cdp); }
+    catch (e) { row.instrumentationError = e.message; }
+  } finally { await stop(chrome); }
+  return row;
 }
 
-// Windows keeps Chrome's profile files locked briefly after exit, so a hard
-// rm here would fail a run whose measurement already succeeded. Best-effort:
-// leaving a temp dir behind is harmless, failing the run is not.
-
-// ── build + report ──────────────────────────────────────────────────────────
-function build() {
-  console.log('[bench] building web release with EG_PERF_BENCH=true ...');
-  // Plain `flutter build web`, not tool/build_web.dart: that wrapper spawns
-  // `flutter` via Process.start, which cannot resolve flutter.bat on Windows.
-  // Skipping it also means self-hosted canvaskit/, which is deterministic
-  // (no CDN fetch between runs) and irrelevant to frame cost anyway.
-  const r = spawnSync(
-    'flutter',
-    [
-      'build',
-      'web',
-      '--release',
-      '--no-source-maps',
-      '--dart-define=EG_PERF_BENCH=true',
-    ],
-    { stdio: 'inherit', shell: true },
-  );
-  if (r.status !== 0) throw new Error('build failed');
-  if (!existsSync(join(WEB_ROOT, 'index.html'))) {
-    throw new Error(`no build/web/index.html — expected at ${WEB_ROOT}`);
-  }
-}
-
-function agg(runs) {
-  // `min` is the honest estimator, not `median`: noise on a shared machine is
-  // one-sided (a stray compile, a background tab, a thermal dip) — it can only
-  // ever make a run slower, never faster. The minimum over N runs is therefore
-  // the closest repeatable estimate of true cost, and it is far tighter than
-  // the median. Both are reported.
-  const min = (phase, key) => (runs.length ? Math.min(...runs.map((r) => r[phase][key])) : 0);
-  const pick = (phase, key) => median(runs.map((r) => r[phase][key]));
+export function aggregate(runs, expectedRuns) {
+  if (runs.length !== expectedRuns || runs.some(r => r.error || !r.idle || !r.scroll || !r.longTasks)) return null;
   const phase = (name) => ({
-    fps: pick(name, 'fps'),
-    jankPct: pick(name, 'jankPct'),
-    droppedPct: pick(name, 'droppedPct'),
-    avgBuildMs: pick(name, 'avgBuildMs'),
-    avgRasterMs: pick(name, 'avgRasterMs'),
-    worstTotalMs: pick(name, 'worstTotalMs'),
-    longTaskWorstMs: pick(name, 'longTaskWorstMs'),
-    frames: pick(name, 'frames'),
-    minBuildMs: min(name, 'avgBuildMs'),
-    minRasterMs: min(name, 'avgRasterMs'),
-    minWorstTotalMs: min(name, 'worstTotalMs'),
+    fps:median(runs.map(r => r[name].fps)),
+    avgBuildMs:median(runs.map(r => r[name].avgBuildMs)),
+    avgRasterMs:median(runs.map(r => r[name].avgRasterMs)),
+    worstBuildMs:Math.max(...runs.map(r => r[name].worstBuildMs)),
+    worstRasterMs:Math.max(...runs.map(r => r[name].worstRasterMs)),
+    worstFrameMs:Math.max(...runs.map(r => r[name].worstFrameMs)),
   });
-  return { idle: phase('idle'), scroll: phase('scroll') };
+  return {idle:phase('idle'),scroll:phase('scroll'),
+    longTaskWorstMs:Math.max(...runs.map(r => r.longTasks.worstMs))};
+}
+export function benchPassed(results, scenes, expectedRuns) {
+  return scenes.every(scene => results[scene]?.length === expectedRuns && results[scene].every(r =>
+    !r.error && r.idle?.freshFrames > 0 && r.scroll?.freshFrames > 0 &&
+    Number.isFinite(r.longTasks?.worstMs) && r.longTasks.worstMs <= 200));
 }
 
-/// One 60fps frame is 16.7ms. The app's own CPU-side build cost as a share of
-/// that budget is the one figure here that is genuinely phone-representable:
-/// build time is CPU-bound, and `Emulation.setCPUThrottlingRate` really does
-/// slow the CPU, so "build min / 16.7ms" says how much of a phone's frame the
-/// app's own widget work costs — and therefore how much room is left for
-/// raster and platform work, which is the part a desktop GPU cannot judge.
-const FRAME_BUDGET_MS = 1000 / 60;
-const budgetShare = (buildMs) => (buildMs / FRAME_BUDGET_MS) * 100;
-
-const row = (label, phase, m) =>
-  `| ${label} | ${phase} | ${r2(m.fps)} | ${r2(m.jankPct)}% | ` +
-  `${r2(m.avgBuildMs)} | ${r2(m.minBuildMs)} | ${r2(budgetShare(m.minBuildMs))}% | ` +
-  `${r2(m.avgRasterMs)} | ${r2(m.minRasterMs)} | ` +
-  `${r2(m.worstTotalMs)} | ${r2(m.minWorstTotalMs)} | ${r2(m.longTaskWorstMs)} |`;
-
-function spreadPct(values) {
-  const m = median(values);
-  if (!values.length || m === 0) return 0;
-  return r2(((Math.max(...values) - Math.min(...values)) / Math.abs(m)) * 100);
-}
-
-function markdown(results, meta) {
+export function markdown(results, options) {
+  const passed = benchPassed(results,options.scenes,options.runs);
   const lines = [
-    '# Perf baseline',
-    '',
-    'Generated by `node tool/perf/bench.mjs --build`. Do not hand-edit: the',
-    'numbers below are medians over the recorded runs so two builds can be',
-    'diffed mechanically instead of read off a screenshot by eye.',
-    '',
-    `Runs per scene: ${RUNS} · viewport 430x932 @ DPR ${DPR} · ` +
-      `CPU throttle ${THROTTLE}x · renderer \`${meta.renderer}\``,
-    '',
-    '## How to read this',
-    '',
-    '### Gate on the `min` columns',
-    '',
-    'Machine noise is one-sided: a stray compile, a background tab or a',
-    'thermal dip can only ever make a run *slower*. So the minimum over N runs',
-    'is the closest repeatable estimate of real cost, and it is far tighter',
-    'than the median. A `min` change is the claim; the median is context.',
-    '',
-    '| metric | why |',
-    '| --- | --- |',
-    '| **build min ms** | CPU-side widget/layout work. Moves when a rebuild loop is fixed. Noisiest column — see the band below before trusting a small delta. |',
-'| **build % of frame** | The same number as a share of the 16.7ms/60fps budget. **This is the one phone-representable figure here**: build time is CPU-bound and CPU throttling is real, so it says how much of a phone frame the app own work costs, and therefore how much room is left for raster. |',
-    '| **raster min ms** | Pixels painted. Most stable column, so it is the best regression tripwire. |',
-    '| **worst frame min ms** | The "slowest frame you would feel". Catches stalls an average hides. |',
-    '| **worst long task** | Uninterrupted main-thread work. The freeze check. |',
-    '',
-    '### Ignore FPS and jank columns',
-    '',
-    'Headless has no steady virtual vsync, so observed FPS wanders roughly',
-    '60-100 on a *healthy* build with jank pinned at 0%. That is an environment',
-    'artifact, not a property of the app: those two columns have no dynamic',
-    'range and a regression can hide in them. Smoke signal only. The goal bar',
-    '(>= 55 FPS, < 5% jank, 0 dropped) is a **device** claim, verified on the',
-    'phone frame meter, not here.',
-    '',
-    '### Raster is not phone-representative',
-    '',
-    `The renderer line above is what actually painted these pixels. This rig is`,
-    'a desktop GPU; an iPhone is a small power-budgeted one, so absolute raster',
-    'here says nothing about the phone. Compare builds, never compare to a',
-    'device.',
-    '',
-    '### Companion file',
-    '',
-    'This file is the **throttled** run: phone-like CPU, sensitive enough to',
-    'show a real regression, but noisy (see the spread columns).',
-    '`docs/perf-baseline-unthrottled.md` is the same scenes with no CPU',
-    'throttle, where the numbers are far tighter and so make the better',
-    'regression tripwire. Use unthrottled to catch paint/build regressions, and',
-    'this file to judge whether something matters at phone CPU speeds.',
-    '',
-    '## Results',
-    '',
-    '| scene | phase | fps | jank | build med | build min | **build % of frame** | raster med | raster min | worst med | worst min | long task |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+    '# Perf baseline','',`Verdict: **${passed ? 'PASS' : 'FAIL'}** · every requested run must complete; no long task >200ms.`,
+    '',`Desktop/headless · 430x932 @ DPR ${options.dpr} · CPU throttle ${options.throttle}x · ${options.runs} runs per scene.`,
+    '', 'Synthetic viewport/CPU settings are **not phone-calibrated**. This does not prove phone FPS,',
+    'presentation/dropped frames, interactivity, offline support, or feature-screen performance.',
+    'Rolling HUD FPS/work percentages are diagnostic only. Build/raster averages are final rolling',
+    'readings summarized by median; worst frame/build/raster values are cumulative session maxima',
+    '(including load/settle), maximized across ALL runs. No minimum/median of worsts is a guarantee.',
+    '', '| scene | phase | FPS median (diagnostic) | build avg median ms | raster avg median ms | session worst build ms | session worst raster ms | session worst frame ms | session worst long task ms |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
   ];
-  for (const scene of SCENES) {
-    const a = results[scene];
-    if (!a) continue;
-    lines.push(row(scene, 'idle', a.idle));
-    lines.push(row(scene, 'scroll', a.scroll));
-  }
-
-  lines.push('');
-  lines.push('## Noise band');
-  lines.push('');
-  lines.push(
-    'Spread across the runs of the *same unchanged build*. The `min` column is',
-    'the gate value (noise is one-sided, so the fastest run is the cleanest',
-    'estimate of true cost); the spread is how much jitter surrounds it. A',
-    'before/after delta smaller than the spread of the metric it moves is not',
-    'evidence of anything.',
-    '',
-    '| scene | phase | build min | build spread | raster min | raster spread | worst min | worst spread |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- |',
-  );
-  const mn = (runs, phase, k) => Math.min(...runs.map((x) => x[phase][k]));
-  for (const scene of SCENES) {
-    const runs = results.raw?.[scene] || [];
-    if (!runs.length) continue;
-    for (const phase of ['idle', 'scroll']) {
-      lines.push(
-        `| ${scene} | ${phase} | ` +
-          `${r2(mn(runs, phase, 'avgBuildMs'))} | ` +
-          `±${spreadPct(runs.map((x) => x[phase].avgBuildMs))}% | ` +
-          `${r2(mn(runs, phase, 'avgRasterMs'))} | ` +
-          `±${spreadPct(runs.map((x) => x[phase].avgRasterMs))}% | ` +
-          `${r2(mn(runs, phase, 'worstTotalMs'))} | ` +
-          `±${spreadPct(runs.map((x) => x[phase].worstTotalMs))}% |`,
-      );
+  for (const scene of options.scenes) {
+    const a = aggregate(results[scene] || [],options.runs);
+    if (!a) { lines.push(`| ${scene} | incomplete/failed — no aggregate | | | | | | | |`); continue; }
+    for (const phase of ['idle','scroll']) {
+      const p = a[phase];
+      lines.push(`| ${scene} | ${phase} | ${r2(p.fps)} | ${r2(p.avgBuildMs)} | ${r2(p.avgRasterMs)} | ${r2(p.worstBuildMs)} | ${r2(p.worstRasterMs)} | ${r2(p.worstFrameMs)} | ${r2(a.longTaskWorstMs)} |`);
     }
   }
-  lines.push('');
-  lines.push('## Raw runs');
-  lines.push('');
-  for (const scene of SCENES) {
-    for (const r of results.raw?.[scene] || []) {
-      lines.push(
-        `- ${scene} run ${r.run}: idle ${r2(r.idle.fps)}fps build ${r2(r.idle.avgBuildMs)}ms ` +
-          `(${r.idle.frames} frames) · scroll ${r2(r.scroll.fps)}fps build ${r2(r.scroll.avgBuildMs)}ms ` +
-          `raster ${r2(r.scroll.avgRasterMs)}ms worst ${r2(r.scroll.worstTotalMs)}ms ` +
-          `longTask ${r2(r.scroll.longTaskWorstMs)}ms heap ${r.scroll.heapMb}MB`,
-      );
-    }
-  }
-  lines.push('');
+  lines.push('','## All raw runs','', '```json',JSON.stringify(results,null,2),'```','');
   return lines.join('\n');
 }
 
-async function main() {
-  if (has('--build')) build();
-  if (!existsSync(join(WEB_ROOT, 'index.html'))) {
-    throw new Error(`no build to measure. run: node tool/perf/bench.mjs --build`);
+export async function main(argv = process.argv.slice(2)) {
+  const flag = (n,d) => argv.includes(n) ? argv[argv.lastIndexOf(n)+1] : d;
+  const options = {
+    runs:Number(flag('--runs',3)), throttle:Number(flag('--throttle',4)), dpr:Number(flag('--dpr',3)),
+    scenes:flag('--scene','shelves,grid').split(','), cdpPort:Number(process.env.CDP_PORT || 0),
+    timeoutMs:Number(flag('--timeout-ms',30000)), settleMs:Number(flag('--settle-ms',process.env.SETTLE_MS || 9000)),
+    idleMs:Number(flag('--idle-ms',5000)), scrollSteps:Number(flag('--scroll-steps',10)),
+    scrollSettleMs:Number(flag('--scroll-settle-ms',2000)), shotDir:flag('--shot',null),
+  };
+  if (!Number.isInteger(options.runs) || options.runs < 1 ||
+      !Number.isInteger(options.scrollSteps) || options.scrollSteps < 1 ||
+      options.scenes.some(s => !SCENE_PATHS[s]) || !options.scenes.length ||
+      new Set(options.scenes).size !== options.scenes.length ||
+      ['throttle','dpr','timeoutMs','idleMs'].some(k => !Number.isFinite(options[k]) || options[k] <= 0) ||
+      ['settleMs','scrollSettleMs'].some(k => !Number.isFinite(options[k]) || options[k] < 0)) throw new Error('invalid bench arguments');
+  const root = resolve(flag('--web-root','build/web'));
+  if (argv.includes('--build')) {
+    if (root !== resolve('build/web')) throw new Error('--build writes build/web; do not combine with a different --web-root');
+    buildWeb(true);
   }
-
-  const server = await serve(WEB_ROOT, PORT);
-  console.log(`[bench] serving ${WEB_ROOT} on ${PORT}`);
-
-  const results = { raw: {} };
-  let renderer = '?';
+  if (!existsSync(join(root,'index.html'))) throw new Error('no web artifact; use --build or --web-root');
+  const server = await serve(root,Number(flag('--port',8946)));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  const results = {};
   try {
-    for (const scene of SCENES) {
-      const runs = [];
-      for (let i = 0; i < RUNS; i++) {
-        console.log(`[bench] ${scene} run ${i + 1}/${RUNS} ...`);
-        const r = await runScene(scene, i, PORT);
-        renderer = r.renderer;
-        runs.push(r);
-        console.log(
-          `         idle ${r2(r.idle.fps)}fps build ${r2(r.idle.avgBuildMs)}ms ` +
-            `frames ${r.idle.frames} | scroll ${r2(r.scroll.fps)}fps build ${r2(r.scroll.avgBuildMs)}ms ` +
-            `raster ${r2(r.scroll.avgRasterMs)}ms worst ${r2(r.scroll.worstTotalMs)}ms ` +
-            `frames ${r.scroll.frames} longTask ${r2(r.scroll.longTaskWorstMs)}ms`,
-        );
+    for (const scene of options.scenes) {
+      results[scene] = [];
+      for (let i=1; i<=options.runs; i++) {
+        console.log(`[bench] ${scene} ${i}/${options.runs}`);
+        let r;
+        try { r = await runScene(scene,i,url,options); }
+        catch (e) { r = {scene,run:i,error:e.message}; }
+        results[scene].push(r);
+        console.log(JSON.stringify(r));
       }
-      results.raw[scene] = runs;
-      results[scene] = agg(runs);
     }
-  } finally {
-    server.close();
-  }
-
-  writeFileSync(OUT, markdown(results, { renderer }));
-  console.log(`[bench] wrote ${OUT}`);
-  console.log(JSON.stringify(Object.fromEntries(SCENES.map((s) => [s, results[s]])), null, 2));
+  } finally { server.closeAllConnections(); server.close(); }
+  const out = flag('--out','docs/perf-baseline.md');
+  writeFileSync(out,markdown(results,options));
+  console.log(`[bench] wrote ${out}`);
+  if (!benchPassed(results,options.scenes,options.runs)) process.exitCode = 1;
+  return results;
 }
-
-main().catch((e) => {
-  console.error('[bench] failed:', e.message);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch(e => {console.error('[bench] failed:',e.message); process.exitCode = 1;});
+}

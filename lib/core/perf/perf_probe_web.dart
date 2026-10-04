@@ -29,9 +29,21 @@ void publishPerfSnapshot(Map<String, double> snapshot) {
   }
 }
 
-/// Exposes the meter's reset as `window.__everglowResetPerf`, so a scripted
-/// benchmark can clear the window right before a measured scroll instead of
-/// double-tapping the HUD at a guessed corner.
+/// Disabling the HUD must not leave a stale sample or disposed reset handler.
+void clearPerfProbe() {
+  _globalThis['__everglowPerf'] = null;
+  _globalThis['__everglowResetPerf'] = null;
+}
+
+/// Available only from the compile-time gated synthetic bench route.
+void registerBenchScroll(Map<String, Object> Function()? readScroll) {
+  if (readScroll == null) {
+    _globalThis['__everglowBenchScroll'] = null;
+  } else {
+    _globalThis['__everglowBenchScroll'] = (() => readScroll().jsify()).toJS;
+  }
+}
+
 void registerPerfReset(void Function() onReset) {
   try {
     _globalThis['__everglowResetPerf'] = (() {

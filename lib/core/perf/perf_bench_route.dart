@@ -22,8 +22,8 @@
 /// This measures the **shared render layer**, which is where the fixes in
 /// docs/PERF_NOTES.md live. It is not the real dashboard and does not
 /// measure Firestore fan-out, auth or per-feature layout. Real-content screens
-/// are verified on the phone (Creator Studio -> System -> frame meter), which
-/// no headless rig can replace. See docs/perf-baseline.md.
+/// still need real-device interaction tests and traces; the opt-in frame meter
+/// is a diagnostic, not dropped-frame proof. See docs/perf-baseline.md.
 library;
 
 import 'package:flutter/material.dart';
@@ -33,6 +33,7 @@ import '../../features/dashboard/presentation/widgets/dashboard_motion.dart';
 import '../../features/dashboard/presentation/widgets/deferred_section.dart';
 import '../../shared/widgets/everglow/everglow_marquee.dart';
 import '../../shared/widgets/shelf/shelf_poster_card.dart';
+import 'perf_probe.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radius.dart';
 import '../theme/app_typography.dart';
@@ -55,36 +56,24 @@ final List<RouteBase> perfBenchRoutes = <RouteBase>[
     builder: (context, state) => const PerfBenchScreen(scene: 'grid'),
   ),
   // Same scene without the full-screen aurora painter, so its cost can be
-  // measured instead of guessed at: /perf-bench/shelves?ambience=0.
+  // measured instead of guessed at: /perf-bench/shelves-plain.
   GoRoute(
     path: '/perf-bench/shelves-plain',
-    builder: (context, state) => const PerfBenchScreen(
-      scene: 'shelves',
-      ambience: false,
-    ),
+    builder: (context, state) =>
+        const PerfBenchScreen(scene: 'shelves', ambience: false),
   ),
 ];
 
 /// The scenes this bench can render, so a run is always reproducible by name.
 const List<String> perfBenchScenes = <String>['shelves', 'grid'];
 
-/// Real photos shipped in the app bundle. Served over the perf build's own
-/// origin, so they exercise the full `CachedNetworkImage` fetch + decode path
-/// with zero third-party variance and no network egress.
+/// Generated abstract JPEGs only. Public proof must never use couple photos.
+/// Same-origin fixtures exercise network fetch/decode without third-party data.
 const List<String> _benchPhotos = <String>[
-  'birthday_pre_khent_1.jpg',
-  'birthday_pre_khent_2.jpg',
-  'birthday_pre_khent_3.jpg',
-  'birthday_pre_khent_4.jpg',
-  'birthday_pre_khent_5.jpg',
-  'friends_bar_khent_1.jpg',
-  'friends_bar_khent_2.jpg',
-  'friends_bar_khent_3.jpg',
-  'friends_bar_khent_4.jpg',
-  'friends_bar_khent_5.jpg',
-  'friends_bar_khent_6.jpg',
-  'friends_bar_khent_7.jpg',
-  'friends_bar_khent_8.jpg',
+  'poster-1.jpg',
+  'poster-2.jpg',
+  'poster-3.jpg',
+  'poster-4.jpg',
 ];
 
 /// Absolute URL for a bundled photo.
@@ -100,8 +89,7 @@ String _photoUrl(int index) {
   final basePath = Uri.base.path;
   final cut = basePath.indexOf('/perf-bench');
   final prefix = cut >= 0 ? basePath.substring(0, cut) : basePath;
-  return Uri.parse('${Uri.base.origin}$prefix/assets/assets/images/milestones/$name')
-      .toString();
+  return Uri.parse('${Uri.base.origin}$prefix/perf-fixtures/$name').toString();
 }
 
 /// Deterministic stress scenes for headless measurement.
@@ -111,11 +99,7 @@ String _photoUrl(int index) {
 /// seeds, time-of-day art, network catalogues — would make the noise band
 /// wider than the effects being measured.
 class PerfBenchScreen extends StatefulWidget {
-  const PerfBenchScreen({
-    super.key,
-    required this.scene,
-    this.ambience = true,
-  });
+  const PerfBenchScreen({super.key, required this.scene, this.ambience = true});
 
   final String scene;
 
@@ -131,7 +115,24 @@ class _PerfBenchScreenState extends State<PerfBenchScreen> {
   final ScrollController _scroll = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    registerBenchScroll(
+      () => <String, Object>{
+        'scene': widget.scene == 'shelves' && !widget.ambience
+            ? 'shelves-plain'
+            : widget.scene,
+        'offset': _scroll.hasClients ? _scroll.offset : 0.0,
+        'maxScrollExtent': _scroll.hasClients
+            ? _scroll.position.maxScrollExtent
+            : 0.0,
+      },
+    );
+  }
+
+  @override
   void dispose() {
+    registerBenchScroll(null);
     _scroll.dispose();
     super.dispose();
   }
@@ -142,9 +143,8 @@ class _PerfBenchScreenState extends State<PerfBenchScreen> {
       backgroundColor: AppColors.inkDeep,
       body: Stack(
         children: <Widget>[
-          // The full-screen aurora/petal painter. Per docs/PERF_NOTES.md this
-          // is the single largest raster cost on the dashboard, because web
-          // keeps no rendered layers and repays every pixel each frame.
+          // Same painter as the dashboard. Its actual cost depends on the
+          // browser/device; a desktop A/B is not a phone performance bound.
           if (widget.ambience) DashboardAmbience(scrollController: _scroll),
           CustomScrollView(
             controller: _scroll,
@@ -217,9 +217,7 @@ class _PerfBenchScreenState extends State<PerfBenchScreen> {
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: _shelfRow(section),
-                  ),
+                  Expanded(child: _shelfRow(section)),
                 ],
               ),
             ),

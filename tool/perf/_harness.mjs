@@ -1,284 +1,279 @@
-// Shared plumbing for the headless perf tools.
-//
-// Extracted because `measure_boot.mjs` and `bench.mjs` each grew their own
-// Chrome launcher, and each hardcoded the author's Linux path
-// (`/usr/local/bin/google-chrome`) — so neither ran on Windows. One copy, fixed
-// once.
-//
-// Everything here is measurement scaffolding, not app code.
+// Dependency-free Chrome/CDP plumbing. Every launch owns a unique temp profile.
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { existsSync, readFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { extname, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
+import { gzipSync } from 'node:zlib';
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
 export const median = (xs) => {
-  if (!xs.length) return 0;
+  if (!xs.length || xs.some((n) => !Number.isFinite(n))) throw new Error('missing median samples');
   const s = [...xs].sort((a, b) => a - b);
   const m = s.length >> 1;
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
-
 export const r2 = (n) => Math.round(n * 100) / 100;
 
-export const sha1 = (s) => createHash('sha1').update(s).digest('hex');
-
-// Locate Chrome/Chromium per platform instead of assuming one OS.
 export function chromePath() {
   const candidates = [
     process.env.CHROME_PATH,
     'C:/Program Files/Google/Chrome/Application/chrome.exe',
     'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/usr/local/bin/google-chrome',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
+    '/usr/local/bin/google-chrome', '/usr/bin/google-chrome',
+    '/usr/bin/chromium', '/usr/bin/chromium-browser',
   ].filter(Boolean);
   for (const c of candidates) if (existsSync(c)) return c;
-  throw new Error(
-    'No Chrome found. Set CHROME_PATH to a Chrome/Chromium binary.\n' +
-      `Tried:\n  ${candidates.join('\n  ')}`,
-  );
+  throw new Error('No Chrome found. Set CHROME_PATH. Tried: ' + candidates.join(', '));
 }
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.wasm': 'application/wasm',
-  '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.mp3': 'audio/mpeg',
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json',
+  '.wasm': 'application/wasm', '.css': 'text/css', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', '.ttf': 'font/ttf', '.otf': 'font/otf',
+  '.woff': 'font/woff', '.woff2': 'font/woff2', '.mp3': 'audio/mpeg',
   '.mp4': 'video/mp4',
-  '.bin': 'application/octet-stream',
-  '.symbols': 'text/plain',
 };
 
-/// Minimal static server, no deps. Flutter web is a SPA, so unknown paths fall
-/// back to index.html. MIME matters: CanvasKit refuses to stream-compile with a
-// text/plain wasm.
-/// Minimal static server, no deps. Flutter web is a SPA, so unknown paths fall
-/// back to index.html. MIME matters: CanvasKit refuses to stream-compile with a
-/// text/plain wasm.
-///
-/// `kbps` shapes the link in the *server*, and is in **kilobits per second**,
-/// matching Chrome DevTools' own presets (so "slow3g" is 400 kbps = 50KB/s).
-/// Deliberate, because `Network.emulateNetworkConditions` is silently ignored
-/// by headless Chrome: asked for 400KB/s it delivered 6.77MB in 67ms (~98MB/s),
-/// so a "throttled" boot measured with it was measuring an unthrottled
-/// download while reporting it as slow3g. Shaping at the source makes the
-/// number reproducible and independent of the browser.
-export function serve(root, port, { kbps = 0, noStore = true } = {}) {
-  let bytesPerSec = (kbps * 1024) / 8;
+// Compression approximates hosting, not its CDN. Network shaping belongs to
+// Chrome's shared link, never an independent timer/bandwidth budget per response.
+export async function serve(root, port, { noStore = true } = {}) {
+  root = resolve(root);
   const server = createServer((req, res) => {
-    const url = decodeURIComponent(req.url.split('?')[0]);
-    let file = join(root, url);
-    if (!existsSync(file) || url.endsWith('/')) file = join(root, 'index.html');
+    let path;
+    try { path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname); }
+    catch { res.writeHead(400).end('bad URL'); return; }
+    let file = resolve(root, '.' + path);
+    if (file !== root && !file.startsWith(root + sep)) {
+      res.writeHead(403).end('forbidden'); return;
+    }
+    if (path.endsWith('/') || (!existsSync(file) && !extname(path))) file = join(root, 'index.html');
     let body;
-    try {
-      body = readFileSync(file);
-    } catch {
-      res.writeHead(404).end('not found');
-      return;
-    }
+    try { body = readFileSync(file); }
+    catch { res.writeHead(404).end('not found'); return; }
+    const type = MIME[extname(file)] || 'application/octet-stream';
+    const compressed = /gzip/.test(req.headers['accept-encoding'] || '') &&
+      /text|javascript|json|wasm|svg/.test(type);
+    if (compressed) body = gzipSync(body);
     res.writeHead(200, {
-      'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
-      'Content-Length': body.length,
-      // Never let a proxy or the SW cache answer a measurement run.
-      ...(noStore ? { 'Cache-Control': 'no-store' } : {}),
+      'Content-Type': type, 'Content-Length': body.length, 'Vary': 'Accept-Encoding',
+      'Cache-Control': noStore ? 'no-store' : 'public, max-age=3600',
+      ...(compressed ? { 'Content-Encoding': 'gzip' } : {}),
     });
-
-    if (!bytesPerSec) {
-      res.end(body);
-      return;
-    }
-    // ~16KB chunks paced to the target rate.
-    const chunk = 16 * 1024;
-    let offset = 0;
-    const started = Date.now();
-    const pump = () => {
-      if (offset >= body.length) {
-        res.end();
-        return;
-      }
-      const end = Math.min(offset + chunk, body.length);
-      const slice = body.subarray(offset, end);
-      offset = end;
-      res.write(slice);
-      const shouldHaveTakenMs = (offset / bytesPerSec) * 1000;
-      const delay = Math.max(0, shouldHaveTakenMs - (Date.now() - started));
-      setTimeout(pump, delay);
-    };
-    pump();
+    res.end(req.method === 'HEAD' ? undefined : body);
   });
-  server.listen(port, '127.0.0.1', () => {});
-  // Reshape the link at runtime. Needed for the repeat-visit case: the service
-  // worker's own precache is ~13MB, so warming it on a 400kbit link takes
-  // minutes and would still be downloading when the measured leg starts. Warm
-  // up unshaped, then shape only the navigation being measured.
-  server.setKbps = (n) => {
-    bytesPerSec = (n * 1024) / 8;
-  };
-  return new Promise((ok) => server.on('listening', () => ok(server)));
+  await new Promise((ok, bad) => {
+    server.once('error', bad);
+    server.listen(port, '127.0.0.1', ok);
+  });
+  return server;
 }
 
-// Windows keeps Chrome's profile files locked briefly after exit, so a hard rm
-// can fail a run whose measurement already succeeded. Best-effort: leaving a
-// temp dir behind is harmless, failing the run is not.
-function sleepSync(ms) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {}
-}
-
+const ownedProfiles = new Set();
 export function cleanup(dir) {
-  for (let i = 0; i < 5; i++) {
-    try {
-      rmSync(dir, { recursive: true, force: true });
-      return;
-    } catch {
-      spawnSync('cmd', ['/c', 'rmdir', '/s', '/q', dir], { stdio: 'ignore' });
-      sleepSync(300);
-    }
-  }
+  if (!ownedProfiles.has(dir)) throw new Error('Refusing to remove a profile not created by this harness');
+  try {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+    ownedProfiles.delete(dir);
+  } catch (e) { console.warn(`[perf] disposable profile left at ${dir}: ${e.message}`); }
 }
 
 export class Cdp {
-  constructor(ws) {
+  constructor(ws, { timeoutMs = 15000 } = {}) {
     this.ws = ws;
+    this.timeoutMs = timeoutMs;
     this.pending = new Map();
     this.id = 1;
+    this.closed = false;
     ws.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      if (m.id && this.pending.has(m.id)) {
-        this.pending.get(m.id)(m);
-        this.pending.delete(m.id);
-      }
+      let m;
+      try { m = JSON.parse(e.data); }
+      catch { this.fail(new Error('invalid CDP JSON')); return; }
+      const p = this.pending.get(m.id);
+      if (!p) return;
+      this.pending.delete(m.id);
+      clearTimeout(p.timer);
+      if (m.error) p.reject(new Error(`${p.method}: CDP ${m.error.code}: ${m.error.message}`));
+      else if (!('result' in m)) p.reject(new Error(`${p.method}: missing CDP protocol result`));
+      else p.resolve(m);
     };
+    ws.onclose = () => this.fail(new Error('CDP socket closed'));
+    ws.onerror = () => this.fail(new Error('CDP socket error'));
   }
-
-  send(method, params = {}) {
-    return new Promise((res) => {
-      const cur = this.id++;
-      this.pending.set(cur, res);
-      this.ws.send(JSON.stringify({ id: cur, method, params }));
+  fail(error) {
+    this.closed = true;
+    for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(error); }
+    this.pending.clear();
+  }
+  send(method, params = {}, { sessionId, timeoutMs = this.timeoutMs } = {}) {
+    if (this.closed) return Promise.reject(new Error(`${method}: CDP socket closed`));
+    return new Promise((resolve, reject) => {
+      const id = this.id++;
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`${method}: CDP timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+      this.pending.set(id, { resolve, reject, timer, method });
+      try { this.ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) })); }
+      catch (e) { clearTimeout(timer); this.pending.delete(id); reject(e); }
     });
   }
-
-  // CDP nests evaluate results: {result:{result:{type,value}}}. Reading
-  // `.result.value` silently yields undefined and makes a working mirror look
-  // dead — which is how an earlier version of this rig had its numbers read off
-  // screenshots by hand.
-  async eval(expression) {
+  async eval(expression, options = {}) {
     const r = await this.send('Runtime.evaluate', {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-    });
-    return r?.result?.result?.value;
+      expression, returnByValue: true, awaitPromise: true,
+    }, options);
+    if (r.result?.exceptionDetails) {
+      const e = r.result.exceptionDetails;
+      throw new Error(`Runtime.evaluate: ${e.exception?.description || e.text}`);
+    }
+    if (!r.result?.result) throw new Error('Runtime.evaluate: missing protocol result');
+    return r.result.result.value;
   }
+  close() { this.fail(new Error('CDP closed by harness')); this.ws.close(); }
 }
 
-/**
- * Launches a throwaway headless Chrome and returns `{proc, cdp, userDataDir}`.
- *
- * The fresh `--user-data-dir` is not optional: the app ships a cache-first
- * service worker, and a cached shell would otherwise be measured instead of the
- * build under test. It also guarantees a genuine cold boot for measure_boot.
- */
-export async function launch(cdpPort, opts = {}) {
+export async function launch(cdpPort = 0, opts = {}) {
   const { dpr = 3, width = 430, height = 932, extraFlags = [] } = opts;
-  const userDataDir = join(tmpdir(), `eg-perf-${process.pid}-${cdpPort}`);
-  rmSync(userDataDir, { recursive: true, force: true });
-  const proc = spawn(
-    chromePath(),
-    [
-      '--headless=new',
-      `--remote-debugging-port=${cdpPort}`,
-      `--user-data-dir=${userDataDir}`,
-      '--no-sandbox',
-      '--no-first-run',
-      '--disable-extensions',
-      '--disable-background-networking',
-      // WebGL backend may be a real GPU (ANGLE/D3D11/Metal) or a software
-      // fallback. Which one it is decides how raster may be read, so it is
-      // detected per run rather than assumed.
-      '--enable-unsafe-swiftshader',
-      '--hide-scrollbars',
-      // Headless Chrome backgrounds a page it thinks nobody is looking at,
-      // which throttles rAF to a crawl and makes every frame metric read zero.
-      // Deliberately NOT disabling the frame-rate limit: an uncapped renderer
-      // has no dynamic range in its FPS/jank columns.
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      `--window-size=${Math.round(width * dpr)},${Math.round(height * dpr)}`,
-      ...extraFlags,
-      'about:blank',
-    ],
-    { stdio: 'ignore' },
-  );
-
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    try {
-      const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-      const page = list.find((p) => p.type === 'page');
+  const binary = chromePath();
+  const userDataDir = mkdtempSync(join(tmpdir(), 'eg-perf-'));
+  ownedProfiles.add(userDataDir);
+  const proc = spawn(binary, [
+    '--headless=new', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${userDataDir}`,
+    '--no-sandbox', '--no-first-run', '--disable-extensions', '--disable-background-networking',
+    '--enable-unsafe-swiftshader', '--hide-scrollbars',
+    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    `--window-size=${Math.round(width * dpr)},${Math.round(height * dpr)}`,
+    ...extraFlags, 'about:blank',
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let spawnError, browserSocket;
+  proc.on('error', (e) => { spawnError = e; });
+  let stderr = '';
+  proc.stderr.on('data', (s) => {
+    stderr = (stderr + s).slice(-4096);
+    browserSocket ||= stderr.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+  });
+  try {
+    const deadline = Date.now() + 10000;
+    while (Date.now() < deadline) {
+      if (spawnError) throw spawnError;
+      if (proc.exitCode != null) throw new Error(`Chrome exited ${proc.exitCode}`);
+      let page;
+      try {
+        // Only connect to the endpoint printed by OUR process. A fixed port
+        // might already belong to somebody else's browser; never close it.
+        if (!browserSocket) throw new Error('Chrome is still starting');
+        const port = Number(new URL(browserSocket).port);
+        const version = await (await fetch(`http://127.0.0.1:${port}/json/version`, {
+          signal: AbortSignal.timeout(1000),
+        })).json();
+        if (version.webSocketDebuggerUrl !== browserSocket) throw new Error('CDP endpoint belongs to another browser');
+        const list = await (await fetch(`http://127.0.0.1:${port}/json/list`, {
+          signal: AbortSignal.timeout(1000),
+        })).json();
+        page = list.find((p) => p.type === 'page');
+      } catch { /* Chrome is still starting. */ }
       if (page) {
         const ws = new WebSocket(page.webSocketDebuggerUrl);
         await new Promise((ok, bad) => {
-          ws.onopen = ok;
-          ws.onerror = () => bad(new Error('devtools websocket refused'));
+          const timer = setTimeout(() => { ws.close(); bad(new Error('CDP connect timeout')); }, 3000);
+          ws.onopen = () => { clearTimeout(timer); ok(); };
+          ws.onerror = () => { clearTimeout(timer); bad(new Error('CDP connect refused')); };
         });
         return { proc, cdp: new Cdp(ws), userDataDir };
       }
-    } catch {
-      /* not up yet */
+      await sleep(100);
     }
-  }
-  proc.kill();
-  throw new Error('Chrome did not expose a debuggable page');
+    throw new Error('Chrome did not expose a debuggable page');
+  } catch (e) { await stop({ proc, userDataDir }); throw e; }
 }
 
-/// Enable the domains every perf run needs, plus the anti-throttling calls
-/// that keep rAF live in a headless page.
+export async function stop(chrome) {
+  try { await chrome.cdp?.send('Browser.close', {}, { timeoutMs: 2000 }); } catch { /* already exited */ }
+  chrome.cdp?.close();
+  if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) {
+    await Promise.race([new Promise((r) => chrome.proc.once('exit', r)), sleep(1500)]);
+    if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) chrome.proc.kill();
+  }
+  cleanup(chrome.userDataDir);
+}
+
 export async function prepare(cdp, { dpr = 3, width = 430, height = 932 } = {}) {
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
   await cdp.send('Performance.enable');
-  await cdp.send('Page.setWebLifecycleState', { state: 'active' }).catch(() => {});
-  await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
+  await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+  await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
   await cdp.send('Emulation.setDeviceMetricsOverride', {
-    width,
-    height,
-    deviceScaleFactor: dpr,
-    mobile: true,
+    width, height, deviceScaleFactor: dpr, mobile: true,
   });
 }
 
-/// Collect long main-thread tasks in the page. A frame average can sit at 12ms
-/// while one 400ms block hides inside it — that block is the freeze the goal
-/// cares about, and average frame cost will never show it.
+// Explicit synthetic link presets, not measured/calibrated phone connections.
+// Kbps means decimal kilobits/second; CDP wants bytes/second. Latency is CDP's
+// minimum request-to-response-header delay, not a server sleep per chunk.
+export const NETWORK_PROFILES = {
+  none: { latencyMs: 0, downloadKbps: 0, uploadKbps: 0 },
+  fast3g: { latencyMs: 150, downloadKbps: 1600, uploadKbps: 750 },
+  slow3g: { latencyMs: 400, downloadKbps: 400, uploadKbps: 400 },
+};
+export async function shapeNetwork(cdp, profile, sessionId) {
+  const settings = NETWORK_PROFILES[profile];
+  if (!settings) throw new Error(`unknown network profile: ${profile}`);
+  await cdp.send('Network.enable', {}, { sessionId });
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false, latency: settings.latencyMs,
+    downloadThroughput: settings.downloadKbps ? settings.downloadKbps * 1000 / 8 : -1,
+    uploadThroughput: settings.uploadKbps ? settings.uploadKbps * 1000 / 8 : -1,
+  }, { sessionId });
+  return settings;
+}
+
 export const LONG_TASK_OBSERVER = `
-  window.__egLongTasks = [];
-  try {
-    new PerformanceObserver((list) => {
-      for (const e of list.getEntries()) {
-        window.__egLongTasks.push({ dur: e.duration, start: e.startTime });
+  (() => {
+    const state = window.__egLongTaskState = {
+      timeOrigin: performance.timeOrigin, supported: false, error: null
+    };
+    window.__egLongTasks = [];
+    try {
+      if (!PerformanceObserver.supportedEntryTypes.includes('longtask')) {
+        throw new Error('longtask observer unsupported');
       }
-    }).observe({ entryTypes: ['longtask'] });
-  } catch (e) { window.__egLongTaskError = String(e); }
-  true;
+      const collect = (entries) => {
+        for (const e of entries) window.__egLongTasks.push({dur: e.duration, start: e.startTime});
+      };
+      const observer = new PerformanceObserver((list) => collect(list.getEntries()));
+      observer.observe({type: 'longtask', buffered: true});
+      window.__egFlushLongTasks = () => collect(observer.takeRecords());
+      state.supported = true;
+    } catch (e) { state.error = String(e); }
+  })();
 `;
+export async function readLongTasks(cdp) {
+  return cdp.eval(`(() => {
+    const s = window.__egLongTaskState;
+    if (!s || !s.supported || s.error || s.timeOrigin !== performance.timeOrigin ||
+        !Array.isArray(window.__egLongTasks) || typeof window.__egFlushLongTasks !== 'function') {
+      throw new Error('long-task instrumentation missing/unsupported: ' + (s?.error || 'missing observer'));
+    }
+    window.__egFlushLongTasks();
+    const t = window.__egLongTasks;
+    if (t.some(x => !Number.isFinite(x.dur) || !Number.isFinite(x.start))) throw new Error('invalid long-task sample');
+    return {count: t.length, worstMs: t.reduce((n,x) => Math.max(n,x.dur),0),
+      totalMs: t.reduce((n,x) => n+x.dur,0), overBar: t.filter(x => x.dur > 200).length};
+  })()`);
+}
+
+export function buildWeb(bench = false) {
+  for (const args of [
+    ['tool/generate_sw.dart'],
+    ['tool/build_web.dart', '--', '--release', '--no-source-maps',
+      ...(bench ? ['--dart-define=EG_PERF_BENCH=true'] : [])],
+  ]) {
+    const r = spawnSync('dart', args, { stdio: 'inherit', shell: true });
+    if (r.status !== 0) throw new Error('production build wrapper failed; supply a stamped artifact with --web-root');
+  }
+}

@@ -104,6 +104,27 @@ jobs:
       - run: dart tool/generate_sw.dart
       - run: dart tool/build_web.dart -- --release --no-source-maps
 
+  perf_harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Worker tests generate sw.js with Dart in an isolated temporary directory.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Real Chrome synthetic controls: throttle, navigation observers, freezes,
+      # and invalid zero-frame/non-scrolling scenes. No Flutter build or login.
+      - name: Test performance harness (including browser controls)
+        env:
+          PERF_REQUIRE_CHROME: '1'
+        run: node --test tool/perf/harness.test.mjs
+      - name: Test generated service worker (including offline browser control)
+        run: node tool/service_worker_test.mjs --browser
+
   functions:
     runs-on: ubuntu-latest
     steps:
