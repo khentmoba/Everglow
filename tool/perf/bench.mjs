@@ -31,12 +31,20 @@
 //
 // Usage: node tool/perf/bench.mjs [--build] [--runs N] [--throttle N]
 //                                 [--dpr N] [--scene NAME] [--shot DIR]
-import { spawn, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { createServer } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import {
+  LONG_TASK_OBSERVER,
+  cleanup,
+  launch,
+  median,
+  prepare,
+  r2,
+  serve,
+  sha1,
+  sleep,
+} from './_harness.mjs';
 
 // ── args ────────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -63,172 +71,6 @@ const OUT = flag('--out', 'docs/perf-baseline.md');
 const WEB_ROOT = resolve('build/web');
 const BAR = { fps: 55, jankPct: 5, droppedPct: 0, blockMs: 200 };
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const median = (xs) => {
-  if (!xs.length) return 0;
-  const s = [...xs].sort((a, b) => a - b);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
-const r2 = (n) => Math.round(n * 100) / 100;
-
-// ── chrome ──────────────────────────────────────────────────────────────────
-// The deleted harness hardcoded /usr/local/bin/google-chrome, so it only ran on
-// the author's Linux box. Detect per platform instead.
-function chromePath() {
-  const candidates = [
-    process.env.CHROME_PATH,
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/usr/local/bin/google-chrome',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-  ].filter(Boolean);
-  for (const c of candidates) if (existsSync(c)) return c;
-  throw new Error(
-    'No Chrome found. Set CHROME_PATH to a Chrome/Chromium binary.\n' +
-      `Tried:\n  ${candidates.join('\n  ')}`,
-  );
-}
-
-// ── static server ───────────────────────────────────────────────────────────
-// Minimal, no deps: Flutter web is a SPA, so unknown paths fall back to
-// index.html. MIME matters — CanvasKit refuses to stream-compile with a
-// text/plain wasm.
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.wasm': 'application/wasm',
-  '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.svg': 'image/svg+xml',
-  '.ttf': 'font/ttf',
-  '.otf': 'font/otf',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.mp3': 'audio/mpeg',
-  '.mp4': 'video/mp4',
-  '.bin': 'application/octet-stream',
-  '.symbols': 'text/plain',
-};
-
-function serve(root, port) {
-  const server = createServer((req, res) => {
-    const url = decodeURIComponent(req.url.split('?')[0]);
-    let file = join(root, url);
-    if (!existsSync(file) || url.endsWith('/')) file = join(root, 'index.html');
-    try {
-      const body = readFileSync(file);
-      res.writeHead(200, {
-        'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
-        // Never let a proxy or the SW cache answer a measurement run.
-        'Cache-Control': 'no-store',
-      });
-      res.end(body);
-    } catch {
-      res.writeHead(404).end('not found');
-    }
-  });
-  return new Promise((ok) => server.listen(port, '127.0.0.1', () => ok(server)));
-}
-
-// ── CDP ─────────────────────────────────────────────────────────────────────
-class Cdp {
-  constructor(ws) {
-    this.ws = ws;
-    this.pending = new Map();
-    this.id = 1;
-    ws.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      if (m.id && this.pending.has(m.id)) {
-        this.pending.get(m.id)(m);
-        this.pending.delete(m.id);
-      }
-    };
-  }
-  send(method, params = {}) {
-    return new Promise((res) => {
-      const cur = this.id++;
-      this.pending.set(cur, res);
-      this.ws.send(JSON.stringify({ id: cur, method, params }));
-    });
-  }
-  // CDP nests evaluate results: {result:{result:{type,value}}}. Reading
-  // `.result.value` silently yields undefined and makes a working mirror look
-  // dead — which is how an earlier version of this script had its numbers
-  // read off screenshots by hand.
-  async eval(expression) {
-    const r = await this.send('Runtime.evaluate', {
-      expression,
-      returnByValue: true,
-      awaitPromise: true,
-    });
-    return r?.result?.result?.value;
-  }
-}
-
-async function launch(cdpPort) {
-  const userDataDir = join(tmpdir(), `eg-bench-${process.pid}-${cdpPort}`);
-  rmSync(userDataDir, { recursive: true, force: true });
-  const bin = chromePath();
-  const proc = spawn(
-    bin,
-    [
-      '--headless=new',
-      `--remote-debugging-port=${cdpPort}`,
-      `--user-data-dir=${userDataDir}`,
-      '--no-sandbox',
-      '--no-first-run',
-      '--disable-extensions',
-      '--disable-background-networking',
-      // WebGL backend: this may be a real GPU (ANGLE/D3D11/Metal) or a
-      // software fallback. Which one it is decides how the raster column may
-      // be read, so it is detected per run rather than assumed.
-      '--enable-unsafe-swiftshader',
-      '--hide-scrollbars',
-      // Headless Chrome backgrounds a page it thinks nobody is looking at,
-      // which throttles requestAnimationFrame to a crawl and makes every
-      // frame metric read as zero. These keep it live and painting.
-      //
-      // Deliberately NOT disabling the frame-rate limit: an uncapped renderer
-      // runs at ~85fps here, so FPS never drops and jank is always 0%, which
-      // leaves the regression net with no dynamic range. Keeping vsync means
-      // FPS and jank mean what the goal's bar says they mean.
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
-      `--window-size=${Math.round(430 * DPR)},${Math.round(932 * DPR)}`,
-      'about:blank',
-    ],
-    { stdio: 'ignore' },
-  );
-  for (let i = 0; i < 40; i++) {
-    await sleep(250);
-    try {
-      const list = await (await fetch(`http://127.0.0.1:${cdpPort}/json/list`)).json();
-      const page = list.find((p) => p.type === 'page');
-      if (page) {
-        const ws = new WebSocket(page.webSocketDebuggerUrl);
-        await new Promise((ok, bad) => {
-          ws.onopen = ok;
-          ws.onerror = bad;
-        });
-        return { proc, cdp: new Cdp(ws), userDataDir, bin };
-      }
-    } catch {
-      /* not up yet */
-    }
-  }
-  proc.kill();
-  throw new Error('Chrome did not expose a debuggable page');
-}
 
 // ── measurement ─────────────────────────────────────────────────────────────
 // Long tasks are the "no freeze" half of the bar: a frame can average 12ms and
@@ -283,7 +125,7 @@ async function waitForMirror(cdp, timeoutMs = 25000) {
 // is specifically "ambient tickers stop competing with a scroll", so a single
 // combined number would hide both effects.
 async function measure(cdp, { act, label, shot }) {
-  await cdp.eval(OBSERVER);
+  await cdp.eval(LONG_TASK_OBSERVER);
   await cdp.eval('window.__everglowResetPerf ? (window.__everglowResetPerf(), true) : false');
   await cdp.eval(CLEAR_TASKS);
   await sleep(700); // let the reset frame and the observer settle out of the window
@@ -366,27 +208,17 @@ async function pageFingerprint(cdp) {
     quality: 20,
     optimizeForSpeed: true,
   });
-  return createHash('sha1').update(shot.result.data).digest('hex');
+  return sha1(shot.result.data);
 }
 
 async function runScene(scene, runIndex, server) {
-  const chrome = await launch(CDP_PORT);
+  const chrome = await launch(CDP_PORT, { dpr: DPR });
   _cdpRef = chrome.cdp;
   const { cdp } = chrome;
   try {
-    await cdp.send('Page.enable');
-    await cdp.send('Runtime.enable');
-    await cdp.send('Performance.enable');
-    // Keep the page "active" so rAF is not throttled, and focus it so the
-    // pointer/visibility paths behave like a real foreground tab.
-    await cdp.send('Page.setWebLifecycleState', { state: 'active' }).catch(() => {});
-    await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true }).catch(() => {});
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width: 430,
-      height: 932,
-      deviceScaleFactor: DPR,
-      mobile: true,
-    });
+    // Keep the page active so rAF is not throttled, and emulate the phone
+    // viewport. Shared with measure_boot so both rigs agree.
+    await prepare(cdp, { dpr: DPR });
     if (THROTTLE > 1) {
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
     }
@@ -453,22 +285,6 @@ async function runScene(scene, runIndex, server) {
 // Windows keeps Chrome's profile files locked briefly after exit, so a hard
 // rm here would fail a run whose measurement already succeeded. Best-effort:
 // leaving a temp dir behind is harmless, failing the run is not.
-function sleepSync(ms) {
-  const end = Date.now() + ms;
-  while (Date.now() < end) {}
-}
-
-function cleanup(dir) {
-  for (let i = 0; i < 5; i++) {
-    try {
-      rmSync(dir, { recursive: true, force: true });
-      return;
-    } catch {
-      spawnSync('cmd', ['/c', 'rmdir', '/s', '/q', dir], { stdio: 'ignore' });
-      sleepSync(300);
-    }
-  }
-}
 
 // ── build + report ──────────────────────────────────────────────────────────
 function build() {

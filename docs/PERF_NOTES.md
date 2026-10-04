@@ -291,6 +291,82 @@ unmeasurable guess, with no way to check how it looks on her phone, is exactly
 the kind of change that should not be made unattended. It is left as a
 candidate for a phone A/B, not a task.
 
+## Cold-boot pass (2026-10) — the 2.5s bar is unreachable, and it is arithmetic
+
+Measured with `node tool/perf/measure_boot.mjs` (3 runs each, median, link
+shaped in the server). Three cases:
+
+| case | first interactive | first paint | worst long task | vs 2.5s bar |
+| --- | --- | --- | --- | --- |
+| fast link, first visit | **1531ms** | 216ms | 0ms | **met** |
+| slow3g (400kbit = 50KB/s), first visit | **138,580ms** | 212ms | 0ms | missed ~55x |
+| slow3g, repeat visit (SW warm) | 134,033ms | **28ms** | 0ms | missed |
+
+### Why the slow3g number cannot be fixed in code
+
+To reach first frame in 2.5s over a 50KB/s link, the critical path has to be
+at most **~125KB**. It is about **13MB**: `main.dart.js` is 6.5MB and
+`canvaskit.wasm` a further ~6.9MB. The gap is ~100x, so no amount of code
+tidying closes it — the app either downloads much less or the link is faster.
+Recording it as an unmet goal rather than pretending otherwise.
+
+Two things make this number pessimistic rather than representative:
+
+- **Localhost shaping has no CDN cache.** Production builds fetch CanvasKit
+  from the gstatic CDN (`tool/build_web.dart` pins the engine revision), which
+  is shared across every Flutter site and very likely already in a phone's HTTP
+  cache. Every byte here comes from one deliberately slow origin.
+- **slow3g is 50KB/s, not 400KB/s.** That is DevTools' own definition, and the
+  name reads like 400.
+
+### What *is* protecting the experience
+
+**First paint is fast in every case** — 216ms on a cold slow link, and 28ms on
+a repeat visit, because the splash in `web/index.html` is inline HTML + inline
+CSS and needs no downloaded bytes. Someone opening Everglow on a bad connection
+sees Everglow almost immediately and waits behind it, instead of a white screen.
+That is the part that is genuinely working, and it is worth more than the
+first-frame number.
+
+**No long main-thread task anywhere**: worst long task was 0ms in all nine
+runs, against a 500ms bar. Boot does not jank; it waits.
+
+### One real finding: repeat visits re-download the shell
+
+The repeat case has FCP 28ms but first interactive 134s, which looks
+contradictory until you read `tool/generate_sw.dart:273` — the SW is
+**network-first** for `main.dart.js` (stamped `?v=BUILD`), so it revalidates the
+shell over the network on every visit and only falls back to cache when
+offline. On a fast link that costs nothing. On a 50KB/s link it costs the full
+134s even though the bytes are already cached.
+
+Cache-first for the versioned shell would fix that, and `?v=BUILD` plus the
+build-stamp logic already exist to keep deploys propagating. **Not changed here:**
+it alters deploy semantics, and deploy behaviour is Khent's call, not one to make
+unattended while he is asleep. Recorded as the single highest-value cold-boot
+change available.
+
+### Three harness bugs this pass had to fix first
+
+The existing script had never produced a trustworthy number, and each fix
+changed the conclusion:
+
+1. **It hardcoded `/usr/local/bin/google-chrome`**, so it only ever ran on the
+   author's Linux box. Chrome is now located per platform (and the launcher is
+   shared with `bench.mjs` via `tool/perf/_harness.mjs`, because two copies is
+   how this happened).
+2. **`Network.emulateNetworkConditions` is silently ignored by headless
+   Chrome.** Asked for 400KB/s it delivered 6.77MB in 67ms (~98MB/s), so every
+   "slow3g" number before this pass was measuring an unthrottled download and
+   reporting it as slow. The link is now shaped in the static server, verified
+   to deliver 50KB/s for a 400kbit request, with run-to-run spread of 0.05%.
+3. **The static server sent `Cache-Control: no-store` and the cold run blocked
+   `sw.js`**, so the service worker could never cache anything and the
+   "repeat visit" silently measured two cold downloads (268s). Coldness is now
+   guaranteed by the fresh profile alone, and the warm-up leg runs unshaped
+   because the SW's own precache is ~13MB and would still be downloading at
+   50KB/s when the measured leg began.
+
 ## Verify a perf change
 
 - `flutter analyze <changed files>` (repo rule: always before commit).
