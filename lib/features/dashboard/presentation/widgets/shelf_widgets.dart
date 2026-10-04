@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/utils/tmdb_images.dart';
@@ -363,7 +364,9 @@ class _ShelfCardState extends State<ShelfCard> {
     final url = widget.imageUrl;
     if (url.isEmpty) return '';
     if (url.startsWith('http')) return url;
-    return TmdbImages.posterFor(url);
+    // 128px shelf cards: w342 is plenty even at 3x DPR and saves ~40%
+    // bytes + wasm decode per scroll frame vs w500 (PWA scroll bottleneck).
+    return TmdbImages.cardFor(url);
   }
 
   void _handleTap() {
@@ -414,31 +417,43 @@ class _ShelfCardState extends State<ShelfCard> {
                   : AppColors.petalWhite.withValues(alpha: 0.10),
               width: 1,
             ),
-            boxShadow: [
-              if (isHovered) ...[
-                BoxShadow(
-                  color: widget.accent.glow.withValues(alpha: 0.38),
-                  blurRadius: 22,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ] else ...[
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.40),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: widget.accent.glow.withValues(alpha: 0.14),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ],
+            // Web: one cheap shadow instead of two blurred layers. BoxShadow
+            // blur is re-rasterized on every scroll frame (no raster cache
+            // on CanvasKit) and the faint glow layer costs a full blur pass
+            // for 0.14 alpha. Single shadow reads the same on a phone.
+            boxShadow: kIsWeb
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.40),
+                      blurRadius: isHovered ? 16 : 10,
+                      offset: const Offset(0, 6),
+                    ),
+                  ]
+                : [
+                    if (isHovered) ...[
+                      BoxShadow(
+                        color: widget.accent.glow.withValues(alpha: 0.38),
+                        blurRadius: 22,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ] else ...[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.40),
+                        blurRadius: 18,
+                        offset: const Offset(0, 8),
+                      ),
+                      BoxShadow(
+                        color: widget.accent.glow.withValues(alpha: 0.14),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),

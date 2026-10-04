@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
+import '../../../../../shared/utils/tmdb_images.dart';
 
 import '../../../../../core/theme/app_motion.dart';
 import '../../../data/models/media_item.dart';
@@ -78,11 +79,10 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
 
   bool get _isDesktop => MediaQuery.sizeOf(context).width >= 1024;
 
-  // MediaItem.posterUrl already resolves relative TMDB paths and rejects
-  // garbage (blank / stringified-null / whitespace) as ''. No raw fallback:
-  // returning an unusable posterPath here would only feed AppNetworkImage
-  // a URL it rejects anyway.
-  String get _posterUrl => widget.item.posterUrl;
+  // Grid/rail cards (124-172px): w342 is plenty even at 3x DPR and saves
+  // ~40% bytes + wasm decode per scroll frame vs w500 (PWA scroll
+  // bottleneck). Detail drawers keep using MediaItem.posterUrl (w500).
+  String get _posterUrl => TmdbImages.cardFor(widget.item.posterPath);
 
   void _onHover(bool hovered) {
     if (widget.selfPreview) {
@@ -392,18 +392,21 @@ class NetflixContinueCard extends StatefulWidget {
 class _NetflixContinueCardState extends State<NetflixContinueCard> {
   bool _hovered = false;
 
+  // Continue cards are 170-230px 16:9: w780 covers 3x DPR (690px) while
+  // w1280 (MediaItem.backdropUrl) is 2.5x over-fetch decoded on the scroll
+  // thread. Poster fallback uses the w342 grid size.
   String get _backdropUrl {
-    final b = widget.item.backdropUrl;
+    final b = TmdbImages.backdropFor(widget.item.backdropPath);
     if (b.isNotEmpty) return b;
-    return widget.item.posterUrl;
+    return TmdbImages.cardFor(widget.item.posterPath);
   }
 
   /// When the backdrop 404s but a distinct poster exists, show the poster
   /// instead of the blank placeholder — a portrait poster cropped to 16:9
   /// still beats an empty tile.
   Widget _backdropErrorFallback() {
-    final backdrop = widget.item.backdropUrl;
-    final poster = widget.item.posterUrl;
+    final backdrop = TmdbImages.backdropFor(widget.item.backdropPath);
+    final poster = TmdbImages.cardFor(widget.item.posterPath);
     if (backdrop.isNotEmpty && poster.isNotEmpty && backdrop != poster) {
       return AppNetworkImage(
         imageUrl: poster,
