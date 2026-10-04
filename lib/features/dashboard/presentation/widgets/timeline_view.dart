@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_elevation.dart';
@@ -12,6 +11,7 @@ import '../../data/services/milestone_service.dart';
 import './memory_detail_view.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_network_image.dart';
+import 'package:everglow/core/perf/perf_settings.dart';
 
 class TimelineView extends StatefulWidget {
   const TimelineView({super.key});
@@ -967,7 +967,7 @@ class MilestonePhoto extends StatelessWidget {
         path,
         fit: BoxFit.cover,
         width: double.infinity,
-        cacheWidth: kIsWeb ? null : 640,
+        cacheWidth: PerfSettings.sizedDecodeWidth(640),
         errorBuilder: (context, error, stack) => _photoFallback(),
       );
     }

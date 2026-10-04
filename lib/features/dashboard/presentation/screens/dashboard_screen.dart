@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -56,6 +55,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
 import '../widgets/dashboard_motion.dart';
+import 'package:everglow/core/perf/perf_settings.dart';
 part 'dashboard_screen_sections.dart';
 
 class DashboardScreen extends StatefulWidget {

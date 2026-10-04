@@ -428,12 +428,25 @@ outlives its cause. Two things say it is obsolete:
   with **no** `kIsWeb` guard. If `cacheWidth` were unsafe on web, that site
   would already be broken.
 
-**Not changed.** The probe ran on Chromium; Clair's phone is Safari, where the
-engine falls back to wasm image decode (`ImageDecoder` is Chromium-only — see
-the note at the top of this file). If `cacheWidth` renders badly there, the
-failure is a visible grey avatar in Motchi's chat bubbles, on the one device
-that cannot be checked from here. A 20x decode saving on a static asset is not
-worth risking that unattended. Recorded for a phone A/B instead.
+**RESOLVED — verified on Safari, shipped on.** (2026-10-04) Khent loaded the
+preview on **Safari** — the platform this could not be tested from, and Clair's
+actual browser — with `?sizeddecode=1` and `?sizeddecode=0` and reported the
+avatars **identical**. The SkWasm grey problem this guard worked around is gone
+on this engine, on both browsers.
+
+So it is now the default: `PerfSettings.sizedAssetDecode` +
+`sizedDecodeWidth()`, covering every bundled-image call site (chat bubble,
+dashboard emblem, timeline photos, and all Motchi avatars via the single
+`_MotchiAvatar` widget that #439 introduced). A 512x512 avatar decoding into a
+36px slot was roughly 1MB; at 108px it is ~0.05MB.
+
+`?sizeddecode=0` remains as a **kill switch**, persisted so it survives a PWA
+launch — if this ever regresses it can be undone from a URL, no deploy needed.
+Default off-web is unchanged, since those paths always used the sized decode.
+
+This is the one perf claim in this file that rests on an actual phone reading
+rather than a headless rig — see the note at the top of this file about why the
+FPS numbers could never be.
 
 ## Chat / Motchi / gallery / journal pass (2026-10) — correct today, now enforced
 

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -6,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 import 'everglow_markdown.dart';
+import 'package:everglow/core/perf/perf_settings.dart';
 
 /// Global chat bubble system — ONE look for Motchi, Study, and Sanctuary.
 ///
@@ -185,8 +185,8 @@ class EverglowAssistantBubble extends StatelessWidget {
                 avatarAsset!,
                 width: 36,
                 height: 36,
-                cacheWidth: kIsWeb ? null : 108,
-                cacheHeight: kIsWeb ? null : 108,
+                cacheWidth: PerfSettings.sizedDecodeWidth(108),
+                cacheHeight: PerfSettings.sizedDecodeWidth(108),
                 filterQuality: FilterQuality.high,
                 fit: BoxFit.cover,
               ),

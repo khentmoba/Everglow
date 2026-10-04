@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +18,7 @@ import '../../../../ai/presentation/widgets/motchi_reply_details_card.dart';
 import '../../../../ai/presentation/widgets/motchi_web_bridge.dart';
 import 'animex_controller.dart';
 import 'animex_tokens.dart';
+import 'package:everglow/core/perf/perf_settings.dart';
 
 enum AnimeMotchiDeepThink { auto, on, off }
 
@@ -451,8 +451,8 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
               child: Image.asset(
                 'assets/images/motchi_avatar.webp',
                 fit: BoxFit.cover,
-                cacheWidth: kIsWeb ? null : 108,
-                cacheHeight: kIsWeb ? null : 108,
+                cacheWidth: PerfSettings.sizedDecodeWidth(108),
+                cacheHeight: PerfSettings.sizedDecodeWidth(108),
               ),
             ),
           ),
