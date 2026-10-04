@@ -54,6 +54,15 @@ final List<RouteBase> perfBenchRoutes = <RouteBase>[
     path: '/perf-bench/grid',
     builder: (context, state) => const PerfBenchScreen(scene: 'grid'),
   ),
+  // Same scene without the full-screen aurora painter, so its cost can be
+  // measured instead of guessed at: /perf-bench/shelves?ambience=0.
+  GoRoute(
+    path: '/perf-bench/shelves-plain',
+    builder: (context, state) => const PerfBenchScreen(
+      scene: 'shelves',
+      ambience: false,
+    ),
+  ),
 ];
 
 /// The scenes this bench can render, so a run is always reproducible by name.
@@ -78,10 +87,22 @@ const List<String> _benchPhotos = <String>[
   'friends_bar_khent_8.jpg',
 ];
 
-String _photoUrl(int index) =>
-    Uri.base.resolve('assets/assets/images/milestones/'
-            '${_benchPhotos[index % _benchPhotos.length]}')
-        .toString();
+/// Absolute URL for a bundled photo.
+///
+/// Resolved from the site root, not with [Uri.resolve] against [Uri.base]: the
+/// bench lives at `/perf-bench` *and* `/perf-bench/<scene>`, and a relative
+/// resolve against a nested route yields `/perf-bench/assets/...`, which 404s.
+/// That silently produced an imageless scene whose numbers looked fine — the
+/// same class of bug as measuring the wrong screen, so the root is derived
+/// explicitly and a deployment under a sub-path still works.
+String _photoUrl(int index) {
+  final name = _benchPhotos[index % _benchPhotos.length];
+  final basePath = Uri.base.path;
+  final cut = basePath.indexOf('/perf-bench');
+  final prefix = cut >= 0 ? basePath.substring(0, cut) : basePath;
+  return Uri.parse('${Uri.base.origin}$prefix/assets/assets/images/milestones/$name')
+      .toString();
+}
 
 /// Deterministic stress scenes for headless measurement.
 ///
@@ -90,9 +111,17 @@ String _photoUrl(int index) =>
 /// seeds, time-of-day art, network catalogues — would make the noise band
 /// wider than the effects being measured.
 class PerfBenchScreen extends StatefulWidget {
-  const PerfBenchScreen({super.key, required this.scene});
+  const PerfBenchScreen({
+    super.key,
+    required this.scene,
+    this.ambience = true,
+  });
 
   final String scene;
+
+  /// Draw the full-screen aurora painter. Off gives the A/B baseline for
+  /// whatever that painter actually costs per frame.
+  final bool ambience;
 
   @override
   State<PerfBenchScreen> createState() => _PerfBenchScreenState();
@@ -116,7 +145,7 @@ class _PerfBenchScreenState extends State<PerfBenchScreen> {
           // The full-screen aurora/petal painter. Per docs/PERF_NOTES.md this
           // is the single largest raster cost on the dashboard, because web
           // keeps no rendered layers and repays every pixel each frame.
-          DashboardAmbience(scrollController: _scroll),
+          if (widget.ambience) DashboardAmbience(scrollController: _scroll),
           CustomScrollView(
             controller: _scroll,
             slivers: <Widget>[

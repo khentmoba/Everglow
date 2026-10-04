@@ -45,6 +45,23 @@ at that scale.
 Why: the dashboard is laggy and freezes on first load on an iPhone 15 Pro Max,
 even though the visuals are fine. Measured causes, in order:
 
+> **Re-verified against the code in the 2026-10 shared-layer pass.** Items 2
+> and 4 below are already fixed and their text is kept only as history. Do not
+> re-open them without a measurement.
+>
+> - **2 is fixed**: `DashboardAmbience` now pauses while the list scrolls (#440)
+>   and `DashboardCursorGlow` deliberately does *not* start its controller at
+>   init — it is created stopped and only started by `_handleHover`, which never
+>   fires on a phone.
+> - **4 is fixed**: skeletons share one ref-counted `EverglowShimmerScope`
+>   controller, and each one repaints through a `CustomPaint(painter:)` with a
+>   `repaint:` Listenable plus a `RepaintBoundary`, so no skeleton rebuilds.
+> - **The `everglow_sparkles.dart` file cited in the "Shipped" list below no
+>   longer exists** — that item's code moved or was deleted. Treat the note as
+>   stale.
+> - What *is* still open is **1** (everything mounts on frame 1) and the
+>   pixel-cost side of **3**.
+
 1. **Every dashboard section mounts on frame 1.** `SliverToBoxAdapter` mounts
    all of its children eagerly (verified: 20/20 in a probe test) and the whole
    dashboard is built from `SliverToBoxAdapter`s, so all ~25 sections — their
@@ -55,6 +72,7 @@ even though the visuals are fine. Measured causes, in order:
    (3 aurora ribbons drawn as 6 big gradient strokes, 14 petals × 3 ghost trails,
    and 6 freshly allocated gradient shaders per frame) and `DashboardCursorGlow`,
    which starts its 60fps loop at init even though it only draws on mouse hover.
+   — *see the re-verification note above; both are fixed.*
 3. **Blur and shadow are the expensive primitives** on mobile Safari WebGL: the
    background is 3 full-screen radial gradients, and most cards carry 1–2
    `BoxShadow(blurRadius: 14–25)`.
@@ -184,6 +202,50 @@ backdrops with equivalent custom loading/error states.
 5. **Measure**: `flutter build web --release` then check `build/web` sizes;
    profile scroll FPS in Chrome DevTools Performance tab with CPU 4x
    throttling on cinema/anime grids and dashboard.
+
+## Shared-layer pass (2026-10) — what the bench could and could not prove
+
+With `tool/perf/bench.mjs` in place, the shared layer was A/B'd rather than
+assumed. Result: **it is already in good shape**, and the one real defect found
+was an image, not an animation.
+
+### The ambience painter is not the cost this rig can see
+
+`/perf-bench/shelves` vs `/perf-bench/shelves-plain` (identical scene, aurora
+painter removed), 3 runs each, unthrottled, `min` columns:
+
+| | build ms | raster ms | worst frame ms |
+| --- | --- | --- | --- |
+| shelves (with ambience) | 0.61 | 0.69 | 2.4 |
+| shelves-plain (no ambience) | 0.58 | 0.68 | 2.6 |
+
+A ~0.03ms build difference, well inside the noise band for that column. The
+claim that `DashboardAmbience` is "the single largest raster cost" comes from
+phone measurements on mobile Safari WebGL; on a desktop GPU the same strokes
+cost under a millisecond. **So the headless bench cannot validate or refute
+full-screen-effect work** — only the phone frame meter can. Do not spend a pass
+optimising painters on the strength of this rig.
+
+> The first version of this A/B was wrong and is worth recording: the bench
+> built its image URLs with `Uri.base.resolve()`, which resolves against the
+> *route*, so the nested `/perf-bench/shelves-plain` requested
+> `/perf-bench/assets/...`, 404'd, and silently measured a scene with **no
+> images at all** — which still produced a plausible table. The proof
+> screenshot is what caught it. URLs are now built from the site root.
+
+### Fixed: an uncapped decode in Tonight
+
+`tonight_screen.dart` drew date-option thumbnails with a bare `Image.network`
+and no `cacheWidth`, decoding every one at natural resolution (~3.5MB each per
+the memory table above) to fill a **76px** slot. It now goes through
+`AppNetworkImage` with `cacheWidth: 240` compact / `400` full. Same pixels on
+screen — the decode is just sized to the display.
+
+`check_image_fallback.dart` now enforces `cacheWidth` **per call site**, not per
+file. A file-level check was tried first and silently passed a tampered file
+because a *different* call in the same file had a `cacheWidth`; the guard now
+reports the offending line and was verified to fail on the pre-fix version of
+the file.
 
 ## Verify a perf change
 
