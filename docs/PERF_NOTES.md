@@ -45,10 +45,19 @@ at that scale.
 Why: the dashboard is laggy and freezes on first load on an iPhone 15 Pro Max,
 even though the visuals are fine. Measured causes, in order:
 
-> **Re-verified against the code in the 2026-10 shared-layer pass.** Items 2
-> and 4 below are already fixed and their text is kept only as history. Do not
-> re-open them without a measurement.
+> **Re-verified against the code in the 2026-10 dashboard pass.** Every cause
+> listed here is now fixed. Do not re-open one without a measurement.
 >
+> - **1 is fixed and mechanically pinned.** `DeferredSection` no longer has a
+>   web branch that waits and then shows everything: it reads the section's
+>   geometry against a real viewport and only reveals inside a preload margin,
+>   with a scroll listener, a post-frame re-check and a 400ms safety net as
+>   backstops. Reproduce with:
+>   `flutter test test/deferred_section_test.dart test/core/perf/scroll_jank_benchmark_test.dart`
+>   (8 tests, including "far-below sections stay unmounted until scrolled to",
+>   "deferMs never mounts a section that is offscreen", and an initial-mount
+>   ceiling of <= 4 sections). Those tests pass, so the laziness claim is
+>   verified rather than assumed — which is what the old note needed.
 > - **2 is fixed**: `DashboardAmbience` now pauses while the list scrolls (#440)
 >   and `DashboardCursorGlow` deliberately does *not* start its controller at
 >   init — it is created stopped and only started by `_handleHover`, which never
@@ -59,8 +68,6 @@ even though the visuals are fine. Measured causes, in order:
 > - **The `everglow_sparkles.dart` file cited in the "Shipped" list below no
 >   longer exists** — that item's code moved or was deleted. Treat the note as
 >   stale.
-> - What *is* still open is **1** (everything mounts on frame 1) and the
->   pixel-cost side of **3**.
 
 1. **Every dashboard section mounts on frame 1.** `SliverToBoxAdapter` mounts
    all of its children eagerly (verified: 20/20 in a probe test) and the whole
@@ -68,6 +75,7 @@ even though the visuals are fine. Measured causes, in order:
    Firestore streams, tickers, images and painters — exist from the first frame,
    even 8 screens below the fold. `DeferredSection` was meant to prevent this,
    but its `kIsWeb` branch only waits 0–700ms and then shows everything.
+   — *fixed; see the re-verification note above.*
 2. **Two full-screen painters tick forever on the dashboard**: `DashboardAmbience`
    (3 aurora ribbons drawn as 6 big gradient strokes, 14 petals × 3 ghost trails,
    and 6 freshly allocated gradient shaders per frame) and `DashboardCursorGlow`,
@@ -246,6 +254,42 @@ file. A file-level check was tried first and silently passed a tampered file
 because a *different* call in the same file had a `cacheWidth`; the guard now
 reports the offending line and was verified to fail on the pre-fix version of
 the file.
+
+## Dashboard pass (2026-10) — structure verified, content still unmeasurable
+
+The dashboard's four documented causes are all fixed in the current code, and
+the one that mattered most is now pinned by tests that were run, not assumed
+(see the re-verification note above). Two things follow.
+
+### The bench's `shelves` scene stands in for the dashboard's *shape*
+
+The dashboard cannot be loaded headlessly — it is behind auth and Firestore
+data — but its structure is what costs frames: many `DeferredSection`s over a
+full-screen ambience layer, poster shelves, a marquee, shimmer and pulse. The
+`shelves` bench scene is exactly that shape, so it is the closest automated
+proxy available. At 4x CPU throttle, `min` columns:
+
+| phase | build ms | raster ms | worst frame ms | worst long task ms |
+| --- | --- | --- | --- | --- |
+| idle | 3.05 | 4.99 | 15.0 | 0 |
+| scroll | 3.33 | 4.76 | 15.1 | 62 |
+
+Read those as "the dashboard's shape is comfortable on a desktop GPU", which is
+a weak claim by construction. The bench runs a desktop GPU with a fast CPU, and
+the goal's bar (>= 55 FPS, < 5% jank on an iPhone) is a *device* claim about
+real content, Firestore fan-out and DPR-3 raster. That still has to be read off
+the phone frame meter.
+
+### Deliberately not changed: the ambience idle frame rate
+
+`DashboardAmbience` keeps painting a full screen continuously whenever the
+dashboard is not scrolling, which is most of the time. Throttling its idle rate
+would cut real phone work — but a slow aurora at a lower rate can read as
+choppy, and **this rig cannot see the effect at all** (the A/B above moved
+build by 0.03ms). Changing a decorative layer's cadence on the strength of an
+unmeasurable guess, with no way to check how it looks on her phone, is exactly
+the kind of change that should not be made unattended. It is left as a
+candidate for a phone A/B, not a task.
 
 ## Verify a perf change
 
