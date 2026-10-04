@@ -17,6 +17,7 @@ import '../../data/services/katana_service.dart';
 import '../katana/chapter_picker_sheet.dart';
 import '../katana/katana_theme.dart';
 import '../katana/reader_settings_sheet.dart';
+import '../widgets/chapter_loading_stage.dart';
 import '../widgets/reader_page_image.dart';
 import '../../../../core/utils/logger.dart';
 
