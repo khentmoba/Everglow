@@ -234,19 +234,34 @@ class EpisodeTile extends StatefulWidget {
 class _EpisodeTileState extends State<EpisodeTile> {
   bool _pressed = false;
 
+  /// Revealed inline on this row — no drawer. Scoped to the tile so
+  /// expanding one episode leaves its neighbours closed.
+  bool _revealed = false;
+
   /// Fixed tile height. Set explicitly because the parent SliverList
   /// provides unbounded vertical space — without an explicit height
   /// the Row collapses to the title's one-line intrinsic height and
   /// the rail + play button render at zero visible height. The
-  /// title is clipped to 2 lines so 80px always fits.
+  /// title is clipped to 1 line so 80px always fits.
   static const double _tileHeight = 80;
 
   @override
+  void didUpdateWidget(covariant EpisodeTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Un-hiding spoilers shows everything anyway; don't carry the
+    // expansion back when the switch goes on again.
+    if (oldWidget.hideSpoilers && !widget.hideSpoilers) {
+      _revealed = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasThumb =
-        !widget.hideSpoilers &&
-        widget.stillUrl != null &&
-        widget.stillUrl!.isNotEmpty;
+    // Stills are atmosphere, not plot: a frame from the episode gives
+    // nothing away, so they stay visible while the name/story wait to
+    // be asked for.
+    final hasThumb = widget.stillUrl != null && widget.stillUrl!.isNotEmpty;
+    final hidden = widget.hideSpoilers && !_revealed;
     return Semantics(
       button: true,
       label: 'Play episode ${widget.epNum}',
@@ -258,171 +273,154 @@ class _EpisodeTileState extends State<EpisodeTile> {
           widget.onTap();
         },
         onTapCancel: () => setState(() => _pressed = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
-          height: _tileHeight,
-          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-          decoration: BoxDecoration(
-            color: _pressed
-                ? AppColors.shimmerBase.withValues(alpha: 0.8)
-                : AppColors.shimmerBase.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: widget.selected
-                  ? AppColors.deepRose.withValues(alpha: 0.65)
-                  : AppColors.roseQuartz.withValues(alpha: 0.08),
-              width: widget.selected ? 1.4 : 1.0,
+        child: SizedBox(
+          // Compact rows are a fixed 80px; a revealed row grows to fit
+          // whatever it shows. Both are snapped, not animated: the
+          // revealed text lands in full on the first frame, so a
+          // growing box would flash an overflow stripe on its way up.
+          height: _revealed ? null : _tileHeight,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            decoration: BoxDecoration(
+              color: _pressed
+                  ? AppColors.shimmerBase.withValues(alpha: 0.8)
+                  : AppColors.shimmerBase.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: widget.selected
+                    ? AppColors.deepRose.withValues(alpha: 0.65)
+                    : AppColors.roseQuartz.withValues(alpha: 0.08),
+                width: widget.selected ? 1.4 : 1.0,
+              ),
             ),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: Row(
-              children: [
-                // Left rail: thumbnail (when available) or numbered accent.
-                if (hasThumb) _buildThumbnailRail() else _buildNumberedRail(),
-                const SizedBox(width: 12),
-                // Title + overview
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: widget.hideSpoilers ? 0 : 10,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(15),
+              child: Row(
+                children: [
+                  // Left rail: thumbnail (when available) or numbered
+                  // accent. Kept at tile height so an expanded row grows
+                  // the story, not a tall crop of the same frame.
+                  SizedBox(
+                    height: _tileHeight,
+                    child: hasThumb
+                        ? _buildThumbnailRail()
+                        : _buildNumberedRail(),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title + overview
+                  Expanded(
+                    child: Padding(
+                      // 80px minus the tile's own 5px margins, 1px
+                      // border each side and this padding leaves 56px
+                      // of text: a 1-line title plus a 2-line story
+                      // fits with room to spare. 10px padding did not.
+                      padding: EdgeInsets.symmetric(vertical: hidden ? 0 : 6),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hidden ? 'Episode ${widget.epNum}' : widget.epName,
+                            // 1 line unless expanded: a 2-line title plus a
+                            // 2-line story does not fit the 80px row and used
+                            // to overflow it instead of ellipsizing.
+                            maxLines: _revealed ? 2 : 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitHeading.copyWith(
+                              fontSize: 13,
+                              height: 1.25,
+                            ),
+                          ),
+                          if (hidden)
+                            SizedBox(
+                              height: 48,
+                              child: TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  foregroundColor: AppColors.deepRose,
+                                ),
+                                onPressed: () =>
+                                    setState(() => _revealed = true),
+                                child: const Text('Reveal details'),
+                              ),
+                            )
+                          else ...[
+                            if (widget.epOverview.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.epOverview,
+                                maxLines: _revealed ? 3 : 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.outfitWhite.copyWith(
+                                  color: AppColors.mutedPurple,
+                                  fontSize: 11,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                            if (_revealed)
+                              GestureDetector(
+                                onTap: () => setState(() => _revealed = false),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    'Hide details',
+                                    style: AppTypography.outfitWhite.copyWith(
+                                      color: AppColors.deepRose,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Right side action column: solo play (top) + Watch
+                  // Together (bottom). Two stacked 32px circles fit
+                  // within the 80px tile height with vertical padding.
+                  // The solo play preserves the existing tap behaviour;
+                  // the heart opens a watch-party directly.
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          widget.hideSpoilers
-                              ? 'Episode ${widget.epNum}'
-                              : widget.epName,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.outfitHeading.copyWith(
-                            fontSize: 13,
-                            height: 1.25,
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: widget.selected
+                                ? AppColors.deepRose
+                                : AppColors.deepRose.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.deepRose.withValues(alpha: 0.5),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Icon(
+                            widget.selected
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: widget.selected
+                                ? Colors.white
+                                : AppColors.deepRose,
+                            size: 18,
                           ),
                         ),
-                        if (widget.hideSpoilers)
-                          SizedBox(
-                            height: 48,
-                            child: TextButton(
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                foregroundColor: AppColors.deepRose,
-                              ),
-                              onPressed: () => _revealDetails(context),
-                              child: const Text('Reveal details'),
-                            ),
-                          )
-                        else if (widget.epOverview.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.epOverview,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.outfitWhite.copyWith(
-                              color: AppColors.mutedPurple,
-                              fontSize: 11,
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                // Right side action column: solo play (top) + Watch
-                // Together (bottom). Two stacked 32px circles fit
-                // within the 80px tile height with vertical padding.
-                // The solo play preserves the existing tap behaviour;
-                // the heart opens a watch-party directly.
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: widget.selected
-                              ? AppColors.deepRose
-                              : AppColors.deepRose.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.deepRose.withValues(alpha: 0.5),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Icon(
-                          widget.selected
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          color: widget.selected
-                              ? Colors.white
-                              : AppColors.deepRose,
-                          size: 18,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _revealDetails(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.deepBlack,
-      builder: (sheetContext) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8,
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(widget.epName, style: AppTypography.outfitHeading),
-                if (widget.stillUrl != null && widget.stillUrl!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: AppNetworkImage(
-                        imageUrl: widget.stillUrl!,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                if (widget.epOverview.isNotEmpty)
-                  Text(widget.epOverview, style: AppTypography.outfitWhite),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.pop(sheetContext);
-                    widget.onTap();
-                  },
-                  icon: const Icon(Icons.play_arrow_rounded),
-                  label: Text('Play episode ${widget.epNum}'),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(sheetContext),
-                  child: const Text('Close details'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -520,6 +518,8 @@ class _EpisodeTileState extends State<EpisodeTile> {
   }
 
   Widget _buildThumbSkeleton() {
+    // Static, not a spinner: the rail is 96px wide, a spinner there is
+    // noise, and it would keep the list animating forever.
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -529,13 +529,10 @@ class _EpisodeTileState extends State<EpisodeTile> {
         ),
       ),
       alignment: Alignment.center,
-      child: const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(
-          color: AppColors.deepRose,
-          strokeWidth: 1.5,
-        ),
+      child: Icon(
+        Icons.movie_outlined,
+        size: 22,
+        color: AppColors.deepRose.withValues(alpha: 0.4),
       ),
     );
   }
