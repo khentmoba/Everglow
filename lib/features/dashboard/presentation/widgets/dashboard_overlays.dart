@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +12,7 @@ import '../../../heartbeat/presentation/widgets/partner_status_indicator.dart';
 import '../../../heartbeat/presentation/widgets/mood_picker.dart';
 import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
+import 'package:everglow/core/perf/perf_settings.dart';
 
 /// Geometry of the pinned top-action row (creator / canvas / mood /
 /// chat). The buttons float above the scroll view, so whatever scrolls
@@ -67,8 +67,8 @@ class DashboardOverlays extends StatelessWidget {
                         'assets/images/motchi_avatar.webp',
                         width: 48,
                         height: 48,
-                        cacheWidth: kIsWeb ? null : 144,
-                        cacheHeight: kIsWeb ? null : 144,
+                        cacheWidth: PerfSettings.sizedDecodeWidth(144),
+                        cacheHeight: PerfSettings.sizedDecodeWidth(144),
                         filterQuality: FilterQuality.high,
                         fit: BoxFit.cover,
                       ),

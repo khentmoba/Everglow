@@ -14,6 +14,7 @@ void main() {
       SharedPreferences.setMockInitialValues(<String, Object>{
         'perf_frame_meter_v1': true,
         'perf_render_scale_v1': 2.0,
+        'perf_sized_asset_decode_v1': true,
       });
       PerfSettings.debugReset();
 
@@ -21,6 +22,42 @@ void main() {
 
       expect(PerfSettings.frameMeter.value, isTrue);
       expect(PerfSettings.renderScale.value, 2.0);
+      expect(PerfSettings.sizedAssetDecode.value, isTrue);
+    });
+
+    // The whole point of the switch: off must be byte-for-byte the old
+    // behaviour, so turning the experiment on cannot quietly change what
+    // Clair sees for anyone who never opted in.
+    test('sized asset decode defaults to off', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      PerfSettings.debugReset();
+
+      await PerfSettings.load();
+
+      expect(PerfSettings.sizedAssetDecode.value, isFalse);
+      // On the VM (non-web) the sized decode is used either way, matching the
+      // old `kIsWeb ? null : N` behaviour off-web.
+      expect(PerfSettings.sizedDecodeWidth(108), 108);
+    });
+
+    test('?sizeddecode=1 turns it on and sticks', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      PerfSettings.debugReset();
+
+      await PerfSettings.load(queryParameters: {'sizeddecode': '1'});
+
+      expect(PerfSettings.sizedAssetDecode.value, isTrue);
+      expect(PerfSettings.sizedDecodeWidth(108), 108);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('perf_sized_asset_decode_v1'), isTrue,
+          reason: 'the PWA launches from the manifest start_url and would '
+              'otherwise lose the switch');
+
+      // A later launch with no query string keeps it on.
+      PerfSettings.debugReset();
+      await PerfSettings.load();
+      expect(PerfSettings.sizedAssetDecode.value, isTrue);
     });
 
     test('defaults to off and device scale when nothing is saved', () async {
