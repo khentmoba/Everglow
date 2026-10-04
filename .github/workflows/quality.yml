@@ -47,7 +47,12 @@ jobs:
       # P3: bundled asset refs must resolve (PR #66 .png->.jpg blanks).
       - run: dart tool/ci/check_assets.dart
       # P3: no bare Image.network without errorBuilder (PR #119 blanks).
+      # Also requires cacheWidth per call site, so a new uncapped decode fails.
       - run: dart tool/ci/check_image_fallback.dart
+      # Perf: no setState driven by a frame-rate callback (AnimationController,
+      # Ticker, or a <=20ms Timer.periodic). Enforces the "Animation rules" in
+      # docs/PERF_NOTES.md, which were prose until now.
+      - run: dart tool/ci/check_perf_rules.dart
       # P3: list streams stay bounded with .limit() (PR #36, 34d615a).
       - run: dart tool/ci/check_stream_limits.dart
       # Golden tests are excluded from CI so they can't gate PRs; new
