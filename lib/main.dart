@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 
 import 'core/di/app_providers.dart';
 import 'core/di/app_root.dart';
+import 'core/perf/perf_hud.dart';
+import 'core/perf/perf_settings.dart';
 import 'core/router/app_router.dart';
 import 'core/router/route_memory.dart';
 import 'shared/utils/scroll_memory.dart';
@@ -70,6 +72,13 @@ Future<void> _startEverglow() async {
     'Everglow ${AppVersion.current} ready in '
     '${result.elapsed.inMilliseconds}ms',
   );
+  // Dev tooling flags (`?perf=1`, `?dpr=2`, or a previously saved switch).
+  // Before runApp on purpose: the engine caches the view's physical size at
+  // the first frame, so a render-scale override has to land first. The frame
+  // meter also mirrors its numbers to `window.__everglowPerf` on web, which is
+  // how tool/perf/measure_scroll.mjs measures a build instead of eyeballing it.
+  await PerfSettings.load();
+
   // Bound the decoded-image cache before the first frame.
   //
   // Flutter's default is 1000 images / 100 MB, but that 1000-object count is
@@ -126,8 +135,9 @@ class EverglowApp extends StatelessWidget {
         theme: custom_theme.AppTheme.gamifiedTheme,
         routerConfig: createAppRouter(),
         scaffoldMessengerKey: _scaffoldMessengerKey,
-        builder: (context, child) =>
-            AppUpdatePrompt(child: AppRoot(child: child!)),
+        builder: (context, child) => PerfMeterOverlay(
+          child: AppUpdatePrompt(child: AppRoot(child: child!)),
+        ),
       ),
     );
   }

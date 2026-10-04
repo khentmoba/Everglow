@@ -23,6 +23,7 @@ import '../../features/journal/presentation/routes/journal_routes.dart';
 import '../../features/money/presentation/routes/money_routes.dart';
 import '../../features/trip_kit/presentation/routes/trip_kit_routes.dart';
 import '../../features/tonight/presentation/routes/tonight_routes.dart';
+import '../perf/perf_bench_route.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
 import '../di/app_providers.dart' as di;
@@ -41,8 +42,13 @@ GoRouter createAppRouter() {
     refreshListenable: di.authService,
     redirect: (context, state) {
       final loc = state.matchedLocation;
-      const publicPaths = {'/'};
-      final isPublic = publicPaths.contains(loc);
+      // The perf bench is reachable logged out (it carries its own fake data),
+      // but only in builds made with --dart-define=EG_PERF_BENCH=true. Prefix
+      // rather than exact-match so every bench scene stays reachable without
+      // re-listing its path here; the guard is a compile-time constant, so none
+      // of this exists in production builds.
+      final isPublic = loc == '/' ||
+          (kPerfBenchCompiledIn && loc.startsWith('/perf-bench'));
 
       // If the persisted session is still loading from disk, do NOT bounce
       // away from the requested location yet; wait for AuthService to notify.
@@ -108,6 +114,7 @@ GoRouter createAppRouter() {
       ...subsRoutes,
       ...tripKitRoutes,
       ...tonightRoutes,
+      if (kPerfBenchCompiledIn) ...perfBenchRoutes,
     ],
     errorBuilder: (context, state) => AppErrorPage(uri: state.uri),
   );
