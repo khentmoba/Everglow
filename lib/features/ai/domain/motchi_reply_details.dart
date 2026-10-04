@@ -19,7 +19,13 @@ class MotchiReplyDetails {
   /// reply already says, and leaves Clair nothing to finish herself.
   /// Anything not explicitly marked `write: false` still counts — older
   /// saved replies predate that flag, and silence is the wrong default.
-  bool get needsAttention => interrupted || steps.any(_needsAction);
+  bool get needsAttention {
+    if (steps.any(_needsAction)) return true;
+    if (!interrupted) return false;
+    // An interruption only demands finishing steps if there was an action/write
+    // that could be half-done. Pure reads leave nothing to save or finish.
+    return steps.isEmpty || steps.any((s) => s['write'] != false);
+  }
 
   static bool _needsAction(Map<String, dynamic> step) =>
       step['status'] != 'done' &&

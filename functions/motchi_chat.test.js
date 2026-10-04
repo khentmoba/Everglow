@@ -104,6 +104,23 @@ test('streaming dangling repair covers loop exits (repeat guard + round cap)', (
   assert.ok(src.includes('llmCalls < MAX_LLM_CALLS_PER_MESSAGE'));
 });
 
+test('exhausted tool rounds trigger final text synthesis so web searches finish', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  // Streaming: after round >= MAX_TOOL_ROUNDS, forceTextNextRound triggers a final
+  // text-only round to synthesize the gathered tool results.
+  assert.match(src, /if \(toolRound >= MAX_TOOL_ROUNDS\) \{\s*forceTextNextRound = true;\s*\}/);
+  assert.match(src, /while \(toolRound < MAX_TOOL_ROUNDS \|\| forceTextNextRound\)/);
+  // Post-loop repair clears streamInterrupted when text is generated.
+  assert.match(src, /_streamedFinalReply \+= repairText;\s*sendEvent\(\{ content: repairText \}\);\s*streamInterrupted = false;/);
+  // Non-streaming: synthesizes when ending on a tool message.
+  assert.match(src, /if \(nsInterrupted && nsMessages\[nsMessages\.length - 1\]\?\.role === 'tool'\)/);
+});
+
+test('circling on repeat tool calls forces text synthesis instead of dropping the turn', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
+  assert.match(src, /collectedToolCalls = dropRepeatCalls\(seenToolCalls, collectedToolCalls\);\s*if \(collectedToolCalls\.length === 0\) \{\s*forceTextNextRound = true;\s*continue;\s*\}/);
+});
+
 test('repair rounds detach tools so the model must answer in text', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
   // A repair nudge that still carries tools can be disobeyed with another

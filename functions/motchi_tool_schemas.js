@@ -382,7 +382,7 @@ const MOTCHI_TOOLS = [
     type: 'function',
     function: {
       name: 'browse_web',
-      description: 'Drive a real browser to read pages that need interaction — search-within-site, filters, buttons, JS-heavy or bot-protected pages where read_web_page returns empty or blocked content. Slower and pricier than web_search/read_web_page, so try those first. In goal, say exactly what to do and demand the JSON shape you want (e.g. \'Find ... and return JSON: {"price": str}\'). If the result status is RUNNING, call again with the same run_id and attempt+1 (up to 5 tries).',
+      description: 'Drive a real browser to read pages that need interaction — search-within-site, filters, buttons, JS-heavy or bot-protected pages where read_web_page returns empty or blocked content. Slower and pricier than web_search/read_web_page, so try those first. In goal, say exactly what to do and demand the JSON shape you want (e.g. \'Find ... and return JSON: {"price": str}\'). If the result status is RUNNING, call at most once more with the same run_id and attempt 2 (do not exceed 2 attempts); if still running, answer from what you have.',
       parameters: {
         type: 'object',
         properties: {

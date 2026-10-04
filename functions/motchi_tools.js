@@ -388,7 +388,7 @@ function toolListSection(toolNames) {
   const webGuidance = names.includes('web_search')
     ? '\nYou CAN search the web. For current facts (next matches, live brackets/results, schedules, news, prices, releases), use web_search without waiting for them to ask you to search. Do not guess from training knowledge or claim you lack web access. Name the sources you actually used. If a lookup fails, say it failed rather than pretending you cannot search.' +
       (names.includes('read_web_page') ? ' Use read_web_page for missing details.' : '') +
-      (names.includes('browse_web') ? ' Use browse_web for dynamic or blocked sites.' : '')
+      (names.includes('browse_web') ? ' Use browse_web only when read_web_page fails or when dynamic interaction is required.' : '')
     : '';
   return `You have access to these custom tools right now (and no others):\n${names.map((n) => `- ${n}`).join('\n')}${webGuidance}`;
 }
