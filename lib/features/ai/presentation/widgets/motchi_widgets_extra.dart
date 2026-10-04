@@ -120,6 +120,10 @@ class _MessageBubbleState extends State<_MessageBubble> {
         ? DateFormat('MMM d, h:mm a').format(widget.timestamp!)
         : '';
 
+    // No entrance fade here on purpose: a whole-reply opacity animation sits
+    // at 0 until the first frame after the bubble mounts, which blanks the
+    // answer whenever frames are throttled (background tab, resumed app).
+    // The answering look lives on the avatar halo instead.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
@@ -155,7 +159,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const _MotchiAvatar(size: 20),
+                          widget.isStreaming
+                              ? const _AnsweringAvatar(size: 20)
+                              : const _MotchiAvatar(size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Motchi',
