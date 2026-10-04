@@ -31,7 +31,9 @@ class NetflixBillboard extends StatefulWidget {
 }
 
 class _NetflixBillboardState extends State<NetflixBillboard> {
-  static const _hold = Duration(seconds: 14);
+  // Shared with the anime hero and the dashboard memories so a slide rests
+  // for the same beat on phone and desktop.
+  static const _hold = AppMotion.carouselHold;
   static final Map<String, String?> _trailerCache = {};
   static final Map<String, Map<String, dynamic>> _detailCache = {};
 

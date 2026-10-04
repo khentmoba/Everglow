@@ -43,8 +43,17 @@ class AppMotion {
   /// 600ms — scroll reveal entrance.
   static const Duration reveal = Duration(milliseconds: 400);
 
-  /// 700ms — carousel slide.
+  /// 700ms — carousel slide transition.
   static const Duration carousel = Duration(milliseconds: 700);
+
+  /// How long an auto-rotating carousel hero rests on a slide before it
+  /// advances. One token for cinema, anime and the dashboard memories so
+  /// phone and desktop can never drift apart again.
+  static const Duration carouselHold = Duration(seconds: 20);
+
+  /// Same, while a muted trailer is playing under the still. Trailers need
+  /// longer to say anything.
+  static const Duration carouselHoldTrailer = Duration(seconds: 30);
 
   // ── Reduced-motion ─────────────────────────────────────────
 

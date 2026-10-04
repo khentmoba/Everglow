@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:everglow/core/theme/app_motion.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/trailer_player.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_spotlight.dart';
@@ -113,8 +114,8 @@ void main() {
     );
     await tester.pump();
 
-    // Advance time to item 4 (_index = 3)
-    await tester.pump(const Duration(seconds: 30));
+    // Advance three holds to item 4 (_index = 3)
+    await tester.pump(AppMotion.carouselHold * 3);
     expect(find.text('#4 TRENDING'), findsOneWidget);
 
     // Update with fewer items (e.g. 3 items)
@@ -349,7 +350,8 @@ void main() {
     expect(resumedOpacity.opacity, 1.0);
   });
 
-  testWidgets('AnimeXSpotlight holds trailer slides for full 25s watch duration', (
+  testWidgets('AnimeXSpotlight holds trailer slides for the full shared hold',
+      (
     WidgetTester tester,
   ) async {
     final item1WithTrailer = MediaItem(
@@ -404,13 +406,13 @@ void main() {
     // Initially at item 1
     expect(find.text('Trailer Anime 1'), findsOneWidget);
 
-    // After 10 seconds (standard still hold), trailer slide is still playing and has NOT switched
-    await tester.pump(const Duration(seconds: 10));
+    // One second short of the shared hold: still on the trailer slide.
+    await tester.pump(AppMotion.carouselHoldTrailer - const Duration(seconds: 1));
     expect(find.text('Trailer Anime 1'), findsOneWidget);
     expect(find.text('Still Anime 2'), findsNothing);
 
-    // After remaining 15 seconds (total 25s), auto-advance transitions to item 2
-    await tester.pump(const Duration(seconds: 15));
+    // Hold expires, hero auto-advances to item 2.
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('Still Anime 2'), findsOneWidget);
   });
 }
