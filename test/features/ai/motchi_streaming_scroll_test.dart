@@ -591,4 +591,63 @@ void main() {
       closeTo(controller.position.maxScrollExtent, 1),
     );
   });
+
+  testWidgets('a reply in flight keeps a visible, moving answering glow', (
+    tester,
+  ) async {
+    const halo = ValueKey('motchi-answering-halo');
+    Color haloAlphaAt(WidgetTester t) {
+      final box = t.widget<Container>(find.byKey(halo)).decoration! as BoxDecoration;
+      return (box.gradient! as RadialGradient).colors.first;
+    }
+
+    final ai = _StreamingAIService(
+      memoryRepo: _FakeMemoryRepo(),
+      conversationRepo: _FakeConversationRepo(
+        AIConversation(
+          id: 'assistant',
+          feature: 'assistant',
+          messages: [AIMessage(role: 'user', content: 'What are the brackets?')],
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: const MaterialApp(home: MotchiScreen()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    // Before any text: the thinking header still breathes.
+    expect(find.byKey(halo), findsOneWidget);
+    final beforeText = haloAlphaAt(tester).a;
+    await tester.pump(const Duration(milliseconds: 1100));
+    expect(
+      haloAlphaAt(tester).a,
+      isNot(closeTo(beforeText, 0.001)),
+      reason: 'the halo must animate, not sit still',
+    );
+
+    ai.stream('Let me check the bracket draw.');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    // Mid-reply the glow is still there, and the text is never hidden
+    // behind an entrance fade that has not run yet.
+    expect(find.byKey(halo), findsOneWidget);
+    expect(find.textContaining('Let me check the bracket draw.'), findsOneWidget);
+    final midway = haloAlphaAt(tester).a;
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(haloAlphaAt(tester).a, isNot(closeTo(midway, 0.001)));
+    expect(tester.takeException(), isNull);
+
+    // The tree comes down before dispose: a disposed notifier must not
+    // still have listeners attached.
+    await tester.pumpWidget(const SizedBox.shrink());
+    ai.dispose();
+  });
 }

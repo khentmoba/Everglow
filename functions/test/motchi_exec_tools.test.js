@@ -1212,3 +1212,173 @@ test('a read that did not complete never alarms, a write that did still does', (
   assert.equal(writeFailed.status, 'failed');
   assert.equal(writeFailed.write, true);
 });
+
+// ── Free-first web search ──────────────────────────────────────
+// The paid key costs $0.005 a query, so ordinary lookups go out on the
+// keyless free stack first and only fall back to the wallet. These pin
+// the ordering: free answers, free failure is survivable, and the filters
+// the free path cannot do still go paid.
+
+// Real lite.duckduckgo.com markup, trimmed: anchors carry the title, the
+// td carries the snippet, and every target sits behind a uddg= redirect.
+const DDG_LITE_HTML = `
+<table><tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fvalorantesports.com%2Foverview&amp;rut=aa" class='result-link'>Champions Shanghai Standings</a></td></tr>
+<tr><td class='result-snippet'>The top two teams from each territory compete for the title.</td></tr></table>
+<table><tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fvalorantesports.com%2Fstandings&amp;rut=bb" class='result-link'>Shanghai Standings</a></td></tr>
+<tr><td class='result-snippet'>Standings after stage two.</td></tr></table>
+<table><tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fvalorantesports.com%2Fthird&amp;rut=cc" class='result-link'>Third link on the same site</a></td></tr>
+<tr><td class='result-snippet'>Should be capped out.</td></tr></table>
+<table><tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fliquipedia.net%2Fvalorant%2FVCT%2F2026&amp;rut=dd" class='result-link'>VCT 2026 Champions &amp; standings</a></td></tr>
+<tr><td class='result-snippet'>Bracket, rosters and results.</td></tr></table>
+`;
+
+test('web_search answers from the free keyless search without touching the paid key', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  delete process.env.TINYFISH_API_KEY;
+  const seen = [];
+  global.fetch = async (url) => {
+    seen.push(String(url));
+    return { ok: true, status: 200, text: async () => DDG_LITE_HTML };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'web_search', {
+      query: 'valorant champions shanghai playoffs bracket',
+    }));
+    assert.ok(!('error' in out), JSON.stringify(out));
+    assert.ok(
+      seen.every((u) => !u.includes('tinyfish')),
+      'a plain lookup must not spend the wallet',
+    );
+    const urls = out.results.map((r) => r.url);
+    assert.ok(urls.includes('https://valorantesports.com/overview'), 'redirect unwrapped');
+    assert.equal(
+      urls.filter((u) => u.startsWith('https://valorantesports.com')).length,
+      2,
+      'one site may not fill the list',
+    );
+    assert.equal(out.results[0].site, 'valorantesports.com');
+    assert.match(out.results[0].snippet, /compete for the title/);
+    assert.equal(out.results.length, 3, 'the third link on one host is dropped');
+    assert.match(out.results[2].title, /VCT 2026 Champions & standings/, 'entities decoded');
+  } finally {
+    global.fetch = realFetch;
+    if (realKey !== undefined) process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('web_search falls back to the paid search when the free one comes back empty', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  const seen = [];
+  global.fetch = async (url) => {
+    seen.push(String(url));
+    if (String(url).includes('duckduckgo')) {
+      return { ok: true, status: 200, text: async () => '<html>no hits</html>' };
+    }
+    return {
+      ok: true, status: 200,
+      json: async () => ({
+        total_results: 1,
+        results: [{ title: 'Paid hit', url: 'https://example.com/a', snippet: 's', site_name: 'example.com' }],
+      }),
+    };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'web_search', { query: 'obscure thing' }));
+    assert.equal(out.results.length, 1);
+    assert.equal(out.results[0].title, 'Paid hit');
+    assert.ok(seen.some((u) => u.includes('api.search.tinyfish.ai')), 'paid fallback ran');
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('news and date-filtered asks skip the free hop and use the paid filters', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  const seen = [];
+  global.fetch = async (url) => {
+    seen.push(String(url));
+    return {
+      ok: true, status: 200,
+      json: async () => ({ total_results: 1, results: [{ title: 'News hit', url: 'https://news.example/b', site_name: 'news.example' }] }),
+    };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'web_search', {
+      query: 'valorant news', domain_type: 'news',
+    }));
+    assert.equal(out.results[0].title, 'News hit');
+    assert.ok(seen.some((u) => u.includes('domain_type=news')), 'filters reach the paid API');
+    assert.ok(!seen.some((u) => u.includes('duckduckgo')), 'free path cannot do news filters');
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('read_web_page still reads a page with no paid key, via the free reader', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  delete process.env.TINYFISH_API_KEY;
+  const seen = [];
+  global.fetch = async (url) => {
+    seen.push(String(url));
+    assert.ok(String(url).startsWith('https://r.jina.ai/'), 'free reader, not the paid API');
+    return {
+      ok: true, status: 200,
+      text: async () => [
+        'Title: Champions Shanghai Standings',
+        'URL Source: https://valorantesports.com/overview',
+        '',
+        'Markdown Content:',
+        'The top two teams from each territory come together and compete in the biggest tournament of the year. The winner is crowned the world champion, and the runner-up takes the last slot at the international event.',
+      ].join('\n'),
+    };
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'read_web_page', {
+      urls: ['https://valorantesports.com/overview'],
+    }));
+    assert.deepEqual(out.errors, []);
+    assert.equal(out.pages[0].title, 'Champions Shanghai Standings');
+    assert.match(out.pages[0].content, /biggest tournament of the year/);
+    assert.ok(!seen.some((u) => u.includes('tinyfish')), 'no key means no paid call');
+  } finally {
+    global.fetch = realFetch;
+    if (realKey !== undefined) process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
+test('read_web_page keeps the paid error when the free reader also comes up empty', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  global.fetch = async (_url, opts) => {
+    if (opts && opts.body) {
+      return { ok: true, status: 200, json: async () => ({ results: [], errors: [{ url: 'https://x.example/gated', error: 'bot_protected' }] }) };
+    }
+    return { ok: true, status: 200, text: async () => 'tiny' }; // too short to be a page
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(ctx, 'read_web_page', {
+      urls: ['https://x.example/gated'],
+    }));
+    assert.match(out.error, /bot_protected/);
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});

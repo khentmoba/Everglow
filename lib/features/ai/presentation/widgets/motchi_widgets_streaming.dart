@@ -87,6 +87,73 @@ class _ThreeDotsState extends State<_ThreeDots>
   }
 }
 
+/// Motchi's avatar with a soft breathing rose halo.
+///
+/// The one "I'm working on it" tell for the whole answering window —
+/// from the first thinking dot through every tool round to the last
+/// streamed word. Stays a still halo when the user asked for reduced
+/// motion (AppMotion.reduced).
+class _AnsweringAvatar extends StatefulWidget {
+  const _AnsweringAvatar({this.size = 20});
+
+  final double size;
+
+  @override
+  State<_AnsweringAvatar> createState() => _AnsweringAvatarState();
+}
+
+class _AnsweringAvatarState extends State<_AnsweringAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    if (!AppMotion.reduced) _c.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        AnimatedBuilder(
+          animation: _c,
+          builder: (_, _) {
+            final t = Curves.easeInOut.transform(_c.value);
+            return Container(
+              key: const ValueKey('motchi-answering-halo'),
+              width: widget.size * 2.1,
+              height: widget.size * 2.1,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.auroraRose.withValues(alpha: 0.10 + 0.30 * t),
+                    AppColors.auroraRose.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        _MotchiAvatar(size: widget.size),
+      ],
+    );
+  }
+}
+
 /// Blinking caret shown at the end of a live-streaming reply.
 class _StreamingCaret extends StatefulWidget {
   const _StreamingCaret();
@@ -147,7 +214,7 @@ class _ThinkingIndicator extends StatelessWidget {
         children: [
           Row(
             children: [
-              const _MotchiAvatar(size: 20),
+              const _AnsweringAvatar(size: 20),
               const SizedBox(width: 8),
               Text(
                 'Motchi',
