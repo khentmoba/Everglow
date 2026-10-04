@@ -29,6 +29,16 @@ A small dark panel appears in the bottom-left corner showing FPS, jank %, droppe
 unreachable before this pass (the code had been deleted while the docs still
 told you to use it).
 
+This is what you should see — captured at a 430x932 phone viewport, DPR 3,
+with the meter live. If your panel does not look like this, `?perf=1` did not
+take and the readings would be meaningless:
+
+![the frame meter at a phone viewport](pr-proof/perf-final/phone-check-meter-440x932.png)
+
+Reading that capture: **114 fps · jank 0% · drop 0%**, build 0.8/2.4 ms, raster
+8.1/14.2 ms, worst 16.5 ms, 240 frames, dpr 3.00. Note the layout — average
+then worst, per metric — so you can find each number at a glance.
+
 Two things to know:
 
 - **In the installed PWA the start URL cannot be edited**, so if you want the
