@@ -367,6 +367,73 @@ changed the conclusion:
    because the SW's own precache is ~13MB and would still be downloading at
    50KB/s when the measured leg began.
 
+## Media shelves pass (2026-10) — clean on the rules, one stale workaround found
+
+### Decode sizes across cinema / anime / manga / books: no violations
+
+Every `cacheWidth` in the four inside features was swept against the size it
+actually displays (values: cinema 150/300/520/720 + `isDesktop ? 1280 : 780`
+backdrop; anime 150/320/400/560; manga 400; books 120/200/240/300/600/800).
+Each is proportionate to its slot, and the one large value
+(`isDesktop ? 1280 : 780`) is a full-bleed backdrop, where the table above
+expects 800–1200. Nothing to fix.
+
+The two documented deliberate keeps — the full-screen photo viewer and the manga
+reader — are the only places allowed to decode at natural size, and
+`check_image_fallback.dart` now enforces `cacheWidth` per call site (see the
+shared-layer pass), so a new uncapped call fails CI rather than shipping.
+
+### Real shelves cannot be measured headlessly; structural proxies can
+
+Every real shelf is behind auth and Firestore data. What the bench *can* cover
+is the shape those screens have in common — poster cards in rows and in a
+browse grid. Unthrottled `min` columns:
+
+| proxy | build ms | raster ms | worst frame ms |
+| --- | --- | --- | --- |
+| `shelves` scroll (shelf rows) | 0.60 | 0.70 | 2.7 |
+| `grid` scroll (browse grid) | 0.40 | 0.79 | 4.0 |
+
+Same caveat as the dashboard: a desktop GPU cannot speak to the >= 55 FPS
+DPR-3 device bar. The per-screen verdict still comes from the phone meter.
+
+### Found: a stale web workaround, left in place on purpose
+
+Nine call sites size a bundled avatar decode like this:
+
+```dart
+cacheWidth: kIsWeb ? null : 108,   // 512x512 asset drawn in a 36px slot
+cacheHeight: kIsWeb ? null : 108,
+```
+
+So on web — the platform Clair actually uses — the 512x512 avatar (1MB decoded)
+is decoded at full size to fill a 36px slot that needs 108x108 (0.05MB). A ~20x
+waste, on the AI chat surface, repeated across `motchi_widgets`,
+`motchi_widgets_streaming`, `motchi_widgets_extra`, `motchi_sidebar_panel`,
+`study_screen_bubbles`, `study_screen_builders` and the animex Motchi sidebar.
+
+The guard came from `d6eb7ea5` ("eliminate remaining grey overlay on Together
+zone"), a batch of web workarounds for SkWasm painting opaque grey — the same
+commit also forced `DeferredSection` always-visible on web, a workaround that
+has since been removed. So the pattern is exactly the kind of leftover that
+outlives its cause. Two things say it is obsolete:
+
+- A probe rendering the same asset side by side with `cacheWidth: 108` and
+  `null` on the current engine **both render correctly** — no grey, no dimming
+  (proof: `docs/pr-proof/probe-cw/`). The first attempt at that shot looked
+  like a difference and was not; the avatar had been sitting under the
+  translucent frame-meter HUD.
+- `motchi_widgets_extra.dart:32` already uses `cacheWidth: 540` on a 180px slot
+  with **no** `kIsWeb` guard. If `cacheWidth` were unsafe on web, that site
+  would already be broken.
+
+**Not changed.** The probe ran on Chromium; Clair's phone is Safari, where the
+engine falls back to wasm image decode (`ImageDecoder` is Chromium-only — see
+the note at the top of this file). If `cacheWidth` renders badly there, the
+failure is a visible grey avatar in Motchi's chat bubbles, on the one device
+that cannot be checked from here. A 20x decode saving on a static asset is not
+worth risking that unattended. Recorded for a phone A/B instead.
+
 ## Verify a perf change
 
 - `flutter analyze <changed files>` (repo rule: always before commit).
