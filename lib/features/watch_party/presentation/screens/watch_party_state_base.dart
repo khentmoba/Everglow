@@ -54,6 +54,22 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// play/pause event but arrived later due to network reordering.
   DateTime? _lastRemoteUpdate;
 
+  // ─── Live control (CineSrc through web/embed.html) ────────────────
+  // The default Everglow player can be told to play/pause/seek and
+  // reports what the viewer does. When it is ready we drive it
+  // directly instead of reloading the iframe.
+
+  /// True once the current player document said `cinesrc:ready`.
+  bool _cinesrcReady = false;
+
+  /// Player events inside this window are echoes of commands we just
+  /// sent, so they are not broadcast back to the partner.
+  DateTime _ignorePlayerEventsUntil = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// A seek that the viewer started themselves, waiting for 'seeked'.
+  bool _userSeekPending = false;
+  Timer? _playCheckTimer;
+
   // ─── iframe plumbing (mirrors VideoPlayerScreen) ──────────────────
   bool _isLoading = true;
   bool _iframeFailed = false;
@@ -238,6 +254,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
           if (_isLoading) _onIframeLoadError();
         });
         _applySandbox(_selectedProvider);
+        _cinesrcReady = false;
         _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       }
     };
@@ -300,11 +317,13 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         _reloadHlsAt(_localStartHint());
       });
     } else if (_isEmbedServer) {
+      _cinesrcReady = false;
       _iframe.src = _room.streamUrl!;
     } else {
       if (_room.isAnime) {
         _bootstrapAnime();
       } else {
+        _cinesrcReady = false;
         _iframe.src = _buildPlayerUrl(
           _selectedProvider,
           startSeconds: _localStartHint(),
@@ -369,6 +388,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   @override
   void dispose() {
     _heartbeatTimer?.cancel();
+    _playCheckTimer?.cancel();
     _clockTicker?.cancel();
     _resyncHideTimer?.cancel();
     _loadTimer?.cancel();
@@ -441,15 +461,13 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       (_) async {
         if (!mounted) return;
         final t = _estimatedLocalTime();
-        final s = _hostExplicitlyPaused ? 'paused' : 'playing';
         debugPrint(
-          'WatchPartyScreen heartbeat: state=$s time=$t anchorTime=$_anchorTime anchorEpoch=$_anchorEpoch hostPaused=$_hostExplicitlyPaused',
+          'WatchPartyScreen heartbeat: time=$t anchorTime=$_anchorTime hostPaused=$_hostExplicitlyPaused',
         );
         await _service.heartbeat(
           roomId: _room.id,
-          state: s,
           currentTime: t,
-          updatedBy: _myUid,
+          beatBy: _myUid,
         );
       },
     );
@@ -469,6 +487,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
     _resolvedTmdbId = tmdbId;
+    _cinesrcReady = false;
     _iframe.src = _buildPlayerUrl(
       _selectedProvider,
       startSeconds: _localStartHint(),
@@ -500,31 +519,30 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
 
-    final isLocalWrite = incoming.updatedBy == _myUid;
-    debugPrint(
-      'WatchPartyScreen _onRoomUpdate: isLocal=$isLocalWrite, state=${incoming.state}, time=${incoming.currentTime}, updatedBy=${incoming.updatedBy}, updatedAt=${incoming.updatedAt}',
-    );
-    if (isLocalWrite) {
-      _room = incoming;
-      return;
-    }
-
-    // Discard remote snapshots that are older than the last one we
-    // applied.  Without this gate a heartbeat (sent at T with
-    // state='playing') can beat a pause (sent at T+0.5 with
-    // state='paused') to the partner's screen, flipping the overlay
-    // from "Khent paused" back to "Synced" and kicking the clock.
     if (_lastRemoteUpdate != null &&
-        !incoming.updatedAt.isAfter(_lastRemoteUpdate!)) {
+        incoming.updatedAt.isBefore(_lastRemoteUpdate!)) {
       debugPrint(
-        'WatchPartyScreen _onRoomUpdate: discarding stale update (updatedAt=${incoming.updatedAt} ≤ last=$_lastRemoteUpdate)',
+        'WatchPartyScreen _onRoomUpdate: discarding out-of-order update (updatedAt=${incoming.updatedAt} < last=$_lastRemoteUpdate)',
       );
       return;
     }
     _lastRemoteUpdate = incoming.updatedAt;
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
-    final stateChanged = incoming.state != _room.state;
+    // Compare with what OUR player is doing, not with the last
+    // snapshot: if Firestore skipped ahead and merged the partner's
+    // pause with a later tick, we still notice the difference.
+    final stateChanged = (incoming.state == 'paused') != _hostExplicitlyPaused;
+    final isLocalWrite =
+        incoming.updatedBy == _myUid &&
+        (incoming.beatBy == null || incoming.beatBy == _myUid);
+    debugPrint(
+      'WatchPartyScreen _onRoomUpdate: isLocal=$isLocalWrite, state=${incoming.state}, time=${incoming.currentTime}, updatedBy=${incoming.updatedBy}',
+    );
+    if (isLocalWrite && !mediaChanged && !stateChanged) {
+      _room = incoming;
+      return;
+    }
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
 
@@ -535,8 +553,10 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       if (_isHlsServer) {
         _reloadHlsAt(0);
       } else if (_isEmbedServer) {
+        _cinesrcReady = false;
         _iframe.src = _room.streamUrl!;
       } else {
+        _cinesrcReady = false;
         _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       }
       setState(() {});
@@ -551,6 +571,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _autoplay = !_hostExplicitlyPaused;
       if (_isHlsServer) {
         _applyHlsState(incoming);
+        setState(() {});
+      } else if (_isControlledEmbed) {
+        _syncPlayerTo(incoming.currentTime, paused: _hostExplicitlyPaused);
         setState(() {});
       } else {
         _rebuildAt(incoming.currentTime);
@@ -578,6 +601,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     if (drift > _WatchPartyScreenStateBase._resyncThresholdSeconds) {
       if (_isHlsServer && _hlsController.isAttached) {
         _hlsController.seek(incoming.currentTime);
+      } else if (_isControlledEmbed) {
+        _quietPlayerEvents();
+        _sendCinesrc('seek', [incoming.currentTime]);
       } else {
         _rebuildAt(incoming.currentTime);
       }
@@ -615,6 +641,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _iframeFailed = false;
     _anchorEpoch = DateTime.now();
     _anchorTime = startSeconds;
+    _cinesrcReady = false;
     _iframe.src = _buildPlayerUrl(
       _selectedProvider,
       startSeconds: startSeconds,
@@ -658,6 +685,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         if (_isLoading) _onIframeLoadError();
       });
       _applySandbox(next);
+      _cinesrcReady = false;
       _iframe.src = _buildPlayerUrl(next, startSeconds: _localStartHint());
     } else {
       setState(() => _iframeFailed = true);
@@ -716,11 +744,26 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         final origin = msg.origin;
         final data = msg.data;
         if (data == null) return;
+        if (msg.source != _iframe.contentWindow) return;
+        final iframeOrigin = Uri.parse(_iframe.src).origin;
         final activeOrigin = _originForProvider(_selectedProvider.id);
-        if (origin != activeOrigin) return;
-        final map = data.dartify();
-        if (map is! Map) return;
-        final type = map['type'];
+        if (origin != iframeOrigin && origin != activeOrigin) return;
+
+        final raw = data.dartify();
+        if (_selectedProvider.id == 'everglow-embed' && raw is Map) {
+          if (raw['type'] == 'everglow-embed-failed') {
+            _onIframeLoadError();
+            return;
+          }
+          final playerEvent = parseCinesrcEvent(raw);
+          if (playerEvent != null) {
+            _contentCheckTimer?.cancel();
+            _onCinesrcEvent(playerEvent);
+            return;
+          }
+        }
+        if (raw is! Map) return;
+        final type = raw['type'];
         if (type == 'MEDIA_DATA' || type == 'PLAYER_EVENT') {
           _contentCheckTimer?.cancel();
         }
@@ -822,6 +865,140 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     return _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
   }
 
+  // ─── Live control helpers ─────────────────────────────────────────
+
+  bool get _isControlledEmbed =>
+      _cinesrcReady && _usesIframe && !_isEmbedServer;
+
+  void _quietPlayerEvents() {
+    _ignorePlayerEventsUntil = DateTime.now().add(
+      const Duration(milliseconds: 1500),
+    );
+  }
+
+  bool get _playerEventsQuiet =>
+      DateTime.now().isBefore(_ignorePlayerEventsUntil);
+
+  void _sendCinesrc(String command, [List<Object?> args = const []]) {
+    final target = _iframe.contentWindow;
+    if (target == null) return;
+    try {
+      target.postMessage(
+        cinesrcCommand(command, args).jsify(),
+        Uri.parse(_iframe.src).origin.toJS,
+      );
+    } catch (e) {
+      debugPrint('[WatchPartyScreen] cinesrc command $command failed: $e');
+    }
+  }
+
+  /// Puts the player where the room says it should be.
+  void _syncPlayerTo(
+    double time, {
+    required bool paused,
+    bool forceSeek = false,
+  }) {
+    _quietPlayerEvents();
+    final drift = (time - _estimatedLocalTime()).abs();
+    final seek = forceSeek ? time > 1.0 : drift > (paused ? 0.5 : 1.5);
+    if (seek) {
+      _anchorTime = time;
+      _sendCinesrc('seek', [time]);
+    }
+    _anchorEpoch = DateTime.now();
+    if (paused) {
+      _playCheckTimer?.cancel();
+      _sendCinesrc('pause');
+    } else {
+      _playWhenAllowed();
+    }
+  }
+
+  /// Plays, and if the browser silently refused (sound autoplay is
+  /// blocked until the viewer taps), falls back to muted playback so
+  /// the picture still moves with the partner's.
+  void _playWhenAllowed() {
+    _sendCinesrc('play');
+    _playCheckTimer?.cancel();
+    _playCheckTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted || _hostExplicitlyPaused) return;
+      _sendCinesrc('getPaused');
+    });
+  }
+
+  void _onCinesrcEvent(CinesrcEvent event) {
+    final time = event.currentTime;
+    switch (event.name) {
+      case 'ready':
+        _cinesrcReady = true;
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isResyncing = false;
+          });
+        }
+        _syncPlayerTo(
+          _room.currentTime,
+          paused: _hostExplicitlyPaused,
+          forceSeek: true,
+        );
+      case 'timeupdate':
+        if (time != null) {
+          _anchorTime = time;
+          _anchorEpoch = DateTime.now();
+        }
+      case 'response':
+        if (event.command == 'getPaused' &&
+            event.result == true &&
+            !_hostExplicitlyPaused) {
+          _quietPlayerEvents();
+          _sendCinesrc('setMuted', [true]);
+          _sendCinesrc('play');
+        }
+      case 'play':
+        if (!_playerEventsQuiet && _hostExplicitlyPaused) {
+          _broadcastLocal(paused: false);
+        }
+      case 'pause':
+        if (!_playerEventsQuiet && !_hostExplicitlyPaused) {
+          _broadcastLocal(paused: true);
+        }
+      case 'seeking':
+        if (!_playerEventsQuiet &&
+            time != null &&
+            isUserSeek(
+              expectedSeconds: _estimatedLocalTime(),
+              reportedSeconds: time,
+            )) {
+          _userSeekPending = true;
+        }
+      case 'seeked':
+        if (_userSeekPending && time != null) {
+          _userSeekPending = false;
+          _broadcastLocal(paused: _hostExplicitlyPaused, time: time);
+        }
+    }
+  }
+
+  /// The viewer used the player's own controls: tell the partner.
+  void _broadcastLocal({required bool paused, double? time}) {
+    final t = time ?? _estimatedLocalTime();
+    setState(() {
+      _hostExplicitlyPaused = paused;
+      _autoplay = !paused;
+    });
+    _anchorTime = t;
+    _anchorEpoch = DateTime.now();
+    unawaited(
+      _service.updatePlayback(
+        roomId: _room.id,
+        state: paused ? 'paused' : 'playing',
+        currentTime: t,
+        updatedBy: _myUid,
+      ),
+    );
+  }
+
   // ─── User actions ─────────────────────────────────────────────────
 
   Future<void> _togglePlayPause() async {
@@ -847,6 +1024,24 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         // Local taps are a user gesture, so unmute for real audio.
         _hlsController.setMuted(false);
         _hlsController.play();
+      }
+      await _service.updatePlayback(
+        roomId: _room.id,
+        state: nextState,
+        currentTime: _estimatedLocalTime(),
+        updatedBy: _myUid,
+      );
+      return;
+    }
+    if (_isControlledEmbed) {
+      _quietPlayerEvents();
+      if (willPause) {
+        _playCheckTimer?.cancel();
+        _sendCinesrc('pause');
+      } else {
+        // A tap is a user gesture, so sound is allowed.
+        _sendCinesrc('setMuted', [false]);
+        _playWhenAllowed();
       }
       await _service.updatePlayback(
         roomId: _room.id,

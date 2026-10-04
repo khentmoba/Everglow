@@ -72,6 +72,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     if (server.isHls) {
       _reloadHlsAt(0);
     } else if (_usesIframe) {
+      _cinesrcReady = false;
       _iframe.src = server.streamUrl;
     }
   }
@@ -110,6 +111,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
     });
+    _cinesrcReady = false;
     _iframe.src = _buildPlayerUrl(provider, startSeconds: _localStartHint());
   }
 

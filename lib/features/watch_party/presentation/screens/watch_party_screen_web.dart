@@ -19,6 +19,7 @@ import '../../../cinema/data/models/video_source_config.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/models/watch_party_server.dart';
+import '../../data/services/cinesrc_bridge.dart';
 import '../../data/services/voice_chat_service.dart';
 import '../../data/services/watch_party_server_service.dart';
 import '../../data/services/watch_party_service.dart';

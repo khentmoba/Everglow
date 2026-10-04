@@ -107,6 +107,12 @@ class WatchPartyRoom {
   /// reload loop).
   final String updatedBy;
 
+  /// Uid of whoever sent the latest heartbeat, or null if none yet.
+  /// Heartbeats only refresh [currentTime] and [updatedAt]; they never
+  /// touch [state] or [updatedBy], so a tick can't undo a pause that
+  /// the other person just made.
+  final String? beatBy;
+
   // ─── Lifecycle ─────────────────────────────────────────────────────
 
   /// When the room was created. Used to age out stale rooms and to
@@ -142,6 +148,7 @@ class WatchPartyRoom {
     required this.currentTime,
     required this.updatedAt,
     required this.updatedBy,
+    this.beatBy,
     required this.createdAt,
     required this.active,
   });
@@ -213,6 +220,7 @@ class WatchPartyRoom {
       currentTime: (data['currentTime'] as num?)?.toDouble() ?? 0.0,
       updatedAt: _parseDateTime(data['updatedAt']) ?? DateTime.now(),
       updatedBy: (data['updatedBy'] as String?) ?? '',
+      beatBy: data['beatBy'] as String?,
       createdAt: _parseDateTime(data['createdAt']) ?? DateTime.now(),
       active: data['active'] == true,
     );
@@ -242,6 +250,7 @@ class WatchPartyRoom {
       'currentTime': currentTime,
       'updatedAt': Timestamp.fromDate(updatedAt),
       'updatedBy': updatedBy,
+      if (beatBy != null) 'beatBy': beatBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'active': active,
     };
@@ -252,6 +261,7 @@ class WatchPartyRoom {
     double? currentTime,
     DateTime? updatedAt,
     String? updatedBy,
+    String? beatBy,
     bool? active,
   }) {
     return WatchPartyRoom(
@@ -278,6 +288,7 @@ class WatchPartyRoom {
       currentTime: currentTime ?? this.currentTime,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
+      beatBy: beatBy ?? this.beatBy,
       createdAt: createdAt,
       active: active ?? this.active,
     );
@@ -317,6 +328,7 @@ class WatchPartyRoom {
       currentTime: currentTime,
       updatedAt: updatedAt,
       updatedBy: updatedBy,
+      beatBy: beatBy,
       createdAt: createdAt,
       active: active,
     );
