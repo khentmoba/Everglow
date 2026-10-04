@@ -1,6 +1,62 @@
 part of 'watch_party_screen_web.dart';
 
 abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
+  Future<void> _showMediaPicker() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => WatchPartyMediaPickerSheet(
+        currentTitle: _room.title,
+        onSelect: _applyMedia,
+      ),
+    );
+  }
+
+  Future<void> _applyMedia(MediaRef media) async {
+    final roomId = _room.id;
+    final uid = _myUid;
+    await _service.updateMedia(
+      roomId: roomId,
+      mediaType: media.mediaType,
+      tmdbId: media.tmdbId,
+      malId: media.malId,
+      isAnime: media.isAnime,
+      season: media.season,
+      episode: media.episode,
+      title: media.title,
+      posterPath: media.posterPath,
+      updatedBy: uid,
+    );
+    if (!mounted) return;
+    setState(() {
+      _room = _room
+          .copyWith(
+            mediaType: media.mediaType,
+            tmdbId: media.tmdbId,
+            malId: media.malId,
+            isAnime: media.isAnime,
+            season: media.season,
+            episode: media.episode,
+            title: media.title,
+            posterPath: media.posterPath,
+            state: 'paused',
+            currentTime: 0.0,
+          )
+          .copyWithServer();
+      _hostExplicitlyPaused = true;
+      _cinesrcReady = false;
+      _hlsReady = false;
+      _hlsFailed = false;
+      _hlsError = null;
+    });
+    if (media.isAnime) {
+      _bootstrapAnime();
+    } else if (_usesIframe) {
+      _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
+    }
+  }
+
   Future<void> _showServerPicker() async {
     final serverService = WatchPartyServerService();
     final current = _room.streamUrl == null

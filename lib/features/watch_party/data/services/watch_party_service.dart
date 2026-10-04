@@ -184,22 +184,29 @@ class WatchPartyService {
       await _db.collection(_collection).doc(roomId).update({
         'mediaType': mediaType,
         'tmdbId': tmdbId,
-        // ignore: use_null_aware_elements
-        if (malId != null) 'malId': malId,
-        // ignore: use_null_aware_elements
-        if (season != null) 'season': season,
-        // ignore: use_null_aware_elements
-        if (episode != null) 'episode': episode,
+        'malId': malId ?? FieldValue.delete(),
+        'season': season ?? FieldValue.delete(),
+        'episode': episode ?? FieldValue.delete(),
         'isAnime': isAnime,
         'title': title,
         'posterPath': posterPath,
+        'serverType': FieldValue.delete(),
+        'serverName': FieldValue.delete(),
+        'serverHost': FieldValue.delete(),
+        'streamUrl': FieldValue.delete(),
+        'subtitleUrl': FieldValue.delete(),
+        'proxyEnabled': false,
         'state': 'paused',
         'currentTime': 0.0,
         'updatedAt': Timestamp.fromDate(DateTime.now()),
         'updatedBy': updatedBy,
       });
-    } catch (e) {
-      debugPrint('WatchPartyService.updateMedia failed: $e');
+    } catch (e, st) {
+      Logger.e(
+        'WatchParty: updateMedia failed for $roomId',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 

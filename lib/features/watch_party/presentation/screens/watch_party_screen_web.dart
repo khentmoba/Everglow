@@ -17,6 +17,8 @@ import '../../../cinema/data/services/player_memory_service.dart';
 import '../../../cinema/data/services/video_source_service.dart';
 import '../../../cinema/data/models/video_source_config.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/utils/logger.dart';
+import '../../data/models/media_ref.dart';
 import '../../data/models/watch_party_room.dart';
 import '../../data/models/watch_party_server.dart';
 import '../../data/services/cinesrc_bridge.dart';
@@ -27,6 +29,7 @@ import '../widgets/hls_server_player.dart';
 import '../widgets/server_picker_sheet.dart';
 import '../widgets/voice_chat_overlay.dart';
 import '../widgets/watch_party_chat_drawer.dart';
+import '../widgets/watch_party_media_picker_sheet.dart';
 import '../../../../core/theme/app_typography.dart';
 part 'watch_party_widgets.dart';
 part 'watch_party_state_base.dart';
@@ -246,9 +249,16 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             const SizedBox(width: 12),
           ],
           _CinemaPillButton(
-            icon: Icons.swap_horiz_rounded,
-            label: 'Try Another Source',
+            icon: Icons.movie_filter_rounded,
+            label: 'Choose Title',
             accent: true,
+            compact: compact,
+            onTap: _showMediaPicker,
+          ),
+          SizedBox(width: compact ? 6 : 8),
+          _CinemaPillButton(
+            icon: Icons.swap_horiz_rounded,
+            label: 'Source',
             compact: compact,
             onTap: _showServerPicker,
           ),
@@ -284,7 +294,13 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
             children: [
-              _metaBadge(Icons.source_rounded, activeServer, accent: true),
+              _metaBadge(
+                Icons.movie_filter_rounded,
+                'Choose Title',
+                accent: true,
+                onTap: _showMediaPicker,
+              ),
+              _metaBadge(Icons.source_rounded, activeServer),
               _metaBadge(
                 isTv ? Icons.tv_rounded : Icons.movie_rounded,
                 isTv ? 'TV Show' : 'Movie',
@@ -324,9 +340,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
     String label, {
     bool accent = false,
     Color? tint,
+    VoidCallback? onTap,
   }) {
     final chipColor = tint ?? AppColors.textMuted;
-    return Container(
+    final child = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: accent
@@ -359,6 +376,8 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
         ],
       ),
     );
+    if (onTap == null) return child;
+    return GestureDetector(onTap: onTap, child: child);
   }
 
   Widget _buildCinemaServerSelector() {

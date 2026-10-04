@@ -479,7 +479,21 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   /// anime items to play.
   Future<void> _bootstrapAnime() async {
     final malId = _room.malId ?? _room.tmdbId;
-    final tmdbId = await AniZipService().fetchTmdbId(malId);
+    var tmdbId = await AniZipService().fetchTmdbId(malId);
+    if (tmdbId == null && malId > 0) {
+      try {
+        final mappings = await AniZipService().fetchMappingsByAnilist(malId);
+        final raw = mappings?['mappings']?['themoviedb_id'];
+        if (raw is num) tmdbId = raw.toInt();
+        if (raw is String) tmdbId = int.tryParse(raw);
+      } catch (e, st) {
+        Logger.e(
+          'WatchParty: AniZip Anilist fallback failed',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
     if (!mounted) return;
     if (tmdbId == null) {
       setState(() => _iframeFailed = true);
@@ -555,6 +569,8 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       } else if (_isEmbedServer) {
         _cinesrcReady = false;
         _iframe.src = _room.streamUrl!;
+      } else if (_room.isAnime) {
+        _bootstrapAnime();
       } else {
         _cinesrcReady = false;
         _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);

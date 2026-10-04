@@ -22,12 +22,16 @@ The previous mechanism relied on rebuilding the cross-origin iframe with updated
    - User tap actions unmute audio. If an unprompted partner remote-play is blocked by browser sound policy, the screen detects it via `getPaused` and plays muted as fallback so video still advances in sync.
 5. **Bidirectional Control**:
    - Both Khent and Clair have active control over playback; when either partner pauses or resumes in their own UI, the partner's POV mirrors the change in real-time.
+6. **In-Party Title & Anime Picker (`watch_party_media_picker_sheet.dart`)**:
+   - Both Khent and Clair can now tap "Choose Title" in the top bar (or metadata row) to search and switch to ANY Movie, TV Show, or Anime in real-time without leaving the room or dropping voice/chat.
+   - Dual-tab interface supporting TMDB search & trending for Cinema, plus AniList search & trending for Anime, complete with episode selection.
 
 ## Verification
 
+- `test/features/watch_party/media_ref_test.dart` — 4 unit tests covering MediaRef initialization and room copyWith media updates.
 - `test/features/watch_party/cinesrc_bridge_test.dart` — 13 unit tests verifying command generation, event parsing, non-map rejection, and user seek detection.
 - `test/features/watch_party/watch_party_room_test.dart` — 3 new unit tests covering `beatBy` field isolation and copyWith behavior.
 - `functions/test/cinema_embed_bridge.test.js` — unit tests verifying command forwarding from parent to upstream CineSrc, unknown command filtering, origin validation, and playback event forwarding to parent.
-- All Flutter tests in `test/features/watch_party` pass (35/35).
+- All Flutter tests in `test/features/watch_party` pass (39/39).
 - All 15 CI regression guards in `tool/ci/check_*.dart` pass.
 - Full `flutter analyze` clean (0 issues).
