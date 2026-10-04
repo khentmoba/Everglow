@@ -51,9 +51,9 @@ class _LiveToolStripState extends State<_LiveToolStrip> {
                 for (var i = 0; i < tools.length; i++)
                   Padding(
                     padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-                    child: _DelayedFadeIn(
+                    child: _ToolStatusChip(
                       key: ValueKey(tools[i]),
-                      child: _ToolStatusChip(status: tools[i]),
+                      status: tools[i],
                     ),
                   ),
               ],
@@ -71,7 +71,7 @@ class _LiveToolStripState extends State<_LiveToolStrip> {
 class _ToolStatusChip extends StatefulWidget {
   final String status;
 
-  const _ToolStatusChip({required this.status});
+  const _ToolStatusChip({super.key, required this.status});
 
   @override
   State<_ToolStatusChip> createState() => _ToolStatusChipState();
@@ -155,214 +155,7 @@ class _ToolStatusChipState extends State<_ToolStatusChip>
   }
 }
 
-/// Quick-reply chips shown above the composer for one-tap follow-ups.
-class _QuickReplyChips extends StatelessWidget {
-  final ValueChanged<String> onSelect;
-  final bool centered;
-  final bool enabled;
-
-  const _QuickReplyChips({
-    required this.onSelect,
-    this.centered = false,
-    this.enabled = true,
-  });
-
-  static List<(String, String)> _getContextualChips() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) {
-      // Morning (5am - 12pm)
-      return const [
-        (
-          'Morning recap ☀️',
-          'Good morning Motchi! Give us our morning digest and what is on for today.',
-        ),
-        ('Log my mood 💭', 'I want to log my mood for today'),
-        (
-          'Couple question 💖',
-          'Ask us a sweet couple question to start our day together!',
-        ),
-        (
-          'What to watch tonight? 🎬',
-          'What should we watch tonight from our watchlist?',
-        ),
-        (
-          'Quiz us ✍️',
-          'Quiz us! Make a fun 5-question quiz for us with A-D options.',
-        ),
-        ('Save to Starlight ✨', 'Save this note to our Starlight Jar: '),
-        ('Add calendar 📅', 'Add a calendar event for tomorrow at 7pm'),
-      ];
-    } else if (hour >= 12 && hour < 17) {
-      // Afternoon (12pm - 5pm)
-      return const [
-        (
-          'Check in on us 💌',
-          'How are we doing today? Any sweet updates or notes?',
-        ),
-        (
-          'Quiz us ✍️',
-          'Quiz us! Make a fun 5-question quiz for us with A-D options.',
-        ),
-        (
-          'Flashcards 💡',
-          'Make us flashcards — 8 cards on something fun for us to learn together.',
-        ),
-        (
-          'Build a game 🎮',
-          'Make us a little game we can play right here — like tic-tac-toe!',
-        ),
-        ('Log my mood 💭', 'I want to log my mood'),
-        ('Plan a date 🥂', 'Plan a cozy date night for us'),
-        ('What should we watch? 🎬', 'What should we watch tonight?'),
-      ];
-    } else {
-      // Evening / Night (5pm - 5am)
-      return const [
-        (
-          'What to watch tonight? 🎬',
-          'What should we watch tonight from our watchlist?',
-        ),
-        (
-          'Today\'s recap 🌙',
-          'Give us today\'s recap of what happened in Everglow today.',
-        ),
-        ('Save to Starlight ✨', 'Save this note to our Starlight Jar: '),
-        ('Plan a date 🥂', 'Plan a cozy date night for us'),
-        (
-          'Quiz us ✍️',
-          'Quiz us! Make a fun 5-question quiz for us with A-D options.',
-        ),
-        ('Journal ✍️', 'Create a journal entry about our day together'),
-        ('Bucket dream ✨', 'Add something to our bucket list'),
-      ];
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hasMessages = context.select<AIService, bool>(
-      (ai) => ai.assistantConversation?.messages.isNotEmpty ?? false,
-    );
-    if (!enabled || hasMessages) return const SizedBox.shrink();
-    final chips = _getContextualChips();
-    final inner = SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(
-        horizontal: centered ? 24 : 12,
-        vertical: 8,
-      ),
-      child: Row(
-        children: chips.map((e) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _QuickPill(
-              label: e.$1,
-              onTap: enabled ? () => onSelect(e.$2) : null,
-            ),
-          );
-        }).toList(),
-      ),
-    );
-    if (!centered) return inner;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760),
-        child: inner,
-      ),
-    );
-  }
-}
-
-class _QuickPill extends StatefulWidget {
-  final String label;
-  final VoidCallback? onTap;
-  const _QuickPill({required this.label, this.onTap});
-  @override
-  State<_QuickPill> createState() => _QuickPillState();
-}
-
-class _QuickPillState extends State<_QuickPill> {
-  bool _hover = false;
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.onTap != null;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: Opacity(
-        opacity: enabled ? 1 : 0.5,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: enabled
-                ? () {
-                    HapticFeedback.lightImpact();
-                    widget.onTap!();
-                  }
-                : null,
-            borderRadius: BorderRadius.circular(20),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 7.5,
-              ),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    _hover && enabled
-                        ? AppColors.velvet.withValues(alpha: 0.95)
-                        : AppColors.inkDeep.withValues(alpha: 0.88),
-                    _hover && enabled
-                        ? AppColors.deepRose.withValues(alpha: 0.28)
-                        : AppColors.velvet.withValues(alpha: 0.60),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: _hover && enabled
-                      ? AppColors.blushGold.withValues(alpha: 0.50)
-                      : AppColors.blushGold.withValues(alpha: 0.18),
-                  width: 0.9,
-                ),
-                boxShadow: _hover && enabled
-                    ? [
-                        BoxShadow(
-                          color: AppColors.blushGold.withValues(alpha: 0.18),
-                          blurRadius: 14,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.20),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-              ),
-              child: Text(
-                widget.label,
-                style: AppTypography.bodySmall().copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _hover && enabled
-                      ? AppColors.blushGold
-                      : AppColors.petalWhite.withValues(alpha: 0.92),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Tappable web sources — persisted under her finished reply so Clair
-/// can open what Motchi actually discovered.
+/// Tappable web sources saved with a reply.
 class WebSourcesCard extends StatelessWidget {
   final List<Map<String, String>> sources; // {title, url, site}
   const WebSourcesCard({super.key, required this.sources});

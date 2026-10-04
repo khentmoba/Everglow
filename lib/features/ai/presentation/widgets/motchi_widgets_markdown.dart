@@ -14,10 +14,12 @@ class _MarkdownText extends StatelessWidget {
   Widget build(BuildContext context) {
     return EverglowMarkdown(
       text: text,
-      plainLists: true,
+      plain: true,
       baseStyle:
           baseStyle ??
           AppTypography.bodyMedium().copyWith(
+            fontFamily: AppTypography.reading,
+            fontWeight: FontWeight.w400,
             color: AppColors.textHigh,
             height: 1.55,
           ),
