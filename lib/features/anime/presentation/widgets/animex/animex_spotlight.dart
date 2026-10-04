@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/theme/app_motion.dart';
 import '../../../../../shared/utils/responsive_image.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 
@@ -42,8 +43,9 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   Timer? _armTimer;
   Timer? _fallbackTimer;
 
-  static const Duration _stillHoldDuration = Duration(seconds: 10);
-  static const Duration _trailerHoldDuration = Duration(seconds: 25);
+  // Shared with the cinema hero and the dashboard memories.
+  static const Duration _stillHoldDuration = AppMotion.carouselHold;
+  static const Duration _trailerHoldDuration = AppMotion.carouselHoldTrailer;
 
   bool _active = false;
   bool _muted = true;

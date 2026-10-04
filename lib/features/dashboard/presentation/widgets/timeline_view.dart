@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_elevation.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import 'package:intl/intl.dart';
@@ -94,7 +95,7 @@ class _TimelineViewState extends State<TimelineView> {
   }
 
   void _startAutoScroll() {
-    _autoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    _autoScrollTimer = Timer.periodic(AppMotion.carouselHold, (timer) {
       if (!mounted) return;
       if (!_pageController.hasClients) return;
       final count = _milestonesCount;
@@ -452,7 +453,9 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
   }
 
   void _startImgScroll() {
-    _imgTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+    // Same hold as the memory carousel that hosts this photo strip, so the
+    // whole Together zone rotates at one speed.
+    _imgTimer = Timer.periodic(AppMotion.carouselHold, (timer) {
       if (!mounted) return;
       if (!_imgController.hasClients) return;
       if (widget.milestone.imageUrls.length <= 1) return;
