@@ -48,6 +48,12 @@ class TmdbImages {
 
   static String posterFor(String? path) => _resolve(path, poster);
 
+  /// Small-grid variant (w342): enough for 120-175px cards even at 3x DPR
+  /// (175 * 3 = 525 physical px; w342 is a touch soft there but saves ~40%
+  /// bytes + wasm decode time on every scroll frame, which is the PWA
+  /// bottleneck — detail drawers keep using w500 via [posterFor]).
+  static String cardFor(String? path) => _resolve(path, card);
+
   static String backdropFor(String? path, {bool large = false}) =>
       _resolve(path, large ? backdropLarge : backdrop);
 

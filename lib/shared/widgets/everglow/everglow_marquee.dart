@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_motion.dart';
@@ -60,6 +62,10 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   ScrollPosition? _scrollPosition;
   List<Widget> _items = const [];
   double _loopWidth = 1;
+  // While the enclosing vertical list is scrolling, the drift pauses so the
+  // single web thread spends its 16ms on scroll raster instead of also
+  // repainting this row 60x/sec. Resumes shortly after the scroll settles.
+  Timer? _scrollSettle;
 
   @override
   void initState() {
@@ -122,6 +128,15 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
 
   void _onScroll() {
     _checkVisibility();
+    // Pause drift for the scroll duration: each tick repaints 2x card sets
+    // plus a ShaderMask saveLayer, which competes directly with the vertical
+    // scroll raster on Flutter Web's single thread (PWA jank).
+    final c = _controller;
+    if (c != null && c.isAnimating) c.stop();
+    _scrollSettle?.cancel();
+    _scrollSettle = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _syncTicker();
+    });
   }
 
   void _checkVisibility() {
@@ -165,6 +180,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   void _syncTicker() {
     final c = _controller;
     if (c == null) return;
+    // A pending settle means the vertical list is still moving — stay paused.
+    if (_scrollSettle?.isActive ?? false) return;
     final shouldRun = _canScroll && !_hovered && _isVisible;
     if (shouldRun && !c.isAnimating) {
       c.repeat();
@@ -176,6 +193,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollSettle?.cancel();
     _scrollPosition?.removeListener(_onScroll);
     _controller?.dispose();
     _offset.dispose();

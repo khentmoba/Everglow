@@ -32,6 +32,9 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   _AmbiencePainter? _painter;
   Animation<double>? _secondaryAnimation;
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
+  // While the dashboard list is moving, this full-screen layer pauses so the
+  // single web thread spends its frame budget on scroll raster, not auroras.
+  Timer? _scrollSettle;
 
   @override
   void initState() {
@@ -57,7 +60,14 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   }
 
   void _onScrollChange() {
-    _updateTickerState();
+    // Pause for the scroll duration; resume shortly after it settles (unless
+    // scrolled past / hidden, which _updateTickerState re-checks).
+    final c = _controller;
+    if (c != null && c.isAnimating) c.stop();
+    _scrollSettle?.cancel();
+    _scrollSettle = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _updateTickerState();
+    });
   }
 
   @override
@@ -84,6 +94,8 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   void _updateTickerState() {
     final c = _controller;
     if (c == null) return;
+    // A pending settle means the list is still moving — stay paused.
+    if (_scrollSettle?.isActive ?? false) return;
     final route = ModalRoute.of(context);
     final isRouteVisible = route == null || route.isCurrent;
     final isAppVisible = _lifecycleState == AppLifecycleState.resumed;
@@ -108,6 +120,7 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _scrollSettle?.cancel();
     widget.scrollController?.removeListener(_onScrollChange);
     _secondaryAnimation?.removeStatusListener(_onRouteAnimationStatus);
     // The painter owns the repaint gate, and the gate subscribes to the
@@ -246,6 +259,7 @@ class _BreathingEmblemState extends State<BreathingEmblem>
   AnimationController? _halo;
   _HaloPainter? _haloPainter;
   ScrollPosition? _scrollPosition;
+  Timer? _scrollSettle;
 
   @override
   void initState() {
@@ -275,20 +289,24 @@ class _BreathingEmblemState extends State<BreathingEmblem>
   }
 
   void _onScroll() {
-    final offscreen = _scrollPosition != null &&
-        _scrollPosition!.hasPixels &&
-        _scrollPosition!.pixels > 350;
-    if (offscreen) {
-      if (_breath?.isAnimating ?? false) _breath?.stop();
-      if (_halo?.isAnimating ?? false) _halo?.stop();
-    } else {
+    // Pause while scrolling; resume after it settles (unless offscreen).
+    if (_breath?.isAnimating ?? false) _breath?.stop();
+    if (_halo?.isAnimating ?? false) _halo?.stop();
+    _scrollSettle?.cancel();
+    _scrollSettle = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      final offscreen = _scrollPosition != null &&
+          _scrollPosition!.hasPixels &&
+          _scrollPosition!.pixels > 350;
+      if (offscreen) return;
       if (!(_breath?.isAnimating ?? true)) _breath?.repeat(reverse: true);
       if (!(_halo?.isAnimating ?? true)) _halo?.repeat();
-    }
+    });
   }
 
   @override
   void dispose() {
+    _scrollSettle?.cancel();
     _scrollPosition?.removeListener(_onScroll);
     _breath?.dispose();
     _halo?.dispose();
@@ -334,6 +352,7 @@ class _ShimmerTitleState extends State<ShimmerTitle>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   ScrollPosition? _scrollPosition;
+  Timer? _scrollSettle;
 
   @override
   void initState() {
@@ -358,18 +377,23 @@ class _ShimmerTitleState extends State<ShimmerTitle>
   }
 
   void _onScroll() {
-    final offscreen = _scrollPosition != null &&
-        _scrollPosition!.hasPixels &&
-        _scrollPosition!.pixels > 350;
-    if (offscreen) {
-      if (_controller?.isAnimating ?? false) _controller?.stop();
-    } else {
+    // ShaderMask repaints with a fresh gradient shader every tick — pause it
+    // while the list moves so scroll raster gets the whole thread.
+    if (_controller?.isAnimating ?? false) _controller?.stop();
+    _scrollSettle?.cancel();
+    _scrollSettle = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      final offscreen = _scrollPosition != null &&
+          _scrollPosition!.hasPixels &&
+          _scrollPosition!.pixels > 350;
+      if (offscreen) return;
       if (!(_controller?.isAnimating ?? true)) _controller?.repeat();
-    }
+    });
   }
 
   @override
   void dispose() {
+    _scrollSettle?.cancel();
     _scrollPosition?.removeListener(_onScroll);
     _controller?.dispose();
     super.dispose();
@@ -417,6 +441,7 @@ class _PulseHeartState extends State<PulseHeart>
     with SingleTickerProviderStateMixin {
   AnimationController? _controller;
   ScrollPosition? _scrollPosition;
+  Timer? _scrollSettle;
 
   @override
   void initState() {
@@ -441,18 +466,21 @@ class _PulseHeartState extends State<PulseHeart>
   }
 
   void _onScroll() {
-    final offscreen = _scrollPosition != null &&
-        _scrollPosition!.hasPixels &&
-        _scrollPosition!.pixels > 350;
-    if (offscreen) {
-      if (_controller?.isAnimating ?? false) _controller?.stop();
-    } else {
+    if (_controller?.isAnimating ?? false) _controller?.stop();
+    _scrollSettle?.cancel();
+    _scrollSettle = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      final offscreen = _scrollPosition != null &&
+          _scrollPosition!.hasPixels &&
+          _scrollPosition!.pixels > 350;
+      if (offscreen) return;
       if (!(_controller?.isAnimating ?? true)) _controller?.repeat();
-    }
+    });
   }
 
   @override
   void dispose() {
+    _scrollSettle?.cancel();
     _scrollPosition?.removeListener(_onScroll);
     _controller?.dispose();
     super.dispose();

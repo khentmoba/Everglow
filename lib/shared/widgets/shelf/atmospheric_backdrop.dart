@@ -32,6 +32,11 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Each glow paints inside its own circle's bounding box instead of the
+    // whole screen (same as EverglowBackground.glowRect): on Flutter Web
+    // every frame replays the full canvas, so two full-screen radial
+    // gradients are paid again on every scroll tick. Bounding keeps the
+    // exact same centre/radius while filling far fewer pixels.
     return Positioned.fill(
       child: IgnorePointer(
         child: RepaintBoundary(
@@ -40,25 +45,21 @@ class ShelfAtmosphericBackdrop extends StatelessWidget {
               color: baseColor,
               backgroundBlendMode: BlendMode.srcOver,
             ),
-            child: Stack(
-              children: [
-                for (final g in glows)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: g.alignment,
-                          radius: g.size,
-                          colors: [
-                            g.color.withValues(alpha: g.opacity),
-                            g.color.withValues(alpha: 0),
-                          ],
-                          stops: const [0.0, 1.0],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final size = constraints.biggest;
+                return Stack(
+                  children: [
+                    for (final g in glows)
+                      Positioned.fromRect(
+                        rect: EverglowBackground.glowRect(g, size),
+                        child: DecoratedBox(
+                          decoration: EverglowBackground.glowDecoration(g),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ),

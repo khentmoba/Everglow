@@ -151,7 +151,10 @@ class _DeferredSectionState extends State<DeferredSection> {
   /// laid out yet at notification time, and leave their placeholders behind
   /// until the user happened to scroll again.
   void _onScroll() {
-    _check();
+    // One geometry read per frame max: during a fast scroll this fires per
+    // pixel across ~20 sections, and each localToGlobal walks the render
+    // tree on the single web thread. The post-frame pass + 400ms safety net
+    // still reveal within a frame of entering the preload margin.
     _scheduleCheck();
   }
 
