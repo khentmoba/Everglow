@@ -611,7 +611,6 @@ void main() {
         ),
       ),
     );
-    addTearDown(ai.dispose);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
@@ -646,7 +645,8 @@ void main() {
     expect(haloAlphaAt(tester).a, isNot(closeTo(midway, 0.001)));
     expect(tester.takeException(), isNull);
 
-    // Once the reply is a saved message, the answering look is gone.
+    // The tree comes down before dispose: a disposed notifier must not
+    // still have listeners attached.
     await tester.pumpWidget(const SizedBox.shrink());
     ai.dispose();
   });
