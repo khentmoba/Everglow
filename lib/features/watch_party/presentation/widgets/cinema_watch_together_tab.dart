@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 import 'package:provider/provider.dart';
@@ -16,8 +17,90 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/services/watch_party_service.dart';
 import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import 'start_watch_party_button.dart';
+import 'watch_party_media_picker_sheet.dart';
 import 'temporary_chat_panel.dart';
 part 'cinema_watch_together_widgets.dart';
+
+/// Opens the full title picker and starts a party with whatever is chosen.
+///
+/// This is the way in when nothing is saved yet. The tab used to offer
+/// only posters from My List, so a couple who had not saved a single
+/// title saw an empty stage and no way to start — while the good search
+/// picker sat inside the party screen, which needed a party to open.
+/// Classic chicken-and-egg. Search and trending now sit right here, and
+/// picking a title starts (or switches) the party immediately.
+class _ChooseTitleButton extends StatelessWidget {
+  const _ChooseTitleButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Semantics(
+        button: true,
+        label: 'Choose a title to watch together',
+        child: GestureDetector(
+          onTap: () => _open(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 26,
+              vertical: 14,
+            ),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [NetflixColors.accent, AppColors.rosePressed],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: NetflixColors.accent.withValues(alpha: 0.38),
+                  blurRadius: 20,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.petalWhite,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Choose a title',
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 14,
+                    color: AppColors.petalWhite,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _open(BuildContext context) async {
+    HapticFeedback.selectionClick();
+    // The sheet reports the chosen title through onSelect and closes
+    // itself, so the callback is where the party starts.
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => WatchPartyMediaPickerSheet(
+        currentTitle: '',
+        onSelect: (media) {
+          Navigator.of(sheetContext).pop();
+          startWatchParty(context, media);
+        },
+      ),
+    );
+  }
+}
 
 /// Dedicated "Watch Together" tab inside Cinema.
 ///
@@ -154,6 +237,16 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
             child: _WatchTogetherStage(isEmpty: widget.watchlist.isEmpty),
           ),
         ),
+        if (isCouple)
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(
+              isDesktop ? 48 : 16,
+              18,
+              isDesktop ? 48 : 16,
+              0,
+            ),
+            sliver: const SliverToBoxAdapter(child: _ChooseTitleButton()),
+          ),
         if (isCouple && myUid != null && partnerUid != null)
           SliverPadding(
             padding: EdgeInsets.fromLTRB(

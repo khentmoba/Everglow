@@ -14,6 +14,152 @@ import '../../../../core/theme/app_colors.dart';
 
 export '../../data/models/media_ref.dart';
 
+/// Starts a party for [media] (or switches the running one to it) and
+/// opens the player.
+///
+/// Every entry point funnels through here: the poster buttons, the
+/// dashboard card, and the Watch Together tab's own title picker. Keeping
+/// one implementation is what stopped those surfaces from drifting —
+/// the tab used to have its own private copy of this logic, which is how
+/// it ended up unable to start a party from a searched title.
+///
+/// If a party is already live and [media] is a different title, the room
+/// is switched in place so the partner's client follows. Otherwise a new
+/// room is created and the conversation starts clean.
+Future<void> startWatchParty(BuildContext context, MediaRef media) async {
+  final auth = context.read<AuthService>();
+  final myUid = auth.uid;
+  final partnerUid = auth.partnerUid;
+  if (myUid == null || partnerUid == null) return;
+
+  final service = WatchPartyService();
+  final roomId = WatchPartyRoom.buildRoomId(myUid, partnerUid);
+  final existing = await service.getRoom(roomId);
+  final hasParty = existing != null && existing.active;
+
+  WatchPartyRoom toOpen;
+  bool isHost;
+  bool freshChat = false;
+
+  if (hasParty) {
+    final room = existing;
+    final mediaChanged =
+        room.tmdbId != media.tmdbId ||
+        room.season != media.season ||
+        room.episode != media.episode;
+    if (mediaChanged) {
+      freshChat = true;
+      await service.updateMedia(
+        roomId: room.id,
+        mediaType: media.mediaType,
+        tmdbId: media.tmdbId,
+        malId: media.malId,
+        isAnime: media.isAnime,
+        season: media.season,
+        episode: media.episode,
+        title: media.title,
+        posterPath: media.posterPath,
+        updatedBy: myUid,
+      );
+      toOpen = WatchPartyRoom(
+        id: room.id,
+        hostUid: room.hostUid,
+        hostName: room.hostName,
+        partnerUid: room.partnerUid,
+        partnerName: room.partnerName,
+        mediaType: media.mediaType,
+        tmdbId: media.tmdbId,
+        malId: media.malId,
+        isAnime: media.isAnime,
+        season: media.season,
+        episode: media.episode,
+        title: media.title,
+        posterPath: media.posterPath,
+        state: 'paused',
+        currentTime: 0.0,
+        updatedAt: DateTime.now(),
+        updatedBy: myUid,
+        createdAt: room.createdAt,
+        active: true,
+      );
+      isHost = room.hostUid == myUid;
+    } else {
+      toOpen = room;
+      isHost = room.hostUid == myUid;
+    }
+  } else {
+    if (media.tmdbId == 0) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Browse a title first to start a party.',
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.petalWhite,
+            ),
+          ),
+          backgroundColor: AppColors.deepRose,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+    toOpen = await service.startRoom(
+      hostUid: myUid,
+      hostName: auth.currentUser ?? '',
+      partnerUid: partnerUid,
+      partnerName: auth.partnerName,
+      mediaType: media.mediaType,
+      tmdbId: media.tmdbId,
+      malId: media.malId,
+      isAnime: media.isAnime,
+      season: media.season,
+      episode: media.episode,
+      title: media.title,
+      posterPath: media.posterPath,
+    );
+    isHost = true;
+    freshChat = true;
+  }
+
+  if (freshChat) {
+    // Each movie night starts with a clean conversation. Both the
+    // in-player chat and the Watch Together temporary chat share the
+    // couple's room id, so clearing here refreshes both surfaces.
+    try {
+      await WatchPartyChatService().clearMessages(toOpen.id);
+    } catch (e) {
+      debugPrint('SWP clear party chat failed: $e');
+    }
+    try {
+      final tempService = TemporaryChatService();
+      await tempService.ensureRoom(
+        roomId: toOpen.id,
+        myUid: myUid,
+        partnerUid: partnerUid,
+      );
+      await tempService.clearMessages(toOpen.id);
+    } catch (e) {
+      debugPrint('SWP clear temporary chat failed: $e');
+    }
+  }
+
+  if (!context.mounted) return;
+  await watch_party_lib.loadLibrary();
+  if (!context.mounted) return;
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => watch_party_lib.WatchPartyScreen(
+        initialRoom: toOpen,
+        isHost: isHost,
+      ),
+    ),
+  );
+}
+
 const _cDeepRose = AppColors.deepRose;
 const _cGold = AppColors.animeGold;
 const _cAmber = AppColors.warmAmber;
@@ -341,142 +487,11 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
 
   // ─── Tap handler ──────────────────────────────────────────────────
 
-  Future<void> _onTap(
-    BuildContext context,
-    bool hasParty,
-    WatchPartyRoom? room,
-  ) async {
+  Future<void> _onTap(BuildContext context, bool hasParty, WatchPartyRoom? room) async {
     HapticFeedback.selectionClick();
-    final auth = context.read<AuthService>();
-    final myUid = auth.uid;
-    final partnerUid = auth.partnerUid;
-    if (myUid == null || partnerUid == null) return;
-    final myName = auth.currentUser ?? '';
-    final partnerName = auth.partnerName;
-
-    WatchPartyRoom toOpen;
-    bool isHost;
-    bool freshChat = false;
-    debugPrint(
-      'SWP _onTap: hasParty=$hasParty, media.tmdbId=${widget.media.tmdbId}, room.tmdbId=${room?.tmdbId}',
-    );
-    if (hasParty && room != null) {
-      // Check if user is picking a different movie/episode.
-      // A tmdbId of 0 means the button was built from a dummy MediaRef
-      // (e.g. the dashboard card) — in that case we should never switch
-      // the room to the dummy id.
-      final mediaChanged =
-          widget.media.tmdbId != 0 &&
-          (room.tmdbId != widget.media.tmdbId ||
-              room.season != widget.media.season ||
-              room.episode != widget.media.episode);
-      if (mediaChanged) {
-        freshChat = true;
-        await _service.updateMedia(
-          roomId: room.id,
-          mediaType: widget.media.mediaType,
-          tmdbId: widget.media.tmdbId,
-          malId: widget.media.malId,
-          isAnime: widget.media.isAnime,
-          season: widget.media.season,
-          episode: widget.media.episode,
-          title: widget.media.title,
-          posterPath: widget.media.posterPath,
-          updatedBy: myUid,
-        );
-        toOpen = WatchPartyRoom(
-          id: room.id,
-          hostUid: room.hostUid,
-          hostName: room.hostName,
-          partnerUid: room.partnerUid,
-          partnerName: room.partnerName,
-          mediaType: widget.media.mediaType,
-          tmdbId: widget.media.tmdbId,
-          malId: widget.media.malId,
-          isAnime: widget.media.isAnime,
-          season: widget.media.season,
-          episode: widget.media.episode,
-          title: widget.media.title,
-          posterPath: widget.media.posterPath,
-          state: 'paused',
-          currentTime: 0.0,
-          updatedAt: DateTime.now(),
-          updatedBy: myUid,
-          createdAt: room.createdAt,
-          active: true,
-        );
-        isHost = room.hostUid == myUid;
-      } else {
-        toOpen = room;
-        isHost = room.hostUid == myUid;
-      }
-    } else {
-      if (widget.media.tmdbId == 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Browse a title first to start a party.',
-              style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite),
-            ),
-            backgroundColor: _cDeepRose,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-        return;
-      }
-      toOpen = await _service.startRoom(
-        hostUid: myUid,
-        hostName: myName,
-        partnerUid: partnerUid,
-        partnerName: partnerName,
-        mediaType: widget.media.mediaType,
-        tmdbId: widget.media.tmdbId,
-        malId: widget.media.malId,
-        isAnime: widget.media.isAnime,
-        season: widget.media.season,
-        episode: widget.media.episode,
-        title: widget.media.title,
-        posterPath: widget.media.posterPath,
-      );
-      isHost = true;
-      freshChat = true;
-    }
-
-    if (freshChat) {
-      // Each movie night starts with a clean conversation. Both the
-      // in-player chat and the Watch Together temporary chat share the
-      // couple's room id, so clearing here refreshes both surfaces.
-      try {
-        await WatchPartyChatService().clearMessages(toOpen.id);
-      } catch (e) {
-        debugPrint('SWP clear party chat failed: $e');
-      }
-      try {
-        final tempService = TemporaryChatService();
-        await tempService.ensureRoom(
-          roomId: toOpen.id,
-          myUid: myUid,
-          partnerUid: partnerUid,
-        );
-        await tempService.clearMessages(toOpen.id);
-      } catch (e) {
-        debugPrint('SWP clear temporary chat failed: $e');
-      }
-    }
-
-    if (!context.mounted) return;
-    await watch_party_lib.loadLibrary();
-    if (!context.mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => watch_party_lib.WatchPartyScreen(
-          initialRoom: toOpen,
-          isHost: isHost,
-        ),
-      ),
-    );
+    // A dummy id means the button was built without a real title (the
+    // dashboard card). Never let it overwrite a live room.
+    if (hasParty && widget.media.tmdbId == 0) return;
+    return startWatchParty(context, widget.media);
   }
 }
