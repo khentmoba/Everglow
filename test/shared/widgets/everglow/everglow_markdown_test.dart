@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:everglow/core/theme/app_typography.dart';
 import 'package:everglow/shared/widgets/everglow/everglow_markdown.dart';
 
 /// Global chat regression: AI answers must never show raw markdown
@@ -89,7 +90,7 @@ void main() {
           body: EverglowMarkdown(
             text:
                 '- **First** point\n- Second point\n\n1. Step one\n2. Step two',
-            plainLists: true,
+            plain: true,
           ),
         ),
       ),
@@ -123,6 +124,51 @@ void main() {
     }
     expect(find.textContaining('**', findRichText: true), findsNothing);
     expect(find.textContaining('Step two', findRichText: true), findsWidgets);
+  });
+
+  testWidgets('plain chat keeps reading type without ornamental markdown', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: EverglowMarkdown(
+            text:
+                '# A little plan\n\n**Tonight:**\n\n- Pick a film\n- Make snacks\n\n💡 Keep it simple',
+            plain: true,
+            baseStyle: TextStyle(
+              fontFamily: AppTypography.reading,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+    final heading = tester.widget<RichText>(
+      find.text('A little plan', findRichText: true),
+    );
+    expect(heading.text.style!.fontFamily, AppTypography.reading);
+    expect(heading.text.style!.fontWeight, FontWeight.w600);
+    expect(find.textContaining('**', findRichText: true), findsNothing);
+    expect(
+      find.textContaining('Keep it simple', findRichText: true),
+      findsWidgets,
+    );
+    for (final element
+        in find
+            .descendant(
+              of: find.byType(EverglowMarkdown),
+              matching: find.byType(Container),
+            )
+            .evaluate()) {
+      final decoration = (element.widget as Container).decoration;
+      if (decoration is BoxDecoration) {
+        expect(decoration.gradient, isNull);
+        expect(decoration.boxShadow, isNull);
+      }
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('numbered steps share one grouped card', (tester) async {

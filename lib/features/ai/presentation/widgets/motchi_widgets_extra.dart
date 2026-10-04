@@ -121,46 +121,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
         : '';
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
         mainAxisAlignment: widget.isUser
             ? MainAxisAlignment.end
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!widget.isUser) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                'assets/images/motchi_avatar.webp',
-                width: 30,
-                height: 30,
-                cacheWidth: PerfSettings.sizedDecodeWidth(90),
-                cacheHeight: PerfSettings.sizedDecodeWidth(90),
-                filterQuality: FilterQuality.high,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 10),
-          ],
           Flexible(
             child: GestureDetector(
-              onLongPress: () {
-                HapticFeedback.selectionClick();
-                Clipboard.setData(ClipboardData(text: displayText));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Copied', style: AppTypography.bodySmall()),
-                    duration: const Duration(seconds: 1),
-                    backgroundColor: AppColors.velvet,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.radiusLg,
-                    ),
-                    margin: const EdgeInsets.all(AppSpacing.lg),
-                  ),
-                );
-              },
+              onLongPress: () => copyText(context, displayText),
               child: Container(
                 constraints: BoxConstraints(
                   maxWidth:
@@ -169,16 +139,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                 ),
                 padding: widget.isUser
                     ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
-                    : const EdgeInsets.only(top: 3),
+                    : EdgeInsets.zero,
                 decoration: widget.isUser
                     ? BoxDecoration(
-                        color: AppColors.roseQuartz.withValues(alpha: 0.16),
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(20),
-                          topRight: Radius.circular(6),
-                          bottomLeft: Radius.circular(20),
-                          bottomRight: Radius.circular(20),
-                        ),
+                        color: AppColors.glassSoft,
+                        borderRadius: AppRadius.radiusLg,
                       )
                     : null,
                 child: Column(
@@ -190,27 +155,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          const _MotchiAvatar(size: 20),
+                          const SizedBox(width: 8),
                           Text(
                             'Motchi',
-                            style: AppTypography.labelSmall().copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.roseQuartz,
+                            style: AppTypography.bodySmall().copyWith(
+                              fontFamily: AppTypography.reading,
+                              color: AppColors.textMedium,
                             ),
                           ),
-                          if (widget.isStreaming) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              'purring…',
-                              style: AppTypography.bodySmall().copyWith(
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                                color: AppColors.blushGold.withValues(
-                                  alpha: 0.75,
-                                ),
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -226,14 +179,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.inkDeep.withValues(alpha: 0.70),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: AppColors.blushGold.withValues(
-                                alpha: 0.28,
-                              ),
-                              width: 0.9,
-                            ),
+                            color: AppColors.glassSoft,
+                            borderRadius: AppRadius.radiusMd,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,8 +244,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
                           height: 1.55,
+                          fontFamily: AppTypography.reading,
                           fontSize: 15.5,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                         ),
                       )
                     else if (widget.isStreaming && cleanBubbleText.isEmpty)
@@ -326,8 +274,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   baseStyle: AppTypography.bodyMedium()
                                       .copyWith(
                                         color: AppColors.textHigh,
-                                        height: 1.55,
-                                        fontSize: 15.5,
+                                        fontFamily: AppTypography.reading,
+                                        height: 1.65,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.w400,
                                       ),
                                 ),
@@ -342,31 +291,33 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ),
                         ],
                       ),
-                    if (widget.isStreaming)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 7),
-                        child: _StreamingProgressBar(),
-                      ),
-                    // Keep actions available without a decorative footer.
                     if (!widget.isUser && !widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Row(
                           children: [
+                            if (displayText.trim().isNotEmpty) ...[
+                              IconButton(
+                                tooltip: 'Copy message',
+                                onPressed: () => copyText(context, displayText),
+                                icon: const Icon(Icons.copy_rounded, size: 17),
+                                color: AppColors.textMuted,
+                                constraints: const BoxConstraints(
+                                  minWidth: 44,
+                                  minHeight: 44,
+                                ),
+                              ),
+                              _ListenButton(text: displayText),
+                            ],
+                            const Spacer(),
                             if (widget.timestamp != null)
                               Text(
                                 isToday ? timeStr : fullDateStr,
                                 style: AppTypography.bodySmall().copyWith(
-                                  fontSize: 11,
-                                  color: AppColors.textMuted,
+                                  fontSize: 12,
+                                  color: AppColors.textDisabled,
                                 ),
                               ),
-                            const Spacer(),
-                            if (displayText.trim().isNotEmpty) ...[
-                              EverglowCopyIconButton(textToCopy: displayText),
-                              const SizedBox(width: 4),
-                              _ListenButton(text: displayText),
-                            ],
                           ],
                         ),
                       ),
@@ -379,11 +330,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             Text(
                               isToday ? timeStr : fullDateStr,
                               style: AppTypography.bodySmall().copyWith(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.petalWhite.withValues(
-                                  alpha: 0.85,
-                                ),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.textMuted,
                               ),
                             ),
                           ],
@@ -438,34 +387,15 @@ class _ListenButtonState extends State<_ListenButton> {
   @override
   Widget build(BuildContext context) {
     if (!WebTtsService.instance.isSupported) return const SizedBox.shrink();
-    return Tooltip(
-      message: _speaking ? 'Stop speaking' : 'Listen to Motchi',
-      child: InkWell(
-        onTap: _toggle,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                _speaking ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
-                size: 13,
-                color: _speaking ? AppColors.auroraRose : AppColors.blushGold,
-              ),
-              const SizedBox(width: 3.5),
-              Text(
-                _speaking ? 'Stop' : 'Listen',
-                style: AppTypography.labelSmall().copyWith(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: _speaking ? AppColors.auroraRose : AppColors.blushGold,
-                ),
-              ),
-            ],
-          ),
-        ),
+    return IconButton(
+      tooltip: _speaking ? 'Stop speaking' : 'Listen to Motchi',
+      onPressed: _toggle,
+      icon: Icon(
+        _speaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+        size: 19,
       ),
+      color: _speaking ? AppColors.roseQuartz : AppColors.textMuted,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
     );
   }
 }

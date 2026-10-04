@@ -5,64 +5,22 @@ class _StreamingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Live tool chips render separately in [_LiveToolStrip] below the
-    // bubble — this placeholder only covers the pre-text thinking wait.
-    return const Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
-      children: [_RotatingThinkingText(), SizedBox(width: 8), _ThreeDots()],
-    );
-  }
-}
-
-/// Rotates through short "thinking" phrases so the pre-answer wait feels
-/// alive instead of a frozen gap (the model can stay silent for seconds
-/// while it reasons).
-class _RotatingThinkingText extends StatefulWidget {
-  const _RotatingThinkingText();
-
-  @override
-  State<_RotatingThinkingText> createState() => _RotatingThinkingTextState();
-}
-
-class _RotatingThinkingTextState extends State<_RotatingThinkingText> {
-  static const _phrases = [
-    'Motchi is thinking',
-    'Motchi is weaving her thoughts',
-    'Motchi is remembering your little things',
-    'Motchi is finding the right words',
-    'Motchi is dreaming up something nice',
-  ];
-
-  int _index = 0;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 2200), (_) {
-      if (!mounted) return;
-      setState(() => _index = (_index + 1) % _phrases.length);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: Text(
-        _phrases[_index],
-        key: ValueKey(_index),
-        style: AppTypography.bodyMedium().copyWith(
-          color: AppColors.textMuted,
-          height: 1.45,
+      children: [
+        Flexible(
+          child: Text(
+            'Thinking…',
+            style: AppTypography.bodyMedium().copyWith(
+              fontFamily: AppTypography.reading,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textMuted,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        const _ThreeDots(),
+      ],
     );
   }
 }
@@ -114,19 +72,9 @@ class _ThreeDotsState extends State<_ThreeDots>
                   child: Container(
                     width: 6,
                     height: 6,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.blushGold, AppColors.auroraRose],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                    decoration: const BoxDecoration(
+                      color: AppColors.roseQuartz,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.blushGold.withValues(alpha: 0.45),
-                          blurRadius: 6,
-                        ),
-                      ],
                     ),
                   ),
                 ),
@@ -185,26 +133,6 @@ class _StreamingCaretState extends State<_StreamingCaret>
   }
 }
 
-/// Thin indeterminate bar that keeps the streaming state visibly "in
-/// motion" while Motchi works on a reply.
-class _StreamingProgressBar extends StatelessWidget {
-  const _StreamingProgressBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(4),
-      child: SizedBox(
-        height: 3,
-        child: LinearProgressIndicator(
-          backgroundColor: AppColors.inkDeep.withValues(alpha: 0.6),
-          valueColor: const AlwaysStoppedAnimation(AppColors.blushGold),
-        ),
-      ),
-    );
-  }
-}
-
 // ─── Thinking indicator ─────────────────────────────────────────
 
 class _ThinkingIndicator extends StatelessWidget {
@@ -213,109 +141,25 @@ class _ThinkingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
+          Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: AppColors.blushGold.withValues(alpha: 0.55),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.blushGold.withValues(alpha: 0.30),
-                      blurRadius: 14,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(11),
-                  child: Image.asset(
-                    'assets/images/motchi_avatar.webp',
-                    width: 36,
-                    height: 36,
-                    cacheWidth: PerfSettings.sizedDecodeWidth(108),
-                    cacheHeight: PerfSettings.sizedDecodeWidth(108),
-                    filterQuality: FilterQuality.high,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -2,
-                right: -2,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: AppColors.inkDeep,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.blushGold.withValues(alpha: 0.70),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.pets_rounded,
-                    size: 8,
-                    color: AppColors.blushGold,
-                  ),
+              const _MotchiAvatar(size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Motchi',
+                style: AppTypography.bodySmall().copyWith(
+                  fontFamily: AppTypography.reading,
+                  color: AppColors.textMedium,
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.inkDeep.withValues(alpha: 0.94),
-                  AppColors.velvet.withValues(alpha: 0.72),
-                  AppColors.inkDeep.withValues(alpha: 0.90),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(22),
-                bottomLeft: Radius.circular(22),
-                bottomRight: Radius.circular(22),
-              ),
-              border: Border.all(
-                color: AppColors.blushGold.withValues(alpha: 0.18),
-                width: 1.0,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-                BoxShadow(
-                  color: AppColors.blushGold.withValues(alpha: 0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RotatingThinkingText(),
-                SizedBox(width: 8),
-                _ThreeDots(),
-              ],
-            ),
-          ),
+          const SizedBox(height: 12),
+          const _StreamingPlaceholder(),
         ],
       ),
     );
@@ -406,6 +250,8 @@ class _ComposerInput extends StatefulWidget {
   final List<String> attachedImages;
   final void Function(int) onRemoveImage;
   final bool centered;
+  final DeepThinkMode deepThinkMode;
+  final VoidCallback onToggleDeepThink;
   // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
   // OFF keeps Motchi as plain chat. Defaults OFF.
   final bool canvasEnabled;
@@ -421,6 +267,8 @@ class _ComposerInput extends StatefulWidget {
     this.attachedImages = const [],
     required this.onRemoveImage,
     this.centered = false,
+    required this.deepThinkMode,
+    required this.onToggleDeepThink,
     this.canvasEnabled = false,
     this.onToggleCanvas,
   });
@@ -481,302 +329,236 @@ class _ComposerInputState extends State<_ComposerInput> {
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
         final canSend = _hasText || widget.attachedImages.isNotEmpty;
-        final inner = Container(
-          key: widget.inputKey,
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            10,
-            AppSpacing.lg,
-            14 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          decoration: BoxDecoration(
-            border: Border(
-              top: BorderSide(
-                color: AppColors.blushGold.withValues(alpha: 0.06),
-              ),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.attachedImages.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: SizedBox(
-                    height: 60,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: widget.attachedImages.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: 8),
-                      itemBuilder: (_, i) {
-                        return Stack(
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 752),
+            child: Padding(
+              key: widget.inputKey,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.attachedImages.isNotEmpty)
+                    SizedBox(
+                      height: 76,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: widget.attachedImages.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) => Stack(
                           children: [
                             ClipRRect(
-                              borderRadius: AppRadius.radiusSm,
+                              borderRadius: AppRadius.radiusMd,
                               child: Image.memory(
                                 _decodeBase64(widget.attachedImages[i]),
-                                width: 60,
-                                height: 60,
+                                width: 64,
+                                height: 64,
                                 fit: BoxFit.cover,
                               ),
                             ),
                             Positioned(
-                              top: 2,
-                              right: 2,
-                              child: GestureDetector(
-                                onTap: () => widget.onRemoveImage(i),
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.inkDeep.withValues(
-                                      alpha: 0.72,
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 12,
-                                    color: AppColors.petalWhite,
-                                  ),
+                              top: 0,
+                              right: 0,
+                              child: IconButton(
+                                tooltip: 'Remove image',
+                                onPressed: () => widget.onRemoveImage(i),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: AppColors.inkDeep,
+                                  foregroundColor: AppColors.petalWhite,
+                                  minimumSize: const Size(44, 44),
+                                  padding: EdgeInsets.zero,
                                 ),
+                                icon: const Icon(Icons.close_rounded, size: 16),
                               ),
                             ),
                           ],
-                        );
+                        ),
+                      ),
+                    ),
+                  AnimatedContainer(
+                    duration: AppMotion.fast,
+                    decoration: BoxDecoration(
+                      color: AppColors.silk.withValues(alpha: 0.55),
+                      borderRadius: AppRadius.radiusLg,
+                      border: Border.all(
+                        color: _focused
+                            ? AppColors.roseQuartz.withValues(alpha: 0.45)
+                            : AppColors.moonlight.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    child: Focus(
+                      onFocusChange: (v) => setState(() => _focused = v),
+                      onKeyEvent: (_, event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.enter &&
+                            !HardwareKeyboard.instance.isShiftPressed &&
+                            !isLoading &&
+                            canSend) {
+                          widget.onSend();
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
                       },
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            style: AppTypography.bodyLarge().copyWith(
+                              fontFamily: AppTypography.reading,
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.petalWhite,
+                              height: 1.5,
+                            ),
+                            minLines: 1,
+                            maxLines: 6,
+                            textInputAction: TextInputAction.newline,
+                            decoration: InputDecoration(
+                              hintText: 'Message Motchi…',
+                              hintStyle: AppTypography.bodyLarge().copyWith(
+                                fontFamily: AppTypography.reading,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.textMuted,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              filled: false,
+                              contentPadding: const EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                4,
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 2, 8, 8),
+                            child: Row(
+                              children: [
+                                PopupMenuButton<String>(
+                                  tooltip: 'Add to message',
+                                  icon: _isListening
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppColors.roseQuartz,
+                                            semanticsLabel: 'Listening',
+                                          ),
+                                        )
+                                      : Icon(
+                                          Icons.add_rounded,
+                                          color: AppColors.textMuted,
+                                          size: 22,
+                                        ),
+                                  color: AppColors.silk,
+                                  surfaceTintColor: Colors.transparent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: AppRadius.radiusLg,
+                                  ),
+                                  onSelected: (action) {
+                                    switch (action) {
+                                      case 'images':
+                                        widget.onPickImages();
+                                      case 'voice':
+                                        _startVoice();
+                                      case 'canvas':
+                                        widget.onToggleCanvas?.call();
+                                    }
+                                  },
+                                  itemBuilder: (_) => [
+                                    PopupMenuItem(
+                                      value: 'images',
+                                      child: Text(
+                                        'Attach images',
+                                        style: AppTypography.bodyMedium(),
+                                      ),
+                                    ),
+                                    if (_bridge.isSpeechSupported)
+                                      PopupMenuItem(
+                                        value: 'voice',
+                                        enabled: !_isListening,
+                                        child: Text(
+                                          _isListening
+                                              ? 'Listening…'
+                                              : 'Voice input',
+                                          style: AppTypography.bodyMedium(),
+                                        ),
+                                      ),
+                                    CheckedPopupMenuItem(
+                                      value: 'canvas',
+                                      checked: widget.canvasEnabled,
+                                      child: Text(
+                                        'Canvas',
+                                        style: AppTypography.bodyMedium(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                _DeepThinkPill(
+                                  mode: widget.deepThinkMode,
+                                  onTap: widget.onToggleDeepThink,
+                                ),
+                                if (widget.canvasEnabled)
+                                  IconButton(
+                                    tooltip: 'Canvas: on — tap to turn off',
+                                    onPressed: widget.onToggleCanvas,
+                                    color: AppColors.roseQuartz,
+                                    icon: const Icon(
+                                      Icons.dashboard_customize_outlined,
+                                      size: 19,
+                                    ),
+                                  ),
+                                const Spacer(),
+                                IconButton(
+                                  onPressed: isLoading
+                                      ? widget.onStop
+                                      : (canSend ? widget.onSend : null),
+                                  tooltip: isLoading
+                                      ? 'Stop generating'
+                                      : 'Send message',
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: AppColors.roseQuartz,
+                                    disabledBackgroundColor:
+                                        AppColors.glassSoft,
+                                    foregroundColor: AppColors.inkDeep,
+                                    disabledForegroundColor:
+                                        AppColors.textDisabled,
+                                    minimumSize: const Size(44, 44),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.radiusMd,
+                                    ),
+                                  ),
+                                  icon: Icon(
+                                    isLoading
+                                        ? Icons.stop_rounded
+                                        : Icons.arrow_upward_rounded,
+                                    size: 21,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                decoration: BoxDecoration(
-                  color: AppColors.moonlight.withValues(alpha: 0.055),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: _focused
-                        ? AppColors.roseQuartz.withValues(alpha: 0.45)
-                        : AppColors.border,
-                  ),
-                ),
-                child: Focus(
-                  onFocusChange: (v) => setState(() => _focused = v),
-                  onKeyEvent: (node, event) {
-                    if (event is KeyDownEvent &&
-                        event.logicalKey == LogicalKeyboardKey.enter) {
-                      if (!HardwareKeyboard.instance.isShiftPressed) {
-                        widget.onSend();
-                        return KeyEventResult.handled;
-                      }
-                    }
-                    return KeyEventResult.ignored;
-                  },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: widget.controller,
-                              focusNode: widget.focusNode,
-                              style: AppTypography.bodyMedium().copyWith(
-                                color: AppColors.petalWhite,
-                                height: 1.5,
-                                fontSize: 14.5,
-                              ),
-                              minLines: 1,
-                              maxLines: 6,
-                              textInputAction: TextInputAction.newline,
-                              decoration: InputDecoration(
-                                hintText: 'Message Motchi…',
-                                hintStyle: AppTypography.bodyMedium().copyWith(
-                                  color: AppColors.textDisabled,
-                                  fontSize: 14,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              right: 10,
-                              bottom: 8,
-                            ),
-                            child: IconButton(
-                              onPressed: isLoading
-                                  ? widget.onStop
-                                  : (canSend ? widget.onSend : null),
-                              tooltip: isLoading
-                                  ? 'Stop generating'
-                                  : 'Send message',
-                              style: IconButton.styleFrom(
-                                backgroundColor: AppColors.roseQuartz,
-                                disabledBackgroundColor: AppColors.glassSoft,
-                                foregroundColor: AppColors.inkDeep,
-                                disabledForegroundColor: AppColors.textDisabled,
-                                minimumSize: const Size(44, 44),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              icon: Icon(
-                                isLoading
-                                    ? Icons.stop_rounded
-                                    : Icons.arrow_upward_rounded,
-                                size: 21,
-                              ),
-                            ),
-                          ),
-                        ],
+                  if (widget.centered)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        'Just for you two · Motchi can make mistakes',
+                        style: AppTypography.bodySmall().copyWith(
+                          color: AppColors.textDisabled,
+                        ),
                       ),
-                      Row(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: Container(
-                              decoration: widget.attachedImages.isNotEmpty
-                                  ? BoxDecoration(
-                                      color: AppColors.blushGold.withValues(
-                                        alpha: 0.16,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: AppColors.blushGold.withValues(
-                                          alpha: 0.35,
-                                        ),
-                                        width: 0.8,
-                                      ),
-                                    )
-                                  : null,
-                              child: IconButton(
-                                onPressed: widget.onPickImages,
-                                icon: Icon(
-                                  Icons.add_photo_alternate_rounded,
-                                  color: widget.attachedImages.isNotEmpty
-                                      ? AppColors.blushGold
-                                      : AppColors.textMuted,
-                                  size: 21,
-                                ),
-                                tooltip: 'Attach images',
-                              ),
-                            ),
-                          ),
-                          if (_bridge.isSpeechSupported)
-                            IconButton(
-                              onPressed: _isListening ? null : _startVoice,
-                              icon: _isListening
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.blushGold,
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.mic_none_rounded,
-                                      color: AppColors.textMuted,
-                                      size: 22,
-                                    ),
-                              tooltip: _isListening
-                                  ? 'Listening...'
-                                  : 'Voice input',
-                            ),
-                          // Canvas toggle — glowing gold pill when ON.
-                          Padding(
-                            padding: const EdgeInsets.only(left: 2),
-                            child: Tooltip(
-                              message: widget.canvasEnabled
-                                  ? 'Canvas: on — quizzes open as interactive cards'
-                                  : 'Canvas: off — Motchi chats normally',
-                              child: InkWell(
-                                onTap: widget.onToggleCanvas,
-                                borderRadius: BorderRadius.circular(12),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 7,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: widget.canvasEnabled
-                                        ? AppColors.blushGold.withValues(
-                                            alpha: 0.18,
-                                          )
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: widget.canvasEnabled
-                                          ? AppColors.blushGold.withValues(
-                                              alpha: 0.40,
-                                            )
-                                          : Colors.transparent,
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        widget.canvasEnabled
-                                            ? Icons.dashboard_customize_rounded
-                                            : Icons
-                                                  .dashboard_customize_outlined,
-                                        color: widget.canvasEnabled
-                                            ? AppColors.blushGold
-                                            : AppColors.textMuted,
-                                        size: 20,
-                                      ),
-                                      if (widget.canvasEnabled) ...[
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Canvas',
-                                          style: AppTypography.labelSmall()
-                                              .copyWith(
-                                                fontSize: 10.5,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.blushGold,
-                                              ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                ],
               ),
-              if (widget.centered)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    'Just for you two · Motchi can make mistakes',
-                    style: AppTypography.bodySmall().copyWith(
-                      color: AppColors.textDisabled,
-                      fontSize: 10.5,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-            ],
-          ),
-        );
-        if (!widget.centered) return inner;
-        return Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: inner,
+            ),
           ),
         );
       },

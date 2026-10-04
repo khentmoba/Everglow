@@ -38,7 +38,7 @@ class _SidebarPanel extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.twilight,
+        color: AppColors.inkDeep,
         border: Border(
           right: BorderSide(
             color: AppColors.blushGold.withValues(alpha: 0.12),
@@ -94,131 +94,35 @@ class _SidebarPanel extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context, double topPad) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12 + topPad, 12, 12),
+      padding: EdgeInsets.fromLTRB(16, 8 + topPad, 8, 8),
       child: Row(
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  borderRadius: AppRadius.radiusMd,
-                  border: Border.all(
-                    color: AppColors.blushGold.withValues(alpha: 0.4),
-                    width: 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.blushGold.withValues(alpha: 0.18),
-                      blurRadius: 8,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(13),
-                  child: Image.asset(
-                    'assets/images/motchi_avatar.webp',
-                    width: 36,
-                    height: 36,
-                    cacheWidth: PerfSettings.sizedDecodeWidth(108),
-                    cacheHeight: PerfSettings.sizedDecodeWidth(108),
-                    filterQuality: FilterQuality.high,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: -1,
-                bottom: -1,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: AppColors.success,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.twilight, width: 2),
-                  ),
-                ),
-              ),
-            ],
+          ClipRRect(
+            borderRadius: AppRadius.radiusXs,
+            child: Image.asset(
+              'assets/images/motchi_avatar.webp',
+              width: 24,
+              height: 24,
+              cacheWidth: PerfSettings.sizedDecodeWidth(72),
+              cacheHeight: PerfSettings.sizedDecodeWidth(72),
+              fit: BoxFit.cover,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Motchi',
-                      style: AppTypography.titleMedium().copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textHigh,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 1.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.blushGold.withValues(alpha: 0.14),
-                        borderRadius: AppRadius.radiusFull,
-                      ),
-                      child: Text(
-                        '🐾 CAT',
-                        style: AppTypography.labelSmall().copyWith(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                          color: AppColors.blushGold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Chat & Memories',
-                  style: AppTypography.bodySmall().copyWith(
-                    color: AppColors.textMuted,
-                    fontSize: 11,
-                    height: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Tooltip(
-            message: 'Close sidebar',
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onClose,
-                borderRadius: AppRadius.radiusSm,
-                child: Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceGlass,
-                    borderRadius: AppRadius.radiusSm,
-                    border: Border.all(
-                      color: AppColors.blushGold.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    color: AppColors.textMedium,
-                    size: 17,
-                  ),
-                ),
+            child: Text(
+              'Motchi',
+              style: AppTypography.titleMedium().copyWith(
+                fontFamily: AppTypography.reading,
+                fontWeight: FontWeight.w500,
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Close sidebar',
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded, size: 20),
+            color: AppColors.textMuted,
           ),
         ],
       ),
@@ -228,55 +132,19 @@ class _SidebarPanel extends StatelessWidget {
   Widget _buildNewChatButton() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onNewChat,
-          borderRadius: AppRadius.radiusLg,
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.blushGold, AppColors.deepRose],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: AppRadius.radiusLg,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.28),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.add_rounded,
-                  color: AppColors.petalWhite,
-                  size: 19,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'New conversation',
-                    style: AppTypography.bodySmall().copyWith(
-                      color: AppColors.petalWhite,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Icon(
-                  Icons.auto_awesome_rounded,
-                  color: AppColors.petalWhite.withValues(alpha: 0.85),
-                  size: 15,
-                ),
-              ],
-            ),
+      child: FilledButton.icon(
+        onPressed: onNewChat,
+        icon: const Icon(Icons.add_rounded, size: 19),
+        label: const Text('New conversation'),
+        style: FilledButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          minimumSize: const Size.fromHeight(48),
+          backgroundColor: AppColors.glassSoft,
+          foregroundColor: AppColors.petalWhite,
+          shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSm),
+          textStyle: AppTypography.bodyMedium().copyWith(
+            fontFamily: AppTypography.reading,
+            fontWeight: FontWeight.w400,
           ),
         ),
       ),
@@ -292,7 +160,6 @@ class _SidebarPanel extends StatelessWidget {
             child: _HubTile(
               icon: Icons.wb_twilight_rounded,
               label: 'Today',
-              accent: AppColors.auroraGold,
               onTap: () {
                 if (!desktop) onClose();
                 context.push('/motchi-today');
@@ -304,7 +171,6 @@ class _SidebarPanel extends StatelessWidget {
             child: _HubTile(
               icon: Icons.menu_book_rounded,
               label: 'Memories',
-              accent: AppColors.roseQuartz,
               onTap: () {
                 if (!desktop) onClose();
                 context.push('/motchi-memory');
@@ -316,7 +182,6 @@ class _SidebarPanel extends StatelessWidget {
             child: _HubTile(
               icon: Icons.psychology_rounded,
               label: 'Trivia',
-              accent: AppColors.auroraLilac,
               onTap: () {
                 if (!desktop) onClose();
                 context.push('/motchi-trivia');
@@ -553,16 +418,8 @@ class _SidebarPanel extends StatelessWidget {
   }
 
   Widget _buildFooter(double bottomPad) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(14, 8, 14, 8 + bottomPad),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: AppColors.blushGold.withValues(alpha: 0.07),
-            width: 1,
-          ),
-        ),
-      ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
       child: Row(
         children: [
           Icon(
@@ -570,29 +427,16 @@ class _SidebarPanel extends StatelessWidget {
             size: 12,
             color: AppColors.textDisabled,
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               'Private to Khent & Clair',
               style: AppTypography.bodySmall().copyWith(
+                fontFamily: AppTypography.reading,
+                fontWeight: FontWeight.w400,
                 color: AppColors.textDisabled,
-                fontSize: 10,
+                fontSize: 11,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Icon(
-            Icons.cloud_done_rounded,
-            size: 12,
-            color: AppColors.success.withValues(alpha: 0.75),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'Synced',
-            style: AppTypography.bodySmall().copyWith(
-              color: AppColors.textDisabled,
-              fontSize: 10,
             ),
           ),
         ],

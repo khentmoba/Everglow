@@ -204,7 +204,15 @@ void main() {
     await tester.pump();
 
     expect(find.text('Hi Motchi'), findsOneWidget);
-    expect(find.text('LIVE'), findsOneWidget);
+    expect(find.textContaining('Active now'), findsOneWidget);
+    final deleteButton = find.byWidgetPredicate(
+      (widget) =>
+          widget is IconButton && widget.tooltip == 'Delete conversation',
+    );
+    expect(tester.getSize(deleteButton).width, greaterThanOrEqualTo(44));
+    expect(tester.getSize(deleteButton).height, greaterThanOrEqualTo(44));
+    expect(find.text('🐾 CAT'), findsNothing);
+    expect(find.text('Synced'), findsNothing);
   });
 
   testWidgets('clearing the chat removes the live entry without refresh', (
