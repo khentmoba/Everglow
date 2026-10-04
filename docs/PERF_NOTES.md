@@ -434,6 +434,68 @@ failure is a visible grey avatar in Motchi's chat bubbles, on the one device
 that cannot be checked from here. A 20x decode saving on a static asset is not
 worth risking that unattended. Recorded for a phone A/B instead.
 
+## Chat / Motchi / gallery / journal pass (2026-10) — correct today, now enforced
+
+### Privacy re-verified (no regression)
+
+Nothing in this pass touched rules, but the contract asks for a check, so:
+`gallery`, `notes`, `journal_entries`, `motchi_games`, `motchi_sessions`,
+`temporary_chats`, `watch_party_chats` and every couple collection are gated on
+`isCouple()`, which is `isRegistered() && hasCoupleIdentity() && username ==
+request.auth.token.username` — not merely "signed in". `motchi_notes` and
+`motchi_stats` are `allow read, write: if false`, i.e. server-only via the admin
+SDK. Cinema-only profiles (Breyan / Octagram) still cannot reach any of it.
+
+### The streaming path is already built the right way
+
+`motchi_widgets_streaming.dart` drives its motion with `AnimatedBuilder`, and
+its `setState` calls are discrete state (`_isListening`, `_hasText`, `_focused`)
+rather than per-frame rebuilds. The gallery grid uses `AppNetworkImage` with
+`cacheWidth: 440` (a tile is ~130–220px, so that is sized right), and the photo
+viewer keeps its natural-size decode as a documented keep.
+
+### What was missing: the rule had no enforcement
+
+`docs/PERF_NOTES.md` states the rule plainly — *"No `setState` in ticker
+callbacks — use `ValueNotifier`/`AnimatedBuilder`"* — and nothing checked it.
+`tool/ci/check_perf_rules.dart` now does, and runs in CI.
+
+Getting it to be trustworthy took three attempts, each of which mattered more
+than the rule itself:
+
+1. **First cut flagged 17 sites on a clean tree.** All were legitimate: a
+   `FocusNode` listener, a `TextEditingController` listener, and
+   `Timer.periodic` at 2200ms and 30s. A guard that cries wolf on working code
+   gets ignored or deleted, so the rule was narrowed to shapes that really are
+   frame-rate: a callback on a *known* `AnimationController`/`Ticker`, or a
+   `Timer.periodic` whose period is <= 20ms.
+2. **The narrowed guard still produced 4 false hits**, because its duration
+   parser read `Duration(seconds: 1)` as 1 **millisecond** — an absent unit
+   prefix means seconds. Every 1-second clock in the app became a phantom
+   frame-rate violation.
+3. **One more, from substring matching**: a method named `_startClockTicker()`
+   contains `Ticker(`, so it read as a Ticker construction. Fixed with a
+   negative lookbehind.
+
+Final state: **0 hits across 620 files**, and it was verified to *fail* on an
+injected 16ms timer, an injected 8ms timer, and a synthetic
+`AnimationController.addListener(() => setState(...))` (each naming the right
+file, line and owning variable).
+
+Two things this turned up that are worth keeping in mind when reading the code:
+`partner_presence_indicator` and `partner_doodle_indicator` both carry comments
+about *previously* being 1s and 250ms tickers that rebuilt their subtrees far
+more often than any label could change. The rule was already being applied by
+hand; it just had nothing stopping the next person from undoing it.
+
+### Streaming FPS remains unmeasurable here
+
+"Chat and Motchi meet >= 55 FPS while a reply streams" needs auth, Firestore
+history and a live AI backend. The bench covers the *shape* (poster/avatar rows
+over a full-screen ambience) but cannot drive a real stream, and its FPS column
+is meaningless in headless anyway. That bar is a phone check with
+`?perf=1`, and it is now reachable rather than removed.
+
 ## Verify a perf change
 
 - `flutter analyze <changed files>` (repo rule: always before commit).
