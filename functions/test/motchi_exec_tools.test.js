@@ -735,6 +735,29 @@ test('browse_web resumes by run_id without re-queueing, failures as JSON', async
   }
 });
 
+test('browse_web caps retries at attempt 2 and instructs to synthesize answer', async () => {
+  const { ctx } = makeCtx();
+  const realKey = process.env.TINYFISH_API_KEY;
+  const realFetch = global.fetch;
+  process.env.TINYFISH_API_KEY = 'test-key';
+  global.fetch = async () => {
+    throw new Error('poll timed out');
+  };
+  try {
+    const out = JSON.parse(await executeToolCall(
+      ctx, 'browse_web',
+      { url: 'https://example.com/slow', goal: 'Read it', run_id: 'run-slow', attempt: 2 },
+    ));
+    assert.equal(out.status, 'RUNNING');
+    assert.equal(out.run_id, 'run-slow');
+    assert.match(out.hint, /do not call browse_web again/);
+  } finally {
+    global.fetch = realFetch;
+    if (realKey === undefined) delete process.env.TINYFISH_API_KEY;
+    else process.env.TINYFISH_API_KEY = realKey;
+  }
+});
+
 test('remember_fact updates a contradicted fact instead of adding a twin', async () => {
   const { exec_remember_fact } = require('../motchi_exec_memory.js');
   const updates = [];

@@ -950,7 +950,7 @@ ${HTML_GAME_GUIDE}
       // Caps the worst case at 8 successes + 4 retries per message
       // (was: 8 rounds x 3 attempts = 24 paid calls).
       let llmCalls = 0;
-      const MAX_LLM_CALLS_PER_MESSAGE = 12;
+      const MAX_LLM_CALLS_PER_MESSAGE = 14;
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
@@ -964,7 +964,7 @@ ${HTML_GAME_GUIDE}
       // another paid round on the same call.
       const seenToolCalls = new Set();
 
-      while (toolRound < MAX_TOOL_ROUNDS) {
+      while (toolRound < MAX_TOOL_ROUNDS || forceTextNextRound) {
         toolRound++;
         const _round0 = Date.now(); // TTFT clock for this round's LLM call
         // A repair nudge demands visible text only — tools stay
@@ -1164,11 +1164,12 @@ ${HTML_GAME_GUIDE}
         }
 
         // Drop repeats of already-executed tool+args pairs. If every
-        // call is a repeat, the model is circling — end the loop and
-        // keep the text already streamed as the answer.
+        // call is a repeat, the model is circling — force a text-only
+        // round so the model synthesizes an answer from what it has.
         collectedToolCalls = dropRepeatCalls(seenToolCalls, collectedToolCalls);
         if (collectedToolCalls.length === 0) {
-          break;
+          forceTextNextRound = true;
+          continue;
         }
 
         // ── Execute tool calls found in the stream ──
@@ -1270,6 +1271,12 @@ ${HTML_GAME_GUIDE}
         sendEvent({ tool_status: `round_${toolRound}_done` });
         collectedToolCalls = [];
         fullContent = '';
+
+        // If the tool budget has been reached, force the next round to
+        // be text-only so the model reads the tool results and answers.
+        if (toolRound >= MAX_TOOL_ROUNDS) {
+          forceTextNextRound = true;
+        }
       }
 
       // Post-loop repair: the repeat-guard break and the 8-round cap
@@ -1289,12 +1296,14 @@ ${HTML_GAME_GUIDE}
         llmCalls++;
         requestTrace.modelCalls++;
         if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
-        currentMessages.push({
-          role: 'user',
-          content: needsEmptyRepair
-            ? 'Please answer the user directly and warmly in text based on what we have so far.'
-            : DANGLING_REPLY_NUDGE,
-        });
+        if (currentMessages[currentMessages.length - 1]?.role !== 'tool') {
+          currentMessages.push({
+            role: 'user',
+            content: needsEmptyRepair
+              ? 'Please answer the user directly and warmly in text based on what we have so far.'
+              : DANGLING_REPLY_NUDGE,
+          });
+        }
         sendEvent({ tool_status: 'repairing' });
         try {
           const repairResp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
@@ -1322,6 +1331,7 @@ ${HTML_GAME_GUIDE}
               if (requestTrace.firstTokenMs === null) requestTrace.firstTokenMs = Date.now() - requestStartedAt;
               _streamedFinalReply += repairText;
               sendEvent({ content: repairText });
+              streamInterrupted = false;
             }
           }
         } catch (e) {
@@ -1527,6 +1537,23 @@ ${HTML_GAME_GUIDE}
     for (const r of results) nsMessages.push(r.toolMsg);
     const visionMsg = visionMessageForResults(results.map((r) => r.fullResult));
     if (visionMsg) nsMessages.push(visionMsg);
+  }
+
+  // If the tool loop exhausted all rounds and ends on a tool message,
+  // do one final text-only synthesis pass so the model actually answers.
+  if (nsInterrupted && nsMessages[nsMessages.length - 1]?.role === 'tool') {
+    try {
+      const synthesizeOnly = true;
+      const finalResp = await callLlmOnce(nsMessages, synthesizeOnly);
+      if (finalResp && finalResp.ok) {
+        const finalData = await finalResp.json();
+        const finalMsg = finalData.choices?.[0]?.message || {};
+        if (finalMsg.content) {
+          nsReply += finalMsg.content;
+          nsInterrupted = false;
+        }
+      }
+    } catch (_) {}
   }
 
   // Missing-block repair (mirror of the streaming path): one strict
