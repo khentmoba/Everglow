@@ -20,8 +20,9 @@ void main() {
 //
 // Pairing with firebase.json (last matching header rule wins there):
 // - Entry points (/, /index.html, flutter_bootstrap.js, version.json, sw.js)
-//   are served `no-cache` over HTTP, and network-only here. The shell can
-//   never go stale: a deploy is live on the next navigation.
+//   are served `no-cache` over HTTP, and network-first/no-store here. A
+//   deploy is live on the next online navigation; boot loaders are saved
+//   only for a network-error fallback paired with their versioned core.
 // - The core shell (main.dart.js) carries a `?v=BUILD` query stamped by
 //   tool/build_web.dart, so every build is a distinct cache key in the
 //   STABLE core cache below. A reload after a deploy always misses and
@@ -55,8 +56,10 @@ const IMMUTABLE="canvaskit-"+ENGINE_REV;
 // by the update warm-up) and rotating it here as well would just download
 // the 6MB twice on slow lines.
 const PRECACHE=["/index.html"];
-// Never cached: entry points, loaders, worker scripts, version probes,
-// and Cloud Function rewrites (same-origin /api/* GETs must never serve stale).
+// Always network/no-store online: entry points, loaders, worker scripts,
+// version probes and Cloud Functions. Only HTML and boot loaders have an
+// offline cache fallback; /api/*, manifests and worker scripts never do.
+const BOOT_LOADERS=["/flutter_bootstrap.js","/flutter.js"];
 const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
 function isNoStore(path) {
   if (path.startsWith("/api/")) return true;
@@ -67,6 +70,58 @@ function isCore(path) {
   // Query-blind on purpose: URL.pathname excludes `?v=`, so every build's
   // shell URL routes here while the cache key keeps the full query.
   return path.endsWith("main.dart.js");
+}
+function isScriptResponse(res) {
+  // A hosting SPA rewrite can return index.html with status 200 for a
+  // missing JS file. Never save or execute it as a boot loader.
+  return res && res.ok && /^(text|application)\\/(x-)?(java|ecma)script\\b/i.test(res.headers.get("Content-Type") || "");
+}
+function shellForUrl(url) {
+  // Deferred chunks encode '+' in the stamp; main.dart.js does not.
+  const version = /[?&]v=([^&]+)/.exec(url.search);
+  return version ? decodeURIComponent(version[1]) + "-SHELL-v1" : SHELL;
+}
+let currentBootstrapBuild = null;
+
+async function newestCompleteStamp() {
+  try {
+    const core = await caches.open(CORE);
+    const names = await caches.keys();
+    for (const name of names.reverse()) {
+      if (!name.endsWith("-SHELL-v1")) continue;
+      const stamp = name.slice(0, -"-SHELL-v1".length);
+      let main;
+      try {
+        main = await core.match(new URL("main.dart.js?v=" + stamp, self.location.origin).href);
+      } catch {}
+      if (!isScriptResponse(main)) continue;
+      try {
+        const cache = await caches.open(name);
+        if (await cache.match("/flutter_bootstrap.js")) return stamp;
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+async function cachedBootLoader(path) {
+  const stamp = await newestCompleteStamp();
+  if (stamp) {
+    currentBootstrapBuild = stamp;
+    try {
+      const cache = await caches.open(stamp + "-SHELL-v1");
+      const loader = await cache.match(path);
+      if (isScriptResponse(loader)) return loader;
+    } catch {}
+  }
+  return Response.error();
+}
+
+async function iconCacheName() {
+  if (currentBootstrapBuild) return currentBootstrapBuild + "-SHELL-v1";
+  const stamp = await newestCompleteStamp();
+  if (stamp) return stamp + "-SHELL-v1";
+  return SHELL;
 }
 // Flutter tree-shakes MaterialIcons on every app build. Its stable URL is
 // NOT engine-immutable: an old subset leaves newly added icons blank.
@@ -100,7 +155,11 @@ async function trimCore() {
     const keys = await c.keys();
     const shells = keys.filter((k) => new URL(k.url).pathname.endsWith("main.dart.js"));
     // Keep current + previous: an offline deploy-day still boots.
-    while (shells.length > 2) await c.delete(shells.shift());
+    while (shells.length > 2) {
+      const old = shells.shift();
+      await c.delete(old);
+      await caches.delete(shellForUrl(new URL(old.url)));
+    }
   } catch {}
 }
 async function newestCoreEntry() {
@@ -134,8 +193,9 @@ async function warmCoreShell() {
     if (already) return;
     if (navigator.onLine === false) return;
     const res = await fetch(shellUrl, { cache: "no-store" });
-    if (!res || !res.ok) return;
+    if (!isScriptResponse(res)) return;
     await c.put(shellUrl, res.clone());
+    await trimCore();
   } catch {}
 }
 self.addEventListener("install", (e) => {
@@ -150,7 +210,9 @@ self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
       .then((ks) => Promise.all(
-        ks.filter((k) => k !== SHELL && k !== IMMUTABLE && k !== CORE).map((k) => caches.delete(k)),
+        // Keep previous versioned loaders/chunks until their core rotates
+        // out. Activation can precede the new build's first complete boot.
+        ks.filter((k) => !k.endsWith("-SHELL-v1") && k !== IMMUTABLE && k !== CORE).map((k) => caches.delete(k)),
       ))
       .then(async () => {
         try {
@@ -204,26 +266,44 @@ self.addEventListener("fetch", (e) => {
   if (isNoStore(path)) {
     e.respondWith(
       fetch(e.request, { cache: "no-store" })
-        .then((res) => {
+        .then(async (res) => {
+          if (BOOT_LOADERS.includes(path)) {
+            if (!isScriptResponse(res)) throw new Error("Invalid boot loader");
+            // The active worker may still be the previous deploy. Use the
+            // loader's stamped main URL, NOT this worker's BUILD, for pairing.
+            try {
+              const body = await res.clone().text();
+              const build = /"main\\.dart\\.js\\?v=([^"/]+)"/.exec(body);
+              if (build) {
+                currentBootstrapBuild = build[1];
+                const cache = await caches.open(build[1] + "-SHELL-v1");
+                await cache.put(path, res.clone());
+                // Keep a navigation fallback when the old worker's SHELL
+                // rotates out after serving several newer deploys.
+                const index = await caches.match("/index.html", { cacheName: SHELL });
+                if (index) await cache.put("/index.html", index);
+              }
+            } catch {} // Cache quota/failure must not hide a fresh deploy.
+          }
           if (res && res.ok && (path === "/" || path === "/index.html")) {
-            const copy = res.clone();
-            caches.open(SHELL).then((c) => {
-              c.put("/index.html", copy.clone());
-              c.put("/", copy);
-            });
+            try {
+              const cache = await caches.open(SHELL);
+              await cache.put("/index.html", res.clone());
+              await cache.put("/", res.clone());
+            } catch {}
           }
           return res;
         })
         .catch(async () => {
-          if (e.request.mode === "navigate") return fallbackNavigate();
+          if (BOOT_LOADERS.includes(path)) return cachedBootLoader(path);
+          if (path === "/" || path === "/index.html") return fallbackNavigate();
           if (path === "/version.json") {
             return new Response(JSON.stringify({ offline: true }), {
               status: 200,
               headers: { "Content-Type": "application/json" },
             });
           }
-          const cached = await caches.match(e.request);
-          return cached || Response.error();
+          return Response.error();
         }),
     );
     return;
@@ -247,46 +327,81 @@ self.addEventListener("fetch", (e) => {
   }
   if (isCore(path)) {
     // Exact-URL match (query included): a new `?v=` always misses and
-    // fetches genuinely fresh bytes, whatever worker is active. Offline
-    // with an unknown `?v=`, boot the newest cached shell instead of dying.
+    // fetches genuinely fresh bytes, whatever worker is active. A stamped
+    // bootstrap must never receive another build's main/deferred code.
     e.respondWith(
-      caches.match(e.request, { cacheName: CORE }).then((hit) => {
+      (async () => {
+        let hit = null;
+        try {
+          hit = await caches.match(e.request, { cacheName: CORE });
+        } catch {}
         if (hit) return hit;
-        return fetch(e.request).then((res) => {
+
+        try {
+          const res = await fetch(e.request);
+          if (!isScriptResponse(res)) throw new Error("Invalid core script");
           if (res && res.ok) {
             const copy = res.clone();
-            caches.open(CORE).then((c) => c.put(e.request, copy).then(() => trimCore()));
+            e.waitUntil(caches.open(CORE).then((c) => c.put(e.request, copy).then(() => trimCore())).catch(() => {}));
           }
           return res;
-        });
-      }).catch(async () => {
-        const fallback = await newestCoreEntry();
-        if (fallback) {
-          const res = await caches.match(fallback, { cacheName: CORE });
-          if (res) return res;
+        } catch {
+          if (url.searchParams.has("v")) return Response.error();
+          let fallback;
+          try {
+            fallback = await newestCoreEntry();
+          } catch {}
+          if (fallback) {
+            try {
+              const res = await caches.match(fallback, { cacheName: CORE });
+              if (res) return res;
+            } catch {}
+          }
+          return Response.error();
         }
-        return Response.error();
-      }),
+      })(),
     );
     return;
   }
   // Default: network-first, fall back to cache when offline. Icon assets
   // also revalidate HTTP: previously they had a one-year immutable header.
+  const isPart = path.endsWith(".part.js");
+  const isIcon = isIconAsset(path);
   e.respondWith(
-    fetch(e.request, isIconAsset(path) ? { cache: "no-cache" } : {})
-      .then((res) => {
+    (async () => {
+      let runtimeCache = SHELL;
+      if (isPart) {
+        runtimeCache = shellForUrl(url);
+      } else if (isIcon) {
+        runtimeCache = await iconCacheName();
+      }
+
+      let hit = null;
+      if (isPart && url.searchParams.has("v")) {
+        try {
+          hit = await caches.match(e.request, { cacheName: runtimeCache });
+        } catch {}
+      }
+      if (hit) return hit;
+
+      try {
+        const res = await fetch(e.request, isIcon ? { cache: "no-cache" } : {});
+        if (isPart && !isScriptResponse(res)) throw new Error("Invalid deferred script");
         if (res && res.ok) {
           const copy = res.clone();
-          caches.open(SHELL).then((c) => {
-            c.put(e.request, copy).then(() => trimRuntime(SHELL, 240));
-          });
+          const write = caches.open(runtimeCache).then((c) =>
+            c.put(e.request, copy).then(() => trimRuntime(runtimeCache, 240))).catch(() => {});
+          if (isPart) e.waitUntil(write);
         }
         return res;
-      })
-      .catch(async () => {
-        const cached = await caches.match(e.request, isIconAsset(path) ? { cacheName: SHELL } : {});
+      } catch {
+        let cached;
+        try {
+          cached = await caches.match(e.request, (isIcon || isPart) ? { cacheName: runtimeCache } : {});
+        } catch {}
         return cached || (e.request.mode === "navigate" ? fallbackNavigate() : Response.error());
-      }),
+      }
+    })(),
   );
 });
 // --- Push (merged here so one worker owns the scope) ---

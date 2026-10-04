@@ -1,10 +1,34 @@
 import 'package:everglow/core/perf/frame_stats.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/scheduler.dart' show FrameTiming;
 
 void main() {
   group('FrameStats', () {
+    test(
+      'complete frame span includes time not spent building or rastering',
+      () {
+        final stats = FrameStats();
+        stats.addTimings([
+          FrameTiming(
+            vsyncStart: 0,
+            buildStart: 1000,
+            buildFinish: 2000,
+            rasterStart: 301000,
+            rasterFinish: 302000,
+            rasterFinishWallTime: 302000,
+          ),
+        ]);
+        expect(stats.avgBuildMs, 1);
+        expect(stats.avgRasterMs, 1);
+        expect(stats.worstTotalMs, 302);
+        expect(stats.jankPercent, 100);
+      },
+    );
+
     test('averages and worsts separate build from raster', () {
-      final stats = FrameStats(capacity: 10)..add(4, 6)..add(6, 14);
+      final stats = FrameStats(capacity: 10)
+        ..add(4, 6)
+        ..add(6, 14);
 
       expect(stats.frameCount, 2);
       expect(stats.avgBuildMs, 5);
@@ -19,10 +43,10 @@ void main() {
         ..add(4, 4) // 8ms — fine
         ..add(8, 8) // 16ms — fine
         ..add(9, 9) // 18ms — jank
-        ..add(20, 25); // 45ms — jank + dropped
+        ..add(20, 25); // 45ms — over two reference budgets
 
       expect(stats.jankPercent, 50);
-      expect(stats.droppedPercent, 25);
+      expect(stats.slowFramePercent, 25);
     });
 
     test('window only keeps the newest frames', () {
@@ -35,6 +59,30 @@ void main() {
       expect(stats.avgBuildMs, 8); // frames 7, 8, 9
       expect(stats.worstBuildMs, 9);
     });
+
+    test(
+      'session outliers survive the rolling window and reset clears them',
+      () {
+        final stats = FrameStats(capacity: 4)..add(175, 175);
+        for (var i = 0; i < 240; i++) {
+          stats.add(1, 1);
+        }
+        expect(stats.worstTotalMs, 2);
+        expect(stats.sessionWorstBuildMs, 175);
+        expect(stats.sessionWorstRasterMs, 175);
+        expect(stats.sessionWorstFrameMs, 350);
+        expect(stats.sessionOver200ms, 1);
+        expect(stats.sessionOverBudgetPercent, closeTo(100 / 241, 0.001));
+        expect(stats.sessionSlowFramePercent, closeTo(100 / 241, 0.001));
+        stats.reset();
+        expect(stats.sessionWorstBuildMs, 0);
+        expect(stats.sessionWorstRasterMs, 0);
+        expect(stats.sessionWorstFrameMs, 0);
+        expect(stats.sessionOver200ms, 0);
+        expect(stats.sessionOverBudgetPercent, 0);
+        expect(stats.sessionSlowFramePercent, 0);
+      },
+    );
 
     test('reset clears the window', () {
       final stats = FrameStats(capacity: 5)..add(30, 30);
@@ -52,7 +100,7 @@ void main() {
       expect(stats.avgRasterMs, 0);
       expect(stats.worstRasterMs, 0);
       expect(stats.jankPercent, 0);
-      expect(stats.droppedPercent, 0);
+      expect(stats.slowFramePercent, 0);
     });
   });
 
@@ -77,6 +125,7 @@ void main() {
         fps: 59.876,
         stats: stats,
         devicePixelRatio: 3,
+        sampleSequence: 7,
       );
 
       expect(snapshot.toMap(), {
@@ -87,9 +136,17 @@ void main() {
         'rasterWorstMs': 18.99,
         'worstFrameMs': 28.11,
         'jankPercent': 50.0,
-        'droppedPercent': 0.0,
+        'slowFramePercent': 0.0,
         'frames': 2.0,
         'devicePixelRatio': 3.0,
+        'sampleSequence': 7.0,
+        'sessionFrames': 2.0,
+        'sessionWorstBuildMs': 9.12,
+        'sessionWorstRasterMs': 18.99,
+        'sessionWorstFrameMs': 28.11,
+        'sessionOver200ms': 0.0,
+        'sessionOverBudgetPercent': 50.0,
+        'sessionSlowFramePercent': 0.0,
       });
     });
 
@@ -105,7 +162,10 @@ void main() {
       expect(stats.frameCount, 4, reason: 'window stays capped');
       expect(stats.totalFrames, 10, reason: 'lifetime count keeps rising');
 
-      final rate = framesPerSecond(stats.totalFrames - 4, const Duration(seconds: 1));
+      final rate = framesPerSecond(
+        stats.totalFrames - 4,
+        const Duration(seconds: 1),
+      );
       expect(rate, closeTo(6, 0.001));
     });
 

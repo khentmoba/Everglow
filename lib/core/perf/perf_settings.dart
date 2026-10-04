@@ -11,9 +11,9 @@ import 'render_scale.dart';
 /// Why these live in the app instead of a desktop DevTools session: "the
 /// dashboard feels heavy" is only true on Khent's iPhone, in the installed PWA,
 /// where a query string can't be edited and Safari's remote inspector isn't
-/// reachable. So both switches are persisted and are surfaced in Creator Studio
-/// → System (Khent's private panel). They are off by default — Clair never sees
-/// the meter or a reduced render scale.
+/// reachable. Both switches are persisted from URL parameters; the removed
+/// Creator Studio switches are not needed. They are off by default — Clair
+/// never sees the meter or a reduced render scale.
 ///
 /// `?perf=1` and `?dpr=2` are the desktop shortcuts for the same two switches,
 /// and they stick (saved) so the PWA picks them up on the next launch.
@@ -33,24 +33,20 @@ class PerfSettings {
   static final ValueNotifier<bool> frameMeter = ValueNotifier<bool>(false);
 
   /// Device pixels per logical pixel, or null for "the browser's own DPR".
-  static final ValueNotifier<double?> renderScale = ValueNotifier<double?>(null);
+  static final ValueNotifier<double?> renderScale = ValueNotifier<double?>(
+    null,
+  );
 
   /// Whether web should decode bundled images at the size they are displayed,
   /// instead of at natural resolution.
   ///
-  /// Every `Image.asset` call site in the app that draws a bundled image
-  /// (avatar, chat bubble, emblem, timeline photo) used to pass
-  /// `cacheWidth: kIsWeb ? null : N`. The intent was to size the decode to the
-  /// display; the `kIsWeb ? null` half was a workaround from `d6eb7ea5`, a
-  /// batch of SkWasm grey-overlay fixes, and it means a 512x512 avatar decodes
-  /// in full to fill a 36px slot — about 20x the memory — on exactly the
-  /// platform the workaround was supposed to protect.
+  /// Replaces the web natural-size workaround from `d6eb7ea5`. For a 512px
+  /// image requested at 108px, decoded pixel arithmetic is about 22x smaller;
+  /// that is not a measured whole-app RAM saving.
   ///
-  /// Verified on Safari — the platform the workaround was meant to protect, and
-  /// Clair's actual browser — on 2026-10-04: avatar, chat bubble, dashboard
-  /// emblem and timeline photos render identically with the sized decode on
-  /// and off. So this now defaults to **on**, and `?sizeddecode=0` stays as a
-  /// kill switch so a regression can be undone from a URL without a deploy.
+  /// Defaults on after an informal visual A/B report ('identical'), not a
+  /// comprehensive Safari/device audit. `?sizeddecode=0` remains a persisted
+  /// rollback so a rendering regression can be undone without a deploy.
   ///
   /// Off-web the answer is unchanged either way, since those paths already used
   /// the sized decode.
@@ -191,9 +187,10 @@ class PerfSettings {
   /// typo in a query string can never ship an unreadable UI.
   static double? _validScale(double? scale) {
     if (scale == null) return null;
-    if (scale < minScale || scale > maxScale) return null;
+    if (!scale.isFinite || scale < minScale || scale > maxScale) return null;
     return scale;
   }
 
-  static double? _parseScale(String raw) => _validScale(double.tryParse(raw.trim()));
+  static double? _parseScale(String raw) =>
+      _validScale(double.tryParse(raw.trim()));
 }

@@ -1,53 +1,52 @@
 import 'package:flutter/scheduler.dart' show FrameTiming;
 
-/// Rolling window of frame costs for the on-device frame meter.
-///
-/// Why this exists: Flutter Web keeps no retained (cached bitmap) layers — the
-/// draw lists are cached, but every frame re-draws the whole visible canvas, and
-/// build + raster run on the *same* thread. So "is this screen smooth?" is
-/// literally "does build + raster fit inside 16.7ms, every frame?", and the only
-/// honest place to read that answer is the phone.
-///
-/// The numbers come from [FrameTiming], which the web engine reports through
-/// `WidgetsBinding.addTimingsCallback` in release builds too.
-///
-/// Keep this class pure (numbers in, numbers out): the HUD owns timers and
-/// widgets, this owns the maths, so the maths stays unit-testable.
+/// Reported Flutter frame timings, not display presentation or dropped frames.
+/// Averages use a bounded window; session peaks and counts survive that window.
+/// Other main-thread tasks and frames never reported by Flutter need a browser
+/// trace. Even [FrameTiming.totalSpan] is not a complete interaction measurement.
 class FrameStats {
   FrameStats({this.capacity = 240}) : assert(capacity > 0);
 
-  /// How many recent frames the averages cover. 240 ≈ 4 seconds at 60fps —
-  /// long enough to smooth out a single hitch, short enough that a screenshot
-  /// still describes what just happened on screen.
   final int capacity;
 
-  /// One smooth 60fps frame. Missing this budget drops a frame on a 60Hz
-  /// phone (iOS Safari drives Flutter at 60fps even on ProMotion displays).
+  /// A reference 60Hz budget, not a measurement of the device's refresh rate.
   static const double frameBudgetMs = 1000 / 60;
 
   final List<_FrameSample> _samples = <_FrameSample>[];
-
-  /// Total frames ever added, *not* capped by [capacity].
-  ///
-  /// [frameCount] saturates at [capacity], so it cannot be differenced across
-  /// ticks to get a rate — once the window is full the delta reads zero and
-  /// the meter's FPS silently falls to 0 forever. This counter is monotonic so
-  /// `totalFrames - lastTotal` is a real frame delta.
   int _totalFrames = 0;
+  int _overBudgetFrames = 0;
+  int _slowFrames = 0;
+  int _over200ms = 0;
+  double _sessionWorstBuildMs = 0;
+  double _sessionWorstRasterMs = 0;
+  double _sessionWorstFrameMs = 0;
 
-  /// Adds one frame's cost. [buildMs] and [rasterMs] are wall-clock ms.
-  void add(double buildMs, double rasterMs) {
+  /// Adds work durations and, when available, the full reported frame span.
+  void add(double buildMs, double rasterMs, {double? totalMs}) {
+    final sample = _FrameSample(
+      buildMs,
+      rasterMs,
+      totalMs ?? buildMs + rasterMs,
+    );
     _totalFrames++;
-    _samples.add(_FrameSample(buildMs, rasterMs));
+    if (sample.totalMs > frameBudgetMs) _overBudgetFrames++;
+    if (sample.totalMs > frameBudgetMs * 2) _slowFrames++;
+    if (sample.totalMs > 200) _over200ms++;
+    if (buildMs > _sessionWorstBuildMs) _sessionWorstBuildMs = buildMs;
+    if (rasterMs > _sessionWorstRasterMs) _sessionWorstRasterMs = rasterMs;
+    if (sample.totalMs > _sessionWorstFrameMs) {
+      _sessionWorstFrameMs = sample.totalMs;
+    }
+    _samples.add(sample);
     if (_samples.length > capacity) _samples.removeAt(0);
   }
 
-  /// Adds every frame the engine reported since the last batch.
   void addTimings(List<FrameTiming> timings) {
     for (final timing in timings) {
       add(
         timing.buildDuration.inMicroseconds / 1000,
         timing.rasterDuration.inMicroseconds / 1000,
+        totalMs: timing.totalSpan.inMicroseconds / 1000,
       );
     }
   }
@@ -55,49 +54,46 @@ class FrameStats {
   void reset() {
     _samples.clear();
     _totalFrames = 0;
+    _overBudgetFrames = 0;
+    _slowFrames = 0;
+    _over200ms = 0;
+    _sessionWorstBuildMs = 0;
+    _sessionWorstRasterMs = 0;
+    _sessionWorstFrameMs = 0;
   }
 
-  /// Frames currently in the window.
   int get frameCount => _samples.length;
 
-  /// Frames added since construction or the last [reset], ignoring [capacity].
+  /// Uncapped since reset: differencing a capped window gives a false zero FPS.
   int get totalFrames => _totalFrames;
+  int get sessionOver200ms => _over200ms;
+  double get sessionWorstBuildMs => _sessionWorstBuildMs;
+  double get sessionWorstRasterMs => _sessionWorstRasterMs;
+  double get sessionWorstFrameMs => _sessionWorstFrameMs;
+  double get sessionOverBudgetPercent =>
+      _percent(_overBudgetFrames, totalFrames);
+  double get sessionSlowFramePercent => _percent(_slowFrames, totalFrames);
 
   double get avgBuildMs => _avg((s) => s.buildMs);
   double get worstBuildMs => _max((s) => s.buildMs);
   double get avgRasterMs => _avg((s) => s.rasterMs);
   double get worstRasterMs => _max((s) => s.rasterMs);
+  double get worstTotalMs => _max((s) => s.totalMs);
 
-  /// Worst single frame ("slowest frame you will feel").
-  double get worstTotalMs {
-    if (_samples.isEmpty) return 0;
-    var worst = 0.0;
-    for (final s in _samples) {
-      if (s.totalMs > worst) worst = s.totalMs;
-    }
-    return worst;
-  }
+  /// Diagnostic window share above the reference budget, not observed jank.
+  double get jankPercent => _percent(
+    _samples.where((s) => s.totalMs > frameBudgetMs).length,
+    frameCount,
+  );
 
-  /// Share of windowed frames that missed the 60fps budget.
-  double get jankPercent {
-    if (_samples.isEmpty) return 0;
-    var over = 0;
-    for (final s in _samples) {
-      if (s.totalMs > frameBudgetMs) over++;
-    }
-    return over * 100 / _samples.length;
-  }
+  /// Timings exceeding two reference budgets, NOT measured presentation skips.
+  double get slowFramePercent => _percent(
+    _samples.where((s) => s.totalMs > frameBudgetMs * 2).length,
+    frameCount,
+  );
 
-  /// Share of windowed frames that missed by a whole frame or more — these are
-  /// the ones that read as "laggy" rather than "slightly heavy".
-  double get droppedPercent {
-    if (_samples.isEmpty) return 0;
-    var over = 0;
-    for (final s in _samples) {
-      if (s.totalMs > frameBudgetMs * 2) over++;
-    }
-    return over * 100 / _samples.length;
-  }
+  static double _percent(int count, int total) =>
+      total == 0 ? 0 : count * 100 / total;
 
   double _avg(double Function(_FrameSample) pick) {
     if (_samples.isEmpty) return 0;
@@ -109,7 +105,6 @@ class FrameStats {
   }
 
   double _max(double Function(_FrameSample) pick) {
-    if (_samples.isEmpty) return 0;
     var worst = 0.0;
     for (final s in _samples) {
       final value = pick(s);
@@ -119,87 +114,52 @@ class FrameStats {
   }
 }
 
-/// Frames per second from a frame-count delta over [elapsed].
-///
-/// Returns 0 for a zero-length window so a fast timer tick can never divide by
-/// zero or report an infinite rate.
+/// Rate of reported frames, not necessarily presented FPS (especially headless).
 double framesPerSecond(int frames, Duration elapsed) {
   final micros = elapsed.inMicroseconds;
   if (micros <= 0 || frames <= 0) return 0;
   return frames * Duration.microsecondsPerSecond / micros;
 }
 
-/// One reading of the meter.
-///
-/// Exists so the same numbers can go to the on-screen overlay *and*, on web, to
-/// `window.__everglowPerf` — the overlay paints into a canvas, which leaves a
-/// screenshot or nothing; the JS global makes the numbers readable by tooling
-/// and automation.
+/// The same rounded values feed the HUD and the opt-in browser mirror.
 class PerfSnapshot {
-  const PerfSnapshot({
-    required this.fps,
-    required this.buildAvgMs,
-    required this.buildWorstMs,
-    required this.rasterAvgMs,
-    required this.rasterWorstMs,
-    required this.worstFrameMs,
-    required this.jankPercent,
-    required this.droppedPercent,
-    required this.frames,
-    required this.devicePixelRatio,
-  });
-
-  factory PerfSnapshot.of({
+  PerfSnapshot.of({
     required double fps,
     required FrameStats stats,
     required double devicePixelRatio,
-  }) => PerfSnapshot(
-    fps: fps,
-    buildAvgMs: stats.avgBuildMs,
-    buildWorstMs: stats.worstBuildMs,
-    rasterAvgMs: stats.avgRasterMs,
-    rasterWorstMs: stats.worstRasterMs,
-    worstFrameMs: stats.worstTotalMs,
-    jankPercent: stats.jankPercent,
-    droppedPercent: stats.droppedPercent,
-    frames: stats.frameCount,
-    devicePixelRatio: devicePixelRatio,
+    required int sampleSequence,
+  }) : _values = <String, double>{
+         'fps': fps,
+         'buildAvgMs': stats.avgBuildMs,
+         'buildWorstMs': stats.worstBuildMs,
+         'rasterAvgMs': stats.avgRasterMs,
+         'rasterWorstMs': stats.worstRasterMs,
+         'worstFrameMs': stats.worstTotalMs,
+         'jankPercent': stats.jankPercent,
+         'slowFramePercent': stats.slowFramePercent,
+         'frames': stats.frameCount.toDouble(),
+         'devicePixelRatio': devicePixelRatio,
+         'sampleSequence': sampleSequence.toDouble(),
+         'sessionFrames': stats.totalFrames.toDouble(),
+         'sessionWorstBuildMs': stats.sessionWorstBuildMs,
+         'sessionWorstRasterMs': stats.sessionWorstRasterMs,
+         'sessionWorstFrameMs': stats.sessionWorstFrameMs,
+         'sessionOver200ms': stats.sessionOver200ms.toDouble(),
+         'sessionOverBudgetPercent': stats.sessionOverBudgetPercent,
+         'sessionSlowFramePercent': stats.sessionSlowFramePercent,
+       };
+
+  final Map<String, double> _values;
+
+  Map<String, double> toMap() => _values.map(
+    (key, value) => MapEntry(key, (value * 100).roundToDouble() / 100),
   );
-
-  final double fps;
-  final double buildAvgMs;
-  final double buildWorstMs;
-  final double rasterAvgMs;
-  final double rasterWorstMs;
-  final double worstFrameMs;
-  final double jankPercent;
-  final double droppedPercent;
-  final int frames;
-  final double devicePixelRatio;
-
-  /// Rounded to 2 decimals: these get read by a human or a script, they are not
-  /// fed back into further maths, and full doubles are unreadable.
-  Map<String, double> toMap() => <String, double>{
-    'fps': _round(fps),
-    'buildAvgMs': _round(buildAvgMs),
-    'buildWorstMs': _round(buildWorstMs),
-    'rasterAvgMs': _round(rasterAvgMs),
-    'rasterWorstMs': _round(rasterWorstMs),
-    'worstFrameMs': _round(worstFrameMs),
-    'jankPercent': _round(jankPercent),
-    'droppedPercent': _round(droppedPercent),
-    'frames': frames.toDouble(),
-    'devicePixelRatio': _round(devicePixelRatio),
-  };
-
-  static double _round(double value) => (value * 100).roundToDouble() / 100;
 }
 
 class _FrameSample {
-  const _FrameSample(this.buildMs, this.rasterMs);
+  const _FrameSample(this.buildMs, this.rasterMs, this.totalMs);
 
   final double buildMs;
   final double rasterMs;
-
-  double get totalMs => buildMs + rasterMs;
+  final double totalMs;
 }

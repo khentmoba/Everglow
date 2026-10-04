@@ -8,10 +8,16 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final marqueeKey = GlobalKey();
 
-  Widget harness() => MaterialApp(
+  late ScrollController scroll;
+  setUp(() => scroll = ScrollController());
+  tearDown(() => scroll.dispose());
+
+  Widget harness({double spacer = 0}) => MaterialApp(
     home: Scaffold(
       body: CustomScrollView(
+        controller: scroll,
         slivers: [
+          SliverToBoxAdapter(child: SizedBox(height: spacer)),
           SliverToBoxAdapter(
             child: EverglowMarquee(
               key: marqueeKey,
@@ -30,8 +36,7 @@ void main() {
 
   // Reads the @visibleForTesting hook on the marquee state.
   // ignore: avoid_dynamic_calls
-  bool isDrifting() =>
-      (marqueeKey.currentState as dynamic).isDrifting as bool;
+  bool isDrifting() => (marqueeKey.currentState as dynamic).isDrifting as bool;
 
   testWidgets('drift pauses during scroll and resumes after settle', (
     tester,
@@ -43,12 +48,50 @@ void main() {
     expect(isDrifting(), isTrue);
 
     // A drag (no inertia, deterministic): drift must yield while it moves.
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -50));
     await tester.pump();
     expect(isDrifting(), isFalse);
 
     // After the scroll settles, drift comes back on its own.
     await tester.pump(const Duration(milliseconds: 500));
     expect(isDrifting(), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('jumping a row into view resumes after current layout settles', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness(spacer: 1000));
+    scroll.jumpTo(10);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(isDrifting(), isFalse);
+    scroll.jumpTo(950);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(isDrifting(), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('pending settle never restarts a backgrounded marquee', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness());
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(isDrifting(), isTrue);
+    scroll.jumpTo(50);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    addTearDown(
+      () => tester.binding.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(isDrifting(), isFalse);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(isDrifting(), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

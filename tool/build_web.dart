@@ -38,6 +38,7 @@ Future<void> main(List<String> args) async {
     "flutter",
     cmd,
     mode: ProcessStartMode.inheritStdio,
+    runInShell: Platform.isWindows, // Flutter is a .bat command on Windows.
   );
   final code = await proc.exitCode;
   if (code != 0) {
@@ -102,7 +103,10 @@ void _stampCoreShell() {
 
 Future<String?> _resolveCanvaskitUrl() async {
   try {
-    final ver = await Process.run("flutter", ["--version", "--machine"]);
+    final ver = await Process.run("flutter", [
+      "--version",
+      "--machine",
+    ], runInShell: Platform.isWindows);
     if (ver.exitCode != 0) return null;
     final decoded = jsonDecode(ver.stdout as String) as Map<String, dynamic>;
     final rev = (decoded["engineRevision"] as String?)?.trim();

@@ -25,10 +25,8 @@ void main() {
       expect(PerfSettings.sizedAssetDecode.value, isTrue);
     });
 
-    // Safari-verified on 2026-10-04 (identical rendering with the switch on and
-    // off), so the sized decode is now the shipped behaviour. These pin both
-    // halves of that: the default, and the kill switch that has to keep working
-    // from a URL without a deploy.
+    // Sized decode is shipped on with a persisted rollback. The visual A/B
+    // report was informal; these tests pin settings, not Safari rendering.
     test('sized asset decode defaults to on', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       PerfSettings.debugReset();
@@ -50,9 +48,13 @@ void main() {
       expect(PerfSettings.sizedAssetDecode.value, isFalse);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('perf_sized_asset_decode_v1'), isFalse,
-          reason: 'the PWA launches from the manifest start_url and would '
-              'otherwise lose the switch');
+      expect(
+        prefs.getBool('perf_sized_asset_decode_v1'),
+        isFalse,
+        reason:
+            'the PWA launches from the manifest start_url and would '
+            'otherwise lose the switch',
+      );
 
       // A later launch with no query string keeps it off.
       PerfSettings.debugReset();
@@ -89,9 +91,7 @@ void main() {
       });
       PerfSettings.debugReset();
 
-      await PerfSettings.load(
-        queryParameters: {'perf': '0', 'dpr': '1.5'},
-      );
+      await PerfSettings.load(queryParameters: {'perf': '0', 'dpr': '1.5'});
 
       expect(PerfSettings.frameMeter.value, isFalse);
       expect(PerfSettings.renderScale.value, 1.5);
@@ -105,6 +105,37 @@ void main() {
 
       expect(PerfSettings.renderScale.value, isNull);
     });
+  });
+
+  group('non-finite render scales', () {
+    for (final raw in ['NaN', 'Infinity', '-Infinity']) {
+      test('rejects URL dpr=$raw', () async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        PerfSettings.debugReset();
+        await PerfSettings.load(queryParameters: {'dpr': raw});
+        expect(PerfSettings.renderScale.value, isNull);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.containsKey('perf_render_scale_v1'), isFalse);
+      });
+    }
+    for (final scale in [
+      double.nan,
+      double.infinity,
+      double.negativeInfinity,
+    ]) {
+      test('rejects saved or programmatic dpr=$scale', () async {
+        SharedPreferences.setMockInitialValues(<String, Object>{
+          'perf_render_scale_v1': scale,
+        });
+        PerfSettings.debugReset();
+        await PerfSettings.load();
+        expect(PerfSettings.renderScale.value, isNull);
+        await PerfSettings.setRenderScale(scale);
+        expect(PerfSettings.renderScale.value, isNull);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.containsKey('perf_render_scale_v1'), isFalse);
+      });
+    }
   });
 
   group('PerfSettings.nextRenderScale', () {
