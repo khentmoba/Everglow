@@ -5,68 +5,22 @@ class _StreamingPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Live tool chips render separately in [_LiveToolStrip] below the
-    // bubble — this placeholder only covers the pre-text thinking wait.
-    return const Row(
+    return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Flexible(child: _RotatingThinkingText()),
-        SizedBox(width: 8),
-        _ThreeDots(),
-      ],
-    );
-  }
-}
-
-/// Rotates through short "thinking" phrases so the pre-answer wait feels
-/// alive instead of a frozen gap (the model can stay silent for seconds
-/// while it reasons).
-class _RotatingThinkingText extends StatefulWidget {
-  const _RotatingThinkingText();
-
-  @override
-  State<_RotatingThinkingText> createState() => _RotatingThinkingTextState();
-}
-
-class _RotatingThinkingTextState extends State<_RotatingThinkingText> {
-  static const _phrases = [
-    'Motchi is thinking',
-    'Motchi is weaving her thoughts',
-    'Motchi is remembering your little things',
-    'Motchi is finding the right words',
-    'Motchi is dreaming up something nice',
-  ];
-
-  int _index = 0;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 2200), (_) {
-      if (!mounted) return;
-      setState(() => _index = (_index + 1) % _phrases.length);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 350),
-      child: Text(
-        _phrases[_index],
-        key: ValueKey(_index),
-        style: AppTypography.bodyMedium().copyWith(
-          color: AppColors.textMuted,
-          height: 1.45,
+        Flexible(
+          child: Text(
+            'Thinking…',
+            style: AppTypography.bodyMedium().copyWith(
+              fontFamily: AppTypography.reading,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textMuted,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 8),
+        const _ThreeDots(),
+      ],
     );
   }
 }
@@ -193,9 +147,15 @@ class _ThinkingIndicator extends StatelessWidget {
         children: [
           Row(
             children: [
-              const _MotchiAvatar(size: 24),
+              const _MotchiAvatar(size: 20),
               const SizedBox(width: 8),
-              Text('Motchi', style: AppTypography.bodySmall()),
+              Text(
+                'Motchi',
+                style: AppTypography.bodySmall().copyWith(
+                  fontFamily: AppTypography.reading,
+                  color: AppColors.textMedium,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -418,12 +378,12 @@ class _ComposerInputState extends State<_ComposerInput> {
                   AnimatedContainer(
                     duration: AppMotion.fast,
                     decoration: BoxDecoration(
-                      color: AppColors.moonlight.withValues(alpha: 0.055),
-                      borderRadius: AppRadius.radiusXl,
+                      color: AppColors.silk.withValues(alpha: 0.55),
+                      borderRadius: AppRadius.radiusLg,
                       border: Border.all(
                         color: _focused
                             ? AppColors.roseQuartz.withValues(alpha: 0.45)
-                            : AppColors.border,
+                            : AppColors.moonlight.withValues(alpha: 0.12),
                       ),
                     ),
                     child: Focus(
@@ -446,6 +406,8 @@ class _ComposerInputState extends State<_ComposerInput> {
                             controller: widget.controller,
                             focusNode: widget.focusNode,
                             style: AppTypography.bodyLarge().copyWith(
+                              fontFamily: AppTypography.reading,
+                              fontWeight: FontWeight.w400,
                               color: AppColors.petalWhite,
                               height: 1.5,
                             ),
@@ -455,7 +417,9 @@ class _ComposerInputState extends State<_ComposerInput> {
                             decoration: InputDecoration(
                               hintText: 'Message Motchi…',
                               hintStyle: AppTypography.bodyLarge().copyWith(
-                                color: AppColors.textDisabled,
+                                fontFamily: AppTypography.reading,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.textMuted,
                               ),
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
@@ -564,7 +528,9 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     disabledForegroundColor:
                                         AppColors.textDisabled,
                                     minimumSize: const Size(44, 44),
-                                    shape: const CircleBorder(),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.radiusMd,
+                                    ),
                                   ),
                                   icon: Icon(
                                     isLoading

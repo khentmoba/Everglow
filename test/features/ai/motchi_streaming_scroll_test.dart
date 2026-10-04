@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/services/auth_service.dart';
+import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/features/ai/domain/memory/memory_fact.dart';
 import 'package:everglow/features/ai/domain/models/ai_conversation.dart';
@@ -220,6 +221,7 @@ void main() {
                 ),
                 child: child!,
               ),
+              theme: AppTheme.gamifiedTheme,
               home: const MotchiScreen(),
             ),
           ),
@@ -227,7 +229,15 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull);
-        expect(find.byType(ActionChip), findsNWidgets(4));
+        for (final label in [
+          'Pick a movie',
+          'Plan a date',
+          'Quiz us',
+          'Make a game',
+        ]) {
+          expect(find.widgetWithText(TextButton, label), findsOneWidget);
+        }
+        expect(find.byType(ActionChip), findsNothing);
         expect(find.text('CAT'), findsNothing);
         expect(find.text('Purring & ready for you two'), findsNothing);
         expect(find.text('Morning recap ☀️'), findsNothing);
@@ -296,7 +306,10 @@ void main() {
           ChangeNotifierProvider<AIService>.value(value: ai),
           ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
         ],
-        child: const MaterialApp(home: MotchiScreen()),
+        child: MaterialApp(
+          theme: AppTheme.gamifiedTheme,
+          home: const MotchiScreen(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -335,13 +348,71 @@ void main() {
     await tester.tap(find.byTooltip('New chat'));
     await tester.pumpAndSettle();
     expect(ai.assistantConversation!.messages, isEmpty);
-    expect(find.byType(ActionChip), findsNWidgets(4));
+    for (final label in [
+      'Pick a movie',
+      'Plan a date',
+      'Quiz us',
+      'Make a game',
+    ]) {
+      expect(find.widgetWithText(TextButton, label), findsOneWidget);
+    }
     await tester.tap(find.byTooltip('History'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byTooltip('Close history'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     ai.dispose();
+  });
+
+  testWidgets('welcome rows send their prompts and keep automatic Canvas', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final (label, prompt, canvas) in const [
+      (
+        'Pick a movie',
+        'What should we watch tonight from our watchlist?',
+        false,
+      ),
+      ('Plan a date', 'Plan a cozy date night for us', false),
+      ('Quiz us', 'Quiz us with 5 fun questions', true),
+      ('Make a game', 'Build us a tiny game', true),
+    ]) {
+      final ai = _InteractionAIService();
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: MaterialApp(
+            key: ValueKey(label),
+            theme: AppTheme.gamifiedTheme.copyWith(
+              visualDensity: VisualDensity.compact,
+            ),
+            home: const MotchiScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final button = find.widgetWithText(TextButton, label);
+      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+      await tester.tap(button);
+      await tester.pump();
+      expect(ai.requests, hasLength(1));
+      expect(ai.requests.single.message, prompt);
+      expect(ai.requests.single.canvas, canvas);
+      await tester.tap(find.byTooltip('Stop generating'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    }
   });
 
   testWidgets('more menu keeps every Motchi destination reachable on phones', (

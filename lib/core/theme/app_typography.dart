@@ -20,6 +20,8 @@ class AppTypography {
   // Font family constants — must match `family:` in pubspec.yaml.
   static const String display = 'Cormorant Garamond';
   static const String body = 'Outfit';
+  // Bundled regular weight for longer, quieter reading surfaces.
+  static const String reading = 'DM Sans';
   static const String script = 'Dancing Script';
   static const String hand = 'Caveat';
 
@@ -71,7 +73,7 @@ class AppTypography {
     letterSpacing: 0.5,
   );
 
-  // Cached Title / Body / Label (Outfit — 400..900 all bundled)
+  // Cached Title / Body / Label (Outfit — 500..900 all bundled)
   // Body uses w500 minimum: Outfit 400 at 12-14px on dark glass is too
   // thin for CanvasKit grayscale AA and reads as blur. 500 stays sharp.
 

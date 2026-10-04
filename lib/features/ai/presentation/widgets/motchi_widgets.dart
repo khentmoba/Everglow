@@ -54,7 +54,7 @@ class _MotchiHeader extends StatelessWidget {
             tooltip: sidebarOpen ? 'Close history' : 'History',
           ),
           const SizedBox(width: 8),
-          const _MotchiAvatar(),
+          const _MotchiAvatar(size: 24),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -62,14 +62,15 @@ class _MotchiHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.titleMedium().copyWith(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
+                fontFamily: AppTypography.reading,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
           IconButton(
             onPressed: onNewChat,
-            icon: const Icon(Icons.edit_square, size: 20),
+            icon: const Icon(Icons.add_comment_outlined, size: 20),
             color: AppColors.textMuted,
             tooltip: 'New chat',
           ),
@@ -122,18 +123,20 @@ class _DeepThinkPill extends StatelessWidget {
     };
     return Tooltip(
       message: tooltip,
-      child: TextButton.icon(
+      child: TextButton(
         onPressed: onTap,
-        icon: const Icon(Icons.psychology_outlined, size: 18),
-        label: Text(label),
         style: TextButton.styleFrom(
           foregroundColor: mode == DeepThinkMode.on
               ? AppColors.roseQuartz
               : AppColors.textMuted,
-          textStyle: AppTypography.bodySmall(),
+          textStyle: AppTypography.bodySmall().copyWith(
+            fontFamily: AppTypography.reading,
+          ),
           minimumSize: const Size(64, 44),
+          visualDensity: VisualDensity.standard,
           padding: const EdgeInsets.symmetric(horizontal: 10),
         ),
+        child: Text(label),
       ),
     );
   }
@@ -152,83 +155,85 @@ class _GreetingEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final pet = motchiPetName(callerName);
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+          constraints: const BoxConstraints(maxWidth: 440),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _MotchiAvatar(size: 56),
-              const SizedBox(height: 24),
               Text(
-                motchiGreetingTitle(now, callerName),
-                textAlign: TextAlign.center,
+                pet.isEmpty
+                    ? 'What’s on your mind?'
+                    : 'What’s on your mind, $pet?',
                 style: AppTypography.headlineLarge().copyWith(
-                  fontSize: centered ? 36 : 32,
-                  fontWeight: FontWeight.w600,
+                  fontSize: centered ? 40 : 36,
+                  fontWeight: FontWeight.w400,
                   color: AppColors.petalWhite,
+                  height: 1.1,
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text(
-                motchiGreetingSubtitle(now),
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyLarge().copyWith(
-                  color: AppColors.textMuted,
-                  height: 1.5,
+                'A small plan, a good film, or just a chat.',
+                style: AppTypography.bodyMedium().copyWith(
+                  fontFamily: AppTypography.reading,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textMedium,
+                  height: 1.6,
                 ),
               ),
-              const SizedBox(height: 28),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final (label, prompt, icon) in const [
-                    (
-                      'Pick a movie',
-                      'What should we watch tonight from our watchlist?',
-                      Icons.movie_outlined,
+              const SizedBox(height: 32),
+              for (final (label, prompt, icon) in const [
+                (
+                  'Pick a movie',
+                  'What should we watch tonight from our watchlist?',
+                  Icons.movie_outlined,
+                ),
+                (
+                  'Plan a date',
+                  'Plan a cozy date night for us',
+                  Icons.favorite_border_rounded,
+                ),
+                (
+                  'Quiz us',
+                  'Quiz us with 5 fun questions',
+                  Icons.quiz_outlined,
+                ),
+                (
+                  'Make a game',
+                  'Build us a tiny game',
+                  Icons.sports_esports_outlined,
+                ),
+              ])
+                TextButton(
+                  onPressed: () => onTap(prompt),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textMedium,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    minimumSize: const Size.fromHeight(48),
+                    visualDensity: VisualDensity.standard,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: AppRadius.radiusSm,
                     ),
-                    (
-                      'Plan a date',
-                      'Plan a cozy date night for us',
-                      Icons.favorite_border_rounded,
+                    textStyle: AppTypography.bodyMedium().copyWith(
+                      fontFamily: AppTypography.reading,
+                      fontWeight: FontWeight.w400,
                     ),
-                    (
-                      'Quiz us',
-                      'Quiz us with 5 fun questions',
-                      Icons.quiz_outlined,
-                    ),
-                    (
-                      'Make a game',
-                      'Build us a tiny game',
-                      Icons.sports_esports_outlined,
-                    ),
-                  ])
-                    ActionChip(
-                      avatar: Icon(icon, size: 17, color: AppColors.textMuted),
-                      label: Text(label),
-                      labelStyle: AppTypography.bodySmall().copyWith(
-                        color: AppColors.textMedium,
-                      ),
-                      onPressed: () => onTap(prompt),
-                      backgroundColor: Colors.transparent,
-                      side: BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: AppRadius.radiusFull,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 6,
-                      ),
-                    ),
-                ],
-              ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 18, color: AppColors.textMuted),
+                      const SizedBox(width: 14),
+                      Expanded(child: Text(label)),
+                      const Icon(Icons.arrow_outward_rounded, size: 15),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),

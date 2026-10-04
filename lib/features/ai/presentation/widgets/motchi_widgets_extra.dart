@@ -142,8 +142,8 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     : EdgeInsets.zero,
                 decoration: widget.isUser
                     ? BoxDecoration(
-                        color: AppColors.roseQuartz.withValues(alpha: 0.16),
-                        borderRadius: AppRadius.radiusXl,
+                        color: AppColors.glassSoft,
+                        borderRadius: AppRadius.radiusLg,
                       )
                     : null,
                 child: Column(
@@ -155,12 +155,13 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const _MotchiAvatar(size: 24),
+                          const _MotchiAvatar(size: 20),
                           const SizedBox(width: 8),
                           Text(
                             'Motchi',
                             style: AppTypography.bodySmall().copyWith(
-                              color: AppColors.roseQuartz,
+                              fontFamily: AppTypography.reading,
+                              color: AppColors.textMedium,
                             ),
                           ),
                         ],
@@ -243,8 +244,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
                           height: 1.55,
+                          fontFamily: AppTypography.reading,
                           fontSize: 15.5,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
                         ),
                       )
                     else if (widget.isStreaming && cleanBubbleText.isEmpty)
@@ -272,6 +274,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                   baseStyle: AppTypography.bodyMedium()
                                       .copyWith(
                                         color: AppColors.textHigh,
+                                        fontFamily: AppTypography.reading,
                                         height: 1.65,
                                         fontSize: 16,
                                         fontWeight: FontWeight.w400,
