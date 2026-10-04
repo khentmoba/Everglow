@@ -332,20 +332,44 @@ first-frame number.
 **No long main-thread task anywhere**: worst long task was 0ms in all nine
 runs, against a 500ms bar. Boot does not jank; it waits.
 
-### One real finding: repeat visits re-download the shell
+### CORRECTED: repeat visits do NOT re-download the shell
 
-The repeat case has FCP 28ms but first interactive 134s, which looks
-contradictory until you read `tool/generate_sw.dart:273` — the SW is
-**network-first** for `main.dart.js` (stamped `?v=BUILD`), so it revalidates the
-shell over the network on every visit and only falls back to cache when
-offline. On a fast link that costs nothing. On a 50KB/s link it costs the full
-134s even though the bytes are already cached.
+**This section previously claimed the opposite and was wrong.** It said the
+service worker is network-first for `main.dart.js` and that a repeat visit
+therefore re-downloads the shell (134s), and offered cache-first as the top
+remaining win. All of that came from reading the "Default: network-first"
+branch at `tool/generate_sw.dart:273` without tracing the branch above it.
 
-Cache-first for the versioned shell would fix that, and `?v=BUILD` plus the
-build-stamp logic already exist to keep deploys propagating. **Not changed here:**
-it alters deploy semantics, and deploy behaviour is Khent's call, not one to make
-unattended while he is asleep. Recorded as the single highest-value cold-boot
-change available.
+The core-shell branch is **cache-first**:
+
+- `isCore(path)` is `path.endsWith("main.dart.js")` — query-blind, so it routes
+  around the `?v=BUILD` query while the cache key still keeps it.
+- That branch does `caches.match(...)` and **returns the hit with no network**.
+- `skipWaiting()` and `clients.claim()` are both present, so a second visit is
+  genuinely controlled by the worker.
+
+Verified against the **live** site rather than inferred: load
+`everglow-1c6db.web.app`, let the worker activate, confirm the page is
+controlled, then cut the network entirely and reload —
+
+```
+page controlled by SW: true
+BOOTED OFFLINE in 991ms -> shell IS served from cache
+dom: canvas-present
+```
+
+So a repeat visit is effectively instant, and the earlier 134s figure was an
+artifact of the local rig, not the product: that rig served a plain
+`flutter build web` without the `?v=BUILD` stamp, so it never exercised the
+production shell path.
+
+The 134s number in the table above still stands as a **cold download**
+measurement — that part was never in doubt — but attributing it to repeat
+visits was an error. Deploy safety is handled by URL versioning: a new build
+gets a new `?v=BUILD`, which is a different cache key, so it misses and fetches
+fresh bytes whatever worker happens to be active.
+
+**Nothing to ship.** The team had already built this correctly.
 
 ### Three harness bugs this pass had to fix first
 
@@ -599,8 +623,9 @@ Beyond the mechanical coverage, these were read and measured rather than assumed
 - **Full-screen painter frame rates.** Deliberately unchanged: measurable win on
   the phone, invisible on this rig (0.03ms), and a cadence change risks looking
   choppy with no way to check unattended.
-- **Service-worker cache-first for the shell.** Would fix the 134s repeat-visit
-  boot, but it changes deploy semantics — Khent's call.
+- **Service-worker cache-first for the shell.** Investigated and **retracted**:
+  the core shell is already cache-first and a repeat visit boots offline in
+  991ms. See the correction above. There is nothing to change.
 - **The `kIsWeb ? null : N` avatar decode workaround.** Verified obsolete on
   Chromium, unverified on Safari, where the failure would be a visible grey
   avatar on Clair's phone.
@@ -723,7 +748,7 @@ Everything deliberately not done, and why:
 | --- | --- |
 | per-screen FPS/jank on the device | needs a phone; automated above instead, stated as unmet |
 | ambience idle frame-rate throttle | real phone win, invisible here (0.03ms), risks looking choppy with no way to check unattended |
-| service-worker cache-first for the shell | fixes the 134s repeat-visit boot; changes deploy semantics, so it is Khent's call |
+| service-worker cache-first for the shell | investigated and retracted — already cache-first, verified booting offline in 991ms |
 | removing the `kIsWeb ? null` avatar decode guard | verified obsolete on Chromium; unverified on Safari, where failure is a visible grey avatar on Clair's phone |
 | Creator Studio → System perf switches | deleted long ago, not needed for URL-flag measurement; `?perf=1` covers it |
 | reducing `main.dart.js` further | deferred-route splitting already shipped; source-map attribution in this file shows the win is modest and the remaining bytes are framework/engine/CanvasKit |
