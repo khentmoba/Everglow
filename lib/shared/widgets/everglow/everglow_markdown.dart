@@ -27,8 +27,8 @@ class EverglowMarkdown extends StatelessWidget {
   final double paragraphGap;
   final bool selectable;
 
-  /// Open lists for conversational replies; other surfaces keep their cards.
-  final bool plainLists;
+  /// Quiet headings and open lists for chat; other surfaces keep their cards.
+  final bool plain;
 
   const EverglowMarkdown({
     super.key,
@@ -36,7 +36,7 @@ class EverglowMarkdown extends StatelessWidget {
     this.baseStyle,
     this.paragraphGap = 10,
     this.selectable = true,
-    this.plainLists = false,
+    this.plain = false,
   });
 
   @override
@@ -136,7 +136,17 @@ class EverglowMarkdown extends StatelessWidget {
       if (heading != null && (heading.group(2) ?? '').isNotEmpty) {
         final level = heading.group(1)!.length;
         final content = heading.group(2)!.trim();
-        blocks.add(_Heading(level: level, content: content));
+        blocks.add(
+          plain
+              ? _paragraph(
+                  content,
+                  base.copyWith(
+                    fontSize: (base.fontSize ?? 16) + (level == 1 ? 4 : 2),
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              : _Heading(level: level, content: content),
+        );
         i++;
         continue;
       }
@@ -197,9 +207,7 @@ class EverglowMarkdown extends StatelessWidget {
             break;
           }
         }
-        blocks.add(
-          EverglowBulletGroup(items: items, base: base, plain: plainLists),
-        );
+        blocks.add(EverglowBulletGroup(items: items, base: base, plain: plain));
         continue;
       }
 
@@ -224,14 +232,14 @@ class EverglowMarkdown extends StatelessWidget {
           }
         }
         blocks.add(
-          EverglowNumberedGroup(items: items, base: base, plain: plainLists),
+          EverglowNumberedGroup(items: items, base: base, plain: plain),
         );
         continue;
       }
 
       // Standalone "**Title:**" line — subhead pill.
       final boldLine = RegExp(r'^\*\*(.+?)\*\*:?\s*$').firstMatch(trimmed);
-      if (boldLine != null && trimmed.length < 90) {
+      if (!plain && boldLine != null && trimmed.length < 90) {
         blocks.add(_Subhead(content: boldLine.group(1)!.trim()));
         i++;
         continue;
@@ -240,7 +248,7 @@ class EverglowMarkdown extends StatelessWidget {
       // ALL-CAPS / emoji section label ("🔑 KEY POINTS AT A GLANCE",
       // "🇨🇳 VCT China") — boxless header, checked BEFORE tips so short
       // labels never become heavy callout boxes.
-      if (_isSectionLabel(trimmed)) {
+      if (!plain && _isSectionLabel(trimmed)) {
         blocks.add(_SectionLabel(content: trimmed));
         i++;
         continue;
@@ -248,7 +256,7 @@ class EverglowMarkdown extends StatelessWidget {
 
       // Tip-led single line (💡 Quick hack…) — callout card. Only real
       // tip markers qualify; other emoji lines stay light paragraphs.
-      if (_isTipLead(trimmed) && trimmed.length < 220) {
+      if (!plain && _isTipLead(trimmed) && trimmed.length < 220) {
         blocks.add(_Callout(text: trimmed, base: base));
         i++;
         continue;
@@ -281,9 +289,9 @@ class EverglowMarkdown extends StatelessWidget {
       final paraText = buf.join('\n').trim();
       // A short gathered paragraph that turns out to be a label/tip
       // still gets the premium treatment (model often emits these bare).
-      if (_isSectionLabel(paraText)) {
+      if (!plain && _isSectionLabel(paraText)) {
         blocks.add(_SectionLabel(content: paraText));
-      } else if (_isTipLead(paraText) && paraText.length < 220) {
+      } else if (!plain && _isTipLead(paraText) && paraText.length < 220) {
         blocks.add(_Callout(text: paraText, base: base));
       } else {
         blocks.add(_paragraph(paraText, base));
@@ -656,7 +664,7 @@ class EverglowBulletGroup extends StatelessWidget {
         children: [
           for (var i = 0; i < items.length; i++) ...[
             if (i > 0 && !plain) const _ListDivider(),
-            _BulletRow(content: items[i], base: base),
+            _BulletRow(content: items[i], base: base, plain: plain),
           ],
         ],
       ),
@@ -667,13 +675,21 @@ class EverglowBulletGroup extends StatelessWidget {
 class _BulletRow extends StatelessWidget {
   final String content;
   final TextStyle base;
-  const _BulletRow({required this.content, required this.base});
+  final bool plain;
+  const _BulletRow({
+    required this.content,
+    required this.base,
+    this.plain = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final split = _splitLeadingEmoji(content);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+      padding: EdgeInsets.symmetric(
+        horizontal: plain ? 4 : 13,
+        vertical: plain ? 6 : 9,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -688,14 +704,16 @@ class _BulletRow extends StatelessWidget {
               height: 6,
               margin: const EdgeInsets.only(top: 8, right: 11),
               decoration: BoxDecoration(
-                color: AppColors.blushGold,
+                color: plain ? AppColors.textMuted : AppColors.blushGold,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.blushGold.withValues(alpha: 0.5),
-                    blurRadius: 6,
-                  ),
-                ],
+                boxShadow: plain
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: AppColors.blushGold.withValues(alpha: 0.5),
+                          blurRadius: 6,
+                        ),
+                      ],
               ),
             ),
           Expanded(

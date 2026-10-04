@@ -20,7 +20,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../shared/utils/text_utils.dart';
 import '../../../../shared/utils/greeting_utils.dart';
-import '../../../../shared/widgets/everglow/everglow_background.dart';
+
 import '../../../../shared/widgets/everglow/everglow_chat_bubble.dart';
 import '../../../../shared/widgets/everglow/everglow_markdown.dart';
 import '../../domain/motchi_quality.dart';
@@ -128,50 +128,55 @@ class _MotchiScreenState extends State<MotchiScreen> {
     }
   }
 
-    static const _undoableDeleteTools = {
-      'delete_memory',
-      'remove_from_watchlist',
-      'delete_calendar_event',
-      'delete_journal_entry',
-      'delete_bucket_item',
-    };
+  static const _undoableDeleteTools = {
+    'delete_memory',
+    'remove_from_watchlist',
+    'delete_calendar_event',
+    'delete_journal_entry',
+    'delete_bucket_item',
+  };
 
-    String _restoreMessage(Map<String, dynamic> last) {
-      final tool = last['tool'] as String? ?? '';
-      if (tool == 'delete_memory') {
-        return 'Please remember this again: ${last['fact'] ?? ''}';
-      }
-      if (tool == 'remove_from_watchlist') {
-        final title = last['title'] ?? '';
-        return 'Please add "$title" back to our watchlist';
-      }
-      final deleted = last['deleted'];
-      final detail = deleted is Map
-          ? deleted.entries
-                .where((e) => e.value != null && '${e.value}'.isNotEmpty)
-                .map((e) => '${e.key}: ${e.value}')
-                .join(', ')
-          : '${last['title'] ?? ''}';
-      if (tool == 'delete_calendar_event') {
-        return 'Please recreate this calendar event ($detail)';
-      }
-      if (tool == 'delete_journal_entry') {
-        return 'Please recreate this journal entry ($detail)';
-      }
-      return 'Please add this back to our bucket list ($detail)';
+  String _restoreMessage(Map<String, dynamic> last) {
+    final tool = last['tool'] as String? ?? '';
+    if (tool == 'delete_memory') {
+      return 'Please remember this again: ${last['fact'] ?? ''}';
     }
+    if (tool == 'remove_from_watchlist') {
+      final title = last['title'] ?? '';
+      return 'Please add "$title" back to our watchlist';
+    }
+    final deleted = last['deleted'];
+    final detail = deleted is Map
+        ? deleted.entries
+              .where((e) => e.value != null && '${e.value}'.isNotEmpty)
+              .map((e) => '${e.key}: ${e.value}')
+              .join(', ')
+        : '${last['title'] ?? ''}';
+    if (tool == 'delete_calendar_event') {
+      return 'Please recreate this calendar event ($detail)';
+    }
+    if (tool == 'delete_journal_entry') {
+      return 'Please recreate this journal entry ($detail)';
+    }
+    return 'Please add this back to our bucket list ($detail)';
+  }
 
-    void _onToolResults() {
+  void _onToolResults() {
     if (!mounted) return;
     final ai = context.read<AIService>();
     final results = ai.toolResultsNotifier.value;
     if (results.isEmpty) return;
     final last = results.last;
-    if (last['success'] == true && _undoableDeleteTools.contains(last['tool'])) {
-      final title = last['fact'] as String? ?? last['title'] as String? ?? 'item';
+    if (last['success'] == true &&
+        _undoableDeleteTools.contains(last['tool'])) {
+      final title =
+          last['fact'] as String? ?? last['title'] as String? ?? 'item';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Removed "${title.length > 30 ? '${title.substring(0, 30)}…' : title}" — tap Undo to restore', style: AppTypography.bodySmall()),
+          content: Text(
+            'Removed "${title.length > 30 ? '${title.substring(0, 30)}…' : title}" — tap Undo to restore',
+            style: AppTypography.bodySmall(),
+          ),
           backgroundColor: AppColors.velvet,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
@@ -183,7 +188,10 @@ class _MotchiScreenState extends State<MotchiScreen> {
             onPressed: () {
               final message = _restoreMessage(last);
               if (message.isNotEmpty) {
-                context.read<AIService>().sendMessage(feature: 'assistant', message: message);
+                context.read<AIService>().sendMessage(
+                  feature: 'assistant',
+                  message: message,
+                );
               }
             },
           ),
@@ -193,7 +201,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
     if (last['needs_confirmation'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(last['message'] as String? ?? 'Motchi needs your confirmation to proceed', style: AppTypography.bodySmall()),
+          content: Text(
+            last['message'] as String? ??
+                'Motchi needs your confirmation to proceed',
+            style: AppTypography.bodySmall(),
+          ),
           backgroundColor: AppColors.panelGlass,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
@@ -402,62 +414,37 @@ class _MotchiScreenState extends State<MotchiScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
-    if (isDesktop) return _buildDesktop(context);
-    return _buildMobile(context);
-  }
-
-  Widget _buildDesktop(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.inkDeep,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.auroraLilac,
-                  alignment: Alignment(-0.7, -0.9),
-                  size: 0.9,
-                  opacity: 0.14,
-                ),
-                RadialGlow(
-                  color: AppColors.deepRose,
-                  alignment: Alignment(0.9, 0.9),
-                  size: 0.8,
-                  opacity: 0.10,
-                ),
-              ],
-            ),
-          ),
-          SafeArea(
-            child: Row(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Row(
               children: [
-                AnimatedContainer(
-                  duration: AppMotion.medium,
-                  curve: AppMotion.drawer,
-                  width: _isSidebarOpen ? 320 : 0,
-                  child: OverflowBox(
-                    maxWidth: 320,
-                    minWidth: 320,
-                    alignment: Alignment.centerLeft,
-                    // Closed sidebar is fully transparent but still overflows
-                    // 320px over the chat area — ignore its pointer events so
-                    // it can't swallow taps/hovers on the suggestion cards.
-                    child: IgnorePointer(
-                      ignoring: !_isSidebarOpen,
-                      child: AnimatedOpacity(
-                        duration: AppMotion.fast,
-                        opacity: _isSidebarOpen ? 1 : 0,
-                        child: MotchiSidebar(
-                          isOpen: true,
-                          onClose: () => setState(() => _isSidebarOpen = false),
-                          onNewChat: _newChat,
+                if (isDesktop)
+                  AnimatedContainer(
+                    duration: AppMotion.medium,
+                    curve: AppMotion.drawer,
+                    width: _isSidebarOpen ? 320 : 0,
+                    child: OverflowBox(
+                      maxWidth: 320,
+                      minWidth: 320,
+                      alignment: Alignment.centerLeft,
+                      child: IgnorePointer(
+                        ignoring: !_isSidebarOpen,
+                        child: AnimatedOpacity(
+                          duration: AppMotion.fast,
+                          opacity: _isSidebarOpen ? 1 : 0,
+                          child: MotchiSidebar(
+                            isOpen: true,
+                            onClose: () =>
+                                setState(() => _isSidebarOpen = false),
+                            onNewChat: _newChat,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
                 Expanded(
                   child: Column(
                     children: [
@@ -466,26 +453,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                         onSidebarToggle: () =>
                             setState(() => _isSidebarOpen = !_isSidebarOpen),
                         onNewChat: _newChat,
-                        deepThinkMode: _deepThinkMode,
-                        isDesktop: true,
                         sidebarOpen: _isSidebarOpen,
-                        onToggleDeepThink: _cycleDeepThink,
                       ),
-                      Divider(
-                        height: 1,
-                        color: AppColors.blushGold.withValues(alpha: 0.06),
-                      ),
-                      Expanded(child: _buildChatList(centered: true)),
-                      Selector<AIService, bool>(
-                        selector: (_, ai) => ai.isLoading,
-                        builder: (context, loading, _) {
-                          return _QuickReplyChips(
-                            onSelect: _sendQuick,
-                            centered: true,
-                            enabled: !loading && !_isSending,
-                          );
-                        },
-                      ),
+                      Expanded(child: _buildChatList(centered: isDesktop)),
                       _ErrorBanner(
                         lastSentMessage: _lastSentMessage,
                         onRetry: () => _send(retry: true),
@@ -499,7 +469,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                         onPickImages: _pickImages,
                         attachedImages: _attachedImages,
                         onRemoveImage: _removeImage,
-                        centered: true,
+                        centered: isDesktop,
+                        deepThinkMode: _deepThinkMode,
+                        onToggleDeepThink: _cycleDeepThink,
                         canvasEnabled: _canvasEnabled,
                         onToggleCanvas: () =>
                             setState(() => _canvasEnabled = !_canvasEnabled),
@@ -509,91 +481,14 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMobile(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.twilight,
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: EverglowBackground(
-              baseColor: AppColors.inkDeep,
-              glows: [
-                RadialGlow(
-                  color: AppColors.auroraLilac,
-                  alignment: Alignment(-0.7, -0.9),
-                  size: 0.9,
-                  opacity: 0.14,
-                ),
-                RadialGlow(
-                  color: AppColors.deepRose,
-                  alignment: Alignment(0.9, 0.9),
-                  size: 0.8,
-                  opacity: 0.10,
-                ),
-              ],
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _MotchiHeader(
-                  onBack: () => context.pop(),
-                  onSidebarToggle: () =>
-                      setState(() => _isSidebarOpen = !_isSidebarOpen),
-                  onNewChat: _newChat,
-                  deepThinkMode: _deepThinkMode,
-                  isDesktop: false,
-                  sidebarOpen: _isSidebarOpen,
-                  onToggleDeepThink: _cycleDeepThink,
-                ),
-                Divider(
-                  height: 1,
-                  color: AppColors.blushGold.withValues(alpha: 0.06),
-                ),
-                Expanded(child: _buildChatList(centered: false)),
-                Selector<AIService, bool>(
-                  selector: (_, ai) => ai.isLoading,
-                  builder: (context, loading, _) {
-                    return _QuickReplyChips(
-                      onSelect: _sendQuick,
-                      centered: false,
-                      enabled: !loading && !_isSending,
-                    );
-                  },
-                ),
-                _ErrorBanner(
-                  lastSentMessage: _lastSentMessage,
-                  onRetry: () => _send(retry: true),
-                ),
-                _ComposerInput(
-                  inputKey: _inputKey,
-                  controller: _input,
-                  focusNode: _focusNode,
-                  onSend: _send,
-                  onStop: _stop,
-                  onPickImages: _pickImages,
-                  attachedImages: _attachedImages,
-                  onRemoveImage: _removeImage,
-                  centered: false,
-                  canvasEnabled: _canvasEnabled,
-                  onToggleCanvas: () =>
-                      setState(() => _canvasEnabled = !_canvasEnabled),
-                ),
-              ],
-            ),
-          ),
-          MotchiSidebar(
-            isOpen: _isSidebarOpen,
-            onClose: () => setState(() => _isSidebarOpen = false),
-            onNewChat: _newChat,
-          ),
-        ],
+            if (!isDesktop)
+              MotchiSidebar(
+                isOpen: _isSidebarOpen,
+                onClose: () => setState(() => _isSidebarOpen = false),
+                onNewChat: _newChat,
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -637,16 +532,14 @@ class _MotchiScreenState extends State<MotchiScreen> {
               controller: _scroll,
               padding: EdgeInsets.symmetric(
                 horizontal: centered ? 24 : 16,
-                vertical: 14,
+                vertical: 20,
               ),
               itemCount: itemCount,
               itemBuilder: (_, i) {
                 if (i == allMsgs.length) {
                   return Center(
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: centered ? 760 : double.infinity,
-                      ),
+                      constraints: const BoxConstraints(maxWidth: 720),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: ValueListenableBuilder<int>(
@@ -680,10 +573,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                   _LiveToolStrip(ai: ai),
                                   if (ai.toolResults.isNotEmpty)
                                     Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 46,
-                                        top: 6,
-                                      ),
+                                      padding: const EdgeInsets.only(top: 6),
                                       child: MotchiReplyDetailsCard(
                                         details: MotchiReplyDetails.fromResults(
                                           ai.toolResults,
@@ -733,7 +623,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       bubble,
                       const SizedBox(height: 6),
                       Padding(
-                        padding: const EdgeInsets.only(left: 46),
+                        padding: const EdgeInsets.only(top: 4),
                         child: WebSourcesCard(sources: msg.sources),
                       ),
                     ],
@@ -746,7 +636,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                     children: [
                       bubble,
                       Padding(
-                        padding: const EdgeInsets.only(left: 46, top: 6),
+                        padding: const EdgeInsets.only(top: 6),
                         child: MotchiReplyDetailsCard(
                           details: msg.details,
                           onOpenMemoryBook: () =>
@@ -762,10 +652,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                     ],
                   );
                 }
-                if (!centered) return bubble;
                 return Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
+                    constraints: const BoxConstraints(maxWidth: 720),
                     child: Align(
                       alignment: msg.role == 'user'
                           ? Alignment.centerRight
