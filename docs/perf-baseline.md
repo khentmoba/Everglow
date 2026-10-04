@@ -38,14 +38,23 @@ a desktop GPU; an iPhone is a small power-budgeted one, so absolute raster
 here says nothing about the phone. Compare builds, never compare to a
 device.
 
+### Companion file
+
+This file is the **throttled** run: phone-like CPU, sensitive enough to
+show a real regression, but noisy (see the spread columns).
+`docs/perf-baseline-unthrottled.md` is the same scenes with no CPU
+throttle, where the numbers are far tighter and so make the better
+regression tripwire. Use unthrottled to catch paint/build regressions, and
+this file to judge whether something matters at phone CPU speeds.
+
 ## Results
 
 | scene | phase | fps | jank | build med | build min | raster med | raster min | worst med | worst min | long task |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| shelves | idle | 92.2 | 0.42% | 3.38 | 3.05 | 5.45 | 4.99 | 17.4 | 15 | 0 |
-| shelves | scroll | 107.29 | 0.42% | 3.42 | 3.33 | 4.98 | 4.76 | 18.2 | 15.1 | 62 |
-| grid | idle | 168.51 | 0% | 2.26 | 2.04 | 3.26 | 2.98 | 12.8 | 11.7 | 0 |
-| grid | scroll | 10.17 | 3.33% | 2.92 | 2.74 | 4.35 | 4.24 | 25 | 21.1 | 53 |
+| shelves | idle | 96.96 | 0% | 2.74 | 2.67 | 4.62 | 4.4 | 14.4 | 12.9 | 0 |
+| shelves | scroll | 117.19 | 0.42% | 3.17 | 3.06 | 4.6 | 4.29 | 17.4 | 14.1 | 64 |
+| grid | idle | 173.98 | 0% | 1.83 | 1.66 | 2.47 | 2.29 | 11.7 | 10.2 | 0 |
+| grid | scroll | 0 | 1.67% | 2.25 | 2.18 | 3.63 | 3.52 | 21.6 | 20.8 | 0 |
 
 ## Noise band
 
@@ -57,20 +66,20 @@ evidence of anything.
 
 | scene | phase | build min | build spread | raster min | raster spread | worst min | worst spread |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| shelves | idle | 3.05 | ±20.71% | 4.99 | ±15.96% | 15 | ±30.46% |
-| shelves | scroll | 3.33 | ±7.31% | 4.76 | ±9.44% | 15.1 | ±96.15% |
-| grid | idle | 2.04 | ±11.95% | 2.98 | ±10.74% | 11.7 | ±98.44% |
-| grid | scroll | 2.74 | ±11.3% | 4.24 | ±11.26% | 21.1 | ±33.6% |
+| shelves | idle | 2.67 | ±8.03% | 4.4 | ±8.23% | 12.9 | ±168.75% |
+| shelves | scroll | 3.06 | ±9.15% | 4.29 | ±15.22% | 14.1 | ±90.23% |
+| grid | idle | 1.66 | ±12.02% | 2.29 | ±13.36% | 10.2 | ±85.47% |
+| grid | scroll | 2.18 | ±8% | 3.52 | ±5.79% | 20.8 | ±12.5% |
 
 ## Raw runs
 
-- shelves run 1: idle 86.55fps build 3.12ms (240 frames) · scroll 118.07fps build 3.33ms raster 4.76ms worst 15.1ms longTask 66ms heap 79.86MB
-- shelves run 2: idle 103.89fps build 3.05ms (240 frames) · scroll 85.14fps build 3.47ms raster 4.95ms worst 32.6ms longTask 62ms heap 55.03MB
-- shelves run 3: idle 86.14fps build 3.38ms (240 frames) · scroll 107.29fps build 3.58ms raster 5.18ms worst 28.6ms longTask 65ms heap 88.04MB
-- shelves run 4: idle 92.2fps build 3.75ms (240 frames) · scroll 113.04fps build 3.42ms raster 5.23ms worst 18.2ms longTask 52ms heap 71.42MB
-- shelves run 5: idle 107.34fps build 3.46ms (240 frames) · scroll 85.1fps build 3.41ms raster 4.98ms worst 15.7ms longTask 50ms heap 80.21MB
-- grid run 1: idle 130.53fps build 2.31ms (240 frames) · scroll 26.84fps build 2.81ms raster 4.24ms worst 23.6ms longTask 53ms heap 56.11MB
-- grid run 2: idle 122.76fps build 2.26ms (240 frames) · scroll 10.17fps build 3.07ms raster 4.73ms worst 21.1ms longTask 73ms heap 34.04MB
-- grid run 3: idle 168.51fps build 2.31ms (240 frames) · scroll 0fps build 2.92ms raster 4.45ms worst 26ms longTask 59ms heap 55.93MB
-- grid run 4: idle 199.2fps build 2.1ms (240 frames) · scroll 4.25fps build 2.93ms raster 4.35ms worst 29.5ms longTask 50ms heap 54.51MB
-- grid run 5: idle 189.36fps build 2.04ms (240 frames) · scroll 57.18fps build 2.74ms raster 4.24ms worst 25ms longTask 50ms heap 67.65MB
+- shelves run 1: idle 88.74fps build 2.76ms (240 frames) · scroll 117.19fps build 3.18ms raster 4.55ms worst 16.2ms longTask 64ms heap 76.28MB
+- shelves run 2: idle 111.52fps build 2.74ms (240 frames) · scroll 91.51fps build 3.17ms raster 4.78ms worst 20.7ms longTask 68ms heap 68.81MB
+- shelves run 3: idle 127.6fps build 2.67ms (240 frames) · scroll 109.13fps build 3.35ms raster 4.99ms worst 29.8ms longTask 56ms heap 55.17MB
+- shelves run 4: idle 68.97fps build 2.72ms (240 frames) · scroll 119.67fps build 3.06ms raster 4.6ms worst 17.4ms longTask 75ms heap 71.76MB
+- shelves run 5: idle 96.96fps build 2.89ms (240 frames) · scroll 130.37fps build 3.08ms raster 4.29ms worst 14.1ms longTask 0ms heap 71.03MB
+- grid run 1: idle 173.98fps build 1.83ms (240 frames) · scroll 0fps build 2.25ms raster 3.68ms worst 21.8ms longTask 55ms heap 65.74MB
+- grid run 2: idle 111.63fps build 1.88ms (240 frames) · scroll 37.09fps build 2.29ms raster 3.63ms worst 21.5ms longTask 54ms heap 76.4MB
+- grid run 3: idle 156.29fps build 1.83ms (240 frames) · scroll 0fps build 2.21ms raster 3.54ms worst 20.8ms longTask 0ms heap 72.97MB
+- grid run 4: idle 202.07fps build 1.66ms (240 frames) · scroll 0fps build 2.18ms raster 3.52ms worst 21.6ms longTask 0ms heap 34.19MB
+- grid run 5: idle 178.66fps build 1.8ms (240 frames) · scroll 38.45fps build 2.36ms raster 3.73ms worst 23.5ms longTask 0ms heap 72.63MB

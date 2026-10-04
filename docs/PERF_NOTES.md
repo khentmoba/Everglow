@@ -592,6 +592,94 @@ Beyond the mechanical coverage, these were read and measured rather than assumed
   Chromium, unverified on Safari, where the failure would be a visible grey
   avatar on Clair's phone.
 
+## Final audit (2026-10)
+
+### Release build
+
+`flutter build web --release --no-source-maps` succeeds.
+
+| | value |
+| --- | --- |
+| `main.dart.js` | 6.46 MB |
+| `build/web` total | 56 MB |
+| `canvaskit.wasm` | 6.89 MB |
+| deferred route chunks | 40 |
+
+These are **not** comparable to the sizes recorded earlier in this file (5.98MB /
+~123MB): those came from a different build wrapper (`tool/build_web.dart`, which
+stamps the CanvasKit CDN URL) and a different Flutter revision. Comparing them
+would be inventing a delta. What *is* directly measurable is that this pass adds
+no production weight:
+
+> The 528-line bench scene is fully tree-shaken out of a production build.
+> `grep -c perf-bench build/web/main.dart.js` returns **0** without the
+> dart-define and **3** with it (and the same grep finds `Everglow` 41 times in
+> the same file, so the zero is a real absence, not a broken search).
+
+Everything else this pass adds to production is the restored frame meter, which
+only mounts when `?perf=1` is passed.
+
+### Final harness numbers
+
+Throttled (4x CPU, the sensitive config), 5 runs, `min` columns — full tables and
+noise bands in `docs/perf-baseline.md` and
+`docs/perf-baseline-unthrottled.md`:
+
+| scene | phase | build min | raster min | worst frame min | worst long task |
+| --- | --- | --- | --- | --- | --- |
+| shelves (dashboard shape) | idle | 2.67ms | 4.40ms | 12.9ms | 0ms |
+| shelves | scroll | 3.06ms | 4.29ms | 14.1ms | 64ms |
+| grid (browse shape) | idle | 1.66ms | 2.29ms | 10.2ms | 0ms |
+| grid | scroll | 2.18ms | 3.52ms | 20.8ms | 0ms |
+
+**Before/after: the numbers did not move, and that is the honest result.** The
+shared layer this goal set out to speed up had already been optimised by the
+earlier ultra-perf pass and #440 — verified by reading the code, not assumed. The
+one real defect found (Tonight's uncapped decode) is a static asset decode and
+therefore invisible to a scroll benchmark. Nothing here moved a number, because
+there was no headroom left in the thing being measured on this hardware.
+
+### The bar: what is met, what is not, stated plainly
+
+| contract item | status |
+| --- | --- |
+| no main-thread block over 200ms | **met** — worst long task 0–75ms across every run, throttled and not |
+| cold boot interactive < 2.5s on a fast link | **met** — 1531ms median |
+| cold boot interactive < 2.5s on slow 3G | **NOT met** — 138,580ms; unreachable in code, it is a ~13MB download over a 50KB/s link |
+| every key screen >= 55 FPS, < 5% jank, 0 dropped | **NOT verified, and not verifiable on this rig** |
+
+That last row is the important one. It is not met, and pretending otherwise
+would defeat the purpose of the exercise. The reasons are structural, not
+oversights:
+
+1. **No unauthenticated path exists to any feature screen.** `app_router.dart`
+   treats `/` as the only public route.
+2. **The FPS and jank columns are meaningless in headless Chrome.** The final
+   run above shows `grid`/scroll reporting **0 FPS** while its build and raster
+   figures are stable and sane — the page is not vsync-capped, so the frame
+   rate wanders on a perfectly healthy build. The bench's trustworthy columns
+   are build, raster, worst frame and long task; those are what it gates on.
+3. **A desktop GPU cannot speak for a DPR-3 phone**, where full-screen paint
+   costs orders of magnitude more. Measured directly: the aurora painter, the
+   documented "single largest raster cost", moves the bench by 0.03ms.
+
+So the goal's smoothness claim rests on `docs/PERF_PHONE_CHECK.md` — a ten-minute
+procedure for reading the restored frame meter on an actual device. Everything
+needed to run it is shipped and reachable.
+
+### No silent scope cuts
+
+Everything deliberately not done, and why:
+
+| not done | reason |
+| --- | --- |
+| per-screen FPS/jank on the device | needs a phone; automated above instead, stated as unmet |
+| ambience idle frame-rate throttle | real phone win, invisible here (0.03ms), risks looking choppy with no way to check unattended |
+| service-worker cache-first for the shell | fixes the 134s repeat-visit boot; changes deploy semantics, so it is Khent's call |
+| removing the `kIsWeb ? null` avatar decode guard | verified obsolete on Chromium; unverified on Safari, where failure is a visible grey avatar on Clair's phone |
+| Creator Studio → System perf switches | deleted long ago, not needed for URL-flag measurement; `?perf=1` covers it |
+| reducing `main.dart.js` further | deferred-route splitting already shipped; source-map attribution in this file shows the win is modest and the remaining bytes are framework/engine/CanvasKit |
+
 ## Verify a perf change
 
 - `flutter analyze <changed files>` (repo rule: always before commit).
