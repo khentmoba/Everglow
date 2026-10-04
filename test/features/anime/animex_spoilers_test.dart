@@ -189,45 +189,42 @@ void main() {
   for (final desktop in [false, true]) {
     final layout = desktop ? 'desktop' : 'mobile';
     testWidgets(
-      '$layout hides current/upcoming metadata until explicit sheet reveal',
+      '$layout keeps stills but hides current/upcoming text until inline reveal',
       (tester) async {
         await _pumpSelector(tester, desktop: desktop);
         for (final episode in _episodes) {
           expect(find.text(episode.title!), findsNothing);
           expect(find.text(episode.synopsis!), findsNothing);
-          expect(_imageUrls(tester), isNot(contains(episode.thumbnail)));
         }
         expect(find.text('First secret romaji'), findsNothing);
         expect(find.text('Episode 1'), findsWidgets);
-        expect(_imageUrls(tester), contains(_poster));
+        // Whichever cards the rail has built still show their frame.
+        expect(_imageUrls(tester), contains(_episodes.first.thumbnail));
         if (desktop) {
           expect(find.text('Playing Episode 1'), findsOneWidget);
           expect(find.text('Up next: Episode 2'), findsOneWidget);
         }
 
+        // Revealed on the episode itself, never in a drawer.
+        expect(_sheet, findsNothing);
         await tester.tap(find.text('Reveal details').hitTestable().first);
         await tester.pumpAndSettle();
-        expect(find.text('Episode details hidden'), findsOneWidget);
-        expect(find.text(_episodes.first.title!), findsNothing);
-        expect(find.text(_episodes.first.synopsis!), findsNothing);
-        expect(_imageUrls(tester), isNot(contains(_episodes.first.thumbnail)));
-
-        await tester.tap(_sheetReveal);
-        await tester.pumpAndSettle();
+        expect(_sheet, findsNothing);
         expect(find.text(_episodes.first.title!), findsOneWidget);
         expect(find.text(_episodes.first.synopsis!), findsOneWidget);
-        expect(_imageUrls(tester), contains(_episodes.first.thumbnail));
         expect(AnimexStores.instance.hideSpoilers, isTrue);
         expect(find.text(_episodes[1].title!), findsNothing);
 
-        Navigator.of(tester.element(_sheet)).pop();
+        await tester.tap(find.text('Hide details'));
         await tester.pumpAndSettle();
         expect(find.text(_episodes.first.title!), findsNothing);
-        expect(_imageUrls(tester), isNot(contains(_episodes.first.thumbnail)));
+        expect(find.text(_episodes.first.synopsis!), findsNothing);
+        expect(_imageUrls(tester), contains(_episodes.first.thumbnail));
+
         await tester.tap(find.text('Reveal details').hitTestable().first);
         await tester.pumpAndSettle();
-        expect(find.text('Episode details hidden'), findsOneWidget);
-        expect(find.text(_episodes.first.title!), findsNothing);
+        expect(find.text(_episodes.first.title!), findsOneWidget);
+        expect(tester.takeException(), isNull);
       },
     );
 
@@ -253,7 +250,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(AnimexStores.instance.hideSpoilers, isTrue);
         expect(find.text(_episodes.first.title!), findsNothing);
-        expect(_imageUrls(tester), isNot(contains(_episodes.first.thumbnail)));
+        expect(_imageUrls(tester), contains(_episodes.first.thumbnail));
         semantics.dispose();
         expect(tester.takeException(), isNull);
       },
@@ -268,7 +265,7 @@ void main() {
         for (final episode in _episodes.skip(1)) {
           expect(find.text(episode.title!), findsNothing);
           expect(find.text(episode.synopsis!), findsNothing);
-          expect(_imageUrls(tester), isNot(contains(episode.thumbnail)));
+          expect(_imageUrls(tester), contains(episode.thumbnail));
         }
         expect(tester.takeException(), isNull);
       },
@@ -295,7 +292,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Episode 2'), findsWidgets);
         expect(find.text(_episodes[1].title!), findsNothing);
-        expect(_imageUrls(tester), isNot(contains(_episodes[1].thumbnail)));
+        expect(_imageUrls(tester), contains(_episodes[1].thumbnail));
         expect(tester.takeException(), isNull);
       },
     );
@@ -317,12 +314,12 @@ void main() {
         selected = null;
         await tester.tap(find.text('Reveal details').hitTestable().first);
         await tester.pumpAndSettle();
-        expect(find.text('Play Episode 2'), findsOneWidget);
-        await tester.tap(find.text('Play Episode 2'));
+        expect(_sheet, findsNothing);
+        expect(find.text(_episodes[1].synopsis!), findsOneWidget);
+        // The episode itself still plays; no drawer holds the only button.
+        await tester.tap(find.text(_episodes[1].title!).hitTestable().first);
         await tester.pumpAndSettle();
         expect(selected, 2);
-        expect(_sheet, findsNothing);
-        expect(find.text(_episodes[1].synopsis!), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -354,8 +351,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(_episodes[1].title!), findsNothing);
       expect(find.text(_episodes[1].synopsis!), findsNothing);
-      expect(_imageUrls(tester), contains(_poster));
-      expect(_imageUrls(tester), isNot(contains(_episodes[1].thumbnail)));
+      expect(_imageUrls(tester), contains(_episodes[1].thumbnail));
       await tester.tap(_sheetReveal);
       await tester.pumpAndSettle();
       expect(find.text(_episodes[1].title!), findsOneWidget);

@@ -60,7 +60,7 @@ Future<void> _phone(WidgetTester tester) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('cinema episodes hide plot metadata before explicit reveal', (
+  testWidgets('cinema episodes hide plot metadata but keep episode stills', (
     tester,
   ) async {
     final played = <String>[];
@@ -78,8 +78,13 @@ void main() {
     );
     expect(find.text('Secret ending'), findsNothing);
     expect(find.text('Secret plot'), findsNothing);
-    expect(find.byType(AppNetworkImage), findsNothing);
     expect(find.text('Episode 7'), findsOneWidget);
+    // A frame gives no plot away, so the still is not a spoiler.
+    expect(find.byType(AppNetworkImage), findsOneWidget);
+    expect(
+      tester.widget<AppNetworkImage>(find.byType(AppNetworkImage)).imageUrl,
+      contains('/secret.jpg'),
+    );
     await tester.tap(find.text('Episode 7'));
     await tester.pump();
     expect(played, ['3/7/Episode 7']);
@@ -117,7 +122,7 @@ void main() {
   );
 
   testWidgets(
-    'revealing one episode is sheet-local, keeps Play neutral, and hides again on close',
+    'revealing one episode expands that row inline, keeps Play neutral, and collapses again',
     (tester) async {
       await _phone(tester);
       var plays = 0;
@@ -144,28 +149,28 @@ void main() {
           ),
         ),
       );
-      expect(find.byType(AppNetworkImage), findsNothing);
-      await tester.tap(find.text('Reveal details').first);
-      await tester.pumpAndSettle();
-      expect(plays, 0);
-      expect(find.text('Secret ending'), findsOneWidget);
-      expect(find.text('Secret plot'), findsOneWidget);
-      expect(find.text('Other secret'), findsNothing);
+      expect(find.byType(BottomSheet), findsNothing);
       expect(
         tester.widget<AppNetworkImage>(find.byType(AppNetworkImage)).imageUrl,
         'fake-still',
       );
-      expect(find.text('Play episode 7'), findsOneWidget);
-      await tester.tap(find.text('Close details'));
-      await tester.pumpAndSettle();
-      expect(find.text('Secret ending'), findsNothing);
-      expect(find.byType(AppNetworkImage), findsNothing);
       await tester.tap(find.text('Reveal details').first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Play episode 7'));
-      await tester.pumpAndSettle();
+      expect(plays, 0);
+      // Revealed in place — no drawer over the list.
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.text('Secret ending'), findsOneWidget);
+      expect(find.text('Secret plot'), findsOneWidget);
+      expect(find.text('Other secret'), findsNothing);
+      expect(find.text('Hide details'), findsOneWidget);
+      // The row itself plays, so the drawer never held the only play.
+      await tester.tap(find.text('Secret ending'));
+      await tester.pump();
       expect(plays, 1);
+      await tester.tap(find.text('Hide details'));
+      await tester.pumpAndSettle();
       expect(find.text('Secret ending'), findsNothing);
+      expect(plays, 1);
       expect(tester.takeException(), isNull);
     },
   );
@@ -197,7 +202,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Secret ending'), findsNothing);
       expect(find.text('Other secret'), findsNothing);
-      expect(find.byType(AppNetworkImage), findsNothing);
+      expect(find.byType(AppNetworkImage), findsOneWidget);
       expect(
         tester
             .widgetList<EpisodeTile>(find.byType(EpisodeTile))
@@ -214,7 +219,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Other secret'), findsOneWidget);
       expect(prefs.hideSpoilers, isTrue);
-      await tester.tap(find.text('Close details'));
+      await tester.tap(find.text('Hide details'));
       await tester.pumpAndSettle();
       expect(find.text('Other secret'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -259,6 +264,42 @@ void main() {
     expect(find.text('Secret title'), findsNothing);
     expect(find.text('Secret overview'), findsNothing);
   });
+
+  testWidgets(
+    'long titles and stories never overflow the compact row, hidden or open',
+    (tester) async {
+      await _phone(tester);
+      for (final hideSpoilers in [true, false]) {
+        await tester.pumpWidget(
+          _app(
+            EpisodeListSection(
+              hideSpoilers: hideSpoilers,
+              episodes: const [
+                {
+                  'season_number': 1,
+                  'episode_number': 12,
+                  'name': 'A Very Long Episode Title That Cannot Fit One Line',
+                  'overview':
+                      'And a long story that runs well past two lines once the row is only eighty pixels tall, spilling into the next episode.',
+                },
+              ],
+              seasons: const [],
+              isLoadingEpisodes: false,
+              onPlayEpisode: (_, _, _) {},
+              onSeasonChanged: (_) {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        if (hideSpoilers) {
+          await tester.tap(find.text('Reveal details'));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
 
   testWidgets(
     'preferences have accessible switches, update and react to profile changes without provider',
