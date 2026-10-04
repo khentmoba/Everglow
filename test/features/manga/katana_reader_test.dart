@@ -121,4 +121,27 @@ void main() {
       expect(ReaderThemeStyle.sepia.backgroundColor.toARGB32(), equals(0xFF1E1A17));
     });
   });
+
+  group('KatanaReaderScreen initial page tests', () {
+    test('defaults initialPage to 1', () {
+      const reader = KatanaReaderScreen(
+        slug: 'solo-leveling',
+        chapterId: 'c1',
+        chapters: [],
+        mangaTitle: 'Solo Leveling',
+      );
+      expect(reader.initialPage, equals(1));
+    });
+
+    test('accepts custom initialPage for resuming reading', () {
+      const reader = KatanaReaderScreen(
+        slug: 'solo-leveling',
+        chapterId: 'c1',
+        chapters: [],
+        mangaTitle: 'Solo Leveling',
+        initialPage: 42,
+      );
+      expect(reader.initialPage, equals(42));
+    });
+  });
 }

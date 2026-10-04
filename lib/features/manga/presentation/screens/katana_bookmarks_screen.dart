@@ -72,6 +72,11 @@ class _KatanaBookmarksScreenState extends State<KatanaBookmarksScreen> {
       chapters: chapters,
       mangaTitle: bookmark.title,
       coverUrl: bookmark.coverUrl,
+      initialPage: (continueReading &&
+              target.id == bookmark.lastReadChapterId &&
+              bookmark.lastReadPage > 0)
+          ? bookmark.lastReadPage
+          : 1,
     );
   }
 

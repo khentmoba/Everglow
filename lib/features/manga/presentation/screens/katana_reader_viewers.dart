@@ -4,13 +4,29 @@ part of 'katana_reader_screen.dart';
 extension _KatanaReaderViewers on _KatanaReaderScreenState {
   Widget _buildReaderBody() {
     if (_loading) {
-      return ChapterLoadingStage(
-        subtitle: widget.mangaTitle,
-        title: _chapter.displayTitle,
-        accentColor: KatanaColors.accent,
-        surfaceColor: _themeStyle.surfaceColor,
-        pageColor: _themeStyle.backgroundColor,
-        mutedColor: KatanaColors.textLight,
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: KatanaColors.accent),
+            const SizedBox(height: 16),
+            Text(
+              'Loading ${_chapter.displayTitle}...',
+              style: AppTypography.outfitBold.copyWith(
+                color: KatanaColors.text,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Fetching pages from the source — this can take a few seconds.',
+              style: KatanaType.small.copyWith(
+                color: KatanaColors.textMuted,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       );
     }
     if (_error != null) {
@@ -78,11 +94,14 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
           physics: desktopWeb
               ? const NeverScrollableScrollPhysics()
               : const BouncingScrollPhysics(),
-          // Keep neighbours built so paging back and forth never
-          // re-resolves an image that already loaded.
+          // Virtualize aggressively: neighbours within 1200px are kept
+          // built for smooth 60fps scrolling, but offscreen strips are
+          // unmounted so their decoded GPU textures are evicted by ImageCache.
+          // Disabling automatic keep-alives and web repaint boundaries
+          // prevents WebGL texture accumulation that trips iOS WebKit Jetsam.
           scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
-          addAutomaticKeepAlives: true,
-          addRepaintBoundaries: true,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: !kIsWeb,
           itemCount: _pages.length + 1,
           itemBuilder: (context, index) {
             if (index == _pages.length) return _buildEndCard();

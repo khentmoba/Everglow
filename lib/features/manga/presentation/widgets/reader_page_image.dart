@@ -25,9 +25,17 @@ final CacheManager readerPageCacheManager = CacheManager(
 /// One chapter page in the manga readers.
 ///
 /// What it guarantees for Clair:
-/// - Once a page loads, scrolling past it and back never reloads it.
-///   The state stays alive ([AutomaticKeepAliveClientMixin]) and the
-///   bytes stay in the disk cache above.
+/// - Fast and smooth scrolling: neighbours within the scroller's
+///   cache extent (1200px) stay built, while offscreen strips are
+///   unmounted so their decoded GPU textures are evicted by Flutter's
+///   `ImageCache` (96 MB limit). Deliberately does NOT keep offscreen
+///   widgets alive with `AutomaticKeepAliveClientMixin`: a 100-page
+///   manhwa keeping every strip mounted in `_liveImages` consumes
+///   500MB+ of WebGL textures, triggering iOS WebKit Jetsam process
+///   termination and sudden PWA reloads mid-chapter.
+/// - Once a page loads, the browser HTTP cache (on web) and 30-day
+///   disk cache (on native) ensure that scrolling back never needs
+///   to re-download from the network.
 /// - A failed page retries by itself a few times with a short backoff
 ///   instead of sitting there as a black gap.
 /// - When retries run out, the slot always shows the page number plus
@@ -125,8 +133,7 @@ class ReaderPageImage extends StatefulWidget {
   State<ReaderPageImage> createState() => _ReaderPageImageState();
 }
 
-class _ReaderPageImageState extends State<ReaderPageImage>
-    with AutomaticKeepAliveClientMixin {
+class _ReaderPageImageState extends State<ReaderPageImage> {
   /// Bumped on every (re)try so the inner image gets a fresh [Key]
   /// and re-resolves instead of reusing its failed stream.
   int _generation = 0;
@@ -136,9 +143,6 @@ class _ReaderPageImageState extends State<ReaderPageImage>
   /// Post-frame notifications already queued for this [_generation],
   /// so one failure notifies the parent exactly once.
   int _notifiedForGeneration = -1;
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void didUpdateWidget(covariant ReaderPageImage oldWidget) {
@@ -231,8 +235,6 @@ class _ReaderPageImageState extends State<ReaderPageImage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-
     Widget image;
     if (ReaderPageImage._isWeb) {
       image = Image.network(
