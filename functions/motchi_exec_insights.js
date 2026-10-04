@@ -128,9 +128,161 @@ async function exec_search_everglow(ctx, args) {
     return JSON.stringify(result);
 }
 
+// ── Free web stack ──────────────────────────────────────────────
+// Ordinary lookups go out free first, on the same keyless stack the pi
+// harness uses: DuckDuckGo's lite endpoint for search, Jina's reader for
+// pages. That keeps Motchi answering from the web even when the paid
+// key is gone, empty or rate-limited, and a normal search stops costing
+// $0.005. TinyFish stays as the fallback and still owns the filters the
+// free path cannot do (news type, date ranges, geo).
+// ponytail: DDG lite returns one page of ~10 hits with no date filter.
+// Upgrade path: a Brave/Serper key if free quality ever matters.
+const FREE_BROWSER_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+const FREE_SEARCH_URL = 'https://lite.duckduckgo.com/lite/?q=';
+const FREE_READER_URL = 'https://r.jina.ai/';
+
+function _htmlText(html) {
+  return String(html || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&quot;/g, '"')
+    .replace(/&(?:nbsp|#0?39|apos);/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch (_) {
+    return '';
+  }
+}
+
+// DuckDuckGo wraps every hit in //duckduckgo.com/l/?uddg=<encoded target>.
+function _freeSearchTarget(href) {
+  const raw = String(href || '').replace(/&amp;/g, '&');
+  const m = /[?&]uddg=([^&]+)/.exec(raw);
+  if (m) {
+    try {
+      return decodeURIComponent(m[1]);
+    } catch (_) {
+      return '';
+    }
+  }
+  return /^https?:\/\//i.test(raw) ? raw : '';
+}
+
+/** DuckDuckGo lite HTML -> TinyFish-shaped results, deduped and host-capped. */
+function parseFreeSearch(html, limit) {
+  const src = String(html || '');
+  // Attribute order is not stable in DDG's own markup (href can come
+  // before or after class), so match the tag once and read href out.
+  const links = [...src.matchAll(/<a([^>]*class=['"][^'"]*result-link[^'"]*['"][^>]*)>([\s\S]*?)<\/a>/g)]
+    .map((m) => [(/href=["']([^"']+)["']/.exec(m[1]) || [])[1] || '', m[2]]); // [href, title]
+  const snippets = [...src.matchAll(
+    /<td[^>]*class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/g
+  )];
+  const out = [];
+  const seen = new Set();
+  const perHost = new Map();
+  for (let i = 0; i < links.length; i++) {
+    const url = _freeSearchTarget(links[i][0]);
+    if (!url || seen.has(url)) continue;
+    // One site must not fill the list — that is how Motchi ends up
+    // answering a whole question from five links on the same wiki hub.
+    const host = _hostOf(url);
+    const hits = perHost.get(host) || 0;
+    if (hits >= 2) continue;
+    seen.add(url);
+    perHost.set(host, hits + 1);
+    out.push({
+      title: _htmlText(links[i][1]).slice(0, 200),
+      url,
+      snippet: (snippets[i] ? _htmlText(snippets[i][1]) : '').slice(0, 280),
+      site_name: host,
+      date: null,
+    });
+  }
+  return out.slice(0, limit);
+}
+
+// Free search. Never throws: a blocked or slow free endpoint just means
+// the paid fallback answers instead.
+async function freeSearch(query, limit) {
+  try {
+    const res = await fetch(FREE_SEARCH_URL + encodeURIComponent(query), {
+      headers: {
+        'User-Agent': FREE_BROWSER_UA,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return [];
+    return parseFreeSearch(await res.text(), limit);
+  } catch (_) {
+    return [];
+  }
+}
+
+// Free page reader (Jina): markdown text for one URL, no key. Used when
+// TinyFish is out of credit, rate-limited or refused the page. Returns
+// null instead of throwing so the caller keeps the paid error text.
+// ponytail: capped at 6s so the free hop still fits inside the 25s tool
+// budget after a paid read. A page that timed out twice gets no free
+// retry — that budget is spent.
+const FREE_READ_TIMEOUT_MS = 6000;
+
+async function freeReadPage(url, timeoutMs) {
+  try {
+    const res = await fetch(FREE_READER_URL + url, {
+      headers: { Accept: 'text/plain', 'X-Return-Format': 'markdown' },
+      signal: AbortSignal.timeout(
+        Math.min(timeoutMs || FREE_READ_TIMEOUT_MS, FREE_READ_TIMEOUT_MS),
+      ),
+    });
+    if (!res.ok) return null;
+    const raw = await res.text();
+    const marker = 'Markdown Content:';
+    const at = raw.indexOf(marker);
+    const text = (at >= 0 ? raw.slice(at + marker.length) : raw).trim();
+    if (text.length < 120) return null;
+    // Jina puts the title on the first line. Read only that line, or a
+    // single-line response swallows the whole page into the title.
+    const title = ((/^Title:\s*(.+)$/.exec(raw.split('\n', 1)[0].trim()) || [])[1] || '')
+      .slice(0, 200);
+    return { url, title: title.trim(), text: text.slice(0, 4000) };
+  } catch (_) {
+    return null;
+  }
+}
+
+// Paid search, one request, honest error text the model can relay.
+async function tinyfishSearch(apiKey, params) {
+  let res;
+  try {
+    res = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
+      headers: { 'X-API-Key': apiKey },
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (_) {
+    return { error: 'Web search timed out — answer from what you know and say the web was slow.' };
+  }
+  if (res.status === 401 || res.status === 403) return { error: 'Web search API key is invalid or forbidden.' };
+  if (res.status === 402) return { error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' };
+  if (res.status === 429) return { error: 'Web search rate limit hit — try again in a minute.' };
+  if (!res.ok) return { error: `Web search failed (HTTP ${res.status}).` };
+  return { data: await res.json() };
+}
+
 async function exec_web_search(ctx, args) {
     const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
-    if (!apiKey) return JSON.stringify({ error: 'Web search is not configured on the server yet.' });
     const query = String(args.query || '').trim();
     if (!query) return JSON.stringify({ error: 'No search query provided' });
     const location = String(args.location || 'PH').trim().toUpperCase();
@@ -150,34 +302,48 @@ async function exec_web_search(ctx, args) {
       ? ctx.cacheTTLs.web_search
       : (ctx.cacheTTLs.web_search_long || ctx.cacheTTLs.web_search);
     const searchKey = `websearch:${params.toString()}`;
-    let searchData;
-    const cachedSearch = ctx.cacheGet(searchKey, searchTtl);
-    if (cachedSearch) {
-      searchData = cachedSearch;
-    } else {
-      let searchRes;
-      try {
-        searchRes = await fetch(`https://api.search.tinyfish.ai?${params.toString()}`, {
-          headers: { 'X-API-Key': apiKey },
-          signal: AbortSignal.timeout(8000),
-        });
-      } catch (_) {
-        return JSON.stringify({ error: 'Web search timed out — answer from what you know and say the web was slow.' });
+    // Free path for ordinary lookups. News type, date ranges and domain
+    // filters only TinyFish can do, so those asks skip the free hop.
+    const needsPaidFilters =
+      wantsFresh ||
+      args.domain_type ||
+      args.include_domains ||
+      args.exclude_domains;
+    let searchData = ctx.cacheGet(searchKey, searchTtl);
+    if (!searchData && !needsPaidFilters) {
+      const free = await freeSearch(query, 8);
+      if (free.length > 0) {
+        searchData = { results: free, total_results: free.length };
+        ctx.cacheSet(searchKey, searchData);
       }
-      if (searchRes.status === 401 || searchRes.status === 403) return JSON.stringify({ error: 'Web search API key is invalid or forbidden.' });
-      if (searchRes.status === 402) return JSON.stringify({ error: 'Web search account needs a top-up at agent.tinyfish.ai/wallet.' });
-      if (searchRes.status === 429) return JSON.stringify({ error: 'Web search rate limit hit — try again in a minute.' });
-      if (!searchRes.ok) return JSON.stringify({ error: `Web search failed (HTTP ${searchRes.status}).` });
-      searchData = await searchRes.json();
-      ctx.cacheSet(searchKey, searchData);
     }
-    const results = (searchData.results || []).slice(0, 5).map(r => ({
-      title: r.title || '',
-      url: r.url || '',
-      snippet: (r.snippet || '').slice(0, 280),
-      site: r.site_name || '',
-      date: r.date || null,
-    }));
+    let paidError = null;
+    if (!searchData) {
+      if (!apiKey) paidError = 'Web search is not configured on the server yet.';
+      else {
+        const paid = await tinyfishSearch(apiKey, params);
+        if (paid.error) paidError = paid.error;
+        else {
+          searchData = paid.data;
+          ctx.cacheSet(searchKey, searchData);
+        }
+      }
+    }
+    if (!searchData) return JSON.stringify({ error: paidError || 'Web search found nothing.' });
+    const seenUrls = new Set();
+    const results = (searchData.results || [])
+      .filter(r => {
+        const url = r.url || '';
+        return url && !seenUrls.has(url) && seenUrls.add(url);
+      })
+      .slice(0, 5)
+      .map(r => ({
+        title: r.title || '',
+        url: r.url || '',
+        snippet: (r.snippet || '').slice(0, 280),
+        site: r.site_name || _hostOf(r.url || ''),
+        date: r.date || null,
+      }));
     // One-round answers: fetch the top hit's content right here (best
     // effort, cached) so Motchi usually needs no second read_web_page
     // round — that saved LLM round is the biggest speed win.
@@ -209,7 +375,8 @@ async function readOnePage(ctx, apiKey, url, timeoutMs) {
     // inside the 25s tool budget). The retry lives here rather than in
     // executeToolCall because a per-URL failure never throws out of the
     // batch, so the outer retry cannot see it.
-    for (let attempt = 1; ; attempt++) {
+    let paidError = apiKey ? null : 'Web page reading is not configured on the server yet.';
+    for (let attempt = 1; paidError === null; attempt++) {
       try {
         const res = await fetch('https://api.fetch.tinyfish.ai', {
           method: 'POST',
@@ -232,15 +399,25 @@ async function readOnePage(ctx, apiKey, url, timeoutMs) {
         return page;
       } catch (err) {
         const slow = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
-        if (!slow || attempt >= 2) throw err;
+        if (!slow || attempt >= 2) {
+          paidError = (err && err.message) || 'Web page reading failed.';
+          break;
+        }
         await new Promise((r) => setTimeout(r, 500));
       }
     }
+    // Paid path said no (no key, no credit, blocked page, timeout). The
+    // free reader often still has it, so one free try before giving up.
+    const free = await freeReadPage(url, timeoutMs);
+    if (!free) throw new Error(paidError);
+    ctx.cacheSet(key, free);
+    return free;
 }
 
 async function exec_read_web_page(ctx, args) {
+    // No key check up front: the free reader in readOnePage can still
+    // answer without one.
     const apiKey = (process.env.TINYFISH_API_KEY || '').trim();
-    if (!apiKey) return JSON.stringify({ error: 'Web page reading is not configured on the server yet.' });
     const urlsRaw = Array.isArray(args.urls) ? args.urls : [args.urls];
     const urls = urlsRaw.map(u => String(u || '').trim()).filter(u => /^https?:\/\//i.test(u)).slice(0, 3);
     if (urls.length === 0) return JSON.stringify({ error: 'No valid http(s) URLs provided' });
