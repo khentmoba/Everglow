@@ -4,29 +4,13 @@ part of 'katana_reader_screen.dart';
 extension _KatanaReaderViewers on _KatanaReaderScreenState {
   Widget _buildReaderBody() {
     if (_loading) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(color: KatanaColors.accent),
-            const SizedBox(height: 16),
-            Text(
-              'Loading ${_chapter.displayTitle}...',
-              style: AppTypography.outfitBold.copyWith(
-                color: KatanaColors.text,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Fetching pages from the source — this can take a few seconds.',
-              style: KatanaType.small.copyWith(
-                color: KatanaColors.textMuted,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
+      return ChapterLoadingStage(
+        subtitle: widget.mangaTitle,
+        title: _chapter.displayTitle,
+        accentColor: KatanaColors.accent,
+        surfaceColor: _themeStyle.surfaceColor,
+        pageColor: _themeStyle.backgroundColor,
+        mutedColor: KatanaColors.textLight,
       );
     }
     if (_error != null) {

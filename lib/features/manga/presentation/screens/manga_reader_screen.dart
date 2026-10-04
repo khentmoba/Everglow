@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../widgets/chapter_loading_stage.dart';
 import '../widgets/reader_page_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -771,21 +772,13 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   Widget _buildLoading() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: AppTheme.deepRose),
-          const SizedBox(height: 16),
-          Text(
-            'Loading pages...',
-            style: AppTypography.outfitMuted.copyWith(
-              color: Colors.white54,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
+    return ChapterLoadingStage(
+      subtitle: widget.manga.title,
+      title: widget.chapter.displayTitle,
+      accentColor: AppTheme.deepRose,
+      surfaceColor: const Color(0xFF14141C),
+      pageColor: const Color(0xFF1E1E2A),
+      mutedColor: Colors.white54,
     );
   }
 
