@@ -565,7 +565,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const TonightCard(),
                         delayMs: 430,
                         placeholderHeight: 160,
-                        deferMs: 30,
+                        deferMs: 120,
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 12)),
                       _animatedSliver(
@@ -575,14 +575,19 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                         delayMs: 440,
                         placeholderHeight: 320,
-                        deferMs: 60,
+                        deferMs: 240,
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                      // Today/Together staggers stay ~120ms apart: on the
+                      // single-threaded web renderer, overlapping first
+                      // builds + stream attaches + image decodes read as one
+                      // long freeze. All still below the first viewport, so
+                      // nothing Clair sees arrives later.
                       _animatedSliver(
                         const DailyBloom(),
                         delayMs: 460,
                         placeholderHeight: 320,
-                        deferMs: 120,
+                        deferMs: 360,
                       ),
 
                       // ── ZONE: TOGETHER — gentle, intimate ──
@@ -607,14 +612,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                           const StarlightJarWidget(),
                           delayMs: 500,
                           placeholderHeight: 520,
-                          deferMs: 160,
+                          deferMs: 480,
                         ),
                         const SliverToBoxAdapter(child: SizedBox(height: 16)),
                         _animatedSliver(
                           const TimelineView(),
                           delayMs: 520,
                           placeholderHeight: 620,
-                          deferMs: 260,
+                          deferMs: 600,
                         ),
                       ] else
                         _animatedSliverPair(
@@ -622,8 +627,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                           right: const TimelineView(),
                           leftPlaceholderHeight: 520,
                           rightPlaceholderHeight: 620,
-                          leftDeferMs: 160,
-                          rightDeferMs: 260,
+                          leftDeferMs: 480,
+                          rightDeferMs: 600,
                         ),
 
                       // ── ZONE: OUR WORLD — places & keepsakes ──
