@@ -23,7 +23,8 @@ import '../widgets/journal_entry_card.dart';
 import '../widgets/journal_ui.dart';
 
 class JournalScreen extends StatefulWidget {
-  const JournalScreen({super.key});
+  final List<JournalEntry>? demoEntries;
+  const JournalScreen({super.key, this.demoEntries});
 
   @override
   State<JournalScreen> createState() => _JournalScreenState();
@@ -138,7 +139,7 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
           Expanded(
             child: EverglowStreamView<List<JournalEntry>>(
-              stream: service.watchAll(),
+              stream: widget.demoEntries != null ? Stream.value(widget.demoEntries!) : service.watchAll(),
               streamLabel: 'journal-entries',
               errorMessage: 'Could not load journal',
               errorIcon: Icons.menu_book_outlined,
