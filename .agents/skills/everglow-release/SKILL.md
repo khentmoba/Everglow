@@ -1,69 +1,47 @@
 ---
 name: everglow-release
 description: >
-  The file-level steps to cut an Everglow release: bump the version in
-  pubspec.yaml and lib/core/system/app_version.dart together, add Clair's
-  CHANGELOG entry, mirror it into README latest-release and release history,
-  and confirm the workflow published the tag. Use when releasing, versioning,
-  tagging, or syncing version + CHANGELOG + README. AGENTS.md holds the
-  rules; this is only the runbook.
+  The full procedure for cutting an Everglow release: pick the version, bump
+  pubspec.yaml and lib/core/system/app_version.dart together, write Clair's
+  CHANGELOG entry, mirror it into README latest-release and history, and
+  confirm the release workflow published the tag. Use when releasing,
+  versioning, tagging, or syncing version + CHANGELOG + README.
+  AGENTS.md keeps only the rule that must never bend.
 ---
 
-# Everglow release runbook
+# Everglow release
 
-**Rules live in AGENTS.md, `## Releases`.** If the two ever disagree,
-AGENTS.md wins. This file is just the paths and the order.
+Releases publish automatically, but ONLY when the version number
+changes. The old automation released every deploy with date tags and
+cluttered the page, so Khent removed it (see `4b451a2`). The current
+`release.yml` workflow is different: it watches `pubspec.yaml` on `main`
+and cuts exactly one tag + GitHub Release per version, using the
+CHANGELOG entry as the notes. Merges without a version bump do nothing.
 
-`release.yml` watches `pubspec.yaml` on `main` and cuts exactly one tag +
-GitHub Release per version, publishing the CHANGELOG entry as the notes. A
-merge with no version bump does nothing at all.
+Cut a release when user-visible fixes or features have piled up, or when
+Khent asks for one. One release PR per version:
 
-## 1. Pick the version and bump both places
+1. Pick the next version: patch (`6.1.1`) for fixes, minor (`6.2.0`) for
+   features, major (`7.0.0`) for big changes.
+2. Bump it in BOTH `pubspec.yaml` (`version: X.Y.Z+N`) and
+   `lib/core/system/app_version.dart` (`current`).
+3. Add a `## [X.Y.Z] - YYYY-MM-DD - Nickname` section on top of
+   `CHANGELOG.md`. Write for Clair: short, warm, grouped by what she
+   will notice. The workflow publishes this text as-is, so proofread it.
+4. Update `README.md`: the `Latest Release` section mirrors the new
+   CHANGELOG entry, and `Release History` gains one linked line
+   (`.../releases/tag/vX.Y.Z`). Move the old latest into the history list.
+5. Open the release PR. Checks must pass, including the release-sync
+   guard (`tool/ci/check_release_sync.dart` fails the PR when the version,
+   CHANGELOG, and README disagree).
+6. Merge. The release workflow tags the merge commit and publishes the
+   GitHub Release by itself — nothing to run by hand.
+7. Open the releases page and confirm the new version shows, with the
+   README badge following it. If the workflow ever fails, publish by hand
+   as fallback: `git tag vX.Y.Z main && git push origin vX.Y.Z`, then
+   `gh release create vX.Y.Z --title "vX.Y.Z — Nickname" --notes-file <entry>`.
 
-Patch `X.Y.Z+1` for fixes, minor for features, major for big changes.
-
-- `pubspec.yaml` -> `version:`
-- `lib/core/system/app_version.dart` -> `current`
-
-Both, or the release-sync guard fails the PR.
-
-## 2. Write Clair's CHANGELOG entry
-
-Top of `CHANGELOG.md`:
-
-```
-## [X.Y.Z] - YYYY-MM-DD - Nickname
-```
-
-Short, warm, grouped by what she will notice. The workflow publishes this
-text verbatim as the release notes, so proofread it.
-
-## 3. Mirror it in README
-
-- `Latest Release` = the new entry.
-- `Release History` = one linked line `.../releases/tag/vX.Y.Z`; the old
-  latest moves down into the list.
-
-## 4. Check, PR, merge
-
-```
-dart tool/ci/check_release_sync.dart
-git checkout -b release/vX.Y.Z main
-git push -u origin release/vX.Y.Z
-gh pr create --base main --title "release: vX.Y.Z — Nickname" --body-file <body>
-```
-
-The workflow tags the merge commit itself. Nothing to run by hand.
-
-## 5. Confirm it published
-
-Open the releases page: the version shows and the README badge follows it.
-
-Workflow failed? Fallback, by hand:
-
-```
-git tag vX.Y.Z main && git push origin vX.Y.Z
-gh release create vX.Y.Z --title "vX.Y.Z — Nickname" --notes-file <entry>
-```
-
-Never move a tag that is already published. Cut a new patch instead.
+Rules: never add release steps to `deploy.yml` (releases trigger on
+version bumps, not on every deploy). Never date-based tags
+(`v2026.06.12` was deleted for this reason). Never move a published
+tag — if a release is wrong, cut a new patch version instead.
