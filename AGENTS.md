@@ -163,16 +163,6 @@ tag — if a release is wrong, cut a new patch version instead.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
 - **History should stay readable:** tiny scoped commits (`fix(dashboard): ...`). One fix per commit so a bad deploy is easy to undo. No "fix live by redeploying to see" — look locally first.
 
-## Web Search Policy (persistent user preference)
-
-- Free first. TinyFish costs money (search $0.005/query, fetch $0.001/url, agent $0.016/step) from Khent's wallet, so do NOT use it by default. Same for any tool that shares the `TINYFISH_API_KEY`.
-- Default to whatever free tools your harness gives you:
-  - Quick search / research / docs / current info: built-in web search (Pi: `google_search`).
-  - Read pages, click, fill forms, check Everglow live: built-in browser control (Pi: `agent_browser`), or plain `curl` via bash for simple pages.
-- Only use the TinyFish CLI when free tools fail (bot protection, bulk structured JSON extraction, or geo-targeted results via `tinyfish search query --location --language`).
-- Ask Khent first before any `tinyfish agent run` / `browser session` — those burn wallet fastest.
-- Note: Motchi (Clair's AI) also uses TinyFish server-side for web search. Leave it for now, revisit if wallet drains.
-
 ## Rules that matter
 
 * Only Khent and Clair see couple things like chat, photos, notes, garden, and AI memories. Breyan and Octagram only get movies.
