@@ -253,9 +253,17 @@ test('selectBlockKeys avoids filler except for vague personal questions', () => 
   assert.ok(rich.length > 4 && rich.length <= 7);
 });
 
-test('buildContextForFeature resolves safely without crashing', async () => {
+test('buildContextForFeature resolves safely without crashing', async (t) => {
+  const db = require('../common.js').getDb();
+  const reads = [];
+  t.mock.method(db, 'collection', (name) => {
+    reads.push(name);
+    throw new Error('Offline database fixture');
+  });
   const ctx = await buildContextForFeature('assistant', 'khentsgdz', 'tell me about our movies');
   assert.equal(typeof ctx, 'string');
+  assert.ok(reads.includes('our_cinema'), 'the watchlist read must exercise the database fallback');
+  assert.match(ctx, /Today is/, 'the date context survives an unavailable database');
   assert.doesNotThrow(() => invalidateContextBlock('watchlist'));
   assert.doesNotThrow(() => invalidateContextBlock());
 });
