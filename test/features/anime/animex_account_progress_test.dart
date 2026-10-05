@@ -128,19 +128,26 @@ Map<String, dynamic> _saved(
   'durationSeconds': 1440,
 };
 
-MediaItem _card({int mal = 120, int? ani = 120, bool anime = true}) =>
-    MediaItem(
-      id: '',
-      tmdbId: mal,
-      anilistId: ani,
-      title: 'Demo Anime',
-      mediaType: 'tv',
-      posterPath: '',
-      status: '',
-      isAnime: anime,
-      source: anime ? 'jikan' : 'tmdb',
-      addedAt: DateTime(2026),
-    );
+MediaItem _card({
+  int mal = 120,
+  int? ani = 120,
+  bool anime = true,
+  int? total,
+  int? episode,
+}) => MediaItem(
+  id: '',
+  tmdbId: mal,
+  anilistId: ani,
+  title: 'Demo Anime',
+  mediaType: 'tv',
+  posterPath: '',
+  status: '',
+  isAnime: anime,
+  source: anime ? 'jikan' : 'tmdb',
+  addedAt: DateTime(2026),
+  episodeCount: total,
+  currentEpisode: episode,
+);
 
 void main() {
   test(
@@ -322,6 +329,80 @@ void main() {
     await service.updateProgress(_card(), 'clairjassen', episode: 1);
     expect(cinema, original);
     expect(db.writes, ['new-1']);
+  });
+
+  test('finale progress flips watching to watched and persists the total', () async {
+    final anime = _saved('clairjassen');
+    final db = _Db([anime]);
+    await _Watchlist(db).updateProgress(
+      _card(total: 12),
+      'clairjassen',
+      episode: 12,
+      timestamp: 1400,
+      durationSeconds: 1500,
+      status: 'watching-clair',
+    );
+    expect(anime['status'], 'watched-self');
+    expect(anime['currentEpisode'], 12);
+    expect(anime['episodeCount'], 12);
+  });
+
+  test('new finale doc is created already watched', () async {
+    final db = _Db([]);
+    await _Watchlist(
+      db,
+    ).updateProgress(_card(total: 11), 'clairjassen', episode: 11);
+    expect(db.rows, hasLength(1));
+    expect(db.rows.single['status'], 'watched-self');
+    expect(db.rows.single['currentEpisode'], 11);
+    expect(db.rows.single['episodeCount'], 11);
+  });
+
+  test('non-finale progress keeps watching (rewatch from EP 1)', () async {
+    final anime = _saved('clairjassen')
+      ..['status'] = 'watched-self'
+      ..['currentEpisode'] = 12
+      ..['episodeCount'] = 12;
+    final db = _Db([anime]);
+    await _Watchlist(db).updateProgress(
+      _card(total: 12),
+      'clairjassen',
+      episode: 1,
+      status: 'watching-clair',
+    );
+    expect(anime['status'], 'watching-self');
+    expect(anime['currentEpisode'], 1);
+  });
+
+  test('explicit to-watch on the finale is not forced back to watched', () async {
+    final anime = _saved('clairjassen');
+    final db = _Db([anime]);
+    await _Watchlist(db).updateProgress(
+      _card(total: 12),
+      'clairjassen',
+      episode: 12,
+      status: 'to-watch',
+    );
+    expect(anime['status'], 'to-watch');
+  });
+
+  test('tapping Watching on a completed season restarts it at EP 1', () async {
+    final anime = _saved('clairjassen')
+      ..['status'] = 'watched-self'
+      ..['currentEpisode'] = 12
+      ..['episodeCount'] = 12
+      ..['currentTimestamp'] = 1400
+      ..['durationSeconds'] = 1500;
+    final db = _Db([anime]);
+    await _Watchlist(db).saveToWatchList(
+      _card(mal: 53, total: 12, episode: 12),
+      'watching-self',
+      'clairjassen',
+    );
+    expect(anime['status'], 'watching-self');
+    expect(anime['currentEpisode'], 1);
+    expect(anime['currentTimestamp'], isNull);
+    expect(anime['durationSeconds'], isNull);
   });
 
   test('logged out lookup never reads data', () async {

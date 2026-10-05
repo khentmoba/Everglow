@@ -651,6 +651,17 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     }
   }
 
+  String _watchedStatusFor(String userName) {
+    switch (userName) {
+      case 'khentsgdz':
+        return 'watched-khent';
+      case 'clairjassen':
+        return 'watched-clair';
+      default:
+        return 'watched-self';
+    }
+  }
+
   String _currentUserName() => _auth?.currentUser == _owner ? _owner : '';
 
   void _saveWatchProgress({int? episode, double? positionSeconds}) {
@@ -661,7 +672,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     final pos = positionSeconds ?? _lastKnownPosition;
     final duration = _playbackDuration?.round();
 
-    final status = _watchingStatusFor(userName);
     final effectiveTmdbId = (_accountProgress?.tmdbId ?? 0) > 0
         ? _accountProgress!.tmdbId
         : _item.tmdbId > 0
@@ -679,7 +689,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
           : _item.posterUrl,
       backdropPath: _item.backdropPath,
       year: _item.year,
-      status: status,
+      // Placeholder: updateProgress ignores item.status and takes the
+      // real (finale-aware) status as a separate argument below.
+      status: _watchingStatusFor(userName),
       isAnime: true,
       userName: userName,
       addedAt: DateTime.now(),
@@ -698,6 +710,17 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     // Series resolve the real season (ani.zip mapping, else the season in
     // the title) so "Black Clover Season 2" never saves as S1E1.
     final isMovie = mediaItem.isMovie;
+    // MAL-style auto-complete: reaching the finale writes watched so the
+    // season leaves Continue Watching for Finished/Completed; anything
+    // earlier (including a rewatch from EP 1) writes watching.
+    final hitsFinale = MediaItem.isCompletedProgress(
+      episode: isMovie ? null : ep,
+      totalEpisodes: mediaItem.episodeCount,
+      isMovie: isMovie,
+    );
+    final status = hitsFinale
+        ? _watchedStatusFor(userName)
+        : _watchingStatusFor(userName);
     final progressSeason = AnimeXWatchPage.resolveProgressSeason(
       isMovie: isMovie,
       title: mediaItem.title,

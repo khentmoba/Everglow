@@ -308,4 +308,48 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'finished seasons leave Continue Watching without a manual status tap',
+    (tester) async {
+      tester.view.physicalSize = const Size(430, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      // The Mushoku case: EP 12/12 still stored as watching-self.
+      final controller = DemoController([
+        anime(id: 1, episode: 5),
+        anime(id: 2, episode: 12),
+      ]);
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AnimeXHomePage(
+              controller: controller,
+              loadSchedule: (_) async => [],
+              loadRow: (_) async => const AnimexMediaPage(
+                items: [],
+                scores: [],
+                currentPage: 1,
+                hasNextPage: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Continue Watching'), findsOneWidget);
+      expect(find.text('Demo Anime 1'), findsOneWidget);
+      expect(find.text('EP 5/12'), findsOneWidget);
+      expect(find.text('Demo Anime 2'), findsNothing);
+      expect(find.text('EP 12/12'), findsNothing);
+      expect(
+        controller.continueWatching.map((e) => e.title),
+        ['Demo Anime 1'],
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }
