@@ -288,6 +288,15 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
           // five full-resolution images with four hidden at zero opacity.
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 700),
+            // The default switcher stack loosens constraints, letting banners
+            // and poster fallbacks shrink to their decoded image dimensions.
+            layoutBuilder: (currentChild, previousChildren) => Stack(
+              fit: StackFit.expand,
+              children: [
+                ...previousChildren,
+                ?currentChild,
+              ],
+            ),
             child: _SlideLayer(key: ValueKey(_cacheKey(active)), item: active),
           ),
 
