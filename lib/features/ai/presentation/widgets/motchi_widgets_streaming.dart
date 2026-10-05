@@ -43,7 +43,8 @@ class _ThreeDotsState extends State<_ThreeDots>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
+    if (!AppMotion.reduced) _c.repeat();
   }
 
   @override
@@ -87,7 +88,7 @@ class _ThreeDotsState extends State<_ThreeDots>
   }
 }
 
-/// Motchi's avatar with a soft breathing rose halo.
+/// Motchi's avatar with a soft breathing rose halo and lively aura.
 ///
 /// The one "I'm working on it" tell for the whole answering window —
 /// from the first thinking dot through every tool round to the last
@@ -128,6 +129,32 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
+        // Outer diffuse glow bloom
+        AnimatedBuilder(
+          animation: _c,
+          builder: (_, _) {
+            final t = Curves.easeInOut.transform(_c.value);
+            return Container(
+              width: widget.size * 2.6,
+              height: widget.size * 2.6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.auroraRose.withValues(
+                      alpha: AppMotion.reduced ? 0.08 : (0.05 + 0.15 * t),
+                    ),
+                    AppColors.blushGold.withValues(
+                      alpha: AppMotion.reduced ? 0.04 : (0.02 + 0.08 * t),
+                    ),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        // Primary halo: preserves key and radial gradient color alpha animation for test verification
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
@@ -148,8 +175,142 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
             );
           },
         ),
-        _MotchiAvatar(size: widget.size),
+        // Breathing avatar with soft shadow pulse
+        AnimatedBuilder(
+          animation: _c,
+          builder: (_, _) {
+            final t = Curves.easeInOut.transform(_c.value);
+            final scale = AppMotion.reduced ? 1.0 : (1.0 + 0.06 * t);
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.auroraRose.withValues(
+                        alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.35 * t),
+                      ),
+                      blurRadius: AppMotion.reduced ? 8 : (8 + 5 * t),
+                      spreadRadius: AppMotion.reduced ? 1 : (1 + 2 * t),
+                    ),
+                  ],
+                ),
+                child: _MotchiAvatar(size: widget.size),
+              ),
+            );
+          },
+        ),
       ],
+    );
+  }
+}
+
+/// Animated badge beside Motchi's name showing she is replying / thinking.
+class _ReplyingBadge extends StatefulWidget {
+  final bool isThinking;
+  const _ReplyingBadge({this.isThinking = false});
+
+  @override
+  State<_ReplyingBadge> createState() => _ReplyingBadgeState();
+}
+
+class _ReplyingBadgeState extends State<_ReplyingBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) {
+        final t = _c.value;
+        final pulse = math.sin(t * math.pi).clamp(0.0, 1.0);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.auroraRose.withValues(
+              alpha: AppMotion.reduced ? 0.12 : (0.08 + 0.08 * pulse),
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.auroraRose.withValues(
+                alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.18 * pulse),
+              ),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Opacity(
+                opacity: AppMotion.reduced ? 0.9 : (0.4 + 0.6 * pulse),
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    color: AppColors.roseQuartz,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                widget.isThinking ? 'thinking' : 'replying',
+                style: AppTypography.labelSmall().copyWith(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.roseQuartz,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 4),
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 2),
+                Builder(
+                  builder: (_) {
+                    final phase = (t - i * 0.2) % 1.0;
+                    final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
+                    final y = AppMotion.reduced ? 0.0 : -1.8 * wave;
+                    final alpha = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                    return Transform.translate(
+                      offset: Offset(0, y),
+                      child: Opacity(
+                        opacity: alpha,
+                        child: Container(
+                          width: 2.5,
+                          height: 2.5,
+                          decoration: const BoxDecoration(
+                            color: AppColors.roseQuartz,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -172,7 +333,8 @@ class _StreamingCaretState extends State<_StreamingCaret>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 640),
-    )..repeat(reverse: true);
+    );
+    if (!AppMotion.reduced) _c.repeat(reverse: true);
   }
 
   @override
@@ -186,16 +348,111 @@ class _StreamingCaretState extends State<_StreamingCaret>
     return AnimatedBuilder(
       animation: _c,
       builder: (_, _) => Opacity(
-        opacity: 0.25 + 0.75 * _c.value,
+        opacity: AppMotion.reduced ? 0.8 : (0.25 + 0.75 * _c.value),
         child: Container(
-          width: 2.5,
-          height: 15,
+          width: 3,
+          height: 14,
           decoration: BoxDecoration(
             color: AppColors.blushGold,
             borderRadius: BorderRadius.circular(1.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.blushGold.withValues(
+                  alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.35 * _c.value),
+                ),
+                blurRadius: 4,
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Trailing indicator showing Motchi is actively typing/replying at the stream tail.
+class _StreamingTailIndicator extends StatelessWidget {
+  const _StreamingTailIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _StreamingCaret(),
+        SizedBox(width: 7),
+        _StreamingDotsWave(),
+      ],
+    );
+  }
+}
+
+/// Three micro-dots doing a gentle wave while Motchi generates text.
+class _StreamingDotsWave extends StatefulWidget {
+  const _StreamingDotsWave();
+
+  @override
+  State<_StreamingDotsWave> createState() => _StreamingDotsWaveState();
+}
+
+class _StreamingDotsWaveState extends State<_StreamingDotsWave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) {
+        final t = _c.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) const SizedBox(width: 3),
+              Builder(
+                builder: (_) {
+                  final phase = (t - i * 0.22) % 1.0;
+                  final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
+                  final dotScale = AppMotion.reduced ? 1.0 : (0.75 + 0.40 * wave);
+                  final dotOpacity = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                  return Opacity(
+                    opacity: dotOpacity,
+                    child: Transform.scale(
+                      scale: dotScale,
+                      child: Container(
+                        width: 4.5,
+                        height: 4.5,
+                        decoration: const BoxDecoration(
+                          color: AppColors.roseQuartz,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -223,6 +480,8 @@ class _ThinkingIndicator extends StatelessWidget {
                   color: AppColors.textMedium,
                 ),
               ),
+              const SizedBox(width: 8),
+              const _ReplyingBadge(isThinking: true),
             ],
           ),
           const SizedBox(height: 12),

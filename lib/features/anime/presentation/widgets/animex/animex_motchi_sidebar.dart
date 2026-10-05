@@ -1187,6 +1187,12 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
                               color: AppColors.textMedium,
                             ),
                           ),
+                          if (widget.isStreaming) ...[
+                            const SizedBox(width: 8),
+                            _AnimeReplyingBadge(
+                              isThinking: bubbleText.trim().isEmpty,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -1276,26 +1282,25 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
                     else if (widget.isStreaming && bubbleText.isEmpty)
                       const _AnimeStreamingPlaceholder()
                     else
-                      Row(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: _AnimeMarkdownText(
-                              text: bubbleText,
-                              baseStyle:
-                                  AppTypography.bodyMedium().copyWith(
-                                color: AppColors.textHigh,
-                                fontFamily: AppTypography.reading,
-                                height: 1.65,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w400,
-                              ),
+                          _AnimeMarkdownText(
+                            text: bubbleText,
+                            baseStyle:
+                                AppTypography.bodyMedium().copyWith(
+                              color: AppColors.textHigh,
+                              fontFamily: AppTypography.reading,
+                              height: 1.65,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                           if (widget.isStreaming && bubbleText.isNotEmpty)
                             const Padding(
-                              padding: EdgeInsets.only(left: 4, top: 3),
-                              child: _AnimeStreamingCaret(),
+                              padding: EdgeInsets.only(top: 8),
+                              child: _AnimeStreamingTailIndicator(),
                             ),
                         ],
                       ),
@@ -1477,7 +1482,8 @@ class _AnimeThreeDotsState extends State<_AnimeThreeDots>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
+    if (!AppMotion.reduced) _c.repeat();
   }
 
   @override
@@ -1556,11 +1562,38 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
       alignment: Alignment.center,
       clipBehavior: Clip.none,
       children: [
+        // Outer diffuse glow bloom
         AnimatedBuilder(
           animation: _c,
           builder: (_, _) {
             final t = Curves.easeInOut.transform(_c.value);
             return Container(
+              width: widget.size * 2.6,
+              height: widget.size * 2.6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.auroraRose.withValues(
+                      alpha: AppMotion.reduced ? 0.08 : (0.05 + 0.15 * t),
+                    ),
+                    AppColors.blushGold.withValues(
+                      alpha: AppMotion.reduced ? 0.04 : (0.02 + 0.08 * t),
+                    ),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        // Primary halo: preserves key and radial gradient color alpha animation
+        AnimatedBuilder(
+          animation: _c,
+          builder: (_, _) {
+            final t = Curves.easeInOut.transform(_c.value);
+            return Container(
+              key: const ValueKey('motchi-answering-halo'),
               width: widget.size * 2.1,
               height: widget.size * 2.1,
               decoration: BoxDecoration(
@@ -1575,8 +1608,142 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
             );
           },
         ),
-        _AnimeMotchiAvatar(size: widget.size),
+        // Breathing avatar with soft shadow pulse
+        AnimatedBuilder(
+          animation: _c,
+          builder: (_, _) {
+            final t = Curves.easeInOut.transform(_c.value);
+            final scale = AppMotion.reduced ? 1.0 : (1.0 + 0.06 * t);
+            return Transform.scale(
+              scale: scale,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.auroraRose.withValues(
+                        alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.35 * t),
+                      ),
+                      blurRadius: AppMotion.reduced ? 8 : (8 + 5 * t),
+                      spreadRadius: AppMotion.reduced ? 1 : (1 + 2 * t),
+                    ),
+                  ],
+                ),
+                child: _AnimeMotchiAvatar(size: widget.size),
+              ),
+            );
+          },
+        ),
       ],
+    );
+  }
+}
+
+/// Animated badge beside Motchi's name showing she is replying / thinking.
+class _AnimeReplyingBadge extends StatefulWidget {
+  final bool isThinking;
+  const _AnimeReplyingBadge({this.isThinking = false});
+
+  @override
+  State<_AnimeReplyingBadge> createState() => _AnimeReplyingBadgeState();
+}
+
+class _AnimeReplyingBadgeState extends State<_AnimeReplyingBadge>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) {
+        final t = _c.value;
+        final pulse = math.sin(t * math.pi).clamp(0.0, 1.0);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.auroraRose.withValues(
+              alpha: AppMotion.reduced ? 0.12 : (0.08 + 0.08 * pulse),
+            ),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: AppColors.auroraRose.withValues(
+                alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.18 * pulse),
+              ),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Opacity(
+                opacity: AppMotion.reduced ? 0.9 : (0.4 + 0.6 * pulse),
+                child: Container(
+                  width: 5,
+                  height: 5,
+                  decoration: const BoxDecoration(
+                    color: AppColors.roseQuartz,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5),
+              Text(
+                widget.isThinking ? 'thinking' : 'replying',
+                style: AppTypography.labelSmall().copyWith(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.roseQuartz,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 4),
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 2),
+                Builder(
+                  builder: (_) {
+                    final phase = (t - i * 0.2) % 1.0;
+                    final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
+                    final y = AppMotion.reduced ? 0.0 : -1.8 * wave;
+                    final alpha = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                    return Transform.translate(
+                      offset: Offset(0, y),
+                      child: Opacity(
+                        opacity: alpha,
+                        child: Container(
+                          width: 2.5,
+                          height: 2.5,
+                          decoration: const BoxDecoration(
+                            color: AppColors.roseQuartz,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1598,7 +1765,8 @@ class _AnimeStreamingCaretState extends State<_AnimeStreamingCaret>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 640),
-    )..repeat(reverse: true);
+    );
+    if (!AppMotion.reduced) _c.repeat(reverse: true);
   }
 
   @override
@@ -1612,16 +1780,112 @@ class _AnimeStreamingCaretState extends State<_AnimeStreamingCaret>
     return AnimatedBuilder(
       animation: _c,
       builder: (_, _) => Opacity(
-        opacity: 0.25 + 0.75 * _c.value,
+        opacity: AppMotion.reduced ? 0.8 : (0.25 + 0.75 * _c.value),
         child: Container(
-          width: 2.5,
-          height: 15,
+          width: 3,
+          height: 14,
           decoration: BoxDecoration(
             color: AppColors.blushGold,
             borderRadius: BorderRadius.circular(1.5),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.blushGold.withValues(
+                  alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.35 * _c.value),
+                ),
+                blurRadius: 4,
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Trailing indicator showing Motchi is actively typing/replying at the stream tail.
+class _AnimeStreamingTailIndicator extends StatelessWidget {
+  const _AnimeStreamingTailIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _AnimeStreamingCaret(),
+        SizedBox(width: 7),
+        _AnimeStreamingDotsWave(),
+      ],
+    );
+  }
+}
+
+/// Three micro-dots doing a gentle wave while Motchi generates text.
+class _AnimeStreamingDotsWave extends StatefulWidget {
+  const _AnimeStreamingDotsWave();
+
+  @override
+  State<_AnimeStreamingDotsWave> createState() =>
+      _AnimeStreamingDotsWaveState();
+}
+
+class _AnimeStreamingDotsWaveState extends State<_AnimeStreamingDotsWave>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (_, _) {
+        final t = _c.value;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) const SizedBox(width: 3),
+              Builder(
+                builder: (_) {
+                  final phase = (t - i * 0.22) % 1.0;
+                  final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
+                  final dotScale = AppMotion.reduced ? 1.0 : (0.75 + 0.40 * wave);
+                  final dotOpacity = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                  return Opacity(
+                    opacity: dotOpacity,
+                    child: Transform.scale(
+                      scale: dotScale,
+                      child: Container(
+                        width: 4.5,
+                        height: 4.5,
+                        decoration: const BoxDecoration(
+                          color: AppColors.roseQuartz,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -1647,6 +1911,8 @@ class _AnimeThinkingIndicator extends StatelessWidget {
                   color: AppColors.textMedium,
                 ),
               ),
+              const SizedBox(width: 8),
+              const _AnimeReplyingBadge(isThinking: true),
             ],
           ),
           const SizedBox(height: 12),
