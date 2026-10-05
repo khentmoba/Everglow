@@ -9,6 +9,7 @@ import 'animex_badges.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 
 /// Poster card used across the anime section rows and grids. Matches the
 /// reference UI: 2:3 poster with rounded corners, status/EP/rating badges,
@@ -664,14 +665,13 @@ class _CardPopover extends StatelessWidget {
                               ),
                           ],
                         ),
+                      ] else if (loadingDetails) ...[
+                        const SizedBox(height: 10),
+                        const EverglowLoadingChips(),
                       ],
                       if (loadingDetails && item.synopsis.isEmpty) ...[
                         const SizedBox(height: 10),
-                        const _DetailBar(widthFactor: 1),
-                        const SizedBox(height: 6),
-                        const _DetailBar(widthFactor: 0.82),
-                        const SizedBox(height: 6),
-                        const _DetailBar(widthFactor: 0.6),
+                        const EverglowLoadingBars(),
                       ],
                       if (item.synopsis.isNotEmpty) ...[
                         const SizedBox(height: 10),
@@ -759,28 +759,6 @@ class _CardPopover extends StatelessWidget {
       if (item.format.isNotEmpty) item.format,
     ];
     return parts.join(' · ');
-  }
-}
-
-/// Placeholder synopsis lines while hover details load.
-class _DetailBar extends StatelessWidget {
-  final double widthFactor;
-
-  const _DetailBar({required this.widthFactor});
-
-  @override
-  Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      alignment: Alignment.centerLeft,
-      child: Container(
-        height: 10,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(5),
-        ),
-      ),
-    );
   }
 }
 
