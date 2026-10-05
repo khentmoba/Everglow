@@ -191,7 +191,7 @@ read_journal_entry, get_trips, edit_journal_entry, delete_journal_entry,
 update_calendar_event, delete_calendar_event, complete_bucket_item,
 delete_bucket_item, edit_bucket_item, edit_habit, edit_reminder,
 edit_trip, get_subscriptions, add_subscription, search_sessions,
-save_profile_note
+save_profile_note, request_tools, propose_choices
 
 ## v12: memory explanations and honest execution
 
