@@ -32,6 +32,9 @@ const Map<String, int> _allowlist = {
   // Deliberate policy, documented at the call site: a dead external link
   // is not worth an error banner mid-chat.
   'lib/features/ai/presentation/widgets/motchi_widgets_tools.dart': 1,
+  // Same policy as the main Motchi chat above: the anime sidebar shares
+  // the discoveries card, and a dead source link stays silent there too.
+  'lib/features/anime/presentation/widgets/animex/animex_motchi_sidebar.dart': 1,
   // Load-veil no-op: DailyBloom is pumped in tests and routes without a
   // DashboardLoadTracker, so a missing provider is expected here.
   'lib/features/daily_bloom/presentation/widgets/daily_bloom.dart': 1,
