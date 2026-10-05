@@ -264,7 +264,7 @@ async function handleProxyAI(req, res) {
   }
   const caller = verifiedUsername;
   // Shared services for tool executors (built once per request).
-  const toolCtx = createToolCtx({ callerUid: caller, caller, userMessage: lastUserMessage });
+  const toolCtx = createToolCtx({ callerUid: caller, caller });
   if (verifiedUsername && normalizedClientCaller && verifiedUsername !== normalizedClientCaller) {
     console.warn(`[auth] caller mismatch: token=${verifiedUsername} client=${normalizedClientCaller} — using token`);
   }
@@ -336,6 +336,7 @@ async function handleProxyAI(req, res) {
     ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
+  toolCtx.userMessage = lastUserMessage;
   // Previous assistant text powers follow-through routing: a bare yes
   // keeps the write tools only when Motchi just offered a plan.
   const prevAssistantText = getMessageText(messages.findLast((m) => m?.role === 'assistant')?.content);

@@ -302,10 +302,10 @@ function shouldCheckIdempotency(toolName, args) {
   return content.length > 0;
 }
 
-function writeIdempotencyKey(caller, toolName, args) {
+function writeIdempotencyKey(caller, toolName, args, sessionId = '') {
   const title = String(args.title || args.name || args.note || args.fact || args.query || '').trim().toLowerCase();
   const date = String(args.remind_at || args.date || args.start_date || '').trim().toLowerCase();
-  return `${caller || 'default'}::${toolName}::${title}::${date}`;
+  return `${caller || 'default'}::${sessionId}::${toolName}::${title}::${date}`;
 }
 
 function clearIdempotencyCache() {
@@ -339,12 +339,25 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
   const isIdempotent = shouldCheckIdempotency(toolName, normalized);
   let idempKey = null;
   if (isIdempotent && opts.idempotent !== false) {
-    idempKey = writeIdempotencyKey(ctx.caller, toolName, normalized);
-    const cached = _idempotencyCache.get(idempKey);
-    if (cached && (Date.now() - cached.ts) < IDEMPOTENCY_TTL_MS) {
-      let parsed;
-      try { parsed = JSON.parse(cached.result); } catch (_) { parsed = { success: true }; }
-      return JSON.stringify({ ...parsed, already_done: true, note: 'Already completed earlier' });
+    const title = String(normalized.title || normalized.name || normalized.note || normalized.fact || normalized.query || '').trim().toLowerCase();
+    const date = String(normalized.remind_at || normalized.date || normalized.start_date || '').trim().toLowerCase();
+    if (ctx.sessionId) {
+      idempKey = writeIdempotencyKey(ctx.caller, toolName, normalized, ctx.sessionId);
+      const cached = _idempotencyCache.get(idempKey);
+      if (cached && (Date.now() - cached.ts) < IDEMPOTENCY_TTL_MS) {
+        let parsed;
+        try { parsed = JSON.parse(cached.result); } catch (_) { parsed = { success: true }; }
+        return JSON.stringify({ ...parsed, already_done: true, note: 'Already completed earlier' });
+      }
+    } else {
+      ctx.turnWrites ??= new Map();
+      const turnKey = `${toolName}::${title}::${date}`;
+      if (ctx.turnWrites.has(turnKey)) {
+        let parsed;
+        try { parsed = JSON.parse(ctx.turnWrites.get(turnKey)); } catch (_) { parsed = { success: true }; }
+        return JSON.stringify({ ...parsed, already_done: true, note: 'Already completed earlier' });
+      }
+      idempKey = turnKey;
     }
   }
 
@@ -354,7 +367,11 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
       try {
         const parsed = JSON.parse(resStr);
         if (parsed.success === true || parsed.scheduled === true || parsed.id) {
-          _idempotencyCache.set(idempKey, { result: resStr, ts: Date.now() });
+          if (ctx.sessionId) {
+            _idempotencyCache.set(idempKey, { result: resStr, ts: Date.now() });
+          } else if (ctx.turnWrites) {
+            ctx.turnWrites.set(idempKey, resStr);
+          }
         }
       } catch (_) {}
     }
