@@ -140,12 +140,38 @@ class MediaItem {
     return at;
   }
 
+  /// MAL-style auto-complete: an episodic series whose saved progress
+  /// reached its final episode (EP 12/12) counts as finished even when
+  /// the stored status still says watching, so completed seasons leave
+  /// Continue Watching / Watching Now for the Finished / Completed
+  /// shelves without a manual status tap. Movies and unknown/single-
+  /// episode totals never auto-complete.
+  bool get isSeriesCompleted => isCompletedProgress(
+    episode: currentEpisode,
+    totalEpisodes: episodeCount,
+    isMovie: isMovie,
+  );
+
+  /// Shared finale rule for [isSeriesCompleted], progress writes, and
+  /// the drawer rewatch reset — one definition so every shelf agrees.
+  static bool isCompletedProgress({
+    required int? episode,
+    required int? totalEpisodes,
+    required bool isMovie,
+  }) {
+    if (isMovie) return false;
+    if (totalEpisodes == null || totalEpisodes <= 1) return false;
+    if (episode == null) return false;
+    return episode >= totalEpisodes;
+  }
+
   bool get isWatched =>
       _normalizedStatus == 'watched' ||
       _normalizedStatus == 'watched-khent' ||
       _normalizedStatus == 'watched-clair' ||
       _normalizedStatus == 'watched-both' ||
-      _normalizedStatus == 'watched-self';
+      _normalizedStatus == 'watched-self' ||
+      isSeriesCompleted;
 
   /// True when this title is a film rather than an episodic series.
   /// Anything that is not a TV series (`mediaType != 'tv'`, e.g. movies
@@ -229,11 +255,12 @@ class MediaItem {
   bool get isToWatch => _normalizedStatus == 'to-watch';
 
   bool get isCurrentlyWatching =>
-      _normalizedStatus == 'watching' ||
-      _normalizedStatus == 'watching-khent' ||
-      _normalizedStatus == 'watching-clair' ||
-      _normalizedStatus == 'watching-both' ||
-      _normalizedStatus == 'watching-self';
+      !isSeriesCompleted &&
+      (_normalizedStatus == 'watching' ||
+          _normalizedStatus == 'watching-khent' ||
+          _normalizedStatus == 'watching-clair' ||
+          _normalizedStatus == 'watching-both' ||
+          _normalizedStatus == 'watching-self');
 
   /// Maps stored statuses to the partner-specific variant based on the
   /// item's [userName], which is the ground truth for single-owner docs.

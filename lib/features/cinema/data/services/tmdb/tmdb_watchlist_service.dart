@@ -163,6 +163,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         if (item.posterPath.isNotEmpty) {
           updateData['posterPath'] = item.posterPath;
         }
+        // Rewatch: tapping Watching on a completed season (EP 12/12)
+        // restarts it at EP 1 — without the reset the completion rule
+        // above would keep it in Finished and the chip would lie.
+        if (effectiveStatus.startsWith('watching') &&
+            item.isSeriesCompleted) {
+          updateData['currentEpisode'] = 1;
+          updateData['currentTimestamp'] = null;
+          updateData['durationSeconds'] = null;
+          updateData['progressUpdatedAt'] = Timestamp.now();
+        }
         await collection.doc(existing.docs.first.id).update(updateData);
         Logger.d(
           "[WatchList] Update succeeded for doc ${existing.docs.first.id}",
@@ -369,7 +379,28 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       // Normalize partner-specific values (watching-khent/clair) to the
       // self-variant so per-user shelves and the drawer stay consistent
       // with saveToWatchList.
-      if (status != null) data['status'] = _toSelfStatus(status);
+      var effectiveStatus = status == null ? null : _toSelfStatus(status);
+      // MAL-style auto-complete: saving the finale flips watching to
+      // watched so finished seasons land in Finished/Completed. Explicit
+      // to-watch (progress clear) and already-watched statuses pass
+      // through untouched; cinema callers carry no episodeCount so they
+      // never trigger this.
+      final hitsFinale = MediaItem.isCompletedProgress(
+        episode: episode,
+        totalEpisodes: item.episodeCount,
+        isMovie: item.isMovie,
+      );
+      if (hitsFinale &&
+          (effectiveStatus == null ||
+              effectiveStatus.startsWith('watching'))) {
+        effectiveStatus = 'watched-self';
+      }
+      if (effectiveStatus != null) data['status'] = effectiveStatus;
+      // Keep the known total on the doc so old entries saved without one
+      // still auto-complete once the catalog reports the count.
+      if (item.episodeCount != null) {
+        data['episodeCount'] = item.episodeCount;
+      }
 
       if (document != null && !conflictingAnime) {
         final existingData = document.data();
@@ -389,9 +420,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
           item
               .copyWith(
                 tmdbId: effectiveTmdbId,
-                status: status == null
-                    ? 'watching-self'
-                    : _toSelfStatus(status),
+                status: effectiveStatus ?? 'watching-self',
                 userName: userName,
                 isAnime: item.isAnime,
                 addedAt: DateTime.now(),

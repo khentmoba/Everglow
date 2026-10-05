@@ -313,6 +313,108 @@ void main() {
     });
   });
 
+  group('MediaItem season completion (finale auto-finish)', () {
+    test('finale progress counts as watched, not watching (12/12, 11/11)', () {
+      // The Mushoku case: stored status still says watching, but the
+      // saved episode reached the season total — Finished/Completed now.
+      for (final total in [11, 12]) {
+        final done = _item(
+          mediaType: 'tv',
+          currentEpisode: total,
+          status: 'watching-self',
+          isAnime: true,
+          episodeCount: total,
+        );
+        expect(done.isSeriesCompleted, isTrue, reason: 'EP $total/$total');
+        expect(done.isWatched, isTrue, reason: 'EP $total/$total');
+        expect(
+          done.isCurrentlyWatching,
+          isFalse,
+          reason: 'EP $total/$total',
+        );
+      }
+    });
+
+    test('mid-season progress stays watching', () {
+      final mid = _item(
+        mediaType: 'tv',
+        currentEpisode: 5,
+        status: 'watching-self',
+        isAnime: true,
+        episodeCount: 12,
+      );
+      expect(mid.isSeriesCompleted, isFalse);
+      expect(mid.isWatched, isFalse);
+      expect(mid.isCurrentlyWatching, isTrue);
+    });
+
+    test('movies never auto-complete', () {
+      final film = _item(
+        mediaType: 'movie',
+        currentEpisode: 1,
+        status: 'watching-self',
+        isAnime: true,
+        episodeCount: 1,
+      );
+      expect(film.isSeriesCompleted, isFalse);
+      expect(film.isCurrentlyWatching, isTrue);
+    });
+
+    test('unknown or single-episode totals never auto-complete', () {
+      final unknown = _item(
+        mediaType: 'tv',
+        currentEpisode: 7,
+        status: 'watching-self',
+        isAnime: true,
+      );
+      expect(unknown.isSeriesCompleted, isFalse);
+      expect(unknown.isCurrentlyWatching, isTrue);
+      final single = _item(
+        mediaType: 'tv',
+        currentEpisode: 1,
+        status: 'watching-self',
+        isAnime: true,
+        format: 'ONA',
+        episodeCount: 1,
+      );
+      expect(single.isSeriesCompleted, isFalse);
+      expect(single.isCurrentlyWatching, isTrue);
+    });
+
+    test('episode past the total still counts as finished', () {
+      final over = _item(
+        mediaType: 'tv',
+        currentEpisode: 13,
+        status: 'watching-self',
+        isAnime: true,
+        episodeCount: 12,
+      );
+      expect(over.isWatched, isTrue);
+      expect(over.isCurrentlyWatching, isFalse);
+    });
+
+    test('completed shelf filters agree (watching/watch lists split)', () {
+      final items = [
+        _item(
+          mediaType: 'tv',
+          currentEpisode: 12,
+          status: 'watching-self',
+          isAnime: true,
+          episodeCount: 12,
+        ),
+        _item(
+          mediaType: 'tv',
+          currentEpisode: 5,
+          status: 'watching-self',
+          isAnime: true,
+          episodeCount: 12,
+        ),
+      ];
+      expect(items.currentlyWatching.length, 1);
+      expect(items.watched.length, 1);
+    });
+  });
+
   group('MediaItem.resumeSeconds', () {
     MediaItem at({String status = 'watching-clair', int? ts, int? total}) =>
         MediaItem(
