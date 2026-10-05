@@ -82,6 +82,8 @@ const TOOL_NAMES = [
   'add_subscription',
   'search_sessions',
   'save_profile_note',
+  'request_tools',
+  'propose_choices',
 ];
 
 // ── Intent-based tool routing ─────────────────────────────────────
@@ -106,6 +108,8 @@ const CORE_TOOLS = [
 // Read-only lookups, added only when no intent group matches, so plain
 // chat can still inspect the shared spaces.
 const AWARENESS_TOOLS = [
+  'request_tools',
+  'propose_choices',
   'read_chat_messages',
   'get_watchlist',
   'read_starlight_jar',
@@ -385,6 +389,10 @@ function toolListSection(toolNames) {
   if (names.length === 0) {
     return 'No tools are attached to this request — answer directly from context and memory, without calling anything.';
   }
+  if (names.length === 1 && names[0] === 'request_tools') {
+    return 'You start with no action tools mounted. For conversation, greetings, affection, companionship, humor, or general knowledge: reply directly in text without calling request_tools.\n' +
+      'If you need to search the web, check live info, or view/update Everglow (calendar, reminders, watchlist, memories, journal, notes, habits, trips, etc.): call request_tools with the capability you need (e.g. "web", "calendar", "movies", "memory", "reminders", etc.) to mount those tools.';
+  }
   const webGuidance = names.includes('web_search')
     ? '\nYou CAN search the web. For current facts (next matches, live brackets/results, schedules, news, prices, releases), use web_search without waiting for them to ask you to search. Do not guess from training knowledge or claim you lack web access. Name the sources you actually used. If a lookup fails, say it failed rather than pretending you cannot search.' +
       (names.includes('read_web_page') ? ' Use read_web_page for missing details.' : '') +
@@ -581,6 +589,22 @@ function validateToolArgs(toolName, args = {}) {
       if (!isValidHttpUrl(a.url)) return { ok: false, error: 'No valid http(s) URL provided' };
       if (!_text(a.goal)) return { ok: false, error: 'No goal provided' };
       if (_text(a.goal).length > 2000) return { ok: false, error: 'Goal too long (max 2000)' };
+      return { ok: true };
+    }
+    case 'request_tools': {
+      const caps = Array.isArray(a.capabilities) ? a.capabilities : (a.capability ? [a.capability] : []);
+      const tls = Array.isArray(a.tools) ? a.tools : [];
+      if (caps.length === 0 && tls.length === 0) {
+        return { ok: false, error: 'Provide at least one capability or tool name' };
+      }
+      return { ok: true };
+    }
+    case 'propose_choices': {
+      if (!_text(a.prompt)) return { ok: false, error: 'prompt required' };
+      const choices = Array.isArray(a.choices) ? a.choices : (Array.isArray(a.options) ? a.options : []);
+      if (choices.length < 2 || choices.length > 6) {
+        return { ok: false, error: 'Provide 2 to 6 choices' };
+      }
       return { ok: true };
     }
     default:
@@ -871,10 +895,88 @@ function matchFastPath(message) {
   return null;
 }
 
+// ── Capability Tool Map ───────────────────────────────────────────
+// Maps high-level capability names to their specific Everglow tool sets.
+// Used by request_tools to mount only the relevant tools when summoned.
+const CAPABILITY_TOOL_MAP = {
+  web: ['web_search', 'read_web_page', 'browse_web'],
+  movies: ['search_movies', 'get_watchlist', 'add_to_watchlist', 'mark_watchlist_item_watched', 'remove_from_watchlist'],
+  books: ['search_books', 'add_book_to_our_books', 'update_book_progress'],
+  anime: ['search_anime'],
+  music: ['search_spotify'],
+  memory: ['read_memories', 'remember_fact', 'pin_memory', 'edit_memory', 'delete_memory', 'save_profile_note', 'get_memory_trivia'],
+  chat_sanctuary: ['read_chat_messages', 'send_sanctuary_message', 'send_note_to_partner'],
+  sessions: ['search_sessions'],
+  starlight: ['read_starlight_jar', 'save_to_starlight_jar'],
+  mood: ['set_mood', 'get_relationship_insights'],
+  calendar: ['get_calendar_events', 'add_calendar_event', 'update_calendar_event', 'delete_calendar_event'],
+  reminders: ['list_reminders', 'create_reminder', 'cancel_reminder', 'edit_reminder'],
+  journal: ['get_journal_entries', 'search_journal_entries', 'read_journal_entry', 'create_journal_entry', 'edit_journal_entry', 'delete_journal_entry'],
+  bucket_list: ['get_bucket_list', 'add_bucket_item', 'complete_bucket_item', 'delete_bucket_item', 'edit_bucket_item'],
+  subscriptions: ['get_subscriptions', 'add_subscription'],
+  trips: ['get_trips', 'add_trip', 'add_trip_pin', 'edit_trip'],
+  habits_activities: ['log_activity', 'log_habit', 'complete_habit', 'edit_habit'],
+  weather_dating: ['get_weather', 'get_date_ideas', 'plan_date_night'],
+  spaces: ['get_gallery', 'get_garden', 'get_canvas', 'get_xp_stats', 'add_xp', 'get_today_recap', 'search_everglow', 'propose_choices'],
+};
+
+const CAPABILITY_ALIASES = {
+  watchlist: 'movies',
+  cinema: 'movies',
+  movie: 'movies',
+  book: 'books',
+  spotify: 'music',
+  song: 'music',
+  chat: 'chat_sanctuary',
+  sanctuary: 'chat_sanctuary',
+  notes: 'starlight',
+  jar: 'starlight',
+  date: 'weather_dating',
+  dates: 'weather_dating',
+  weather: 'weather_dating',
+  reminder: 'reminders',
+  alarm: 'reminders',
+  events: 'calendar',
+  diary: 'journal',
+  bucket: 'bucket_list',
+  subs: 'subscriptions',
+  subscription: 'subscriptions',
+  trip: 'trips',
+  travel: 'trips',
+  habit: 'habits_activities',
+  activity: 'habits_activities',
+  gallery: 'spaces',
+  photos: 'spaces',
+  garden: 'spaces',
+  canvas: 'spaces',
+  xp: 'spaces',
+  choices: 'spaces',
+};
+
+function resolveToolsForCapabilities(capabilities, specificTools = []) {
+  const resolved = new Set();
+  const rawCaps = Array.isArray(capabilities) ? capabilities : (capabilities ? [capabilities] : []);
+  for (const raw of rawCaps) {
+    const key = String(raw || '').trim().toLowerCase();
+    const canonical = CAPABILITY_ALIASES[key] || key;
+    if (CAPABILITY_TOOL_MAP[canonical]) {
+      for (const t of CAPABILITY_TOOL_MAP[canonical]) resolved.add(t);
+    }
+  }
+  const rawTools = Array.isArray(specificTools) ? specificTools : (specificTools ? [specificTools] : []);
+  for (const t of rawTools) {
+    const name = String(t || '').trim();
+    if (TOOL_NAMES.includes(name)) resolved.add(name);
+  }
+  return [...resolved];
+}
+
 module.exports = {
   TOOL_TIMEOUT_MS,
   MAX_TOOL_ROUNDS,
   TOOL_NAMES,
+  CAPABILITY_TOOL_MAP,
+  resolveToolsForCapabilities,
   FAST_PATH_INTENTS,
   matchFastPath,
   FOLLOW_THROUGH_TOOLS,

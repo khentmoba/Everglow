@@ -389,4 +389,35 @@ Ready to play! ♟️
       expect(stripStreamingArtifacts(draft), 'One sec!');
     });
   });
+
+  group('interactive choices', () {
+    test('parses choices-json into interactive pills', () {
+      const text = '''
+What movie vibe are you in the mood for tonight? 🎬
+```choices-json
+{"prompt": "Pick a vibe", "choices": ["Cozy Anime", "Mind-bending Sci-Fi", "Comedy"]}
+```''';
+      final artifacts = parseStudyArtifacts(text);
+      expect(artifacts.hasChoices, isTrue);
+      expect(artifacts.choices, hasLength(1));
+      expect(artifacts.choices.first.prompt, 'Pick a vibe');
+      expect(artifacts.choices.first.choices, ['Cozy Anime', 'Mind-bending Sci-Fi', 'Comedy']);
+    });
+
+    test('strips choices-json from visible chat text', () {
+      const text = '''
+What movie vibe are you in the mood for tonight? 🎬
+```choices-json
+{"prompt": "Pick a vibe", "choices": ["Cozy Anime", "Comedy"]}
+```''';
+      final stripped = stripArtifactBlocks(text);
+      expect(stripped, 'What movie vibe are you in the mood for tonight? 🎬');
+      expect(stripped, isNot(contains('choices-json')));
+    });
+
+    test('stripStreamingArtifacts cuts unterminated choices fence', () {
+      const draft = 'Thinking!\n```choices-json\n{"prompt": "Pick';
+      expect(stripStreamingArtifacts(draft), 'Thinking!');
+    });
+  });
 }
