@@ -28,78 +28,85 @@ class _MarkdownText extends StatelessWidget {
 }
 
 String _formatToolStatus(String status) {
-  if (status == 'generating') return 'Motchi is thinking';
-  if (status == 'thinking') return 'Motchi is thinking';
-  if (status == 'executing') return 'Motchi is working on it';
-  if (status == 'done') return 'Motchi is done';
-  if (status.startsWith('round_')) return 'Motchi is thinking';
-  // Tool names — W2-W3 additions included
+  if (status == 'generating') return 'Motchi is thinking... 🍡';
+  if (status == 'thinking') return 'Motchi is thinking... 🍡';
+  if (status == 'executing') return 'Motchi is working on it... 🐾';
+  if (status == 'done') return 'Motchi is done ✨';
+  if (status == 'request_tools') return 'Motchi is getting ready... 🐾';
+  if (status.startsWith('round_')) return 'Motchi is thinking... 🍡';
+  // Tool names — expressive cat companion activities
   const toolNames = {
-    'add_to_watchlist': 'Adding to watchlist',
-    'save_to_starlight_jar': 'Saving to Starlight Jar',
-    'read_starlight_jar': 'Reading the Starlight Jar',
-    'set_mood': 'Logging mood',
-    'search_movies': 'Searching movies',
-    'get_watchlist': 'Reading the watchlist',
-    'get_weather': 'Checking weather',
-    'create_reminder': 'Creating reminder',
-    'log_activity': 'Logging activity',
-    'search_books': 'Searching books',
-    'add_book_to_our_books': 'Adding book to Our Books',
-    'get_date_ideas': 'Getting date ideas',
-    'read_chat_messages': 'Reading chat messages',
-    'send_sanctuary_message': 'Sending to Sanctuary',
-    'get_xp_stats': 'Checking XP stats',
-    'search_anime': 'Searching anime',
-    'remember_fact': 'Remembering that',
-    'read_memories': 'Opening the Memory Book',
-    'pin_memory': 'Pinning memory',
-    'delete_memory': 'Forgetting that',
-    'edit_memory': 'Updating memory',
-    'mark_watchlist_item_watched': 'Marking as watched',
-    'update_book_progress': 'Updating book progress',
-    'add_xp': 'Awarding XP',
-    'send_note_to_partner': 'Sending a note',
-    'get_relationship_insights': 'Finding patterns',
-    'get_memory_trivia': 'Making memory trivia',
-    'get_today_recap': 'Compiling today',
-    'get_gallery': 'Browsing gallery',
-    'get_garden': 'Checking garden',
-    'get_canvas': 'Looking at drawings',
-    'search_spotify': 'Searching Spotify',
-    'remove_from_watchlist': 'Removing from watchlist',
-    'search_everglow': 'Searching Everglow',
-    'plan_date_night': 'Planning date night',
-    'add_calendar_event': 'Creating calendar event',
-    'create_journal_entry': 'Writing journal',
-    'add_bucket_item': 'Adding to bucket list',
-    'add_trip': 'Creating trip',
-    'add_trip_pin': 'Adding trip pin',
-    'log_habit': 'Creating habit',
-    'complete_habit': 'Completing habit',
-    'get_calendar_events': 'Reading calendar',
-    'get_bucket_list': 'Reading bucket list',
-    'get_journal_entries': 'Reading journal',
-    'search_journal_entries': 'Searching journal',
-    'read_journal_entry': 'Reading journal entry',
-    'get_trips': 'Reading trips',
-    'web_search': 'Searching the web',
-    'read_web_page': 'Reading web pages',
-    'browse_web': 'Browsing the web',
-    'list_reminders': 'Listing reminders',
-    'cancel_reminder': 'Cancelling reminder',
-    'edit_journal_entry': 'Editing journal',
-    'delete_journal_entry': 'Deleting journal entry',
-    'update_calendar_event': 'Updating calendar',
-    'delete_calendar_event': 'Deleting calendar event',
-    'complete_bucket_item': 'Completing bucket item',
-    'delete_bucket_item': 'Deleting bucket item',
+    'request_tools': 'Getting ready... 🐾',
+    'propose_choices': 'Picking choices... 🎴',
+    'add_to_watchlist': 'Adding to watchlist... 🍿',
+    'save_to_starlight_jar': 'Saving to Starlight Jar... ✨',
+    'read_starlight_jar': 'Reading the Starlight Jar... 🌟',
+    'set_mood': 'Logging mood... 💖',
+    'search_movies': 'Checking cinema tickets... 🎬',
+    'get_watchlist': 'Reading the watchlist... 🍿',
+    'get_weather': 'Sniffing the breeze... ⛅',
+    'create_reminder': 'Writing a sticky note... 📝',
+    'log_activity': 'Logging activity... 🐾',
+    'search_books': 'Browsing book shelves... 📚',
+    'add_book_to_our_books': 'Adding to Our Books... 📖',
+    'get_date_ideas': 'Dreaming up date ideas... 💕',
+    'read_chat_messages': 'Reading chat messages... 💬',
+    'send_sanctuary_message': 'Sending to Sanctuary... 💌',
+    'get_xp_stats': 'Checking XP stats... ⭐',
+    'search_anime': 'Searching anime... 🌸',
+    'remember_fact': 'Tucking into memory... 🧠',
+    'read_memories': 'Flipping through memories... 📖',
+    'pin_memory': 'Pinning memory... 📌',
+    'delete_memory': 'Forgetting that... 🍃',
+    'edit_memory': 'Updating memory... ✏️',
+    'mark_watchlist_item_watched': 'Marking as watched... 🎬',
+    'update_book_progress': 'Updating book progress... 🔖',
+    'add_xp': 'Awarding XP... ⭐',
+    'send_note_to_partner': 'Sending a love note... 💌',
+    'get_relationship_insights': 'Finding love patterns... 🐾',
+    'get_memory_trivia': 'Making memory trivia... 💡',
+    'get_today_recap': 'Compiling today... ☀️',
+    'get_gallery': 'Browsing our photos... 📷',
+    'get_garden': 'Visiting the garden... 🌸',
+    'get_canvas': 'Looking at drawings... 🎨',
+    'search_spotify': 'Tuning into Spotify... 🎵',
+    'remove_from_watchlist': 'Removing from watchlist... 🍿',
+    'search_everglow': 'Searching Everglow... 🐾',
+    'plan_date_night': 'Planning date night... 🥂',
+    'add_calendar_event': 'Marking the calendar... 📅',
+    'create_journal_entry': 'Writing in diary... 📔',
+    'add_bucket_item': 'Adding to bucket list... 🎯',
+    'add_trip': 'Planning our getaway... ✈️',
+    'add_trip_pin': 'Pinning trip spot... 📍',
+    'log_habit': 'Tracking habit... 🐾',
+    'complete_habit': 'Completing habit... 🎉',
+    'get_calendar_events': 'Checking the calendar... 📅',
+    'get_bucket_list': 'Reading bucket list... 🎯',
+    'get_journal_entries': 'Reading our diary... 📔',
+    'search_journal_entries': 'Searching journal... 🔍',
+    'read_journal_entry': 'Reading journal entry... 📖',
+    'get_trips': 'Reading our trips... ✈️',
+    'web_search': 'Sniffing the web... 🌐🐾',
+    'read_web_page': 'Reading webpage... 📄🐾',
+    'browse_web': 'Browsing live... 🐾',
+    'list_reminders': 'Checking sticky notes... 📋',
+    'cancel_reminder': 'Dropping reminder... 🗑️',
+    'edit_journal_entry': 'Editing journal... ✏️',
+    'delete_journal_entry': 'Deleting journal entry... 🗑️',
+    'update_calendar_event': 'Updating calendar... 📅',
+    'delete_calendar_event': 'Removing calendar event... 🗑️',
+    'complete_bucket_item': 'Checking off bucket item... ✅',
+    'delete_bucket_item': 'Removing bucket item... 🗑️',
   };
-  return toolNames[status] ?? 'Motchi is thinking';
+  return toolNames[status] ?? status.replaceAll('_', ' ');
 }
 
 IconData _toolIcon(String status) {
   switch (status) {
+    case 'request_tools':
+      return Icons.pets_rounded;
+    case 'propose_choices':
+      return Icons.touch_app_rounded;
     case 'add_to_watchlist':
       return Icons.playlist_add_rounded;
     case 'save_to_starlight_jar':

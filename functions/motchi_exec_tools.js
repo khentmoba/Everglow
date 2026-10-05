@@ -108,6 +108,8 @@ const {
   exec_web_search,
   exec_read_web_page,
   exec_browse_web,
+  exec_request_tools,
+  exec_propose_choices,
 } = require('./motchi_exec_insights.js');
 
 // ── XP curve (200 XP per level) ──────────────────────────
@@ -145,13 +147,14 @@ async function _getSpotifyAppToken() {
 }
 
 /** Shared services for executors. Pass stubs in tests. */
-function createToolCtx({ callerUid, caller } = {}) {
+function createToolCtx({ callerUid, caller, userMessage } = {}) {
   const admin = getAdmin();
   return {
     admin,
     db: admin.firestore(),
     callerUid,
     caller,
+    userMessage: userMessage || '',
     levelForXp,
     phtDateString,
     getTmdbKey,
@@ -164,6 +167,8 @@ function createToolCtx({ callerUid, caller } = {}) {
 }
 
 const TOOL_EXECUTORS = {
+  request_tools: exec_request_tools,
+  propose_choices: exec_propose_choices,
   add_to_watchlist: exec_add_to_watchlist,
   search_movies: exec_search_movies,
   get_watchlist: exec_get_watchlist,
@@ -273,6 +278,40 @@ function visionMessageForResults(fullResults) {
   };
 }
 
+// Idempotency cache for creation tools: (caller + toolName + title + date) -> { result, ts }
+// Prevents duplicate records if mobile network drops, user double-taps, or model repeats a write.
+const IDEMPOTENCY_TTL_MS = 5 * 60 * 1000;
+const _idempotencyCache = new Map();
+
+const IDEMPOTENT_CREATE_TOOLS = new Set([
+  'add_to_watchlist',
+  'create_reminder',
+  'add_calendar_event',
+  'save_to_starlight_jar',
+  'create_journal_entry',
+  'add_bucket_item',
+  'add_trip',
+  'add_trip_pin',
+  'add_subscription',
+  'remember_fact',
+]);
+
+function shouldCheckIdempotency(toolName, args) {
+  if (!IDEMPOTENT_CREATE_TOOLS.has(toolName)) return false;
+  const content = String(args.title || args.name || args.note || args.fact || args.query || '').trim();
+  return content.length > 0;
+}
+
+function writeIdempotencyKey(caller, toolName, args, sessionId = '') {
+  const title = String(args.title || args.name || args.note || args.fact || args.query || '').trim().toLowerCase();
+  const date = String(args.remind_at || args.date || args.start_date || '').trim().toLowerCase();
+  return `${caller || 'default'}::${sessionId}::${toolName}::${title}::${date}`;
+}
+
+function clearIdempotencyCache() {
+  _idempotencyCache.clear();
+}
+
 /**
  * Validated, time-boxed tool call. Always resolves to a JSON string.
  * Args are normalized (trim/coerce/alias) before validation; validation
@@ -295,8 +334,48 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
   if (ctx.uncertainWrites?.has(toolName)) {
     return JSON.stringify({ error: 'A previous write could not be confirmed. Check the saved record before trying again in a new request.', outcome_unknown: true });
   }
+
+  // Idempotency check: prevent duplicate creates within the cache window
+  const isIdempotent = shouldCheckIdempotency(toolName, normalized);
+  let idempKey = null;
+  if (isIdempotent && opts.idempotent !== false) {
+    const title = String(normalized.title || normalized.name || normalized.note || normalized.fact || normalized.query || '').trim().toLowerCase();
+    const date = String(normalized.remind_at || normalized.date || normalized.start_date || '').trim().toLowerCase();
+    if (ctx.sessionId) {
+      idempKey = writeIdempotencyKey(ctx.caller, toolName, normalized, ctx.sessionId);
+      const cached = _idempotencyCache.get(idempKey);
+      if (cached && (Date.now() - cached.ts) < IDEMPOTENCY_TTL_MS) {
+        let parsed;
+        try { parsed = JSON.parse(cached.result); } catch (_) { parsed = { success: true }; }
+        return JSON.stringify({ ...parsed, already_done: true, note: 'Already completed earlier' });
+      }
+    } else {
+      ctx.turnWrites ??= new Map();
+      const turnKey = `${toolName}::${title}::${date}`;
+      if (ctx.turnWrites.has(turnKey)) {
+        let parsed;
+        try { parsed = JSON.parse(ctx.turnWrites.get(turnKey)); } catch (_) { parsed = { success: true }; }
+        return JSON.stringify({ ...parsed, already_done: true, note: 'Already completed earlier' });
+      }
+      idempKey = turnKey;
+    }
+  }
+
   try {
-    return await Promise.race([fn(ctx, normalized), _timeout(TOOL_TIMEOUT_MS)]);
+    const resStr = await Promise.race([fn(ctx, normalized), _timeout(TOOL_TIMEOUT_MS)]);
+    if (isIdempotent && idempKey) {
+      try {
+        const parsed = JSON.parse(resStr);
+        if (parsed.success === true || parsed.scheduled === true || parsed.id) {
+          if (ctx.sessionId) {
+            _idempotencyCache.set(idempKey, { result: resStr, ts: Date.now() });
+          } else if (ctx.turnWrites) {
+            ctx.turnWrites.set(idempKey, resStr);
+          }
+        }
+      } catch (_) {}
+    }
+    return resStr;
   } catch (e) {
     const msg = (e && e.message) || 'Tool execution failed';
     if (isWriteTool(toolName)) {
@@ -321,6 +400,8 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
 module.exports = {
   createToolCtx,
   executeToolCall,
+  clearIdempotencyCache,
+  writeIdempotencyKey,
   visionMessageForResults,
   VISION_IMAGES_PER_ROUND,
   TOOL_EXECUTORS,

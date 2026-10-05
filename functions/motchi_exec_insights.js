@@ -540,6 +540,52 @@ async function exec_browse_web(ctx, args) {
     }
 }
 
+async function exec_request_tools(ctx, args) {
+  const { resolveToolsForCapabilities } = require('./motchi_tools.js');
+  const caps = Array.isArray(args?.capabilities) ? args.capabilities : (args?.capability ? [args.capability] : []);
+  const tls = Array.isArray(args?.tools) ? args.tools : [];
+  const mountedNames = resolveToolsForCapabilities(caps, tls);
+
+  // JIT Memory Bundling: automatically attach top relevant memories
+  // for the requested capability/reason, saving an extra read_memories round.
+  let relevantNotes = [];
+  let memories = [];
+  if (ctx.db && (ctx.userMessage || args?.reason || caps.length > 0)) {
+    try {
+      const { selectRelevantMemoryFacts } = require('./motchi_memory.js');
+      const query = [args?.reason, ctx.userMessage, caps.join(' ')].filter(Boolean).join(' ');
+      const facts = await selectRelevantMemoryFacts(query, 3, ctx.db);
+      if (facts && facts.length > 0) {
+        relevantNotes = facts.map((f) => f.fact);
+        memories = facts.map((f) => ({ id: f.id, fact: f.fact, subject: f.subject }));
+      }
+    } catch (_) {}
+  }
+
+  const memoryNote = relevantNotes.length > 0 ? ` Found ${relevantNotes.length} relevant memory notes.` : '';
+  return JSON.stringify({
+    status: 'mounted',
+    capabilities: caps,
+    mounted_tools: mountedNames,
+    relevant_notes: relevantNotes,
+    memories,
+    message: `Mounted ${mountedNames.length} tools: ${mountedNames.join(', ')}.${memoryNote} You can now call them in the next step to fulfill the user's request.`,
+  });
+}
+
+async function exec_propose_choices(ctx, args) {
+  const prompt = String(args?.prompt || '').trim();
+  const raw = Array.isArray(args?.choices) ? args.choices : (Array.isArray(args?.options) ? args.options : []);
+  const choices = raw.map((c) => String(c || '').trim()).filter(Boolean).slice(0, 6);
+  return JSON.stringify({
+    success: true,
+    prompt,
+    choices,
+    interactive: true,
+    block: `\`\`\`choices-json\n${JSON.stringify({ prompt, choices })}\n\`\`\``,
+  });
+}
+
 module.exports = {
   exec_get_relationship_insights,
   exec_get_memory_trivia,
@@ -548,4 +594,6 @@ module.exports = {
   exec_web_search,
   exec_read_web_page,
   exec_browse_web,
+  exec_request_tools,
+  exec_propose_choices,
 };

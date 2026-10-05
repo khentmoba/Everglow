@@ -78,25 +78,39 @@ class AppLink {
   const AppLink({required this.route, required this.label});
 }
 
+/// Interactive choice buttons proposed by Motchi for quick decision-making.
+class ClarificationChoice {
+  final String prompt;
+  final List<String> choices;
+
+  const ClarificationChoice({
+    required this.prompt,
+    required this.choices,
+  });
+}
+
 /// What an assistant reply contains, after parsing.
 class StudyArtifacts {
   final List<QuizQuestion> quiz;
   final List<Flashcard> flashcards;
   final List<HtmlArtifact> html;
   final List<AppLink> links;
+  final List<ClarificationChoice> choices;
 
   const StudyArtifacts({
     this.quiz = const [],
     this.flashcards = const [],
     this.html = const [],
     this.links = const [],
+    this.choices = const [],
   });
 
   bool get hasQuiz => quiz.isNotEmpty;
   bool get hasFlashcards => flashcards.isNotEmpty;
   bool get hasHtml => html.isNotEmpty;
   bool get hasLinks => links.isNotEmpty;
-  bool get isEmpty => !hasQuiz && !hasFlashcards && !hasHtml && !hasLinks;
+  bool get hasChoices => choices.isNotEmpty;
+  bool get isEmpty => !hasQuiz && !hasFlashcards && !hasHtml && !hasLinks && !hasChoices;
 }
 
 /// Max items kept per artifact (prompts ask 5 quiz / 10 cards; room to spare).
@@ -147,6 +161,7 @@ StudyArtifacts parseStudyArtifacts(String text) {
       text,
     ).take(kMaxHtmlArtifacts).toList(),
     links: _parseAppLinkBlocks(text).take(kMaxAppLinks).toList(),
+    choices: _parseChoicesJsonBlocks(text).take(3).toList(),
   );
 }
 
@@ -292,7 +307,7 @@ String stripStreamingArtifacts(String draft) {
 /// their closing fence, so no Preview button is lost by cutting).
 String _withoutTrailingOpenFence(String text) {
   final open = RegExp(
-    r'```\s*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|everglow-link)[\s\S]*$',
+    r'```\s*(quiz[\s_-]*json|quiz|flashcards?[\s_-]*json|flashcards?|html[\s_-]*artifacts?|html|choices?[\s_-]*json|choices?|everglow-link)[\s\S]*$',
     caseSensitive: false,
   ).firstMatch(text);
   if (open != null) {
@@ -334,6 +349,13 @@ String _normTag(String tag) {
       t == 'applink') {
     return 'everglow-link';
   }
+  if (t == 'choices-json' ||
+      t == 'choicesjson' ||
+      t == 'choices' ||
+      t == 'choice-json' ||
+      t == 'choice') {
+    return 'choices-json';
+  }
   return t;
 }
 
@@ -342,11 +364,38 @@ String _withoutFencedBlocks(String text) {
     if (_normTag(m.group(1)!) == 'quiz-json' ||
         _normTag(m.group(1)!) == 'flashcards-json' ||
         _normTag(m.group(1)!) == 'html-artifact' ||
+        _normTag(m.group(1)!) == 'choices-json' ||
         _normTag(m.group(1)!) == 'everglow-link') {
       return '';
     }
     return m.group(0)!;
   });
+}
+
+List<ClarificationChoice> _parseChoicesJsonBlocks(String text) {
+  final out = <ClarificationChoice>[];
+  for (final body in _fencedBodies(text, 'choices-json')) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map) {
+        final prompt = (decoded['prompt'] as String? ?? '').trim();
+        final rawChoices = decoded['choices'] ?? decoded['options'];
+        if (rawChoices is List) {
+          final choices = rawChoices
+              .map((c) => (c as String? ?? '').trim())
+              .where((c) => c.isNotEmpty)
+              .take(6)
+              .toList();
+          if (choices.length >= 2) {
+            out.add(ClarificationChoice(prompt: prompt, choices: choices));
+          }
+        }
+      }
+    } catch (_) {
+      // Lenient parse: bad choice block skipped.
+    }
+  }
+  return out;
 }
 
 Iterable<String> _fencedBodies(String text, String tag) sync* {

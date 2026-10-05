@@ -1032,6 +1032,75 @@ const MOTCHI_TOOLS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'request_tools',
+      description: 'Mount/summon specific tools needed to fulfill an action or search. Call this ONLY when you need live tools (web search, calendar, watchlist, memories, reminders, etc.). For casual conversation, greetings, affection, companionship, humor, or general knowledge, reply directly in text without calling this tool.',
+      parameters: {
+        type: 'object',
+        properties: {
+          capabilities: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: [
+                'web',
+                'movies',
+                'books',
+                'anime',
+                'music',
+                'memory',
+                'chat_sanctuary',
+                'sessions',
+                'starlight',
+                'mood',
+                'calendar',
+                'reminders',
+                'journal',
+                'bucket_list',
+                'subscriptions',
+                'trips',
+                'habits_activities',
+                'weather_dating',
+                'spaces',
+              ],
+            },
+            description: 'The categories of tools you need.',
+          },
+          tools: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional specific tool names if known (e.g. ["web_search", "add_to_watchlist"]).',
+          },
+          reason: {
+            type: 'string',
+            description: 'Short reason why tools are needed.',
+          },
+        },
+        required: ['capabilities'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_choices',
+      description: 'Propose 2 to 4 quick tap-ready choices when you need the user to pick an option, vibe, or preference. Renders interactive buttons in the chat.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: { type: 'string', description: 'The question or prompt to ask (e.g. "What movie vibe tonight?")' },
+          choices: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '2 to 6 short choice options (e.g. ["Cozy Anime", "Sci-Fi Thriller", "Comedy"])',
+          },
+        },
+        required: ['prompt', 'choices'],
+      },
+    },
+  },
 ];
 
 // Light chat: a bare greeting or smalltalk one-liner with no real ask.
@@ -1090,8 +1159,45 @@ function selectToolsForRequest(reqFeature, userMsg, prevAssistantText = '', prev
   return MOTCHI_TOOLS;
 }
 
+const REQUEST_TOOLS_SCHEMA = MOTCHI_TOOLS.find(t => t.function.name === 'request_tools');
+
+/**
+ * Initial tool set for a chat turn under the Zero-Tool Start architecture.
+ * Pure greetings start with 0 tools (immediate text stream).
+ * Active plan follow-throughs ("yes" to an offer) keep write tools immediately.
+ * Assistant turns start with ONLY the `request_tools` meta-tool: Motchi replies
+ * in text for chatting/affection, or calls `request_tools` to mount exact tools.
+ */
+function selectInitialToolsForTurn(reqFeature, userMsg, prevAssistantText = '', _prevUserText = '') {
+  if (reqFeature === 'guardian') {
+    const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
+    return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
+  }
+  if (reqFeature === 'study') {
+    const allowed = new Set(['web_search', 'read_web_page', 'remember_fact', 'read_memories', 'search_books']);
+    return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));
+  }
+  const trimmed = String(userMsg || '').trim().toLowerCase();
+  // Follow-through beats smalltalk: "ok" to an offered plan must keep
+  // the write tools immediately, so the plan can execute without an extra mount round.
+  if (hasOffer(prevAssistantText) && isBareYes(trimmed)) {
+    const wanted = new Set([...CORE_TOOLS, ...FOLLOW_THROUGH_TOOLS]);
+    return MOTCHI_TOOLS.filter(t => wanted.has(t.function.name));
+  }
+  const isPureGreeting = PURE_GREETING_RE.test(trimmed);
+  if (isPureGreeting) {
+    return [];
+  }
+  if (REQUEST_TOOLS_SCHEMA) {
+    return [REQUEST_TOOLS_SCHEMA];
+  }
+  return [];
+}
+
 module.exports = {
   MOTCHI_TOOLS,
+  REQUEST_TOOLS_SCHEMA,
+  selectInitialToolsForTurn,
   selectToolsForRequest,
   isLightChat,
 };

@@ -29,8 +29,13 @@ const {
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
-const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, hasOffer, dropRepeatCalls } = require('./motchi_tools.js');
-const { selectToolsForRequest, isLightChat } = require('./motchi_tool_schemas.js');
+const {
+  toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, hasOffer,
+  dropRepeatCalls, resolveToolsForCapabilities,
+} = require('./motchi_tools.js');
+const {
+  selectInitialToolsForTurn, isLightChat, MOTCHI_TOOLS,
+} = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
 const { REPLY_DETAILS_PROMPT, memoryReference, citedMemories, stripMemoryCitations, toolReceipt } = require('./motchi_reply_details.js');
@@ -93,6 +98,35 @@ function hasCompleteArtifact(text) {
 const LIGHT_CHAT_PROMPT = `You are Motchi 🍡, Khent & Clair's white cat inside Everglow — warm, playful, a little sassy, deeply affectionate. They just said hi or some smalltalk: answer directly in text in 1-2 short sentences with your usual charm (cat emojis 🐱🍡💕 ok, cat talk only if it fits). Match their energy and keep it light.`;
 
 const STALE_ARTIFACT_NOTE = '[an earlier interactive quiz/game card — already shown in chat]';
+
+const ACTION_CLAIM_PATTERNS = [
+  { match: /\b(added|put|saved)\b.{0,30}\b(watchlist|watch list)\b/i, tool: 'add_to_watchlist', name: 'watchlist' },
+  { match: /\b(scheduled|added|put|set|created)\b.{0,30}\b(calendar|event)\b/i, tool: 'add_calendar_event', name: 'calendar' },
+  { match: /\b(set|created|scheduled)\b.{0,30}\b(reminder|alarm)\b/i, tool: 'create_reminder', name: 'reminder' },
+  { match: /\b(saved|placed|put)\b.{0,30}\b(starlight|jar)\b/i, tool: 'save_to_starlight_jar', name: 'starlight jar' },
+  { match: /\b(logged|recorded)\b.{0,30}\b(mood|feeling)\b/i, tool: 'set_mood', name: 'mood' },
+  { match: /\b(created|saved|wrote)\b.{0,30}\b(journal|entry|diary)\b/i, tool: 'create_journal_entry', name: 'journal' },
+  { match: /\b(added|put)\b.{0,30}\b(bucket list|bucket item)\b/i, tool: 'add_bucket_item', name: 'bucket list' },
+  { match: /\b(remembered|saved|noted)\b.{0,30}\b(to (my|our) memory|in memory|to memory)\b/i, tool: 'remember_fact', name: 'memory' },
+];
+
+function findActionClaimMismatch(replyText, executedSteps) {
+  const text = String(replyText || '');
+  if (!text || text.length < 15) return null;
+  // Ignore questions and hypothetical offers
+  if (/\b(do you want me to|should i|would you like me to|want me to|shall i|can i add|if you'd like)\b/i.test(text)) return null;
+  for (const pat of ACTION_CLAIM_PATTERNS) {
+    if (pat.match.test(text)) {
+      const didSucceed = (executedSteps || []).some(
+        (s) => s && s.tool === pat.tool && (s.status === 'done' || s.status === 'waiting')
+      );
+      if (!didSucceed) {
+        return { mismatched: true, tool: pat.tool, name: pat.name };
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * Collapses hidden artifact blocks (quiz/flashcards/html/link) in all but
@@ -187,6 +221,7 @@ async function handleProxyAI(req, res) {
   const steps = [];
   const availableMemories = [];
   function captureResult(tool, args, raw) {
+    if (tool === 'request_tools') return null;
     const step = toolReceipt(tool, args, raw);
     const pending = steps.findIndex((s) => s.status === 'waiting' && s.tool === tool && s.target && s.target === step.target);
     if (pending >= 0) steps[pending] = step;
@@ -301,6 +336,7 @@ async function handleProxyAI(req, res) {
     ? `The one chatting with you right now is **${callerLabel}** (${caller}). Their partner is **${partnerLabel}** (${partnerUsername}). You are their shared companion cat who loves them both equally. Weave gentle warmth about their partner into the conversation when natural (e.g. asking how ${callerLabel} is doing together with ${partnerLabel}, celebrating notes or milestones), while always keeping their connection warm and loving.`
     : '';
   const lastUserMessage = getMessageText(messages.filter(m => m.role === 'user').pop()?.content);
+  toolCtx.userMessage = lastUserMessage;
   // Previous assistant text powers follow-through routing: a bare yes
   // keeps the write tools only when Motchi just offered a plan.
   const prevAssistantText = getMessageText(messages.findLast((m) => m?.role === 'assistant')?.content);
@@ -753,8 +789,8 @@ ${HTML_GAME_GUIDE}
   // ── Custom Motchi Tools (OpenAI function calling format) ──
 
 
-  // Tools: custom Motchi tools (dynamically pruned for feature and greetings)
-  let tools = selectToolsForRequest(feature, lastUserMessage, prevAssistantText, prevUserText);
+  // Tools: custom Motchi tools (starts at 0 app tools; mounts on demand via request_tools)
+  let tools = selectInitialToolsForTurn(feature, lastUserMessage, prevAssistantText, prevUserText);
   if (fastPath) tools = []; // pre-executed below; the model only answers
 
   // Runtime capabilities apply to every persona, including the cached
@@ -954,6 +990,7 @@ ${HTML_GAME_GUIDE}
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
+      let didActionRepair = false; // action-claim mismatch nudge: at most once
       let forceTextNextRound = false; // repair rounds carry no tools: the nudge demands text only
       let fullContent = ''; // this round's streamed text (loop scope so post-loop repair can keep it)
       let _ttftMs = null; // round-1 first-content latency (the TTFT number)
@@ -1159,6 +1196,26 @@ ${HTML_GAME_GUIDE}
             forceTextNextRound = true;
             continue;
           }
+          // Action claim verification: if Motchi claims she added/scheduled something
+          // but never actually called the tool, trigger a repair turn with the tool mounted.
+          const actionMismatch = !didActionRepair ? findActionClaimMismatch(_streamedFinalReply, steps) : null;
+          if (actionMismatch && llmCalls < MAX_LLM_CALLS_PER_MESSAGE) {
+            didActionRepair = true;
+            requestTrace.repairs++;
+            if (fullContent) currentMessages.push({ role: 'assistant', content: fullContent });
+            currentMessages.push({
+              role: 'user',
+              content: `You told the user you added or scheduled this to their ${actionMismatch.name}, but you did NOT actually call the ${actionMismatch.tool} tool! You must call ${actionMismatch.tool} right now to save it, or clarify that it was not saved yet.`,
+            });
+            sendEvent({ tool_status: 'repairing' });
+            fullContent = '';
+            // Ensure the tool is mounted for this repair round
+            const missingTool = MOTCHI_TOOLS.find((t) => t.function.name === actionMismatch.tool);
+            if (missingTool && !tools.some((t) => t.function.name === actionMismatch.tool)) {
+              tools = [...tools, missingTool];
+            }
+            continue;
+          }
           streamInterrupted = false;
           break;
         }
@@ -1193,7 +1250,7 @@ ${HTML_GAME_GUIDE}
           let fnArgs;
           try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
 
-          sendEvent({ tool_status: fnName });
+          sendEvent({ tool_status: fnName === 'request_tools' ? 'thinking' : fnName });
           const toolStartedAt = Date.now();
           let result;
           try {
@@ -1223,6 +1280,16 @@ ${HTML_GAME_GUIDE}
           // A successful explicit save makes auto-extraction redundant.
           if (fnName === 'remember_fact') {
             try { if (JSON.parse(result).success) _rememberSaved = true; } catch (_) {}
+          }
+
+          // JIT Memory Bundling: when request_tools returns relevant memories, capture them
+          if (fnName === 'request_tools') {
+            try {
+              const parsedReq = JSON.parse(result);
+              if (Array.isArray(parsedReq.memories)) {
+                availableMemories.push(...parsedReq.memories);
+              }
+            } catch (_) {}
           }
 
           // Send rich tool result to client for inline cards
@@ -1262,6 +1329,22 @@ ${HTML_GAME_GUIDE}
         const executedResults = await Promise.all(toolPromises);
         for (const tr of executedResults) {
           currentMessages.push(tr.toolMsg);
+        }
+
+        // Dynamically mount tools requested in this round for subsequent rounds
+        const requestCall = collectedToolCalls.find((tc) => tc.function?.name === 'request_tools');
+        if (requestCall) {
+          let reqArgs = {};
+          try { reqArgs = JSON.parse(requestCall.function?.arguments || '{}'); } catch (_) {}
+          const caps = Array.isArray(reqArgs.capabilities)
+            ? reqArgs.capabilities
+            : (reqArgs.capability ? [reqArgs.capability] : []);
+          const tls = Array.isArray(reqArgs.tools) ? reqArgs.tools : [];
+          const mountedNames = resolveToolsForCapabilities(caps, tls);
+          if (mountedNames.length > 0) {
+            const mountedSet = new Set(mountedNames);
+            tools = MOTCHI_TOOLS.filter((t) => mountedSet.has(t.function.name));
+          }
         }
         // Gallery vision: when a tool attached images, show them to the
         // model as real image input (not text) before the next round.
@@ -1458,6 +1541,7 @@ ${HTML_GAME_GUIDE}
   let nsReply = '';
   let nsReasoning = '';
   let _nsRememberSaved = false; // skip auto-extract when remember_fact already saved
+  let didNsActionRepair = false;
   let nsModel = model;
   let nsInterrupted = true;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -1484,7 +1568,27 @@ ${HTML_GAME_GUIDE}
       nsSeen.add(key);
       return true;
     });
-    if (freshCalls.length === 0) { nsInterrupted = false; break; }
+    if (freshCalls.length === 0) {
+      if (!didNsActionRepair) {
+        const mismatch = findActionClaimMismatch(nsReply, steps);
+        if (mismatch && round < MAX_TOOL_ROUNDS - 1) {
+          didNsActionRepair = true;
+          requestTrace.repairs++;
+          nsMessages.push({ role: 'assistant', content: nsReply });
+          nsMessages.push({
+            role: 'user',
+            content: `You told the user you added or scheduled this to their ${mismatch.name}, but you did NOT actually call the ${mismatch.tool} tool! You must call ${mismatch.tool} right now to save it, or clarify that it was not saved yet.`,
+          });
+          const missingTool = MOTCHI_TOOLS.find((t) => t.function.name === mismatch.tool);
+          if (missingTool && !tools.some((t) => t.function.name === mismatch.tool)) {
+            tools = [...tools, missingTool];
+          }
+          continue;
+        }
+      }
+      nsInterrupted = false;
+      break;
+    }
     requestTrace.toolRounds++;
     nsMessages.push({
       role: 'assistant',
@@ -1535,6 +1639,22 @@ ${HTML_GAME_GUIDE}
       };
     }));
     for (const r of results) nsMessages.push(r.toolMsg);
+
+    // Dynamically mount tools requested in this round for subsequent rounds
+    const nsRequestCall = freshCalls.find((tc) => tc.function?.name === 'request_tools');
+    if (nsRequestCall) {
+      let reqArgs = {};
+      try { reqArgs = JSON.parse(nsRequestCall.function?.arguments || '{}'); } catch (_) {}
+      const caps = Array.isArray(reqArgs.capabilities)
+        ? reqArgs.capabilities
+        : (reqArgs.capability ? [reqArgs.capability] : []);
+      const tls = Array.isArray(reqArgs.tools) ? reqArgs.tools : [];
+      const mountedNames = resolveToolsForCapabilities(caps, tls);
+      if (mountedNames.length > 0) {
+        const mountedSet = new Set(mountedNames);
+        tools = MOTCHI_TOOLS.filter((t) => mountedSet.has(t.function.name));
+      }
+    }
     const visionMsg = visionMessageForResults(results.map((r) => r.fullResult));
     if (visionMsg) nsMessages.push(visionMsg);
   }
@@ -1623,4 +1743,5 @@ module.exports = {
   stripStaleArtifacts,
   hasCompleteArtifact,
   endsWithDanglingColon,
+  findActionClaimMismatch,
 };

@@ -3,11 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
+import '../../data/services/ai_service.dart';
 import '../../data/services/study_artifact.dart';
 import 'canvas_preview_sheet.dart';
 
@@ -126,6 +129,11 @@ class StudyArtifactEntry extends StatelessWidget {
         );
       }
     }
+    if (artifacts.hasChoices) {
+      for (final choice in artifacts.choices) {
+        buttons.add(_ClarificationChoicePills(choiceGroup: choice));
+      }
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
@@ -136,6 +144,68 @@ class StudyArtifactEntry extends StatelessWidget {
             if (i > 0) const SizedBox(height: 8),
             buttons[i],
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ClarificationChoicePills extends StatelessWidget {
+  final ClarificationChoice choiceGroup;
+
+  const _ClarificationChoicePills({required this.choiceGroup});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (choiceGroup.prompt.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                choiceGroup.prompt,
+                style: AppTypography.labelSmall().copyWith(
+                  color: AppColors.textMedium,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final choice in choiceGroup.choices)
+                ActionChip(
+                  label: Text(
+                    choice,
+                    style: AppTypography.bodySmall().copyWith(
+                      color: AppColors.petalWhite,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  backgroundColor: AppColors.surfaceGlass,
+                  side: BorderSide(
+                    color: AppColors.auroraTeal.withValues(alpha: 0.35),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.radiusFull,
+                  ),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    try {
+                      final ai = Provider.of<AIService>(context, listen: false);
+                      ai.sendMessage(feature: 'assistant', message: choice, stream: true);
+                    } catch (e, st) {
+                      Logger.e('Failed to send clarification choice', error: e, stackTrace: st);
+                    }
+                  },
+                ),
+            ],
+          ),
         ],
       ),
     );
