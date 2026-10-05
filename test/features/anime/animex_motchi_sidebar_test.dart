@@ -161,8 +161,7 @@ void main() {
       );
     }
 
-    testWidgets('renders header, title, and TEMPORARY badge when open',
-        (tester) async {
+    testWidgets('renders header like main Motchi when open', (tester) async {
       await tester.pumpWidget(
         buildTestHarness(
           isOpen: true,
@@ -174,13 +173,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Motchi'), findsOneWidget);
-      expect(find.text('TEMPORARY'), findsOneWidget);
+      expect(find.text('TEMPORARY'), findsNothing);
       expect(
-        find.text('Anime Assistant · Unsaved session'),
+        find.text('Temporary anime chat · Nothing is saved'),
         findsOneWidget,
       );
-      expect(find.byTooltip('Close sidebar'), findsOneWidget);
-      expect(find.byTooltip('New Chat (clear)'), findsOneWidget);
+      expect(find.byTooltip('Close'), findsOneWidget);
+      expect(find.byTooltip('New chat'), findsOneWidget);
       expect(find.text('Auto'), findsOneWidget);
     });
 
@@ -196,18 +195,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Hi Clair! 🍡'), findsOneWidget);
+      expect(find.text('What’s on your mind, Mama?'), findsOneWidget);
       expect(
-        find.text(
-          'Your temporary anime companion! Ask me for recommendations, plot lore, character details, or anything on your mind.',
-        ),
+        find.text('Anime picks, lore, or just a chat.'),
         findsOneWidget,
       );
-      expect(find.text('✨ Recommend an anime like Frieren'), findsOneWidget);
-      expect(find.text('🌸 Top romance anime to watch together'), findsOneWidget);
+      expect(find.text('Recommend an anime'), findsOneWidget);
+      expect(find.text('Couple romance'), findsOneWidget);
     });
 
-    testWidgets('DeepThink toggle cycles between Auto, Think, and Off',
+    testWidgets('DeepThink toggle cycles between Auto, Deep, and Fast',
         (tester) async {
       await tester.pumpWidget(
         buildTestHarness(
@@ -223,13 +220,13 @@ void main() {
 
       await tester.tap(find.text('Auto'));
       await tester.pumpAndSettle();
-      expect(find.text('Think'), findsOneWidget);
+      expect(find.text('Deep'), findsOneWidget);
 
-      await tester.tap(find.text('Think'));
+      await tester.tap(find.text('Deep'));
       await tester.pumpAndSettle();
-      expect(find.text('Off'), findsOneWidget);
+      expect(find.text('Fast'), findsOneWidget);
 
-      await tester.tap(find.text('Off'));
+      await tester.tap(find.text('Fast'));
       await tester.pumpAndSettle();
       expect(find.text('Auto'), findsOneWidget);
     });
@@ -257,12 +254,12 @@ void main() {
       expect(find.text('What is Frieren?'), findsOneWidget);
       expect(find.text('Frieren is an elf mage!'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('New Chat (clear)'));
+      await tester.tap(find.byTooltip('New chat'));
       await tester.pumpAndSettle();
 
       expect(cleared, isTrue);
       expect(find.text('What is Frieren?'), findsNothing);
-      expect(find.text('Hi Clair! 🍡'), findsOneWidget);
+      expect(find.text('What’s on your mind, Mama?'), findsOneWidget);
     });
 
     testWidgets('Close button triggers onClose callback', (tester) async {
@@ -277,7 +274,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Close sidebar'));
+      await tester.tap(find.byTooltip('Close'));
       expect(closed, isTrue);
     });
 
@@ -341,22 +338,31 @@ void main() {
 
       // Initially, floating trigger is visible and sidebar is closed
       expect(find.byType(AnimeXMotchiFloatingTrigger), findsOneWidget);
-      expect(find.text('TEMPORARY'), findsNothing);
+      expect(
+        find.text('Temporary anime chat · Nothing is saved'),
+        findsNothing,
+      );
 
       // Tap trigger to open
       await tester.tap(find.byType(AnimeXMotchiFloatingTrigger));
       await tester.pumpAndSettle();
 
       // Now sidebar is open and floating trigger is gone
-      expect(find.text('TEMPORARY'), findsOneWidget);
+      expect(
+        find.text('Temporary anime chat · Nothing is saved'),
+        findsOneWidget,
+      );
       expect(find.byType(AnimeXMotchiFloatingTrigger), findsNothing);
 
       // Tap close button to close
-      await tester.tap(find.byTooltip('Close sidebar'));
+      await tester.tap(find.byTooltip('Close'));
       await tester.pumpAndSettle();
 
       // Back to closed
-      expect(find.text('TEMPORARY'), findsNothing);
+      expect(
+        find.text('Temporary anime chat · Nothing is saved'),
+        findsNothing,
+      );
       expect(find.byType(AnimeXMotchiFloatingTrigger), findsOneWidget);
     });
 
