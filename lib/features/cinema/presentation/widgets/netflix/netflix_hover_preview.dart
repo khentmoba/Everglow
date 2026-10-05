@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
+import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
@@ -253,6 +254,12 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
         .toList();
   }
 
+  /// True while TMDB details are still resolving and the row payload has
+  /// no synopsis to show yet. The popover renders animated shimmer
+  /// placeholders instead of the fallback copy so hover never looks dead.
+  bool get _loadingDetails =>
+      _details == null && widget.item.synopsis.isEmpty;
+
   @override
   Widget build(BuildContext context) {
     // Netflix grow: the preview starts at roughly the card's size and
@@ -474,37 +481,86 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         ),
                       const SizedBox(height: 12),
                       // ── Metadata ──
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (_voteAverage > 0)
-                            Text(
-                              'TMDB ${_voteAverage.toStringAsFixed(1)}/10',
-                              style: AppTypography.outfitHeading.copyWith(
-                                fontSize: 13,
-                                color: NetflixColors.textSecondary,
-                              ),
+                      if (_loadingDetails &&
+                          _voteAverage == 0 &&
+                          _year.isEmpty &&
+                          _runtime == null &&
+                          _seriesInfo == null)
+                        const Row(
+                          children: [
+                            EverglowSkeleton(
+                              width: 70,
+                              height: 12,
+                              radius: 6,
                             ),
-                          if (_year.isNotEmpty) _MetaText(_year),
-                          if (_runtime != null) _MetaText(_runtime!),
-                          if (_seriesInfo != null) _MetaText(_seriesInfo!),
-                          const _HdBadge(),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _synopsis,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitMedium.copyWith(
-                          fontSize: 12.5,
-                          color: NetflixColors.textSecondary,
-                          height: 1.45,
+                            SizedBox(width: 8),
+                            EverglowSkeleton(
+                              width: 50,
+                              height: 12,
+                              radius: 6,
+                            ),
+                            SizedBox(width: 8),
+                            _HdBadge(),
+                          ],
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (_voteAverage > 0)
+                              Text(
+                                'TMDB ${_voteAverage.toStringAsFixed(1)}/10',
+                                style: AppTypography.outfitHeading.copyWith(
+                                  fontSize: 13,
+                                  color: NetflixColors.textSecondary,
+                                ),
+                              ),
+                            if (_year.isNotEmpty) _MetaText(_year),
+                            if (_runtime != null) _MetaText(_runtime!),
+                            if (_seriesInfo != null) _MetaText(_seriesInfo!),
+                            const _HdBadge(),
+                          ],
                         ),
-                      ),
-                      if (_genres.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      if (_loadingDetails)
+                        const EverglowLoadingBars()
+                      else
+                        Text(
+                          _synopsis,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.outfitMedium.copyWith(
+                            fontSize: 12.5,
+                            color: NetflixColors.textSecondary,
+                            height: 1.45,
+                          ),
+                        ),
+                      if (_loadingDetails) ...[
+                        const SizedBox(height: 10),
+                        const Row(
+                          children: [
+                            EverglowSkeleton(
+                              width: 52,
+                              height: 10,
+                              radius: 5,
+                            ),
+                            SizedBox(width: 8),
+                            EverglowSkeleton(
+                              width: 68,
+                              height: 10,
+                              radius: 5,
+                            ),
+                            SizedBox(width: 8),
+                            EverglowSkeleton(
+                              width: 44,
+                              height: 10,
+                              radius: 5,
+                            ),
+                          ],
+                        ),
+                      ] else if (_genres.isNotEmpty) ...[
                         const SizedBox(height: 10),
                         Wrap(
                           spacing: 6,

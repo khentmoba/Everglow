@@ -182,6 +182,80 @@ class _EverglowSkeletonPainter extends CustomPainter {
   }
 }
 
+/// Animated placeholder lines for hover preview cards while details load.
+///
+/// Shared by anime + cinema hover popovers so a loading card shimmers
+/// instead of showing dead grey bars. Uses [EverglowSkeleton] so every
+/// instance shares the global shimmer ticker and respects
+/// [AppMotion.reduced] (static fill when reduced motion is on).
+class EverglowLoadingBars extends StatelessWidget {
+  final List<double> widthFactors;
+  final double barHeight;
+  final double spacing;
+  final double radius;
+
+  const EverglowLoadingBars({
+    super.key,
+    this.widthFactors = const [1.0, 0.82, 0.6],
+    this.barHeight = 10,
+    this.spacing = 6,
+    this.radius = 5,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < widthFactors.length; i++) ...[
+          if (i > 0) SizedBox(height: spacing),
+          FractionallySizedBox(
+            widthFactor: widthFactors[i].clamp(0.0, 1.0),
+            alignment: Alignment.centerLeft,
+            child: EverglowSkeleton(height: barHeight, radius: radius),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Animated placeholder chips for hover preview genre rows while loading.
+///
+/// Same shared ticker as [EverglowLoadingBars] — anime + cinema popovers
+/// use this when genres are still resolving.
+class EverglowLoadingChips extends StatelessWidget {
+  final int count;
+  final double height;
+  final double spacing;
+
+  const EverglowLoadingChips({
+    super.key,
+    this.count = 3,
+    this.height = 18,
+    this.spacing = 6,
+  });
+
+  static const _widths = [52.0, 68.0, 44.0];
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: spacing,
+      runSpacing: spacing,
+      children: [
+        for (var i = 0; i < count; i++)
+          EverglowSkeleton(
+            width: _widths[i % _widths.length],
+            height: height,
+            radius: 999,
+          ),
+      ],
+    );
+  }
+}
+
 /// A row of shimmer poster placeholders.
 ///
 /// Use for horizontal scrolling content (cinema shelves, anime rows, etc.)
