@@ -94,6 +94,7 @@ void pushReader(
   required List<KatanaChapter> chapters,
   required String mangaTitle,
   required String coverUrl,
+  int initialPage = 1,
 }) {
   Navigator.of(context).push(
     MaterialPageRoute(
@@ -103,6 +104,7 @@ void pushReader(
         chapters: chapters,
         mangaTitle: mangaTitle,
         coverUrl: coverUrl,
+        initialPage: initialPage,
       ),
     ),
   );

@@ -289,6 +289,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
         target = sorted.firstWhere((c) => c.id == wantId,
             orElse: () => sorted.first);
       }
+      final wantPage = progress?.lastReadPage ?? item.lastReadPage;
       pushReader(
         context,
         slug: slug,
@@ -296,6 +297,7 @@ class _CurrentlyReadingShelfState extends State<CurrentlyReadingShelf> {
         chapters: chapters,
         mangaTitle: item.title,
         coverUrl: item.coverUrl,
+        initialPage: (target.id == wantId && wantPage > 0) ? wantPage : 1,
       );
     } catch (e, st) {
       Logger.e(

@@ -167,6 +167,7 @@ class _KatanaCurrentlyReadingScreenState
         target = sorted.firstWhere((c) => c.id == wantId,
             orElse: () => sorted.first);
       }
+      final wantPage = progress?.lastReadPage ?? item.lastReadPage;
       pushReader(
         context,
         slug: slug,
@@ -174,6 +175,7 @@ class _KatanaCurrentlyReadingScreenState
         chapters: chapters,
         mangaTitle: item.title,
         coverUrl: item.coverUrl,
+        initialPage: (target.id == wantId && wantPage > 0) ? wantPage : 1,
       );
     } finally {
       if (mounted) setState(() => _busySlug = null);

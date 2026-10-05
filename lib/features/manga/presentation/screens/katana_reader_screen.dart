@@ -17,7 +17,6 @@ import '../../data/services/katana_service.dart';
 import '../katana/chapter_picker_sheet.dart';
 import '../katana/katana_theme.dart';
 import '../katana/reader_settings_sheet.dart';
-import '../widgets/chapter_loading_stage.dart';
 import '../widgets/reader_page_image.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -65,6 +64,7 @@ class KatanaReaderScreen extends StatefulWidget {
   final List<KatanaChapter> chapters;
   final String mangaTitle;
   final String coverUrl;
+  final int initialPage;
 
   const KatanaReaderScreen({
     super.key,
@@ -73,6 +73,7 @@ class KatanaReaderScreen extends StatefulWidget {
     required this.chapters,
     required this.mangaTitle,
     this.coverUrl = '',
+    this.initialPage = 1,
   });
 
   @override
@@ -112,6 +113,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   int _lastSavedPage = -1;
   bool _showPagePill = false;
   Timer? _pagePillTimer;
+  bool _hasAppliedInitialPage = false;
 
   // Per-page resilience (mirrors the site's reader: independent page
   // slots, silent CDN-host retries, one token-URL refresh per chapter
@@ -156,7 +158,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                 title: widget.chapterId,
               ));
 
-    _pageController = PageController(initialPage: 0);
+    final startPage = widget.initialPage > 1 ? widget.initialPage : 1;
+    _currentPage = startPage;
+    _pageController = PageController(initialPage: startPage - 1);
     _scrollController.addListener(_onWebtoonScroll);
 
     _loadPreferences();
@@ -176,6 +180,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     _pageController.dispose();
     _transformController.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    PaintingBinding.instance.imageCache.clearLiveImages();
     super.dispose();
   }
 
@@ -322,24 +327,35 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       return;
     }
 
+    final targetPage = !_hasAppliedInitialPage && widget.initialPage > 1
+        ? widget.initialPage.clamp(1, pages.length)
+        : 1;
+    _hasAppliedInitialPage = true;
+
     setState(() {
       _pages = pages;
       _loading = false;
       _autoRetried = false;
+      _currentPage = targetPage;
     });
 
-    // Opening a chapter counts as reading it: pin page 1 at once so
+    // Opening a chapter counts as reading it: pin target page at once so
     // the series lands in Currently Reading before the first turn.
-    _lastSavedPage = 1;
-    _saveProgress(1);
+    _lastSavedPage = targetPage;
+    _saveProgress(targetPage);
 
-    _preloadUpcoming(0);
+    _preloadUpcoming(targetPage - 1);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_mode == ReaderMode.webtoon && _scrollController.hasClients) {
-        _scrollController.jumpTo(0);
+        if (targetPage > 1 && _pages.length > 1) {
+          _jumpToPage(targetPage);
+        } else {
+          _scrollController.jumpTo(0);
+        }
       } else if (_pageController.hasClients) {
-        _pageController.jumpToPage(0);
+        _pageController.jumpToPage(targetPage - 1);
       }
       _triggerPagePill();
     });
@@ -412,6 +428,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   void _goToChapter(KatanaChapter chapter) {
     if (chapter.id == _chapter.id) return;
     _saveProgress(_lastSavedPage < 0 ? 1 : _lastSavedPage);
+    PaintingBinding.instance.imageCache.clearLiveImages();
     setState(() {
       _chapter = chapter;
       _pages = const [];

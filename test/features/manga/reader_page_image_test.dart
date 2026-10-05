@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -150,6 +151,55 @@ void main() {
       final context = tester.element(find.text('home'));
       await ReaderPageImage.precachePage(context, '');
       expect(find.text('home'), findsOneWidget);
+    });
+
+    testWidgets('unmounts offscreen pages to prevent memory leaks', (
+      tester,
+    ) async {
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 600,
+              child: ListView.builder(
+                controller: controller,
+                itemCount: 20,
+                scrollCacheExtent: const ScrollCacheExtent.pixels(300),
+                addAutomaticKeepAlives: false,
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    height: 500,
+                    child: ReaderPageImage(
+                      key: ValueKey('page-$index'),
+                      imageUrl: 'https://example.com/p$index.jpg',
+                      pageNumber: index + 1,
+                      slotColor: const Color(0xFF14141C),
+                      accentColor: Colors.pink,
+                      mutedColor: Colors.white38,
+                      cacheManager: _FailingCacheManager(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Initially, page 1 is visible and mounted
+      expect(find.byKey(const ValueKey('page-0')), findsOneWidget);
+
+      // Scroll far down to page 15 (7000 pixels down)
+      controller.jumpTo(7000);
+      await tester.pump();
+
+      // Page 1 is now far offscreen and must be unmounted (not kept alive),
+      // allowing ImageCache to reclaim memory instead of crashing iOS WebKit.
+      expect(find.byKey(const ValueKey('page-0')), findsNothing);
+      expect(find.byKey(const ValueKey('page-14')), findsOneWidget);
     });
   });
 }

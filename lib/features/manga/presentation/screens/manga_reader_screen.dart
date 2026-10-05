@@ -1,10 +1,10 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../widgets/chapter_loading_stage.dart';
 import '../widgets/reader_page_image.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -772,13 +772,21 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   Widget _buildLoading() {
-    return ChapterLoadingStage(
-      subtitle: widget.manga.title,
-      title: widget.chapter.displayTitle,
-      accentColor: AppTheme.deepRose,
-      surfaceColor: const Color(0xFF14141C),
-      pageColor: const Color(0xFF1E1E2A),
-      mutedColor: Colors.white54,
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(color: AppTheme.deepRose),
+          const SizedBox(height: 16),
+          Text(
+            'Loading pages...',
+            style: AppTypography.outfitMuted.copyWith(
+              color: Colors.white54,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -830,11 +838,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         top: MediaQuery.paddingOf(context).top + 56,
         bottom: MediaQuery.paddingOf(context).bottom + 120,
       ),
-      // Keep neighbours built so paging back and forth never
-      // re-resolves a page that already loaded.
+      // Virtualize aggressively: neighbours within 1200px are kept
+      // built for smooth scrolling, while offscreen strips are
+      // unmounted so decoded GPU textures can be evicted by ImageCache.
       scrollCacheExtent: const ScrollCacheExtent.pixels(1200),
-      addAutomaticKeepAlives: true,
-      addRepaintBoundaries: true,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: !kIsWeb,
       itemCount: pageCount + 1, // +1 for "Next Chapter" card
       itemBuilder: (context, index) {
         if (index == pageCount) {
