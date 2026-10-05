@@ -142,7 +142,9 @@ export async function launch(cdpPort = 0, opts = {}) {
   ownedProfiles.add(userDataDir);
   const proc = spawn(binary, [
     '--headless=new', `--remote-debugging-port=${cdpPort}`, `--user-data-dir=${userDataDir}`,
-    '--no-sandbox', '--no-first-run', '--disable-extensions', '--disable-background-networking',
+    // GitHub Linux runners have tiny /dev/shm; SwiftShader software rendering
+    // exhausts it and OOM-kills the runner (PR #469 run 37306879221 hung 46m).
+    '--no-sandbox', '--disable-dev-shm-usage', '--no-first-run', '--disable-extensions', '--disable-background-networking',
     '--enable-unsafe-swiftshader', '--hide-scrollbars',
     '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
     '--disable-renderer-backgrounding',

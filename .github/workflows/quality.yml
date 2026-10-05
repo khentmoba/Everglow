@@ -106,6 +106,8 @@ jobs:
 
   perf_harness:
     runs-on: ubuntu-latest
+    # Fail fast instead of hanging: PR #469's run lost the runner and sat 46m.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       # Worker tests generate sw.js with Dart in an isolated temporary directory.
