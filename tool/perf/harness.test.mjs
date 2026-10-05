@@ -3,14 +3,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import vm from 'node:vm';
 import {
   Cdp, LONG_TASK_OBSERVER, NETWORK_PROFILES, chromePath,
-  readLongTasks, shapeNetwork, cleanup,
+  readLongTasks, shapeNetwork, cleanup, launch, stop,
 } from './_harness.mjs';
 import { summarizeBoot } from './measure_boot.mjs';
 import { aggregate, benchPassed, markdown, validateMirror, validateScroll } from './bench.mjs';
@@ -132,7 +137,163 @@ let chrome;
 try { chrome = chromePath(); }
 catch (e) { if (process.env.PERF_REQUIRE_CHROME === '1') throw e; }
 
-async function driver(script,args,timeout=20000) {
+// Replace only the OS process boundary; exercise real discovery and cleanup.
+function mockChromeSpawn(t, replacement) {
+  const original = childProcess.spawn;
+  const mocked = t.mock.method(childProcess,'spawn',replacement);
+  syncBuiltinESMExports();
+  t.after(() => { mocked.mock.restore(); syncBuiltinESMExports(); });
+  return original;
+}
+function chromeProcess(stderr) {
+  const proc = new EventEmitter();
+  proc.stderr = new PassThrough();
+  proc.exitCode = null;
+  proc.signalCode = null;
+  proc.kill = () => {
+    proc.signalCode = 'SIGTERM';
+    proc.emit('exit',null,'SIGTERM');
+    return true;
+  };
+  queueMicrotask(() => proc.stderr.end(stderr));
+  return proc;
+}
+function failedChrome(stderr, {code = 23, signal = null} = {}) {
+  const proc = chromeProcess(stderr);
+  queueMicrotask(() => {
+    proc.exitCode = code;
+    proc.signalCode = signal;
+    proc.emit('exit',code,signal);
+  });
+  return proc;
+}
+
+test('Chrome startup retries once with a fresh profile after cleaning the failed process', {skip:!chrome}, async t => {
+  const profiles = [];
+  const warnings = [];
+  t.mock.method(console,'warn',message => warnings.push(message));
+  const original = mockChromeSpawn(t,(binary,args,options) => {
+    const profile = args.find(a => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+    profiles.push(profile);
+    if (profiles.length === 1) return failedChrome('synthetic startup crash');
+    assert.equal(existsSync(profiles[0]),false,'failed profile is removed before retry');
+    return original(binary,args,options);
+  });
+  const browser = await launch();
+  try {
+    assert.equal(profiles.length,2);
+    assert.notEqual(profiles[0],profiles[1]);
+    assert.equal(await browser.cdp.eval('1 + 1'),2);
+    assert.match(warnings.join('\n'),/synthetic startup crash/);
+  } finally { await stop(browser); }
+  assert.equal(existsSync(profiles[1]),false);
+});
+
+test('Chrome startup failure retains both bounded stderr tails and exit or signal diagnostics', {skip:!chrome}, async t => {
+  const profiles = [];
+  t.mock.method(console,'warn',() => {});
+  mockChromeSpawn(t,(_binary,args) => {
+    profiles.push(args.find(a => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length));
+    const attempt = profiles.length;
+    return failedChrome('discard-this-prefix' + 'x'.repeat(5000) + ` startup-${attempt}`, attempt === 1
+      ? {code:23} : {code:null,signal:'SIGKILL'});
+  });
+  await assert.rejects(launch(),error => {
+    assert.match(error.message,/startup-1/);
+    assert.match(error.message,/startup-2/);
+    assert.match(error.message,/exit=23/);
+    assert.match(error.message,/signal=SIGKILL/);
+    assert.match(error.message,/endpoint=missing/);
+    assert.doesNotMatch(error.message,/discard-this-prefix/);
+    assert.ok(error.message.length < 10000,'stderr is capped per attempt');
+    return true;
+  });
+  assert.equal(profiles.length,2,'permanent startup failure never gets a third attempt');
+  assert.ok(profiles.every(p => !existsSync(p)));
+});
+
+test('Chrome startup diagnostics preserve an advertised endpoint and the last discovery failure', {skip:!chrome}, async t => {
+  let activeProcess;
+  t.mock.method(console,'warn',() => {});
+  t.mock.method(globalThis,'fetch',async () => {
+    const proc = activeProcess;
+    setImmediate(() => { proc.exitCode = 23; proc.emit('exit',23,null); });
+    return new Response('unavailable',{status:503});
+  });
+  mockChromeSpawn(t,() => {
+    activeProcess = chromeProcess('DevTools listening on ws://127.0.0.1:9999/devtools/browser/fixture\n');
+    return activeProcess;
+  });
+  await assert.rejects(launch(),error => {
+    assert.match(error.message,/endpoint=advertised/);
+    assert.match(error.message,/HTTP 503/);
+    return true;
+  });
+});
+
+test('Chrome startup waits for termination before deleting a failed profile', {skip:!chrome}, async t => {
+  const profiles = [], profilesAtExit = [];
+  const socket = 'ws://127.0.0.1:9999/devtools/browser/fixture';
+  t.mock.method(console,'warn',() => {});
+  t.mock.method(globalThis,'fetch',async url => Response.json(url.endsWith('/json/version')
+    ? {webSocketDebuggerUrl:socket} : [{type:'page',webSocketDebuggerUrl:socket}]));
+  const originalWebSocket = globalThis.WebSocket;
+  globalThis.WebSocket = class {
+    constructor() { queueMicrotask(() => this.onerror()); }
+    close() {}
+  };
+  t.after(() => { globalThis.WebSocket = originalWebSocket; });
+  mockChromeSpawn(t,(_binary,args) => {
+    const profile = args.find(a => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length);
+    profiles.push(profile);
+    const proc = chromeProcess(`DevTools listening on ${socket}\n`);
+    proc.kill = () => {
+      setImmediate(() => {
+        profilesAtExit.push(existsSync(profile));
+        proc.signalCode = 'SIGTERM';
+        proc.emit('exit',null,'SIGTERM');
+      });
+      return true;
+    };
+    return proc;
+  });
+  await assert.rejects(launch(),/CDP connect refused/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(profilesAtExit,[true,true],'each process exits before its profile is removed');
+  assert.ok(profiles.every(p => !existsSync(p)));
+});
+
+test('Chrome startup refuses another attempt when its failed profile cannot be removed', {skip:!chrome}, async t => {
+  const profiles = [];
+  t.mock.method(console,'warn',() => {});
+  const removal = t.mock.method(fs,'rmSync',() => { throw new Error('synthetic EACCES removing Chrome profile'); });
+  syncBuiltinESMExports();
+  mockChromeSpawn(t,(_binary,args) => {
+    profiles.push(args.find(a => a.startsWith('--user-data-dir=')).slice('--user-data-dir='.length));
+    return failedChrome('synthetic startup crash');
+  });
+  try {
+    await assert.rejects(launch(),/Cleanup failed: synthetic EACCES/);
+    assert.equal(profiles.length,1,'cleanup failure must prevent the retry');
+    assert.equal(existsSync(profiles[0]),true);
+  } finally {
+    removal.mock.restore();
+    syncBuiltinESMExports();
+    for (const profile of profiles) cleanup(profile);
+  }
+});
+
+test('failed boot results preserve the startup error before resource lookup', () => {
+  const report = summarizeBoot([{label:'none-1',error:'Chrome did not expose a debuggable page'}],1);
+  const result = {code:1,stdout:`[boot] none run 1/1\n${JSON.stringify(report)}`,stderr:''};
+  for (const expectedCode of [0,1]) {
+    assert.throws(() => bootReport(result,expectedCode).details[0].localResources.find(r => r.path === '/heavy.js'),
+      /Chrome did not expose a debuggable page/);
+  }
+});
+
+// Two startup attempts plus an 8s shaped boot can exceed the old 20s wrapper.
+async function driver(script,args,timeout=45000) {
   return new Promise((ok,bad) => {
     const child = spawn(process.execPath,[resolve(`tool/perf/${script}`),...args],{
       env:{...process.env,CDP_PORT:'0'},stdio:['ignore','pipe','pipe'],
@@ -146,6 +307,13 @@ async function driver(script,args,timeout=20000) {
   });
 }
 function bootJson(stdout) { return JSON.parse(stdout.slice(stdout.indexOf('\n{')+1)); }
+function bootReport(result,expectedCode=0) {
+  const diagnostic = result.stdout + result.stderr;
+  assert.equal(result.code,expectedCode,diagnostic);
+  const report = bootJson(result.stdout);
+  assert.equal(report.verdict.complete,true,diagnostic);
+  return report;
+}
 function fixture(dir,source) {
   writeFileSync(join(dir,'fixture.js'),source);
   writeFileSync(join(dir,'index.html'),`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><div id="eg-splash">Synthetic perf fixture only</div><script>window.__EVERGLOW_BUILD__='fixture-stamp'</script><script src="/fixture.js"></script>`);
@@ -162,8 +330,7 @@ test('Chrome fault controls', {skip:!chrome,timeout:90000}, async t => {
       fixture(root,`const end=performance.now()+350;while(performance.now()<end){};
         window.dispatchEvent(new Event('flutter-first-frame'));`);
       const r = await driver('measure_boot.mjs',bootArgs(root));
-      assert.equal(r.code,1,r.stdout+r.stderr);
-      const report = bootJson(r.stdout);
+      const report = bootReport(r,1);
       assert.ok(report.details[0].longTaskWorstMs >= 340,r.stdout);
       assert.equal(report.verdict.noLongTaskOver200ms,false);
       assert.ok(report.details[0].firstFlutterFrameMs > 0);
@@ -173,10 +340,9 @@ test('Chrome fault controls', {skip:!chrome,timeout:90000}, async t => {
       // Random text resists gzip; spaces would turn a 128KiB file into ~200 bytes.
       writeFileSync(join(root,'heavy.js'),`/*${randomBytes(96*1024).toString('base64')}*/\nwindow.dispatchEvent(new Event('flutter-first-frame'));`);
       writeFileSync(join(root,'index.html'),`<!doctype html><script>window.__EVERGLOW_BUILD__='fixture-stamp'</script><script src="/heavy.js"></script>`);
-      const fast = bootJson((await driver('measure_boot.mjs',bootArgs(root))).stdout);
+      const fast = bootReport(await driver('measure_boot.mjs',bootArgs(root)));
       const r = await driver('measure_boot.mjs',[...bootArgs(root),'--profile','slow3g','--timeout-ms','8000','--frame-budget-ms','10000']);
-      const slow = bootJson(r.stdout);
-      assert.equal(r.code,0,r.stdout+r.stderr);
+      const slow = bootReport(r);
       assert.equal(slow.link.downloadKbps,400);
       assert.equal(slow.link.latencyMs,400);
       const slowResource = slow.details[0].localResources.find(r => r.path === '/heavy.js');
@@ -251,8 +417,7 @@ test('Chrome fault controls', {skip:!chrome,timeout:90000}, async t => {
         self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`);
       writeFileSync(join(root,'index.html'),`<!doctype html><script>window.__EVERGLOW_BUILD__='fixture-stamp';navigator.serviceWorker.register('/sw.js');</script><script src="/bootstrap-heavy.js"></script><script src="/main.dart.js?v=fixture-stamp"></script>`);
       const r = await driver('measure_boot.mjs',[...bootArgs(root),'--repeat','--profile','slow3g','--timeout-ms','8000','--frame-budget-ms','10000']);
-      const report = bootJson(r.stdout);
-      assert.equal(r.code,0,r.stdout+r.stderr);
+      const report = bootReport(r);
       assert.ok(report.details[0].warm.coreUrl.endsWith('/main.dart.js?v=fixture-stamp'));
       assert.notEqual(report.details[0].timeOrigin,report.details[0].warm.timeOrigin);
       const loader = report.details[0].localResources.find(r => r.path === '/bootstrap-heavy.js');

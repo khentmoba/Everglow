@@ -21,7 +21,7 @@ test('web build inputs and client config cannot ship couple codes', () => {
   const root = path.join(__dirname, '..');
   const config = fs.readFileSync(path.join(root, 'lib/core/config/env_config.dart'), 'utf8');
   assert.ok(!/CLAIR_PASSCODE|KHENT_PASSCODE/.test(config));
-  for (const workflow of ['deploy.yml', 'preview.yml']) {
+  for (const workflow of ['deploy.yml', 'quality.yml']) {
     const source = fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8');
     const build = source.split('- name: Build web')[1].split('\n      - name:')[0];
     assert.ok(!/CLAIR_PASSCODE|KHENT_PASSCODE/.test(build));

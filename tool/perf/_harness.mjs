@@ -73,12 +73,15 @@ export async function serve(root, port, { noStore = true } = {}) {
 }
 
 const ownedProfiles = new Set();
-export function cleanup(dir) {
+export function cleanup(dir, { strict = false } = {}) {
   if (!ownedProfiles.has(dir)) throw new Error('Refusing to remove a profile not created by this harness');
   try {
     rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
     ownedProfiles.delete(dir);
-  } catch (e) { console.warn(`[perf] disposable profile left at ${dir}: ${e.message}`); }
+  } catch (e) {
+    console.warn(`[perf] disposable profile left at ${dir}: ${e.message}`);
+    if (strict) throw e;
+  }
 }
 
 export class Cdp {
@@ -136,8 +139,22 @@ export class Cdp {
 }
 
 export async function launch(cdpPort = 0, opts = {}) {
-  const { dpr = 3, width = 430, height = 932, extraFlags = [] } = opts;
   const binary = chromePath();
+  const failures = [];
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try { return await launchOnce(binary, cdpPort, opts); }
+    catch (e) {
+      failures.push(`Attempt ${attempt}: ${e.message}`);
+      if (e.code === 'CHROME_CLEANUP_FAILED') break;
+      if (attempt === 1) console.warn(`[perf] Chrome startup failed; retrying once with a fresh profile.\n${failures[0]}`);
+    }
+  }
+  throw new Error(`Chrome startup failed:\n${failures.join('\n')}`);
+}
+
+// The retry ends here: navigation, measurements and budget failures run once.
+async function launchOnce(binary, cdpPort, opts) {
+  const { dpr = 3, width = 430, height = 932, extraFlags = [] } = opts;
   const userDataDir = mkdtempSync(join(tmpdir(), 'eg-perf-'));
   ownedProfiles.add(userDataDir);
   const proc = spawn(binary, [
@@ -151,7 +168,8 @@ export async function launch(cdpPort = 0, opts = {}) {
     `--window-size=${Math.round(width * dpr)},${Math.round(height * dpr)}`,
     ...extraFlags, 'about:blank',
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
-  let spawnError, browserSocket;
+  let spawnError, browserSocket, lastDiscoveryError;
+  let versionVerified = false, pageFound = false;
   proc.on('error', (e) => { spawnError = e; });
   let stderr = '';
   proc.stderr.on('data', (s) => {
@@ -163,21 +181,29 @@ export async function launch(cdpPort = 0, opts = {}) {
     while (Date.now() < deadline) {
       if (spawnError) throw spawnError;
       if (proc.exitCode != null) throw new Error(`Chrome exited ${proc.exitCode}`);
+      if (proc.signalCode != null) throw new Error(`Chrome exited with signal ${proc.signalCode}`);
       let page;
       try {
         // Only connect to the endpoint printed by OUR process. A fixed port
         // might already belong to somebody else's browser; never close it.
         if (!browserSocket) throw new Error('Chrome is still starting');
         const port = Number(new URL(browserSocket).port);
-        const version = await (await fetch(`http://127.0.0.1:${port}/json/version`, {
+        const versionResponse = await fetch(`http://127.0.0.1:${port}/json/version`, {
           signal: AbortSignal.timeout(1000),
-        })).json();
+        });
+        if (!versionResponse.ok) throw new Error(`CDP version HTTP ${versionResponse.status}`);
+        const version = await versionResponse.json();
         if (version.webSocketDebuggerUrl !== browserSocket) throw new Error('CDP endpoint belongs to another browser');
-        const list = await (await fetch(`http://127.0.0.1:${port}/json/list`, {
+        versionVerified = true;
+        const listResponse = await fetch(`http://127.0.0.1:${port}/json/list`, {
           signal: AbortSignal.timeout(1000),
-        })).json();
+        });
+        if (!listResponse.ok) throw new Error(`CDP page list HTTP ${listResponse.status}`);
+        const list = await listResponse.json();
         page = list.find((p) => p.type === 'page');
-      } catch { /* Chrome is still starting. */ }
+        if (!page) throw new Error('CDP page list has no debuggable page');
+        pageFound = true;
+      } catch (e) { lastDiscoveryError = e.message; }
       if (page) {
         const ws = new WebSocket(page.webSocketDebuggerUrl);
         await new Promise((ok, bad) => {
@@ -190,7 +216,19 @@ export async function launch(cdpPort = 0, opts = {}) {
       await sleep(100);
     }
     throw new Error('Chrome did not expose a debuggable page');
-  } catch (e) { await stop({ proc, userDataDir }); throw e; }
+  } catch (e) {
+    // Capture before cleanup changes the process's exit/signal state.
+    const diagnostic = `${e.message}\nChrome: ${binary}; exit=${proc.exitCode ?? 'none'}; signal=${proc.signalCode ?? 'none'}; ` +
+      `endpoint=${browserSocket ? 'advertised' : 'missing'}; versionVerified=${versionVerified}; pageFound=${pageFound}\n` +
+      `Last discovery error: ${lastDiscoveryError || 'none'}\nChrome stderr (last 4096 characters):\n${stderr || '(empty)'}`;
+    try { await stop({ proc, userDataDir }); }
+    catch (cleanupError) {
+      const error = new Error(`${diagnostic}\nCleanup failed: ${cleanupError.message}`);
+      error.code = 'CHROME_CLEANUP_FAILED';
+      throw error;
+    }
+    throw new Error(diagnostic);
+  }
 }
 
 export async function stop(chrome) {
@@ -198,9 +236,16 @@ export async function stop(chrome) {
   chrome.cdp?.close();
   if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) {
     await Promise.race([new Promise((r) => chrome.proc.once('exit', r)), sleep(1500)]);
-    if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) chrome.proc.kill();
+    if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) {
+      const exited = new Promise((r) => chrome.proc.once('exit', r));
+      chrome.proc.kill();
+      await Promise.race([exited, sleep(2000)]);
+      if (chrome.proc.exitCode == null && chrome.proc.signalCode == null) {
+        throw new Error('Chrome did not exit after termination; retaining its profile and refusing a retry');
+      }
+    }
   }
-  cleanup(chrome.userDataDir);
+  cleanup(chrome.userDataDir, { strict: true });
 }
 
 export async function prepare(cdp, { dpr = 3, width = 430, height = 932 } = {}) {
