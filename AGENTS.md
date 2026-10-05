@@ -64,12 +64,10 @@ only on a version bump — a merge with no bump does nothing.
 - **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / TokenHarbor keys server-side.
 - **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
-- **History should stay readable:** tiny scoped commits (`fix(dashboard): ...`). One fix per commit so a bad deploy is easy to undo. No "fix live by redeploying to see" — look locally first.
+- **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-ship` skill.
 
 ## Rules that matter
 
-* Only Khent and Clair see couple things like chat, photos, notes, garden, and AI memories. Breyan and Octagram only get movies.
-* The app never talks to TMDB, Last.fm, or AI directly. It calls our server helpers with a login token. Keys stay on the server.
 * Never commit passcodes, keys, or secrets. `assets/env.txt` is local only - do not read it or copy it.
 * Login codes are checked on the server. Do not put them in the file.
 * Keyless public catalogs (Open Library, Jikan) go through `proxyCatalog` with a login token when signed in. No direct third-party fetches from the client except `proxyBookText` candidates and cover/thumbnail `<img>` URLs.

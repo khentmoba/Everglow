@@ -33,6 +33,13 @@ harness-specific tools required.
 - End clean: commit, push, open PR. Don't leave uncommitted files or
   old folders behind.
 
+### Keep history readable
+
+- Tiny scoped commits, conventional style: `fix(dashboard): ...`.
+- One fix per commit, so a bad deploy is easy to undo.
+- Never "fix live by redeploying to see". Look locally first.
+- Never add `continue-on-error` or hide a failure.
+
 ## 2. Before every PR — run the checks
 
 Run these in order. Red locally means don't open the PR yet:
