@@ -77,6 +77,9 @@ String journalReadingTime(int words) {
 /// "July 2026" — month chapter headers.
 String journalMonthLabel(DateTime d) => DateFormat.yMMMM().format(d);
 
+/// Formatted number with commas (e.g. 13,324).
+String journalNumberFormat(int n) => NumberFormat('#,###').format(n);
+
 /// Short day key (yyyy-MM-dd) for activity dots.
 String journalDayKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
