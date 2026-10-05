@@ -46,7 +46,10 @@ class _TimelineViewState extends State<TimelineView> {
   void _subscribe() {
     _sub?.cancel();
     _retryTimer?.cancel();
-    _sub = _milestoneService.milestonesPreview(limit: 50).listen(
+    // Preview cap: the rail shows one card at a time and auto-advances every
+    // 20s, so 12 is ~4 minutes of play. Keeps the realtime parse + photo
+    // queue small on first load; full history lives in the archive.
+    _sub = _milestoneService.milestonesPreview(limit: 12).listen(
       (data) {
         if (!mounted) return;
         _retryCount = 0;
