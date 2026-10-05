@@ -168,12 +168,15 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
                           ],
                         ),
                       ),
-                    ] else if (hasSynopsis) ...[
+                      // Already watched, so the story shows inline — no extra
+                      // "What happened" step. Tapping the text still opens
+                      // the full sheet for long synopses.
+                    ] else if (hasSynopsis)
                       GestureDetector(
                         onTap: widget.onInfoTap,
                         child: Text(
                           synopsis,
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: dmSansStyle(
                             size: 11.5,
@@ -183,31 +186,8 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
                             height: 1.35,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      GestureDetector(
-                        onTap: widget.onInfoTap,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.auto_stories_outlined,
-                              size: 12,
-                              color: AnimeXTokens.accentWarm,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'What happened \u2192',
-                              style: dmSansStyle(
-                                size: 10.5,
-                                color: AnimeXTokens.accentWarm,
-                                weight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else if (ep.airedAt != null)
+                      )
+                    else if (ep.airedAt != null)
                       Text(
                         'Aired: ${ep.airedAt!.year}-${ep.airedAt!.month.toString().padLeft(2, '0')}-${ep.airedAt!.day.toString().padLeft(2, '0')}',
                         style: dmSansStyle(
