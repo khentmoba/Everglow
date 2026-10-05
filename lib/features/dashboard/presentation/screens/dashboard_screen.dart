@@ -30,6 +30,9 @@ import '../../../heartbeat/presentation/controllers/mood_controller.dart';
 import '../../../academy/presentation/widgets/academy_portal_card.dart';
 import '../../../../features/play_zone/presentation/widgets/play_zone_portal_card.dart';
 import '../../../../features/jukebox/presentation/widgets/jukebox_widget.dart';
+import '../../../../features/jukebox/presentation/providers/jukebox_provider.dart';
+import '../../../../features/jukebox/presentation/providers/music_stats_provider.dart';
+import '../../../../features/jukebox/presentation/providers/artist_showdown_provider.dart';
 import '../../../../features/jukebox/presentation/widgets/artist_showdown_card.dart';
 import '../../../../features/jukebox/presentation/widgets/music_stats_section.dart';
 import '../../../../features/watch_party/presentation/widgets/watch_party_card.dart';
@@ -46,6 +49,7 @@ import '../widgets/anniversary_metrics.dart';
 import '../widgets/dashboard_load_tracker.dart';
 import '../widgets/dashboard_load_veil.dart';
 import '../widgets/dashboard_overlays.dart';
+import '../widgets/dashboard_preload.dart';
 import '../widgets/deferred_section.dart';
 import '../widgets/xp_progress_section.dart';
 import '../widgets/quick_action_tile.dart';
@@ -84,6 +88,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _showLoadVeil = false;
   bool _authMarked = false;
   Timer? _veilFailsafe;
+  DashboardPreload? _preload;
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _sectionKeys = {
     'zone-today': GlobalKey(),
@@ -164,6 +169,25 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
 
+        // Warm Home's data at the door (dashboard_preload.dart): attach the
+        // deferred sections' queries now so scrolling renders instantly
+        // instead of showing skeletons. Best-effort; never gates the veil.
+        if (authService.isReady) {
+          final user = authService.currentUser ?? '';
+          if (user.isNotEmpty) {
+            _preload = DashboardPreload.warmUp(
+              userName: user,
+              partner: authService.partnerUsername,
+              isCouple: authService.isCoupleUser,
+            );
+            // Providers that fetch on creation: music stats, showdown and
+            // jukebox presence warm here instead of mid-scroll.
+            context.read<MusicStatsProvider>();
+            context.read<ArtistShowdownProvider>();
+            context.read<JukeboxProvider>();
+          }
+        }
+
         final moodController = context.read<MoodController>();
         final currentUsername = authService.currentUser;
         if (currentUsername != null) {
@@ -202,6 +226,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   void dispose() {
     _veilFailsafe?.cancel();
+    _preload?.dispose();
+    _preload = null;
     _loadTracker.removeListener(_onLoadProgress);
     _loadTracker.dispose();
     _scrollController.dispose();
