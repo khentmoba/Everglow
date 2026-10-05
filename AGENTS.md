@@ -37,28 +37,71 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 
 ## Workflow — how we ship (agreed with Khent)
 
-- Never push straight to `main`. `main` auto-deploys live to Clair.
-- Before every PR: run `flutter analyze`, run `flutter test`, run the regression guards (`dart tool/ci/check_*.dart`), and open the app in Chrome (`flutter run -d chrome`) to look at what you changed. CI enforces all of these plus a release web build on every PR.
-- If functions or hosting checks fail, stop and fix. Do not add `continue-on-error` or hide failures.
-- Every PR shows proof: attach a screenshot of just the changed screen, kept in `docs/pr-proof/` and visible inline in the PR. Repo is public, so couple-only screens use fake demo data only — never real couple data. Also check the auto-posted preview link (alive 12 hours).
-- Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
+Written for EVERY agent (Pi, Codex, Antigravity, etc.). Follow it
+exactly as written — no Pi-only tools required.
 
-### One thread = one hidden folder + one branch
+### 1. Start clean — one task, one branch, one folder
 
-- First thing every session: run `git status --short --branch` and say what folder + branch you're on in your first reply.
-- Never edit on `main`. Never edit in `C:/APPLICATIONS/Everglow` if it has someone else's uncommitted changes — stop and move first.
-- New task = new hidden folder + new branch from latest `main` (`fix/...`, `feat/...`, `style/...`). One task per branch.
-- Hidden folders live in T3's folder (`C:/Users/Admin/.t3/worktrees/Everglow/...`), never as `Everglow-xxx` next to the main folder. `C:/APPLICATIONS` keeps only the real projects.
-- End clean: commit, push, open PR, then delete the hidden folder once merged. Don't leave uncommitted files or old folders behind.
+- First thing every session: run `git status --short --branch` and say
+  what folder + branch you're on in your first reply.
+- Never edit on `main`. `main` auto-deploys live to Clair.
+- New task = new branch from latest `main` (`fix/...`, `feat/...`,
+  `docs/...`, `style/...`). One task per branch. If the checkout has
+  someone else's uncommitted changes, stop and move first — don't mix.
+- Work in your own folder: if your harness supports git worktrees, use
+  one per task and delete it once merged. (T3 agents: hidden folders
+  live in `C:/Users/Admin/.t3/worktrees/Everglow/...`, never as
+  `Everglow-xxx` next to the main folder. `C:/APPLICATIONS` keeps only
+  the real projects.)
+- End clean: commit, push, open PR. Don't leave uncommitted files or
+  old folders behind.
+
+### 2. Before every PR — run the checks
+
+Run these in order. Red locally means don't open the PR yet:
+
+1. `flutter analyze`
+2. `flutter test --exclude-tags="golden,network"` (golden PNGs render
+   differently per platform; network tests hit live external sites and
+   can't pass in sandboxes)
+3. `dart tool/ci/check_*.dart` — the regression guards. List them
+   first with `ls tool/ci/` and run each one. NEVER guess a guard
+   name or invent a `dart tool/...` command: if the file isn't there,
+   the command doesn't exist.
+4. `flutter run -d chrome` — actually open the app and look at what
+   you changed. A typo fix doesn't need this; anything visual does.
+5. If you touched `functions/`: `cd functions`, then
+   `npm run lint -- --max-warnings=25`, `npm test`, and
+   `node eval_gate.js`.
+
+CI runs all of the above plus a release web build, the perf harness,
+and emulator security tests on every PR. If any CI check fails, stop
+and fix it. Do not add `continue-on-error` or hide failures.
+
+### 3. Every PR shows proof
+
+- Save a screenshot of just the changed screen under
+  `docs/pr-proof/pr-<number>/` (phone width ~430px, compressed).
+- Repo is public: couple-only screens (chat, gallery, notes, garden,
+  AI memories) use FAKE demo data only — never real couple data.
+- Embed it in the PR body with a raw URL pinned to the commit SHA
+  (branches get deleted, SHAs don't):
+  `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
+- Non-UI change (CI, docs, backend-only): honestly mark N/A, or add a
+  shot of the preview booting logged-out.
+- Check the auto-posted preview link (alive 12 hours) before asking
+  Khent to review.
 
 ### Definition of done — proof over confidence
 
-`.pi/extensions/everglow_verify_gate.ts` mechanically blocks three things:
-committing after code edits with no verification run, PRs without a proof
-screenshot in `docs/pr-proof/`, and `dart tool/...` commands for scripts that
-don't exist. It never blocks on green output — CI judges that. The rest is
-judgment the gate cannot check:
+Pi agents get mechanical reminders of the first three rules from
+`.pi/extensions/everglow_verify_gate.ts`, but every rule below applies
+to every agent, with or without it. CI judges green output — these
+rules judge honesty:
 
+- No commit after code edits without running the checks in step 2.
+- No PR without a proof screenshot in `docs/pr-proof/` (or an honest N/A).
+- Never invent a verification command — `ls tool/ci/` first.
 - Reproduce a bug before fixing it, then repeat the same steps after. If
   reproduction is blocked, say what is missing instead of guessing around it.
 - A diagnosis must cite the code you actually read. An untested explanation
@@ -122,15 +165,12 @@ tag — if a release is wrong, cut a new patch version instead.
 
 ## Web Search Policy (persistent user preference)
 
-- Free first. TinyFish costs money (search $0.005/query, fetch $0.001/url, agent $0.016/step) from Khent's wallet, so do NOT use it by default. Same for `pi-web-access` tools — they share the same `TINYFISH_API_KEY` and also cost.
-- Default to free tools:
-  - Quick search / research / docs / current info: `google_search` tool (Antigravity grounding, free).
-  - Read pages, click, fill forms, check Everglow live: `agent_browser` (local Chrome, free).
-  - Simple pages: plain `curl` via bash (free).
-- Only use TinyFish CLI when free tools fail (see `$use-tinyfish` skill at `~/.agents/skills/use-tinyfish/SKILL.md`):
-  - `agent_browser` blocked by bot protection, or need bulk structured JSON extraction.
-  - Need geo-targeted results: `tinyfish search query --location --language`.
-  - Ask Khent first before any `tinyfish agent run` / `browser session` — those burn wallet fastest.
+- Free first. TinyFish costs money (search $0.005/query, fetch $0.001/url, agent $0.016/step) from Khent's wallet, so do NOT use it by default. Same for any tool that shares the `TINYFISH_API_KEY`.
+- Default to whatever free tools your harness gives you:
+  - Quick search / research / docs / current info: built-in web search (Pi: `google_search`).
+  - Read pages, click, fill forms, check Everglow live: built-in browser control (Pi: `agent_browser`), or plain `curl` via bash for simple pages.
+- Only use the TinyFish CLI when free tools fail (bot protection, bulk structured JSON extraction, or geo-targeted results via `tinyfish search query --location --language`).
+- Ask Khent first before any `tinyfish agent run` / `browser session` — those burn wallet fastest.
 - Note: Motchi (Clair's AI) also uses TinyFish server-side for web search. Leave it for now, revisit if wallet drains.
 
 ## Rules that matter
