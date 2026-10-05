@@ -9,8 +9,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Keep the tested OS while ubuntu-latest migrates to Ubuntu 26.04.
   flutter:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -34,7 +35,7 @@ jobs:
   # Each script documents the PR/commit it prevents; all run with plain
   # `dart` (no Flutter build) and fail the PR on violation.
   guards:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -88,7 +89,7 @@ jobs:
   # breakage (early api_keys/import/asset-path fixes, PR #114) went
   # green until deploy. This builds the exact prod artifact shape.
   web_build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -105,7 +106,7 @@ jobs:
       - run: dart tool/build_web.dart -- --release --no-source-maps
 
   perf_harness:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Fail fast instead of hanging: PR #469's run lost the runner and sat 46m.
     timeout-minutes: 10
     steps:
@@ -128,7 +129,7 @@ jobs:
         run: node tool/service_worker_test.mjs --browser
 
   functions:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
