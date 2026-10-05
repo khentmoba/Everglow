@@ -442,75 +442,79 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     final selected = provider.id == _currentProvider.id;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(ctx, provider),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.deepRose.withValues(alpha: 0.12)
-                                : AppColors.surfaceGlass,
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(
-                              color: selected
-                                  ? AppColors.deepRose.withValues(alpha: 0.65)
-                                  : AppColors.border,
-                              width: 1,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(ctx, provider),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 30,
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  color: selected
-                                      ? AppColors.deepRose.withValues(
-                                          alpha: 0.2,
-                                        )
-                                      : AppColors.moonlight.withValues(
-                                          alpha: 0.08,
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.deepRose.withValues(alpha: 0.12)
+                                  : AppColors.surfaceGlass,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.deepRose.withValues(alpha: 0.65)
+                                    : AppColors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? AppColors.deepRose.withValues(
+                                            alpha: 0.2,
+                                          )
+                                        : AppColors.moonlight.withValues(
+                                            alpha: 0.08,
+                                          ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    selected
+                                        ? Icons.check_rounded
+                                        : Icons.live_tv_rounded,
+                                    color: selected
+                                        ? AppColors.roseQuartz
+                                        : AppColors.textMuted,
+                                    size: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        provider.name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  selected
-                                      ? Icons.check_rounded
-                                      : Icons.live_tv_rounded,
-                                  color: selected
-                                      ? AppColors.roseQuartz
-                                      : AppColors.textMuted,
-                                  size: 16,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      provider.name,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      provider.desc,
-                                      style: TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontSize: 11,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        provider.desc,
+                                        style: TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 11,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -712,62 +716,68 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildSourceCard() {
-    return GestureDetector(
-      onTap: _showSourceSheet,
-      child: Container(
-        padding: const EdgeInsets.all(1),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadius.x2),
-          gradient: const LinearGradient(
-            colors: [AppColors.deepRose, AppColors.softLavender],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: _showSourceSheet,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-          ),
+          padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
-            color: AppColors.inkDeep.withValues(alpha: 0.94),
-            borderRadius: BorderRadius.circular(AppRadius.x2 - 1),
+            borderRadius: BorderRadius.circular(AppRadius.x2),
+            gradient: const LinearGradient(
+              colors: [AppColors.deepRose, AppColors.softLavender],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.live_tv_rounded,
-                color: AppColors.roseQuartz,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Server: ${_currentProvider.name}',
-                      style: const TextStyle(
-                        color: AppColors.petalWhite,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _currentProvider.desc,
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.inkDeep.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(AppRadius.x2 - 1),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.live_tv_rounded,
+                  color: AppColors.roseQuartz,
+                  size: 22,
                 ),
-              ),
-              const Icon(Icons.swap_horiz_rounded, color: AppColors.roseQuartz),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Server: ${_currentProvider.name}',
+                        style: const TextStyle(
+                          color: AppColors.petalWhite,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _currentProvider.desc,
+                        style: TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.swap_horiz_rounded,
+                  color: AppColors.roseQuartz,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -790,45 +800,48 @@ class _StepperButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: enabled
-              ? AppColors.deepRose.withValues(alpha: 0.16)
-              : AppColors.moonlight.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
             color: enabled
-                ? AppColors.deepRose.withValues(alpha: 0.5)
-                : AppColors.border,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: enabled ? AppColors.roseQuartz : AppColors.textDisabled,
+                ? AppColors.deepRose.withValues(alpha: 0.16)
+                : AppColors.moonlight.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: enabled
+                  ? AppColors.deepRose.withValues(alpha: 0.5)
+                  : AppColors.border,
             ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: enabled
-                      ? AppColors.petalWhite
-                      : AppColors.textDisabled,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: enabled ? AppColors.roseQuartz : AppColors.textDisabled,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: enabled
+                        ? AppColors.petalWhite
+                        : AppColors.textDisabled,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -842,20 +855,25 @@ class _LandscapeBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppColors.inkDeep.withValues(alpha: 0.85),
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.2)),
-        ),
-        child: const Icon(
-          Icons.arrow_back_rounded,
-          color: Colors.white70,
-          size: 18,
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.inkDeep.withValues(alpha: 0.85),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: AppColors.moonlight.withValues(alpha: 0.2),
+            ),
+          ),
+          child: const Icon(
+            Icons.arrow_back_rounded,
+            color: Colors.white70,
+            size: 18,
+          ),
         ),
       ),
     );

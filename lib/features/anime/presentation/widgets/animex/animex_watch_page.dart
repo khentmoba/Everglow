@@ -1246,32 +1246,35 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       children: [
         for (var i = 0; i < _servers.length; i++)
           if (_servers[i].available)
-            GestureDetector(
-              onTap: () => _selectServer(i),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: _serverIndex == i
-                      ? AnimeXTokens.accent.withValues(alpha: 0.18)
-                      : Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
-                  border: Border.all(
-                    color: _serverIndex == i
-                        ? AnimeXTokens.accent.withValues(alpha: 0.45)
-                        : AnimeXTokens.border,
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => _selectServer(i),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
                   ),
-                ),
-                child: Text(
-                  _servers[i].name,
-                  style: dmSansStyle(
-                    size: 12,
+                  decoration: BoxDecoration(
                     color: _serverIndex == i
-                        ? AnimeXTokens.accentWarm
-                        : AnimeXTokens.textSecondary,
-                    weight: FontWeight.w600,
+                        ? AnimeXTokens.accent.withValues(alpha: 0.18)
+                        : Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                    border: Border.all(
+                      color: _serverIndex == i
+                          ? AnimeXTokens.accent.withValues(alpha: 0.45)
+                          : AnimeXTokens.border,
+                    ),
+                  ),
+                  child: Text(
+                    _servers[i].name,
+                    style: dmSansStyle(
+                      size: 12,
+                      color: _serverIndex == i
+                          ? AnimeXTokens.accentWarm
+                          : AnimeXTokens.textSecondary,
+                      weight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

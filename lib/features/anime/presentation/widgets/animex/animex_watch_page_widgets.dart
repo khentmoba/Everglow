@@ -19,27 +19,32 @@ class _AudioToggle extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final a in ['sub', 'dub'])
-            GestureDetector(
-              onTap: () => onChanged(a),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: audio == a ? AnimeXTokens.accent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
-                ),
-                child: Text(
-                  a == 'sub' ? 'SUB' : 'DUB',
-                  style: dmSansStyle(
-                    size: 11.5,
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () => onChanged(a),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
                     color: audio == a
-                        ? Colors.white
-                        : AnimeXTokens.textSecondary,
-                    weight: FontWeight.w700,
-                    letterSpacing: 0.05,
+                        ? AnimeXTokens.accent
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
+                  ),
+                  child: Text(
+                    a == 'sub' ? 'SUB' : 'DUB',
+                    style: dmSansStyle(
+                      size: 11.5,
+                      color: audio == a
+                          ? Colors.white
+                          : AnimeXTokens.textSecondary,
+                      weight: FontWeight.w700,
+                      letterSpacing: 0.05,
+                    ),
                   ),
                 ),
               ),
@@ -104,41 +109,48 @@ class _EpisodeStepButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: enabled
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-          border: Border.all(
-            color: enabled ? AnimeXTokens.borderStrong : AnimeXTokens.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 15,
-                color: enabled ? AnimeXTokens.accentWarm : AnimeXTokens.textMuted,
-              ),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: dmSansStyle(
-                size: 12,
-                color: enabled
-                    ? (icon != null ? AnimeXTokens.accentWarm : AnimeXTokens.textPrimary)
-                    : AnimeXTokens.textMuted,
-                weight: FontWeight.w600,
-              ),
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: enabled
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+            border: Border.all(
+              color: enabled ? AnimeXTokens.borderStrong : AnimeXTokens.border,
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 15,
+                  color: enabled
+                      ? AnimeXTokens.accentWarm
+                      : AnimeXTokens.textMuted,
+                ),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                style: dmSansStyle(
+                  size: 12,
+                  color: enabled
+                      ? (icon != null
+                            ? AnimeXTokens.accentWarm
+                            : AnimeXTokens.textPrimary)
+                      : AnimeXTokens.textMuted,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

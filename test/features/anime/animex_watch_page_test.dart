@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -926,6 +928,61 @@ void main() {
       await tester.pump();
 
       await tester.pump(const Duration(milliseconds: 500));
+    });
+
+    testWidgets('server chips and SUB/DUB show the click cursor on hover',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      final controller = AnimeXController();
+      controller.watchItem = MediaItem(
+        id: 'animex-test-cursors',
+        tmdbId: 21,
+        anilistId: 21,
+        title: 'One Piece',
+        mediaType: 'tv',
+        posterPath: '',
+        backdropPath: '',
+        year: '1999',
+        status: 'to-watch',
+        isAnime: true,
+        addedAt: DateTime(2026, 1, 1),
+        source: 'jikan',
+        currentEpisode: 1,
+      );
+
+      await tester.pumpWidget(buildTestApp(controller));
+      await tester.pump();
+
+      // Drive a real mouse through the framework's hover hit test: the
+      // tracker's active cursor is what the browser actually shows.
+      // (Checking widget ancestors alone is not enough — a region can
+      // exist in the tree yet miss the hit path.)
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      await tester.pump();
+      final tracker = RendererBinding.instance.mouseTracker;
+
+      Future<void> expectClickCursor(String label) async {
+        await mouse.moveTo(tester.getCenter(find.text(label)));
+        await tester.pump();
+        expect(
+          tracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.click,
+          reason: 'hovering $label shows the clickable hand',
+        );
+      }
+
+      await expectClickCursor('Everglow');
+      await expectClickCursor('Megavid');
+      await expectClickCursor('SUB');
+      await expectClickCursor('DUB');
+
+      // Flush the catalog throttle timers (~0.6s) so no timer is still
+      // pending when the tree disposes; a short pump flakes in full runs.
+      await tester.pump(const Duration(seconds: 2));
     });
 
     testWidgets('renders PC episodes sidebar on desktop with search, sort, and episode cards',
