@@ -623,8 +623,9 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    // Before any text: the thinking header still breathes.
+    // Before any text: the thinking header still breathes and shows thinking badge.
     expect(find.byKey(halo), findsOneWidget);
+    expect(find.text('thinking'), findsOneWidget);
     final beforeText = haloAlphaAt(tester).a;
     await tester.pump(const Duration(milliseconds: 1100));
     expect(
@@ -636,9 +637,11 @@ void main() {
     ai.stream('Let me check the bracket draw.');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    // Mid-reply the glow is still there, and the text is never hidden
-    // behind an entrance fade that has not run yet.
+    // Mid-reply the glow is still there, replying badge shows, and the text
+    // is never hidden behind an entrance fade that has not run yet.
     expect(find.byKey(halo), findsOneWidget);
+    expect(find.text('replying'), findsOneWidget);
+    expect(find.text('thinking'), findsNothing);
     expect(find.textContaining('Let me check the bracket draw.'), findsOneWidget);
     final midway = haloAlphaAt(tester).a;
     await tester.pump(const Duration(milliseconds: 900));

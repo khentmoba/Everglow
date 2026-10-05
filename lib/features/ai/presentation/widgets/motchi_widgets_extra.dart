@@ -170,6 +170,12 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               color: AppColors.textMedium,
                             ),
                           ),
+                          if (widget.isStreaming) ...[
+                            const SizedBox(width: 8),
+                            _ReplyingBadge(
+                              isThinking: cleanBubbleText.trim().isEmpty,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -271,30 +277,23 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               widget.showArtifacts &&
                               !artifacts.isEmpty)
                             StudyArtifactEntry(artifacts: artifacts),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: _MarkdownText(
-                                  text: cleanBubbleText,
-                                  baseStyle: AppTypography.bodyMedium()
-                                      .copyWith(
-                                        color: AppColors.textHigh,
-                                        fontFamily: AppTypography.reading,
-                                        height: 1.65,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w400,
-                                      ),
+                          _MarkdownText(
+                            text: cleanBubbleText,
+                            baseStyle: AppTypography.bodyMedium()
+                                .copyWith(
+                                  color: AppColors.textHigh,
+                                  fontFamily: AppTypography.reading,
+                                  height: 1.65,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w400,
                                 ),
-                              ),
-                              if (widget.isStreaming &&
-                                  cleanBubbleText.isNotEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 4, top: 3),
-                                  child: _StreamingCaret(),
-                                ),
-                            ],
                           ),
+                          if (widget.isStreaming &&
+                              cleanBubbleText.isNotEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: _StreamingTailIndicator(),
+                            ),
                         ],
                       ),
                     if (!widget.isUser && !widget.isStreaming)

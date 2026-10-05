@@ -110,6 +110,63 @@ class _FakeMemoryRepo implements IAIMemoryRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _FakeControllableAIService extends AIService {
+  _FakeControllableAIService({
+    required super.memoryRepo,
+    required super.conversationRepo,
+  });
+
+  bool _loading = false;
+  String _draft = '';
+  Completer<AIMessage>? _completer;
+
+  @override
+  bool get isLoading => _loading;
+
+  @override
+  String get draftResponse => _draft;
+
+  @override
+  Future<AIMessage> sendTemporaryMessage({
+    required String message,
+    required List<AIMessage> history,
+    String? callerName,
+    bool? enableThinking,
+    bool canvasEnabled = true,
+    List<String> imageUrls = const [],
+    String? sessionId,
+    String? contextOverride,
+  }) {
+    _loading = true;
+    _draft = '';
+    _completer = Completer<AIMessage>();
+    notifyListeners();
+    return _completer!.future;
+  }
+
+  void emitStreamChunk(String chunk) {
+    _draft = chunk;
+    draftResponseNotifier.value = chunk;
+    draftRevisionNotifier.value++;
+    notifyListeners();
+  }
+
+  void completeReply(String content) {
+    _loading = false;
+    _draft = '';
+    draftResponseNotifier.value = '';
+    draftRevisionNotifier.value++;
+    notifyListeners();
+    _completer?.complete(
+      AIMessage(
+        role: 'assistant',
+        content: content,
+        timestamp: DateTime.now(),
+      ),
+    );
+  }
+}
+
 void main() {
   group('AnimeXMotchiSidebar', () {
     late AnimeXController controller;
@@ -540,5 +597,83 @@ void main() {
       expect(convRepo.saveCount, 0);
       expect(convRepo.archiveCount, 0);
     });
+
+    testWidgets(
+      'shows animated replying badge and stream tail indicator while Motchi replies',
+      (tester) async {
+        final messages = <AIMessage>[];
+        final fakeAi = _FakeControllableAIService(
+          conversationRepo: convRepo,
+          memoryRepo: _FakeMemoryRepo(),
+        );
+        addTearDown(fakeAi.dispose);
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthService>.value(value: authService),
+              ChangeNotifierProvider<AIService>.value(value: fakeAi),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: AnimeXMotchiSidebar(
+                  isOpen: true,
+                  onClose: () {},
+                  controller: controller,
+                  messages: messages,
+                  onClear: () {},
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Tap a suggestion prompt to initiate send
+        final promptFinder = find.text('Recommend an anime');
+        expect(promptFinder, findsOneWidget);
+        await tester.tap(promptFinder);
+        await tester.pump();
+
+        // 1. In flight, before first token:
+        // Shows answering halo and 'thinking' badge
+        expect(
+          find.byKey(const ValueKey('motchi-answering-halo')),
+          findsOneWidget,
+        );
+        expect(find.text('thinking'), findsOneWidget);
+
+        // 2. Stream chunk arrives:
+        fakeAi.emitStreamChunk('Slime isekai is great!');
+        await tester.pump();
+
+        // Now shows 'replying' badge
+        expect(find.text('replying'), findsOneWidget);
+        expect(find.text('thinking'), findsNothing);
+        expect(find.textContaining('Slime isekai is great!'), findsOneWidget);
+
+        // Halo is still active
+        expect(
+          find.byKey(const ValueKey('motchi-answering-halo')),
+          findsOneWidget,
+        );
+
+        // Pump ticker to ensure animation runs cleanly
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(tester.takeException(), isNull);
+
+        // 3. Complete reply:
+        fakeAi.completeReply('Slime isekai is great!');
+        await tester.pumpAndSettle();
+
+        // Badges and tail indicator gone
+        expect(find.text('replying'), findsNothing);
+        expect(find.text('thinking'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('motchi-answering-halo')),
+          findsNothing,
+        );
+      },
+    );
   });
 }
