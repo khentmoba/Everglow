@@ -205,32 +205,25 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                             ],
                           )
                         else if (hasSynopsis)
+                          // Already watched, so the story shows inline — no
+                          // extra tap behind a "What happened" link. Tapping
+                          // the text still opens the full sheet for long
+                          // synopses.
                           GestureDetector(
                             onTap: widget.onInfoTap,
                             child: MouseRegion(
                               cursor: SystemMouseCursors.click,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.info_outline_rounded,
-                                    size: 12,
-                                    color: AnimeXTokens.accentWarm.withValues(
-                                      alpha: 0.9,
-                                    ),
+                              child: Text(
+                                synopsis,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: dmSansStyle(
+                                  size: 11,
+                                  color: AnimeXTokens.textSecondary.withValues(
+                                    alpha: 0.85,
                                   ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    'What happened',
-                                    style: dmSansStyle(
-                                      size: 10,
-                                      color: AnimeXTokens.accentWarm.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                      weight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
+                                  height: 1.35,
+                                ),
                               ),
                             ),
                           )

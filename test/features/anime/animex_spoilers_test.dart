@@ -272,6 +272,32 @@ void main() {
     );
 
     testWidgets(
+      '$layout watched episodes show the story inline, not behind What happened',
+      (tester) async {
+        await _pumpSelector(tester, desktop: desktop, selectedEpisode: 2);
+        // Episode 1 is done: title and story show with no extra tap.
+        expect(find.text(_episodes.first.title!), findsOneWidget);
+        expect(find.text(_episodes.first.synopsis!), findsOneWidget);
+        expect(find.text('What happened'), findsNothing);
+        expect(find.text('What happened \u2192'), findsNothing);
+        // Episodes 2-3 are playing/upcoming: still guarded.
+        for (final episode in _episodes.skip(1)) {
+          expect(find.text(episode.title!), findsNothing);
+          expect(find.text(episode.synopsis!), findsNothing);
+        }
+        // Tapping the inline story still opens the full sheet.
+        final story = find.text(_episodes.first.synopsis!);
+        await tester.ensureVisible(story);
+        await tester.pumpAndSettle();
+        await tester.tap(story.hitTestable().first);
+        await tester.pumpAndSettle();
+        expect(_sheet, findsOneWidget);
+        expect(find.text('What happened in this episode'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       '$layout search ignores hidden titles/synopses but accepts episode number',
       (tester) async {
         await _pumpSelector(tester, desktop: desktop);
