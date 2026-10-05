@@ -43,6 +43,14 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 - Every PR shows proof: attach a screenshot of just the changed screen, kept in `docs/pr-proof/` and visible inline in the PR. Repo is public, so couple-only screens use fake demo data only — never real couple data. Also check the auto-posted preview link (alive 12 hours).
 - Leave the tree clean: commit or drop your work, don't leave uncommitted files behind.
 
+### One thread = one hidden folder + one branch
+
+- First thing every session: run `git status --short --branch` and say what folder + branch you're on in your first reply.
+- Never edit on `main`. Never edit in `C:/APPLICATIONS/Everglow` if it has someone else's uncommitted changes — stop and move first.
+- New task = new hidden folder + new branch from latest `main` (`fix/...`, `feat/...`, `style/...`). One task per branch.
+- Hidden folders live in T3's folder (`C:/Users/Admin/.t3/worktrees/Everglow/...`), never as `Everglow-xxx` next to the main folder. `C:/APPLICATIONS` keeps only the real projects.
+- End clean: commit, push, open PR, then delete the hidden folder once merged. Don't leave uncommitted files or old folders behind.
+
 ### Definition of done — proof over confidence
 
 `.pi/extensions/everglow_verify_gate.ts` mechanically blocks three things:
