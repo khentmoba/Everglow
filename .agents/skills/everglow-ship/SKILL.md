@@ -58,9 +58,18 @@ Run these in order. Red locally means don't open the PR yet:
    `npm run lint -- --max-warnings=25`, `npm test`, and
    `node eval_gate.js`.
 
-CI runs all of the above plus a release web build, the perf harness,
-and emulator security tests on every PR. If any CI check fails, stop
-and fix it. Do not add `continue-on-error` or hide failures.
+CI selects checks from the PR diff: app changes keep analysis/tests,
+relevant browser-only app tests, and a release web build; backend/rules
+changes keep their server/privacy tests. The inexpensive Dart guards run
+on every PR in the Flutter job. Unknown inputs or an unavailable diff
+run the full set. Docs-only PRs avoid app compilation and Chrome.
+If any selected CI check fails, stop and fix it. Do not add
+`continue-on-error` or hide failures.
+
+Run the relevant manual browser tooling checks required by `AGENTS.md`
+before requesting review, and record their results or blockers in the PR.
+Performance-tool controls and the real-browser offline check are opt-in;
+ordinary Quality success does not prove that those browser checks passed.
 
 ## 3. Every PR shows proof
 
@@ -73,8 +82,10 @@ and fix it. Do not add `continue-on-error` or hide failures.
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
 - Non-UI change (CI, docs, backend-only): honestly mark N/A, or add a
   shot of the preview booting logged-out.
-- Check the auto-posted preview link (alive 12 hours) before asking
-  Khent to review.
+- Frontend PRs get a preview from the successful web build (alive 12
+  hours). Check that link before asking Khent to review. Docs/backend-only
+  PRs can mark preview N/A. To request one explicitly, run Quality on your
+  branch with its `preview` input enabled; this selects full verification.
 
 ## Definition of done — proof over confidence
 

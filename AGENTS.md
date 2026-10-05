@@ -50,6 +50,40 @@ Three rules never bend, even if the skill is not loaded:
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data.
 
+### Manual browser tooling checks
+
+Agents must run the relevant checks below before requesting review. Use
+Node 22+ and a disposable Chrome profile; these tools do not need a login
+or real couple data. Ordinary app edits do not require these tool tests.
+
+- **Performance tools:** when changing `tool/perf/`, `lib/core/perf/`,
+  the performance bench routes/fixtures, or the manual browser workflow,
+  set `PERF_REQUIRE_CHROME=1`, then run
+  `node --test tool/perf/harness.test.mjs`. In PowerShell set it with
+  `$env:PERF_REQUIRE_CHROME = '1'`. Unset it afterwards. Requiring Chrome
+  prevents a missing browser from producing a passing skipped suite.
+- **Offline/update behavior:** when changing `tool/generate_sw.dart`,
+  `tool/build_stamp.dart`, `tool/build_web.dart`, `tool/service_worker_test.mjs`,
+  web loaders/worker, hosting cache configuration, or the manual browser
+  workflow, run `node tool/service_worker_test.mjs --browser`.
+  CI also keeps the deterministic worker tests on relevant web builds.
+- When changing Quality's browser/build wiring, run both tooling checks
+  and the browser-only Flutter tests listed in `.github/workflows/quality.yml`.
+- Record commands, pass/fail counts, and environment in the PR. If Chrome
+  startup or another missing prerequisite blocks a run, state the blocker
+  and what remains unverified. Do not claim a skipped or incomplete run
+  proves browser behavior; investigate test/measurement failures.
+
+The **Manual browser checks** workflow is an opt-in Linux alternative once
+it exists on `main`: run
+`gh workflow run browser_checks.yml --ref YOUR_BRANCH -f suite=all --repo khentmoba/Everglow`
+(or select `performance` / `offline`). It never runs on ordinary PR updates.
+When available, use T3's PR watcher for PR checks rather than polling.
+These tooling checks validate the measuring tools and offline behavior;
+claims about app speed still need measurements described in `docs/PERF_NOTES.md`.
+For CI failures, runner recovery, and preview commands, see
+[`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md).
+
 ## Releases — keep the version, README, and GitHub in sync
 
 Full procedure lives in the `everglow-release` skill

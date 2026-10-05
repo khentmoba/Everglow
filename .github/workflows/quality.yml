@@ -3,115 +3,83 @@ name: Quality
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      preview:
+        description: Publish this branch's successful web build as a temporary preview
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 concurrency:
   group: quality-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Keep the tested OS while ubuntu-latest migrates to Ubuntu 26.04.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      app: ${{ steps.select.outputs.app }}
+      browser: ${{ steps.select.outputs.browser }}
+      web: ${{ steps.select.outputs.web }}
+      backend: ${{ steps.select.outputs.backend }}
+      security: ${{ steps.select.outputs.security }}
+      audit: ${{ steps.select.outputs.audit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A PR checkout is the merge commit; its first parent is the base.
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tool/ci/changes.test.mjs
+      - id: select
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node tool/ci/changes.mjs
+
   flutter:
+    needs: changes
     runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - run: flutter analyze
-      # Golden-tagged tests are excluded here, same as the deploy
-      # workflow: committed PNGs render differently per platform
-      # (see the @Tags(['golden']) note atop those test files).
-      # Network-tagged tests are excluded too: they hit live external
-      # sites and cannot pass in sandboxed CI. Run by hand:
-      #   flutter test --tags=network test/katana_smoke_test.dart
-      - run: flutter test --exclude-tags="golden,network"
-      # Web-only chat widgets and iframe lifecycle use browser implementations.
-      - run: flutter test --platform chrome test/features/anime/anime_web_memory_test.dart test/embedded_media_web_memory_test.dart test/features/ai/motchi_streaming_scroll_test.dart
-
-  # Regression guards: static tripwires for breakage classes that
-  # `flutter analyze` + unit tests did not catch (PRs #1-#119 audit).
-  # Each script documents the PR/commit it prevents; all run with plain
-  # `dart` (no Flutter build) and fail the PR on violation.
-  guards:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      # P1: shell-corrupted Firestore literals (PR #63) + rules coverage
-      # for every collection used in lib/ (#55/#57/#59 audits).
-      - run: dart tool/ci/check_firestore_collections.dart
-      # P3: bundled asset refs must resolve (PR #66 .png->.jpg blanks).
-      - run: dart tool/ci/check_assets.dart
-      # P3: no bare Image.network without errorBuilder (PR #119 blanks).
-      # Also requires cacheWidth per call site, so a new uncapped decode fails.
-      - run: dart tool/ci/check_image_fallback.dart
-      # Perf: no setState driven by a frame-rate callback (AnimationController,
-      # Ticker, or a <=20ms Timer.periodic). Enforces the "Animation rules" in
-      # docs/PERF_NOTES.md, which were prose until now.
-      - run: dart tool/ci/check_perf_rules.dart
-      # docs/PERF_NOTES.md is the source of truth for perf work; a path it
-      # cites that no longer exists sends the next reader after a deleted tool.
-      - run: dart tool/ci/check_perf_notes.dart
-      # P3: list streams stay bounded with .limit() (PR #36, 34d615a).
-      - run: dart tool/ci/check_stream_limits.dart
-      # Golden tests are excluded from CI so they can't gate PRs; new
-      # visual coverage must be behavioral (PR #119, 7dcb4d9).
-      - run: dart tool/ci/check_no_new_goldens.dart
-      # Pinned crash-guard + layout tests must stay intact (#107-#110,
-      # #54/#56/#58 overflow audits).
-      - run: dart tool/ci/check_model_guards.dart
-      - run: dart tool/ci/check_layout_tests.dart
-      # Global Home Screen status-bar inset must stay wired at AppRoot
-      # (cinema-player status-bar overlap audit).
-      - run: dart tool/ci/check_standalone_insets.dart
-      # Hosting config shape (PR #112/#114 web-lite flip-flop).
-      - run: dart tool/ci/check_firebase_hosting.dart
-      # Release paperwork must match the shipped version: pubspec <->
-      # AppVersion <-> CHANGELOG <-> README. release.yml publishes from
-      # this paperwork on version bumps; this guard keeps its input clean.
-      - run: dart tool/ci/check_release_sync.dart
-      # MangaCelestia stays ad-free: no ad SDKs, ad widgets, Hide-Ads
-      # flows, or webviews in the manga section.
-      - run: dart tool/ci/check_no_ads.dart
-      # Data-path tripwire: no new empty `catch (_) {}` blocks. A silent
-      # catch in a Firestore/network read is the difference between a
-      # diagnosable live break and a 2am guessing game (see AGENTS.md
-      # "If something fails, leave a Logger.e").
-      - run: dart tool/ci/check_silent_catches.dart
-
-  # PRs previously merged with a broken web build: quality ran analyze
-  # + test but the web build only ran on main push, so hosting/revert
-  # breakage (early api_keys/import/asset-path fixes, PR #114) went
-  # green until deploy. This builds the exact prod artifact shape.
-  web_build:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Prepare local env asset
-        run: |
-          if [ ! -f assets/env.txt ]; then
-            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
-          fi
-      - run: dart tool/generate_sw.dart
-      - run: dart tool/build_web.dart -- --release --no-source-maps
-
-  perf_harness:
-    runs-on: ubuntu-24.04
-    # Fail fast instead of hanging: PR #469's run lost the runner and sat 46m.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      # Worker tests generate sw.js with Dart in an isolated temporary directory.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - if: needs.changes.outputs.app == 'true'
+        run: flutter pub get
+      - if: needs.changes.outputs.app == 'true'
+        run: flutter analyze
+      # Goldens vary by platform; network-tagged tests hit external sites.
+      - if: needs.changes.outputs.app == 'true'
+        run: flutter test --exclude-tags="golden,network"
+      - name: Regression guards (including docs/release consistency)
+        run: |
+          ls tool/ci/
+          for guard in tool/ci/check_*.dart; do
+            dart "$guard" || exit 1
+          done
+      # These exercise the real app's browser-only implementations.
+      - if: needs.changes.outputs.browser == 'true'
+        run: >-
+          flutter test --platform chrome
+          test/features/anime/anime_web_memory_test.dart
+          test/features/anime/animex_player_web_bridge_test.dart
+          test/embedded_media_web_memory_test.dart
+          test/features/ai/motchi_streaming_scroll_test.dart
+
+  web_build:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -119,17 +87,48 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      # Real Chrome synthetic controls: throttle, navigation observers, freezes,
-      # and invalid zero-frame/non-scrolling scenes. No Flutter build or login.
-      - name: Test performance harness (including browser controls)
+      - run: flutter pub get
+      - name: Test generated service worker without Chrome
+        run: node --test tool/service_worker_test.mjs
+      - name: Prepare local env asset
+        run: |
+          if [ ! -f assets/env.txt ]; then
+            echo "# CI placeholder - real values passed via --dart-define" > assets/env.txt
+          fi
+      - run: dart tool/generate_sw.dart
+      # Preserve Preview's configuration while compiling the shared artifact once.
+      - name: Build web
         env:
-          PERF_REQUIRE_CHROME: '1'
-        run: node --test tool/perf/harness.test.mjs
-      - name: Test generated service worker (including offline browser control)
-        run: node tool/service_worker_test.mjs --browser
+          FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          BREYAN_EMAIL: ${{ secrets.BREYAN_EMAIL }}
+          BREYAN_PASSWORD: ${{ secrets.BREYAN_PASSWORD }}
+          OCTAGRAM_EMAIL: ${{ secrets.OCTAGRAM_EMAIL }}
+          OCTAGRAM_PASSWORD: ${{ secrets.OCTAGRAM_PASSWORD }}
+          BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
+          OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
+        run: |
+          ARGS=(--release --no-source-maps)
+          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD BREYAN_PASSCODE OCTAGRAM_PASSCODE; do
+            VAL="${!KEY}"
+            if [ -n "$VAL" ]; then
+              ARGS+=(--dart-define="$KEY=$VAL")
+            fi
+          done
+          dart tool/build_web.dart -- "${ARGS[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-${{ github.sha }}
+          path: build/web
+          if-no-files-found: error
+          retention-days: 3
+          overwrite: true
 
   functions:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.security == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -137,37 +136,60 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: functions/package-lock.json
-      - working-directory: functions
+      - if: needs.changes.outputs.backend == 'true'
+        working-directory: functions
         run: npm ci
-      # Lint runs before the tests so a trivial slip (typo'd identifier,
-      # dead assignment, an unbalanced template) reports in seconds instead
-      # of after a 20s suite. max-len is a warning for legacy lines, so
-      # --max-warnings is the ratchet: NEW long lines fail here, and the
-      # number only ever goes down as modules get cleaned. Raising 25 is a
-      # deliberate regression and needs a reason in the PR description.
-      - working-directory: functions
+      - if: needs.changes.outputs.backend == 'true'
+        working-directory: functions
         run: npm run lint -- --max-warnings=25
-      - working-directory: functions
+      - if: needs.changes.outputs.backend == 'true'
+        working-directory: functions
         run: npm test
-      # Syntax-check every top-level function module, not just index.js:
-      # the #99-#105 split moved the tool loop to motchi_chat.js while
-      # the gate still pointed at index.js (fixed in PR #106).
-      - working-directory: functions
-        run: |
-          for f in *.js; do
-            echo "node --check $f"
-            node --check "$f" || exit 1
-          done
-      - working-directory: functions
+      - if: needs.changes.outputs.backend == 'true'
+        working-directory: functions
         run: node eval_gate.js
-      - working-directory: functions
+      # ESLint already parses every JS module; a separate node --check is redundant.
+      - if: needs.changes.outputs.audit == 'true'
+        working-directory: functions
         run: npm audit --omit=dev --audit-level=moderate
-      - uses: actions/setup-java@v4
+      - if: needs.changes.outputs.security == 'true'
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
       - name: Test couple privacy rules in emulators
+        if: needs.changes.outputs.security == 'true'
         run: >-
           npx --yes firebase-tools@15 emulators:exec --only firestore,storage
           --config firebase.emulators.json --project demo-everglow
           "node --test functions/security_rules.emulator.test.js"
+
+  preview:
+    needs: [changes, web_build]
+    if: >-
+      needs.web_build.result == 'success' &&
+      ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && inputs.preview))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-${{ github.sha }}
+          path: build/web
+      # Same-repo PRs only; forks have a keyless build but no deployment secrets.
+      - name: Deploy preview channel
+        uses: FirebaseExtended/action-hosting-deploy@v0.9.0
+        env:
+          NODE_OPTIONS: '--no-warnings'
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
+          projectId: everglow-1c6db
+          channelId: pr-${{ github.event.pull_request.number || github.run_id }}
+          expires: 12h

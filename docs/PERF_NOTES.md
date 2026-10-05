@@ -93,6 +93,14 @@ node tool/perf/bench.mjs --build --runs 3
 node tool/perf/measure_boot.mjs --runs 3 --profile slow3g
 ```
 
+The browser tooling suites run manually for relevant changes, as required
+by `AGENTS.md`, rather than on every PR. Set `PERF_REQUIRE_CHROME=1` when
+running the harness suite so an unavailable browser cannot silently skip it.
+`.github/workflows/browser_checks.yml` offers an opt-in Linux run. Ordinary
+Quality still runs the deterministic service-worker tests on web builds and
+the real app's browser-only Flutter tests for relevant changes. A green PR
+check is not a performance measurement.
+
 Desktop measurements apply to that rig/build/scene only. A 4× CPU throttle is
 not a phone bound; headless FPS is not a real-device verdict. New synthetic
 posters and stricter validation mean old tables cannot be compared as speed wins.

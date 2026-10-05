@@ -1,0 +1,43 @@
+name: Manual browser checks
+
+# Explicitly requested evidence; never starts on an ordinary PR update.
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Browser tooling to verify
+        type: choice
+        options: [all, performance, offline]
+        default: all
+
+permissions:
+  contents: read
+
+jobs:
+  performance:
+    if: inputs.suite == 'all' || inputs.suite == 'performance'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - env:
+          PERF_REQUIRE_CHROME: '1'
+        run: node --test tool/perf/harness.test.mjs
+
+  offline:
+    if: inputs.suite == 'all' || inputs.suite == 'offline'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tool/service_worker_test.mjs --browser
