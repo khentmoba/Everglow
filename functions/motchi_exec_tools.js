@@ -30,7 +30,7 @@ const {
 const { sendFCMToUser } = require('./triggers.js');
 const { getTmdbKey } = require('./motchi_context.js');
 const { phtDateString } = require('./motchi_core.js');
-const { validateToolArgs, normalizeToolArgs, fixHintFor, TOOL_TIMEOUT_MS, resolveToolsForCapabilities } = require('./motchi_tools.js');
+const { validateToolArgs, normalizeToolArgs, fixHintFor, TOOL_TIMEOUT_MS } = require('./motchi_tools.js');
 
 const {
   exec_add_to_watchlist,

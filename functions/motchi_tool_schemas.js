@@ -1168,7 +1168,7 @@ const REQUEST_TOOLS_SCHEMA = MOTCHI_TOOLS.find(t => t.function.name === 'request
  * Assistant turns start with ONLY the `request_tools` meta-tool: Motchi replies
  * in text for chatting/affection, or calls `request_tools` to mount exact tools.
  */
-function selectInitialToolsForTurn(reqFeature, userMsg, prevAssistantText = '', prevUserText = '') {
+function selectInitialToolsForTurn(reqFeature, userMsg, prevAssistantText = '', _prevUserText = '') {
   if (reqFeature === 'guardian') {
     const allowed = new Set(['set_mood', 'save_to_starlight_jar', 'remember_fact', 'get_xp_stats']);
     return MOTCHI_TOOLS.filter(t => allowed.has(t.function.name));

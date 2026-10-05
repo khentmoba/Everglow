@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { executeToolCall, clearIdempotencyCache } = require('../motchi_exec_tools.js');
 const { exec_request_tools, exec_propose_choices } = require('../motchi_exec_insights.js');
-const { resolveToolsForCapabilities, validateToolArgs } = require('../motchi_tools.js');
+const { validateToolArgs } = require('../motchi_tools.js');
 const { selectInitialToolsForTurn } = require('../motchi_tool_schemas.js');
 
 test('zero-tool start: initial turn tools selection', () => {

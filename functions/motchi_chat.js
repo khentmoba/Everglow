@@ -29,8 +29,13 @@ const {
 } = require('./common.js');
 const { logToolCall } = require('./triggers.js');
 const { buildContextForFeature, invalidateContextBlock } = require('./motchi_context.js');
-const { toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, hasOffer, dropRepeatCalls, resolveToolsForCapabilities } = require('./motchi_tools.js');
-const { selectToolsForRequest, selectInitialToolsForTurn, isLightChat, MOTCHI_TOOLS } = require('./motchi_tool_schemas.js');
+const {
+  toolListSection, MAX_TOOL_ROUNDS, matchFastPath, isBareYes, hasOffer,
+  dropRepeatCalls, resolveToolsForCapabilities,
+} = require('./motchi_tools.js');
+const {
+  selectInitialToolsForTurn, isLightChat, MOTCHI_TOOLS,
+} = require('./motchi_tool_schemas.js');
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
 const { REPLY_DETAILS_PROMPT, memoryReference, citedMemories, stripMemoryCitations, toolReceipt } = require('./motchi_reply_details.js');
@@ -1330,7 +1335,9 @@ ${HTML_GAME_GUIDE}
         if (requestCall) {
           let reqArgs = {};
           try { reqArgs = JSON.parse(requestCall.function?.arguments || '{}'); } catch (_) {}
-          const caps = Array.isArray(reqArgs.capabilities) ? reqArgs.capabilities : (reqArgs.capability ? [reqArgs.capability] : []);
+          const caps = Array.isArray(reqArgs.capabilities)
+            ? reqArgs.capabilities
+            : (reqArgs.capability ? [reqArgs.capability] : []);
           const tls = Array.isArray(reqArgs.tools) ? reqArgs.tools : [];
           const mountedNames = resolveToolsForCapabilities(caps, tls);
           if (mountedNames.length > 0) {
@@ -1637,7 +1644,9 @@ ${HTML_GAME_GUIDE}
     if (nsRequestCall) {
       let reqArgs = {};
       try { reqArgs = JSON.parse(nsRequestCall.function?.arguments || '{}'); } catch (_) {}
-      const caps = Array.isArray(reqArgs.capabilities) ? reqArgs.capabilities : (reqArgs.capability ? [reqArgs.capability] : []);
+      const caps = Array.isArray(reqArgs.capabilities)
+        ? reqArgs.capabilities
+        : (reqArgs.capability ? [reqArgs.capability] : []);
       const tls = Array.isArray(reqArgs.tools) ? reqArgs.tools : [];
       const mountedNames = resolveToolsForCapabilities(caps, tls);
       if (mountedNames.length > 0) {
