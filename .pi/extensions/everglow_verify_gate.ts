@@ -147,7 +147,7 @@ export default function (pi: ExtensionAPI) {
 					const guards = await listGuards(ctx);
 					return {
 						block: true,
-						reason: `verify-gate: ${ref} does not exist. Real CI guards: ${guards.join(", ") || "tool/ci/ is empty"}. Never invent a verification command — reuse what the repo has (AGENTS.md, or the everglow-ship skill).`,
+						reason: `verify-gate: ${ref} does not exist. Real CI guards: ${guards.join(", ") || "tool/ci/ is empty"}. Never invent a verification command — reuse what the repo has (AGENTS.md, or the everglow-pr skill).`,
 					};
 				}
 			}
@@ -180,7 +180,7 @@ export default function (pi: ExtensionAPI) {
 				if (s.proofs.size === 0) {
 					const msg =
 						`verify-gate: every PR shows proof — save a screenshot of the changed screen under ` +
-						`docs/pr-proof/pr-<N>/shot-<name>.png first (fake demo data only; see the everglow-ship skill), ` +
+						`docs/pr-proof/pr-<N>/shot-<name>.png first (fake demo data only; see the everglow-pr skill), ` +
 						`then reference it in the PR body. Legit exception: append "# verify-gate allow".`;
 					return { block: true, reason: msg };
 				}
