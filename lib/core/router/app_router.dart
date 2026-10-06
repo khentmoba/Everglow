@@ -33,7 +33,9 @@ import '../di/app_providers.dart' as di;
 ///
 /// Each feature owns its route modules under `presentation/routes/`; this
 /// file only composes them. Simple routes use URL parameters. Complex object
-/// routes use `extra`.\n/// Navigation examples:\n///   context.go('/dashboard')
+/// routes use `extra`.
+/// Navigation examples:
+///   context.go('/dashboard')
 ///   context.push('/cinema/video/123?title=Foo&type=movie')
 ///   context.push('/books/reader', extra: bookItem)
 GoRouter createAppRouter() {
@@ -43,14 +45,36 @@ GoRouter createAppRouter() {
       final loc = state.matchedLocation;
       final uri = state.uri;
 
-      // Agent mode activation from query parameter (?agent=1, ?agent=khent, ?agent=cinema, etc.)
+      // Agent mode activation from query parameter (?agent=1, ?agent=khent, ?agent=cinema, ?agent=anime, ?agent=manga, etc.)
       final agentParam = uri.queryParameters['agent'] ?? uri.queryParameters['demo'];
+      final jumpParam = uri.queryParameters['jump'] ?? uri.queryParameters['to'];
+      String? targetRoute;
+
       if (agentParam != null) {
-        final profile = AgentMode.parseProfile(agentParam);
-        AgentMode.enable(profile: profile);
-        di.authService.enableAgentSession(profile: profile);
+        final lower = agentParam.toLowerCase().trim();
+        if (AgentMode.routeAliases.containsKey(lower)) {
+          targetRoute = AgentMode.routeAliases[lower];
+          final profile = lower == 'cinema' ? 'breyan' : 'khentsgdz';
+          AgentMode.enable(profile: profile);
+          di.authService.enableAgentSession(profile: profile);
+        } else {
+          final profile = AgentMode.parseProfile(agentParam);
+          AgentMode.enable(profile: profile);
+          di.authService.enableAgentSession(profile: profile);
+        }
       } else if (AgentMode.isActive.value && di.authService.currentUser == null) {
         di.authService.enableAgentSession(profile: AgentMode.activeProfile.value);
+      }
+
+      if (jumpParam != null && jumpParam.isNotEmpty) {
+        final lower = jumpParam.toLowerCase().trim();
+        targetRoute = AgentMode.routeAliases[lower] ?? jumpParam;
+        if (!targetRoute.startsWith('/')) targetRoute = '/$targetRoute';
+      }
+
+      // If opening doorway with an agent destination target, navigate directly
+      if (loc == '/' && targetRoute != null && targetRoute != '/') {
+        return targetRoute;
       }
 
       // The perf bench is reachable logged out (it carries its own fake data),

@@ -25,6 +25,20 @@ void main() {
       expect(AgentMode.parseProfile('breyan'), 'breyan');
     });
 
+    test('routeAliases covers core destinations including anime and manga', () {
+      expect(AgentMode.routeAliases['cinema'], '/cinema');
+      expect(AgentMode.routeAliases['anime'], '/anime');
+      expect(AgentMode.routeAliases['manga'], '/manga');
+      expect(AgentMode.routeAliases['mangacelestia'], '/manga');
+      expect(AgentMode.routeAliases['books'], '/books');
+      expect(AgentMode.routeAliases['bibliotheca'], '/books');
+      expect(AgentMode.routeAliases['dashboard'], '/dashboard');
+      expect(AgentMode.routeAliases['sanctuary'], '/sanctuary');
+      expect(AgentMode.routeAliases['gallery'], '/gallery');
+      expect(AgentMode.routeAliases['journal'], '/journal');
+      expect(AgentMode.routeAliases['play-zone'], '/play-zone');
+    });
+
     test('enable and switchProfile update active state and profile', () {
       expect(AgentMode.isActive.value, isFalse);
 

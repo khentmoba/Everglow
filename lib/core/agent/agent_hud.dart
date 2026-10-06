@@ -61,16 +61,26 @@ class AgentHud extends StatefulWidget {
 
 class _AgentHudState extends State<AgentHud> {
   static const List<({String label, String route, IconData icon})> _routes = [
-    (label: 'Home', route: '/dashboard', icon: Icons.home_rounded),
+    (label: 'Dashboard', route: '/dashboard', icon: Icons.home_rounded),
     (label: 'Cinema', route: '/cinema', icon: Icons.movie_rounded),
     (label: 'Anime', route: '/anime', icon: Icons.smart_display_rounded),
+    (label: 'Mangacelestia', route: '/manga', icon: Icons.auto_stories_rounded),
     (label: 'Books', route: '/books', icon: Icons.menu_book_rounded),
-    (label: 'Manga', route: '/manga', icon: Icons.auto_stories_rounded),
     (label: 'Sanctuary', route: '/sanctuary', icon: Icons.chat_bubble_rounded),
     (label: 'Gallery', route: '/gallery', icon: Icons.photo_library_rounded),
     (label: 'Journal', route: '/journal', icon: Icons.book_rounded),
-    (label: 'Play', route: '/play-zone', icon: Icons.sports_esports_rounded),
-    (label: 'Door', route: '/', icon: Icons.meeting_room_rounded),
+    (label: 'Tonight', route: '/tonight', icon: Icons.nightlife_rounded),
+    (label: 'Play Zone', route: '/play-zone', icon: Icons.sports_esports_rounded),
+    (label: 'Academy', route: '/academy', icon: Icons.school_rounded),
+    (label: 'Garden', route: '/garden', icon: Icons.local_florist_rounded),
+    (label: 'Starlight', route: '/starlight', icon: Icons.star_rounded),
+    (label: 'Calendar', route: '/calendar', icon: Icons.calendar_month_rounded),
+    (label: 'Trip Kit', route: '/trip-kit', icon: Icons.flight_takeoff_rounded),
+    (label: 'Canvas', route: '/canvas', icon: Icons.palette_rounded),
+    (label: 'Bucket List', route: '/bucket-list', icon: Icons.checklist_rounded),
+    (label: 'Money', route: '/money', icon: Icons.account_balance_wallet_rounded),
+    (label: 'Jukebox', route: '/jukebox', icon: Icons.music_note_rounded),
+    (label: 'Doorway', route: '/', icon: Icons.meeting_room_rounded),
   ];
 
   void _cycleProfile(BuildContext context) {

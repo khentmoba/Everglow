@@ -13,6 +13,42 @@ import '../utils/logger.dart';
 class AgentMode {
   AgentMode._();
 
+  /// Map of convenient route aliases for direct agent navigation.
+  static const Map<String, String> routeAliases = {
+    'cinema': '/cinema',
+    'anime': '/anime',
+    'manga': '/manga',
+    'mangacelestia': '/manga',
+    'books': '/books',
+    'bibliotheca': '/books',
+    'dashboard': '/dashboard',
+    'home': '/dashboard',
+    'sanctuary': '/sanctuary',
+    'chat': '/sanctuary',
+    'gallery': '/gallery',
+    'journal': '/journal',
+    'tonight': '/tonight',
+    'calendar': '/calendar',
+    'garden': '/garden',
+    'bloom': '/garden',
+    'starlight': '/starlight',
+    'play': '/play-zone',
+    'playzone': '/play-zone',
+    'play-zone': '/play-zone',
+    'arcade': '/play-zone',
+    'academy': '/academy',
+    'trip-kit': '/trip-kit',
+    'tripkit': '/trip-kit',
+    'canvas': '/canvas',
+    'bucket-list': '/bucket-list',
+    'bucketlist': '/bucket-list',
+    'money': '/money',
+    'jukebox': '/jukebox',
+    'music': '/jukebox',
+    'watch-party': '/watch-party',
+    'watchparty': '/watch-party',
+  };
+
   /// Whether Agent Mode is currently enabled.
   static final ValueNotifier<bool> isActive = ValueNotifier<bool>(false);
 

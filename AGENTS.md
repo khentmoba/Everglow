@@ -52,11 +52,11 @@ Three rules never bend, even if the skill is not loaded:
 
 ### Agent Mode & Local Testing (Direct Navigation & Privacy-Safe Demo Data)
 
-Agents and local developers do not need real credentials or passcodes to test Everglow:
+Agents and local developers do not need real credentials or passcodes to test Everglow across the ENTIRE site:
 
-- **Bypass the Door via URL parameter:** Append `?agent=1`, `?agent=khent`, `?agent=clair`, or `?agent=cinema` to any route (e.g. `http://localhost:<port>/cinema?agent=1` or `http://localhost:<port>/dashboard?agent=khent`). This logs into an isolated simulated session and bypasses the password door without redirects.
-- **Door Bypass Chips:** If opened on `/`, click the `Cinema`, `Khent`, or `Clair` chips on the bottom dev bar to log in with one click.
-- **Floating Agent HUD:** A floating toolbar is present at the bottom of the screen in dev / agent mode. Click route chips (`/dashboard`, `/cinema`, `/anime`, `/books`, `/manga`, `/sanctuary`, `/gallery`, `/journal`, `/play-zone`) to jump directly to any surface, or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize (`—`) button to collapse the HUD into a tiny pill for clean PR proof screenshots.
+- **Direct URL Jumps:** Append `?agent=1` or `?agent=<destination>` directly to the URL (e.g. `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, or `/manga?agent=1`). This unlocks an isolated simulated session and navigates directly to the target feature without password prompts or redirect bounce loops.
+- **Doorway Agent Fast-Jump Launchpad:** When on the gateway door (`/`), the bottom dev bar provides 1-click fast-jumps to **every single section of Everglow**: Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, Academy, Garden, Starlight, Calendar, Trip Kit, Jukebox, Canvas, Bucket List, Money, and profile pickers (Khent, Clair, Cinema Guest).
+- **Floating Agent HUD:** A floating toolbar is present at the bottom of the screen across the app in dev / agent mode. Click route chips across all 20 surfaces to instantly jump between features, or toggle profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize (`—`) button to collapse the HUD into a tiny pill for clean PR proof screenshots.
 - **Privacy-Safe Demo Fixtures:** In Agent Mode, all couple-only features (milestones, notes, mood, starlight, bucket list, calendar, chat, tonight, journal, gallery, date ideas, guardian) automatically feed isolated in-memory mock demo data. Real couple data and private photos are never touched or exposed.
 
 ### Manual browser tooling checks
