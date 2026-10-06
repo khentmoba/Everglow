@@ -260,7 +260,7 @@ void main() {
           await tester.tap(
             find.byWidgetPredicate(
               (widget) =>
-                  widget is CheckedPopupMenuItem<String> &&
+                  widget is PopupMenuItem<String> &&
                   widget.value == 'canvas',
             ),
           );
@@ -325,7 +325,7 @@ void main() {
     await tester.tap(
       find.byWidgetPredicate(
         (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == 'canvas',
+            widget is PopupMenuItem<String> && widget.value == 'canvas',
       ),
     );
     await tester.pumpAndSettle();
