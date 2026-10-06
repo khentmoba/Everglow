@@ -203,19 +203,26 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final compact = size.width < 600;
+    final sectionGap = compact ? AppSpacing.sm : AppSpacing.md;
     return Dialog(
       backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
       ),
-      insetPadding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.lg),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: compact ? AppSpacing.xs : AppSpacing.lg,
+        vertical: compact ? AppSpacing.sm : AppSpacing.lg,
+      ),
       child: Container(
         constraints: BoxConstraints(
           maxWidth: 560,
           maxHeight: (size.height * 0.92).clamp(0.0, 820.0).toDouble(),
         ),
-        padding: EdgeInsets.all(compact ? AppSpacing.lg : AppSpacing.xl),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? AppSpacing.md : AppSpacing.xl,
+          vertical: compact ? AppSpacing.lg : AppSpacing.xl,
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -251,7 +258,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
+              SizedBox(height: sectionGap),
               InkWell(
                 onTap: _saving ? null : _pickMemoryDate,
                 borderRadius: BorderRadius.circular(12),
@@ -310,7 +317,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              SizedBox(height: sectionGap),
               // Category
               Text(
                 'Category',
@@ -356,7 +363,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: AppSpacing.md),
+              SizedBox(height: sectionGap),
               // Title
               TextField(
                 controller: _titleController,
@@ -382,7 +389,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.md),
+              SizedBox(height: sectionGap),
               // Content
               TextField(
                 controller: _contentController,
@@ -406,10 +413,12 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.all(AppSpacing.lg),
+                  contentPadding: EdgeInsets.all(
+                    compact ? AppSpacing.md : AppSpacing.lg,
+                  ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.xs),
+              const SizedBox(height: AppSpacing.sm),
               // Live word count — a little encouragement as they write.
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _contentController,
@@ -429,7 +438,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   );
                 },
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.md),
               // Mood row (heartbeat link)
               Text(
                 'Mood (optional)',
@@ -441,6 +450,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   _buildMoodChip(null, 'None'),
                   ...JournalMood.values.map(
@@ -448,7 +458,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.md),
+              SizedBox(height: sectionGap),
               // Tags
               Row(
                 children: [
@@ -518,7 +528,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                       .toList(),
                 ),
               ],
-              const SizedBox(height: AppSpacing.md),
+              SizedBox(height: sectionGap),
               // Toggles lock/pin
               Row(
                 children: [
@@ -615,7 +625,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.xl),
+              SizedBox(height: compact ? AppSpacing.md : AppSpacing.xl),
               if (_saveError != null) ...[
                 Text(
                   _saveError!,
@@ -675,7 +685,10 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     return GestureDetector(
       onTap: () => setState(() => _mood = mood),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: isSel
               ? AppColors.deepRose.withValues(alpha: 0.25)
