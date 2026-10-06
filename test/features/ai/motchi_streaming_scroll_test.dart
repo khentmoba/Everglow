@@ -202,6 +202,12 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetViewInsets);
+      final originalOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        debugPrintSynchronously(details.toString());
+        originalOnError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = originalOnError);
       for (final width in [320.0, 390.0, 820.0, 1280.0]) {
         tester.view.physicalSize = Size(width, 844);
         final ai = _InteractionAIService();
@@ -260,7 +266,7 @@ void main() {
           await tester.tap(
             find.byWidgetPredicate(
               (widget) =>
-                  widget is CheckedPopupMenuItem<String> &&
+                  widget is PopupMenuItem<String> &&
                   widget.value == 'canvas',
             ),
           );
@@ -325,7 +331,7 @@ void main() {
     await tester.tap(
       find.byWidgetPredicate(
         (widget) =>
-            widget is CheckedPopupMenuItem<String> && widget.value == 'canvas',
+            widget is PopupMenuItem<String> && widget.value == 'canvas',
       ),
     );
     await tester.pumpAndSettle();
