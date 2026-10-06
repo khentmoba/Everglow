@@ -37,11 +37,9 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 
 ## Workflow — how we ship (agreed with Khent)
 
-Full procedure lives in the `everglow-pr` skill
-(`.agents/skills/everglow-pr/SKILL.md`). Load it before committing,
-opening a PR, merging, or reporting a task done. It also covers the
-PR body shape: what the change is, before/after proof, and whether the
-merge is a one-way or two-way door.
+Ship through the `everglow-pr` skill
+(`.agents/skills/everglow-pr/SKILL.md`) — before committing, opening a PR,
+or merging, and for any "is this done?" judgement.
 
 Three rules never bend, even if the skill is not loaded:
 

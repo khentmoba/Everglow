@@ -1,12 +1,11 @@
 ---
 name: everglow-pr
 description: >
-  The full agreed procedure for shipping an Everglow change: one task one
-  branch, the checks to run before every PR, proof screenshots, the PR body
-  shape (summary, before/after evidence, one-way or two-way door and blast
-  radius), the proof-over-confidence definition of done, and how to report
-  honestly. Use when committing, opening a PR, merging, or when asked
-  "is this done?". AGENTS.md keeps only the three rules that must never bend.
+  Opening a PR, committing a change, or merging in Everglow, and any
+  "is this done?" judgement. `main` auto-deploys live to Clair, so this
+  carries the branch rules, the checks that must pass first, the proof
+  screenshot, and the PR body shape: summary, before/after evidence, and
+  whether the merge is a one-way or two-way door.
 ---
 
 # Everglow PR
