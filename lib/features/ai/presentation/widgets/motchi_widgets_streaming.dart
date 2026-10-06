@@ -814,12 +814,44 @@ class _ComposerInputState extends State<_ComposerInput> {
                                           style: AppTypography.bodyMedium(),
                                         ),
                                       ),
-                                    CheckedPopupMenuItem(
+                                    PopupMenuItem(
                                       value: 'canvas',
-                                      checked: widget.canvasEnabled,
-                                      child: Text(
-                                        'Canvas',
-                                        style: AppTypography.bodyMedium(),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.dashboard_customize_outlined,
+                                            size: 18,
+                                            color: widget.canvasEnabled
+                                                ? AppColors.roseQuartz
+                                                : AppColors.textMuted,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            'Canvas',
+                                            style: AppTypography.bodyMedium(),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Text(
+                                            widget.canvasEnabled ? 'On' : 'Off',
+                                            style: AppTypography.labelSmall()
+                                                .copyWith(
+                                                  color: widget.canvasEnabled
+                                                      ? AppColors.roseQuartz
+                                                      : AppColors.textMuted,
+                                                ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            widget.canvasEnabled
+                                                ? Icons.toggle_on_rounded
+                                                : Icons.toggle_off_rounded,
+                                            size: 28,
+                                            color: widget.canvasEnabled
+                                                ? AppColors.roseQuartz
+                                                : AppColors.textMuted,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
