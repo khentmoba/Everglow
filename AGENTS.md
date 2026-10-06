@@ -50,6 +50,15 @@ Three rules never bend, even if the skill is not loaded:
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data.
 
+### Agent Mode & Local Testing (Direct Navigation & Privacy-Safe Demo Data)
+
+Agents and local developers do not need real credentials or passcodes to test Everglow:
+
+- **Bypass the Door via URL parameter:** Append `?agent=1`, `?agent=khent`, `?agent=clair`, or `?agent=cinema` to any route (e.g. `http://localhost:<port>/cinema?agent=1` or `http://localhost:<port>/dashboard?agent=khent`). This logs into an isolated simulated session and bypasses the password door without redirects.
+- **Door Bypass Chips:** If opened on `/`, click the `Cinema`, `Khent`, or `Clair` chips on the bottom dev bar to log in with one click.
+- **Floating Agent HUD:** A floating toolbar is present at the bottom of the screen in dev / agent mode. Click route chips (`/dashboard`, `/cinema`, `/anime`, `/books`, `/manga`, `/sanctuary`, `/gallery`, `/journal`, `/play-zone`) to jump directly to any surface, or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize (`—`) button to collapse the HUD into a tiny pill for clean PR proof screenshots.
+- **Privacy-Safe Demo Fixtures:** In Agent Mode, all couple-only features (milestones, notes, mood, starlight, bucket list, calendar, chat, tonight, journal, gallery, date ideas, guardian) automatically feed isolated in-memory mock demo data. Real couple data and private photos are never touched or exposed.
+
 ### Manual browser tooling checks
 
 Agents must run the relevant checks below before requesting review. Use
@@ -80,7 +89,7 @@ it exists on `main`: run
 (or select `performance` / `offline`). It never runs on ordinary PR updates.
 When available, use T3's PR watcher for PR checks rather than polling.
 These tooling checks validate the measuring tools and offline behavior;
-claims about app speed still need measurements described in `docs/PERF_NOTES.md`.
+claims about app speed still need measurements described in `docs/PERF_NOTES.md``.
 For CI failures, runner recovery, and preview commands, see
 [`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md).
 

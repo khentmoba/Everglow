@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/garden_stats.dart';
 import '../../../../core/utils/logger.dart';
@@ -18,6 +20,9 @@ class GardenService implements GardenStatsSource {
 
   @override
   Stream<GardenStats> watchStats(String userId) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoGardenStats);
+    }
     Stream<GardenStats> subscribe() {
       return _db
           .collection('users')
@@ -44,6 +49,7 @@ class GardenService implements GardenStatsSource {
 
   @override
   Future<void> recordInteraction(String userId) async {
+    if (AgentMode.isActive.value) return;
     final docRef = _db
         .collection('users')
         .doc(userId)
@@ -108,6 +114,9 @@ class GardenService implements GardenStatsSource {
   /// Watch partner's garden stats for the shared garden view.
   @override
   Stream<GardenStats> watchPartnerStats(String partnerUid) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoGardenStats);
+    }
     Stream<GardenStats> subscribe() {
       return _db
           .collection('users')
@@ -135,6 +144,7 @@ class GardenService implements GardenStatsSource {
   /// Update the user's selected plant type.
   @override
   Future<void> setPlantType(String userId, String plantType) async {
+    if (AgentMode.isActive.value) return;
     final docRef = _db
         .collection('users')
         .doc(userId)

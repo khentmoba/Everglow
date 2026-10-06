@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/user_mood.dart';
 
@@ -43,6 +45,7 @@ class MoodService implements MoodSource {
     required int score,
     required String emoji,
   }) async {
+    if (AgentMode.isActive.value) return;
     await _db.collection('moods').add({
       'username': username,
       'uid': username,
@@ -61,6 +64,9 @@ class MoodService implements MoodSource {
   /// throws failed-precondition on every dashboard load.
   @override
   Future<bool> hasSubmittedToday(String username) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return true;
+    }
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
 
@@ -82,6 +88,9 @@ class MoodService implements MoodSource {
   /// listener for fire-and-forget reads like the Guardian's mentions).
   @override
   Future<UserMood?> getLatestMood(String username) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoMood;
+    }
     try {
       final snapshot = await withGetTimeout(
         _db
@@ -103,6 +112,9 @@ class MoodService implements MoodSource {
   /// Streams the latest mood for a specific user.
   @override
   Stream<UserMood?> watchLatestMood(String username) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoMood);
+    }
     return withFirestoreTimeout(
       _db
           .collection('moods')

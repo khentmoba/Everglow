@@ -39,9 +39,12 @@ class AuthService extends ChangeNotifier {
   String? _lastAuthError;
   bool _offlineUnlocked = false;
   Map<String, dynamic>? _offlineVerifier;
+  bool _isAgentSession = false;
 
   bool get hasOfflineRememberedCode =>
       isCoupleUser && _offlineVerifier?['username'] == _currentUser;
+
+  bool get isAgentSession => _isAgentSession;
 
   AuthService() {
     _loadSession();
@@ -49,9 +52,11 @@ class AuthService extends ChangeNotifier {
       _user = user;
       _hasSyncedUserDoc = false;
       if (user == null) {
-        _partnerUid = null;
-        _partnerNameResolved = null;
-        _isResolvingPartner = false;
+        if (!_isAgentSession) {
+          _partnerUid = null;
+          _partnerNameResolved = null;
+          _isResolvingPartner = false;
+        }
       } else if (_currentUser != null) {
         // Anonymous sessions can never satisfy firestore.rules
         // (`isNotAnonymous` is required for every app read), so an
@@ -133,25 +138,28 @@ class AuthService extends ChangeNotifier {
   }
 
   User? get user => _user;
-  bool get isAuthenticated => _user != null;
+  bool get isAuthenticated => _user != null || _isAgentSession;
   String? get currentUser => _currentUser;
-  String? get uid => _auth.currentUser?.uid;
+  String? get uid =>
+      _isAgentSession ? 'agent_${_currentUser}_uid' : _auth.currentUser?.uid;
   bool get isSessionLoaded => _isSessionLoaded;
 
   /// True when the Firebase session is anonymous. Anonymous sessions are
   /// blocked by firestore.rules on every app read, so one paired with a
   /// couple username can only ever produce permission-denied streams.
-  bool get isAnonymousSession => _auth.currentUser?.isAnonymous == true;
+  bool get isAnonymousSession =>
+      !_isAgentSession && _auth.currentUser?.isAnonymous == true;
 
   /// Single-line auth diagnosis for the browser console. The dashboard
   /// logs this on load so a permission-denied report always carries the
   /// session facts needed to tell a guest session from a missing user doc.
   String get diagLine =>
-      'uid=${_auth.currentUser?.uid ?? 'none'} '
+      'uid=${uid ?? 'none'} '
       'anonymous=$isAnonymousSession '
       'username=${_currentUser ?? 'none'} '
       'offlineMode=$_offlineUnlocked '
-      'usersDocSynced=$_hasSyncedUserDoc';
+      'usersDocSynced=$_hasSyncedUserDoc '
+      'agentSession=$_isAgentSession';
 
   /// True when this session was unlocked offline from the remembered user
   /// (see [tryOfflineRememberedLogin]). The dashboard shows cached data
@@ -203,6 +211,25 @@ class AuthService extends ChangeNotifier {
   /// Last authentication error message, if any. Cleared on successful login.
   String? get lastAuthError => _lastAuthError;
 
+  /// Establishes an in-memory simulated session for AI agents and local dev testing.
+  /// Bypasses the passcode door and live Firebase auth without touching disk sessions.
+  void enableAgentSession({String profile = 'khentsgdz'}) {
+    _isAgentSession = true;
+    _currentUser = profile;
+    _offlineUnlocked = true;
+    _isSessionLoaded = true;
+    _lastAuthError = null;
+    if (profile == 'breyan' || profile == 'octagram') {
+      _partnerUid = null;
+      _partnerNameResolved = null;
+    } else {
+      _partnerUid = 'agent_demo_partner_uid';
+      _partnerNameResolved = profile == 'khentsgdz' ? 'Clair' : 'Khent';
+    }
+    Logger.i('[AuthService] Agent session enabled as $profile');
+    notifyListeners();
+  }
+
   /// Ensures the user is authenticated with a real account based on their passcode
   Future<void> loginWithPasscode(String username) async {
     String email;
@@ -231,6 +258,7 @@ class AuthService extends ChangeNotifier {
       Logger.d("Attempting login for $username ($email)...");
       await _auth.signInWithEmailAndPassword(email: email, password: password);
       _currentUser = username;
+      _isAgentSession = false;
       await _saveSession(username);
       unawaited(_syncUserDoc());
       _lastAuthError = null;
@@ -255,7 +283,7 @@ class AuthService extends ChangeNotifier {
 
   /// Ensures the user is authenticated with Firebase (anonymously if needed)
   Future<void> ensureAuthenticated() async {
-    if (_auth.currentUser == null) {
+    if (_auth.currentUser == null && !_isAgentSession) {
       // Anonymous sessions are blocked by firestore.rules, so silently
       // creating one would only produce a broken "guest" experience.
       Logger.e(
@@ -277,6 +305,7 @@ class AuthService extends ChangeNotifier {
   /// and letterbox seeding run in the background so `isReady` flips true
   /// without waiting for 2-3 extra round-trips (≈700ms saved per login).
   Future<void> _syncUserDoc() async {
+    if (_isAgentSession) return;
     final myUid = _auth.currentUser?.uid;
     if (myUid == null || _currentUser == null) return;
     if (_hasSyncedUserDoc) return;
@@ -379,7 +408,7 @@ class AuthService extends ChangeNotifier {
   /// with zero matches) clears the link. Retry at any time via
   /// [refreshPartnerLink].
   Future<void> _resolvePartnerInfo() async {
-    if (_isResolvingPartner) return;
+    if (_isAgentSession || _isResolvingPartner) return;
     if (_currentUser == null || _auth.currentUser == null) return;
     _isResolvingPartner = true;
     notifyListeners();
@@ -555,6 +584,7 @@ class AuthService extends ChangeNotifier {
           continue;
         }
         _currentUser = username;
+        _isAgentSession = false;
         await _saveSession(username, passcode: passcode);
         unawaited(_syncUserDoc());
         _lastAuthError = null;
@@ -668,6 +698,7 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _isAgentSession = false;
     await _auth.signOut();
     // Forget the last page: the next login on this device starts fresh
     // instead of reopening the previous user's screen.

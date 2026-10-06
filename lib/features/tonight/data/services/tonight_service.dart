@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/tmdb_images.dart';
@@ -32,6 +34,10 @@ class TonightService {
   /// Realtime stream of the active tonight decision session.
   /// Bounded to one doc for today's shared decision.
   Stream<TonightDecision?> watchActiveDecision() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoDecision);
+    }
+
     Stream<TonightDecision?> subscribe() {
       return _collection.doc(activeDocId).snapshots().map((doc) {
         if (!doc.exists || doc.data() == null) return null;
@@ -49,6 +55,10 @@ class TonightService {
 
   /// Get the active decision once.
   Future<TonightDecision?> getActiveDecision() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoDecision;
+    }
+
     try {
       final doc = await withGetTimeout(
         _collection.doc(activeDocId).get(),
@@ -248,6 +258,10 @@ class TonightService {
 
   /// Start a new session or re-roll suggestions.
   Future<TonightDecision> createOrShuffle({bool force = false}) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoDecision;
+    }
+
     try {
       final existing = await getActiveDecision();
       if (!force &&
@@ -309,6 +323,11 @@ class TonightService {
     required String username,
     required String optionId,
   }) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated vote: $username -> $optionId');
+      return;
+    }
+
     try {
       final docRef = _collection.doc(activeDocId);
       await _db.runTransaction((tx) async {
@@ -355,6 +374,11 @@ class TonightService {
 
   /// Explicitly decide the winner (e.g. "We pick this together" or tie-breaker).
   Future<void> decideWinner({required String optionId}) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated decide winner: $optionId');
+      return;
+    }
+
     try {
       final docRef = _collection.doc(activeDocId);
       await _db.runTransaction((tx) async {
@@ -383,6 +407,19 @@ class TonightService {
     required DateTime planTime,
     required String createdBy,
   }) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated makePlan');
+      return CalendarEvent(
+        id: 'agent_event',
+        title: 'Plan: ${option.title}',
+        description: 'Decided together in Agent Mode session.',
+        date: planTime,
+        type: CalendarEventType.dateNight,
+        createdBy: createdBy,
+        attendees: const ['khentsgdz', 'clairjassen'],
+      );
+    }
+
     try {
       final title = switch (option.type) {
         TonightOptionType.movie => '🎬 Movie Night: ${option.title}',
@@ -434,6 +471,10 @@ class TonightService {
 
   /// Clear or reset the active decision so a new one can be started.
   Future<void> resetSession() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return;
+    }
+
     try {
       await _collection.doc(activeDocId).delete();
       Logger.i('Reset Tonight session');

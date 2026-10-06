@@ -23,6 +23,7 @@ import '../../features/journal/presentation/routes/journal_routes.dart';
 import '../../features/money/presentation/routes/money_routes.dart';
 import '../../features/trip_kit/presentation/routes/trip_kit_routes.dart';
 import '../../features/tonight/presentation/routes/tonight_routes.dart';
+import '../agent/agent_mode.dart';
 import '../perf/perf_bench_route.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
@@ -32,9 +33,7 @@ import '../di/app_providers.dart' as di;
 ///
 /// Each feature owns its route modules under `presentation/routes/`; this
 /// file only composes them. Simple routes use URL parameters. Complex object
-/// routes use `extra`.
-/// Navigation examples:
-///   context.go('/dashboard')
+/// routes use `extra`.\n/// Navigation examples:\n///   context.go('/dashboard')
 ///   context.push('/cinema/video/123?title=Foo&type=movie')
 ///   context.push('/books/reader', extra: bookItem)
 GoRouter createAppRouter() {
@@ -42,13 +41,27 @@ GoRouter createAppRouter() {
     refreshListenable: di.authService,
     redirect: (context, state) {
       final loc = state.matchedLocation;
+      final uri = state.uri;
+
+      // Agent mode activation from query parameter (?agent=1, ?agent=khent, ?agent=cinema, etc.)
+      final agentParam = uri.queryParameters['agent'] ?? uri.queryParameters['demo'];
+      if (agentParam != null) {
+        final profile = AgentMode.parseProfile(agentParam);
+        AgentMode.enable(profile: profile);
+        di.authService.enableAgentSession(profile: profile);
+      } else if (AgentMode.isActive.value && di.authService.currentUser == null) {
+        di.authService.enableAgentSession(profile: AgentMode.activeProfile.value);
+      }
+
       // The perf bench is reachable logged out (it carries its own fake data),
       // but only in builds made with --dart-define=EG_PERF_BENCH=true. Prefix
       // rather than exact-match so every bench scene stays reachable without
       // re-listing its path here; the guard is a compile-time constant, so none
       // of this exists in production builds.
+      // In Agent Mode, all routes are accessible without bouncing to the gateway door.
       final isPublic = loc == '/' ||
-          (kPerfBenchCompiledIn && loc.startsWith('/perf-bench'));
+          (kPerfBenchCompiledIn && loc.startsWith('/perf-bench')) ||
+          AgentMode.isActive.value;
 
       // If the persisted session is still loading from disk, do NOT bounce
       // away from the requested location yet; wait for AuthService to notify.
@@ -76,8 +89,8 @@ GoRouter createAppRouter() {
       // [AppErrorPage.cinemaOnlyRedirect]): couple pages would only
       // render empty for them (Firestore rules deny every read), so
       // anything else — deep links and restored pages included —
-      // bounces to /cinema.
-      if (authed && di.authService.isCinemaOnlyUser) {
+      // bounces to /cinema. (In Agent Mode, free navigation is allowed).
+      if (authed && di.authService.isCinemaOnlyUser && !AgentMode.isActive.value) {
         final bounce = AppErrorPage.cinemaOnlyRedirect(loc);
         if (bounce != null) return bounce;
       }

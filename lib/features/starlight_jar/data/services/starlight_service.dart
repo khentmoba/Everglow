@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../domain/models/star_note.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -15,6 +17,9 @@ class StarlightService {
 
   /// All stars, newest first (for the jar visualization).
   Stream<List<StarNote>> getStarNotes() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoStars);
+    }
     return _db
         .collection(_collection)
         .orderBy('timestamp', descending: true)
@@ -28,6 +33,11 @@ class StarlightService {
 
   /// Stars filtered by category.
   Stream<List<StarNote>> getStarsByCategory(String category) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(
+        AgentFixtures.demoStars.where((s) => s.category == category).toList(),
+      );
+    }
     return _db
         .collection(_collection)
         .where('category', isEqualTo: category)
@@ -48,6 +58,7 @@ class StarlightService {
     List<String> tags = const [],
   }) async {
     if (content.trim().isEmpty) return;
+    if (AgentMode.isActive.value) return;
 
     try {
       await _db.collection(_collection).add({
@@ -66,6 +77,9 @@ class StarlightService {
 
   /// Get a random star from the jar.
   Future<StarNote?> getRandomStarNote() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoStars.first;
+    }
     try {
       final snapshot = await withGetTimeout(
         _db
@@ -88,6 +102,9 @@ class StarlightService {
 
   /// "On This Day" — stars from the same month+day across all years.
   Future<List<StarNote>> getStarsFromThisDay() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoStars;
+    }
     final now = DateTime.now();
     final month = now.month;
     final day = now.day;
@@ -134,6 +151,9 @@ class StarlightService {
   /// Search stars by content (client-side full-text, one-shot so typing
   /// doesn't re-query on every remote write).
   Future<List<StarNote>> searchStars(String query) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoStars;
+    }
     final lowerQuery = query.toLowerCase();
     final snapshot = await withGetTimeout(
       _db
@@ -155,6 +175,7 @@ class StarlightService {
 
   /// Delete a star note.
   Future<void> deleteStar(String id) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).delete();
       Logger.i("Deleted star $id");

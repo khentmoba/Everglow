@@ -22,6 +22,7 @@ import '../widgets/passcode_input.dart';
 import '../widgets/petal_shower.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/agent/agent_mode.dart';
 
 class GatewayPage extends StatefulWidget {
   const GatewayPage({super.key});
@@ -507,10 +508,12 @@ class _GatewayPageState extends State<GatewayPage> {
 
   Widget _buildDevLoginBar() {
     final chips = <Widget>[
+      _devUserChip('Cinema', () => _agentLogin('breyan')),
+      _devUserChip('Khent', () => _agentLogin('khentsgdz')),
+      _devUserChip('Clair', () => _agentLogin('clairjassen')),
       if (EnvConfig.breyanPasscode.isNotEmpty)
-        _devUserChip('Cinema', () => _quickLogin(EnvConfig.breyanPasscode)),
+        _devUserChip('Passcode', () => _quickLogin(EnvConfig.breyanPasscode)),
     ];
-    if (chips.isEmpty) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -546,6 +549,18 @@ class _GatewayPageState extends State<GatewayPage> {
         ],
       ),
     );
+  }
+
+  void _agentLogin(String profile) {
+    AgentMode.enable(profile: profile);
+    context.read<AuthService>().enableAgentSession(profile: profile);
+    final isCinema = profile == 'breyan';
+    _hasNavigated = true;
+    final destination = _postLoginTarget(
+      cinemaOnly: isCinema,
+      fallback: isCinema ? '/cinema' : '/dashboard',
+    );
+    context.go(destination);
   }
 
   Widget _devUserChip(String label, VoidCallback onTap) {

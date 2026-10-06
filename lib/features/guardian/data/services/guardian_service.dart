@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../models/guardian_message.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -34,6 +36,13 @@ class GuardianService {
   /// with no messages until the next app restart.
   Future<void> initialize() async {
     if (_inflight != null) return _inflight!;
+
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      _cachedMessages = AgentFixtures.demoGuardianMessages;
+      _rebuildIndex();
+      return;
+    }
+
     if (_cachedMessages.isNotEmpty &&
         _lastFetch != null &&
         DateTime.now().difference(_lastFetch!) < _cacheTtl) {
