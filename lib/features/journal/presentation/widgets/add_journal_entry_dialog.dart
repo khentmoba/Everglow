@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/draft_text_controller.dart';
@@ -31,6 +32,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   late DraftTextController _contentController;
   late final TextEditingController _tagController = TextEditingController();
   late JournalCategory _category;
+  late DateTime _memoryDate;
   JournalMood? _mood;
   bool _isPinned = false;
   bool _isLocked = false;
@@ -57,6 +59,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
       _contentController.loadDraft();
     }
     _category = widget.existing?.category ?? JournalCategory.daily;
+    _memoryDate = widget.existing?.createdAt ?? DateTime.now();
     _mood = widget.existing?.mood;
     _isPinned = widget.existing?.isPinned ?? false;
     _isLocked = widget.existing?.isLocked ?? false;
@@ -86,6 +89,38 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     return trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
   }
 
+  Future<void> _pickMemoryDate() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final memoryDay = DateUtils.dateOnly(_memoryDate);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: memoryDay.isAfter(today) ? today : memoryDay,
+      firstDate: DateTime(1900),
+      lastDate: today,
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AppColors.deepRose,
+            surface: AppColors.velvet,
+            onSurface: AppColors.petalWhite,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(
+      () => _memoryDate = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        _memoryDate.hour,
+        _memoryDate.minute,
+      ),
+    );
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
@@ -102,6 +137,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
         final updated = widget.existing!.copyWith(
           title: title.isEmpty ? 'Untitled' : title,
           content: content,
+          createdAt: _memoryDate,
           category: _category,
           mood: _mood,
           clearMood: _mood == null,
@@ -118,7 +154,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
           title: title.isEmpty ? 'Untitled' : title,
           content: content,
           author: widget.author,
-          createdAt: now,
+          createdAt: _memoryDate,
           updatedAt: now,
           category: _category,
           mood: _mood,
@@ -165,16 +201,28 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final compact = size.width < 600;
+    final sectionGap = compact ? AppSpacing.sm : AppSpacing.md;
     return Dialog(
       backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.2)),
       ),
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: compact ? AppSpacing.xs : AppSpacing.lg,
+        vertical: compact ? AppSpacing.sm : AppSpacing.lg,
+      ),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 700),
-        padding: const EdgeInsets.all(20),
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: (size.height * 0.92).clamp(0.0, 820.0).toDouble(),
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? AppSpacing.md : AppSpacing.xl,
+          vertical: compact ? AppSpacing.lg : AppSpacing.xl,
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -210,7 +258,66 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: sectionGap),
+              InkWell(
+                onTap: _saving ? null : _pickMemoryDate,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.twilight,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.blushGold.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 20,
+                        color: AppColors.blushGold,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Memory date',
+                              style: AppTypography.outfitBold.copyWith(
+                                fontSize: 11,
+                                color: AppColors.petalWhite.withValues(
+                                  alpha: 0.6,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              MaterialLocalizations.of(
+                                context,
+                              ).formatFullDate(_memoryDate),
+                              style: AppTypography.outfitWhite.copyWith(
+                                fontSize: 14,
+                                color: AppColors.petalWhite,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.edit_calendar_rounded,
+                        size: 18,
+                        color: AppColors.petalWhite.withValues(alpha: 0.55),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: sectionGap),
               // Category
               Text(
                 'Category',
@@ -219,10 +326,10 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: JournalCategory.values.map((c) {
                   final sel = _category == c;
                   final hue = journalCategoryColor(c);
@@ -230,8 +337,8 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                     onTap: () => setState(() => _category = c),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.sm,
                       ),
                       decoration: BoxDecoration(
                         color: sel
@@ -256,7 +363,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: sectionGap),
               // Title
               TextField(
                 controller: _titleController,
@@ -277,17 +384,17 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                     borderSide: BorderSide.none,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: sectionGap),
               // Content
               TextField(
                 controller: _contentController,
-                maxLines: 8,
-                minLines: 5,
+                maxLines: compact ? 6 : 8,
+                minLines: compact ? 4 : 5,
                 style: AppTypography.outfitWhite.copyWith(
                   color: AppColors.petalWhite,
                   fontSize: 14,
@@ -306,10 +413,12 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.all(16),
+                  contentPadding: EdgeInsets.all(
+                    compact ? AppSpacing.md : AppSpacing.lg,
+                  ),
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.sm),
               // Live word count — a little encouragement as they write.
               ValueListenableBuilder<TextEditingValue>(
                 valueListenable: _contentController,
@@ -329,7 +438,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   );
                 },
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.md),
               // Mood row (heartbeat link)
               Text(
                 'Mood (optional)',
@@ -338,9 +447,10 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   color: AppColors.petalWhite.withValues(alpha: 0.6),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Wrap(
-                spacing: 8,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 children: [
                   _buildMoodChip(null, 'None'),
                   ...JournalMood.values.map(
@@ -348,7 +458,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: sectionGap),
               // Tags
               Row(
                 children: [
@@ -372,8 +482,8 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                           borderSide: BorderSide.none,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.md,
                         ),
                         suffixIcon: IconButton(
                           onPressed: _addTag,
@@ -388,9 +498,10 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                 ],
               ),
               if (_tags.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Wrap(
-                  spacing: 6,
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
                   children: _tags
                       .map(
                         (t) => Chip(
@@ -417,7 +528,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                       .toList(),
                 ),
               ],
-              const SizedBox(height: 14),
+              SizedBox(height: sectionGap),
               // Toggles lock/pin
               Row(
                 children: [
@@ -466,7 +577,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: GestureDetector(
                       onTap: () => setState(() => _isLocked = !_isLocked),
@@ -514,21 +625,23 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: compact ? AppSpacing.md : AppSpacing.xl),
               if (_saveError != null) ...[
                 Text(
                   _saveError!,
                   key: _saveErrorKey,
                   style: const TextStyle(color: AppColors.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
               ],
               SizedBox(
                 width: double.infinity,
                 child: GestureDetector(
                   onTap: _saving ? null : _save,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.md,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: _saving
@@ -572,7 +685,10 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     return GestureDetector(
       onTap: () => setState(() => _mood = mood),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: isSel
               ? AppColors.deepRose.withValues(alpha: 0.25)
