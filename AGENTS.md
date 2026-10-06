@@ -37,9 +37,11 @@ simple, and obvious to her. Clair mainly uses Phone and a Tablet so always make 
 
 ## Workflow — how we ship (agreed with Khent)
 
-Full procedure lives in the `everglow-ship` skill
-(`.agents/skills/everglow-ship/SKILL.md`). Load it before committing,
-opening a PR, merging, or reporting a task done.
+Full procedure lives in the `everglow-pr` skill
+(`.agents/skills/everglow-pr/SKILL.md`). Load it before committing,
+opening a PR, merging, or reporting a task done. It also covers the
+PR body shape: what the change is, before/after proof, and whether the
+merge is a one-way or two-way door.
 
 Three rules never bend, even if the skill is not loaded:
 
@@ -98,7 +100,7 @@ only on a version bump — a merge with no bump does nothing.
 - **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / TokenHarbor keys server-side.
 - **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
-- **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-ship` skill.
+- **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-pr` skill.
 
 ## Rules that matter
 
