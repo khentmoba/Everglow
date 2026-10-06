@@ -826,12 +826,16 @@ class _ComposerInputState extends State<_ComposerInput> {
                                                 ? AppColors.roseQuartz
                                                 : AppColors.textMuted,
                                           ),
-                                          const SizedBox(width: 10),
-                                          Text(
-                                            'Canvas',
-                                            style: AppTypography.bodyMedium(),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              'Canvas',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: AppTypography.bodyMedium(),
+                                            ),
                                           ),
-                                          const SizedBox(width: 16),
+                                          const SizedBox(width: 8),
                                           Text(
                                             widget.canvasEnabled ? 'On' : 'Off',
                                             style: AppTypography.labelSmall()
@@ -846,7 +850,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                                             widget.canvasEnabled
                                                 ? Icons.toggle_on_rounded
                                                 : Icons.toggle_off_rounded,
-                                            size: 28,
+                                            size: 24,
                                             color: widget.canvasEnabled
                                                 ? AppColors.roseQuartz
                                                 : AppColors.textMuted,
