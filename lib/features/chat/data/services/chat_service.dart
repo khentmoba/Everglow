@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../domain/models/chat_message.dart';
 import '../../../../core/utils/logger.dart';
@@ -17,6 +19,10 @@ class ChatService {
   }
 
   Stream<List<ChatMessage>> getMessagesStream() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoChatMessages);
+    }
+
     return withFirestoreTimeout(
       _db
           .collection('sanctuary_messages')
@@ -41,6 +47,11 @@ class ChatService {
 
   Future<void> sendMessage(String text, String sender, String senderUid) async {
     if (text.trim().isEmpty) return;
+
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i("Agent session simulated chat send: $text");
+      return;
+    }
 
     try {
       final message = ChatMessage(
@@ -67,6 +78,10 @@ class ChatService {
 
   /// "On This Day" — chat messages from the same month+day in previous years.
   Future<List<ChatMessage>> getMessagesFromThisDay() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return [];
+    }
+
     final now = DateTime.now();
     final month = now.month;
     final day = now.day;

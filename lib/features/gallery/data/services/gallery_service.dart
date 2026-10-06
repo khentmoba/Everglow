@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -90,7 +92,7 @@ class GalleryService {
   ///
   /// Uploads a web-friendly full image (max 1600px, JPEG q85) plus a
   /// 400px grid thumbnail. Grids load `thumbUrl`; the viewer loads the
-  /// full `imageUrl`. Falls back to the original bytes when decoding fails.
+  /// full `imageUrl`. Falls back to the original bytes when decoding fails.\
   Future<MemoryPhoto> uploadPhoto({
     required Uint8List imageBytes,
     required String fileName,
@@ -103,6 +105,10 @@ class GalleryService {
     String? locationName,
     DateTime? takenAt,
   }) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoPhotos.first;
+    }
+
     final stamp = DateTime.now().millisecondsSinceEpoch;
     final base = storageBasePath(
       userId: userId,
@@ -195,6 +201,10 @@ class GalleryService {
 
   /// Stream of all photos, newest first.
   Stream<List<MemoryPhoto>> getPhotosStream() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoPhotos);
+    }
+
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
@@ -209,6 +219,10 @@ class GalleryService {
 
   /// Stream of recent photos (for dashboard preview).
   Stream<List<MemoryPhoto>> getRecentPhotos({int limit = 6}) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoPhotos.take(limit).toList());
+    }
+
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
@@ -223,6 +237,10 @@ class GalleryService {
 
   /// Delete a photo from Firestore and Storage (full + thumbnail).
   Future<void> deletePhoto(MemoryPhoto photo) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return;
+    }
+
     try {
       // Delete from Firestore
       await _db.collection(_collection).doc(photo.id).delete();
@@ -298,6 +316,17 @@ class GalleryService {
   /// Search photos by caption or tags (client-side, one-shot so typing
   /// doesn't re-query on every remote write).
   Future<List<MemoryPhoto>> searchPhotos(String query) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      final lowerQuery = query.toLowerCase();
+      return AgentFixtures.demoPhotos
+          .where(
+            (photo) =>
+                photo.caption.toLowerCase().contains(lowerQuery) ||
+                photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
+          )
+          .toList();
+    }
+
     final lowerQuery = query.toLowerCase();
     final snapshot = await withGetTimeout(
       _db
@@ -319,6 +348,10 @@ class GalleryService {
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.
   Future<List<MemoryPhoto>> getPhotosFromThisDay() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return [];
+    }
+
     final now = DateTime.now();
     final month = now.month;
     final day = now.day;
@@ -368,6 +401,10 @@ class GalleryService {
   DateTime? _thisWeekDay;
   List<MemoryPhoto>? _thisWeekCache;
   Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoPhotos;
+    }
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     if (_thisWeekDay == today && _thisWeekCache != null) return _thisWeekCache!;
@@ -411,6 +448,10 @@ class GalleryService {
       getPhotosWithLocation(limit: 100);
 
   Future<List<MemoryPhoto>> getPhotosWithLocation({int limit = 200}) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoPhotos.where((p) => p.hasLocation).toList();
+    }
+
     try {
       final snap = await withGetTimeout(
         _db
@@ -436,6 +477,10 @@ class GalleryService {
     double? lng,
     String? locationName,
   }) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return;
+    }
+
     try {
       final data = <String, dynamic>{};
       if (lat != null && lng != null) {

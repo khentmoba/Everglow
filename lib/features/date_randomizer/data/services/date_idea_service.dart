@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../models/date_idea.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -18,6 +20,12 @@ class DateIdeaService {
   /// on every dashboard open) was pure cold-start fuel.
   Future<void> initialize({int limit = 50}) async {
     if (_cachedIdeas.isNotEmpty) return;
+
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      _cachedIdeas = AgentFixtures.demoDateIdeas;
+      return;
+    }
+
     final snapshot = await withGetTimeout(
       _db.collection('date_ideas').limit(limit).get(),
       label: 'date ideas load',

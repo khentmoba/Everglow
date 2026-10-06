@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/firestore_pagination.dart';
@@ -20,6 +22,10 @@ class JournalService {
   final String _collection = 'journal_entries';
 
   Stream<List<JournalEntry>> watchAll() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoJournalEntries);
+    }
+
     Stream<List<JournalEntry>> subscribe() {
       return _db
           .collection(_collection)
@@ -59,6 +65,10 @@ class JournalService {
     DateTime date, {
     int limit = 20,
   }) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return const FirestorePage(items: [], nextCursor: null);
+    }
+
     final snap = await withGetTimeout(
       _db
           .collection(_collection)
@@ -80,6 +90,15 @@ class JournalService {
     DocumentSnapshot? cursor,
     int limit = 20,
   }) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Future.value(
+        FirestorePage(
+          items: AgentFixtures.demoJournalEntries.take(limit).toList(),
+          nextCursor: null,
+        ),
+      );
+    }
+
     return fetchFirestorePage(
       collection: _db.collection(_collection),
       orderBy: 'createdAt',
@@ -94,6 +113,12 @@ class JournalService {
   // dashboard visit. Full history stays on watchAll for the journal
   // screen.
   Stream<List<JournalEntry>> watchPreview({int limit = 12}) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(
+        AgentFixtures.demoJournalEntries.take(limit).toList(),
+      );
+    }
+
     Stream<List<JournalEntry>> subscribe() {
       return _db
           .collection(_collection)
@@ -116,6 +141,12 @@ class JournalService {
   }
 
   Stream<List<JournalEntry>> watchPinned() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(
+        AgentFixtures.demoJournalEntries.where((e) => e.isPinned).toList(),
+      );
+    }
+
     return withFirestoreTimeout(
       _db
           .collection(_collection)
@@ -131,6 +162,14 @@ class JournalService {
   }
 
   Stream<List<JournalEntry>> watchByCategory(JournalCategory cat) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(
+        AgentFixtures.demoJournalEntries
+            .where((e) => e.category == cat)
+            .toList(),
+      );
+    }
+
     return withFirestoreTimeout(
       _db
           .collection(_collection)
@@ -146,6 +185,14 @@ class JournalService {
   }
 
   Stream<List<JournalEntry>> watchByAuthor(String author) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(
+        AgentFixtures.demoJournalEntries
+            .where((e) => e.author.toLowerCase() == author.toLowerCase())
+            .toList(),
+      );
+    }
+
     return withFirestoreTimeout(
       _db
           .collection(_collection)
@@ -164,6 +211,19 @@ class JournalService {
   /// One-shot fetch (not a stream) so typing doesn't re-query on every
   /// remote write; callers debounce and memoize the future.
   Future<List<JournalEntry>> search(String query) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      final q = query.toLowerCase().trim();
+      return AgentFixtures.demoJournalEntries
+          .where(
+            (e) =>
+                e.title.toLowerCase().contains(q) ||
+                e.content.toLowerCase().contains(q) ||
+                e.tags.any((t) => t.toLowerCase().contains(q)) ||
+                e.category.name.contains(q),
+          )
+          .toList();
+    }
+
     final q = query.toLowerCase().trim();
     if (q.isEmpty) return const [];
     final snap = await withGetTimeout(
@@ -188,6 +248,10 @@ class JournalService {
 
   /// On This Day — same monthDay
   Future<List<JournalEntry>> getOnThisDay() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return const [];
+    }
+
     final now = DateTime.now();
     final md =
         '${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -230,6 +294,11 @@ class JournalService {
   }
 
   Future<void> add(JournalEntry entry) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated journal add: ${entry.title}');
+      return;
+    }
+
     try {
       await _db.collection(_collection).add(entry.toFirestore());
       Logger.i('Journal added: ${entry.title}');
@@ -240,6 +309,11 @@ class JournalService {
   }
 
   Future<void> update(JournalEntry entry) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated journal update: ${entry.id}');
+      return;
+    }
+
     try {
       await _db.collection(_collection).doc(entry.id).update({
         ...entry.toFirestore(),
@@ -253,6 +327,11 @@ class JournalService {
   }
 
   Future<void> delete(String id) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated journal delete: $id');
+      return;
+    }
+
     try {
       await _db.collection(_collection).doc(id).delete();
       Logger.i('Journal deleted: $id');
@@ -263,6 +342,11 @@ class JournalService {
   }
 
   Future<void> togglePin(String id, bool pinned) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated toggle pin: $id -> $pinned');
+      return;
+    }
+
     try {
       await _db.collection(_collection).doc(id).update({
         'isPinned': pinned,
@@ -283,6 +367,11 @@ class JournalService {
   }
 
   Future<void> toggleLock(String id, bool locked) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      Logger.i('Agent session simulated toggle lock: $id -> $locked');
+      return;
+    }
+
     try {
       await _db
           .collection(_collection)

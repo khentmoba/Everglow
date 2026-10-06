@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 
+import 'core/agent/agent_hud.dart';
+import 'core/agent/agent_mode.dart';
 import 'core/di/app_providers.dart';
 import 'core/di/app_root.dart';
 import 'core/perf/perf_hud.dart';
@@ -79,6 +81,13 @@ Future<void> _startEverglow() async {
   // how tool/perf/measure_scroll.mjs measures a build instead of eyeballing it.
   await PerfSettings.load();
 
+  // Agent sandbox mode (`?agent=1`, `?agent=khent`, `?agent=cinema`, or local dev).
+  // Initialized before router and first frame so deep links work without bouncing.
+  await AgentMode.init();
+  if (AgentMode.isActive.value) {
+    authService.enableAgentSession(profile: AgentMode.activeProfile.value);
+  }
+
   // Bound the decoded-image cache before the first frame.
   //
   // Flutter's default is 1000 images / 100 MB, but that 1000-object count is
@@ -136,7 +145,9 @@ class EverglowApp extends StatelessWidget {
         routerConfig: createAppRouter(),
         scaffoldMessengerKey: _scaffoldMessengerKey,
         builder: (context, child) => PerfMeterOverlay(
-          child: AppUpdatePrompt(child: AppRoot(child: child!)),
+          child: AgentHudOverlay(
+            child: AppUpdatePrompt(child: AppRoot(child: child!)),
+          ),
         ),
       ),
     );

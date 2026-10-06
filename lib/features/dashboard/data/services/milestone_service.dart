@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../domain/models/milestone.dart';
 
@@ -19,6 +21,9 @@ class MilestoneService {
   // dashboard visit is pure scroll-jank fuel. Full history stays
   // available via [milestones] for archive/admin surfaces.
   Stream<List<Milestone>> milestonesPreview({int limit = 50}) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoMilestones);
+    }
     return withFirestoreTimeout(
       _db
           .collection('milestones')
@@ -36,6 +41,7 @@ class MilestoneService {
 
   // Helper to add a milestone (for dev seeding and future admin use)
   Future<void> addMilestone(Milestone milestone) async {
+    if (AgentMode.isActive.value) return;
     await _db.collection('milestones').add(milestone.toFirestore());
   }
 
@@ -43,6 +49,7 @@ class MilestoneService {
   /// from `.png` to `.jpg`. Rewrites only stale `imageUrls`, leaves every
   /// other field untouched, and returns how many docs were repaired.
   Future<int> repairLegacyAssetPaths() async {
+    if (AgentMode.isActive.value) return 0;
     final snapshot = await withGetTimeout(
       _db.collection('milestones').get(),
       label: 'milestone legacy repair scan',

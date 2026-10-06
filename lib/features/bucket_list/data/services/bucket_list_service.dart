@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../models/bucket_item.dart';
 import '../../../../core/utils/logger.dart';
@@ -15,6 +17,9 @@ class BucketListService {
 
   /// All items, newest first.
   Stream<List<BucketItem>> watchAll() {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoBucketList);
+    }
     Stream<List<BucketItem>> subscribe() {
       return _db
           .collection(_collection)
@@ -46,6 +51,9 @@ class BucketListService {
   // on every dashboard visit. Full list stays on watchAll for the
   // bucket-list screen.
   Stream<List<BucketItem>> watchPreview({int limit = 12}) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoBucketList);
+    }
     Stream<List<BucketItem>> subscribe() {
       return _db
           .collection(_collection)
@@ -70,6 +78,11 @@ class BucketListService {
 
   /// Items filtered by status.
   Stream<List<BucketItem>> watchByStatus(BucketStatus status) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(
+        AgentFixtures.demoBucketList.where((i) => i.status == status).toList(),
+      );
+    }
     return withFirestoreTimeout(
       _db
           .collection(_collection)
@@ -88,6 +101,7 @@ class BucketListService {
 
   /// Add a new bucket list item.
   Future<void> add(BucketItem item) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).add(item.toFirestore());
       Logger.i('Added bucket item: ${item.title}');
@@ -98,6 +112,7 @@ class BucketListService {
 
   /// Update an existing bucket list item.
   Future<void> update(BucketItem item) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(item.id).update(item.toFirestore());
       Logger.i('Updated bucket item: ${item.id}');
@@ -108,6 +123,7 @@ class BucketListService {
 
   /// Delete a bucket list item.
   Future<void> delete(String id) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).delete();
       Logger.i('Deleted bucket item: $id');
@@ -130,6 +146,7 @@ class BucketListService {
   }
 
   Future<void> markComplete(String id, String completedBy) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db
           .collection(_collection)
@@ -152,6 +169,7 @@ class BucketListService {
   }
 
   Future<void> markUncomplete(String id) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db
           .collection(_collection)
@@ -165,6 +183,7 @@ class BucketListService {
 
   /// Mark an item as planned.
   Future<void> markPlanned(String id) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).update({
         'status': BucketStatus.planned.name,
@@ -198,6 +217,7 @@ class BucketListService {
     BucketStatus status, {
     String? completedBy,
   }) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db
           .collection(_collection)
@@ -219,6 +239,7 @@ class BucketListService {
   }
 
   Future<void> assign(String id, String? username) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db
           .collection(_collection)
@@ -232,6 +253,7 @@ class BucketListService {
 
   /// Update priority.
   Future<void> setPriority(String id, BucketPriority priority) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).update({
         'priority': priority.name,
@@ -252,6 +274,7 @@ class BucketListService {
   }
 
   Future<void> setDueDate(String id, DateTime? dueDate) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db
           .collection(_collection)

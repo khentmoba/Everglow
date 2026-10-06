@@ -50,6 +50,15 @@ Three rules never bend, even if the skill is not loaded:
 - **Every PR shows proof** — a screenshot in `docs/pr-proof/`, or an
   honest N/A. Fake demo data only, never real couple data.
 
+### Agent Mode & Local Testing (Direct Navigation & Privacy-Safe Demo Data)
+
+Agents and local developers do not need real credentials or passcodes to test Everglow across the ENTIRE site:
+
+- **Direct URL Jumps:** Append `?agent=1` or `?agent=<destination>` directly to the URL (e.g. `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, or `/manga?agent=1`). This unlocks an isolated simulated session and navigates directly to the target feature without password prompts or redirect bounce loops.
+- **Doorway Agent Fast-Jump Launchpad:** When on the gateway door (`/`), the bottom dev bar provides 1-click fast-jumps to **every single section of Everglow**: Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, Academy, Garden, Starlight, Calendar, Trip Kit, Jukebox, Canvas, Bucket List, Money, and profile pickers (Khent, Clair, Cinema Guest).
+- **Floating Agent HUD:** A floating toolbar is present at the bottom of the screen across the app in dev / agent mode. Click route chips across all 20 surfaces to instantly jump between features, or toggle profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize (`—`) button to collapse the HUD into a tiny pill for clean PR proof screenshots.
+- **Privacy-Safe Demo Fixtures:** In Agent Mode, all couple-only features (milestones, notes, mood, starlight, bucket list, calendar, chat, tonight, journal, gallery, date ideas, guardian) automatically feed isolated in-memory mock demo data. Real couple data and private photos are never touched or exposed.
+
 ### Manual browser tooling checks
 
 Agents must run the relevant checks below before requesting review. Use
@@ -80,7 +89,7 @@ it exists on `main`: run
 (or select `performance` / `offline`). It never runs on ordinary PR updates.
 When available, use T3's PR watcher for PR checks rather than polling.
 These tooling checks validate the measuring tools and offline behavior;
-claims about app speed still need measurements described in `docs/PERF_NOTES.md`.
+claims about app speed still need measurements described in `docs/PERF_NOTES.md``.
 For CI failures, runner recovery, and preview commands, see
 [`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md).
 

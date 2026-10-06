@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/models/calendar_event.dart';
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -53,6 +55,10 @@ class CalendarService {
   /// loads attach every preview at the same moment, and a single-shot
   /// budget flipped them all to the error state at once.
   Stream<List<CalendarEvent>> getEventsForMonth(DateTime month) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoEvents);
+    }
+
     Stream<List<CalendarEvent>> subscribe() {
       final startOfMonth = DateTime(month.year, month.month, 1);
       final endOfMonth = DateTime(month.year, month.month + 1);
@@ -88,6 +94,10 @@ class CalendarService {
   /// (Coming Up + Upcoming Dates) so cold starts only attach ONE query
   /// instead of doubling WebChannel load.
   Stream<List<CalendarEvent>> getUpcomingEvents({int days = 30}) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoEvents);
+    }
+
     final entry = _sharedUpcoming.putIfAbsent(days, () {
       late final _SharedUpcomingStream shared;
       shared = _SharedUpcomingStream(
@@ -169,6 +179,10 @@ class CalendarService {
 
   /// Get all events for a specific day.
   Future<List<CalendarEvent>> getEventsForDay(DateTime day) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return AgentFixtures.demoEvents;
+    }
+
     final startOfDay = DateTime(day.year, day.month, day.day);
     final endOfDay = DateTime(day.year, day.month, day.day + 1);
 

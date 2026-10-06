@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../domain/models/hidden_note.dart';
 import '../../../../core/utils/logger.dart';
@@ -27,6 +29,10 @@ class LetterboxService {
   /// Loads cached notes from persistent local storage so the dashboard rail
   /// and archive screen paint instantly on cold launch without showing a skeleton.
   Future<List<HiddenNote>> loadDiskCache() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      _cachedNotes = AgentFixtures.demoNotes;
+      return _cachedNotes;
+    }
     if (_cachedNotes.isNotEmpty) return _cachedNotes;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -80,6 +86,9 @@ class LetterboxService {
   // does not kill the entire rail (the bug that left Letterbox empty
   // after a bad write).
   Stream<List<HiddenNote>> get notes {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoNotes);
+    }
     Stream<List<HiddenNote>> subscribe() {
       return _db
           .collection('notes')
@@ -103,6 +112,9 @@ class LetterboxService {
   // `get(/users/{uid})` evaluation per letter plus bandwidth on every
   // dashboard open — the main reason the rail felt slow on cold start.
   Stream<List<HiddenNote>> notesPreview({int limit = 10}) {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return Stream.value(AgentFixtures.demoNotes);
+    }
     Stream<List<HiddenNote>> subscribe() {
       return _db
           .collection('notes')
@@ -160,6 +172,8 @@ class LetterboxService {
       unawaited(_saveDiskCache(_cachedNotes));
     }
 
+    if (AgentMode.isActive.value) return;
+
     try {
       await _db.collection('notes').doc(noteId).update({'isRead': true});
       Logger.i("Marked note $noteId as read");
@@ -170,6 +184,7 @@ class LetterboxService {
 
   // Optional: helper to add a note (for future admin use)
   Future<void> addNote(HiddenNote note) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection('notes').add(note.toFirestore());
       Logger.i("Added new note to letterbox");
@@ -181,6 +196,7 @@ class LetterboxService {
   // Ensure the notes collection has at least one sample note if empty.
   // Unlike seedInitialNotes() this does NOT clear existing data.
   Future<void> ensureSeeded() async {
+    if (AgentMode.isActive.value) return;
     try {
       // 1. Fast path: if cache already holds notes, the collection is
       // guaranteed to be non-empty — skip network get() completely.
@@ -215,6 +231,7 @@ class LetterboxService {
 
   // Seed the collection with sample data
   Future<void> seedInitialNotes() async {
+    if (AgentMode.isActive.value) return;
     // 1. Clear existing notes
     final existingNotes = await withGetTimeout(
       _db.collection('notes').get(),

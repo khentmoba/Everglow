@@ -22,6 +22,7 @@ import '../widgets/passcode_input.dart';
 import '../widgets/petal_shower.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/agent/agent_mode.dart';
 
 class GatewayPage extends StatefulWidget {
   const GatewayPage({super.key});
@@ -506,46 +507,144 @@ class _GatewayPageState extends State<GatewayPage> {
   }
 
   Widget _buildDevLoginBar() {
-    final chips = <Widget>[
-      if (EnvConfig.breyanPasscode.isNotEmpty)
-        _devUserChip('Cinema', () => _quickLogin(EnvConfig.breyanPasscode)),
+    final destinations = <({String label, String route, IconData icon})>[
+      (label: 'Cinema', route: '/cinema', icon: Icons.movie_rounded),
+      (label: 'Anime', route: '/anime', icon: Icons.smart_display_rounded),
+      (label: 'Mangacelestia', route: '/manga', icon: Icons.auto_stories_rounded),
+      (label: 'Books', route: '/books', icon: Icons.menu_book_rounded),
+      (label: 'Dashboard', route: '/dashboard', icon: Icons.home_rounded),
+      (label: 'Sanctuary', route: '/sanctuary', icon: Icons.chat_bubble_rounded),
+      (label: 'Gallery', route: '/gallery', icon: Icons.photo_library_rounded),
+      (label: 'Journal', route: '/journal', icon: Icons.book_rounded),
+      (label: 'Tonight', route: '/tonight', icon: Icons.nightlife_rounded),
+      (label: 'Play Zone', route: '/play-zone', icon: Icons.sports_esports_rounded),
+      (label: 'Academy', route: '/academy', icon: Icons.school_rounded),
+      (label: 'Garden', route: '/garden', icon: Icons.local_florist_rounded),
+      (label: 'Starlight', route: '/starlight', icon: Icons.star_rounded),
+      (label: 'Calendar', route: '/calendar', icon: Icons.calendar_month_rounded),
+      (label: 'Trip Kit', route: '/trip-kit', icon: Icons.flight_takeoff_rounded),
+      (label: 'Jukebox', route: '/jukebox', icon: Icons.music_note_rounded),
+      (label: 'Canvas', route: '/canvas', icon: Icons.palette_rounded),
+      (label: 'Bucket List', route: '/bucket-list', icon: Icons.checklist_rounded),
+      (label: 'Money', route: '/money', icon: Icons.account_balance_wallet_rounded),
     ];
-    if (chips.isEmpty) return const SizedBox.shrink();
 
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      constraints: const BoxConstraints(maxWidth: 860),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.velvet.withValues(alpha: 0.90),
-        borderRadius: BorderRadius.circular(999),
+        color: AppColors.velvet.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.auroraGold.withValues(alpha: 0.35),
+          color: AppColors.auroraGold.withValues(alpha: 0.40),
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 12,
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.bolt_rounded, color: AppColors.auroraGold, size: 16),
-          const SizedBox(width: 6),
-          Text(
-            'Dev Login:',
-            style: TextStyle(
-              color: AppColors.petalWhite.withValues(alpha: 0.85),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.bolt_rounded, color: AppColors.auroraGold, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                'Agent Fast-Jump:',
+                style: TextStyle(
+                  color: AppColors.petalWhite.withValues(alpha: 0.90),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              _devUserChip('👤 Khent', () => _agentLogin('khentsgdz')),
+              const SizedBox(width: 6),
+              _devUserChip('🌸 Clair', () => _agentLogin('clairjassen')),
+              const SizedBox(width: 6),
+              _devUserChip('🍿 Guest', () => _agentLogin('breyan')),
+              if (EnvConfig.breyanPasscode.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                _devUserChip('Passcode', () => _quickLogin(EnvConfig.breyanPasscode)),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final dest in destinations) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: InkWell(
+                      onTap: () => _agentJump(dest.route),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.inkDeep.withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.blushGold.withValues(alpha: 0.35),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              dest.icon,
+                              size: 13,
+                              color: AppColors.auroraGold,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              dest.label,
+                              style: const TextStyle(
+                                color: AppColors.petalWhite,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          for (final chip in chips) ...[const SizedBox(width: 6), chip],
         ],
       ),
     );
+  }
+
+  void _agentLogin(String profile) {
+    AgentMode.enable(profile: profile);
+    context.read<AuthService>().enableAgentSession(profile: profile);
+    final isCinema = profile == 'breyan';
+    _hasNavigated = true;
+    final destination = _postLoginTarget(
+      cinemaOnly: isCinema,
+      fallback: isCinema ? '/cinema' : '/dashboard',
+    );
+    context.go(destination);
+  }
+
+  void _agentJump(String route, {String profile = 'khentsgdz'}) {
+    AgentMode.enable(profile: profile);
+    context.read<AuthService>().enableAgentSession(profile: profile);
+    _hasNavigated = true;
+    context.go(route);
   }
 
   Widget _devUserChip(String label, VoidCallback onTap) {

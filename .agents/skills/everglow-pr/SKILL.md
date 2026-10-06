@@ -77,6 +77,11 @@ ordinary Quality success does not prove that those browser checks passed.
   `docs/pr-proof/pr-<number>/` (phone width ~430px, compressed).
 - Repo is public: couple-only screens (chat, gallery, notes, garden,
   AI memories) use FAKE demo data only — never real couple data.
+- **Agent Mode for Proof Screenshots & Verification:**
+  - Directly open any destination across the entire site via query parameter: `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, etc., or by appending `?agent=1` to any deep link.
+  - Or click any of the 1-click fast-jump destination chips on the doorway launchpad (Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, etc.).
+  - In Agent Mode, password gates are bypassed and all couple surfaces automatically render safe in-memory demo fixtures.
+  - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize button (`—`) on the HUD before snapping the proof screenshot.
 - Embed it in the PR body with a raw URL pinned to the commit SHA
   (branches get deleted, SHAs don't):
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
