@@ -60,7 +60,11 @@ class PresenceService {
     _currentUsername = username;
 
     setOnline(uid: uid, username: username);
-    unawaited(_createSession(uid, username));
+    if (_activeSessionId == null) {
+      unawaited(_createSession(uid, username));
+    } else {
+      unawaited(_touchSession());
+    }
 
     _heartbeatTimer = Timer.periodic(heartbeatInterval, (_) {
       final id = _currentUid;
@@ -172,6 +176,9 @@ class PresenceService {
   /// compute "active X ago" on the partner's side.
   Future<void> setOffline(String uid) async {
     if (uid.isEmpty) return;
+    // A hidden app must not mark itself online again on the next heartbeat.
+    // Keep its session so returning resumes it instead of creating an orphan.
+    if (_currentUid == uid) _stopHeartbeat();
     try {
       await _doc(uid).set({
         'isOnline': false,
