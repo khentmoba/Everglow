@@ -731,8 +731,11 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-      child: isWide
-          ? Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isWide)
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
@@ -750,7 +753,8 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 ),
               ],
             )
-          : Column(
+          else
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildNetflixLeftColumn(
@@ -762,6 +766,10 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 _buildNetflixRightColumn(),
               ],
             ),
+          const SizedBox(height: 20),
+          _buildCinemaStatusSection(),
+        ],
+      ),
     );
   }
 
@@ -1073,6 +1081,14 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCinemaStatusSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Text(
           'Status',
           style: AppTypography.outfitHeading.copyWith(
@@ -1087,7 +1103,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     );
   }
 
-
   Widget _buildCinemaStatusArea() {
     return Builder(
       builder: (context) {
@@ -1095,49 +1110,45 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           (a) => a.isCoupleUser,
         );
         final chips = isCouple
-            ? Row(
+            ? Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   _buildEnhancedStatusChip(
                     'Want to Watch',
                     'to-watch',
                     icon: Icons.bookmark_rounded,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Khent Watching',
                     'watching-khent',
                     icon: Icons.play_circle_filled_rounded,
                     activeColor: AppColors.cinemaOrange,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Clair Watching',
                     'watching-clair',
                     icon: Icons.play_circle_filled_rounded,
                     activeColor: AppColors.cinemaPink,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Both Watching',
                     'watching-both',
                     icon: Icons.people_rounded,
                     activeColor: AppColors.cinemaAmber,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Khent Watched',
                     'watched-khent',
                     icon: Icons.person_rounded,
                     activeColor: AppColors.cinemaBlue,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Clair Watched',
                     'watched-clair',
                     icon: Icons.favorite_rounded,
                     activeColor: AppColors.cinemaPink,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Both Watched',
                     'watched-both',
@@ -1146,21 +1157,21 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   ),
                 ],
               )
-            : Row(
+            : Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   _buildEnhancedStatusChip(
                     'Want to Watch',
                     'to-watch',
                     icon: Icons.bookmark_rounded,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Currently Watching',
                     'watching-self',
                     icon: Icons.play_circle_filled_rounded,
                     activeColor: AppColors.cinemaOrange,
                   ),
-                  const SizedBox(width: 8),
                   _buildEnhancedStatusChip(
                     'Watched',
                     'watched-self',
@@ -1169,29 +1180,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   ),
                 ],
               );
-        return Scrollbar(
-          thumbVisibility: true,
-          controller: _statusScrollCtrl,
-          scrollbarOrientation: ScrollbarOrientation.bottom,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            controller: _statusScrollCtrl,
-            child: Listener(
-              onPointerSignal: (event) {
-                if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
-                  final ctrl = _statusScrollCtrl;
-                  final clamped = (ctrl.offset + event.scrollDelta.dy).clamp(
-                    ctrl.position.minScrollExtent,
-                    ctrl.position.maxScrollExtent,
-                  );
-                  ctrl.jumpTo(clamped);
-                }
-              },
-              child: chips,
-            ),
-          ),
-        );
+        return chips;
       },
     );
   }
