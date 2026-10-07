@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/shared/widgets/everglow/everglow_marquee.dart';
 
-/// Tests for [EverglowMarquee] infinite carousel behavior across shelves.
+/// Tests for [EverglowMarquee] carousel behavior across shelves.
 ///
-/// Shelves with any items (short or overflowing) tile seamlessly and auto-scroll
+/// Shelves with fewer items (such as 1 or 2 items) space the second set off-screen
+/// so the row carousels normally without showing duplicate covers side-by-side.
+/// Shelves with overflowing items tile seamlessly to fill the viewport and auto-scroll
 /// so all media rails (Cinema, Anime, Books, Reading, Gallery) smoothly carousel.
 void main() {
   Widget harness({
@@ -38,7 +40,30 @@ void main() {
     for (final t in titles) SizedBox(width: 128, height: 186, child: Text(t)),
   ];
 
-  testWidgets('short row tiles and auto-scrolls seamlessly without gaps', (
+  testWidgets('single-item row carousels normally with off-screen loop set (no side-by-side duplicates)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(width: 800, children: cards(['A Shop for Killers'])),
+    );
+    await tester.pump();
+
+    // Exactly 1 set visible on screen (second set placed off-screen at x >= 800)
+    final firstCard = tester.getTopLeft(find.text('A Shop for Killers').first);
+    final secondCard = tester.getTopLeft(find.text('A Shop for Killers').last);
+    expect(firstCard.dx, closeTo(0.0, 1.0));
+    expect(secondCard.dx, greaterThanOrEqualTo(780.0));
+
+    // Auto-scrolls smoothly over time
+    for (var i = 0; i < 120; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final after = tester.getTopLeft(find.text('A Shop for Killers').first);
+    expect(after.dx, lessThan(firstCard.dx));
+  });
+
+  testWidgets('two-item row carousels normally without side-by-side duplicates', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -46,9 +71,28 @@ void main() {
     );
     await tester.pump();
 
-    // Tiles enough sets to fill the viewport + seamless wrap
-    expect(find.text('Movie A'), findsWidgets);
-    expect(find.text('Movie B'), findsWidgets);
+    // First set is on screen, second set is off-screen
+    final firstA = tester.getTopLeft(find.text('Movie A').first);
+    final secondA = tester.getTopLeft(find.text('Movie A').last);
+    expect(firstA.dx, closeTo(0.0, 1.0));
+    expect(secondA.dx, greaterThanOrEqualTo(780.0));
+
+    // Auto-scrolls smoothly over time
+    for (var i = 0; i < 120; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final after = tester.getTopLeft(find.text('Movie A').first);
+    expect(after.dx, lessThan(firstA.dx));
+  });
+
+  testWidgets('row with 3 or more items tiles and auto-scrolls seamlessly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness(width: 800, children: cards(['Movie A', 'Movie B', 'Movie C'])),
+    );
+    await tester.pump();
 
     final before = tester.getTopLeft(find.text('Movie A').first);
 

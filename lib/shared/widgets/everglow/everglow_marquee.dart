@@ -7,8 +7,10 @@ import '../../../core/theme/app_motion.dart';
 /// Infinite horizontal marquee — constant-speed, hover-to-pause.
 ///
 /// When `AppMotion.reduced` is true, the ticker is paused (content shown statically).
-/// Tiles sufficient copies of the children to seamlessly fill the viewport
-/// and loop infinitely without visual gaps across all shelves.
+/// For short rows where content does not overflow the viewport (such as 1 or 2 items),
+/// an inter-set spacer keeps the next set off-screen so the row carousels normally
+/// without showing repeated duplicate covers side-by-side. For overflowing rows,
+/// sets tile seamlessly with standard spacing to loop infinitely without visual gaps.
 ///
 /// Performance notes (why this file looks the way it does):
 /// - The offset is a [ValueNotifier] consumed by a single [AnimatedBuilder]
@@ -174,11 +176,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   /// Runs the metronome only while the row can actually drift.
-  ///
-  /// A row that fits on screen shows a static [Row], and a hovered row holds
-  /// its offset — in both cases the old code kept the controller repeating, so
-  /// the app scheduled a frame 60 times a second to do nothing. Same pixels,
-  /// no frames.
   void _syncTicker() {
     final c = _controller;
     if (c == null) return;
@@ -239,9 +236,24 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     _canScroll = widget.children.isNotEmpty;
     _syncTicker();
 
-    final sets = (viewportWidth.isFinite && viewportWidth > 0 && _loopWidth > 0)
-        ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
-        : 2;
+    final setWidth = _estimateSetWidth();
+    // For short rows that do not overflow the viewport (e.g. 1 or 2 items),
+    // set the inter-set gap so the next set starts off-screen. This allows
+    // the shelf to carousel normally without showing duplicate covers side-by-side.
+    final isShort =
+        viewportWidth.isFinite && viewportWidth > 0 && setWidth < viewportWidth;
+    final interSetGap = isShort
+        ? (viewportWidth - setWidth + widget.itemSpacing)
+        : widget.itemSpacing;
+
+    _loopWidth = setWidth + interSetGap;
+    if (_loopWidth <= 0) _loopWidth = 1;
+
+    final sets = isShort
+        ? 2
+        : (viewportWidth.isFinite && viewportWidth > 0 && _loopWidth > 0)
+            ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
+            : 2;
 
     Widget row = SizedBox(
       height: widget.height,
@@ -257,7 +269,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
           child: Row(
             children: [
               for (var s = 0; s < sets; s++) ...[
-                if (s > 0) SizedBox(width: widget.itemSpacing),
+                if (s > 0) SizedBox(width: interSetGap),
                 Row(children: _items),
               ],
             ],
@@ -272,7 +284,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     // dark bar on the dashboard's purple glow). The mask itself is static
     // — only the Transform underneath moves — and the RepaintBoundary
     // above keeps the saveLayer cost inside this row.
-    // Static rows fit, never clip, and render no fade.
     if (widget.edgeFade) {
       row = ShaderMask(
         shaderCallback: (Rect bounds) {
