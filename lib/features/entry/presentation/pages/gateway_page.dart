@@ -522,7 +522,7 @@ class _GatewayPageState extends State<GatewayPage> {
       (label: 'Garden', route: '/garden', icon: Icons.local_florist_rounded),
       (label: 'Starlight', route: '/starlight', icon: Icons.star_rounded),
       (label: 'Calendar', route: '/calendar', icon: Icons.calendar_month_rounded),
-      (label: 'Trip Kit', route: '/trip-kit', icon: Icons.flight_takeoff_rounded),
+      (label: 'Trip Kit', route: '/trips', icon: Icons.flight_takeoff_rounded),
       (label: 'Jukebox', route: '/jukebox', icon: Icons.music_note_rounded),
       (label: 'Canvas', route: '/canvas', icon: Icons.palette_rounded),
       (label: 'Bucket List', route: '/bucket-list', icon: Icons.checklist_rounded),

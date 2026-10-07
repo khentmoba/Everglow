@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:everglow/core/agent/agent_mode.dart';
 
 import 'package:everglow/features/jukebox/data/models/music_status.dart';
 import 'package:everglow/features/jukebox/data/services/music_persistence_service.dart';
@@ -95,6 +96,26 @@ JukeboxProvider _provider({
 }
 
 void main() {
+  test('demo mode never subscribes or polls real listening data', () async {
+    AgentMode.isActive.value = true;
+    AgentMode.useDemoData.value = true;
+    addTearDown(() => AgentMode.isActive.value = false);
+    final store = _FakeStore();
+    var fetches = 0;
+    final provider = _provider(
+      store: store,
+      fetch: (_) {
+        fetches++;
+        return null;
+      },
+    );
+    final status = await provider.statusStream.first;
+    expect(status.values.every((entry) => !entry.isPlaying), isTrue);
+    expect(store.controllers, isEmpty);
+    expect(store.saved, isEmpty);
+    expect(fetches, 0);
+  });
+
   group('JukeboxProvider live recovery', () {
     test('replays current state to new subscribers immediately', () async {
       final store = _FakeStore();

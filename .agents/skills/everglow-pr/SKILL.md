@@ -26,7 +26,9 @@ harness-specific tools required.
   `docs/...`, `style/...`). One task per branch. If the checkout has
   someone else's uncommitted changes, stop and move first — don't mix.
 - Work in your own folder: if your harness supports git worktrees, use
-  one per task and delete it once merged. (T3 agents: hidden folders
+  one per task. Before cleanup, follow `docs/WORKTREE_CLEANUP.md` and use
+  `node tool/remove_worktree.mjs`; keep folders owned by unsettled threads.
+  (T3 agents: hidden folders
   live in `C:/Users/Admin/.t3/worktrees/Everglow/...`, never as
   `Everglow-xxx` next to the main folder. `C:/APPLICATIONS` keeps only
   the real projects.)
@@ -96,6 +98,9 @@ ordinary Quality success does not prove that those browser checks passed.
 
 Three sections, no preamble. Khent should be able to read the body and
 know whether to merge without opening a single file.
+Use `.github/pull_request_template.md`. Quality checks its required fields
+on PR creation, code pushes, body edits, and draft changes. Keep blocked
+proof or verification in a draft; visual proof cannot be N/A because capture failed.
 
 ### Summary — the smallest thing that makes the change obvious
 
@@ -146,6 +151,10 @@ best: show the check that fails before the fix and passes after.
 Match the evidence to the claim. A screenshot proves how it LOOKS, not
 that it WORKS. If you claim a tap, a scroll, or a sync works, show the
 steps or say plainly that you only proved the look. No exceptions.
+Inspect each image: it must show the changed screen, not the gateway.
+Record `Analysis:`, `Tests:`, `Guards:`, and `Browser:` as `passed — details`
+or `N/A — reason`. Include commands, counts, and applicable server/manual
+browser checks. CI validates declarations and pinned files, not their truth.
 
 ### Merge Danger — call it honestly
 
@@ -193,6 +202,9 @@ rules judge honesty:
   Frequency is not correctness. Fix the cause, not the symptom.
 - Keep the task's size: a typo fix does not launch the app, a small fix does
   not grow into a refactor. Unrelated debt gets a note, not a detour.
+- For performance work, reproduce and measure the target interaction before
+  planning tooling. Report tooling repair separately from user-visible
+  improvement. Keep an unmet device target open and name the missing evidence.
 - Finish with the result, the checks you actually ran, where the evidence is,
   and what is still unverified. Worker-reported success you did not check
   yourself is not your evidence.

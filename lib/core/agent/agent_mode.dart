@@ -37,16 +37,16 @@ class AgentMode {
     'play-zone': '/play-zone',
     'arcade': '/play-zone',
     'academy': '/academy',
-    'trip-kit': '/trip-kit',
-    'tripkit': '/trip-kit',
+    'trip-kit': '/trips',
+    'tripkit': '/trips',
     'canvas': '/canvas',
     'bucket-list': '/bucket-list',
     'bucketlist': '/bucket-list',
     'money': '/money',
     'jukebox': '/jukebox',
     'music': '/jukebox',
-    'watch-party': '/watch-party',
-    'watchparty': '/watch-party',
+    'watch-party': '/cinema?tab=4',
+    'watchparty': '/cinema?tab=4',
   };
 
   /// Whether Agent Mode is currently enabled.

@@ -19,6 +19,19 @@ gh workflow run quality.yml --ref YOUR_BRANCH -f preview=true --repo khentmoba/E
 Preview waits for cache tests and release compilation, independently of the
 other selected checks. A working preview is not proof that all CI checks passed.
 
+The release build also runs `node tool/agent_smoke.mjs build/web` in
+disposable Chrome. It visits every agent alias at 430px and 810px, starting
+with a saved Journal location, and checks the destination URL and rendered
+screen with the HUD collapsed. This proves navigation and initial rendering;
+it does not prove catalog availability, playback, editing, or live sync.
+Use Node 22+ and installed Chrome locally. Pass an alias as a third argument
+to reproduce one failure, then rerun the complete sweep after fixing it.
+
+Ready PRs also run `tool/ci/pr_contract.mjs` on body edits. Use the PR
+template, record actual check results, and pin screenshots to the commit
+containing them. The guard checks declarations and files, not whether a
+claimed test ran. Keep incomplete verification in a draft.
+
 Performance-tool browser controls and the real-browser offline control are
 manual, with required local checks documented in `AGENTS.md`. They are not
 ordinary PR jobs. The opt-in workflow runs the two suites independently so

@@ -45,6 +45,28 @@ void main() {
   });
 
   group('AppNetworkImage widget', () {
+    testWidgets('demo artwork decodes from the bundled asset', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: AppNetworkImage(
+            imageUrl: 'assets/images/demo/poster-1.jpg',
+            width: 100,
+            height: 150,
+          ),
+        ),
+      );
+      await tester.runAsync(() async {
+        await precacheImage(
+          const AssetImage('assets/images/demo/poster-1.jpg'),
+          tester.element(find.byType(AppNetworkImage)),
+        );
+      });
+      await tester.pump();
+      expect(tester.widget<Image>(find.byType(Image)).image, isA<AssetImage>());
+      expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('renders fallback widget for invalid URL', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(

@@ -1,25 +1,28 @@
-<!-- What did you change, in one or two plain sentences? -->
-## What
+## Summary
 
-## Why it matters for Clair
+<!-- Explain the problem and resulting behaviour with the smallest useful view. -->
 
-<!-- Paste screenshot(s) of the changed screen here (just what changed).
-     Frontend preview links are posted by Quality using its verified web artifact.
-     Docs/backend-only PRs can mark preview N/A.
-     Repo is public: for couple-only screens (chat, gallery, notes,
-     garden, AI memories) use FAKE demo data only — never real couple data.
-     Save shots in docs/pr-proof/pr-<number>/ on your branch and embed them:
-     ![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<commit-sha>/docs/pr-proof/pr-<number>/shot.png)
-     Pin to the commit SHA (not the branch name) so pictures survive after merge. -->
-## Proof
+## Evidence
 
-- [ ] Screenshot shows above (or N/A for non-UI changes like CI/docs)
-- [ ] Preview link checked on phone width (or N/A for non-UI changes)
+<!-- Show before/after from the actual changed screen using synthetic demo data.
+     Inspect the images before attaching them. Label widget renders honestly.
+     Pin image links to the 40-character commit SHA:
+     ![After](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)
+     Nonvisual changes only: Proof: N/A - explain why.
+     Leave the PR draft when proof or verification is blocked. -->
 
-## Checks
+Analysis:
+Tests:
+Guards:
+Browser:
 
-- [ ] `flutter analyze` passes
-- [ ] `flutter test --exclude-tags="golden,network"` passes
-- [ ] Regression guards pass (`dart tool/ci/check_*.dart`)
-- [ ] Looked at the change in Chrome (`flutter run -d chrome`), or N/A for non-UI changes
-- [ ] Relevant manual browser tooling checks recorded (see AGENTS.md), or N/A
+<!-- For each line, record passed - commands/results, or N/A - reason.
+     Include applicable backend/manual browser checks and their results here.
+     Green CI and declarations do not prove interactions; list steps you performed. -->
+
+## Merge Danger
+
+**Door:**
+**Blast radius:**
+
+<!-- Choose one-way or two-way. For one-way changes describe failure and recovery. -->
