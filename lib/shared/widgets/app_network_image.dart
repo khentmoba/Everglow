@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/perf/perf_settings.dart';
 
 /// Shared network image with web-performance defaults.
 ///
@@ -31,10 +32,11 @@ import '../../core/theme/app_colors.dart';
 /// already decoded. `cacheWidth`/`cacheHeight` become `memCacheWidth` /
 /// `memCacheHeight` so the in-memory bitmap stays downscaled too.
 ///
-/// Exception: on Flutter Web they are ignored (native browser decode).
+/// Exception: remote images on Flutter Web ignore decode bounds.
 /// An upstream CanvasKit bug (flutter/flutter#158093, #160199) turns any
 /// downscaled decode into `WebGL: INVALID_VALUE: texImage2D: no image`
-/// + black rectangles, so web always decodes at natural size.
+/// + black rectangles, so remote web images decode at natural size. Bundled
+/// assets use known decode bounds with the existing sized-asset rollback switch.
 ///
 /// Failed loads retry on their own with backoff (2s, 8s, 32s, 128s, 512s).
 /// A brief network blip no longer leaves every rail stuck on its fallback
@@ -254,11 +256,21 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
     Widget image;
 
     if (isAsset) {
+      final decodeWidth = AppNetworkImage.resolveCacheWidth(
+        declaredCacheWidth: widget.cacheWidth,
+        displayWidth: widget.width,
+      );
       image = Image.asset(
         widget.imageUrl,
         width: widget.width,
         height: widget.height,
         fit: widget.fit,
+        cacheWidth: decodeWidth == null
+            ? null
+            : PerfSettings.sizedDecodeWidth(decodeWidth),
+        cacheHeight: widget.cacheHeight == null
+            ? null
+            : PerfSettings.sizedDecodeWidth(widget.cacheHeight!),
         filterQuality: widget.filterQuality,
         excludeFromSemantics: true,
         errorBuilder: (context, _, _) => _fallback(),

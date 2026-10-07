@@ -185,3 +185,31 @@ Neither guard proves performance, image sharpness or privacy by itself.
 Shipped scaffolding is not a speed improvement. State measured results,
 evidence and limitations separately. Further optimization follows reliable
 measurements and real-phone readings, not the withdrawn historical tables.
+
+## Extended phone optimization (PR #494)
+
+The phone policy now covers shared shelves, anime airing tickers, decorative
+emblems/presence dots, manga loading pulses, guardian idle floating and jukebox
+card/vinyl effects. Phones show still decoration and manually swipe shelves;
+tablet/desktop motion remains available. Active media playback and tap actions
+are separate from this ambient-motion policy.
+
+Saved anime collections and playlist details now use lazy sliver grids rather
+than eager grids inside another scroll view. In the synthetic 414 x 896 widget
+check in `test/full_phone_optimization_test.dart`, the 100-card shared shelf
+initially built 5 cards (95% fewer than the reproduced 100), and a 200-item anime
+collection mounted 6 cards instead of 200 (97% fewer). Horizontal and vertical
+scroll checks reached later cards while retaining a bounded mounted collection.
+These are widget-count reductions, not measured whole-app memory or FPS gains.
+
+`AppNetworkImage` now applies existing decode bounds to bundled assets with a
+known display/cache size and respects the existing web `sizeddecode=0` rollback.
+Unknown display sizes keep their natural resolution. Remote web decoding stays
+on its existing implementation. Partner presence and doodle indicators retain
+their stream between freshness timer rebuilds instead of resubscribing each time.
+
+Desktop browser timing is not an iPhone 11 result. An attempted benchmark against
+an unstamped raw Flutter build was rejected by the harness; it is not valid speed
+evidence. The real-phone acceptance targets above remain open until an installed
+Safari/PWA before/after recording is available. This pass does not establish a
+whole-app percentage gain, battery saving, or guaranteed 60 FPS.

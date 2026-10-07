@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_art.dart';
+import '../../../../core/theme/app_motion.dart';
 
 class VinylRecord extends StatefulWidget {
   const VinylRecord({super.key, this.isPlaying = true});
@@ -22,15 +23,28 @@ class _VinylRecordState extends State<VinylRecord>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
-    if (widget.isPlaying) _controller.repeat();
   }
 
   @override
   void didUpdateWidget(covariant VinylRecord oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isPlaying && !_controller.isAnimating) {
+    _syncMotion();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    final animate =
+        widget.isPlaying &&
+        !AppMotion.reduceAmbientMotion(context) &&
+        TickerMode.valuesOf(context).enabled;
+    if (animate && !_controller.isAnimating) {
       _controller.repeat();
-    } else if (!widget.isPlaying && _controller.isAnimating) {
+    } else if (!animate && _controller.isAnimating) {
       _controller.stop();
     }
   }

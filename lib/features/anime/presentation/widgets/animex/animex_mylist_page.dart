@@ -47,81 +47,97 @@ class _AnimeXMyListPageState extends State<AnimeXMyListPage> {
     final toWatch = library.toWatch;
     final watched = library.watched;
 
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 64),
-      children: [
-        Text(
-          'My List',
-          style: bebasStyle(size: 32, color: AnimeXTokens.textPrimary),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '${library.length} anime in your collection',
-          style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
-        ),
-        const SizedBox(height: 16),
-        _buildSourceToggle(),
-        const SizedBox(height: 12),
-        _buildQuickLinks(),
-        const SizedBox(height: 20),
-        _buildStats(watching.length, toWatch.length, watched.length),
-        const SizedBox(height: 28),
-        if (library.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 50),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.bookmark_add_outlined,
-                    color: AnimeXTokens.textMuted,
-                    size: 40,
+    final content = <Widget>[
+      Text(
+        'My List',
+        style: bebasStyle(size: 32, color: AnimeXTokens.textPrimary),
+      ),
+      const SizedBox(height: 2),
+      Text(
+        '${library.length} anime in your collection',
+        style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
+      ),
+      const SizedBox(height: 16),
+      _buildSourceToggle(),
+      const SizedBox(height: 12),
+      _buildQuickLinks(),
+      const SizedBox(height: 20),
+      _buildStats(watching.length, toWatch.length, watched.length),
+      const SizedBox(height: 28),
+      if (library.isEmpty)
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 50),
+          child: Center(
+            child: Column(
+              children: [
+                Icon(
+                  Icons.bookmark_add_outlined,
+                  color: AnimeXTokens.textMuted,
+                  size: 40,
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Your list is empty - add anime from Search',
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 14,
+                    color: AnimeXTokens.textSecondary,
+                    fontWeight: FontWeight.w600,
                   ),
-                  SizedBox(height: 12),
-                  Text(
-                    'Your list is empty - add anime from Search',
-                    style: TextStyle(
-                      fontFamily: 'DM Sans',
-                      fontSize: 14,
-                      color: AnimeXTokens.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          )
-        else ...[
-          if (watching.isNotEmpty) ...[
-            _sectionTitle('Watching', watching.length),
-            AnimeXGrid(
-              items: watching,
-              onTap: (item) => widget.controller.openWatch(item),
-              hoverActionBuilder: (item) => _removeButton(item),
-            ),
-            const SizedBox(height: 28),
-          ],
-          if (toWatch.isNotEmpty) ...[
-            _sectionTitle('Plan to Watch', toWatch.length),
-            AnimeXGrid(
-              items: toWatch,
-              onTap: (item) => widget.controller.openWatch(item),
-              hoverActionBuilder: (item) => _removeButton(item),
-            ),
-            const SizedBox(height: 28),
-          ],
-          if (watched.isNotEmpty) ...[
-            _sectionTitle('Completed', watched.length),
-            AnimeXGrid(
-              items: watched,
-              onTap: (item) => widget.controller.openWatch(item),
-              hoverActionBuilder: (item) => _removeButton(item),
-            ),
-          ],
+          ),
+        )
+      else ...[
+        if (watching.isNotEmpty) ...[
+          _sectionTitle('Watching', watching.length),
+          AnimeXGrid(
+            sliver: true,
+            items: watching,
+            onTap: (item) => widget.controller.openWatch(item),
+            hoverActionBuilder: (item) => _removeButton(item),
+          ),
+          const SizedBox(height: 28),
         ],
-        const SizedBox(height: 24),
-        AnimeXFooter(controller: widget.controller),
+        if (toWatch.isNotEmpty) ...[
+          _sectionTitle('Plan to Watch', toWatch.length),
+          AnimeXGrid(
+            sliver: true,
+            items: toWatch,
+            onTap: (item) => widget.controller.openWatch(item),
+            hoverActionBuilder: (item) => _removeButton(item),
+          ),
+          const SizedBox(height: 28),
+        ],
+        if (watched.isNotEmpty) ...[
+          _sectionTitle('Completed', watched.length),
+          AnimeXGrid(
+            sliver: true,
+            items: watched,
+            onTap: (item) => widget.controller.openWatch(item),
+            hoverActionBuilder: (item) => _removeButton(item),
+          ),
+        ],
+      ],
+      const SizedBox(height: 24),
+      AnimeXFooter(controller: widget.controller),
+    ];
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 64),
+          sliver: SliverMainAxisGroup(
+            slivers: [
+              for (final child in content)
+                if (child is AnimeXGrid)
+                  child
+                else
+                  SliverToBoxAdapter(child: child),
+            ],
+          ),
+        ),
       ],
     );
   }

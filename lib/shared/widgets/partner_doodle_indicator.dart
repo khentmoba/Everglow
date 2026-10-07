@@ -18,6 +18,8 @@ class PartnerDoodleIndicator extends StatefulWidget {
 class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
   Timer? _ticker;
   DateTime _now = DateTime.now();
+  String? _presenceUid;
+  Stream<PresenceStatus>? _presenceStream;
 
   @override
   void initState() {
@@ -42,16 +44,24 @@ class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
     // select() instead of watch(): partner fields change rarely, and a
     // full watch rebuilds this indicator (and re-evaluates the stream
     // builder below) on every unrelated auth notify.
-    final partnerUid = context.select<AuthService, String?>((a) => a.partnerUid);
-    final partnerName = context.select<AuthService, String>((a) => a.partnerName);
+    final partnerUid = context.select<AuthService, String?>(
+      (a) => a.partnerUid,
+    );
+    final partnerName = context.select<AuthService, String>(
+      (a) => a.partnerName,
+    );
     final presence = context.read<PresenceService>();
 
     if (partnerUid == null) {
       return const SizedBox.shrink();
     }
 
+    if (_presenceUid != partnerUid) {
+      _presenceUid = partnerUid;
+      _presenceStream = presence.watchPresence(partnerUid);
+    }
     return StreamBuilder<PresenceStatus>(
-      stream: presence.watchPresence(partnerUid),
+      stream: _presenceStream,
       builder: (context, snapshot) {
         final status = snapshot.data ?? PresenceStatus.empty(partnerUid);
         final isDoodling = status.isActivelyDoodlingAt(_now);

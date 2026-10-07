@@ -55,16 +55,11 @@ class _EverglowGuardianState extends State<EverglowGuardian>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
-    if (!AppMotion.reduced) {
-      _idleController.repeat(reverse: true);
-    }
 
-    _floatingAnimation = Tween<double>(
-      begin: 0,
-      end: AppMotion.reduced ? 0 : -15,
-    ).animate(
-      CurvedAnimation(parent: _idleController, curve: Curves.easeInOut),
-    );
+    _floatingAnimation =
+        Tween<double>(begin: 0, end: AppMotion.reduced ? 0 : -15).animate(
+          CurvedAnimation(parent: _idleController, curve: Curves.easeInOut),
+        );
 
     // Reaction Animation: Quick Jump/Bounce
     _reactionController = AnimationController(
@@ -98,6 +93,19 @@ class _EverglowGuardianState extends State<EverglowGuardian>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled ||
+        (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+      _idleController.stop();
+    } else if (!_idleController.isAnimating) {
+      _idleController.repeat(reverse: true);
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final guardian = mounted ? context.read<GuardianController>() : null;
     if (state == AppLifecycleState.hidden ||
@@ -106,7 +114,9 @@ class _EverglowGuardianState extends State<EverglowGuardian>
       _idleController.stop();
       guardian?.pauseIdle();
     } else if (state == AppLifecycleState.resumed) {
-      if (!AppMotion.reduced && mounted) {
+      if (mounted &&
+          !AppMotion.reduceAmbientMotion(context) &&
+          TickerMode.valuesOf(context).enabled) {
         _idleController.repeat(reverse: true);
       }
       guardian?.resumeIdle();

@@ -30,6 +30,8 @@ class PartnerPresenceIndicator extends StatefulWidget {
 class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
   Timer? _ticker;
   DateTime _now = DateTime.now();
+  String? _presenceUid;
+  Stream<PresenceStatus>? _presenceStream;
 
   @override
   void initState() {
@@ -54,10 +56,18 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
     // select() instead of watch(): partner fields change rarely, and a
     // full watch rebuilds this indicator (and re-evaluates the stream
     // builder below) on every unrelated auth notify.
-    final partnerUid = context.select<AuthService, String?>((a) => a.partnerUid);
-    final partnerName = context.select<AuthService, String>((a) => a.partnerName);
-    final isCoupleUser = context.select<AuthService, bool>((a) => a.isCoupleUser);
-    final isResolvingPartner = context.select<AuthService, bool>((a) => a.isResolvingPartner);
+    final partnerUid = context.select<AuthService, String?>(
+      (a) => a.partnerUid,
+    );
+    final partnerName = context.select<AuthService, String>(
+      (a) => a.partnerName,
+    );
+    final isCoupleUser = context.select<AuthService, bool>(
+      (a) => a.isCoupleUser,
+    );
+    final isResolvingPartner = context.select<AuthService, bool>(
+      (a) => a.isResolvingPartner,
+    );
     final refreshPartnerLink = context.read<AuthService>().refreshPartnerLink;
     final presence = context.read<PresenceService>();
 
@@ -103,8 +113,12 @@ class _PartnerPresenceIndicatorState extends State<PartnerPresenceIndicator> {
       );
     }
 
+    if (_presenceUid != partnerUid) {
+      _presenceUid = partnerUid;
+      _presenceStream = presence.watchPresence(partnerUid);
+    }
     return StreamBuilder<PresenceStatus>(
-      stream: presence.watchPresence(partnerUid),
+      stream: _presenceStream,
       builder: (context, snapshot) {
         final status = snapshot.data ?? PresenceStatus.empty(partnerUid);
         final isOnline = status.isOnlineAt(_now);

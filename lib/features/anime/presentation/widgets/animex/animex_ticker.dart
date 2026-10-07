@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_motion.dart';
 
 import '../../../../cinema/data/models/media_item.dart';
 
@@ -25,7 +26,29 @@ class _AnimeXTickerState extends State<AnimeXTicker>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 40),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimeXTicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled ||
+        widget.items.isEmpty) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat();
+    }
   }
 
   @override
@@ -40,7 +63,12 @@ class _AnimeXTickerState extends State<AnimeXTicker>
     final narrow = MediaQuery.sizeOf(context).width < 600;
     return MouseRegion(
       onEnter: (_) => _ctrl.stop(),
-      onExit: (_) => _ctrl.repeat(),
+      onExit: (_) {
+        if (!AppMotion.reduceAmbientMotion(context) &&
+            TickerMode.valuesOf(context).enabled) {
+          _ctrl.repeat();
+        }
+      },
       child: Container(
         height: 40,
         decoration: BoxDecoration(
@@ -52,9 +80,7 @@ class _AnimeXTickerState extends State<AnimeXTicker>
               AnimeXTokens.bg,
             ],
           ),
-          border: const Border(
-            bottom: BorderSide(color: AnimeXTokens.border),
-          ),
+          border: const Border(bottom: BorderSide(color: AnimeXTokens.border)),
         ),
         clipBehavior: Clip.hardEdge,
         child: Row(
@@ -72,10 +98,7 @@ class _AnimeXTickerState extends State<AnimeXTicker>
                       color: AnimeXTokens.success,
                       shape: BoxShape.circle,
                       boxShadow: [
-                        BoxShadow(
-                          color: AnimeXTokens.success,
-                          blurRadius: 8,
-                        ),
+                        BoxShadow(color: AnimeXTokens.success, blurRadius: 8),
                       ],
                     ),
                   ),
@@ -94,48 +117,61 @@ class _AnimeXTickerState extends State<AnimeXTicker>
             ),
             // Scrolling marquee track with edge fades via ShaderMask.
             Expanded(
-              child: ClipRect(
-                child: ShaderMask(
-                  shaderCallback: (Rect bounds) {
-                    if (bounds.width <= 48) {
-                      return const LinearGradient(
-                        colors: [Colors.white, Colors.white],
-                      ).createShader(bounds);
-                    }
-                    final leftStop = (24.0 / bounds.width).clamp(0.0, 0.2);
-                    final rightStop =
-                        ((bounds.width - 32.0) / bounds.width).clamp(0.8, 1.0);
-                    return LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: const [
-                        Colors.transparent,
-                        Colors.white,
-                        Colors.white,
-                        Colors.transparent,
-                      ],
-                      stops: [0.0, leftStop, rightStop, 1.0],
-                    ).createShader(bounds);
-                  },
-                  blendMode: BlendMode.dstIn,
-                  child: OverflowBox(
-                    maxWidth: double.infinity,
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedBuilder(
-                      animation: _ctrl,
-                      builder: (context, _) {
-                        return Transform.translate(
-                          offset: Offset(
-                            -_ctrl.value * _trackWidth(context),
-                            0,
+              child: AppMotion.reduceAmbientMotion(context)
+                  ? ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: widget.items.length,
+                      itemBuilder: (context, i) =>
+                          _tickerItem(context, widget.items[i]),
+                    )
+                  : ClipRect(
+                      child: ShaderMask(
+                        shaderCallback: (Rect bounds) {
+                          if (bounds.width <= 48) {
+                            return const LinearGradient(
+                              colors: [Colors.white, Colors.white],
+                            ).createShader(bounds);
+                          }
+                          final leftStop = (24.0 / bounds.width).clamp(
+                            0.0,
+                            0.2,
+                          );
+                          final rightStop =
+                              ((bounds.width - 32.0) / bounds.width).clamp(
+                                0.8,
+                                1.0,
+                              );
+                          return LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: const [
+                              Colors.transparent,
+                              Colors.white,
+                              Colors.white,
+                              Colors.transparent,
+                            ],
+                            stops: [0.0, leftStop, rightStop, 1.0],
+                          ).createShader(bounds);
+                        },
+                        blendMode: BlendMode.dstIn,
+                        child: OverflowBox(
+                          maxWidth: double.infinity,
+                          alignment: Alignment.centerLeft,
+                          child: AnimatedBuilder(
+                            animation: _ctrl,
+                            builder: (context, _) {
+                              return Transform.translate(
+                                offset: Offset(
+                                  -_ctrl.value * _trackWidth(context),
+                                  0,
+                                ),
+                                child: _track(context),
+                              );
+                            },
                           ),
-                          child: _track(context),
-                        );
-                      },
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
             ),
           ],
         ),
@@ -194,15 +230,10 @@ class _AnimeXTickerState extends State<AnimeXTicker>
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: AnimeXTokens.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(
-                    AnimeXTokens.radiusSm,
-                  ),
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
                   border: Border.all(
                     color: AnimeXTokens.accent.withValues(alpha: 0.3),
                   ),

@@ -86,7 +86,6 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         vsync: this,
         duration: const Duration(seconds: 1),
       )..addListener(_onTick);
-      _syncTicker();
     }
   }
 
@@ -133,6 +132,7 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
       _scrollPosition = pos;
       _scrollPosition?.addListener(_onScroll);
     }
+    _syncTicker();
   }
 
   void _onScroll() {
@@ -184,6 +184,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
         _canScroll &&
         !_hovered &&
         _isVisible &&
+        TickerMode.valuesOf(context).enabled &&
+        !AppMotion.reduceAmbientMotion(context) &&
         !(_scrollSettle?.isActive ?? false);
     if (shouldRun && !c.isAnimating) {
       c.repeat();
@@ -205,13 +207,19 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   @override
   Widget build(BuildContext context) {
     if (widget.children.isEmpty) return const SizedBox.shrink();
-    // Reduced motion: static row, no ticker, no per-frame work at all.
-    if (AppMotion.reduced || _controller == null) {
+    // One lazy, swipeable copy on phones. Every card remains reachable without
+    // continuously repainting a duplicated track or its edge shader.
+    if (AppMotion.reduceAmbientMotion(context) || _controller == null) {
       return RepaintBoundary(
         child: ClipRect(
           child: SizedBox(
             height: widget.height,
-            child: Row(children: _items),
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: widget.children.length,
+              separatorBuilder: (_, _) => SizedBox(width: widget.itemSpacing),
+              itemBuilder: (_, index) => widget.children[index],
+            ),
           ),
         ),
       );
@@ -252,8 +260,8 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
     final sets = isShort
         ? 2
         : (viewportWidth.isFinite && viewportWidth > 0 && _loopWidth > 0)
-            ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
-            : 2;
+        ? (1 + (viewportWidth / _loopWidth).ceil()).clamp(2, 30)
+        : 2;
 
     Widget row = SizedBox(
       height: widget.height,

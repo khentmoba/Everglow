@@ -30,17 +30,31 @@ class _EverglowPresenceDotState extends State<EverglowPresenceDot>
   AnimationController? _controller;
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
+  }
+
+  @override
+  void didUpdateWidget(covariant EverglowPresenceDot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncPulse();
+  }
+
+  void _syncPulse() {
     final shouldPulse =
-        !AppMotion.reduced &&
+        !AppMotion.reduceAmbientMotion(context) &&
+        TickerMode.valuesOf(context).enabled &&
         (widget.state == PresenceState.online ||
             widget.state == PresenceState.doodle);
     if (shouldPulse) {
-      _controller = AnimationController(
+      _controller ??= AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 1400),
-      )..repeat(reverse: true);
+      );
+      if (!_controller!.isAnimating) _controller!.repeat(reverse: true);
+    } else {
+      _controller?.stop();
     }
   }
 

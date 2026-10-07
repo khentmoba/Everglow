@@ -53,6 +53,11 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 3200),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _syncAnim();
   }
 
@@ -64,7 +69,9 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
 
   void _syncAnim() {
     final live = widget.status.isPlaying;
-    if (live && !AppMotion.reduced) {
+    if (live &&
+        !AppMotion.reduceAmbientMotion(context) &&
+        TickerMode.valuesOf(context).enabled) {
       _glowController.repeat(reverse: true);
       _shimmerController.repeat();
       _floatController.repeat(reverse: true);
@@ -690,4 +697,3 @@ class _MusicCardState extends State<MusicCard> with TickerProviderStateMixin {
     return DateFormat('h:mm a').format(dt);
   }
 }
-
