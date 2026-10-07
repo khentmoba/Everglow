@@ -39,9 +39,7 @@ class EmbedWebView extends StatefulWidget {
   final Set<String>? allowedHosts;
 
   /// Called with page-bridged player events (JSON string) posted to the
-  /// `EverglowPlayer` JS channel. Our embed.html wrapper uses it to
-  /// report CineSrc episode changes on native, where there is no
-  /// window.postMessage path to Flutter. Null disables the channel.
+  /// `EverglowPlayer` JavaScript channel.
   final void Function(String message)? onPlayerMessage;
 
   const EmbedWebView({
@@ -68,6 +66,30 @@ class EmbedWebView extends StatefulWidget {
       final episode = (decoded['episode'] as num?)?.toInt();
       if (season == null || episode == null) return null;
       return (season, episode);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Parses a trusted CineSrc timeupdate bridged by our wrapper.
+  static (int, int)? parsePlayerProgress(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['type'] != 'cinesrc:timeupdate') {
+        return null;
+      }
+      final position = decoded['currentTime'];
+      final duration = decoded['duration'];
+      if (position is! num ||
+          duration is! num ||
+          !position.isFinite ||
+          !duration.isFinite ||
+          position < 0 ||
+          duration <= 0 ||
+          position > duration) {
+        return null;
+      }
+      return (position.round(), duration.round());
     } catch (_) {
       return null;
     }

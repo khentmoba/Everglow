@@ -34,6 +34,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// Tracks whether we've saved the initial "watching" status for this
   /// playback session so we don't spam Firestore on every rebuild.
   bool _hasSavedWatchProgress = false;
+  bool _currentEpisodeCompleted = false;
 
   /// Current season/episode state — updated by [EpisodeNavigator] for TV
   /// content so the iframe URL rebuilds when the user switches episodes.
@@ -208,6 +209,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
     _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
+    _currentEpisodeCompleted = widget.currentEpisodeCompleted;
     _playbackPositionSeconds = widget.startSeconds ?? 0;
     _resolveNextEpisode();
 
@@ -276,6 +278,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _playbackDurationSeconds = 0;
     setState(() {
       _currentEpisode = episode;
+      _currentEpisodeCompleted = false;
       _isLoading = true;
       _iframeFailed = false;
     });
@@ -303,6 +306,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     setState(() {
       _currentSeason = season;
       _currentEpisode = 1;
+      _currentEpisodeCompleted = false;
       _isLoading = true;
       _iframeFailed = false;
     });
@@ -470,6 +474,35 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
           // Not an object message — fall through to VidLink handling.
         }
 
+        try {
+          final obj = data.dartify();
+          if (obj is Map && obj['type'] == 'cinesrc:timeupdate') {
+            final position = obj['currentTime'];
+            final duration = obj['duration'];
+            if (CinemaVideoSources.trustsCinesrcProgressEvent(
+                  _selectedProvider.id,
+                  origin,
+                ) &&
+                position is num &&
+                duration is num &&
+                position.isFinite &&
+                duration.isFinite &&
+                position >= 0 &&
+                duration > 0 &&
+                position <= duration) {
+              final positionSeconds = position.round();
+              final durationSeconds = duration.round();
+              if (durationSeconds > 0 && positionSeconds <= durationSeconds) {
+                _contentCheckTimer?.cancel();
+                _onPlaybackTick(positionSeconds, durationSeconds);
+              }
+            }
+            return;
+          }
+        } catch (_) {
+          // Ignore malformed CineSrc progress events.
+        }
+
         // Only accept messages from the active provider's origin
         final activeOrigin = _originForProvider(_selectedProvider.id);
         if (origin != activeOrigin) return;
@@ -545,6 +578,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     setState(() {
       _currentSeason = season;
       _currentEpisode = episode;
+      _currentEpisodeCompleted = false;
     });
     // Manual navigation reloads the iframe, whose load event saves
     // progress — with no reload we save explicitly instead.
@@ -718,6 +752,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     setState(() {
       _currentSeason = next.season;
       _currentEpisode = next.episode;
+      _currentEpisodeCompleted = false;
       _isLoading = true;
       _iframeFailed = false;
       _upNextVisible = false;

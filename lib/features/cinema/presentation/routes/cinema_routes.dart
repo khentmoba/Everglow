@@ -24,6 +24,9 @@ final List<GoRoute> cinemaRoutes = [
           isAnime: state.uri.queryParameters['anime'] == 'true',
           malId: int.tryParse(state.uri.queryParameters['malId'] ?? ''),
           posterPath: state.uri.queryParameters['poster'] ?? '',
+          allEpisodesWatched: state.uri.queryParameters['watched'] == 'true',
+          currentEpisodeCompleted:
+              state.uri.queryParameters['completed'] == 'true',
         ),
       ),
     ],

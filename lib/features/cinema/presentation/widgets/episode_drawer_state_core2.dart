@@ -341,8 +341,20 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         ? '&poster=${Uri.encodeComponent(widget.item.posterPath)}'
         : '';
     final title = '${cleanTitle(widget.item.title)}: $epTitle';
+    final watchedParam = !_isAnimeSourced && widget.item.isWatched
+        ? '&watched=true'
+        : '';
+    final duration = widget.item.durationSeconds ?? 0;
+    final completedParam =
+        !_isAnimeSourced &&
+            season == widget.item.currentSeason &&
+            episode == widget.item.currentEpisode &&
+            duration > 0 &&
+            (widget.item.currentTimestamp ?? 0) / duration >= 0.95
+        ? '&completed=true'
+        : '';
     context.push(
-      '/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$malIdParam$posterParam',
+      '/cinema/video/$id?type=tv&title=${Uri.encodeComponent(title)}&season=$season&episode=$episode&anime=$_isAnimeSourced$watchedParam$completedParam$malIdParam$posterParam',
     );
   }
 

@@ -406,7 +406,13 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
               (s) => s['season_number'] != null && s['season_number'] > 0,
               orElse: () => _seasons.first,
             );
-            _selectedSeasonNumber = firstSeason['season_number'];
+            final selectedSeason = _isAnimeSourced
+                ? firstSeason
+                : _seasons.firstWhere(
+                    (s) => s['season_number'] == widget.item.currentSeason,
+                    orElse: () => firstSeason,
+                  );
+            _selectedSeasonNumber = selectedSeason['season_number'];
             if (_selectedSeasonNumber != null) {
               _fetchSeasonEpisodes(_selectedSeasonNumber!);
             }

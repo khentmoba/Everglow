@@ -14,6 +14,10 @@ class EpisodeNavigator extends StatefulWidget {
   final int tmdbId;
   final int initialSeason;
   final int initialEpisode;
+  final int positionSeconds;
+  final int durationSeconds;
+  final bool allEpisodesWatched;
+  final bool currentEpisodeCompleted;
   final ValueChanged<int> onSeasonChanged;
   final ValueChanged<int> onEpisodeChanged;
   final CinemaPreferences? preferences;
@@ -24,6 +28,10 @@ class EpisodeNavigator extends StatefulWidget {
     required this.tmdbId,
     required this.initialSeason,
     required this.initialEpisode,
+    this.positionSeconds = 0,
+    this.durationSeconds = 0,
+    this.allEpisodesWatched = false,
+    this.currentEpisodeCompleted = false,
     required this.onSeasonChanged,
     required this.onEpisodeChanged,
     this.preferences,
@@ -86,7 +94,10 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
 
   void _selectSeason(int seasonNum) {
     if (seasonNum == _selectedSeason) return;
-    setState(() => _selectedSeason = seasonNum);
+    setState(() {
+      _selectedSeason = seasonNum;
+      _selectedEpisode = 1;
+    });
     _fetchEpisodes(seasonNum);
     widget.onSeasonChanged(seasonNum);
   }
@@ -272,6 +283,19 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                   return EpisodeTile(
                     key: ValueKey('${widget.tmdbId}/$_selectedSeason/$epNum'),
                     hideSpoilers: _preferences.hideSpoilers,
+                    revealedByProgress:
+                        _preferences.hideSpoilers &&
+                        shouldRevealEpisodeDetails(
+                          season: _selectedSeason,
+                          episode: epNum,
+                          currentSeason: _selectedSeason,
+                          currentEpisode: _selectedEpisode,
+                          currentPositionSeconds: widget.positionSeconds,
+                          currentDurationSeconds: widget.durationSeconds,
+                          allEpisodesWatched: widget.allEpisodesWatched,
+                          currentEpisodeCompleted:
+                              widget.currentEpisodeCompleted,
+                        ),
                     epNum: epNum,
                     epName: name,
                     epOverview: overview,

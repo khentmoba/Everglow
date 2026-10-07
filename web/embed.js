@@ -95,6 +95,13 @@
       try {
         window.parent.postMessage(out, '*');
       } catch (err) {}
+      if (d.type === 'cinesrc:timeupdate') {
+        try {
+          if (window.EverglowPlayer && window.EverglowPlayer.postMessage) {
+            window.EverglowPlayer.postMessage(JSON.stringify(out));
+          }
+        } catch (err) {}
+      }
       return;
     }
 
