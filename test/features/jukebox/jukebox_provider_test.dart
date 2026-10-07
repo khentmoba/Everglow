@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/core/agent/agent_mode.dart';
 
@@ -96,6 +97,36 @@ JukeboxProvider _provider({
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('hidden app stops Last.fm polling and returning refreshes', (
+    tester,
+  ) async {
+    final store = _FakeStore();
+    var fetches = 0;
+    final provider = _provider(
+      store: store,
+      fetch: (_) {
+        fetches++;
+        return null;
+      },
+      pollInterval: const Duration(seconds: 1),
+    );
+    await tester.pump();
+    expect(fetches, 2);
+    provider.didChangeAppLifecycleState(AppLifecycleState.hidden);
+    store.controllers.single.addError(Exception('offline'));
+    await tester.pump(const Duration(seconds: 5));
+    expect(fetches, 2);
+    expect(store.controllers.length, 1);
+    provider.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(fetches, 4);
+    await tester.pump(const Duration(seconds: 1));
+    expect(fetches, 6);
+    expect(store.controllers.length, 2);
+    provider.didChangeAppLifecycleState(AppLifecycleState.hidden);
+  });
   test('demo mode never subscribes or polls real listening data', () async {
     AgentMode.isActive.value = true;
     AgentMode.useDemoData.value = true;

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/config/env_config.dart';
 import '../../../../core/utils/logger.dart';
@@ -10,7 +10,7 @@ import '../../data/services/music_sync_service.dart';
 /// Last.fm music statistics for both people in the couple.
 ///
 /// Exposes each user's all-time top 10 tracks and 5 most recent scrobbles.
-class MusicStatsProvider extends ChangeNotifier {
+class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
   MusicStatsProvider({
     MusicSyncService? syncService,
     Future<Uri> Function(Uri url)? signLastfmUrl,
@@ -21,6 +21,9 @@ class MusicStatsProvider extends ChangeNotifier {
         _prefs = prefs {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _init();
   }
 
@@ -44,6 +47,7 @@ class MusicStatsProvider extends ChangeNotifier {
   final Set<String> _reactiveHealAttempted = {};
   bool _isLoading = true;
   bool _disposed = false;
+  bool _appActive = true;
 
   /// All-time scrobble totals from Last.fm (0 while loading or when
   /// unavailable; cached in SharedPreferences across app sessions).
@@ -98,6 +102,7 @@ class MusicStatsProvider extends ChangeNotifier {
       _refreshRecentTracks(_clairUser, _clairRecentTracks),
       _refreshUserTotals(),
     ]);
+    if (_disposed) return;
     _isLoading = false;
     _safeNotify();
 
@@ -107,6 +112,27 @@ class MusicStatsProvider extends ChangeNotifier {
     unawaited(_enrichRecentTrackArtwork(_recentTracks));
     unawaited(_enrichTopTrackArtwork(_clairTopTracks));
     unawaited(_enrichRecentTrackArtwork(_clairRecentTracks));
+
+    _startTimers();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final active = state == AppLifecycleState.resumed;
+    if (_disposed || active == _appActive) return;
+    _appActive = active;
+    _recentTracksTimer?.cancel();
+    _topTracksTimer?.cancel();
+    if (active && !_isLoading) {
+      unawaited(_periodicRecentRefresh());
+      _startTimers();
+    }
+  }
+
+  void _startTimers() {
+    if (_disposed || !_appActive) return;
+    _recentTracksTimer?.cancel();
+    _topTracksTimer?.cancel();
 
     // Recent scrobbles refresh frequently so a fresh listen shows up
     // quickly; the all-time leaderboard barely changes, so it is polled
@@ -122,6 +148,7 @@ class MusicStatsProvider extends ChangeNotifier {
   }
 
   Future<void> _periodicRecentRefresh() async {
+    if (_disposed || !_appActive) return;
     // If the leaderboard is still empty (e.g. the boot fetch hit a
     // transient Last.fm error payload), retry it here every minute
     // instead of waiting up to 10 minutes for the top-tracks timer —
@@ -147,6 +174,7 @@ class MusicStatsProvider extends ChangeNotifier {
   }
 
   Future<void> _periodicTopRefresh() async {
+    if (_disposed || !_appActive) return;
     await Future.wait([
       _refreshTopTracks(_khentUser, _topTracks),
       _refreshTopTracks(_clairUser, _clairTopTracks),
@@ -510,6 +538,7 @@ class MusicStatsProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _recentTracksTimer?.cancel();
     _topTracksTimer?.cancel();
     super.dispose();

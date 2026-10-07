@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/config/env_config.dart';
 import '../../../../core/services/auth_service.dart';
@@ -9,7 +9,7 @@ import '../../data/models/music_status.dart';
 import '../../data/services/music_sync_service.dart';
 import '../../data/services/music_persistence_service.dart';
 
-class JukeboxProvider extends ChangeNotifier {
+class JukeboxProvider extends ChangeNotifier with WidgetsBindingObserver {
   JukeboxProvider({
     MusicSyncService? apiService,
     MusicPersistenceService? persistenceService,
@@ -34,6 +34,9 @@ class JukeboxProvider extends ChangeNotifier {
         StreamController<Map<String, MusicStatus>>.broadcast(
           onListen: _replayLatest,
         );
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     _initProvider();
   }
 
@@ -61,6 +64,27 @@ class JukeboxProvider extends ChangeNotifier {
   Timer? _resubscribeTimer;
   int _resubscribeAttempts = 0;
   bool _disposed = false;
+  bool _appActive = true;
+  bool _pollInFlight = false;
+  bool _needsResubscribe = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final active = state == AppLifecycleState.resumed;
+    if (_disposed || active == _appActive) return;
+    _appActive = active;
+    _pollingTimer?.cancel();
+    _resubscribeTimer?.cancel();
+    if (active && !(AgentMode.isActive.value && AgentMode.useDemoData.value)) {
+      if (_needsResubscribe) {
+        _subscribeToFirestore([
+          EnvConfig.lastfmUserKhent,
+          EnvConfig.lastfmUserClair,
+        ]);
+      }
+      _pollLoop(EnvConfig.lastfmUserKhent, EnvConfig.lastfmUserClair);
+    }
+  }
 
   final Map<String, MusicStatus> _currentStatus = {};
 
@@ -90,8 +114,15 @@ class JukeboxProvider extends ChangeNotifier {
   /// so realtime costs nothing extra there — just a few more free
   /// Last.fm reads while music plays.
   Future<void> _pollLoop(String khent, String clair) async {
-    final live = await _fetchAndSync(khent, clair);
-    if (_disposed) return;
+    if (_disposed || !_appActive || _pollInFlight) return;
+    _pollInFlight = true;
+    bool live;
+    try {
+      live = await _fetchAndSync(khent, clair);
+    } finally {
+      _pollInFlight = false;
+    }
+    if (_disposed || !_appActive) return;
     // Echoed Firestore state covers failed polls: a failed fetch returns
     // false, but the last known live state keeps the fast cadence.
     final anyoneLive =
@@ -109,6 +140,7 @@ class JukeboxProvider extends ChangeNotifier {
   }
 
   void _subscribeToFirestore(List<String> usernames) {
+    _needsResubscribe = false;
     _firestoreSubscription?.cancel();
     _firestoreSubscription = _persistenceService
         .musicStatusStream(usernames)
@@ -133,7 +165,9 @@ class JukeboxProvider extends ChangeNotifier {
 
   void _scheduleResubscribe(List<String> usernames) {
     if (_disposed) return;
+    _needsResubscribe = true;
     _resubscribeTimer?.cancel();
+    if (!_appActive) return;
     // Back off so a persistently-denied session doesn't hot-loop listens.
     var delay = _resubscribeDelay;
     for (var i = 0; i < _resubscribeAttempts; i++) {
@@ -145,7 +179,7 @@ class JukeboxProvider extends ChangeNotifier {
     }
     _resubscribeAttempts++;
     _resubscribeTimer = Timer(delay, () {
-      if (_disposed || _statusController.isClosed) return;
+      if (_disposed || !_appActive || _statusController.isClosed) return;
       _subscribeToFirestore(usernames);
     });
   }
@@ -245,6 +279,7 @@ class JukeboxProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _pollingTimer?.cancel();
     _resubscribeTimer?.cancel();
     _firestoreSubscription?.cancel();
