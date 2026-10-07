@@ -18,6 +18,7 @@ import '../../../../core/theme/app_motion.dart';
 /// or layout passes happen per frame.
 ///
 /// Honors `AppMotion.reduced` by rendering nothing.
+/// On phones the same artwork stays still, without a repeating ticker.
 class DashboardAmbience extends StatefulWidget {
   final ScrollController? scrollController;
   const DashboardAmbience({super.key, this.scrollController});
@@ -41,13 +42,6 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.scrollController?.addListener(_onScrollChange);
-    if (!AppMotion.reduced) {
-      _controller = AnimationController(
-        vsync: this,
-        duration: const Duration(seconds: 24),
-      )..repeat();
-      _painter = _AmbiencePainter(_controller!);
-    }
   }
 
   @override
@@ -73,6 +67,13 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_controller == null && !AppMotion.reduced) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 24),
+      );
+      _painter = _AmbiencePainter(_controller!);
+    }
     _syncRouteSecondaryAnimation();
     _updateTickerState();
   }
@@ -95,14 +96,20 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
     final c = _controller;
     if (c == null) return;
     // A pending settle means the list is still moving — stay paused.
-    if (_scrollSettle?.isActive ?? false) return;
     final route = ModalRoute.of(context);
     final isRouteVisible = route == null || route.isCurrent;
     final isAppVisible = _lifecycleState == AppLifecycleState.resumed;
-    final isScrolledPast = widget.scrollController != null &&
+    final isScrolledPast =
+        widget.scrollController != null &&
         widget.scrollController!.hasClients &&
         widget.scrollController!.offset > 850;
-    final shouldRun = isRouteVisible && isAppVisible && !isScrolledPast;
+    final shouldRun =
+        isRouteVisible &&
+        isAppVisible &&
+        !isScrolledPast &&
+        !(_scrollSettle?.isActive ?? false) &&
+        TickerMode.valuesOf(context).enabled &&
+        !AppMotion.reduceAmbientMotion(context);
 
     if (shouldRun && !c.isAnimating) {
       c.repeat();
@@ -133,7 +140,7 @@ class _DashboardAmbienceState extends State<DashboardAmbience>
   @override
   Widget build(BuildContext context) {
     final painter = _painter;
-    if (painter == null) return const SizedBox.shrink();
+    if (painter == null || AppMotion.reduced) return const SizedBox.shrink();
     return IgnorePointer(
       child: ExcludeSemantics(
         child: RepaintBoundary(child: CustomPaint(painter: painter)),
@@ -190,7 +197,9 @@ class _DashboardCursorGlowState extends State<DashboardCursorGlow>
 
   void _handleHover(PointerHoverEvent event) {
     final now = DateTime.now();
-    if (_lastHover != null && now.difference(_lastHover!).inMilliseconds < 16) return;
+    if (_lastHover != null && now.difference(_lastHover!).inMilliseconds < 16) {
+      return;
+    }
     _lastHover = now;
     _sample.value = _CursorSample(
       event.localPosition,
@@ -286,6 +295,7 @@ class _BreathingEmblemState extends State<BreathingEmblem>
       _scrollPosition = pos;
       _scrollPosition?.addListener(_onScroll);
     }
+    _onScroll();
   }
 
   void _onScroll() {
@@ -293,9 +303,11 @@ class _BreathingEmblemState extends State<BreathingEmblem>
     if (_breath?.isAnimating ?? false) _breath?.stop();
     if (_halo?.isAnimating ?? false) _halo?.stop();
     _scrollSettle?.cancel();
+    if (AppMotion.reduceAmbientMotion(context)) return;
     _scrollSettle = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted) return;
-      final offscreen = _scrollPosition != null &&
+      if (!mounted || AppMotion.reduceAmbientMotion(context)) return;
+      final offscreen =
+          _scrollPosition != null &&
           _scrollPosition!.hasPixels &&
           _scrollPosition!.pixels > 350;
       if (offscreen) return;
@@ -374,6 +386,7 @@ class _ShimmerTitleState extends State<ShimmerTitle>
       _scrollPosition = pos;
       _scrollPosition?.addListener(_onScroll);
     }
+    _onScroll();
   }
 
   void _onScroll() {
@@ -381,9 +394,11 @@ class _ShimmerTitleState extends State<ShimmerTitle>
     // while the list moves so scroll raster gets the whole thread.
     if (_controller?.isAnimating ?? false) _controller?.stop();
     _scrollSettle?.cancel();
+    if (AppMotion.reduceAmbientMotion(context)) return;
     _scrollSettle = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted) return;
-      final offscreen = _scrollPosition != null &&
+      if (!mounted || AppMotion.reduceAmbientMotion(context)) return;
+      final offscreen =
+          _scrollPosition != null &&
           _scrollPosition!.hasPixels &&
           _scrollPosition!.pixels > 350;
       if (offscreen) return;
@@ -463,14 +478,17 @@ class _PulseHeartState extends State<PulseHeart>
       _scrollPosition = pos;
       _scrollPosition?.addListener(_onScroll);
     }
+    _onScroll();
   }
 
   void _onScroll() {
     if (_controller?.isAnimating ?? false) _controller?.stop();
     _scrollSettle?.cancel();
+    if (AppMotion.reduceAmbientMotion(context)) return;
     _scrollSettle = Timer(const Duration(milliseconds: 400), () {
-      if (!mounted) return;
-      final offscreen = _scrollPosition != null &&
+      if (!mounted || AppMotion.reduceAmbientMotion(context)) return;
+      final offscreen =
+          _scrollPosition != null &&
           _scrollPosition!.hasPixels &&
           _scrollPosition!.pixels > 350;
       if (offscreen) return;
@@ -1039,14 +1057,18 @@ class _CursorGlowPainter extends CustomPainter {
         radius,
         Paint()
           ..color = AppColors.auroraRose.withValues(alpha: 0.10 * eased)
-          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 12),
+          ..maskFilter = kIsWeb
+              ? null
+              : const MaskFilter.blur(BlurStyle.normal, 12),
       );
       canvas.drawCircle(
         sample.position,
         radius * 0.45,
         Paint()
           ..color = AppColors.blushGold.withValues(alpha: 0.14 * eased)
-          ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 6),
+          ..maskFilter = kIsWeb
+              ? null
+              : const MaskFilter.blur(BlurStyle.normal, 6),
       );
     }
 

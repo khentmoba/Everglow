@@ -19,6 +19,17 @@ real-device and authenticated feature behavior still need matching evidence.
 
 ## Changes retained
 
+- Phones (viewport shortest side below 600 logical pixels, including landscape)
+  now keep the dashboard's ambient backdrop and header decoration still, and
+  use still shared/anime loading placeholders. This is Khent's requested
+  automatic lighter-effects policy; tablets retain motion. It does not change
+  render resolution, media playback, or image decode paths.
+- Shared loading shimmer detaches from inactive `TickerMode` pages and pauses
+  outside the resumed app lifecycle. Regression checks failed on both paths
+  before the change and pass afterwards. `test/phone_ambient_motion_test.dart`
+  checks that phone decoration schedules no continuing animation frames and
+  that tablet motion returns after resizing. These are scheduling checks, not
+  measurements of battery use or iPhone presentation FPS.
 - `DeferredSection` defers offscreen dashboard content, with finite lists and
   coalesced geometry checks. Tests: `test/deferred_section_test.dart` and
   `test/core/perf/scroll_jank_benchmark_test.dart`.

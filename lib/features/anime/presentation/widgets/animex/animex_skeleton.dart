@@ -166,16 +166,22 @@ class _ShimmerState extends State<_Shimmer> {
   Listenable? _shimmer;
 
   @override
-  void initState() {
-    super.initState();
-    if (!AppMotion.reduced) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animate =
+        TickerMode.valuesOf(context).enabled &&
+        !AppMotion.reduceAmbientMotion(context);
+    if (animate && _shimmer == null) {
       _shimmer = EverglowShimmerScope.attach();
+    } else if (!animate && _shimmer != null) {
+      EverglowShimmerScope.detach();
+      _shimmer = null;
     }
   }
 
   @override
   void dispose() {
-    if (!AppMotion.reduced) {
+    if (_shimmer != null) {
       EverglowShimmerScope.detach();
     }
     super.dispose();

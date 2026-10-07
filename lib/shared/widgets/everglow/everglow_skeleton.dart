@@ -10,7 +10,7 @@ import '../../../core/theme/app_typography.dart';
 /// Instead of every skeleton running its own 60fps [AnimationController]
 /// (which previously meant dozens of discordant tickers and gradient allocations
 /// when loading shelves or search results), this single ref-counted ticker runs
-/// only when at least one active skeleton is mounted.
+/// only when at least one motion-enabled skeleton is on an active page.
 ///
 /// All skeletons pulse in unified harmony, and frame overhead drops to near zero.
 class EverglowShimmerScope {
@@ -20,6 +20,7 @@ class EverglowShimmerScope {
       const _AmbientShimmerTickerProvider();
   static AnimationController? _controller;
   static int _activeCount = 0;
+  static final _lifecycle = _ShimmerLifecycleObserver();
 
   @visibleForTesting
   static int get activeCount => _activeCount;
@@ -30,7 +31,11 @@ class EverglowShimmerScope {
       _controller = AnimationController(
         vsync: _tickerProvider,
         duration: const Duration(milliseconds: 1300),
-      )..repeat();
+      );
+      WidgetsBinding.instance.addObserver(_lifecycle);
+      _lifecycle.didChangeAppLifecycleState(
+        WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+      );
     }
     return _controller ?? const AlwaysStoppedAnimation<double>(0.0);
   }
@@ -42,6 +47,7 @@ class EverglowShimmerScope {
       _controller?.stop();
       _controller?.dispose();
       _controller = null;
+      WidgetsBinding.instance.removeObserver(_lifecycle);
     }
   }
 
@@ -54,6 +60,19 @@ class EverglowShimmerScope {
     _controller?.dispose();
     _controller = null;
     _activeCount = 0;
+    WidgetsBinding.instance.removeObserver(_lifecycle);
+  }
+}
+
+class _ShimmerLifecycleObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = EverglowShimmerScope.controller;
+    if (state == AppLifecycleState.resumed) {
+      controller?.repeat();
+    } else {
+      controller?.stop();
+    }
   }
 }
 
@@ -74,6 +93,7 @@ class _AmbientShimmerTickerProvider implements TickerProvider {
 ///
 /// Shows a pulsing shimmer when motion is allowed, or a static dim
 /// fill when `AppMotion.reduced` is true.
+/// Phones also use the still fill to avoid continuous loading repaints.
 class EverglowSkeleton extends StatefulWidget {
   final double width;
   final double height;
@@ -94,16 +114,22 @@ class _EverglowSkeletonState extends State<EverglowSkeleton> {
   Listenable? _shimmer;
 
   @override
-  void initState() {
-    super.initState();
-    if (!AppMotion.reduced) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final animate =
+        TickerMode.valuesOf(context).enabled &&
+        !AppMotion.reduceAmbientMotion(context);
+    if (animate && _shimmer == null) {
       _shimmer = EverglowShimmerScope.attach();
+    } else if (!animate && _shimmer != null) {
+      EverglowShimmerScope.detach();
+      _shimmer = null;
     }
   }
 
   @override
   void dispose() {
-    if (!AppMotion.reduced) {
+    if (_shimmer != null) {
       EverglowShimmerScope.detach();
     }
     super.dispose();
