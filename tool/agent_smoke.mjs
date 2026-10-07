@@ -8,7 +8,7 @@ const aliases = [...source.split('routeAliases = {')[1].split('};')[0].matchAll(
   .map(match => [match[1], match[2]]);
 assert.ok(aliases.length > 0, 'No agent destinations found');
 const markers = {
-  '/cinema': /Everglow|Watch Together/i, '/anime': /My List/i,
+  '/cinema': /Trending Now|Watch Together/i, '/anime': /My List/i,
   '/manga': /Mangacelestia|Latest Updates|Hot Manga/i, '/books': /Books|Categories/i,
   '/dashboard': /Forever In Bloom/i,
   '/sanctuary': /Sanctuary/, '/gallery': /Memory Gallery/, '/journal': /Our Journal/,
@@ -27,6 +27,7 @@ try {
     `localStorage.setItem('flutter.route_memory:last_location', JSON.stringify('/journal'));`});
   const origin = `http://127.0.0.1:${server.address().port}`;
   const filter = process.argv[3];
+  const failures = [];
   for (const width of [430, 810]) {
     await cdp.send('Emulation.setDeviceMetricsOverride', {width,height:932,deviceScaleFactor:1,mobile:false});
     for (const [alias, destination] of aliases.filter(([alias]) => !filter || alias === filter)) {
@@ -49,15 +50,21 @@ try {
             markers[expected.pathname].test(page.text)) break;
         await sleep(100);
       }
-      assert.equal(page?.path, expected.pathname, `${alias} restored the wrong page`);
-      assert.equal(page.query, expected.search, `${alias} lost its destination query`);
-      assert.equal(page.hud, false, `${alias}: HUD cannot substitute for screen proof`);
-      assert.match(page.text, markers[expected.pathname], `${alias}: destination screen did not render`);
-      assert.ok(page.canvas, `${alias}: Flutter did not paint`);
-      assert.doesNotMatch(page.text, /Page not found|Something went wrong|Could not open/i);
-      console.log(`[agent-smoke] ${width}px ${alias} -> ${destination}: rendered`);
+      try {
+        assert.equal(page?.path, expected.pathname, `${alias} restored the wrong page`);
+        assert.equal(page.query, expected.search, `${alias} lost its destination query`);
+        assert.equal(page.hud, false, `${alias}: HUD cannot substitute for screen proof`);
+        assert.match(page.text, markers[expected.pathname], `${alias}: destination screen did not render`);
+        assert.ok(page.canvas, `${alias}: Flutter did not paint`);
+        assert.doesNotMatch(page.text, /Page not found|Something went wrong|Could not open/i);
+        console.log(`[agent-smoke] ${width}px ${alias} -> ${destination}: rendered`);
+      } catch (error) {
+        failures.push(new Error(`${width}px ${alias}: ${error.message}`, {cause:error}));
+        console.error(`[agent-smoke] ${width}px ${alias}: FAILED - ${error.message}`);
+      }
     }
   }
+  if (failures.length) throw new AggregateError(failures, `${failures.length} agent destinations failed`);
 } finally {
   if (browser) await stop(browser);
   await new Promise(resolve => server.close(resolve));
