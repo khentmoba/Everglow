@@ -56,11 +56,9 @@ class _KatanaCurrentlyReadingScreenState
   StreamSubscription<List<KatanaBookmark>>? _bookmarkSub;
 
   String get _user => context.read<AuthService>().currentUser ?? '';
-  String? get _partnerName =>
-      context.read<AuthService>().partnerUsername;
+  String? get _partnerName => context.read<AuthService>().partnerUsername;
 
-  bool get _hasPartner =>
-      _partnerName != null && _partnerName!.isNotEmpty;
+  bool get _hasPartner => _partnerName != null && _partnerName!.isNotEmpty;
 
   String _displayName(String user) {
     if (user == 'khentsgdz') return 'Khent';
@@ -82,9 +80,9 @@ class _KatanaCurrentlyReadingScreenState
       setState(() => _loading = false);
       return;
     }
-    _mineSub = _library
-        .getReadingPreviewStream(user, limit: 100)
-        .listen((items) {
+    _mineSub = _library.getReadingPreviewStream(user, limit: 100).listen((
+      items,
+    ) {
       if (mounted) {
         setState(() {
           _mine = items;
@@ -96,8 +94,8 @@ class _KatanaCurrentlyReadingScreenState
       _partnerSub = _library
           .getReadingPreviewStream(_partnerName!, limit: 100)
           .listen((items) {
-        if (mounted) setState(() => _partner = items);
-      });
+            if (mounted) setState(() => _partner = items);
+          });
     }
     _bookmarkSub = _katana.bookmarkStream(user).listen((items) {
       if (mounted) {
@@ -164,8 +162,10 @@ class _KatanaCurrentlyReadingScreenState
           ? progress!.lastReadChapterId
           : item.lastReadChapterId;
       if (wantId.isNotEmpty) {
-        target = sorted.firstWhere((c) => c.id == wantId,
-            orElse: () => sorted.first);
+        target = sorted.firstWhere(
+          (c) => c.id == wantId,
+          orElse: () => sorted.first,
+        );
       }
       final wantPage = progress?.lastReadPage ?? item.lastReadPage;
       pushReader(
@@ -201,7 +201,12 @@ class _KatanaCurrentlyReadingScreenState
     if (item.mangaId.startsWith('katana|')) {
       final slug = CurrentlyReadingShelf.katanaSlugOf(item);
       await _katana.setReading(
-        KatanaManga(slug: slug, id: slug, title: item.title, coverUrl: item.coverUrl),
+        KatanaManga(
+          slug: slug,
+          id: slug,
+          title: item.title,
+          coverUrl: item.coverUrl,
+        ),
         user,
         reading: false,
       );
@@ -220,71 +225,71 @@ class _KatanaCurrentlyReadingScreenState
 
   /// Headerless tab content for [KatanaTabShell].
   Widget _buildContent() {
+    final items = _visible;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1100),
-                child: _loading
-                    ? const KatanaListSkeleton(
-                        rows: 5,
-                        padding: EdgeInsets.fromLTRB(16, 14, 16, 60),
-                      )
-                    : _user.isEmpty
-                        ? _empty(
-                            icon: Icons.person_off_outlined,
-                            title: 'Sign in to track reading',
-                            subtitle:
-                                'Your Currently Reading list will show up here.',
-                          )
-                        : ListView(
-                            padding:
-                                const EdgeInsets.fromLTRB(16, 14, 16, 60),
-                            children: [
-                              const KatanaSectionHeader(
-                                title: 'Currently Reading',
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Everything you are reading, with where you left off.',
-                                style: KatanaType.small,
-                              ),
-                              if (_hasPartner) ...[
-                                const SizedBox(height: 12),
-                                _tabs(),
-                              ],
-                              const SizedBox(height: 12),
-                              if (_visible.isEmpty)
-                                _empty(
-                                  icon: Icons.auto_stories_rounded,
-                                  title: _showPartner
-                                      ? 'Nothing here yet'
-                                      : 'Nothing in progress yet',
-                                  subtitle: _showPartner
-                                      ? 'Nothing on their reading list.'
-                                      : 'Open any series and start reading — it lands here on its own.',
-                                )
-                              else
-                                for (final item in _visible) ...[
-                                  _ReadingListCard(
-                                    item: item,
-                                    progress: _bookmarksBySlug[
-                                        CurrentlyReadingShelf.katanaSlugOf(
-                                            item)],
-                                    busy: _busySlug ==
-                                        CurrentlyReadingShelf.katanaSlugOf(
-                                            item),
-                                    // Progress-only entries have no library
-                                    // entry to remove, like on the shelf.
-                                    canRemove:
-                                        !_showPartner && item.isReading,
-                                    onResume: () => _resume(item),
-                                    onOpen: () => _open(item),
-                                    onRemove: () => _remove(item),
-                                  ),
-                                  const SizedBox(height: 10),
-                                ],
-                            ],
+        child: _loading
+            ? const KatanaListSkeleton(
+                rows: 5,
+                padding: EdgeInsets.fromLTRB(16, 14, 16, 60),
+              )
+            : _user.isEmpty
+            ? _empty(
+                icon: Icons.person_off_outlined,
+                title: 'Sign in to track reading',
+                subtitle: 'Your Currently Reading list will show up here.',
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 60),
+                itemCount: items.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const KatanaSectionHeader(title: 'Currently Reading'),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Everything you are reading, with where you left off.',
+                          style: KatanaType.small,
+                        ),
+                        if (_hasPartner) ...[
+                          const SizedBox(height: 12),
+                          _tabs(),
+                        ],
+                        const SizedBox(height: 12),
+                        if (items.isEmpty)
+                          _empty(
+                            icon: Icons.auto_stories_rounded,
+                            title: _showPartner
+                                ? 'Nothing here yet'
+                                : 'Nothing in progress yet',
+                            subtitle: _showPartner
+                                ? 'Nothing on their reading list.'
+                                : 'Open any series and start reading — it lands here on its own.',
                           ),
-        ),
+                      ],
+                    );
+                  }
+                  final item = items[index - 1];
+                  final slug = CurrentlyReadingShelf.katanaSlugOf(item);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _ReadingListCard(
+                      item: item,
+                      progress: _bookmarksBySlug[slug],
+                      busy: _busySlug == slug,
+                      // Progress-only entries have no library entry to remove.
+                      canRemove: !_showPartner && item.isReading,
+                      onResume: () => _resume(item),
+                      onOpen: () => _open(item),
+                      onRemove: () => _remove(item),
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 
@@ -342,8 +347,7 @@ class _KatanaCurrentlyReadingScreenState
             const SizedBox(height: 14),
             Text(title, style: KatanaType.heading),
             const SizedBox(height: 6),
-            Text(subtitle,
-                textAlign: TextAlign.center, style: KatanaType.body),
+            Text(subtitle, textAlign: TextAlign.center, style: KatanaType.body),
           ],
         ),
       ),
