@@ -26,6 +26,8 @@ Validation on Windows, Flutter 3.44.4 / Dart 3.12.2, Node 24.21.0:
 
 - Analyzer: no issues.
 - Flutter tests excluding golden/network: 1,504 passed.
+- Follow-up timer/Jukebox verification: 1,508 tests passed, including hidden app,
+  inactive-page freshness, immediate section recovery and idle Jukebox scheduling.
 - All 15 discovered Dart guards: passed.
 - `dart tool/build_web.dart -- --release --no-source-maps
   --dart-define=AGENT_MODE=true --dart-define=EG_PERF_BENCH=true`: passed.
@@ -39,3 +41,30 @@ the harness and provides no valid speed evidence. Desktop frame-meter samples
 also cannot establish iPhone presentation FPS. Real iPhone 11/Safari/PWA frame
 times, heat, battery use and sustained playback remain unverified. The original
 device acceptance target in `docs/PERF_NOTES.md` remains open.
+
+## Follow-up timer and Jukebox checks
+
+Before the follow-up, the partner activity test continued reading/building the
+indicators during a hidden interval. Deferred sections also failed the immediate
+resume expectation. The phone leaderboard effects kept scheduling frames.
+After the fixes these checks pass, along with the idle phone Jukebox check.
+Its fixture loads the bundled Outfit font to avoid test-font layout artifacts.
+
+The rebuilt release app passed all 64 route/viewport checks again. In T3 Preview
+at 430 x 932, setting the dashboard's observed semantics scroll container to
+2000 revealed Today, Calendar, Letterbox and Garden content. A further jump to
+6000 revealed Play and Jukebox content. These are programmatic browser scroll
+checks, not touch-scroll timing or a Safari performance measurement.
+
+The removed Jukebox ambient loop only notified the entrance builder; glow widgets
+were stored in its cached child and did not move on those notifications. The
+foreground dashboard geometry safety net remains enabled. No real presence
+account, Spotify playback, lower render scale or live data migration was tested
+or changed. Existing images above prove the earlier appearance; new timer tests
+prove behavior. The latest follow-up browser log is `background-browser-smoke.log`.
+
+The previous commit's hosted web-build job compiled successfully but failed
+before app smoke assertions: Chrome advertised an endpoint, then discovery timed
+out, and profile cleanup failed. That CI browser failure is not a passing result
+and prevented a new hosted preview. The PR remains draft until current CI and
+hosted preview inspection are complete.

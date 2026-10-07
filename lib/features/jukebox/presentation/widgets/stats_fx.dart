@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 
 /// Slow diagonal light sweep used on podium rows and champion surfaces.
 class StatsShimmer extends StatefulWidget {
@@ -19,11 +20,22 @@ class _StatsShimmerState extends State<StatsShimmer>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2600),
-    )..repeat();
+    );
     _a = Tween<double>(
       begin: -1.2,
       end: 1.8,
     ).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -70,7 +82,18 @@ class _StatsSparkleBadgeState extends State<StatsSparkleBadge>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override

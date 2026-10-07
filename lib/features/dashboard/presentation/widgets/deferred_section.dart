@@ -26,8 +26,7 @@ import '../../../../core/utils/logger.dart';
 /// far worse than one that appears early:
 /// * a geometry check right after the frame that built the placeholder,
 /// * the scroll position listener,
-/// * a slow safety-net timer, used only while the scroll position is not
-///   available yet.
+/// * a slow safety-net timer while unrevealed sections belong to an active page.
 ///
 /// Nothing here may ever throw: a broken check would take the whole dashboard
 /// down with it (that is how the "Together zone" grey slab happened), so every
@@ -66,7 +65,8 @@ class DeferredSection extends StatefulWidget {
   State<DeferredSection> createState() => _DeferredSectionState();
 }
 
-class _DeferredSectionState extends State<DeferredSection> {
+class _DeferredSectionState extends State<DeferredSection>
+    with WidgetsBindingObserver {
   final GlobalKey _key = GlobalKey();
 
   ScrollPosition? _position;
@@ -75,6 +75,10 @@ class _DeferredSectionState extends State<DeferredSection> {
   bool _warnedNoPosition = false;
   Timer? _deferTimer;
   Timer? _safetyNet;
+  bool _appActive = true;
+  bool _pageActive = true;
+
+  bool get _active => _appActive && _pageActive;
 
   /// Cached in [didChangeDependencies] so the check never has to look up an
   /// inherited widget from a timer callback.
@@ -83,15 +87,25 @@ class _DeferredSectionState extends State<DeferredSection> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     // The placeholder is built by this frame; its geometry is only readable
     // from a post-frame callback.
     WidgetsBinding.instance.addPostFrameCallback((_) => _check());
-    // Always on, not just as a fallback for a missing scroll position: this
-    // screen has been broken twice by a visibility check that silently stopped
-    // firing, and a section that never appears is far worse than one that
-    // appears early. It costs one geometry read per unmounted section every
-    // 400ms and stops as soon as the section is revealed.
-    _safetyNet = Timer.periodic(
+  }
+
+  void _syncSafetyNet() {
+    if (!_active || _visible) {
+      _safetyNet?.cancel();
+      _safetyNet = null;
+      _deferTimer?.cancel();
+      _deferTimer = null;
+      return;
+    }
+    // Keep recovery active while Clair is using the page: a missing geometry
+    // notification must never leave a section blank. Hidden pages need no polls.
+    _safetyNet ??= Timer.periodic(
       const Duration(milliseconds: 400),
       (_) => _check(),
     );
@@ -101,6 +115,8 @@ class _DeferredSectionState extends State<DeferredSection> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_visible) return;
+    _pageActive = TickerMode.valuesOf(context).enabled;
+    _syncSafetyNet();
     _viewportHeight = MediaQuery.sizeOf(context).height;
     _syncScrollListener();
     _scheduleCheck();
@@ -108,14 +124,22 @@ class _DeferredSectionState extends State<DeferredSection> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _deferTimer?.cancel();
     _safetyNet?.cancel();
     _position?.removeListener(_onScroll);
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    _syncSafetyNet();
+    if (_active) _scheduleCheck();
+  }
+
   void _scheduleCheck() {
-    if (_visible || _checkScheduled) return;
+    if (_visible || _checkScheduled || !_active) return;
     _checkScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkScheduled = false;
@@ -159,13 +183,10 @@ class _DeferredSectionState extends State<DeferredSection> {
   }
 
   void _check() {
-    if (_visible || !mounted) return;
+    if (_visible || !mounted || !_active) return;
     if (!_isNearViewport()) return;
     if (widget.deferMs > 0) {
-      _deferTimer ??= Timer(
-        Duration(milliseconds: widget.deferMs),
-        _reveal,
-      );
+      _deferTimer ??= Timer(Duration(milliseconds: widget.deferMs), _reveal);
       return;
     }
     _reveal();
@@ -189,7 +210,7 @@ class _DeferredSectionState extends State<DeferredSection> {
   }
 
   void _reveal() {
-    if (!mounted || _visible) return;
+    if (!mounted || _visible || !_active) return;
     _deferTimer?.cancel();
     _deferTimer = null;
     _safetyNet?.cancel();

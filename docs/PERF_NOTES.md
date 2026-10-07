@@ -213,3 +213,26 @@ an unstamped raw Flutter build was rejected by the harness; it is not valid spee
 evidence. The real-phone acceptance targets above remain open until an installed
 Safari/PWA before/after recording is available. This pass does not establish a
 whole-app percentage gain, battery saving, or guaranteed 60 FPS.
+
+### Inactive timer and Jukebox follow-up
+
+Partner presence/doodle freshness timers now stop when the app is not resumed
+or their page disables `TickerMode`. Returning refreshes the timestamp immediately
+and retains the existing presence stream. Unrevealed dashboard sections pause
+their 400ms safety-net and delayed reveal timers while inactive, then schedule
+a geometry check on return. The foreground safety net remains in place.
+`test/shared/widgets/partner_indicator_activity_test.dart` checks that a hidden
+or inactive page does not rebuild from freshness ticks, resumes immediately,
+and still creates only two presence streams across both indicators.
+`test/deferred_section_test.dart` checks immediate resume and retains the existing
+no-scroll geometry recovery and programmatic-scroll regression checks.
+
+The Jukebox ambient controller continuously notified an entrance-only builder;
+its glow widgets were already cached in the builder's child and did not move on
+those ticks. That unnecessary loop is removed. The idle header no longer starts
+a pulse when nobody is playing, and phone leaderboard shimmer/sparkle decoration
+stays still. `test/features/jukebox/jukebox_idle_motion_test.dart` verifies that
+the idle phone Jukebox settles, and leaderboard effects resume on tablet resize.
+These checks establish stopped scheduling/rebuild work, not device FPS or battery
+percentages. Remote thumbnail URLs were inspected and already have bounded CDN
+variants; this follow-up does not reduce image sharpness or render resolution.
