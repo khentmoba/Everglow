@@ -39,6 +39,11 @@ import '../di/app_providers.dart' as di;
 ///   context.push('/cinema/video/123?title=Foo&type=movie')
 ///   context.push('/books/reader', extra: bookItem)
 GoRouter createAppRouter() {
+  final browserUri = Uri.base;
+  // Keep root query jumps (for example `/?agent=cinema`) ahead of a saved page.
+  final initialLocation = browserUri.path == '/' && browserUri.hasQuery
+      ? '${browserUri.path}?${browserUri.query}'
+      : RouteMemory.bootLocation ?? '/';
   final router = GoRouter(
     refreshListenable: di.authService,
     redirect: (context, state) {
@@ -125,7 +130,7 @@ GoRouter createAppRouter() {
     // initialLocation only when the browser URL is exactly `/`, so real
     // links always win (any path or query skips the restore untouched).
     // Logged-out boots bounce through the usual `?from=` login hop below.
-    initialLocation: RouteMemory.bootLocation ?? '/',
+    initialLocation: initialLocation,
     debugLogDiagnostics: false,
     routes: [
       ...gatewayRoutes,
