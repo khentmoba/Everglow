@@ -7,8 +7,10 @@ import '../../../core/theme/app_motion.dart';
 /// Infinite horizontal marquee — constant-speed, hover-to-pause.
 ///
 /// When `AppMotion.reduced` is true, the ticker is paused (content shown statically).
-/// Tiles sufficient copies of the children to seamlessly fill the viewport
-/// and loop infinitely without visual gaps across all shelves.
+/// Rows with fewer than 3 items render each child exactly once and remain static
+/// to prevent visual duplication on short shelves. Rows with 3 or more items tile
+/// sufficient copies of the children to seamlessly fill the viewport and loop
+/// infinitely without visual gaps across all shelves.
 ///
 /// Performance notes (why this file looks the way it does):
 /// - The offset is a [ValueNotifier] consumed by a single [AnimatedBuilder]
@@ -106,6 +108,9 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
       }
     }
     _items = items;
+    if (widget.children.length < 3) {
+      _offset.value = 0;
+    }
     // Wrap point for the translate loop; matches previous
     // `_totalWidth = singleSetWidth + itemSpacing` behavior.
     _loopWidth = _estimateSetWidth() + widget.itemSpacing;
@@ -236,6 +241,17 @@ class _EverglowMarqueeState extends State<EverglowMarquee>
   }
 
   Widget _buildContent(double viewportWidth) {
+    // When children count is less than 3, render each child exactly once
+    // statically so short shelves never display duplicate/tiled cards.
+    if (widget.children.length < 3) {
+      _canScroll = false;
+      _syncTicker();
+      return SizedBox(
+        height: widget.height,
+        child: Row(children: _items),
+      );
+    }
+
     _canScroll = widget.children.isNotEmpty;
     _syncTicker();
 

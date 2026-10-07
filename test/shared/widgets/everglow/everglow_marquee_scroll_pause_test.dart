@@ -25,6 +25,7 @@ void main() {
               children: const [
                 SizedBox(width: 200, height: 120, child: Text('a')),
                 SizedBox(width: 200, height: 120, child: Text('b')),
+                SizedBox(width: 200, height: 120, child: Text('c')),
               ],
             ),
           ),
