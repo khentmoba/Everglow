@@ -40,8 +40,9 @@ try {
           document.querySelector('flt-semantics-placeholder')?.click();
           Array.from(document.querySelectorAll('flt-semantics[role="button"]'))
             .find(el => el.innerText.includes('Collapse HUD'))?.click();
-          return {path:location.pathname,query:location.search,text:document.body.innerText,
-            hud:document.body.innerText.includes('Collapse HUD'),
+          const text = document.body?.innerText ?? '';
+          return {path:location.pathname,query:location.search,text,
+            hud:text.includes('Collapse HUD'),
             canvas:!!(document.querySelector('canvas') || document.querySelector('flt-glass-pane')?.shadowRoot?.querySelector('canvas'))};
         })()`);
         if (!page.hud && page.path === expected.pathname && page.query === expected.search &&
