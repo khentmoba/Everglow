@@ -27,6 +27,10 @@ class PhotoViewerScreen extends StatefulWidget {
 }
 
 class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
+  ImageProvider _photoImage(String url) => url.startsWith('assets/')
+      ? AssetImage(url)
+      : NetworkImage(GalleryService.displayUrl(url));
+
   late PageController _pageController;
   late int _currentIndex;
   late List<MemoryPhoto> _photos;
@@ -46,10 +50,7 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
     if (!mounted) return;
     for (final i in [_currentIndex - 1, _currentIndex + 1]) {
       if (i < 0 || i >= _photos.length) continue;
-      precacheImage(
-        NetworkImage(GalleryService.displayUrl(_photos[i].imageUrl)),
-        context,
-      ).ignore();
+      precacheImage(_photoImage(_photos[i].imageUrl), context).ignore();
     }
   }
 
@@ -217,18 +218,21 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                         // image cache, so it shows immediately while the
                         // full-res photo streams in on top of it.
                         if (thumbUrl?.isNotEmpty == true)
-                          Image.network(
-                            GalleryService.displayUrl(thumbUrl!),
+                          Image(
+                            image: _photoImage(thumbUrl!),
                             fit: BoxFit.contain,
                             gaplessPlayback: true,
                             excludeFromSemantics: true,
                             errorBuilder: (context, _, _) =>
                                 const SizedBox.shrink(),
                           ),
-                        Image.network(
-                          GalleryService.displayUrl(photo.imageUrl),
+                        Image(
+                          image: ResizeImage.resizeIfNeeded(
+                            kIsWeb ? null : decodeWidth,
+                            null,
+                            _photoImage(photo.imageUrl),
+                          ),
                           fit: BoxFit.contain,
-                          cacheWidth: kIsWeb ? null : decodeWidth,
                           gaplessPlayback: true,
                           loadingBuilder: (context, child, progress) {
                             if (progress == null) return child;

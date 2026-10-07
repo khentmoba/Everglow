@@ -243,7 +243,8 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!AppNetworkImage.isValidUrl(widget.imageUrl)) {
+    final isAsset = widget.imageUrl.startsWith('assets/');
+    if (!isAsset && !AppNetworkImage.isValidUrl(widget.imageUrl)) {
       // Non-empty but unfetchable (e.g. a stringified "null") still needs
       // a heal; a truly empty URL is placeholder-by-design, not a failure.
       if (widget.imageUrl.trim().isNotEmpty) widget.onError?.call();
@@ -252,7 +253,17 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
 
     Widget image;
 
-    if (AppNetworkImage._isWeb) {
+    if (isAsset) {
+      image = Image.asset(
+        widget.imageUrl,
+        width: widget.width,
+        height: widget.height,
+        fit: widget.fit,
+        filterQuality: widget.filterQuality,
+        excludeFromSemantics: true,
+        errorBuilder: (context, _, _) => _fallback(),
+      );
+    } else if (AppNetworkImage._isWeb) {
       // Flutter Web CanvasKit (flutter/flutter#158093, #160199, #192347) has an upstream
       // issue where CachedNetworkImage's default ImageRenderMethodForWeb.HtmlImage creates
       // unattached HTMLImageElements that get their textures evicted by the browser on

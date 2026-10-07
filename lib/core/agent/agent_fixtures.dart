@@ -25,57 +25,57 @@ class AgentFixtures {
   static final List<Milestone> demoMilestones = [
     Milestone(
       id: 'demo_milestone_1',
-      title: 'Our First Date',
+      title: 'Demo coffee date',
       description:
-          'Met at 7/11, grabbed coffee, took cute photos with the flowers, and spent hours talking about our favorite music and memories.',
+          'A fictional afternoon sharing coffee and favorite songs.',
       date: DateTime(2026, 2, 14),
       author: 'Khent',
       category: MilestoneCategory.firstDate,
       imageUrls: const [
-        'assets/images/milestones/valentines_khent_1.jpg',
-        'assets/images/milestones/valentines_khent_2.jpg',
-        'assets/images/milestones/valentines_khent_3.jpg',
+        'assets/images/demo/poster-1.jpg',
+        'assets/images/demo/poster-2.jpg',
+        'assets/images/demo/poster-3.jpg',
       ],
     ),
     Milestone(
       id: 'demo_milestone_2',
-      title: 'Our First Kiss',
+      title: 'Demo rainy evening',
       description:
-          'Riding together on the motorcycle, stopping by when the rain started, and sharing an unforgettable sweet moment under the moonlight.',
+          'A fictional rainy evening with warm drinks and a movie.',
       date: DateTime(2026, 2, 17),
       author: 'Khent',
       category: MilestoneCategory.memory,
       imageUrls: const [
-        'assets/images/milestones/kiss_khent_1.jpg',
-        'assets/images/milestones/kiss_khent_2.jpg',
-        'assets/images/milestones/kiss_khent_3.jpg',
+        'assets/images/demo/poster-4.jpg',
+        'assets/images/demo/poster-1.jpg',
+        'assets/images/demo/poster-2.jpg',
       ],
     ),
     Milestone(
       id: 'demo_milestone_3',
-      title: 'Puting Bato Roadtrip',
+      title: 'Demo road trip',
       description:
-          'Scenic winding road view, warm afternoon breeze, delicious food at Zackies, and cherished moments overlooking the hills.',
+          'An imaginary road trip past green hills and a picnic stop.',
       date: DateTime(2026, 3, 14),
       author: 'Khent',
       category: MilestoneCategory.trip,
       imageUrls: const [
-        'assets/images/milestones/puting_bato_khent_1.jpg',
-        'assets/images/milestones/puting_bato_khent_2.jpg',
-        'assets/images/milestones/puting_bato_khent_3.jpg',
+        'assets/images/demo/poster-3.jpg',
+        'assets/images/demo/poster-4.jpg',
+        'assets/images/demo/poster-1.jpg',
       ],
     ),
     Milestone(
       id: 'demo_milestone_4',
-      title: 'A Day Before Your Birthday',
+      title: 'Demo birthday picnic',
       description:
-          'Thrifting adventures in Butuan, cozy bus ride naps, delicious snacks, and laughter all the way home.',
+          'An imaginary birthday picnic with snacks and board games.',
       date: DateTime(2026, 2, 20),
       author: 'Khent',
       category: MilestoneCategory.anniversary,
       imageUrls: const [
-        'assets/images/milestones/birthday_pre_khent_1.jpg',
-        'assets/images/milestones/birthday_pre_khent_2.jpg',
+        'assets/images/demo/poster-2.jpg',
+        'assets/images/demo/poster-3.jpg',
       ],
     ),
   ];
@@ -153,7 +153,8 @@ class AgentFixtures {
     BucketItem(
       id: 'demo_bucket_1',
       title: 'Trip to Tokyo & Kyoto 🇯🇵',
-      description: 'Visit Studio Ghibli Museum, see cherry blossoms, and explore Kyoto temples.',
+      description:
+          'Visit Studio Ghibli Museum, see cherry blossoms, and explore Kyoto temples.',
       category: BucketCategory.travel,
       status: BucketStatus.planned,
       createdBy: 'khentsgdz',
@@ -163,7 +164,8 @@ class AgentFixtures {
     BucketItem(
       id: 'demo_bucket_2',
       title: 'Stargazing Campfire at Puting Bato 🌌',
-      description: 'Bring hot cocoa, warm blankets, and watch shooting stars all night.',
+      description:
+          'Bring hot cocoa, warm blankets, and watch shooting stars all night.',
       category: BucketCategory.adventure,
       status: BucketStatus.wish,
       createdBy: 'clairjassen',
@@ -173,7 +175,8 @@ class AgentFixtures {
     BucketItem(
       id: 'demo_bucket_3',
       title: 'Bake Strawberry Matcha Cake Together 🍰',
-      description: 'Follow our special recipe and decorate it with heart strawberries.',
+      description:
+          'Follow our special recipe and decorate it with heart strawberries.',
       category: BucketCategory.food,
       status: BucketStatus.completed,
       createdBy: 'clairjassen',
@@ -302,27 +305,27 @@ class AgentFixtures {
   static final List<MemoryPhoto> demoPhotos = [
     MemoryPhoto(
       id: 'demo_photo_1',
-      imageUrl: 'assets/images/milestones/valentines_khent_1.jpg',
-      thumbUrl: 'assets/images/milestones/valentines_khent_1.jpg',
-      caption: 'Valentine’s Day flower surprise 🌹',
+      imageUrl: 'assets/images/demo/poster-1.jpg',
+      thumbUrl: 'assets/images/demo/poster-1.jpg',
+      caption: 'Demo artwork: rose-colored evening',
       uploadedBy: 'Khent',
       uploadedAt: DateTime(2026, 2, 14),
       tags: const ['date', 'valentines', 'flowers'],
     ),
     MemoryPhoto(
       id: 'demo_photo_2',
-      imageUrl: 'assets/images/milestones/kiss_khent_1.jpg',
-      thumbUrl: 'assets/images/milestones/kiss_khent_1.jpg',
-      caption: 'Sweetest moment under the rain ✨',
+      imageUrl: 'assets/images/demo/poster-4.jpg',
+      thumbUrl: 'assets/images/demo/poster-4.jpg',
+      caption: 'Demo artwork: rainy evening',
       uploadedBy: 'Khent',
       uploadedAt: DateTime(2026, 2, 17),
       tags: const ['kiss', 'rain', 'roadtrip'],
     ),
     MemoryPhoto(
       id: 'demo_photo_3',
-      imageUrl: 'assets/images/milestones/puting_bato_khent_1.jpg',
-      thumbUrl: 'assets/images/milestones/puting_bato_khent_1.jpg',
-      caption: 'Overlooking the hills at Puting Bato 🏞️',
+      imageUrl: 'assets/images/demo/poster-3.jpg',
+      thumbUrl: 'assets/images/demo/poster-3.jpg',
+      caption: 'Demo artwork: imaginary hills',
       uploadedBy: 'Khent',
       uploadedAt: DateTime(2026, 3, 14),
       tags: const ['view', 'hills', 'scenic'],
@@ -330,16 +333,26 @@ class AgentFixtures {
   ];
 
   static final List<DateIdea> demoDateIdeas = [
-    DateIdea(id: 'demo_idea_1', title: 'Studio Ghibli Movie Marathon & Hot Cocoa'),
+    DateIdea(
+      id: 'demo_idea_1',
+      title: 'Studio Ghibli Movie Marathon & Hot Cocoa',
+    ),
     DateIdea(id: 'demo_idea_2', title: 'Sunset Motorcycle Ride to Puting Bato'),
-    DateIdea(id: 'demo_idea_3', title: 'Late Night Coffee & Dessert at Zackies'),
-    DateIdea(id: 'demo_idea_4', title: 'Picnic with Homemade Sandwiches & Fruit Tea'),
+    DateIdea(
+      id: 'demo_idea_3',
+      title: 'Late Night Coffee & Dessert at Zackies',
+    ),
+    DateIdea(
+      id: 'demo_idea_4',
+      title: 'Picnic with Homemade Sandwiches & Fruit Tea',
+    ),
   ];
 
   static final List<GuardianMessage> demoGuardianMessages = [
     GuardianMessage(
       id: 'demo_guardian_1',
-      content: 'Remember that you are both deeply loved and cherished every day.',
+      content:
+          'Remember that you are both deeply loved and cherished every day.',
       category: 'encouragement',
       createdAt: DateTime.now(),
     ),

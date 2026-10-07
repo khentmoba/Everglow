@@ -59,6 +59,7 @@ flutter:
     - assets/images/logo.jpg
     - assets/images/motchi_avatar.webp
     - assets/images/milestones/
+    - assets/images/demo/
     - assets/data/
     - assets/google_fonts/
     - assets/audio/

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/config/env_config.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/logger.dart';
@@ -72,6 +73,7 @@ class JukeboxProvider extends ChangeNotifier {
     // 1. Initial local state
     _currentStatus[khentUser] = MusicStatus.empty(khentUser);
     _currentStatus[clairUser] = MusicStatus.empty(clairUser);
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) return;
 
     // 2. Listen to Firestore for real-time updates (Global Consistency)
     _subscribeToFirestore([khentUser, clairUser]);
