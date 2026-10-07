@@ -51,6 +51,8 @@ class VideoPlayerScreen extends StatefulWidget {
   final int? malId;
 
   final String posterPath;
+  final bool allEpisodesWatched;
+  final bool currentEpisodeCompleted;
 
   const VideoPlayerScreen({
     super.key,
@@ -63,6 +65,8 @@ class VideoPlayerScreen extends StatefulWidget {
     this.isAnime = false,
     this.malId,
     this.posterPath = '',
+    this.allEpisodesWatched = false,
+    this.currentEpisodeCompleted = false,
   });
 
   @override
@@ -179,6 +183,10 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                         tmdbId: widget.tmdbId,
                         initialSeason: _currentSeason,
                         initialEpisode: _currentEpisode,
+                        positionSeconds: _playbackPositionSeconds,
+                        durationSeconds: _playbackDurationSeconds,
+                        allEpisodesWatched: widget.allEpisodesWatched,
+                        currentEpisodeCompleted: _currentEpisodeCompleted,
                         onSeasonChanged: _onSeasonChanged,
                         onEpisodeChanged: _onEpisodeChanged,
                       ),

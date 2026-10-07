@@ -229,6 +229,22 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _showMediaDetails(MediaItem item) {
+    var drawerItem = item;
+    for (final saved in _watchlist) {
+      if (saved.tmdbId == item.tmdbId &&
+          saved.mediaType == item.mediaType &&
+          saved.isAnime == item.isAnime) {
+        drawerItem = item.copyWith(
+          status: saved.status,
+          currentSeason: saved.currentSeason,
+          currentEpisode: saved.currentEpisode,
+          currentTimestamp: saved.currentTimestamp,
+          durationSeconds: saved.durationSeconds,
+          progressUpdatedAt: saved.progressUpdatedAt,
+        );
+        break;
+      }
+    }
     HapticFeedback.lightImpact();
     showGeneralDialog(
       context: context,
@@ -237,7 +253,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
       barrierColor: Colors.black.withValues(alpha: 0.65),
       transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (context, _, _) =>
-          EpisodeDrawer(item: item, cinemaVariant: true),
+          EpisodeDrawer(item: drawerItem, cinemaVariant: true),
       transitionBuilder: (context, animation, _, child) {
         final offset =
             Tween<Offset>(
@@ -296,23 +312,45 @@ class _CinemaScreenState extends State<CinemaScreen> {
     final season = item.currentSeason;
     final episode = item.currentEpisode;
     final resume = item.resumeSeconds;
+    final watchedParam = item.isWatched ? '&watched=true' : '';
+    final duration = item.durationSeconds ?? 0;
+    final completedParam =
+        season != null &&
+            season > 0 &&
+            episode != null &&
+            episode > 0 &&
+            item.currentSeason == season &&
+            item.currentEpisode == episode &&
+            duration > 0 &&
+            (item.currentTimestamp ?? 0) / duration >= 0.95
+        ? '&completed=true'
+        : '';
     context.push(
       '/cinema/video/${item.tmdbId}?type=tv'
       '&title=${Uri.encodeComponent(item.title)}&anime=false'
       '${season != null && season > 0 ? '&season=$season' : ''}'
       '${episode != null && episode > 0 ? '&episode=$episode' : ''}'
-      '${resume != null ? '&start=$resume' : ''}',
+      '${resume != null ? '&start=$resume' : ''}$watchedParam$completedParam',
     );
   }
 
   void _restartMedia(MediaItem item) {
     final season = item.currentSeason ?? 1;
     final episode = item.currentEpisode ?? 1;
+    final watchedParam = item.isWatched ? '&watched=true' : '';
+    final duration = item.durationSeconds ?? 0;
+    final completedParam =
+        item.currentEpisode == episode &&
+            item.currentSeason == season &&
+            duration > 0 &&
+            (item.currentTimestamp ?? 0) / duration >= 0.95
+        ? '&completed=true'
+        : '';
     context.push(
       '/cinema/video/${item.tmdbId}?type=${item.mediaType}'
       '&title=${Uri.encodeComponent(item.title)}&anime=false'
       '${item.mediaType == 'tv' ? '&season=$season&episode=$episode' : ''}'
-      '&start=0',
+      '&start=0$watchedParam$completedParam',
     );
   }
 

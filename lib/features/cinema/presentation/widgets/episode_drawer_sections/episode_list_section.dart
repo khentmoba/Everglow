@@ -26,6 +26,29 @@ class SeasonNavItem {
   });
 }
 
+/// True when saved progress means this episode's details are already safe.
+bool shouldRevealEpisodeDetails({
+  required int season,
+  required int episode,
+  int? currentSeason,
+  int? currentEpisode,
+  int currentPositionSeconds = 0,
+  int currentDurationSeconds = 0,
+  bool allEpisodesWatched = false,
+  bool currentEpisodeCompleted = false,
+}) {
+  if (allEpisodesWatched) return true;
+  final savedSeason = currentSeason;
+  final savedEpisode = currentEpisode;
+  if (savedSeason == null || savedEpisode == null) return false;
+  if (season < savedSeason) return true;
+  if (season > savedSeason || episode > savedEpisode) return false;
+  if (episode < savedEpisode) return true;
+  return currentEpisodeCompleted ||
+      (currentDurationSeconds > 0 &&
+          currentPositionSeconds / currentDurationSeconds >= 0.95);
+}
+
 /// Renders the episodes section: season header with dropdown, loading state,
 /// empty state, and the list of episode tiles.
 class EpisodeListSection extends StatelessWidget {
@@ -39,6 +62,11 @@ class EpisodeListSection extends StatelessWidget {
 
   /// Opt-in for Cinema only; anime keeps its existing metadata behavior.
   final bool hideSpoilers;
+  final int? currentSeason;
+  final int? currentEpisode;
+  final int currentPositionSeconds;
+  final int currentDurationSeconds;
+  final bool allEpisodesWatched;
 
   const EpisodeListSection({
     super.key,
@@ -50,6 +78,11 @@ class EpisodeListSection extends StatelessWidget {
     required this.onPlayEpisode,
     required this.onSeasonChanged,
     this.hideSpoilers = false,
+    this.currentSeason,
+    this.currentEpisode,
+    this.currentPositionSeconds = 0,
+    this.currentDurationSeconds = 0,
+    this.allEpisodesWatched = false,
   });
 
   @override
@@ -154,7 +187,7 @@ class EpisodeListSection extends StatelessWidget {
         tmdbMatchedSeason ??
         selectedSeasonNumber ??
         1;
-    final epNum = ep['episode_number'] ?? (index + 1);
+    final epNum = ep['episode_number'] as int? ?? index + 1;
     final epName = ep['name'] ?? 'Episode $epNum';
     final epOverview = ep['overview'] ?? '';
 
@@ -168,10 +201,22 @@ class EpisodeListSection extends StatelessWidget {
               ? _proxyIfBlocked(epStillPath)
               : TmdbImages.stillFor(epStillPath))
         : null;
+    final revealDetails =
+        hideSpoilers &&
+        shouldRevealEpisodeDetails(
+          season: epSeason,
+          episode: epNum,
+          currentSeason: currentSeason,
+          currentEpisode: currentEpisode,
+          currentPositionSeconds: currentPositionSeconds,
+          currentDurationSeconds: currentDurationSeconds,
+          allEpisodesWatched: allEpisodesWatched,
+        );
 
     return EpisodeTile(
       key: ValueKey('$epSeason/$epNum'),
       hideSpoilers: hideSpoilers,
+      revealedByProgress: revealDetails,
       epNum: epNum,
       epName: epName,
       epOverview: epOverview,
@@ -179,7 +224,7 @@ class EpisodeListSection extends StatelessWidget {
       onTap: () => onPlayEpisode(
         epSeason,
         epNum,
-        hideSpoilers ? 'Episode $epNum' : epName,
+        hideSpoilers && !revealDetails ? 'Episode $epNum' : epName,
       ),
     );
   }
@@ -215,6 +260,7 @@ class EpisodeTile extends StatefulWidget {
   /// Highlights the tile as the currently playing episode (player use).
   final bool selected;
   final bool hideSpoilers;
+  final bool revealedByProgress;
 
   const EpisodeTile({
     super.key,
@@ -225,6 +271,7 @@ class EpisodeTile extends StatefulWidget {
     required this.onTap,
     this.selected = false,
     this.hideSpoilers = false,
+    this.revealedByProgress = false,
   });
 
   @override
@@ -261,7 +308,8 @@ class _EpisodeTileState extends State<EpisodeTile> {
     // nothing away, so they stay visible while the name/story wait to
     // be asked for.
     final hasThumb = widget.stillUrl != null && widget.stillUrl!.isNotEmpty;
-    final hidden = widget.hideSpoilers && !_revealed;
+    final expanded = _revealed || widget.revealedByProgress;
+    final hidden = widget.hideSpoilers && !expanded;
     return Semantics(
       button: true,
       label: 'Play episode ${widget.epNum}',
@@ -278,7 +326,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
           // whatever it shows. Both are snapped, not animated: the
           // revealed text lands in full on the first frame, so a
           // growing box would flash an overflow stripe on its way up.
-          height: _revealed ? null : _tileHeight,
+          height: expanded ? null : _tileHeight,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 140),
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
@@ -325,7 +373,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                             // 1 line unless expanded: a 2-line title plus a
                             // 2-line story does not fit the 80px row and used
                             // to overflow it instead of ellipsizing.
-                            maxLines: _revealed ? 2 : 1,
+                            maxLines: expanded ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.outfitHeading.copyWith(
                               fontSize: 13,
@@ -350,7 +398,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                               const SizedBox(height: 4),
                               Text(
                                 widget.epOverview,
-                                maxLines: _revealed ? 3 : 2,
+                                maxLines: expanded ? 3 : 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.outfitWhite.copyWith(
                                   color: AppColors.mutedPurple,

@@ -111,6 +111,15 @@ class CinemaVideoSources {
     return false;
   }
 
+  /// CineSrc progress is accepted only from the provider or our own wrapper.
+  static bool trustsCinesrcProgressEvent(String providerId, String origin) {
+    if (providerId == 'flux-cinesrc') {
+      return origin == 'https://cinesrc.st';
+    }
+    return providerId == 'everglow-embed' &&
+        origin == 'https://everglow-1c6db.web.app';
+  }
+
   /// Builds the embed URL for a cinema-only server, or `null` when the
   /// provider is not part of the cinema-only registry.
   static String? buildUrl(

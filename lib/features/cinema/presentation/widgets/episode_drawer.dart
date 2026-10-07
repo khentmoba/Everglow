@@ -66,6 +66,15 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       tmdbMatchedSeason: _tmdbMatchedSeason,
       hideSpoilers:
           widget.item.isCinemaItem && CinemaPreferences.instance.hideSpoilers,
+      currentSeason: widget.item.isAnime ? null : widget.item.currentSeason,
+      currentEpisode: widget.item.isAnime ? null : widget.item.currentEpisode,
+      currentPositionSeconds: widget.item.isAnime
+          ? 0
+          : widget.item.currentTimestamp ?? 0,
+      currentDurationSeconds: widget.item.isAnime
+          ? 0
+          : widget.item.durationSeconds ?? 0,
+      allEpisodesWatched: !widget.item.isAnime && widget.item.isWatched,
       onPlayEpisode: _playEpisode,
       onSeasonChanged: (sn) {
         setState(() => _selectedSeasonNumber = sn);

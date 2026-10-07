@@ -14,6 +14,7 @@ import '../../data/models/next_episode.dart';
 import '../../data/models/video_source_config.dart';
 import '../../data/services/cinema_video_sources.dart';
 import '../../data/services/next_episode_service.dart';
+import '../../data/services/playback_progress_writer.dart';
 import '../../data/services/player_memory_service.dart';
 import '../../data/services/cinema_preferences.dart';
 import '../widgets/cinema_viewing_preferences.dart';
@@ -41,6 +42,8 @@ class VideoPlayerScreen extends StatefulWidget {
   final bool isAnime;
   final int? malId;
   final String posterPath;
+  final bool allEpisodesWatched;
+  final bool currentEpisodeCompleted;
 
   const VideoPlayerScreen({
     super.key,
@@ -53,13 +56,16 @@ class VideoPlayerScreen extends StatefulWidget {
     this.isAnime = false,
     this.malId,
     this.posterPath = '',
+    this.allEpisodesWatched = false,
+    this.currentEpisodeCompleted = false,
   });
 
   @override
   State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+class _VideoPlayerScreenState extends State<VideoPlayerScreen>
+    with WidgetsBindingObserver {
   final VideoSourceService _sourceService = VideoSourceService();
   final NextEpisodeService _nextService = NextEpisodeService();
   final PlayerMemoryService _memoryService = PlayerMemoryService();
@@ -80,6 +86,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   NextEpisode? _nextEpisode;
   bool _hasSavedWatchProgress = false;
+  final PlaybackProgressWriter _progressWriter = PlaybackProgressWriter();
+  int _playbackPositionSeconds = 0;
+  int _playbackDurationSeconds = 0;
   int? _startSeconds;
   final Set<String> _failedProviderIds = {};
 
@@ -97,11 +106,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
     _playerSeason = _currentSeason;
     _playerEpisode = _currentEpisode;
     _startSeconds = widget.startSeconds;
+    _playbackPositionSeconds = _startSeconds ?? 0;
     unawaited(
       CinemaPreferences.instance.setUser(
         context.read<AuthService>().currentUser,
@@ -127,31 +138,96 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
     if (userName.isEmpty) return;
 
-    final tmdb = TMDBService();
     final status = _watchingStatusFor(userName);
-
-    tmdb.updateProgress(
-      MediaItem(
-        id: '',
-        tmdbId: widget.tmdbId,
-        title: widget.title,
-        mediaType: widget.mediaType,
-        posterPath: widget.posterPath,
-        status: status,
-        isAnime: widget.isAnime,
-        userName: userName,
-        addedAt: DateTime.now(),
-        source: widget.isAnime ? 'jikan' : 'tmdb',
+    unawaited(
+      _progressWriter.writeNow(
+        () => TMDBService().updateProgress(
+          MediaItem(
+            id: '',
+            tmdbId: widget.tmdbId,
+            title: widget.title,
+            mediaType: widget.mediaType,
+            posterPath: widget.posterPath,
+            status: status,
+            isAnime: widget.isAnime,
+            userName: userName,
+            addedAt: DateTime.now(),
+            source: widget.isAnime ? 'jikan' : 'tmdb',
+          ),
+          userName,
+          season: widget.mediaType == 'tv' ? _currentSeason : null,
+          episode: widget.mediaType == 'tv' ? _currentEpisode : null,
+          timestamp:
+              _currentSeason == _playerSeason &&
+                  _currentEpisode == _playerEpisode
+              ? _playbackPositionSeconds
+              : 0,
+          durationSeconds: _playbackDurationSeconds > 0
+              ? _playbackDurationSeconds
+              : null,
+          status: status,
+        ),
       ),
-      userName,
-      season: widget.mediaType == 'tv' ? _currentSeason : null,
-      episode: widget.mediaType == 'tv' ? _currentEpisode : null,
-      timestamp:
-          _currentSeason == _playerSeason && _currentEpisode == _playerEpisode
-          ? _startSeconds
-          : 0,
-      status: status,
     );
+  }
+
+  void _scheduleProgressHeartbeat() {
+    String userName = '';
+    try {
+      userName = context.read<AuthService>().currentUser ?? '';
+    } catch (_) {
+      return;
+    }
+    if (userName.isEmpty) return;
+
+    final season = widget.mediaType == 'tv' ? _currentSeason : null;
+    final episode = widget.mediaType == 'tv' ? _currentEpisode : null;
+    final position = _playbackPositionSeconds;
+    final duration = _playbackDurationSeconds;
+    final provider = _currentProvider.id;
+    final key = _memoryKey;
+    _progressWriter.schedule(() async {
+      await TMDBService().heartbeatProgress(
+        widget.tmdbId,
+        userName,
+        season: season,
+        episode: episode,
+        timestamp: position,
+        durationSeconds: duration > 0 ? duration : null,
+      );
+      if (!mounted ||
+          season != (widget.mediaType == 'tv' ? _currentSeason : null) ||
+          episode != (widget.mediaType == 'tv' ? _currentEpisode : null) ||
+          provider != _currentProvider.id ||
+          key != _memoryKey) {
+        return;
+      }
+      await _memoryService.save(
+        key,
+        providerId: provider,
+        season: season,
+        episode: episode,
+        positionSeconds: position > 0 ? position : null,
+        clearPosition: position <= 0,
+      );
+    });
+  }
+
+  void _onPlayerProgress(int position, int duration) {
+    if (!mounted ||
+        position < 0 ||
+        duration <= 0 ||
+        position > duration ||
+        (position == _playbackPositionSeconds &&
+            duration == _playbackDurationSeconds)) {
+      return;
+    }
+    setState(() {
+      _playbackPositionSeconds = position;
+      _playbackDurationSeconds = duration;
+    });
+    if (!_hasSavedWatchProgress) _saveWatchProgress();
+    _scheduleProgressHeartbeat();
   }
 
   String _watchingStatusFor(String userName) {
@@ -166,7 +242,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) return;
+    _scheduleProgressHeartbeat();
+    _persistEpisodeMemory();
+    unawaited(_progressWriter.flush());
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scheduleProgressHeartbeat();
+    _persistEpisodeMemory();
+    unawaited(_progressWriter.flush());
     _sourceService.removeListener(_onSourcesChanged);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
@@ -256,15 +344,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   /// Remembers the current server + episode for this title so the
   /// next visit reopens where Clair left off. Fire-and-forget.
   void _persistEpisodeMemory() {
+    final sameEpisode =
+        _currentSeason == _playerSeason && _currentEpisode == _playerEpisode;
     _memoryService.save(
       _memoryKey,
       providerId: _currentProvider.id,
       season: _currentSeason,
       episode: _currentEpisode,
-      clearPosition:
-          _startSeconds == null ||
-          _currentSeason != _playerSeason ||
-          _currentEpisode != _playerEpisode,
+      positionSeconds: sameEpisode && _playbackPositionSeconds > 0
+          ? _playbackPositionSeconds
+          : null,
+      clearPosition: !sameEpisode || _playbackPositionSeconds <= 0,
     );
   }
 
@@ -292,6 +382,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _playerEpisode = next.episode;
       _nextEpisode = null;
       _startSeconds = null;
+      _playbackPositionSeconds = 0;
+      _playbackDurationSeconds = 0;
       _hasSavedWatchProgress = false;
     });
     _resolveNextEpisode();
@@ -307,6 +399,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _playerEpisode = _currentEpisode;
       _nextEpisode = null;
       _startSeconds = null;
+      _playbackPositionSeconds = 0;
+      _playbackDurationSeconds = 0;
       _hasSavedWatchProgress = false;
     });
     _resolveNextEpisode();
@@ -342,6 +436,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       _currentSeason = season;
       _currentEpisode = episode;
       _nextEpisode = null;
+      _playbackPositionSeconds = 0;
+      _playbackDurationSeconds = 0;
+      _startSeconds = null;
       _hasSavedWatchProgress = false;
     });
     _resolveNextEpisode();
@@ -350,6 +447,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   void _onPlayerMessage(String raw) {
+    if (_currentProvider.id == 'everglow-embed' &&
+        !widget.isAnime &&
+        EmbedWebView.isOwnedPlayerUrl(_buildUrl())) {
+      final progress = EmbedWebView.parsePlayerProgress(raw);
+      if (progress != null) _onPlayerProgress(progress.$1, progress.$2);
+    }
     final ep = EmbedWebView.parsePlayerEpisode(raw);
     if (ep != null) _onPlayerEpisodeChanged(ep.$1, ep.$2);
   }
