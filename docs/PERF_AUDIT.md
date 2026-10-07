@@ -25,11 +25,13 @@ Regression evidence is in `test/remaining_phone_motion_test.dart`,
 `test/features/anime/animex_motchi_sidebar_test.dart`, and the earlier tests
 listed in `docs/pr-proof/pr-494/README.md`.
 
-Verification for the current pass is recorded in that proof directory once the
-release build, full suite, guards, browser checks and current CI finish. The
-previous d015511 pass has successful Quality and hosted-preview deployment;
-its hosted dashboard was opened at 430 × 932. T3 screenshot output duplicates
-and clips the page, so those captures are rejected as whole-page visual proof.
+Local analysis, 1,516 tests, all 15 guards, stamped release build and 64 agent
+route/viewport checks pass. Quality run 37701615817 succeeds for b3cdff55,
+including browser-only memory/bridge/streaming tests and preview publication.
+The hosted CI merge aa4b4d6 is inspected with synthetic demo data. Full-page
+phone screenshots and the first failed capture/readiness attempt are retained
+in docs/pr-proof/pr-494/. T3's automation host became explicitly unavailable;
+its suggested disposable headless fallback used the repository harness.
 
 Real iPhone 11 Safari/PWA presentation FPS, frame drops, battery, heat, and
 sustained playback remain open. A 30-to-60 FPS improvement or whole-app percent

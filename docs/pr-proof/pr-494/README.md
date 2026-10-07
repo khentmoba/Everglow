@@ -67,8 +67,7 @@ The older 73f2701 run failed before app smoke assertions because Chrome endpoint
 discovery/profile cleanup failed. The subsequent d015511 Quality run
 37695744194 passed Flutter, web build and preview deployment. Its hosted
 dashboard was opened at 430 × 932; a programmatic scroll revealed the demo
-Today, Calendar, Letterbox and Garden sections. The final pass still needs its
-own CI/preview result before this PR can leave draft.
+Today, Calendar, Letterbox and Garden sections. The current b3cdff55 pass has its own successful Quality run, recorded below.
 
 ## App-wide audit follow-up
 
@@ -107,9 +106,9 @@ The current full audit pass has no analyzer issues, 1,516 passing Flutter tests
 (excluding golden/network), all 15 Dart guards passing, and a successful stamped
 release build. Commands and environment are the same as above. The latest
 route/viewport check output is audit-browser-smoke.log: all 64 checks passed
-(32 aliases at 430px and 810px). Current T3 navigation/evaluation retries
-timed out; no fresh full-page interaction claim is made. Final CI and hosted
-preview inspection are recorded separately when available.
+(32 aliases at 430px and 810px). T3 navigation/evaluation retries
+timed out; hosted verification and capture used the explicitly authorized
+fallback described below.
 
 startup-artifacts.json records a 29.84% smaller initial script / 29.43% smaller
 deterministic gzip after route deferral. Both artifacts include the other audit
@@ -120,3 +119,34 @@ run per version. One-run grid benchmark reports are also saved: BOTH FAIL the
 was verified in both. No iPhone FPS or whole-app timing percentage follows from
 these diagnostic desktop samples. See docs/PERF_NOTES.md for settings, source
 hashes, dirty-build stamp limitations and the remaining device acceptance work.
+
+## Hosted preview verification
+
+Quality run 37701615817 succeeded for b3cdff5597520c5ec08cedcfc704dad33c5e2b24:
+Flutter analysis/tests/guards/browser-only tests, release build, agent route
+smoke checks and Firebase preview publication. CI checks out the synthetic
+merge aa4b4d6bd66e5fbd5febb025aa6fb334ac191931, which includes that head; the
+hosted main script carries its expected 6.1.0+1-aa4b4d6 stamp.
+Preview: https://everglow-1c6db--pr-494-vvrrwwal.web.app (temporary).
+
+T3 preview inspection eventually returned an explicit "No preview automation
+host is available" error with "Do not retry" and permission to use a shell
+headless browser. A temporary script derived from tool/agent_smoke.mjs then
+used the existing disposable-Chrome harness against this hosted origin.
+The first sweep failed seven canvas assertions: its readiness loop stopped
+on matching semantics before a canvas appeared. Those failures are retained
+in hosted-browser-first.log; they are not counted as a passing run.
+The diagnostic rerun additionally required page.canvas in the existing
+readiness condition, retaining the 30-second deadline and every assertion.
+All 64 hosted route/viewport checks pass in this rerun; its output is
+hosted-browser-ready.log. Screenshots wait another 1,500ms for the loading
+overlay to finish. No repository
+harness, CI assertion, budget, or app source was changed for this check.
+
+hosted-dashboard-phone.png, hosted-garden-phone.png, hosted-starlight-phone.png
+and hosted-cinema-phone.png are inspected 430 x 932 browser screenshots of
+this hosted app using only agent-mode demo fixtures with its HUD collapsed.
+The Garden and Starlight captures that showed a bootstrap splash were rejected
+and recaptured after painting. Cinema posters have intentionally blank demo
+artwork. These show the real pages, unlike the earlier labeled widget renders;
+they do not prove Safari, touch-scroll timing or authenticated playback.
