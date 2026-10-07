@@ -58,7 +58,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'collection-movies',
     label: 'Movies',
     icon: Icons.movie_rounded,
-    color: AppColors.deepRose,
+    color: AppColors.cinemaRed,
     group: BrowseCategoryGroup.collection,
     mediaType: 'movie',
     sortBy: 'popularity.desc',
@@ -67,7 +67,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'collection-tv',
     label: 'TV Shows',
     icon: Icons.tv_rounded,
-    color: AppColors.deepRose,
+    color: AppColors.cinemaRed,
     group: BrowseCategoryGroup.collection,
     mediaType: 'tv',
     sortBy: 'popularity.desc',
@@ -159,7 +159,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     id: 'lang-ja',
     label: 'Japanese',
     icon: Icons.language_rounded,
-    color: AppColors.accentPink,
+    color: AppColors.cinemaRed,
     group: BrowseCategoryGroup.language,
     mediaType: 'tv',
     withOriginalLanguage: 'ja',
@@ -360,7 +360,7 @@ List<BrowseCategoryOption> get _movieGenreOptions => [
     id: 'genre-movie-10749',
     label: 'Romance',
     icon: Icons.favorite_rounded,
-    color: AppColors.accentPink,
+    color: AppColors.cinemaRed,
     group: BrowseCategoryGroup.genre,
     mediaType: 'movie',
     genreId: 10749,
@@ -511,14 +511,14 @@ BrowseGroupMeta browseGroupMeta(BrowseCategoryGroup group) {
         title: 'Collections',
         subtitle: 'CURATED PICKS',
         icon: Icons.local_fire_department_rounded,
-        tint: AppColors.deepRose,
+        tint: AppColors.cinemaRed,
       );
     case BrowseCategoryGroup.genre:
       return const BrowseGroupMeta(
         title: 'Genres',
         subtitle: 'EXPLORE BY CATEGORY',
         icon: Icons.category_rounded,
-        tint: AppColors.deepRose,
+        tint: AppColors.cinemaRed,
       );
     case BrowseCategoryGroup.decade:
       return const BrowseGroupMeta(

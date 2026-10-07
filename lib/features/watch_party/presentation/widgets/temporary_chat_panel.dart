@@ -191,7 +191,7 @@ class _TemporaryChatPanelState extends State<TemporaryChatPanel> {
   Widget _buildHeader(String partnerName) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           bottom: BorderSide(color: NetflixColors.hairline, width: 1),
         ),
@@ -320,7 +320,7 @@ class _TemporaryChatPanelState extends State<TemporaryChatPanel> {
   Widget _buildInput(String partnerName) {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 12),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
           top: BorderSide(color: NetflixColors.hairline, width: 1),
         ),

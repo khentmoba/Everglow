@@ -2,6 +2,19 @@ part of 'video_player_screen_web.dart';
 
 abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     with WidgetsBindingObserver {
+  Color get _playerAccent =>
+      widget.isAnime ? AppColors.deepRose : NetflixColors.accent;
+  Color get _playerSecondary =>
+      widget.isAnime ? AppColors.softLavender : NetflixColors.textSecondary;
+  Color get _playerText =>
+      widget.isAnime ? AppColors.roseQuartz : NetflixColors.textPrimary;
+  Color get _playerSurface =>
+      widget.isAnime ? AppColors.inkDeep : NetflixColors.surface;
+  Color get _playerSurfaceElevated =>
+      widget.isAnime ? AppColors.surfaceGlass : NetflixColors.surfaceElevated;
+  Color get _playerHairline =>
+      widget.isAnime ? AppColors.border : NetflixColors.hairline;
+
   bool _isLoading = true;
 
   /// Set to true when the iframe fires `error`, returns no response

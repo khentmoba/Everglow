@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/services/cinema_preferences.dart';
+import 'netflix/netflix_colors.dart';
 
 /// Shared by My List and the player; no Provider registration needed.
 class CinemaViewingPreferences extends StatelessWidget {
@@ -21,7 +22,7 @@ class CinemaViewingPreferences extends StatelessWidget {
     return ListenableBuilder(
       listenable: prefs,
       builder: (context, _) => Material(
-        color: AppColors.deepBlack,
+        color: NetflixColors.surface,
         child: compact
             ? Padding(
                 padding: const EdgeInsets.symmetric(
@@ -55,7 +56,7 @@ class CinemaViewingPreferences extends StatelessWidget {
                     ),
                     value: prefs.hideSpoilers,
                     onChanged: prefs.setHideSpoilers,
-                    activeThumbColor: AppColors.deepRose,
+                    activeThumbColor: NetflixColors.accent,
                   ),
                   SwitchListTile(
                     title: const Text('Autoplay next episode'),
@@ -64,7 +65,7 @@ class CinemaViewingPreferences extends StatelessWidget {
                     ),
                     value: prefs.autoplayNext,
                     onChanged: prefs.setAutoplayNext,
-                    activeThumbColor: AppColors.deepRose,
+                    activeThumbColor: NetflixColors.accent,
                   ),
                 ],
               ),
@@ -86,12 +87,14 @@ class CinemaViewingPreferences extends StatelessWidget {
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       labelStyle: AppTypography.outfitHeading.copyWith(
-        color: selected ? AppColors.roseQuartz : AppColors.textMedium,
+        color: selected ? NetflixColors.textPrimary : AppColors.textMedium,
         fontSize: 12,
       ),
-      backgroundColor: AppColors.surfaceGlass,
-      selectedColor: AppColors.deepRose.withValues(alpha: 0.18),
-      side: BorderSide(color: selected ? AppColors.deepRose : AppColors.border),
+      backgroundColor: NetflixColors.surfaceElevated,
+      selectedColor: NetflixColors.accent.withValues(alpha: 0.16),
+      side: BorderSide(
+        color: selected ? NetflixColors.accent : NetflixColors.hairline,
+      ),
       shape: const StadiumBorder(),
     );
   }

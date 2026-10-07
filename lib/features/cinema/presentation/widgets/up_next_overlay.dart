@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/next_episode.dart';
+import 'netflix/netflix_colors.dart';
 
 /// Netflix-style Up Next card shown over the player when the current
 /// episode is almost over.
@@ -37,16 +37,13 @@ class UpNextOverlay extends StatelessWidget {
       width: 300,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.inkDeep.withValues(alpha: 0.94),
+        color: NetflixColors.surface.withValues(alpha: 0.96),
         borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: AppColors.deepRose.withValues(alpha: 0.55),
-          width: 1,
-        ),
+        border: Border.all(color: NetflixColors.hairline),
         boxShadow: [
           BoxShadow(
-            color: AppColors.deepRose.withValues(alpha: 0.3),
-            blurRadius: 24,
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
@@ -58,16 +55,9 @@ class UpNextOverlay extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.deepRose, AppColors.auroraRose],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: NetflixColors.accent,
                   borderRadius: BorderRadius.circular(AppRadius.full),
                 ),
                 child: Text(
@@ -82,9 +72,9 @@ class UpNextOverlay extends StatelessWidget {
               const Spacer(),
               GestureDetector(
                 onTap: onCancel,
-                child: Icon(
+                child: const Icon(
                   Icons.close_rounded,
-                  color: AppColors.textMuted,
+                  color: NetflixColors.textMuted,
                   size: 18,
                 ),
               ),
@@ -94,7 +84,7 @@ class UpNextOverlay extends StatelessWidget {
           Text(
             next.label,
             style: AppTypography.outfitHeading.copyWith(
-              color: AppColors.roseQuartz,
+              color: NetflixColors.textPrimary,
               fontSize: 14,
             ),
           ),
@@ -105,7 +95,7 @@ class UpNextOverlay extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTypography.outfitWhite.copyWith(
-                color: AppColors.textMedium,
+                color: NetflixColors.textSecondary,
                 fontSize: 12,
               ),
             ),
@@ -129,11 +119,7 @@ class UpNextOverlay extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 widthFactor: progress,
                 child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.deepRose, AppColors.blushGold],
-                    ),
-                  ),
+                  decoration: const BoxDecoration(color: NetflixColors.accent),
                 ),
               ),
             ),
@@ -147,11 +133,7 @@ class UpNextOverlay extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.deepRose, AppColors.auroraRose],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: NetflixColors.accent,
                       borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Row(
@@ -184,16 +166,14 @@ class UpNextOverlay extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.moonlight.withValues(alpha: 0.08),
+                    color: NetflixColors.surfaceElevated,
                     borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(
-                      color: AppColors.moonlight.withValues(alpha: 0.16),
-                    ),
+                    border: Border.all(color: NetflixColors.hairline),
                   ),
                   child: Text(
                     'Cancel',
                     style: AppTypography.outfitBold.copyWith(
-                      color: AppColors.textMedium,
+                      color: NetflixColors.textSecondary,
                       fontSize: 13,
                     ),
                   ),

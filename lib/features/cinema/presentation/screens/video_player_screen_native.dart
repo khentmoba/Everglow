@@ -22,6 +22,7 @@ import '../../data/services/tmdb_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../widgets/embed_webview.dart';
+import '../widgets/netflix/netflix_colors.dart';
 
 /// Show name only: strips any trailing episode suffix the route may have
 /// carried (`Show: Episode 3`, `Show Episode 3`) so the stepper below is
@@ -93,6 +94,19 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     with WidgetsBindingObserver {
+  Color get _playerAccent =>
+      widget.isAnime ? AppColors.deepRose : NetflixColors.accent;
+  Color get _playerSecondary =>
+      widget.isAnime ? AppColors.softLavender : NetflixColors.textSecondary;
+  Color get _playerText =>
+      widget.isAnime ? AppColors.roseQuartz : NetflixColors.textPrimary;
+  Color get _playerSurface =>
+      widget.isAnime ? AppColors.inkDeep : NetflixColors.surface;
+  Color get _playerSurfaceElevated =>
+      widget.isAnime ? AppColors.surfaceGlass : NetflixColors.surfaceElevated;
+  Color get _playerHairline =>
+      widget.isAnime ? AppColors.border : NetflixColors.hairline;
+
   final VideoSourceService _sourceService = VideoSourceService();
   final NextEpisodeService _nextService = NextEpisodeService();
   final PlayerMemoryService _memoryService = PlayerMemoryService();
@@ -363,7 +377,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         content: Text('${provider.name} selected'),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.deepRose,
+        backgroundColor: _playerAccent,
       ),
     );
   }
@@ -518,10 +532,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     if (!mounted) return;
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not open the browser. Try another source.'),
+        SnackBar(
+          content: const Text(
+            'Could not open the browser. Try another source.',
+          ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.deepRose,
+          backgroundColor: _playerAccent,
         ),
       );
     }
@@ -530,7 +546,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
   void _showSourceSheet() {
     showModalBottomSheet<VideoSourceConfig>(
       context: context,
-      backgroundColor: AppColors.inkDeep,
+      backgroundColor: _playerSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.x2)),
       ),
@@ -546,7 +562,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.moonlight.withValues(alpha: 0.22),
+                  color: _playerHairline,
                   borderRadius: BorderRadius.circular(AppRadius.full),
                 ),
               ),
@@ -562,7 +578,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               const SizedBox(height: 4),
               Text(
                 'Playback runs in-app. Switch sources if a server fails.',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                style: TextStyle(color: _playerSecondary, fontSize: 12),
               ),
               const SizedBox(height: 16),
               Padding(
@@ -583,13 +599,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                             ),
                             decoration: BoxDecoration(
                               color: selected
-                                  ? AppColors.deepRose.withValues(alpha: 0.12)
-                                  : AppColors.surfaceGlass,
+                                  ? _playerAccent.withValues(alpha: 0.12)
+                                  : _playerSurfaceElevated,
                               borderRadius: BorderRadius.circular(AppRadius.sm),
                               border: Border.all(
                                 color: selected
-                                    ? AppColors.deepRose.withValues(alpha: 0.65)
-                                    : AppColors.border,
+                                    ? _playerAccent.withValues(alpha: 0.65)
+                                    : _playerHairline,
                                 width: 1,
                               ),
                             ),
@@ -600,11 +616,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                                   height: 30,
                                   decoration: BoxDecoration(
                                     color: selected
-                                        ? AppColors.deepRose.withValues(
-                                            alpha: 0.2,
-                                          )
-                                        : AppColors.moonlight.withValues(
-                                            alpha: 0.08,
+                                        ? _playerAccent.withValues(alpha: 0.16)
+                                        : _playerHairline.withValues(
+                                            alpha: 0.35,
                                           ),
                                     shape: BoxShape.circle,
                                   ),
@@ -613,8 +627,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                                         ? Icons.check_rounded
                                         : Icons.live_tv_rounded,
                                     color: selected
-                                        ? AppColors.roseQuartz
-                                        : AppColors.textMuted,
+                                        ? _playerAccent
+                                        : _playerSecondary,
                                     size: 16,
                                   ),
                                 ),
@@ -636,7 +650,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                                       Text(
                                         provider.desc,
                                         style: TextStyle(
-                                          color: AppColors.textMuted,
+                                          color: _playerSecondary,
                                           fontSize: 11,
                                         ),
                                       ),
@@ -707,8 +721,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        backgroundColor: AppColors.inkDeep,
-        foregroundColor: AppColors.petalWhite,
+        backgroundColor: _playerSurface,
+        foregroundColor: _playerText,
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -728,10 +742,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
               label: const Text('Open in browser'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.roseQuartz,
-                side: BorderSide(
-                  color: AppColors.roseQuartz.withValues(alpha: 0.6),
-                ),
+                foregroundColor: _playerAccent,
+                side: BorderSide(color: _playerAccent.withValues(alpha: 0.6)),
               ),
             ),
           ),
@@ -739,7 +751,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           Text(
             'If the player stays blank, pick another source below.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+            style: TextStyle(color: _playerSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -756,6 +768,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
             label: 'Prev Episode',
             icon: Icons.skip_previous_rounded,
             enabled: canPrev,
+            accent: _playerAccent,
             onTap: canPrev ? _playPreviousEpisode : null,
           ),
         ),
@@ -765,6 +778,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
             label: next == null ? 'Next Episode' : 'Next: ${next.label}',
             icon: Icons.skip_next_rounded,
             enabled: next != null,
+            accent: _playerAccent,
             onTap: next == null ? null : _playNextEpisode,
           ),
         ),
@@ -779,7 +793,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         decoration: BoxDecoration(
           color: Colors.black,
           borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.4)),
+          border: Border.all(color: _playerHairline),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.md - 1),
@@ -824,14 +838,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       child: GestureDetector(
         onTap: _showSourceSheet,
         child: Container(
-          padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.x2),
-            gradient: const LinearGradient(
-              colors: [AppColors.deepRose, AppColors.softLavender],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: _playerSurfaceElevated,
+            border: Border.all(color: _playerHairline),
           ),
           child: Container(
             padding: const EdgeInsets.fromLTRB(
@@ -841,16 +851,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
               AppSpacing.md,
             ),
             decoration: BoxDecoration(
-              color: AppColors.inkDeep.withValues(alpha: 0.94),
-              borderRadius: BorderRadius.circular(AppRadius.x2 - 1),
+              color: _playerSurface,
+              borderRadius: BorderRadius.circular(AppRadius.x2),
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.live_tv_rounded,
-                  color: AppColors.roseQuartz,
-                  size: 22,
-                ),
+                Icon(Icons.live_tv_rounded, color: _playerSecondary, size: 22),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -858,8 +864,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                     children: [
                       Text(
                         'Server: ${_currentProvider.name}',
-                        style: const TextStyle(
-                          color: AppColors.petalWhite,
+                        style: TextStyle(
+                          color: _playerText,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
@@ -867,18 +873,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                       const SizedBox(height: 2),
                       Text(
                         _currentProvider.desc,
-                        style: TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 11,
-                        ),
+                        style: TextStyle(color: _playerSecondary, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.swap_horiz_rounded,
-                  color: AppColors.roseQuartz,
-                ),
+                Icon(Icons.swap_horiz_rounded, color: _playerSecondary),
               ],
             ),
           ),
@@ -892,12 +892,14 @@ class _StepperButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool enabled;
+  final Color accent;
   final VoidCallback? onTap;
 
   const _StepperButton({
     required this.label,
     required this.icon,
     required this.enabled,
+    required this.accent,
     this.onTap,
   });
 
@@ -911,13 +913,13 @@ class _StepperButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: enabled
-                ? AppColors.deepRose.withValues(alpha: 0.16)
-                : AppColors.moonlight.withValues(alpha: 0.05),
+                ? accent.withValues(alpha: 0.14)
+                : NetflixColors.surfaceElevated,
             borderRadius: BorderRadius.circular(AppRadius.sm),
             border: Border.all(
               color: enabled
-                  ? AppColors.deepRose.withValues(alpha: 0.5)
-                  : AppColors.border,
+                  ? accent.withValues(alpha: 0.6)
+                  : NetflixColors.hairline,
             ),
           ),
           child: Row(
@@ -926,7 +928,7 @@ class _StepperButton extends StatelessWidget {
               Icon(
                 icon,
                 size: 16,
-                color: enabled ? AppColors.roseQuartz : AppColors.textDisabled,
+                color: enabled ? accent : AppColors.textDisabled,
               ),
               const SizedBox(width: 6),
               Flexible(
@@ -935,9 +937,7 @@ class _StepperButton extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: enabled
-                        ? AppColors.petalWhite
-                        : AppColors.textDisabled,
+                    color: enabled ? Colors.white : AppColors.textDisabled,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -966,11 +966,9 @@ class _LandscapeBackButton extends StatelessWidget {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: AppColors.inkDeep.withValues(alpha: 0.85),
+            color: NetflixColors.surface.withValues(alpha: 0.9),
             shape: BoxShape.circle,
-            border: Border.all(
-              color: AppColors.moonlight.withValues(alpha: 0.2),
-            ),
+            border: Border.all(color: NetflixColors.hairline),
           ),
           child: const Icon(
             Icons.arrow_back_rounded,

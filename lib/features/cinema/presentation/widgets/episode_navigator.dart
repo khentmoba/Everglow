@@ -4,8 +4,8 @@ import '../../../../shared/utils/tmdb_images.dart';
 import '../../data/services/tmdb_service.dart';
 import '../../data/services/cinema_preferences.dart';
 import 'episode_drawer_sections/episode_list_section.dart';
+import 'netflix/netflix_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_colors.dart';
 
 /// Horizontal scrollable season selector + episode grid for TV content.
 /// Fetches season/episode data from TMDB and lets the user pick an episode
@@ -121,7 +121,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF0D0D14),
+                color: NetflixColors.surface,
                 border: Border(
                   top: BorderSide(color: Colors.grey[900]!, width: 1),
                 ),
@@ -191,7 +191,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
 
   Widget _buildContent() {
     return Container(
-      color: const Color(0xFF0A0A12),
+      color: NetflixColors.background,
       padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -238,19 +238,21 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? AppColors.deepRose.withValues(alpha: 0.2)
+                    ? NetflixColors.accent.withValues(alpha: 0.16)
                     : Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isSelected
-                      ? AppColors.deepRose.withValues(alpha: 0.6)
+                      ? NetflixColors.accent.withValues(alpha: 0.65)
                       : Colors.white.withValues(alpha: 0.1),
                 ),
               ),
               child: Text(
                 name,
                 style: AppTypography.outfitHeading.copyWith(
-                  color: isSelected ? AppColors.deepRose : Colors.white70,
+                  color: isSelected
+                      ? NetflixColors.accent
+                      : NetflixColors.textSecondary,
                   fontSize: 11,
                 ),
               ),
@@ -322,7 +324,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
           height: 24,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: AppColors.deepRose,
+            color: NetflixColors.accent,
           ),
         ),
       ),

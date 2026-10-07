@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../../../shared/utils/responsive_image.dart';
-import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../../../../../shared/widgets/app_network_image.dart';
 import '../../trailer_player.dart';
@@ -136,7 +135,7 @@ class CinemaHero extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.shimmerBase, NetflixColors.surface],
+          colors: [NetflixColors.surfaceElevated, NetflixColors.surface],
         ),
       ),
       alignment: Alignment.center,
@@ -145,13 +144,13 @@ class CinemaHero extends StatelessWidget {
               width: 30,
               height: 30,
               child: CircularProgressIndicator(
-                color: AppColors.deepRose,
+                color: NetflixColors.accent,
                 strokeWidth: 2,
               ),
             )
           : const Icon(
               Icons.movie_creation_outlined,
-              color: AppColors.mutedPurple,
+              color: NetflixColors.textMuted,
               size: 46,
             ),
     );
@@ -241,11 +240,7 @@ class CinemaHero extends StatelessWidget {
               ),
             ],
           ),
-          child: const Icon(
-            Icons.close_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
+          child: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
         ),
       ),
     );
@@ -338,7 +333,7 @@ class CinemaHero extends StatelessWidget {
                     ? 'In Watchlist'
                     : 'Add to Watchlist',
                 onTap: onToggleWatchlist,
-                activeColor: isAddedToWatchlist ? AppColors.deepRose : null,
+                activeColor: isAddedToWatchlist ? NetflixColors.accent : null,
               ),
               _CircleActionButton(
                 icon: isLiked
@@ -346,7 +341,7 @@ class CinemaHero extends StatelessWidget {
                     : Icons.thumb_up_off_alt_rounded,
                 tooltip: isLiked ? 'Rated' : 'Rate',
                 onTap: onRate,
-                activeColor: isLiked ? AppColors.deepRose : null,
+                activeColor: isLiked ? NetflixColors.accent : null,
               ),
               if (onShareDiscord != null) ...[
                 _CircleActionButton(
@@ -448,7 +443,8 @@ class _CircleActionButtonState extends State<_CircleActionButton> {
                   ? Colors.white.withValues(alpha: 0.25)
                   : Colors.black.withValues(alpha: 0.5),
               border: Border.all(
-                color: widget.activeColor ??
+                color:
+                    widget.activeColor ??
                     (_hovered
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.4)),

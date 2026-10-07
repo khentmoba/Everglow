@@ -1,36 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
 
-/// Everglow Cinema palette - Netflix-like structure, Everglow skin.
-///
-/// Netflix builds its experience on a near-black, neutral stage where
-/// artwork does the talking and the brand accent is used sparingly.
-/// These tokens keep that discipline while staying in the Dusk Petal
-/// family: deep plum blacks, rose gold accents, petal-white type.
+/// Cinema palette: near-black surfaces, neutral text, and a restrained red.
 abstract final class NetflixColors {
-  /// Page background - near-black with a plum undertone.
-  static const Color background = Color(0xFF0A0710);
+  /// Page background.
+  static const Color background = Color(0xFF080808);
 
   /// Slightly elevated surfaces (nav, sheets, hover cards).
-  static const Color surface = Color(0xFF14101A);
+  static const Color surface = Color(0xFF141414);
 
   /// Higher elevation surfaces (preview cards, player chrome).
-  static const Color surfaceElevated = Color(0xFF1C1624);
+  static const Color surfaceElevated = Color(0xFF202020);
 
-  /// Primary brand accent - used sparingly, like Netflix uses its red.
-  static const Color accent = AppColors.deepRose;
+  /// Action and selection accent.
+  static const Color accent = AppColors.cinemaRed;
 
   /// Secondary brand accent for highlights and numerals.
   static const Color gold = AppColors.blushGold;
 
   /// Primary text.
-  static const Color textPrimary = AppColors.petalWhite;
+  static const Color textPrimary = Color(0xFFFFFFFF);
 
-  /// Secondary text - rose-tinted gray.
-  static const Color textSecondary = AppColors.cinemaTextDim;
+  /// Secondary text.
+  static const Color textSecondary = Color(0xFFB3B3B3);
 
   /// Muted / tertiary text.
-  static const Color textMuted = AppColors.mutedPurple;
+  static const Color textMuted = Color(0xFF888888);
 
   /// "Match" percentage color - Netflix uses green here; a soft mint
   /// keeps the same semantic without importing a foreign hue family.
@@ -40,5 +35,5 @@ abstract final class NetflixColors {
   static const Color hoverScrim = AppColors.scrimLight;
 
   /// Bottom nav / sheet hairline.
-  static Color get hairline => AppColors.moonlight.withValues(alpha: 0.14);
+  static const Color hairline = Color(0x23FFFFFF);
 }
