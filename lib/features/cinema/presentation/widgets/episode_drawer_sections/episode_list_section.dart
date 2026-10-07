@@ -68,6 +68,10 @@ class EpisodeListSection extends StatelessWidget {
   final int currentDurationSeconds;
   final bool allEpisodesWatched;
 
+  /// When true, renders Netflix-style wide episode rows with index numbers,
+  /// 16:9 thumbnail previews, title + duration, and overview snippets.
+  final bool netflixStyle;
+
   const EpisodeListSection({
     super.key,
     required this.episodes,
@@ -83,6 +87,7 @@ class EpisodeListSection extends StatelessWidget {
     this.currentPositionSeconds = 0,
     this.currentDurationSeconds = 0,
     this.allEpisodesWatched = false,
+    this.netflixStyle = false,
   });
 
   @override
@@ -90,7 +95,7 @@ class EpisodeListSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (seasons.isNotEmpty)
+        if (seasons.isNotEmpty || netflixStyle)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: _buildEpisodeHeader(),
@@ -117,6 +122,67 @@ class EpisodeListSection extends StatelessWidget {
   }
 
   Widget _buildEpisodeHeader() {
+    if (netflixStyle) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Episodes',
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: 22,
+              color: Colors.white,
+            ),
+          ),
+          if (seasons.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF221C2B),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: selectedSeasonNumber,
+                  dropdownColor: const Color(0xFF221C2B),
+                  isDense: true,
+                  icon: const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                  style: AppTypography.outfitBold.copyWith(
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                  onChanged: (int? value) {
+                    if (value != null) {
+                      onSeasonChanged(value);
+                    }
+                  },
+                  items: seasons
+                      .where((s) => s['season_number'] is int)
+                      .map<DropdownMenuItem<int>>((s) {
+                        final epCount = s['episode_count'];
+                        final countStr =
+                            epCount != null ? ' ($epCount Episodes)' : '';
+                        return DropdownMenuItem<int>(
+                          value: s['season_number'] as int,
+                          child: Text(
+                            '${s['name'] ?? 'Season ${s['season_number']}'}$countStr',
+                          ),
+                        );
+                      })
+                      .toList(),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -213,6 +279,23 @@ class EpisodeListSection extends StatelessWidget {
           allEpisodesWatched: allEpisodesWatched,
         );
 
+    final durationMin = ep['runtime'] as int?;
+    final durationStr =
+        durationMin != null && durationMin > 0 ? '${durationMin}m' : '';
+
+    final isCurrentEpisode =
+        currentSeason == epSeason && currentEpisode == epNum;
+    final epProgress = isCurrentEpisode && currentDurationSeconds > 0
+        ? (currentPositionSeconds / currentDurationSeconds).clamp(0.0, 1.0)
+        : (allEpisodesWatched ||
+                (currentSeason != null &&
+                    currentEpisode != null &&
+                    (epSeason < currentSeason! ||
+                        (epSeason == currentSeason! &&
+                            epNum < currentEpisode!))))
+            ? 1.0
+            : 0.0;
+
     return EpisodeTile(
       key: ValueKey('$epSeason/$epNum'),
       hideSpoilers: hideSpoilers,
@@ -221,6 +304,9 @@ class EpisodeListSection extends StatelessWidget {
       epName: epName,
       epOverview: epOverview,
       stillUrl: epStillUrl,
+      durationStr: durationStr,
+      progress: epProgress,
+      netflixStyle: netflixStyle,
       onTap: () => onPlayEpisode(
         epSeason,
         epNum,
@@ -230,9 +316,6 @@ class EpisodeListSection extends StatelessWidget {
   }
 
   String? _proxyIfBlocked(String url) {
-    // Crunchyroll and other streaming CDNs don't send CORS headers, so
-    // the browser drops these image loads. Route them through the
-    // server-side proxy that adds permissive CORS headers.
     try {
       final parsed = Uri.parse(url);
       if (parsed.host.endsWith('.crunchyroll.com') ||
@@ -246,9 +329,9 @@ class EpisodeListSection extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 // EPISODE TILE WIDGET
-// ═══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
 
 class EpisodeTile extends StatefulWidget {
   final int epNum;
@@ -261,6 +344,9 @@ class EpisodeTile extends StatefulWidget {
   final bool selected;
   final bool hideSpoilers;
   final bool revealedByProgress;
+  final String durationStr;
+  final double progress;
+  final bool netflixStyle;
 
   const EpisodeTile({
     super.key,
@@ -272,6 +358,9 @@ class EpisodeTile extends StatefulWidget {
     this.selected = false,
     this.hideSpoilers = false,
     this.revealedByProgress = false,
+    this.durationStr = '',
+    this.progress = 0.0,
+    this.netflixStyle = false,
   });
 
   @override
@@ -280,23 +369,17 @@ class EpisodeTile extends StatefulWidget {
 
 class _EpisodeTileState extends State<EpisodeTile> {
   bool _pressed = false;
+  bool _hovered = false;
 
   /// Revealed inline on this row — no drawer. Scoped to the tile so
   /// expanding one episode leaves its neighbours closed.
   bool _revealed = false;
 
-  /// Fixed tile height. Set explicitly because the parent SliverList
-  /// provides unbounded vertical space — without an explicit height
-  /// the Row collapses to the title's one-line intrinsic height and
-  /// the rail + play button render at zero visible height. The
-  /// title is clipped to 1 line so 80px always fits.
   static const double _tileHeight = 80;
 
   @override
   void didUpdateWidget(covariant EpisodeTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Un-hiding spoilers shows everything anyway; don't carry the
-    // expansion back when the switch goes on again.
     if (oldWidget.hideSpoilers && !widget.hideSpoilers) {
       _revealed = false;
     }
@@ -304,12 +387,19 @@ class _EpisodeTileState extends State<EpisodeTile> {
 
   @override
   Widget build(BuildContext context) {
-    // Stills are atmosphere, not plot: a frame from the episode gives
-    // nothing away, so they stay visible while the name/story wait to
-    // be asked for.
     final hasThumb = widget.stillUrl != null && widget.stillUrl!.isNotEmpty;
     final expanded = _revealed || widget.revealedByProgress;
     final hidden = widget.hideSpoilers && !expanded;
+
+    if (widget.netflixStyle) {
+      return _buildNetflixEpisodeRow(
+        context,
+        hasThumb: hasThumb,
+        hidden: hidden,
+        expanded: expanded,
+      );
+    }
+
     return Semantics(
       button: true,
       label: 'Play episode ${widget.epNum}',
@@ -322,10 +412,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
         },
         onTapCancel: () => setState(() => _pressed = false),
         child: SizedBox(
-          // Compact rows are a fixed 80px; a revealed row grows to fit
-          // whatever it shows. Both are snapped, not animated: the
-          // revealed text lands in full on the first frame, so a
-          // growing box would flash an overflow stripe on its way up.
           height: expanded ? null : _tileHeight,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 140),
@@ -346,9 +432,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
               borderRadius: BorderRadius.circular(15),
               child: Row(
                 children: [
-                  // Left rail: thumbnail (when available) or numbered
-                  // accent. Kept at tile height so an expanded row grows
-                  // the story, not a tall crop of the same frame.
                   SizedBox(
                     height: _tileHeight,
                     child: hasThumb
@@ -359,10 +442,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                   // Title + overview
                   Expanded(
                     child: Padding(
-                      // 80px minus the tile's own 5px margins, 1px
-                      // border each side and this padding leaves 56px
-                      // of text: a 1-line title plus a 2-line story
-                      // fits with room to spare. 10px padding did not.
                       padding: EdgeInsets.symmetric(vertical: hidden ? 0 : 6),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -370,9 +449,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         children: [
                           Text(
                             hidden ? 'Episode ${widget.epNum}' : widget.epName,
-                            // 1 line unless expanded: a 2-line title plus a
-                            // 2-line story does not fit the 80px row and used
-                            // to overflow it instead of ellipsizing.
                             maxLines: expanded ? 2 : 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.outfitHeading.copyWith(
@@ -428,11 +504,6 @@ class _EpisodeTileState extends State<EpisodeTile> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  // Right side action column: solo play (top) + Watch
-                  // Together (bottom). Two stacked 32px circles fit
-                  // within the 80px tile height with vertical padding.
-                  // The solo play preserves the existing tap behaviour;
-                  // the heart opens a watch-party directly.
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -476,9 +547,190 @@ class _EpisodeTileState extends State<EpisodeTile> {
     );
   }
 
-  /// Typography rail — 64px wide so the episode number is large
-  /// enough to read at a glance, filling the full 80px height of
-  /// the row.
+  Widget _buildNetflixEpisodeRow(
+    BuildContext context, {
+    required bool hasThumb,
+    required bool hidden,
+    required bool expanded,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: _hovered
+                ? Colors.white.withValues(alpha: 0.07)
+                : (_pressed
+                    ? Colors.white.withValues(alpha: 0.1)
+                    : Colors.transparent),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.08),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Episode number
+              SizedBox(
+                width: 32,
+                child: Text(
+                  '${widget.epNum}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: widget.selected
+                        ? AppColors.deepRose
+                        : Colors.white.withValues(alpha: 0.65),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Thumbnail (16:9)
+              SizedBox(
+                width: 130,
+                height: 74,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (hasThumb)
+                        AppNetworkImage(
+                          imageUrl: widget.stillUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: const ColoredBox(
+                            color: Color(0xFF252030),
+                          ),
+                          errorWidget: const ColoredBox(
+                            color: Color(0xFF252030),
+                          ),
+                        )
+                      else
+                        Container(
+                          color: const Color(0xFF252030),
+                          child: const Icon(
+                            Icons.movie_creation_outlined,
+                            color: Colors.white38,
+                            size: 28,
+                          ),
+                        ),
+                      // Play icon overlay on hover
+                      if (_hovered)
+                        Center(
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      // Progress bar along bottom
+                      if (widget.progress > 0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: LinearProgressIndicator(
+                            value: widget.progress,
+                            minHeight: 3.5,
+                            backgroundColor: Colors.white24,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.deepRose,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Details: title + duration on top line, overview below
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            hidden ? 'Episode ${widget.epNum}' : widget.epName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitBold.copyWith(
+                              fontSize: 14.5,
+                              color: widget.selected
+                                  ? AppColors.deepRose
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                        if (widget.durationStr.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            widget.durationStr,
+                            style: AppTypography.outfitWhite.copyWith(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    if (hidden)
+                      GestureDetector(
+                        onTap: () => setState(() => _revealed = true),
+                        child: Text(
+                          'Reveal details',
+                          style: AppTypography.outfitWhite.copyWith(
+                            color: AppColors.deepRose,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else if (widget.epOverview.isNotEmpty)
+                      Text(
+                        widget.epOverview,
+                        maxLines: expanded ? 4 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: AppColors.petalWhite.withValues(alpha: 0.7),
+                          fontSize: 12.5,
+                          height: 1.4,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNumberedRail() {
     return Container(
       width: 64,
@@ -501,86 +753,50 @@ class _EpisodeTileState extends State<EpisodeTile> {
     );
   }
 
-  /// Thumbnail rail. 96px wide so a 16:9 still crops to roughly
-  /// the same vertical footprint as the numbered rail at 80px.
-  /// The episode number sits bottom-left over a dark gradient so
-  /// it's legible on bright frames.
   Widget _buildThumbnailRail() {
-    return Container(
-      width: 96,
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(15),
-          bottomLeft: Radius.circular(15),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(15),
-          bottomLeft: Radius.circular(15),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            AppNetworkImage(
-              imageUrl: widget.stillUrl!,
-              fit: BoxFit.cover,
-              cacheWidth: 300,
-              placeholder: _buildThumbSkeleton(),
-              errorWidget: _buildNumberedRail(),
-            ),
-            // Dark gradient on the left so the number stays legible
-            // on bright frames.
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [Color(0x99000000), Colors.transparent],
-                  stops: [0.0, 0.55],
-                ),
+    return SizedBox(
+      width: 100,
+      height: _tileHeight,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppNetworkImage(
+            imageUrl: widget.stillUrl!,
+            fit: BoxFit.cover,
+            cacheWidth: 300,
+            placeholder: const ColoredBox(color: AppColors.shimmerBase),
+            errorWidget: const ColoredBox(color: AppColors.shimmerBase),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.black.withValues(alpha: 0.4),
+                  Colors.transparent,
+                ],
               ),
             ),
-            // Episode number, bottom-left.
-            Positioned(
-              left: 10,
-              bottom: 6,
-              child: Text(
-                widget.epNum.toString().padLeft(2, '0'),
-                style: AppTypography.cormorantBlackWhite.copyWith(
-                  fontSize: 20,
-                  height: 1,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.8),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
+          ),
+          Positioned(
+            left: 8,
+            bottom: 6,
+            child: Text(
+              'EP ${widget.epNum}',
+              style: AppTypography.outfitHeading.copyWith(
+                fontSize: 11,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withValues(alpha: 0.8),
+                    blurRadius: 4,
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThumbSkeleton() {
-    // Static, not a spinner: the rail is 96px wide, a spinner there is
-    // noise, and it would keep the list animating forever.
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.shimmerBase, AppColors.deepBlack],
-        ),
-      ),
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.movie_outlined,
-        size: 22,
-        color: AppColors.deepRose.withValues(alpha: 0.4),
+          ),
+        ],
       ),
     );
   }
