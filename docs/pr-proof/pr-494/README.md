@@ -150,3 +150,22 @@ The Garden and Starlight captures that showed a bootstrap splash were rejected
 and recaptured after painting. Cinema posters have intentionally blank demo
 artwork. These show the real pages, unlike the earlier labeled widget renders;
 they do not prove Safari, touch-scroll timing or authenticated playback.
+
+## Manga chapter-wait final audit
+
+A final inventory of repeat controllers found the manga chapter-wait illustration
+still animating on phone viewports. The prior widget failed the added phone
+settling expectation (a frame remained scheduled). The fix applies the existing
+AppMotion policy and TickerMode gate; all six chapter-wait tests now pass,
+including title/subtitle, still phone/reduced motion, tablet copy animation,
+inactive page restoration and short-screen layout. Chapter retrieval is unchanged.
+Full local analysis (no issues), all 15 guards and the stamped release build
+pass again for this change. The phone regression before the fix reports
+Expected: false / Actual: true for ongoing frame scheduling.
+The full local suite has 1,517 passing tests (excluding golden/network).
+The hosted screenshots above show the preceding runtime pass; they do not depict
+this loading-stage follow-up or prove download speed. Device targets remain open.
+
+The rebuilt release also passes node tool/agent_smoke.mjs build/web manga at
+430px and 810px. This checks the Manga entry page; loading-stage behavior is
+proven by the six widget tests, not by an authenticated chapter retrieval.

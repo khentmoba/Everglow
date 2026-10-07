@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_motion.dart';
 
 /// The waiting screen both manga readers show while a chapter is
 /// still being fetched.
@@ -17,9 +18,8 @@ import '../../../../core/theme/app_typography.dart';
 /// goes on.
 ///
 /// Everything runs on one [AnimationController] and one
-/// [CustomPainter], so it costs nothing while it spins. With
-/// `disableAnimations` set (reduced motion) it paints a single static
-/// frame instead of animating.
+/// [CustomPainter]. Phones and reduced motion use a still frame; tablets
+/// retain the waiting animation.
 class ChapterLoadingStage extends StatefulWidget {
   /// Chapter title shown above the animation, e.g. "Chapter 12".
   final String? title;
@@ -61,8 +61,7 @@ class _ChapterLoadingStageState extends State<ChapterLoadingStage>
     duration: const Duration(milliseconds: 2600),
   );
 
-  bool get _animationsOff =>
-      MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+  bool get _animationsOff => AppMotion.reduceAmbientMotion(context);
 
   /// Reduced motion is a MediaQuery value, so the controller starts
   /// and stops here rather than in initState.
@@ -72,6 +71,8 @@ class _ChapterLoadingStageState extends State<ChapterLoadingStage>
     if (_animationsOff) {
       _controller.stop();
       _controller.value = 0.62;
+    } else if (!TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
     } else if (!_controller.isAnimating) {
       _controller.repeat();
     }

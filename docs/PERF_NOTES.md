@@ -305,3 +305,16 @@ Reports: docs/pr-proof/pr-494/startup-before-bench.md and
 artifacts based on d0155111, stamped 6.1.0+1-d0155111; source hashes distinguish
 versions. Windows / RTX 4070 headless Chrome is not an iPhone calibration.
 Real-device first-interactive, sustained FPS, heat and battery targets stay open.
+
+### Manga chapter wait follow-up
+
+The final repeat-controller audit found ChapterLoadingStage still repainting
+its page illustration and waiting copy every frame on phones during a fetch.
+It now uses the same AppMotion phone/reduced-motion policy and stops while
+TickerMode disables its page. Chapter title, subtitle and a still waiting
+illustration/copy remain visible; chapter fetching itself is unchanged.
+The new test in test/features/manga/chapter_loading_stage_test.dart fails
+against the prior widget because the phone keeps requesting frames, then
+passes with the fix; tablet motion and inactive-page restoration are checked.
+This proves stopped scheduling during chapter waits, not chapter download
+speed, presentation FPS or battery savings.

@@ -5,6 +5,7 @@ import 'package:everglow/features/manga/presentation/widgets/chapter_loading_sta
 
 Widget _stage({
   bool disableAnimations = false,
+  Size viewport = const Size(810, 1080),
   double width = 400,
   double height = 700,
   String? title = 'Chapter 1',
@@ -12,7 +13,10 @@ Widget _stage({
 }) {
   return MaterialApp(
     home: MediaQuery(
-      data: MediaQueryData(disableAnimations: disableAnimations),
+      data: MediaQueryData(
+        size: viewport,
+        disableAnimations: disableAnimations,
+      ),
       child: Scaffold(
         backgroundColor: const Color(0xFF080810),
         body: SizedBox(
@@ -34,6 +38,27 @@ Widget _stage({
 
 void main() {
   group('ChapterLoadingStage', () {
+    testWidgets('phone wait stays still; tablet and inactive page resume', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_stage(viewport: const Size(430, 932)));
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('Chapter 1'), findsOneWidget);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+
+      await tester.pumpWidget(_stage());
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+
+      await tester.pumpWidget(TickerMode(enabled: false, child: _stage()));
+      await tester.pump(const Duration(seconds: 5));
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      await tester.pumpWidget(TickerMode(enabled: true, child: _stage()));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.binding.hasScheduledFrame, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
     testWidgets('shows the chapter and manga names while waiting', (
       tester,
     ) async {
