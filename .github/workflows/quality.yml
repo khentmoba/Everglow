@@ -122,7 +122,11 @@ jobs:
           done
           dart tool/build_web.dart -- "${ARGS[@]}"
       - name: Smoke-test every agent destination in the release app
-        run: node tool/agent_smoke.mjs build/web
+        env:
+          CHROME_PATH: /opt/google/chrome/chrome
+        run: |
+          "$CHROME_PATH" --version
+          node tool/agent_smoke.mjs build/web
       - uses: actions/upload-artifact@v4
         with:
           name: web-${{ github.sha }}
