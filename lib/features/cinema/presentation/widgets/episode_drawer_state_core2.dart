@@ -334,13 +334,14 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     );
   }
 
-  void _playEpisode(int season, int episode, String epTitle) {
+  void _playEpisode(int season, int episode, String _) {
     final id = _isAnimeSourced ? _effectiveMalId : widget.item.tmdbId;
     final malIdParam = _isAnimeSourced ? '&malId=$_effectiveMalId' : '';
     final posterParam = widget.item.posterPath.isNotEmpty
         ? '&poster=${Uri.encodeComponent(widget.item.posterPath)}'
         : '';
-    final title = '${cleanTitle(widget.item.title)}: $epTitle';
+    // The selected episode already travels separately in the route.
+    final title = cleanTitle(widget.item.title);
     final watchedParam = !_isAnimeSourced && widget.item.isWatched
         ? '&watched=true'
         : '';

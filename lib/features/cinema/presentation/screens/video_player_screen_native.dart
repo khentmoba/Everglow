@@ -22,7 +22,34 @@ import '../../data/services/tmdb_service.dart';
 import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../widgets/embed_webview.dart';
-import '../widgets/up_next_overlay.dart';
+
+/// Show name only: strips any trailing episode suffix the route may have
+/// carried (`Show: Episode 3`, `Show Episode 3`) so the stepper below is
+/// the single episode label.
+String _nativeDisplayTitle(String raw) {
+  var title = raw.trim();
+  if (title.isEmpty) return title;
+  final suffixes = [
+    RegExp(r'\s*[:|–—-]\s*S\d+\s*E\d+.*$', caseSensitive: false),
+    RegExp(r'\s*[:|–—-]\s*E\d+.*$', caseSensitive: false),
+    RegExp(r'\s*[:|–—-]\s*Episode\s*\d+.*$', caseSensitive: false),
+    RegExp(r'\s+S\d+\s*E\d+\s*$', caseSensitive: false),
+    RegExp(r'\s+E\d+\s*$', caseSensitive: false),
+    RegExp(r'\s+Episode\s*\d+\s*$', caseSensitive: false),
+  ];
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final pattern in suffixes) {
+      final next = title.replaceAll(pattern, '').trim();
+      if (next.isNotEmpty && next != title) {
+        title = next;
+        changed = true;
+      }
+    }
+  }
+  return title.isEmpty ? raw.trim() : title;
+}
 
 /// Native player for the third-party embed sources.
 ///
@@ -145,7 +172,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
           MediaItem(
             id: '',
             tmdbId: widget.tmdbId,
-            title: widget.title,
+            title: _nativeDisplayTitle(widget.title),
             mediaType: widget.mediaType,
             posterPath: widget.posterPath,
             status: status,
@@ -663,17 +690,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                   onTap: () => Navigator.pop(context),
                 ),
               ),
-              if (widget.mediaType == 'tv' &&
-                  !widget.isAnime &&
-                  _nextEpisode != null)
-                Positioned(
-                  right: 12,
-                  bottom: 12,
-                  child: NextEpisodeButton(
-                    next: _nextEpisode!,
-                    onTap: _playNextEpisode,
-                  ),
-                ),
             ],
           ),
         ),
@@ -686,18 +702,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(
+          _nativeDisplayTitle(widget.title),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         backgroundColor: AppColors.inkDeep,
         foregroundColor: AppColors.petalWhite,
-        actions: [
-          TextButton.icon(
-            onPressed: _showSourceSheet,
-            icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-            label: Text(_currentProvider.shortName),
-            style: TextButton.styleFrom(foregroundColor: AppColors.roseQuartz),
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -708,7 +719,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
             _buildEpisodeStepper(),
           ],
           const SizedBox(height: AppSpacing.lg),
-          const CinemaViewingPreferences(),
+          const CinemaViewingPreferences(compact: true),
           _buildSourceCard(),
           const SizedBox(height: AppSpacing.lg),
           Center(
@@ -789,17 +800,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
                   );
                 },
               ),
-              if (widget.mediaType == 'tv' &&
-                  !widget.isAnime &&
-                  _nextEpisode != null)
-                Positioned(
-                  right: 8,
-                  bottom: 8,
-                  child: NextEpisodeButton(
-                    next: _nextEpisode!,
-                    onTap: _playNextEpisode,
-                  ),
-                ),
             ],
           ),
         ),

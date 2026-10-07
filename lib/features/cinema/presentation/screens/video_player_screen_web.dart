@@ -77,6 +77,32 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
   @override
   Widget build(BuildContext context) {
     _maybeAutoFullscreen(context);
+    if (_isFullscreen) {
+      // Theater: the platform-view iframe is fixed to the viewport via
+      // DOM (see _toggleFullScreen), so Flutter only needs a black
+      // backdrop plus a fallback exit pill. The pill sits behind the
+      // fixed iframe when the DOM fix lands (harmless) and stays
+      // tappable when it doesn't (no-trap fallback).
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: Colors.black),
+            Center(child: _buildPlayerArea()),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: _PlayerPillButton(
+                icon: Icons.fullscreen_exit_rounded,
+                label: 'Exit theater',
+                onTap: _toggleFullScreen,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       // Home Screen status-bar inset arrives via MediaQuery (see
@@ -98,80 +124,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                     // fullscreen the full-width player is taller than the
                     // viewport, and because embeds swallow wheel events the
                     // page can't be scrolled down to the server selector.
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final maxPlayerHeight =
-                            (MediaQuery.sizeOf(context).height - 296)
-                                .clamp(240.0, double.infinity)
-                                .toDouble();
-                        if (_iframeFailed) {
-                          return ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxHeight: maxPlayerHeight,
-                            ),
-                            child: _buildErrorCard(context),
-                          );
-                        }
-                        return ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: maxPlayerHeight,
-                          ),
-                          child: RepaintBoundary(
-                            child: Center(
-                              child: AspectRatio(
-                                aspectRatio: 16 / 9,
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    const ColoredBox(color: Colors.black),
-                                    RepaintBoundary(
-                                      // Built-in factory: episode/server switches reuse
-                                      // this one frame instead of registering new ones.
-                                      child: HtmlElementView.fromTagName(
-                                        tagName: 'div',
-                                        onElementCreated: (element) {
-                                          (element as web.HTMLElement)
-                                              .appendChild(_iframe);
-                                        },
-                                      ),
-                                    ),
-                                    if (_isLoading)
-                                      _CinematicLoader(
-                                        providerName:
-                                            _selectedProvider.shortName,
-                                      ),
-                                    // Up Next countdown (auto near the end)
-                                    // or the persistent Next pill (any time).
-                                    if (!_isLoading &&
-                                        !_iframeFailed &&
-                                        widget.mediaType == 'tv' &&
-                                        _nextEpisode != null)
-                                      Positioned(
-                                        right: 12,
-                                        bottom: 12,
-                                        child: _upNextVisible
-                                            ? UpNextOverlay(
-                                                next: _safeNextEpisode,
-                                                secondsLeft: _upNextLeft,
-                                                totalSeconds:
-                                                    _VideoPlayerScreenStateBase
-                                                        ._upNextCountdownSeconds,
-                                                onPlayNow: _playNextEpisode,
-                                                onCancel: _cancelUpNext,
-                                              )
-                                            : NextEpisodeButton(
-                                                next: _safeNextEpisode,
-                                                onTap: _playNextEpisode,
-                                              ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    _buildPlayerArea(),
                     // Episode Navigator for TV content
                     if (widget.mediaType == 'tv' && !widget.isAnime)
                       EpisodeNavigator(
@@ -190,7 +143,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                         onSeasonChanged: _onSeasonChanged,
                         onEpisodeChanged: _onEpisodeChanged,
                       ),
-                    const CinemaViewingPreferences(),
+                    const CinemaViewingPreferences(compact: true),
                     RepaintBoundary(child: _buildMetadataSection()),
                     RepaintBoundary(child: _buildServerSelectorSection()),
                     const SizedBox(height: 40),
@@ -204,10 +157,88 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     );
   }
 
+  /// 16:9 player frame shared by normal and theater layouts. In theater
+  /// the frame fills the viewport; otherwise it caps so page content
+  /// stays visible below (embeds swallow wheel events).
+  Widget _buildPlayerArea() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportHeight = MediaQuery.sizeOf(context).height;
+        final maxPlayerHeight = _isFullscreen
+            ? viewportHeight
+            : (viewportHeight - 296).clamp(240.0, double.infinity).toDouble();
+        if (_iframeFailed) {
+          return ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxPlayerHeight),
+            child: _buildErrorCard(context),
+          );
+        }
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxPlayerHeight),
+          child: RepaintBoundary(
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const ColoredBox(color: Colors.black),
+                    RepaintBoundary(
+                      // Built-in factory: episode/server switches reuse
+                      // this one frame instead of registering new ones.
+                      child: HtmlElementView.fromTagName(
+                        tagName: 'div',
+                        onElementCreated: (element) {
+                          final host = element as web.HTMLDivElement;
+                          _playerHost = host;
+                          host.style
+                            ..width = '100%'
+                            ..height = '100%';
+                          host.appendChild(_iframe);
+                        },
+                      ),
+                    ),
+                    if (_isLoading)
+                      _CinematicLoader(
+                        providerName: _selectedProvider.shortName,
+                      ),
+                    // Show the countdown only when autoplay is
+                    // about to advance, not a persistent Next pill.
+                    if (!_isLoading &&
+                        !_iframeFailed &&
+                        _upNextVisible &&
+                        widget.mediaType == 'tv' &&
+                        _nextEpisode != null)
+                      Positioned(
+                        right: 12,
+                        bottom: 12,
+                        child: UpNextOverlay(
+                          next: _safeNextEpisode,
+                          secondsLeft: _upNextLeft,
+                          totalSeconds: _VideoPlayerScreenStateBase
+                              ._upNextCountdownSeconds,
+                          onPlayNow: _playNextEpisode,
+                          onCancel: _cancelUpNext,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// Top control & details bar. Uses glass pills that respond to hover
   /// (desktop) and press (touch) without changing any existing behavior.
+  /// The title is the show name only: any trailing episode suffix that
+  /// rode in on the route (`Show: Episode 3`, `Show Episode 3`, …) is
+  /// stripped so the S/E badge below is the single episode label.
   Widget _buildTopBar() {
     final compact = MediaQuery.sizeOf(context).width < 560;
+    final title = _playerDisplayTitle(widget.title);
     return Container(
       height: 56,
       padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: 8),
@@ -236,30 +267,18 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             onTap: () => Navigator.pop(context),
           ),
           SizedBox(width: compact ? 8 : 14),
-          if (!compact) ...[
-            Expanded(
-              child: Text(
-                widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.cormorantSemiBoldWhite.copyWith(
-                  fontSize: 18,
-                  letterSpacing: 0.3,
-                ),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.cormorantSemiBoldWhite.copyWith(
+                fontSize: compact ? 15 : 18,
+                letterSpacing: 0.3,
               ),
             ),
-            const SizedBox(width: 12),
-          ],
-          if (!_isLoading && !_iframeFailed) ...[
-            _PlayerPillButton(
-              icon: Icons.swap_horiz_rounded,
-              label: 'Try Another Source',
-              accent: true,
-              compact: compact,
-              onTap: _onIframeLoadError,
-            ),
-            SizedBox(width: compact ? 6 : 8),
-          ],
+          ),
+          const SizedBox(width: 12),
           Tooltip(
             message: 'Theater mode',
             child: _PlayerIconButton(
@@ -272,8 +291,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
               },
             ),
           ),
-          SizedBox(width: compact ? 6 : 8),
-          _buildProviderBadge(compact: compact),
         ],
       ),
     );
@@ -312,11 +329,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _metaBadge(
-                Icons.source_rounded,
-                _selectedProvider.shortName,
-                accent: true,
-              ),
               _metaBadge(
                 widget.mediaType == 'movie'
                     ? Icons.movie_rounded
@@ -517,23 +529,6 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
   // ---------------------------------------------------------------------------
   // MORE LIKE THIS
   // ---------------------------------------------------------------------------
-
-  /// The chip in the header that shows the current embed source. A
-  /// [PopupMenuButton] that lets the user switch providers manually.
-  Widget _buildProviderBadge({bool compact = false}) {
-    final active = _activeProvider;
-    final isSelectable = _selectableProviders.length > 1;
-
-    final badge = _ProviderBadge(
-      active: active,
-      isSelectable: isSelectable,
-      compact: compact,
-    );
-
-    if (!isSelectable) return badge;
-
-    return GestureDetector(onTap: () => _showProviderSheet(), child: badge);
-  }
 
   void _showProviderSheet() {
     _iframe.style.setProperty('pointer-events', 'none');
