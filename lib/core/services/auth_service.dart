@@ -214,6 +214,8 @@ class AuthService extends ChangeNotifier {
   /// Establishes an in-memory simulated session for AI agents and local dev testing.
   /// Bypasses the passcode door and live Firebase auth without touching disk sessions.
   void enableAgentSession({String profile = 'khentsgdz'}) {
+    // Router redirects can repeat; notifying the router again recurses on web.
+    if (_isAgentSession && _currentUser == profile) return;
     _isAgentSession = true;
     _currentUser = profile;
     _offlineUnlocked = true;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../../../../core/agent/agent_mode.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/firestore_stream_utils.dart';
@@ -9,6 +10,8 @@ import 'tmdb_cache_service.dart';
 
 /// Firestore-backed watchlist CRUD, couple-merge streams, currently-watching
 /// streams, progress tracking, and one-time migration helpers.
+/// Agent sessions return empty lists and skip persistence; drawer selections
+/// remain local to the widget and never touch live or cached couple data.
 class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   final TMDBCacheService _cacheService;
 
@@ -33,6 +36,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     int limit = 30,
     bool? isAnime,
   }) async {
+    if (AgentMode.isActive.value) return const [];
     if (userName.isEmpty) return const [];
     Query<Map<String, dynamic>> query = firestore
         .collection('watch_list')
@@ -62,6 +66,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String? statusOwner,
     bool skipPartnerFallback = false,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) {
       Logger.w("Error saving to watch list: userName is empty");
       return;
@@ -253,6 +258,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     int? anilistId,
   }) async {
+    if (AgentMode.isActive.value) return null;
     if (userName.isEmpty || (tmdbId <= 0 && (anilistId ?? 0) <= 0)) return null;
     try {
       // Anime catalog cards can carry only AniList, while the stored entry
@@ -315,6 +321,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     int? durationSeconds,
     String? status,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
@@ -443,6 +450,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     String? docId,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
@@ -487,6 +495,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   /// caller's own document (see saveToWatchList). Does nothing when the
   /// caller has no document for [tmdbId].
   Future<void> clearWatchProgress(int tmdbId, String userName) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
@@ -515,6 +524,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
 
   /// Undo only a still-cleared entry; never overwrite newer device progress.
   Future<bool> restoreWatchProgress(MediaItem item, String userName) async {
+    if (AgentMode.isActive.value) return false;
     if (userName.isEmpty) return false;
     try {
       final existing = await withGetTimeout(
@@ -579,6 +589,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     double? rating,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
@@ -625,6 +636,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     required bool value,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
@@ -654,6 +666,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
 
   /// One-shot read of the "Remind me" bell for the drawer's initial state.
   Future<bool> isReminderSet(int tmdbId, String userName) async {
+    if (AgentMode.isActive.value) return false;
     if (userName.isEmpty) return false;
     try {
       final existing = await withGetTimeout(
@@ -687,6 +700,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   /// Stream of watch list items for a specific user (Firestore-based).
   /// We filter+sort in Dart to avoid needing a composite index in Firestore.
   Stream<List<MediaItem>> getWatchListStream(String userName, {int? limit}) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
@@ -721,6 +735,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     final controller = StreamController<List<MediaItem>>.broadcast();
     List<MediaItem> itemsA = const [];
     List<MediaItem> itemsB = const [];
@@ -773,6 +788,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     int? limit,
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
@@ -799,6 +815,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     final controller = StreamController<List<MediaItem>>.broadcast();
     List<MediaItem> itemsA = const [];
     List<MediaItem> itemsB = const [];
@@ -849,6 +866,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     int? limit,
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
@@ -875,6 +893,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     final controller = StreamController<List<MediaItem>>.broadcast();
     List<MediaItem> itemsA = const [];
     List<MediaItem> itemsB = const [];
@@ -925,6 +944,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName, {
     int? limit,
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     if (userName.isEmpty) return Stream.value(const []);
     return firestore
         .collection('watch_list')
@@ -952,6 +972,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
   }) {
+    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
     final controller = StreamController<List<MediaItem>>.broadcast();
     List<MediaItem> itemsA = const [];
     List<MediaItem> itemsB = const [];
@@ -1012,6 +1033,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     int? timestamp,
     int? durationSeconds,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
@@ -1055,6 +1077,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     String userName,
     String newStatus,
   ) async {
+    if (AgentMode.isActive.value) return;
     try {
       final collection = firestore.collection('watch_list');
       final existing = await withGetTimeout(
@@ -1119,6 +1142,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   ///
   /// Returns the number of entries removed.
   Future<int> cleanupDuplicatePartnerEntries() async {
+    if (AgentMode.isActive.value) return 0;
     try {
       final collection = firestore.collection('watch_list');
 
@@ -1180,6 +1204,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   ///   - watched-khent  -> khentsgdz
   ///   - watched-both / watched / to-watch -> khentsgdz (default)
   Future<int> migrateWatchListOwnership() async {
+    if (AgentMode.isActive.value) return 0;
     try {
       final collection = firestore.collection('watch_list');
       final all = await withGetTimeout(
@@ -1217,6 +1242,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   /// "On This Day" — watch list items added on the same month+day in
   /// previous years, for both partners.
   Future<List<MediaItem>> getWatchListFromThisDay() async {
+    if (AgentMode.isActive.value) return const [];
     final now = DateTime.now();
     final month = now.month;
     final day = now.day;
