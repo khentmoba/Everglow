@@ -63,8 +63,60 @@ account, Spotify playback, lower render scale or live data migration was tested
 or changed. Existing images above prove the earlier appearance; new timer tests
 prove behavior. The latest follow-up browser log is `background-browser-smoke.log`.
 
-The previous commit's hosted web-build job compiled successfully but failed
-before app smoke assertions: Chrome advertised an endpoint, then discovery timed
-out, and profile cleanup failed. That CI browser failure is not a passing result
-and prevented a new hosted preview. The PR remains draft until current CI and
-hosted preview inspection are complete.
+The older 73f2701 run failed before app smoke assertions because Chrome endpoint
+discovery/profile cleanup failed. The subsequent d015511 Quality run
+37695744194 passed Flutter, web build and preview deployment. Its hosted
+dashboard was opened at 430 × 932; a programmatic scroll revealed the demo
+Today, Calendar, Letterbox and Garden sections. The final pass still needs its
+own CI/preview result before this PR can leave draft.
+
+## App-wide audit follow-up
+
+`starlight-phone-widget.png` is an inspected 430 × 932 **Flutter widget render**
+of the actual StarlightJarWidget with one synthetic note, bundled fonts/icons
+and a test router. It depicts the still jar and visible search/category/action
+controls. It is not a Safari or full application screenshot; the debug banner
+belongs to the widget test. T3's duplicated/clipped screenshot remains rejected.
+
+`test/remaining_phone_motion_test.dart` verifies still phone Garden, Starlight,
+door breathing, anime badge, leaderboard and optional background petals; plant
+growth/door unlocking still complete, hidden celebration petals stop, and
+tablet motion returns. The existing anime-sidebar interaction test now verifies
+thinking/replying updates without continuing phone indicator frames.
+
+The presence heartbeat regression against the previous service expected five
+writes after six minutes offline but observed nine. With the fix the count
+stays five during that interval, then increases again on return while keeping
+one session. These counts come from a recording Firestore double, with no
+Firebase credentials or couple data. Manga's reading list now uses a native
+lazy builder; no populated authenticated manga speed claim is made.
+
+The app-wide source findings and unchanged existing optimizations are recorded
+in `docs/PERF_AUDIT.md`. Device acceptance remains open in `docs/PERF_NOTES.md`.
+
+Jukebox status and music statistics now pause their recurring fetch timers
+while inactive. Status reconnects wait for return and refresh immediately;
+the statistics fixture verifies eleven hidden minutes with unchanged fetch
+counts and a resumed refresh. Existing replay, recovery, cadence, artwork and
+disposal checks remain in the provider test suites. In-flight requests can
+finish; this does not claim that all background network traffic is eliminated.
+
+## Final local verification and startup evidence
+
+The current full audit pass has no analyzer issues, 1,516 passing Flutter tests
+(excluding golden/network), all 15 Dart guards passing, and a successful stamped
+release build. Commands and environment are the same as above. The latest
+route/viewport check output is audit-browser-smoke.log: all 64 checks passed
+(32 aliases at 430px and 810px). Current T3 navigation/evaluation retries
+timed out; no fresh full-page interaction claim is made. Final CI and hosted
+preview inspection are recorded separately when available.
+
+startup-artifacts.json records a 29.84% smaller initial script / 29.43% smaller
+deterministic gzip after route deferral. Both artifacts include the other audit
+fixes, so this measures the startup follow-up. The trace summaries observed
+main-script evaluation of 2,085ms before and 1,490ms after in one cold desktop
+run per version. One-run grid benchmark reports are also saved: BOTH FAIL the
+200ms full-session long-task target (worst 2,067ms / 1,514ms). Scroll movement
+was verified in both. No iPhone FPS or whole-app timing percentage follows from
+these diagnostic desktop samples. See docs/PERF_NOTES.md for settings, source
+hashes, dirty-build stamp limitations and the remaining device acceptance work.

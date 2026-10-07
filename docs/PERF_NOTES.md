@@ -5,7 +5,8 @@
 The original target remains **unverified**: sustained ≥55 FPS, <5% jank,
 zero presentation drops on every key phone screen, and first interactive
 <2.5s on throttled 3G. Do not close that goal from synthetic desktop readings.
-The blocked goal stays paused; this cleanup repairs defects and bad evidence.
+The active app-wide optimization audit is recorded in `docs/PERF_AUDIT.md`.
+It corrects avoidable work while keeping those device acceptance targets open.
 
 The earlier 138,580ms slow3G, 0ms boot-freeze, 991ms fully-offline and
 9.9–19.2% “phone-representable” claims are withdrawn. The cold driver did not
@@ -236,3 +237,71 @@ the idle phone Jukebox settles, and leaderboard effects resume on tablet resize.
 These checks establish stopped scheduling/rebuild work, not device FPS or battery
 percentages. Remote thumbnail URLs were inspected and already have bounded CDN
 variants; this follow-up does not reduce image sharpness or render resolution.
+
+### App-wide audit follow-up
+
+The remaining phone decoration in Garden, Starlight, entry-door breathing and
+petals, anime badges, Motchi streaming/tool indicators, countdown separators,
+partner mood hearts, music leaderboard badges, optional shared backdrop petals,
+and player status/loading overlays now stops its continuous animation loops.
+Finite door unlocking, plant growth, streamed replies, and playback updates
+remain functional. `test/remaining_phone_motion_test.dart` checks phone settling,
+door unlocking, plant growth, hidden petals and tablet motion restoration;
+`test/features/anime/animex_motchi_sidebar_test.dart` checks thinking and replying
+updates without ongoing phone indicator frames.
+
+Manga Currently Reading now builds cards lazily and computes the merged list
+once per build. This is a structural change; no populated authenticated manga
+performance measurement was taken. Other audited Books/Gallery/Chat lists
+already build on demand and retain their existing behavior.
+
+Marking the current presence user offline now cancels the heartbeat timer.
+Returning restarts the heartbeat and touches the existing session rather than
+orphaning it. Against the previous service,
+`test/core/services/presence_heartbeat_test.dart` observes four extra writes in
+six minutes offline; with the fix the write count stays unchanged, then advances
+again after resuming. This is a synthetic service check, not a battery estimate.
+
+Jukebox also pauses its Last.fm polling and reconnect timer while the app is
+inactive. Returning refreshes immediately, recovering a failed stream if needed,
+while an in-flight guard prevents overlapping polls.
+`test/features/jukebox/jukebox_provider_test.dart` verifies unchanged fetch/listen
+counts during a hidden interval and resumed polling/reconnection afterwards.
+Existing live/idle cadence, stream replay and disposal tests continue to pass.
+The statistics provider's one-minute/ten-minute refresh timers also pause while
+inactive, and it avoids creating timers if initialization finishes after
+disposal. `test/features/jukebox/music_stats_provider_test.dart` checks that
+eleven hidden minutes produce no additional recent/top-track fetches, then
+recent tracks refresh on return while the existing leaderboard stays visible.
+
+### Startup route loading follow-up
+
+A matching stamped release comparison defers Dashboard/Letterbox, Cinema/player,
+Anime, Manga home, Jukebox and Books entry/detail/reader/categories through the
+existing DeferredRouteLoader, with its loading and retry states. Query arguments
+and missing-extra guards are retained. First visits fetch the relevant chunks;
+this reduces initial code, not total code needed to visit every feature.
+
+Initial main.dart.js shrank from 6,873,114 to 4,822,468 bytes (29.84%), or from
+1,985,566 to 1,401,243 bytes with deterministic gzip (29.43%). Exact hashes and
+sizes are in docs/pr-proof/pr-494/startup-artifacts.json. Both builds include the
+other current audit fixes and use AGENT_MODE/EG_PERF_BENCH; this comparison
+isolates the route-loading follow-up rather than the entire PR against main.
+
+One cold desktop trace per version, 430 x 932 at DPR 2 and CPU throttle 4,
+observed main-script evaluation at 2,085ms before and 1,490ms after. This is a
+single diagnostic observation, not a statistically established timing gain.
+The corresponding one-run grid benchmark still FAILS its strict full-session
+200ms long-task budget: worst long task 2,067ms before and 1,514ms after.
+The trace associates the dominant startup task with main-script evaluation;
+first layout/rendering also remains expensive. No budget was relaxed or failure
+hidden. Scroll movement was observed in both runs. Rolling frame-meter FPS is
+not display FPS and cannot predict Clair's iPhone frame rate.
+
+Reports: docs/pr-proof/pr-494/startup-before-bench.md and
+ docs/pr-proof/pr-494/startup-after-bench.md; trace summaries:
+ docs/pr-proof/pr-494/startup-before-trace.json and
+ docs/pr-proof/pr-494/startup-after-trace.json. These are local dirty release
+artifacts based on d0155111, stamped 6.1.0+1-d0155111; source hashes distinguish
+versions. Windows / RTX 4070 headless Chrome is not an iPhone calibration.
+Real-device first-interactive, sustained FPS, heat and battery targets stay open.

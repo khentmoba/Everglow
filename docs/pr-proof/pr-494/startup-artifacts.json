@@ -1,0 +1,14 @@
+{
+  "before": {
+    "bytes": 6873114,
+    "gzipBytes": 1985566,
+    "sha256": "6827f76ef3c216b1e5bc59848a2537fdabd29ac18917fc4eba412d27de1f324e"
+  },
+  "after": {
+    "bytes": 4822468,
+    "gzipBytes": 1401243,
+    "sha256": "0a6b0746b3db0e391c60bc343996e8d7f5b6c4d7eed73dce5d70f4abf54f6be0"
+  },
+  "initialScriptReductionPercent": 29.835762945296707,
+  "initialScriptGzipReductionPercent": 29.42853574245329
+}

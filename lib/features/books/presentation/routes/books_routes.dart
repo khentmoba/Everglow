@@ -1,16 +1,17 @@
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_helpers.dart';
+import '../../../../core/router/deferred_route.dart';
 
 import 'package:flutter/material.dart';
 
 import '../../data/models/book_item.dart';
 import '../../data/models/book_search_result.dart';
-import '../screens/book_categories_screen.dart';
-import '../screens/book_detail_screen.dart';
+import '../screens/book_categories_screen.dart' deferred as categories_lib;
+import '../screens/book_detail_screen.dart' deferred as detail_lib;
 import '../screens/book_list_screen.dart';
-import '../screens/books_screen.dart';
-import '../screens/our_books_screen.dart';
-import '../screens/reader_screen.dart';
+import '../screens/books_screen.dart' deferred as books_lib;
+import '../screens/our_books_screen.dart' deferred as our_books_lib;
+import '../screens/reader_screen.dart' deferred as reader_lib;
 import '../widgets/book_categories.dart';
 
 /// Routes owned by the books feature.
@@ -19,7 +20,11 @@ final List<GoRoute> booksRoutes = [
     path: '/books',
     builder: (_, state) {
       final query = extraOf<String>(state) ?? '';
-      return BooksScreen(initialQuery: query);
+      return DeferredRouteLoader(
+        label: 'Books',
+        loadLibrary: books_lib.loadLibrary,
+        builder: () => books_lib.BooksScreen(initialQuery: query),
+      );
     },
     routes: [
       GoRoute(
@@ -27,7 +32,11 @@ final List<GoRoute> booksRoutes = [
         builder: (_, state) {
           final book = extraOf<BookItem>(state);
           if (book == null) return missingExtraPage(state);
-          return ReaderScreen(book: book);
+          return DeferredRouteLoader(
+            label: 'Book reader',
+            loadLibrary: reader_lib.loadLibrary,
+            builder: () => reader_lib.ReaderScreen(book: book),
+          );
         },
       ),
       GoRoute(
@@ -35,7 +44,11 @@ final List<GoRoute> booksRoutes = [
         builder: (_, state) {
           final args = extraOf<BookDetailArgs>(state);
           if (args == null) return missingExtraPage(state);
-          return BookDetailScreen(args: args);
+          return DeferredRouteLoader(
+            label: 'Book details',
+            loadLibrary: detail_lib.loadLibrary,
+            builder: () => detail_lib.BookDetailScreen(args: args),
+          );
         },
       ),
       GoRoute(
@@ -43,7 +56,12 @@ final List<GoRoute> booksRoutes = [
         builder: (_, state) {
           final book = extraOf<BookItem>(state);
           if (book == null) return missingExtraPage(state);
-          return ReaderScreen(book: book, startListening: true);
+          return DeferredRouteLoader(
+            label: 'Book reader',
+            loadLibrary: reader_lib.loadLibrary,
+            builder: () =>
+                reader_lib.ReaderScreen(book: book, startListening: true),
+          );
         },
       ),
       GoRoute(
@@ -61,9 +79,7 @@ final List<GoRoute> booksRoutes = [
         builder: (_, state) {
           final category = extraOf<BookCategory>(state);
           if (category != null) {
-            return BookListScreen(
-              args: BookListArgs.category(category),
-            );
+            return BookListScreen(args: BookListArgs.category(category));
           }
           final subject = extraOf<String>(state);
           if (subject == null || subject.isEmpty) {
@@ -83,9 +99,20 @@ final List<GoRoute> booksRoutes = [
       ),
       GoRoute(
         path: 'categories',
-        builder: (_, _) => const BookCategoriesScreen(),
+        builder: (_, _) => DeferredRouteLoader(
+          label: 'Book categories',
+          loadLibrary: categories_lib.loadLibrary,
+          builder: () => categories_lib.BookCategoriesScreen(),
+        ),
       ),
     ],
   ),
-  GoRoute(path: '/our-books', builder: (_, _) => const OurBooksScreen()),
+  GoRoute(
+    path: '/our-books',
+    builder: (_, _) => DeferredRouteLoader(
+      label: 'Our Books',
+      loadLibrary: our_books_lib.loadLibrary,
+      builder: () => our_books_lib.OurBooksScreen(),
+    ),
+  ),
 ];
