@@ -295,14 +295,6 @@ class _NetflixPosterCardState extends State<NetflixPosterCard> {
             child: ExcludeSemantics(child: _buildPoster(width, height)),
           ),
         ),
-        Positioned(
-          right: 2,
-          bottom: 2,
-          child: _NetflixOptionsButton(
-            title: widget.item.title,
-            onPressed: _showTouchPreview,
-          ),
-        ),
       ],
     );
 
@@ -592,14 +584,6 @@ class _NetflixContinueCardState extends State<NetflixContinueCard> {
               ),
             ),
           ),
-          Positioned(
-            left: 6,
-            top: 6,
-            child: _NetflixOptionsButton(
-              title: widget.item.title,
-              onPressed: _showTouchPreview,
-            ),
-          ),
         ],
       ),
     );
@@ -694,25 +678,6 @@ class _NetflixCardActionState extends State<_NetflixCardAction> {
       ),
     );
   }
-}
-
-class _NetflixOptionsButton extends StatelessWidget {
-  final String title;
-  final VoidCallback onPressed;
-
-  const _NetflixOptionsButton({required this.title, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: 'More options for $title',
-    onPressed: onPressed,
-    style: IconButton.styleFrom(
-      fixedSize: const Size(48, 48),
-      backgroundColor: NetflixColors.background.withValues(alpha: 0.85),
-      foregroundColor: NetflixColors.textPrimary,
-    ),
-    icon: const Icon(Icons.more_horiz_rounded),
-  );
 }
 
 /// Bell dot marking posters with "Remind me" set. Sits top-left so it

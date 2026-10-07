@@ -20,9 +20,6 @@ MediaItem _item([int i = 0]) => MediaItem(
   synopsis: 'A demo synopsis for layout and actions.',
 );
 
-Finder get _options =>
-    find.widgetWithIcon(IconButton, Icons.more_horiz_rounded);
-
 Future<void> _pump(
   WidgetTester tester,
   Widget child, {
@@ -51,8 +48,8 @@ Future<void> _pump(
   await tester.pump();
 }
 
-Future<void> _openOptions(WidgetTester tester) async {
-  await tester.tap(_options.first);
+Future<void> _openLongPressPreview(WidgetTester tester, Finder card) async {
+  await tester.longPress(card);
   await tester.pumpAndSettle();
   expect(find.byType(NetflixHoverPreview), findsOneWidget);
 }
@@ -90,70 +87,67 @@ void main() {
         expect(taps, 1);
         await tester.sendKeyEvent(LogicalKeyboardKey.space);
         expect(taps, 2);
-        // The next focus target is the menu, not another card activation.
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        expect(find.byType(NetflixHoverPreview), findsOneWidget);
-        expect(taps, 2);
+        expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
         semantics.dispose();
       },
     );
   }
 
-  testWidgets('poster menu Play, Save and Rate do not also activate Details', (
-    tester,
-  ) async {
-    var details = 0;
-    var plays = 0;
-    bool? saved;
-    double? rating;
-    await _pump(
-      tester,
-      NetflixRow(
-        title: 'Trending',
-        items: [_item()],
-        onTapItem: (_) => details++,
-        onPlayItem: (_) => plays++,
-        onToggleListItem: (_, add) => saved = add,
-        onRateItem: (_, value) => rating = value,
-      ),
-    );
-    await tester.tapAt(
-      tester.getTopLeft(find.byType(NetflixPosterCard)) + const Offset(30, 30),
-    );
-    expect(details, 1);
-    await _openOptions(tester);
-    await tester.tap(find.byTooltip('Add to My List'));
-    await tester.pump();
-    expect(saved, isTrue);
-    await tester.tap(find.byTooltip('I like this'));
-    await tester.pump();
-    expect(rating, 1);
-    for (final button in tester.widgetList<IconButton>(
-      find.byType(IconButton),
-    )) {
-      if (button.onPressed != null) {
-        final rect = tester.getSize(find.byWidget(button));
-        expect(rect.width, greaterThanOrEqualTo(48));
-        expect(rect.height, greaterThanOrEqualTo(48));
+  testWidgets(
+    'poster long-press preview Play, Save and Rate do not activate Details',
+    (tester) async {
+      var details = 0;
+      var plays = 0;
+      bool? saved;
+      double? rating;
+      await _pump(
+        tester,
+        NetflixRow(
+          title: 'Trending',
+          items: [_item()],
+          onTapItem: (_) => details++,
+          onPlayItem: (_) => plays++,
+          onToggleListItem: (_, add) => saved = add,
+          onRateItem: (_, value) => rating = value,
+        ),
+      );
+      await tester.tapAt(
+        tester.getTopLeft(find.byType(NetflixPosterCard)) +
+            const Offset(30, 30),
+      );
+      expect(details, 1);
+      await _openLongPressPreview(tester, find.byType(NetflixPosterCard));
+      await tester.tap(find.byTooltip('Add to My List'));
+      await tester.pump();
+      expect(saved, isTrue);
+      await tester.tap(find.byTooltip('I like this'));
+      await tester.pump();
+      expect(rating, 1);
+      for (final button in tester.widgetList<IconButton>(
+        find.byType(IconButton),
+      )) {
+        if (button.onPressed != null) {
+          final rect = tester.getSize(find.byWidget(button));
+          expect(rect.width, greaterThanOrEqualTo(48));
+          expect(rect.height, greaterThanOrEqualTo(48));
+        }
       }
-    }
-    expect(details, 1);
-    await tester.tap(find.byTooltip('Play'));
-    await tester.pumpAndSettle();
-    expect(plays, 1);
-    expect(details, 1);
-    expect(find.byType(NetflixHoverPreview), findsNothing);
-    await _openOptions(tester);
-    await tester.tap(find.byTooltip('Details for ${_item().title}'));
-    await tester.pumpAndSettle();
-    expect(details, 2);
-    expect(plays, 1);
-  });
+      expect(details, 1);
+      await tester.tap(find.byTooltip('Play'));
+      await tester.pumpAndSettle();
+      expect(plays, 1);
+      expect(details, 1);
+      expect(find.byType(NetflixHoverPreview), findsNothing);
+      await _openLongPressPreview(tester, find.byType(NetflixPosterCard));
+      await tester.tap(find.byTooltip('Details for ${_item().title}'));
+      await tester.pumpAndSettle();
+      expect(details, 2);
+      expect(plays, 1);
+    },
+  );
 
   testWidgets(
-    'continue preserves Resume, separate Details, Restart and Remove',
+    'continue preserves Resume, long-press Details, Restart and Remove',
     (tester) async {
       var details = 0;
       var resumes = 0;
@@ -175,28 +169,25 @@ void main() {
       await tester.tapAt(tester.getTopLeft(card) + const Offset(80, 70));
       expect(resumes, 1);
       expect(details, 0);
-      await _openOptions(tester);
+      await _openLongPressPreview(tester, card);
       await tester.tap(find.text('Restart'));
       await tester.pumpAndSettle();
       expect(restarts, 1);
       expect(resumes, 1);
       expect(details, 0);
-      await _openOptions(tester);
+      await _openLongPressPreview(tester, card);
       await tester.tap(find.byTooltip('Details for ${_item().title}'));
       await tester.pumpAndSettle();
       expect(details, 1);
       expect(resumes, 1);
-      await _openOptions(tester);
+      await _openLongPressPreview(tester, card);
       await tester.tap(find.byTooltip('Play'));
       await tester.pumpAndSettle();
       expect(resumes, 2);
       expect(details, 1);
       final remove = find.widgetWithIcon(IconButton, Icons.close_rounded);
       expect(tester.getSize(remove), const Size(48, 48));
-      expect(
-        tester.getRect(remove).overlaps(tester.getRect(_options)),
-        isFalse,
-      );
+      expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
       await tester.tap(remove);
       expect(removes, 1);
       expect(resumes, 2);
@@ -212,7 +203,7 @@ void main() {
         tester,
         NetflixContinueCard(item: _item(), onTap: () => resumes++),
       );
-      await _openOptions(tester);
+      await _openLongPressPreview(tester, find.byType(NetflixContinueCard));
       final details = tester.widget<IconButton>(
         find.widgetWithIcon(IconButton, Icons.keyboard_arrow_down_rounded),
       );
@@ -226,7 +217,7 @@ void main() {
   for (final width in [360.0, 390.0, 430.0, 810.0]) {
     for (final scale in [1.0, 2.0]) {
       testWidgets(
-        'production grid ${width}px scale $scale has bounded 48px options and usable sheet',
+        'production grid ${width}px scale $scale has no options overlay and keeps long-press preview',
         (tester) async {
           final columns = width >= 768 ? 5 : 3;
           var details = 0;
@@ -256,17 +247,17 @@ void main() {
           );
           for (var i = 0; i < columns; i++) {
             final card = tester.getRect(find.byType(NetflixPosterCard).at(i));
-            final options = tester.getRect(_options.at(i));
-            expect(options.size, const Size(48, 48));
-            expect(card.contains(options.topLeft), isTrue);
-            expect(card.contains(options.bottomRight), isTrue);
             expect(
               card.width,
               closeTo((width - 32 - (columns - 1) * 10) / columns, 0.1),
             );
           }
+          expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
           expect(tester.takeException(), isNull);
-          await _openOptions(tester);
+          await _openLongPressPreview(
+            tester,
+            find.byType(NetflixPosterCard).first,
+          );
           expect(details, 0);
           await tester.tap(find.byTooltip('I like this'));
           await tester.pumpAndSettle();
@@ -277,27 +268,28 @@ void main() {
     }
   }
 
-  testWidgets('continue row large text leaves space for subtitle and menu', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      NetflixContinueRow(
-        items: [_item()],
-        onTapItem: (_) {},
-        subtitleOf: (_) => 'A long subtitle with progress',
-        progressOf: (_) => 0.5,
-        onRestart: (_) {},
-        onPlayContinue: (_) {},
-        onRemoveItem: (_) {},
-      ),
-      width: 360,
-      textScale: 2,
-    );
-    await _openOptions(tester);
-    expect(find.text('Restart'), findsOneWidget);
-    await tester.tap(find.text('Restart'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'continue row large text leaves space for subtitle and long-press preview',
+    (tester) async {
+      await _pump(
+        tester,
+        NetflixContinueRow(
+          items: [_item()],
+          onTapItem: (_) {},
+          subtitleOf: (_) => 'A long subtitle with progress',
+          progressOf: (_) => 0.5,
+          onRestart: (_) {},
+          onPlayContinue: (_) {},
+          onRemoveItem: (_) {},
+        ),
+        width: 360,
+        textScale: 2,
+      );
+      await _openLongPressPreview(tester, find.byType(NetflixContinueCard));
+      expect(find.text('Restart'), findsOneWidget);
+      await tester.tap(find.text('Restart'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
