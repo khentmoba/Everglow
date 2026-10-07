@@ -6,10 +6,10 @@ import 'package:everglow/shared/widgets/everglow/everglow_marquee.dart';
 
 /// Tests for [EverglowMarquee] carousel behavior across shelves.
 ///
-/// Shelves with fewer than 3 items (1 or 2 items) render each child exactly once
-/// without tiling or auto-scrolling to prevent duplicate covers on short shelves.
-/// Shelves with 3 or more items tile seamlessly to fill the viewport and auto-scroll
-/// so media rails (Cinema, Anime, Books, Reading, Gallery) smoothly carousel.
+/// Shelves with fewer items (such as 1 or 2 items) space the second set off-screen
+/// so the row carousels normally without showing duplicate covers side-by-side.
+/// Shelves with overflowing items tile seamlessly to fill the viewport and auto-scroll
+/// so all media rails (Cinema, Anime, Books, Reading, Gallery) smoothly carousel.
 void main() {
   Widget harness({
     required double width,
@@ -40,7 +40,7 @@ void main() {
     for (final t in titles) SizedBox(width: 128, height: 186, child: Text(t)),
   ];
 
-  testWidgets('single-item row renders exactly once without duplicates or auto-scroll', (
+  testWidgets('single-item row carousels normally with off-screen loop set (no side-by-side duplicates)', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -48,13 +48,22 @@ void main() {
     );
     await tester.pump();
 
-    // Renders exactly once — no duplicates
-    expect(find.text('A Shop for Killers'), findsOneWidget);
-    // Does not run a ticker callback
-    expect(tester.binding.transientCallbackCount, 0);
+    // Exactly 1 set visible on screen (second set placed off-screen at x >= 800)
+    final firstCard = tester.getTopLeft(find.text('A Shop for Killers').first);
+    final secondCard = tester.getTopLeft(find.text('A Shop for Killers').last);
+    expect(firstCard.dx, closeTo(0.0, 1.0));
+    expect(secondCard.dx, greaterThanOrEqualTo(780.0));
+
+    // Auto-scrolls smoothly over time
+    for (var i = 0; i < 120; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final after = tester.getTopLeft(find.text('A Shop for Killers').first);
+    expect(after.dx, lessThan(firstCard.dx));
   });
 
-  testWidgets('two-item row renders each child exactly once (no tiling or auto-scroll)', (
+  testWidgets('two-item row carousels normally without side-by-side duplicates', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -62,22 +71,19 @@ void main() {
     );
     await tester.pump();
 
-    // Renders each child exactly once
-    expect(find.text('Movie A'), findsOneWidget);
-    expect(find.text('Movie B'), findsOneWidget);
+    // First set is on screen, second set is off-screen
+    final firstA = tester.getTopLeft(find.text('Movie A').first);
+    final secondA = tester.getTopLeft(find.text('Movie A').last);
+    expect(firstA.dx, closeTo(0.0, 1.0));
+    expect(secondA.dx, greaterThanOrEqualTo(780.0));
 
-    final before = tester.getTopLeft(find.text('Movie A'));
-
-    // Advance ~2 seconds of frames
+    // Auto-scrolls smoothly over time
     for (var i = 0; i < 120; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }
 
-    // Position unchanged — static
-    expect(tester.getTopLeft(find.text('Movie A')), before);
-    expect(find.text('Movie A'), findsOneWidget);
-    expect(find.text('Movie B'), findsOneWidget);
-    expect(tester.binding.transientCallbackCount, 0);
+    final after = tester.getTopLeft(find.text('Movie A').first);
+    expect(after.dx, lessThan(firstA.dx));
   });
 
   testWidgets('row with 3 or more items tiles and auto-scrolls seamlessly', (
@@ -87,11 +93,6 @@ void main() {
       harness(width: 800, children: cards(['Movie A', 'Movie B', 'Movie C'])),
     );
     await tester.pump();
-
-    // Tiles enough sets to fill the viewport + seamless wrap
-    expect(find.text('Movie A'), findsWidgets);
-    expect(find.text('Movie B'), findsWidgets);
-    expect(find.text('Movie C'), findsWidgets);
 
     final before = tester.getTopLeft(find.text('Movie A').first);
 
@@ -140,13 +141,15 @@ void main() {
     expect(edgeFadeOverlay(), findsOneWidget);
   });
 
-  testWidgets('short row (<3 items) renders no edge fade', (tester) async {
+  testWidgets('short row fades its clip edges when edgeFade is true', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       harness(width: 800, children: cards(['Movie A', 'Movie B'])),
     );
     await tester.pump();
 
-    expect(edgeFadeOverlay(), findsNothing);
+    expect(edgeFadeOverlay(), findsOneWidget);
   });
 
   testWidgets('drifting row ticks, and stops while hovered', (tester) async {
