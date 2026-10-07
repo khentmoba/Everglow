@@ -74,23 +74,12 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
               vertical: 7,
             ),
             decoration: BoxDecoration(
-              color: AppColors.moonlight.withValues(
-                alpha: _hovered ? 0.16 : 0.10,
-              ),
+              color: Colors.white.withValues(alpha: _hovered ? 0.16 : 0.10),
               borderRadius: BorderRadius.circular(AppRadius.full),
               border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.16),
+                color: Colors.white.withValues(alpha: 0.16),
                 width: 1,
               ),
-              boxShadow: _hovered
-                  ? [
-                      BoxShadow(
-                        color: AppColors.softLavender.withValues(alpha: 0.22),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -154,27 +143,16 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
             width: widget.compact ? 30 : 32,
             height: widget.compact ? 30 : 32,
             decoration: BoxDecoration(
-              color: AppColors.moonlight.withValues(
-                alpha: _hovered ? 0.18 : 0.10,
-              ),
+              color: Colors.white.withValues(alpha: _hovered ? 0.18 : 0.10),
               borderRadius: BorderRadius.circular(AppRadius.xs),
               border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.16),
+                color: Colors.white.withValues(alpha: 0.16),
                 width: 1,
               ),
-              boxShadow: _hovered
-                  ? [
-                      BoxShadow(
-                        color: AppColors.softLavender.withValues(alpha: 0.20),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
             ),
             child: Icon(
               widget.icon,
-              color: _hovered ? AppColors.roseQuartz : Colors.white70,
+              color: _hovered ? Colors.white : Colors.white70,
               size: 16,
             ),
           ),
@@ -236,7 +214,7 @@ class _PulsingDotState extends State<_PulsingDot>
                   height: 14,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppColors.deepRose.withValues(
+                    color: NetflixColors.accent.withValues(
                       alpha: (1 - _pulse.value) * 0.35,
                     ),
                   ),
@@ -245,15 +223,9 @@ class _PulsingDotState extends State<_PulsingDot>
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.deepRose,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.deepRose.withValues(alpha: 0.8),
-                      blurRadius: 8,
-                    ),
-                  ],
+                  color: NetflixColors.accent,
                 ),
               ),
             ],
@@ -303,7 +275,7 @@ class _CinematicLoaderState extends State<_CinematicLoader>
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: ColoredBox(
-        color: AppColors.inkDeep.withValues(alpha: 0.96),
+        color: NetflixColors.background.withValues(alpha: 0.96),
         child: Center(
           child: AnimatedBuilder(
             animation: _controller,
@@ -325,7 +297,7 @@ class _CinematicLoaderState extends State<_CinematicLoader>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: AppColors.deepRose.withValues(
+                                color: NetflixColors.accent.withValues(
                                   alpha: (1 - _controller.value) * 0.45,
                                 ),
                                 width: 1.5,
@@ -336,21 +308,9 @@ class _CinematicLoaderState extends State<_CinematicLoader>
                         Container(
                           width: 56,
                           height: 56,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.velvet, AppColors.deepRose],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                          decoration: const BoxDecoration(
+                            color: NetflixColors.surfaceElevated,
                             shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.deepRose.withValues(
-                                  alpha: 0.4,
-                                ),
-                                blurRadius: 22,
-                              ),
-                            ],
                           ),
                           child: const Icon(
                             Icons.movie_rounded,
@@ -386,15 +346,7 @@ class _CinematicLoaderState extends State<_CinematicLoader>
                         child: Container(
                           width: 52,
                           height: 3,
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppColors.deepRose,
-                                AppColors.auroraRose,
-                                AppColors.blushGold,
-                              ],
-                            ),
-                          ),
+                          color: NetflixColors.accent,
                         ),
                       ),
                     ),

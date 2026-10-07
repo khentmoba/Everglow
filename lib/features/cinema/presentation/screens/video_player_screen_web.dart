@@ -27,6 +27,7 @@ import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart'
 import '../../../../core/system/web_standalone.dart';
 import '../widgets/episode_navigator.dart';
 import '../widgets/up_next_overlay.dart';
+import '../widgets/netflix/netflix_colors.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_typography.dart';
 part 'video_player_widgets.dart';
@@ -243,13 +244,8 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
       height: 56,
       padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.inkDeep,
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.moonlight.withValues(alpha: 0.14),
-            width: 1,
-          ),
-        ),
+        color: _playerSurface,
+        border: Border(bottom: BorderSide(color: _playerHairline, width: 1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.35),
@@ -334,13 +330,13 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                     ? Icons.movie_rounded
                     : Icons.tv_rounded,
                 widget.mediaType == 'movie' ? 'Movie' : 'TV Show',
-                tint: AppColors.softLavender,
+                tint: _playerSecondary,
               ),
               if (widget.mediaType == 'tv')
                 _metaBadge(
                   Icons.layers_rounded,
                   'S$_currentSeason E$_currentEpisode',
-                  tint: AppColors.moonlight,
+                  tint: _playerSecondary,
                 ),
               if (rating != null)
                 _metaBadge(
@@ -352,7 +348,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                 _metaBadge(
                   Icons.schedule_rounded,
                   '${effRuntime}m',
-                  tint: AppColors.softLavender,
+                  tint: _playerSecondary,
                 ),
             ],
           ),
@@ -370,13 +366,13 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceGlass,
+                        color: _playerSurfaceElevated,
                         borderRadius: BorderRadius.circular(AppRadius.xs),
                       ),
                       child: Text(
                         g,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.textMuted,
+                          color: _playerSecondary,
                           fontSize: 11,
                         ),
                       ),
@@ -390,7 +386,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             Text(
               overview,
               style: AppTypography.outfitWhite.copyWith(
-                color: AppColors.textMedium,
+                color: _playerSecondary,
                 fontSize: 13,
                 height: 1.55,
               ),
@@ -407,42 +403,30 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     bool accent = false,
     Color? tint,
   }) {
-    final chipColor = tint ?? AppColors.textMuted;
+    final chipColor = tint ?? _playerSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: accent
-            ? AppColors.deepRose.withValues(alpha: 0.15)
-            : AppColors.surfaceGlass,
+            ? _playerAccent.withValues(alpha: 0.14)
+            : _playerSurfaceElevated,
         borderRadius: BorderRadius.circular(AppRadius.xs),
         border: Border.all(
           color: accent
-              ? AppColors.deepRose.withValues(alpha: 0.5)
-              : AppColors.border,
+              ? _playerAccent.withValues(alpha: 0.6)
+              : _playerHairline,
           width: 1,
         ),
-        boxShadow: accent
-            ? [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.18),
-                  blurRadius: 12,
-                ),
-              ]
-            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: accent ? AppColors.roseQuartz : chipColor,
-            size: 13,
-          ),
+          Icon(icon, color: accent ? _playerText : chipColor, size: 13),
           const SizedBox(width: 5),
           Text(
             label,
             style: AppTypography.outfitHeading.copyWith(
-              color: accent ? AppColors.roseQuartz : AppColors.textMedium,
+              color: accent ? _playerText : _playerSecondary,
               fontSize: 11,
             ),
           ),
@@ -466,15 +450,10 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
       child: GestureDetector(
         onTap: () => _showProviderSheet(),
         child: Container(
-          // 1px gradient frame around the card.
-          padding: const EdgeInsets.all(1),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.x2),
-            gradient: const LinearGradient(
-              colors: [AppColors.deepRose, AppColors.softLavender],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: _playerSurfaceElevated,
+            border: Border.all(color: _playerHairline),
           ),
           child: Container(
             padding: const EdgeInsets.fromLTRB(
@@ -484,8 +463,8 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
               AppSpacing.md,
             ),
             decoration: BoxDecoration(
-              color: AppColors.inkDeep.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(AppRadius.x2 - 1),
+              color: _playerSurface,
+              borderRadius: BorderRadius.circular(AppRadius.x2),
             ),
             child: Row(
               children: [
@@ -506,7 +485,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                       Text(
                         _selectedProvider.desc,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.textMuted,
+                          color: _playerSecondary,
                           fontSize: 11,
                         ),
                       ),
@@ -534,7 +513,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
     _iframe.style.setProperty('pointer-events', 'none');
     showModalBottomSheet<VideoSourceConfig>(
       context: context,
-      backgroundColor: AppColors.inkDeep,
+      backgroundColor: _playerSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.x2)),
       ),
@@ -550,7 +529,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.moonlight.withValues(alpha: 0.22),
+                  color: _playerHairline,
                   borderRadius: BorderRadius.circular(AppRadius.full),
                 ),
               ),
@@ -559,14 +538,8 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  gradient: AppTheme.roseGoldGradient,
+                  color: _playerAccent,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.deepRose.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                    ),
-                  ],
                 ),
                 child: const Icon(
                   Icons.swap_horiz_rounded,
@@ -608,13 +581,13 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.deepRose.withValues(alpha: 0.12)
-                                : AppColors.surfaceGlass,
+                                ? _playerAccent.withValues(alpha: 0.12)
+                                : _playerSurfaceElevated,
                             borderRadius: BorderRadius.circular(AppRadius.sm),
                             border: Border.all(
                               color: isSelected
-                                  ? AppColors.deepRose.withValues(alpha: 0.65)
-                                  : AppColors.border,
+                                  ? _playerAccent.withValues(alpha: 0.65)
+                                  : _playerHairline,
                               width: 1,
                             ),
                           ),
@@ -625,12 +598,8 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                 height: 30,
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? AppColors.deepRose.withValues(
-                                          alpha: 0.2,
-                                        )
-                                      : AppColors.moonlight.withValues(
-                                          alpha: 0.08,
-                                        ),
+                                      ? _playerAccent.withValues(alpha: 0.16)
+                                      : _playerHairline.withValues(alpha: 0.35),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -638,8 +607,8 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                       ? Icons.check_rounded
                                       : Icons.live_tv_rounded,
                                   color: isSelected
-                                      ? AppColors.roseQuartz
-                                      : AppColors.textMuted,
+                                      ? _playerAccent
+                                      : _playerSecondary,
                                   size: 16,
                                 ),
                               ),
@@ -668,9 +637,9 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                 ),
                               ),
                               if (isSelected)
-                                const Icon(
+                                Icon(
                                   Icons.radio_button_checked,
-                                  color: AppTheme.deepRose,
+                                  color: _playerAccent,
                                   size: 18,
                                 )
                               else
@@ -685,7 +654,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                                           ),
                                           duration: const Duration(seconds: 2),
                                           behavior: SnackBarBehavior.floating,
-                                          backgroundColor: AppTheme.deepRose,
+                                          backgroundColor: _playerAccent,
                                         ),
                                       );
                                     }
@@ -739,21 +708,15 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.deepRose.withValues(alpha: 0.12),
+              color: _playerAccent.withValues(alpha: 0.12),
               border: Border.all(
-                color: AppColors.deepRose.withValues(alpha: 0.5),
+                color: _playerAccent.withValues(alpha: 0.55),
                 width: 1.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.25),
-                  blurRadius: 24,
-                ),
-              ],
             ),
-            child: const Icon(
+            child: Icon(
               Icons.error_outline_rounded,
-              color: AppTheme.deepRose,
+              color: _playerAccent,
               size: 34,
             ),
           ),
@@ -780,7 +743,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             Text(
               'Try another source',
               style: AppTypography.outfitWhite.copyWith(
-                color: AppTheme.roseQuartz,
+                color: _playerSecondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.5,
@@ -801,25 +764,19 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                           vertical: 10,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.deepRose.withValues(alpha: 0.14),
+                          color: _playerAccent.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(AppRadius.full),
                           border: Border.all(
-                            color: AppTheme.deepRose.withValues(alpha: 0.5),
+                            color: _playerAccent.withValues(alpha: 0.6),
                             width: 1,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.deepRose.withValues(alpha: 0.18),
-                              blurRadius: 14,
-                            ),
-                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.play_circle_outline_rounded,
-                              color: AppTheme.roseQuartz,
+                              color: _playerAccent,
                               size: 17,
                             ),
                             const SizedBox(width: 7),
@@ -849,15 +806,8 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
               decoration: BoxDecoration(
-                gradient: AppTheme.roseGoldGradient,
+                color: _playerAccent,
                 borderRadius: BorderRadius.circular(AppRadius.full),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.4),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

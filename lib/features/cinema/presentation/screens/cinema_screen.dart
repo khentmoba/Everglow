@@ -685,9 +685,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
                     child: Tooltip(
                       message: isCoupleUser ? 'Dashboard' : 'Logout',
                       child: Material(
-                        color: const Color(0xFF14101A),
+                        color: NetflixColors.surface,
                         shape: const CircleBorder(
-                          side: BorderSide(color: Color(0x1AFFFFFF)),
+                          side: BorderSide(color: NetflixColors.hairline),
                         ),
                         elevation: 8,
                         child: InkWell(

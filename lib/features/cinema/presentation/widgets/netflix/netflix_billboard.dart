@@ -283,7 +283,7 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
                     colors: [
                       Colors.transparent,
                       Colors.transparent,
-                      Color(0x33100912),
+                      Color(0x33080808),
                       NetflixColors.background,
                     ],
                     stops: [0.0, 0.42, 0.72, 1.0],
@@ -299,8 +299,8 @@ class _NetflixBillboardState extends State<NetflixBillboard> {
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                     colors: [
-                      Color(0xB30A0710),
-                      Color(0x590A0710),
+                      Color(0xB3080808),
+                      Color(0x59080808),
                       Colors.transparent,
                     ],
                     stops: [0.0, 0.35, 0.75],

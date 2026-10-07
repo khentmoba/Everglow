@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../../../shared/widgets/app_network_image.dart';
-import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../drawer_helpers.dart';
+import '../../netflix/netflix_colors.dart';
 
-/// Elevated review cards for the enhanced Cinema drawer: glass surface,
-/// gradient hairline border, larger avatar with colored ring, star row,
-/// and a softly indented quote block with an accent bar.
+/// Review cards for the enhanced Cinema drawer.
 class CinemaReviewsSection extends StatelessWidget {
   final List<Map<String, dynamic>> reviews;
   final bool isLoading;
@@ -27,7 +25,7 @@ class CinemaReviewsSection extends StatelessWidget {
             width: 22,
             height: 22,
             child: CircularProgressIndicator(
-              color: AppColors.deepRose,
+              color: NetflixColors.accent,
               strokeWidth: 2,
             ),
           ),
@@ -40,7 +38,7 @@ class CinemaReviewsSection extends StatelessWidget {
         child: Text(
           'No reviews yet',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppColors.mutedPurple,
+            color: NetflixColors.textMuted,
             fontSize: 13,
           ),
         ),
@@ -61,106 +59,86 @@ class CinemaReviewsSection extends StatelessWidget {
 
           return Container(
             margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.roseQuartz.withValues(alpha: 0.22),
-                  AppColors.roseQuartz.withValues(alpha: 0.04),
-                ],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 14,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              color: NetflixColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: NetflixColors.hairline),
             ),
-            padding: const EdgeInsets.all(1.2),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.shimmerBase.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(17),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: avatarColor(author).withValues(alpha: 0.22),
-                          border: Border.all(
-                            color: avatarColor(author).withValues(alpha: 0.55),
-                            width: 1.6,
-                          ),
-                        ),
-                        child: ClipOval(
-                          child: hasAvatar
-                              ? AppNetworkImage(
-                                  imageUrl: review['avatar'],
-                                  width: 44,
-                                  height: 44,
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 150,
-                                  errorWidget: buildCastInitial(author),
-                                )
-                              : buildCastInitial(author),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              author,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.outfitHeading.copyWith(
-                                fontSize: 14.5,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            _buildStars(rating),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (preview.isNotEmpty)
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
                     Container(
-                      padding: const EdgeInsets.only(left: 12),
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
-                        border: Border(
-                          left: BorderSide(
-                            color: AppColors.blushGold.withValues(alpha: 0.4),
-                            width: 2,
-                          ),
-                        ),
+                        shape: BoxShape.circle,
+                        color: NetflixColors.surface,
+                        border: Border.all(color: NetflixColors.hairline),
                       ),
-                      child: Text(
-                        preview,
-                        style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.petalWhite.withValues(alpha: 0.78),
-                          fontSize: 13.5,
-                          height: 1.55,
-                        ),
+                      child: ClipOval(
+                        child: hasAvatar
+                            ? AppNetworkImage(
+                                imageUrl: review['avatar'],
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                                cacheWidth: 150,
+                                errorWidget: _buildAuthorInitial(author),
+                              )
+                            : _buildAuthorInitial(author),
                       ),
                     ),
-                ],
-              ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            author,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.outfitHeading.copyWith(
+                              fontSize: 14.5,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          _buildStars(rating),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (preview.isNotEmpty)
+                  Text(
+                    preview,
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: NetflixColors.textSecondary,
+                      fontSize: 13.5,
+                      height: 1.55,
+                    ),
+                  ),
+              ],
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAuthorInitial(String author) {
+    return Container(
+      color: NetflixColors.surface,
+      alignment: Alignment.center,
+      child: Text(
+        getInitial(author),
+        style: AppTypography.cormorantBold.copyWith(
+          fontSize: 26,
+          color: NetflixColors.textSecondary,
+        ),
       ),
     );
   }
@@ -176,8 +154,8 @@ class CinemaReviewsSection extends StatelessWidget {
           partial ? Icons.star_half_rounded : Icons.star_rounded,
           size: 13,
           color: full || partial
-              ? AppColors.warmAmber
-              : AppColors.mutedPurple.withValues(alpha: 0.4),
+              ? NetflixColors.gold
+              : NetflixColors.textMuted.withValues(alpha: 0.4),
         );
       }),
     );

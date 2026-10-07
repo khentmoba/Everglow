@@ -46,27 +46,26 @@ class _AiringCountdownChipState extends State<_AiringCountdownChip> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.deepRose.withValues(alpha: 0.25),
-            AppColors.deepRose.withValues(alpha: 0.12),
-          ],
-        ),
+        color: NetflixColors.accent.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.deepRose.withValues(alpha: 0.5),
+          color: NetflixColors.accent.withValues(alpha: 0.45),
           width: 1,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.timer_outlined, color: AppColors.deepRose, size: 11),
+          const Icon(
+            Icons.timer_outlined,
+            color: NetflixColors.accent,
+            size: 11,
+          ),
           const SizedBox(width: 5),
           Text(
             label,
             style: AppTypography.outfitHeading.copyWith(
-              color: AppColors.deepRose,
+              color: NetflixColors.accent,
               fontSize: 10,
               letterSpacing: 0.4,
             ),
@@ -97,7 +96,6 @@ Widget _buildGenreChip(String name) {
     ),
   );
 }
-
 
 Widget _buildEnhancedAnimeFactChip(String label, IconData icon) {
   return Container(

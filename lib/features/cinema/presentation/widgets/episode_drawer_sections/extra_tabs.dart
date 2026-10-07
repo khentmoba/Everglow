@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../netflix/netflix_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 
 /// Pill tab bar for the drawer's Cast / Reviews / More Like This sections.
@@ -66,7 +67,7 @@ class DrawerExtraTabs extends StatelessWidget {
 
   Color _textColor(bool isSelected) {
     if (cinemaStyle) {
-      return isSelected ? Colors.white : AppColors.mutedPurple;
+      return isSelected ? Colors.white : NetflixColors.textSecondary;
     }
     return isSelected ? Colors.black : AppColors.mutedPurple;
   }
@@ -86,30 +87,12 @@ class DrawerExtraTabs extends StatelessWidget {
 
   BoxDecoration _cinemaDecoration(bool isSelected) {
     return BoxDecoration(
-      gradient: isSelected
-          ? const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.auroraRose, AppColors.deepRose],
-            )
-          : null,
-      color: isSelected ? null : AppColors.surfaceGlass,
-      borderRadius: BorderRadius.circular(999),
+      color: isSelected ? NetflixColors.accent : NetflixColors.surfaceElevated,
+      borderRadius: BorderRadius.circular(8),
       border: Border.all(
-        color: isSelected
-            ? AppColors.auroraRose.withValues(alpha: 0.9)
-            : AppColors.moonlight.withValues(alpha: 0.16),
-        width: 1.2,
+        color: isSelected ? NetflixColors.accent : NetflixColors.hairline,
+        width: 1,
       ),
-      boxShadow: isSelected
-          ? [
-              BoxShadow(
-                color: AppColors.deepRose.withValues(alpha: 0.35),
-                blurRadius: 16,
-                spreadRadius: -2,
-              ),
-            ]
-          : null,
     );
   }
 }

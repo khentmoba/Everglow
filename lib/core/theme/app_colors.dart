@@ -47,6 +47,7 @@ class AppColors {
   static const Color mutedPurple = Color(0xFF8A7A92); // muted secondary text
 
   // Cinema detail (enhanced drawer) accents
+  static const Color cinemaRed = Color(0xFFE50914);
   static const Color cinemaMatch = Color(0xFF7ED69A); // match-score green
   static const Color cinemaOrange = Color(0xFFFF6D00); // watching accent
   static const Color cinemaPink = Color(0xFFE91E8C); // Clair accent

@@ -4,6 +4,7 @@ import 'drawer_helpers.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
+import '../netflix/netflix_colors.dart';
 
 /// Data class for anime season navigation entries. Each entry represents one
 /// season of a multi-season anime series, built from AniList SEQUEL/PREQUEL
@@ -101,11 +102,11 @@ class EpisodeListSection extends StatelessWidget {
             child: _buildEpisodeHeader(),
           ),
         if (isLoadingEpisodes)
-          const Padding(
-            padding: EdgeInsets.all(32),
+          Padding(
+            padding: const EdgeInsets.all(32),
             child: Center(
               child: CircularProgressIndicator(
-                color: AppColors.deepRose,
+                color: netflixStyle ? NetflixColors.accent : AppColors.deepRose,
                 strokeWidth: 2,
               ),
             ),
@@ -137,16 +138,14 @@ class EpisodeListSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF221C2B),
+                color: NetflixColors.surfaceElevated,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.18),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int>(
                   value: selectedSeasonNumber,
-                  dropdownColor: const Color(0xFF221C2B),
+                  dropdownColor: NetflixColors.surfaceElevated,
                   isDense: true,
                   icon: const Icon(
                     Icons.arrow_drop_down_rounded,
@@ -166,8 +165,9 @@ class EpisodeListSection extends StatelessWidget {
                       .where((s) => s['season_number'] is int)
                       .map<DropdownMenuItem<int>>((s) {
                         final epCount = s['episode_count'];
-                        final countStr =
-                            epCount != null ? ' ($epCount Episodes)' : '';
+                        final countStr = epCount != null
+                            ? ' ($epCount Episodes)'
+                            : '';
                         return DropdownMenuItem<int>(
                           value: s['season_number'] as int,
                           child: Text(
@@ -280,21 +280,21 @@ class EpisodeListSection extends StatelessWidget {
         );
 
     final durationMin = ep['runtime'] as int?;
-    final durationStr =
-        durationMin != null && durationMin > 0 ? '${durationMin}m' : '';
+    final durationStr = durationMin != null && durationMin > 0
+        ? '${durationMin}m'
+        : '';
 
     final isCurrentEpisode =
         currentSeason == epSeason && currentEpisode == epNum;
     final epProgress = isCurrentEpisode && currentDurationSeconds > 0
         ? (currentPositionSeconds / currentDurationSeconds).clamp(0.0, 1.0)
         : (allEpisodesWatched ||
-                (currentSeason != null &&
-                    currentEpisode != null &&
-                    (epSeason < currentSeason! ||
-                        (epSeason == currentSeason! &&
-                            epNum < currentEpisode!))))
-            ? 1.0
-            : 0.0;
+              (currentSeason != null &&
+                  currentEpisode != null &&
+                  (epSeason < currentSeason! ||
+                      (epSeason == currentSeason! && epNum < currentEpisode!))))
+        ? 1.0
+        : 0.0;
 
     return EpisodeTile(
       key: ValueKey('$epSeason/$epNum'),
@@ -565,8 +565,8 @@ class _EpisodeTileState extends State<EpisodeTile> {
             color: _hovered
                 ? Colors.white.withValues(alpha: 0.07)
                 : (_pressed
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.transparent),
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.transparent),
             border: Border(
               bottom: BorderSide(
                 color: Colors.white.withValues(alpha: 0.08),
@@ -586,7 +586,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: widget.selected
-                        ? AppColors.deepRose
+                        ? NetflixColors.accent
                         : Colors.white.withValues(alpha: 0.65),
                   ),
                   textAlign: TextAlign.center,
@@ -607,15 +607,15 @@ class _EpisodeTileState extends State<EpisodeTile> {
                           imageUrl: widget.stillUrl!,
                           fit: BoxFit.cover,
                           placeholder: const ColoredBox(
-                            color: Color(0xFF252030),
+                            color: NetflixColors.surface,
                           ),
                           errorWidget: const ColoredBox(
-                            color: Color(0xFF252030),
+                            color: NetflixColors.surface,
                           ),
                         )
                       else
                         Container(
-                          color: const Color(0xFF252030),
+                          color: NetflixColors.surface,
                           child: const Icon(
                             Icons.movie_creation_outlined,
                             color: Colors.white38,
@@ -654,7 +654,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                             minHeight: 3.5,
                             backgroundColor: Colors.white24,
                             valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.deepRose,
+                              NetflixColors.accent,
                             ),
                           ),
                         ),
@@ -680,7 +680,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 14.5,
                               color: widget.selected
-                                  ? AppColors.deepRose
+                                  ? NetflixColors.accent
                                   : Colors.white,
                             ),
                           ),
@@ -704,7 +704,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         child: Text(
                           'Reveal details',
                           style: AppTypography.outfitWhite.copyWith(
-                            color: AppColors.deepRose,
+                            color: NetflixColors.accent,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -716,7 +716,7 @@ class _EpisodeTileState extends State<EpisodeTile> {
                         maxLines: expanded ? 4 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.petalWhite.withValues(alpha: 0.7),
+                          color: NetflixColors.textSecondary,
                           fontSize: 12.5,
                           height: 1.4,
                         ),

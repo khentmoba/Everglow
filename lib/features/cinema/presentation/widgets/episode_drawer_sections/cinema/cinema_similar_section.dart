@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../../../shared/widgets/app_network_image.dart';
-import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/theme/app_typography.dart';
 import '../../../../data/models/media_item.dart';
 import '../../netflix/netflix_colors.dart';
@@ -32,7 +31,7 @@ class CinemaSimilarSection extends StatelessWidget {
             width: 22,
             height: 22,
             child: CircularProgressIndicator(
-              color: AppColors.deepRose,
+              color: NetflixColors.accent,
               strokeWidth: 2,
             ),
           ),
@@ -45,7 +44,7 @@ class CinemaSimilarSection extends StatelessWidget {
         child: Text(
           'No similar titles found',
           style: AppTypography.outfitWhite.copyWith(
-            color: AppColors.mutedPurple,
+            color: NetflixColors.textMuted,
             fontSize: 13,
           ),
         ),
@@ -135,7 +134,7 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1828),
+            color: NetflixColors.surfaceElevated,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _hovered
@@ -168,14 +167,14 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
                           fit: BoxFit.cover,
                           cacheWidth: 400,
                           placeholder: const ColoredBox(
-                            color: Color(0xFF282034),
+                            color: NetflixColors.surface,
                           ),
                           errorWidget: const ColoredBox(
-                            color: Color(0xFF282034),
+                            color: NetflixColors.surface,
                           ),
                         )
                       else
-                        const ColoredBox(color: Color(0xFF282034)),
+                        const ColoredBox(color: NetflixColors.surface),
                       // Duration or year badge overlay
                       Positioned(
                         right: 8,
@@ -192,9 +191,7 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
                           child: Text(
                             item.year.isNotEmpty
                                 ? item.year
-                                : (item.mediaType == 'movie'
-                                    ? 'Movie'
-                                    : 'TV'),
+                                : (item.mediaType == 'movie' ? 'Movie' : 'TV'),
                             style: AppTypography.outfitBold.copyWith(
                               fontSize: 10,
                               color: Colors.white,
@@ -282,7 +279,7 @@ class _NetflixSimilarGridCardState extends State<_NetflixSimilarGridCard> {
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.outfitWhite.copyWith(
                             fontSize: 11.5,
-                            color: AppColors.petalWhite.withValues(alpha: 0.75),
+                            color: NetflixColors.textSecondary,
                             height: 1.35,
                           ),
                         ),
@@ -333,22 +330,18 @@ class _SimilarCardState extends State<_SimilarCard> {
                   width: 128,
                   height: 182,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: NetflixColors.hairline),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.4),
                         blurRadius: 14,
                         offset: const Offset(0, 6),
                       ),
-                      if (_hovered)
-                        BoxShadow(
-                          color: AppColors.deepRose.withValues(alpha: 0.28),
-                          blurRadius: 22,
-                        ),
                     ],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(11),
                     child: item.posterUrl.isNotEmpty
                         ? AppNetworkImage(
                             imageUrl: item.posterUrl,
@@ -371,7 +364,7 @@ class _SimilarCardState extends State<_SimilarCard> {
                       ? item.year
                       : (item.mediaType == 'movie' ? 'Movie' : 'Series'),
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppColors.mutedPurple,
+                    color: NetflixColors.textMuted,
                     fontSize: 11,
                   ),
                 ),
@@ -385,11 +378,11 @@ class _SimilarCardState extends State<_SimilarCard> {
 
   Widget _fallback() {
     return Container(
-      color: AppColors.shimmerBase,
+      color: NetflixColors.surface,
       alignment: Alignment.center,
       child: const Icon(
         Icons.movie_outlined,
-        color: AppColors.mutedPurple,
+        color: NetflixColors.textMuted,
         size: 30,
       ),
     );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
-import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/services/tmdb_service.dart';
@@ -257,8 +256,7 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
   /// True while TMDB details are still resolving and the row payload has
   /// no synopsis to show yet. The popover renders animated shimmer
   /// placeholders instead of the fallback copy so hover never looks dead.
-  bool get _loadingDetails =>
-      _details == null && widget.item.synopsis.isEmpty;
+  bool get _loadingDetails => _details == null && widget.item.synopsis.isEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -293,21 +291,13 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
             decoration: BoxDecoration(
               color: NetflixColors.surfaceElevated,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.moonlight.withValues(alpha: 0.16),
-                width: 1,
-              ),
+              border: Border.all(color: NetflixColors.hairline),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.75),
                   blurRadius: 40,
                   spreadRadius: 4,
                   offset: const Offset(0, 20),
-                ),
-                BoxShadow(
-                  color: AppColors.deepRose.withValues(alpha: 0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -488,17 +478,9 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                           _seriesInfo == null)
                         const Row(
                           children: [
-                            EverglowSkeleton(
-                              width: 70,
-                              height: 12,
-                              radius: 6,
-                            ),
+                            EverglowSkeleton(width: 70, height: 12, radius: 6),
                             SizedBox(width: 8),
-                            EverglowSkeleton(
-                              width: 50,
-                              height: 12,
-                              radius: 6,
-                            ),
+                            EverglowSkeleton(width: 50, height: 12, radius: 6),
                             SizedBox(width: 8),
                             _HdBadge(),
                           ],
@@ -541,23 +523,11 @@ class _NetflixHoverPreviewState extends State<NetflixHoverPreview> {
                         const SizedBox(height: 10),
                         const Row(
                           children: [
-                            EverglowSkeleton(
-                              width: 52,
-                              height: 10,
-                              radius: 5,
-                            ),
+                            EverglowSkeleton(width: 52, height: 10, radius: 5),
                             SizedBox(width: 8),
-                            EverglowSkeleton(
-                              width: 68,
-                              height: 10,
-                              radius: 5,
-                            ),
+                            EverglowSkeleton(width: 68, height: 10, radius: 5),
                             SizedBox(width: 8),
-                            EverglowSkeleton(
-                              width: 44,
-                              height: 10,
-                              radius: 5,
-                            ),
+                            EverglowSkeleton(width: 44, height: 10, radius: 5),
                           ],
                         ),
                       ] else if (_genres.isNotEmpty) ...[

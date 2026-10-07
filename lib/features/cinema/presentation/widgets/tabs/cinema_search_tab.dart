@@ -541,15 +541,15 @@ class _SearchPill extends StatelessWidget {
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          foregroundColor: selected
-              ? NetflixColors.background
-              : NetflixColors.textSecondary,
+          foregroundColor: NetflixColors.textPrimary,
           backgroundColor: selected
-              ? NetflixColors.textPrimary
+              ? NetflixColors.accent
               : NetflixColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: NetflixColors.hairline),
+            side: BorderSide(
+              color: selected ? NetflixColors.accent : NetflixColors.hairline,
+            ),
           ),
           textStyle: AppTypography.outfitHeading.copyWith(fontSize: 12.5),
         ),

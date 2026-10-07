@@ -62,9 +62,7 @@ class NetflixMobileItem {
 /// Together is couple-only and would only show them a locked screen, while
 /// Anime would otherwise be unreachable for them on mobile — they have no
 /// dashboard and the floating corner button is their logout.
-List<NetflixMobileItem> cinemaMobileNavItems({
-  required bool isCinemaOnlyUser,
-}) {
+List<NetflixMobileItem> cinemaMobileNavItems({required bool isCinemaOnlyUser}) {
   if (isCinemaOnlyUser) {
     return const [
       NetflixMobileItem(
@@ -456,7 +454,7 @@ class _NetflixBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: NetflixColors.background,
         border: Border(top: BorderSide(color: NetflixColors.hairline)),
       ),
@@ -517,11 +515,7 @@ class _MobileTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            active ? item.activeIcon : item.icon,
-            color: color,
-            size: 23,
-          ),
+          Icon(active ? item.activeIcon : item.icon, color: color, size: 23),
           const SizedBox(height: 3),
           Text(
             item.label,

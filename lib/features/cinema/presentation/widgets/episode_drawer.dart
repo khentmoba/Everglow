@@ -570,9 +570,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           : widget.item.posterPath;
     }
     final isWide = MediaQuery.sizeOf(context).width >= 800;
-    final isCouple = context.select<AuthService, bool>(
-      (a) => a.isCoupleUser,
-    );
+    final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
 
     final cardContent = CustomScrollView(
       physics: const BouncingScrollPhysics(),
@@ -592,10 +590,10 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             onPlay: _isFilm
                 ? _playMovie
                 : () => _playEpisode(
-                      widget.item.currentSeason ?? 1,
-                      widget.item.currentEpisode ?? 1,
-                      widget.item.title,
-                    ),
+                    widget.item.currentSeason ?? 1,
+                    widget.item.currentEpisode ?? 1,
+                    widget.item.title,
+                  ),
             isAddedToWatchlist: _isInWatchlist,
             onToggleWatchlist: _toggleWatchlist,
             isLiked: _isLiked,
@@ -610,8 +608,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             onToggleTrailer: () => setState(() {
               _isPlayingTrailer = true;
             }),
-            onCloseTrailer: () =>
-                setState(() => _isPlayingTrailer = false),
+            onCloseTrailer: () => setState(() => _isPlayingTrailer = false),
           ),
         ),
         SliverToBoxAdapter(
@@ -627,9 +624,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           ),
         ),
         if (!_isFilm) ...[
-          SliverToBoxAdapter(
-            child: _buildEpisodeList(netflixStyle: true),
-          ),
+          SliverToBoxAdapter(child: _buildEpisodeList(netflixStyle: true)),
         ],
         // "More Like This" recommendation cards grid
         SliverToBoxAdapter(
@@ -747,10 +742,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   ),
                 ),
                 const SizedBox(width: 32),
-                Expanded(
-                  flex: 38,
-                  child: _buildNetflixRightColumn(),
-                ),
+                Expanded(flex: 38, child: _buildNetflixRightColumn()),
               ],
             )
           else
@@ -778,24 +770,21 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     required double? ratingNum,
     required dynamic runtime,
   }) {
-    final overview = (_details?['overview'] as String?) ??
-        widget.item.synopsis;
+    final overview = (_details?['overview'] as String?) ?? widget.item.synopsis;
 
     final episodesCountStr = _isFilm
         ? ''
         : (_details?['number_of_episodes'] != null
-            ? '${_details!['number_of_episodes']} Episodes'
-            : (_seasons.length > 1
-                ? '${_seasons.length} Seasons'
-                : (_episodes.isNotEmpty
-                    ? '${_episodes.length} Episodes'
-                    : (widget.item.episodeCount != null
-                        ? '${widget.item.episodeCount} Episodes'
-                        : ''))));
+              ? '${_details!['number_of_episodes']} Episodes'
+              : (_seasons.length > 1
+                    ? '${_seasons.length} Seasons'
+                    : (_episodes.isNotEmpty
+                          ? '${_episodes.length} Episodes'
+                          : (widget.item.episodeCount != null
+                                ? '${widget.item.episodeCount} Episodes'
+                                : ''))));
 
-    final runtimeStr = _isFilm && runtime != null
-        ? '${runtime}m'
-        : '';
+    final runtimeStr = _isFilm && runtime != null ? '${runtime}m' : '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,9 +835,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -864,9 +851,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
@@ -921,7 +906,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE50914),
+                  color: NetflixColors.accent,
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: const Text(
@@ -951,7 +936,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           Text(
             overview,
             style: AppTypography.outfitWhite.copyWith(
-              color: AppColors.petalWhite.withValues(alpha: 0.9),
+              color: NetflixColors.textPrimary.withValues(alpha: 0.9),
               fontSize: 14.5,
               height: 1.55,
             ),
@@ -1094,7 +1079,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           style: AppTypography.outfitHeading.copyWith(
             fontSize: 11,
             letterSpacing: 1.2,
-            color: AppColors.roseQuartz.withValues(alpha: 0.8),
+            color: NetflixColors.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -1129,7 +1114,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                     'Clair Watching',
                     'watching-clair',
                     icon: Icons.play_circle_filled_rounded,
-                    activeColor: AppColors.cinemaPink,
+                    activeColor: NetflixColors.accent,
                   ),
                   _buildEnhancedStatusChip(
                     'Both Watching',
@@ -1147,7 +1132,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                     'Clair Watched',
                     'watched-clair',
                     icon: Icons.favorite_rounded,
-                    activeColor: AppColors.cinemaPink,
+                    activeColor: NetflixColors.accent,
                   ),
                   _buildEnhancedStatusChip(
                     'Both Watched',
@@ -1189,7 +1174,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     String label,
     String status, {
     IconData icon = Icons.check_circle_rounded,
-    Color activeColor = AppColors.deepRose,
+    Color activeColor = NetflixColors.accent,
   }) {
     // Listens to the status directly so a tap repaints only the chips.
     // The drawer body (hero/trailer/episodes) never rebuilds for this.
@@ -1204,33 +1189,16 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             curve: Curves.easeInOut,
             padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
             decoration: BoxDecoration(
-              gradient: isSelected
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        activeColor.withValues(alpha: 0.3),
-                        activeColor.withValues(alpha: 0.08),
-                      ],
-                    )
-                  : null,
-              color: isSelected ? null : AppColors.surfaceGlass,
-              borderRadius: BorderRadius.circular(999),
+              color: isSelected
+                  ? activeColor.withValues(alpha: 0.16)
+                  : NetflixColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected
-                    ? activeColor.withValues(alpha: 0.9)
-                    : AppColors.moonlight.withValues(alpha: 0.16),
-                width: 1.2,
+                    ? activeColor.withValues(alpha: 0.75)
+                    : NetflixColors.hairline,
+                width: 1,
               ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: activeColor.withValues(alpha: 0.35),
-                        blurRadius: 16,
-                        spreadRadius: -2,
-                      ),
-                    ]
-                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1238,13 +1206,15 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 Icon(
                   icon,
                   size: 15,
-                  color: isSelected ? activeColor : AppColors.mutedPurple,
+                  color: isSelected ? activeColor : NetflixColors.textSecondary,
                 ),
                 const SizedBox(width: 7),
                 Text(
                   label,
                   style: AppTypography.outfitHeading.copyWith(
-                    color: isSelected ? Colors.white : AppColors.mutedPurple,
+                    color: isSelected
+                        ? Colors.white
+                        : NetflixColors.textSecondary,
                     fontSize: 12.5,
                   ),
                 ),
@@ -1266,7 +1236,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     final now = DateTime.now();
     return parsed.isAfter(DateTime(now.year, now.month, now.day));
   }
-
 
   Widget _buildDiscordShareButton({int? season, int? episode}) {
     return Builder(
@@ -1333,7 +1302,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
       if (mounted) setState(() => _isSharingDiscord = false);
     }
   }
-
 
   /// Smaller chip used for anime-specific facts (studio, format, airing
   /// status). Renders a leading icon and a tighter padding than the
@@ -1460,12 +1428,12 @@ class _RemindMeButtonState extends State<_RemindMeButton> {
         height: 52,
         decoration: BoxDecoration(
           color: set
-              ? AppColors.deepRose.withValues(alpha: 0.18)
+              ? NetflixColors.accent.withValues(alpha: 0.14)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: set
-                ? AppColors.deepRose
+                ? NetflixColors.accent
                 : AppColors.moonlight.withValues(alpha: 0.3),
             width: 1.4,
           ),
@@ -1478,7 +1446,7 @@ class _RemindMeButtonState extends State<_RemindMeButton> {
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
-                  color: AppColors.deepRose,
+                  color: NetflixColors.accent,
                   strokeWidth: 2,
                 ),
               )
@@ -1487,14 +1455,14 @@ class _RemindMeButtonState extends State<_RemindMeButton> {
                 set
                     ? Icons.notifications_active_rounded
                     : Icons.notifications_none_rounded,
-                color: set ? AppColors.deepRose : AppColors.textMedium,
+                color: set ? NetflixColors.accent : AppColors.textMedium,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
                 set ? 'Reminder Set' : 'Remind Me',
                 style: AppTypography.outfitHeading.copyWith(
-                  color: set ? AppColors.deepRose : AppColors.textMedium,
+                  color: set ? NetflixColors.accent : AppColors.textMedium,
                   fontSize: 14,
                 ),
               ),

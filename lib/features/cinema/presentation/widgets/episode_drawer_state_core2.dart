@@ -71,7 +71,9 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         Logger.w(
           "[Status] Blocked partner-specific status '$newStatus' for non-couple user $userName",
         );
-        if (mounted) _showSnack('This status is only available to Khent & Clair');
+        if (mounted) {
+          _showSnack('This status is only available to Khent & Clair');
+        }
         return;
       }
     }
@@ -300,7 +302,9 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: AppTypography.outfitWhite),
-        backgroundColor: AppColors.deepRose,
+        backgroundColor: widget.cinemaVariant
+            ? NetflixColors.surfaceElevated
+            : AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
@@ -316,7 +320,9 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
     messenger.showSnackBar(
       SnackBar(
         content: Text(msg, style: AppTypography.outfitWhite),
-        backgroundColor: AppColors.deepRose,
+        backgroundColor: widget.cinemaVariant
+            ? NetflixColors.surfaceElevated
+            : AppColors.deepRose,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
