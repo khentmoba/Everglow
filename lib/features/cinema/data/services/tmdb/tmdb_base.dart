@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import '../../../../../core/agent/agent_mode.dart';
+import 'tmdb_agent_catalogue.dart';
 import '../../models/media_item.dart';
 import '../../../../../shared/utils/title_matcher.dart';
 import '../../../../../shared/utils/tmdb_images.dart';
@@ -56,6 +59,14 @@ mixin TMDBBase {
   /// Sends a signed TMDB request. [http.get] cannot be used directly because
   /// the Authorization header makes browsers issue an authenticated CORS call.
   Future<http.Response> tmdbGet(Uri url) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      final data = agentTmdbResponse(url);
+      return http.Response(
+        jsonEncode(data ?? {'status_code': 34}),
+        data == null ? 404 : 200,
+        headers: {'content-type': 'application/json'},
+      );
+    }
     final token = await _getIdTokenCached();
     if (token == null || token.isEmpty) {
       throw StateError('TMDB requires an authenticated user');

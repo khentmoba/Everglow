@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../../core/agent/agent_mode.dart';
 import '../../../../../core/utils/connectivity_aware.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
@@ -9,6 +10,7 @@ import 'tmdb_base.dart';
 class TMDBCacheService with TMDBBase, ConnectivityAware {
   /// Cache watchlist items to SharedPreferences, scoped per user.
   Future<void> cacheWatchList(List<MediaItem> items, String userName) async {
+    if (AgentMode.isActive.value) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final listJson = items
@@ -36,6 +38,7 @@ class TMDBCacheService with TMDBBase, ConnectivityAware {
 
   /// Retrieve locally cached watchlist items for a specific user.
   Future<List<MediaItem>> getCachedWatchList(String userName) async {
+    if (AgentMode.isActive.value) return const [];
     try {
       final prefs = await SharedPreferences.getInstance();
       final cacheStr = prefs.getString(_cacheKey(userName));

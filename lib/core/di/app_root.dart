@@ -68,15 +68,15 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
     if (auth == null || !mounted) return;
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
-    if (auth.isCoupleUser && myUid != null && myUid.isNotEmpty) {
+    if (!auth.isAgentSession &&
+        auth.isCoupleUser &&
+        myUid != null &&
+        myUid.isNotEmpty) {
       // Voice chunk (flutter_webrtc) loads on demand, in parallel with first
       // paint rather than blocking it. Calls still ring: the watcher starts
       // as soon as the chunk lands, seconds before any call could arrive.
       unawaited(
-        VoiceChatBootstrap.watchIncoming(
-          myUid: myUid,
-          partnerUid: partnerUid,
-        ),
+        VoiceChatBootstrap.watchIncoming(myUid: myUid, partnerUid: partnerUid),
       );
       // Expose context to NotificationService for push to navigation.
       NotificationService.setNavContext(context);
@@ -88,7 +88,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Selector<AuthService, bool>(
-      selector: (_, auth) => auth.isCoupleUser,
+      selector: (_, auth) => auth.isCoupleUser && !auth.isAgentSession,
       builder: (context, isCoupleUser, child) {
         // Global Home Screen inset: the measured iPhone status-bar overlap
         // is injected into MediaQuery here, so every SafeArea/AppBar below

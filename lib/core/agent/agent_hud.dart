@@ -40,7 +40,7 @@ class AgentHudOverlay extends StatelessWidget {
                     bottom: 16,
                     left: 16,
                     right: 16,
-                    child: AgentHud(),
+                    child: Material(color: Colors.transparent, child: AgentHud()),
                   ),
                 ],
               ),
@@ -229,8 +229,11 @@ class _AgentHudState extends State<AgentHud> {
                       },
                     ),
                     const Spacer(),
-                    Tooltip(
-                      message: 'Collapse HUD (clean screenshot mode)',
+                    // This HUD sits above the Navigator in MaterialApp.builder,
+                    // so it has no Overlay ancestor for a Tooltip.
+                    Semantics(
+                      button: true,
+                      label: 'Collapse HUD (clean screenshot mode)',
                       child: InkWell(
                         onTap: () => AgentMode.hudCollapsed.value = true,
                         borderRadius: BorderRadius.circular(999),

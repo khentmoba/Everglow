@@ -71,3 +71,40 @@ migration; this pin does not guarantee runner availability or freeze Chrome's
 installed version. The existing shared-memory flag remains in place, and the
 manual browser jobs have ten-minute timeouts. A passing ordinary Quality run
 does not establish that a manual browser suite passed.
+
+## Cinema screenshot proof when Preview or debug Chrome stalls
+
+Start with T3 Preview's status and open tools. A missing automation host is a
+T3 runtime problem, not an Everglow compilation failure. Do not keep relaunching
+the app to repair that host. If Preview works but debug Chrome waits for its
+debugger connection, serve a release build using the existing SPA server:
+
+```powershell
+flutter build web --release --dart-define=AGENT_MODE=true
+node --input-type=module -e "import { serve } from './tool/perf/_harness.mjs'; await serve('build/web', 8752);"
+```
+
+Open `http://127.0.0.1:8752/cinema?agent=1` for the simulated couple profile,
+or `/cinema?agent=cinema` for the guest profile. The server supports direct
+routes and reloads. Cinema's demo catalogue and drawer metadata use fictional
+records without Firebase tokens or TMDB requests. Artwork uses the normal
+empty-image fallback. Demo watchlists stay empty and never persist actions;
+this mode does not verify real accounts, watchlist synchronization, or playback.
+
+When browser screenshot capture is unavailable, the production drawer can be
+rendered and exported by its regression test:
+
+```powershell
+flutter test --dart-define=PR_PROOF_PATH=C:/Users/Admin/AppData/Local/Temp/cinema-drawer.png test/features/cinema/agent_drawer_capture_test.dart
+```
+
+Choose an existing output directory. The test verifies chip bounds at 430px,
+loads the app fonts, and exports an image of the actual `EpisodeDrawer`.
+Both `RenderRepaintBoundary.toImage` and `Image.toByteData` run inside
+`tester.runAsync`; raw RGBA pixels are encoded with the already-installed
+`image` package. Awaiting renderer futures in the fake async zone can hang.
+Use a bounded animation pump: the recommendation loader can keep animating,
+so `pumpAndSettle` is not a suitable screenshot readiness condition here.
+
+Inspect the PNG before using it as proof. Label it as a widget render in the
+PR, rather than claiming it proves the browser interaction or live data flow.
