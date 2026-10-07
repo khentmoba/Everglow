@@ -1,17 +1,45 @@
 part of 'video_player_screen_web.dart';
 
+/// Show name only for the player chrome. Routes used to carry
+/// `Show: Episode 3` in the title while the S/E badge below said it
+/// again — strip any trailing episode suffix so the badge is the single
+/// episode label. Iterates because a title can stack suffixes
+/// (`Show Episode 3 Episode 3`).
+String _playerDisplayTitle(String raw) {
+  var title = raw.trim();
+  if (title.isEmpty) return title;
+  final suffixes = [
+    RegExp(r'\s*[:|–—-]\s*S\d+\s*E\d+.*$', caseSensitive: false),
+    RegExp(r'\s*[:|–—-]\s*E\d+.*$', caseSensitive: false),
+    RegExp(r'\s*[:|–—-]\s*Episode\s*\d+.*$', caseSensitive: false),
+    RegExp(r'\s+S\d+\s*E\d+\s*$', caseSensitive: false),
+    RegExp(r'\s+E\d+\s*$', caseSensitive: false),
+    RegExp(r'\s+Episode\s*\d+\s*$', caseSensitive: false),
+  ];
+  var changed = true;
+  while (changed) {
+    changed = false;
+    for (final pattern in suffixes) {
+      final next = title.replaceAll(pattern, '').trim();
+      if (next.isNotEmpty && next != title) {
+        title = next;
+        changed = true;
+      }
+    }
+  }
+  return title.isEmpty ? raw.trim() : title;
+}
+
 class _PlayerPillButton extends StatefulWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool accent;
   final bool compact;
 
   const _PlayerPillButton({
     required this.icon,
     required this.label,
     this.onTap,
-    this.accent = false,
     this.compact = false,
   });
 
@@ -25,7 +53,6 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.accent;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -47,28 +74,18 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
               vertical: 7,
             ),
             decoration: BoxDecoration(
-              color: accent
-                  ? AppColors.deepRose.withValues(alpha: _hovered ? 0.30 : 0.18)
-                  : AppColors.moonlight.withValues(
-                      alpha: _hovered ? 0.16 : 0.10,
-                    ),
+              color: AppColors.moonlight.withValues(
+                alpha: _hovered ? 0.16 : 0.10,
+              ),
               borderRadius: BorderRadius.circular(AppRadius.full),
               border: Border.all(
-                color: accent
-                    ? AppColors.deepRose.withValues(
-                        alpha: _hovered ? 0.85 : 0.55,
-                      )
-                    : AppColors.moonlight.withValues(alpha: 0.16),
+                color: AppColors.moonlight.withValues(alpha: 0.16),
                 width: 1,
               ),
               boxShadow: _hovered
                   ? [
                       BoxShadow(
-                        color:
-                            (accent
-                                    ? AppColors.deepRose
-                                    : AppColors.softLavender)
-                                .withValues(alpha: 0.22),
+                        color: AppColors.softLavender.withValues(alpha: 0.22),
                         blurRadius: 14,
                         offset: const Offset(0, 4),
                       ),
@@ -78,16 +95,12 @@ class _PlayerPillButtonState extends State<_PlayerPillButton> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  widget.icon,
-                  color: accent ? AppColors.roseQuartz : Colors.white70,
-                  size: 14,
-                ),
+                Icon(widget.icon, color: Colors.white70, size: 14),
                 const SizedBox(width: 6),
                 Text(
                   widget.label,
                   style: AppTypography.outfitHeading.copyWith(
-                    color: accent ? AppColors.roseQuartz : Colors.white70,
+                    color: Colors.white70,
                     fontSize: 11,
                   ),
                 ),
@@ -166,83 +179,6 @@ class _PlayerIconButtonState extends State<_PlayerIconButton> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Rose gradient pill showing the active embed source in the top bar.
-class _ProviderBadge extends StatelessWidget {
-  final VideoSourceConfig active;
-  final bool isSelectable;
-  final bool compact;
-
-  const _ProviderBadge({
-    required this.active,
-    required this.isSelectable,
-    this.compact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 12, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.deepRose.withValues(alpha: 0.92),
-            AppColors.auroraRose.withValues(alpha: 0.78),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.full),
-        border: Border.all(
-          color: AppColors.petalWhite.withValues(alpha: 0.22),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.deepRose.withValues(alpha: 0.45),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            active.shortName,
-            style: AppTypography.outfitBold.copyWith(
-              color: Colors.white,
-              fontSize: 12,
-            ),
-          ),
-          if (isSelectable) ...[
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.expand_more_rounded,
-              color: Colors.white,
-              size: 15,
-            ),
-          ],
-        ],
       ),
     );
   }

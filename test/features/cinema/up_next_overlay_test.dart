@@ -7,7 +7,9 @@ void main() {
   const next = NextEpisode(season: 1, episode: 2, name: 'The Middle');
 
   Widget wrap(Widget child) {
-    return MaterialApp(home: Scaffold(body: Center(child: child)));
+    return MaterialApp(
+      home: Scaffold(body: Center(child: child)),
+    );
   }
 
   group('UpNextOverlay', () {
@@ -58,19 +60,6 @@ void main() {
 
       expect(find.text('S2 E1'), findsOneWidget);
       expect(find.text('Next episode in 10...'), findsOneWidget);
-    });
-  });
-
-  group('NextEpisodeButton', () {
-    testWidgets('shows the next label and taps through', (tester) async {
-      var tapped = false;
-      await tester.pumpWidget(
-        wrap(NextEpisodeButton(next: next, onTap: () => tapped = true)),
-      );
-
-      expect(find.text('Next: S1 E2'), findsOneWidget);
-      await tester.tap(find.text('Next: S1 E2'));
-      expect(tapped, isTrue);
     });
   });
 }

@@ -90,10 +90,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// document, so a listener on the iframe element can never fire.
   final ScrollController _scrollController = ScrollController();
 
-  /// DOM exit chip shown in theater mode. It lives outside Flutter's
-  /// canvas (which sits underneath the fixed-position iframe), so it
-  /// stays reachable while theater mode is on.
+  /// DOM exit chip shown above the Flutter platform view in theater mode.
   web.HTMLDivElement? _fullscreenExitButton;
+  web.HTMLDivElement? _playerHost;
+  web.HTMLElement? _theaterPlatformView;
+  String? _platformViewStyles;
   JSFunction? _onFullscreenExitListener;
 
   /// Shared embed-provider service. Sources are loaded from Firestore
@@ -364,7 +365,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
           MediaItem(
             id: '',
             tmdbId: widget.tmdbId,
-            title: widget.title,
+            title: _playerDisplayTitle(widget.title),
             mediaType: widget.mediaType,
             posterPath: widget.posterPath,
             status: status,
@@ -1018,34 +1019,92 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _persistPlayerMemory();
   }
 
-  /// Toggles custom fullscreen (theater) mode. Instead of using the
-  /// browser Fullscreen API (which doesn't play well with Flutter web's
-  /// rendering layer and causes the player controls to be cut off), we
-  /// expand the iframe via CSS `position: fixed` to fill the viewport
-  /// and show a DOM exit chip on top so the user is never trapped.
+  /// Toggles theater mode by expanding the platform-view wrapper to the
+  /// viewport while keeping the iframe mounted in place. Always flips
+  /// [_isFullscreen] so the button never looks dead: the DOM fix is
+  /// best-effort (host may not be mounted yet) with a Flutter fallback
+  /// exit pill in the theater layout covering that case.
   void _toggleFullScreen() {
     final entering = !_isFullscreen;
-    setState(() => _isFullscreen = entering);
     if (entering) {
-      _iframe.style
-        ..position = 'fixed'
-        ..top = '0'
-        ..left = '0'
-        ..width = '100vw'
-        ..height = '100vh'
-        ..zIndex = '9999';
+      setState(() => _isFullscreen = true);
+      _expandPlatformViewForTheater();
       _showFullscreenExitButton();
+      _setBodyOverflowHidden(true);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
-      _iframe.style
-        ..position = ''
-        ..top = ''
-        ..left = ''
-        ..width = '100%'
-        ..height = '100%'
-        ..zIndex = '';
+      _restorePlatformViewStyle();
+      setState(() => _isFullscreen = false);
       _hideFullscreenExitButton();
+      _setBodyOverflowHidden(false);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+  }
+
+  web.HTMLElement? _findTheaterView() {
+    try {
+      final hostParent = _playerHost?.parentElement;
+      if (hostParent != null) return hostParent as web.HTMLElement;
+    } catch (_) {
+      // Fall through to the iframe-anchored lookup.
+    }
+    // Fallback when the host ref isn't set yet: iframe -> host -> view.
+    try {
+      final grandParent = _iframe.parentElement?.parentElement;
+      if (grandParent != null) return grandParent as web.HTMLElement;
+    } catch (_) {
+      // Detached iframe; theater still works Flutter-side.
+    }
+    return null;
+  }
+
+  void _expandPlatformViewForTheater() {
+    final platformView = _findTheaterView();
+    if (platformView == null) return;
+    _theaterPlatformView = platformView;
+    _platformViewStyles = platformView.style.cssText;
+    platformView.style
+      ..position = 'fixed'
+      ..display = 'block'
+      ..top = '0'
+      ..left = '0'
+      ..width = '100vw'
+      ..height = '100dvh'
+      ..zIndex = '9999'
+      ..transform = 'none'
+      ..overflow = 'hidden';
+  }
+
+  String? _bodyOverflowPrev;
+
+  void _setBodyOverflowHidden(bool hidden) {
+    try {
+      final body = web.document.body;
+      if (body == null) return;
+      if (hidden) {
+        _bodyOverflowPrev ??= body.style.overflow;
+        body.style.overflow = 'hidden';
+      } else {
+        final prev = _bodyOverflowPrev;
+        _bodyOverflowPrev = null;
+        body.style.overflow = prev ?? '';
+      }
+    } catch (_) {
+      // DOM access is best-effort; theater still works Flutter-side.
+    }
+  }
+
+  void _restorePlatformViewStyle() {
+    final platformView = _theaterPlatformView;
+    final styles = _platformViewStyles;
+    _theaterPlatformView = null;
+    _platformViewStyles = null;
+    if (platformView != null && styles != null) {
+      try {
+        platformView.style.cssText = styles;
+      } catch (_) {
+        // Ignore restore failures on a detached view.
+      }
     }
   }
 
@@ -1114,14 +1173,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       web.window.removeEventListener('message', _messageListener);
     }
     if (_isFullscreen) {
-      _iframe.style
-        ..position = ''
-        ..top = ''
-        ..left = ''
-        ..width = '100%'
-        ..height = '100%'
-        ..zIndex = '';
+      _restorePlatformViewStyle();
     }
+    _setBodyOverflowHidden(false);
     _hideFullscreenExitButton();
     _iframe.src = 'about:blank';
     _iframe.remove();
