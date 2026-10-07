@@ -98,23 +98,6 @@ Widget _buildGenreChip(String name) {
   );
 }
 
-Widget _buildEnhancedGenreChip(String name) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceGlass,
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: AppColors.roseQuartz.withValues(alpha: 0.25)),
-    ),
-    child: Text(
-      name,
-      style: AppTypography.outfitBold.copyWith(
-        color: AppColors.roseQuartz.withValues(alpha: 0.95),
-        fontSize: 12,
-      ),
-    ),
-  );
-}
 
 Widget _buildEnhancedAnimeFactChip(String label, IconData icon) {
   return Container(

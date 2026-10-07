@@ -1,6 +1,7 @@
 part of 'episode_drawer.dart';
 
 abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
+  @override
   Future<void> _updateStatus(String newStatus) {
     // Immediate tap feedback — haptics fire at tap time, not when the
     // queued write runs, so rapid taps never feel dead on slow network.

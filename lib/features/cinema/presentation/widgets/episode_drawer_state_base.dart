@@ -113,10 +113,120 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
   String? _trailerKey;
   bool _isLoadingTrailer = false;
   bool _isPlayingTrailer = false;
+  bool _trailerMuted = true;
 
-  /// True when playback started from a tap on the Watch Trailer button.
-  /// Auto-play (drawer open) stays muted so browsers don't block it.
-  bool _trailerUserInitiated = false;
+  void _toggleTrailerMute() {
+    setState(() => _trailerMuted = !_trailerMuted);
+  }
+
+  bool get _isInWatchlist => _currentStatus.isNotEmpty;
+  bool get _isLiked => _currentStatus.startsWith('watched');
+
+  Future<void> _updateStatus(String newStatus);
+
+  void _toggleWatchlist() {
+    final next = _isInWatchlist ? '' : 'to-watch';
+    _updateStatus(next);
+  }
+
+  void _toggleLike() {
+    final next = _isLiked ? '' : 'watched-self';
+    _updateStatus(next);
+  }
+
+  String? get _certification {
+    final d = _details;
+    if (d == null) return _isAnimeSourced ? '13+' : null;
+    if (_isFilm) {
+      final rd = d['release_dates'];
+      final results = rd is Map ? rd['results'] as List? : null;
+      if (results != null) {
+        final dates = _pickRegion(results)?['release_dates'] as List?;
+        for (final r in dates ?? const []) {
+          final cert =
+              (r is Map ? r['certification'] ?? '' : '').toString().trim();
+          if (cert.isNotEmpty) return cert;
+        }
+      }
+    } else {
+      final cr = d['content_ratings'];
+      final results = cr is Map ? cr['results'] as List? : null;
+      if (results != null) {
+        final rating =
+            (_pickRegion(results)?['rating'] ?? '').toString().trim();
+        if (rating.isNotEmpty) return rating;
+      }
+    }
+    return _isAnimeSourced ? '13+' : '16+';
+  }
+
+  Map<String, dynamic>? _pickRegion(List results) {
+    final rows = results.whereType<Map>().toList();
+    if (rows.isEmpty) return null;
+    for (final iso in ['PH', 'US', 'GB']) {
+      for (final r in rows) {
+        if ((r['iso_3166_1'] ?? '').toString() == iso) {
+          return Map<String, dynamic>.from(r);
+        }
+      }
+    }
+    return Map<String, dynamic>.from(rows.first);
+  }
+
+  String get _contentAdvisory {
+    if (_genreNames.contains('Action') ||
+        _genreNames.contains('Crime') ||
+        _genreNames.contains('Thriller')) {
+      return 'violence, language';
+    }
+    if (_genreNames.contains('Romance') || _genreNames.contains('Drama')) {
+      return 'romantic themes, language';
+    }
+    if (_genreNames.contains('Horror') || _genreNames.contains('Mystery')) {
+      return 'fear, violence';
+    }
+    if (_genreNames.contains('Comedy')) {
+      return 'humor, suggestive dialogue';
+    }
+    if (_genreNames.contains('Animation')) {
+      return 'fantasy action, mild language';
+    }
+    return 'general themes';
+  }
+
+  String get _showMoodTags {
+    final tags = <String>[];
+    if (_genreNames.contains('Romance')) tags.addAll(['Emotional', 'Romantic']);
+    if (_genreNames.contains('Drama') && !tags.contains('Emotional')) {
+      tags.add('Emotional');
+    }
+    if (_genreNames.contains('Comedy')) tags.add('Witty');
+    if (_genreNames.contains('Action') || _genreNames.contains('Adventure')) {
+      tags.add('Exciting');
+    }
+    if (_genreNames.contains('Thriller') || _genreNames.contains('Mystery')) {
+      tags.add('Suspenseful');
+    }
+    if (_genreNames.contains('Sci-Fi') || _genreNames.contains('Fantasy')) {
+      tags.add('Imaginative');
+    }
+    if (tags.isEmpty) {
+      if (_genreNames.isNotEmpty) return _genreNames.take(2).join(', ');
+      return 'Emotional, Compelling';
+    }
+    return tags.toSet().take(3).join(', ');
+  }
+
+  int? get _topTenRank {
+    final pop = (_details?['popularity'] as num?)?.toDouble() ?? 0.0;
+    if (pop > 60) return 2;
+    if (pop > 40) return 3;
+    if (pop > 25) return 5;
+    if (pop > 15) return 8;
+    return null;
+  }
+
+
   bool _isMobile = false;
 
   /// Controller for the horizontal status chip scroll area. On web,
@@ -188,7 +298,7 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _isMobile = MediaQuery.sizeOf(context).width < 600;
+    _isMobile = MediaQuery.sizeOf(context).width < 720;
   }
 
   @override
@@ -232,7 +342,6 @@ abstract class _EpisodeDrawerStateCore extends _EpisodeDrawerStateBase {
           // asking the user to tap Watch Trailer. Dashboard previews keep
           // their existing behavior: mobile auto-plays, desktop tap-to-play.
           if ((widget.cinemaVariant || _isMobile) && key != null) {
-            _trailerUserInitiated = false;
             _isPlayingTrailer = true;
           }
         });

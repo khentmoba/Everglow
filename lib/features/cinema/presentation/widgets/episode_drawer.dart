@@ -31,6 +31,7 @@ import 'episode_drawer_sections/cinema/cinema_hero.dart';
 import 'episode_drawer_sections/cinema/cinema_cast_section.dart';
 import 'episode_drawer_sections/cinema/cinema_reviews_section.dart';
 import 'episode_drawer_sections/cinema/cinema_similar_section.dart';
+import 'netflix/netflix_colors.dart';
 part 'episode_drawer_widgets.dart';
 part 'episode_drawer_state_base.dart';
 part 'episode_drawer_state_core2.dart';
@@ -56,7 +57,7 @@ class EpisodeDrawer extends StatefulWidget {
 class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   bool _isSharingDiscord = false;
 
-  Widget _buildEpisodeList() => ListenableBuilder(
+  Widget _buildEpisodeList({bool netflixStyle = false}) => ListenableBuilder(
     listenable: CinemaPreferences.instance,
     builder: (context, _) => EpisodeListSection(
       episodes: _episodes,
@@ -75,6 +76,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           ? 0
           : widget.item.durationSeconds ?? 0,
       allEpisodesWatched: !widget.item.isAnime && widget.item.isWatched,
+      netflixStyle: netflixStyle,
       onPlayEpisode: _playEpisode,
       onSeasonChanged: (sn) {
         setState(() => _selectedSeasonNumber = sn);
@@ -175,7 +177,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                   title: widget.item.title,
                   isDetailsLoading: _details == null,
                   onToggleTrailer: () => setState(() {
-                    _trailerUserInitiated = true;
                     _isPlayingTrailer = true;
                   }),
                   onCloseTrailer: () =>
@@ -550,6 +551,15 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     required String backdropUrl,
   }) {
     final isUnreleased = _isUnreleased(releaseDate);
+    final hasProgress =
+        (widget.item.currentTimestamp != null &&
+            widget.item.currentTimestamp! > 0) ||
+        (widget.item.currentSeason != null &&
+            widget.item.currentEpisode != null &&
+            (widget.item.currentSeason! > 1 ||
+                widget.item.currentEpisode! > 1));
+    final playLabel = hasProgress ? 'Resume' : 'Play';
+
     String posterUrl;
     if (_isAnimeSourced) {
       posterUrl = _details?['_posterUrl'] as String? ?? widget.item.posterPath;
@@ -559,196 +569,524 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
           ? TmdbImages.posterFor(pp)
           : widget.item.posterPath;
     }
-    final isWide = MediaQuery.sizeOf(context).width >= 900;
+    final isWide = MediaQuery.sizeOf(context).width >= 800;
+    final isCouple = context.select<AuthService, bool>(
+      (a) => a.isCoupleUser,
+    );
+
+    final cardContent = CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: CinemaHero(
+            backdropUrl: backdropUrl,
+            posterUrl: posterUrl,
+            trailerKey: _trailerKey,
+            isLoadingTrailer: _isLoadingTrailer,
+            isPlayingTrailer: _isPlayingTrailer,
+            isTrailerMuted: _trailerMuted,
+            isMobile: _isMobile,
+            isWide: isWide,
+            title: widget.item.title,
+            playLabel: playLabel,
+            onPlay: _isFilm
+                ? _playMovie
+                : () => _playEpisode(
+                      widget.item.currentSeason ?? 1,
+                      widget.item.currentEpisode ?? 1,
+                      widget.item.title,
+                    ),
+            isAddedToWatchlist: _isInWatchlist,
+            onToggleWatchlist: _toggleWatchlist,
+            isLiked: _isLiked,
+            onRate: _toggleLike,
+            isUnreleased: isUnreleased,
+            onRemindMe: () => _updateStatus('to-watch'),
+            onShareDiscord: isCouple
+                ? () => _shareToDiscord(season: _selectedSeasonNumber)
+                : null,
+            onToggleMute: _toggleTrailerMute,
+            onClose: () => Navigator.pop(context),
+            onToggleTrailer: () => setState(() {
+              _isPlayingTrailer = true;
+            }),
+            onCloseTrailer: () =>
+                setState(() => _isPlayingTrailer = false),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: FadeTransition(
+            opacity: _fadeAnim,
+            child: _buildNetflixDetailsSection(
+              year: year,
+              rating: rating,
+              ratingFraction: ratingFraction,
+              runtime: runtime,
+              isUnreleased: isUnreleased,
+            ),
+          ),
+        ),
+        if (!_isFilm) ...[
+          SliverToBoxAdapter(
+            child: _buildEpisodeList(netflixStyle: true),
+          ),
+        ],
+        // "More Like This" recommendation cards grid
+        SliverToBoxAdapter(
+          child: CinemaSimilarSection(
+            similar: _similar,
+            isLoading: _isLoadingSimilar,
+            onItemTap: _showSimilarItem,
+            isGrid: true,
+          ),
+        ),
+        // Extra Tabs: Cast & Reviews
+        SliverToBoxAdapter(
+          child: DrawerExtraTabs(
+            selected: _extraTab,
+            onSelect: _selectExtraTab,
+            isAnimeSourced: _isAnimeSourced,
+            cinemaStyle: true,
+          ),
+        ),
+        SliverToBoxAdapter(child: _buildCinemaExtraTabBody()),
+        const SliverToBoxAdapter(child: SizedBox(height: 60)),
+      ],
+    );
+
+    if (_isMobile) {
+      return Material(
+        color: NetflixColors.surface,
+        child: SizedBox(
+          width: double.infinity,
+          height: MediaQuery.sizeOf(context).height,
+          child: cardContent,
+        ),
+      );
+    }
 
     return Material(
-      color: AppColors.inkDeep,
-      child: SizedBox(
-        width: double.infinity,
-        height: MediaQuery.sizeOf(context).height,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: CinemaHero(
-                backdropUrl: backdropUrl,
-                posterUrl: posterUrl,
-                trailerKey: _trailerKey,
-                isLoadingTrailer: _isLoadingTrailer,
-                isPlayingTrailer: _isPlayingTrailer,
-                isMobile: _isMobile,
-                isWide: isWide,
-                year: year,
-                rating: rating,
-                ratingFraction: ratingFraction,
-                runtime: runtime,
-                title: widget.item.title,
-                isDetailsLoading: _details == null,
-                trailerUserInitiated: _trailerUserInitiated,
-                onToggleTrailer: () => setState(() {
-                  _trailerUserInitiated = true;
-                  _isPlayingTrailer = true;
-                }),
-                onCloseTrailer: () => setState(() => _isPlayingTrailer = false),
-                onClose: () => Navigator.pop(context),
-              ),
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          // Dismiss barrier clicking outside the dialog card
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox.expand(),
             ),
-            SliverToBoxAdapter(
-              child: FadeTransition(
-                opacity: _fadeAnim,
-                child: _buildCinemaMetaPanel(),
-              ),
-            ),
-            if (_isFilm)
-              SliverToBoxAdapter(
-                child: _buildCinemaActions(isUnreleased: isUnreleased),
-              )
-            else
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Films never reach here — see classic variant above.
-                    if (isUnreleased)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                        child: _RemindMeButton(item: widget.item),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-                      child: _buildDiscordShareButton(
-                        season: _selectedSeasonNumber,
-                      ),
+          ),
+          Center(
+            child: GestureDetector(
+              onTap: () {}, // absorbs tap so clicking inside does not dismiss
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: 880,
+                  maxHeight: MediaQuery.sizeOf(context).height - 56,
+                ),
+                margin: const EdgeInsets.symmetric(
+                  vertical: 28,
+                  horizontal: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: NetflixColors.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.85),
+                      blurRadius: 48,
+                      offset: const Offset(0, 12),
                     ),
-                    _buildEpisodeList(),
                   ],
                 ),
-              ),
-            // ── CAST / REVIEWS / MORE (lazy tabs — only the open tab builds) ──
-            SliverToBoxAdapter(
-              child: DrawerExtraTabs(
-                selected: _extraTab,
-                onSelect: _selectExtraTab,
-                isAnimeSourced: _isAnimeSourced,
-                cinemaStyle: true,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(13),
+                  child: Material(
+                    color: NetflixColors.surface,
+                    child: cardContent,
+                  ),
+                ),
               ),
             ),
-            SliverToBoxAdapter(child: _buildCinemaExtraTabBody()),
-            const SliverToBoxAdapter(child: SizedBox(height: 72)),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCinemaMetaPanel() {
+  Widget _buildNetflixDetailsSection({
+    required String year,
+    required String rating,
+    required double ratingFraction,
+    required dynamic runtime,
+    required bool isUnreleased,
+  }) {
+    final ratingNum = double.tryParse(rating);
+    final isWide = MediaQuery.sizeOf(context).width >= 680;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.roseQuartz.withValues(alpha: 0.28),
-              AppColors.roseQuartz.withValues(alpha: 0.05),
-            ],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
+      child: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 62,
+                  child: _buildNetflixLeftColumn(
+                    year: year,
+                    ratingNum: ratingNum,
+                    runtime: runtime,
+                  ),
+                ),
+                const SizedBox(width: 32),
+                Expanded(
+                  flex: 38,
+                  child: _buildNetflixRightColumn(),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildNetflixLeftColumn(
+                  year: year,
+                  ratingNum: ratingNum,
+                  runtime: runtime,
+                ),
+                const SizedBox(height: 20),
+                _buildNetflixRightColumn(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildNetflixLeftColumn({
+    required String year,
+    required double? ratingNum,
+    required dynamic runtime,
+  }) {
+    final overview = (_details?['overview'] as String?) ??
+        widget.item.synopsis;
+
+    final episodesCountStr = _isFilm
+        ? ''
+        : (_details?['number_of_episodes'] != null
+            ? '${_details!['number_of_episodes']} Episodes'
+            : (_seasons.length > 1
+                ? '${_seasons.length} Seasons'
+                : (_episodes.isNotEmpty
+                    ? '${_episodes.length} Episodes'
+                    : (widget.item.episodeCount != null
+                        ? '${widget.item.episodeCount} Episodes'
+                        : ''))));
+
+    final runtimeStr = _isFilm && runtime != null
+        ? '${runtime}m'
+        : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Badges row: Match %, Year, Episodes / Duration, HD, CC
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (ratingNum != null && ratingNum > 0)
+              Text(
+                '${(ratingNum * 10).round()}% Match',
+                style: AppTypography.outfitHeading.copyWith(
+                  color: NetflixColors.match,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            if (year.isNotEmpty)
+              Text(
+                year,
+                style: AppTypography.outfitWhite.copyWith(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            if (episodesCountStr.isNotEmpty)
+              Text(
+                episodesCountStr,
+                style: AppTypography.outfitWhite.copyWith(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            else if (runtimeStr.isNotEmpty)
+              Text(
+                runtimeStr,
+                style: AppTypography.outfitWhite.copyWith(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            // HD badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                'HD',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 10,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            // CC badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                'CC',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 10,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(1.2),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.panelGlass,
-            borderRadius: BorderRadius.circular(21),
-          ),
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_genreNames.isNotEmpty) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _genreNames
-                      .map((g) => _buildEnhancedGenreChip(g))
-                      .toList(),
+        const SizedBox(height: 10),
+        // Rating & Advisory Row
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (_certification != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  borderRadius: BorderRadius.circular(3),
                 ),
-                const SizedBox(height: 16),
-              ],
-              if (_isAnimeSourced &&
-                  (_studio.isNotEmpty ||
-                      _format.isNotEmpty ||
-                      _airingStatus.isNotEmpty)) ...[
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (_studio.isNotEmpty)
-                      _buildEnhancedAnimeFactChip(
-                        _studio,
-                        Icons.movie_creation_outlined,
-                      ),
-                    if (_format.isNotEmpty)
-                      _buildEnhancedAnimeFactChip(_format, Icons.tv_rounded),
-                    if (_airingStatus.isNotEmpty)
-                      _buildEnhancedAnimeFactChip(
-                        _airingStatus,
-                        Icons.fiber_manual_record_rounded,
-                      ),
-                    if (_aniListDetail?.nextAiringAt != null)
-                      _buildAiringCountdownChip(
-                        _aniListDetail!.nextAiringAt!,
-                        _aniListDetail!.nextAiringEpisode,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-              Text(
-                'Status',
-                style: AppTypography.outfitHeading.copyWith(
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                  color: AppColors.roseQuartz.withValues(alpha: 0.9),
+                child: Text(
+                  _certification!,
+                  style: AppTypography.outfitHeading.copyWith(
+                    fontSize: 11,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              _buildCinemaStatusArea(),
-              const SizedBox(height: 18),
-              if (_details?['overview'] != null &&
-                  (_details!['overview'] as String).isNotEmpty) ...[
-                Text(
-                  'STORY',
-                  style: AppTypography.outfitHeading.copyWith(
-                    fontSize: 10,
-                    letterSpacing: 2.4,
-                    color: AppColors.blushGold.withValues(alpha: 0.85),
+            Text(
+              _contentAdvisory,
+              style: AppTypography.outfitWhite.copyWith(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+        if (_topTenRank != null) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE50914),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Text(
+                  'TOP\n10',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w900,
+                    height: 0.95,
                   ),
                 ),
-                const SizedBox(height: 7),
-                Text(
-                  _details!['overview'],
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '#$_topTenRank in ${_isFilm ? 'Movies' : 'TV Shows'} Today',
+                style: AppTypography.outfitBold.copyWith(
+                  fontSize: 14,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (overview.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(
+            overview,
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.petalWhite.withValues(alpha: 0.9),
+              fontSize: 14.5,
+              height: 1.55,
+            ),
+          ),
+        ],
+        if (_isAnimeSourced &&
+            (_studio.isNotEmpty ||
+                _format.isNotEmpty ||
+                _airingStatus.isNotEmpty)) ...[
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (_studio.isNotEmpty)
+                _buildEnhancedAnimeFactChip(
+                  _studio,
+                  Icons.movie_creation_outlined,
+                ),
+              if (_format.isNotEmpty)
+                _buildEnhancedAnimeFactChip(_format, Icons.tv_rounded),
+              if (_airingStatus.isNotEmpty)
+                _buildEnhancedAnimeFactChip(
+                  _airingStatus,
+                  Icons.fiber_manual_record_rounded,
+                ),
+              if (_aniListDetail?.nextAiringAt != null)
+                _buildAiringCountdownChip(
+                  _aniListDetail!.nextAiringAt!,
+                  _aniListDetail!.nextAiringEpisode,
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNetflixRightColumn() {
+    final castNames = _cast
+        .take(4)
+        .map((c) => (c['name'] ?? '').toString())
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (castNames.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Cast: ',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: NetflixColors.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                  TextSpan(
+                    text: castNames.join(', '),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ', more',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: Colors.white.withValues(alpha: 0.6),
+                      fontStyle: FontStyle.italic,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        if (_genreNames.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Genres: ',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: NetflixColors.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                  TextSpan(
+                    text: _genreNames.join(', '),
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: 'This ${_isFilm ? 'Movie' : 'Show'} Is: ',
                   style: AppTypography.outfitWhite.copyWith(
-                    color: AppColors.petalWhite.withValues(alpha: 0.8),
-                    fontSize: 14,
-                    height: 1.6,
+                    color: NetflixColors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                TextSpan(
+                  text: _showMoodTags,
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: Colors.white,
+                    fontSize: 13,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
-      ),
+        Text(
+          'Status',
+          style: AppTypography.outfitHeading.copyWith(
+            fontSize: 11,
+            letterSpacing: 1.2,
+            color: AppColors.roseQuartz.withValues(alpha: 0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildCinemaStatusArea(),
+      ],
     );
   }
+
 
   Widget _buildCinemaStatusArea() {
     return Builder(
@@ -940,22 +1278,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     return parsed.isAfter(DateTime(now.year, now.month, now.day));
   }
 
-  Widget _buildCinemaActions({required bool isUnreleased}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (isUnreleased)
-            _RemindMeButton(item: widget.item)
-          else
-            _buildCinemaPlayButton(),
-          const SizedBox(height: AppSpacing.sm),
-          _buildDiscordShareButton(),
-        ],
-      ),
-    );
-  }
 
   Widget _buildDiscordShareButton({int? season, int? episode}) {
     return Builder(
@@ -1023,51 +1345,6 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     }
   }
 
-  Widget _buildCinemaPlayButton() {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: _playMovie,
-        child: Container(
-          height: 58,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.auroraRose, AppColors.deepRose],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.deepRose.withValues(alpha: 0.5),
-                blurRadius: 22,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 30,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Play Now',
-                style: AppTypography.outfitHeading.copyWith(
-                  color: Colors.white,
-                  fontSize: 16,
-                  letterSpacing: 0.4,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   /// Smaller chip used for anime-specific facts (studio, format, airing
   /// status). Renders a leading icon and a tighter padding than the

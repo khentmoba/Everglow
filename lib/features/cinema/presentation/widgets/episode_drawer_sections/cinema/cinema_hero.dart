@@ -5,32 +5,44 @@ import '../../../../../../core/theme/app_typography.dart';
 import '../../../../../../shared/widgets/app_network_image.dart';
 import '../../trailer_player.dart';
 import '../drawer_helpers.dart';
+import '../../netflix/netflix_colors.dart';
 
-/// Cinematic hero for the Everglow Cinema detail drawer. Full-bleed
-/// backdrop (or autoplaying trailer), layered scrims, a glass close
-/// button, a floating poster card on wide screens, and a title block
-/// with match score, star rating, year, runtime, and HD badge.
+void _noop() {}
+
+/// Netflix-inspired cinematic hero for the Everglow Cinema detail drawer.
+/// Full-bleed backdrop (or autoplaying trailer with real-time audio toggle),
+/// smooth layered scrims, floating circular close button in top right,
+/// volume/mute button in bottom right, and stylized title with high-contrast
+/// white Play button and quick circular action buttons.
 class CinemaHero extends StatelessWidget {
   final String backdropUrl;
   final String posterUrl;
   final String? trailerKey;
   final bool isLoadingTrailer;
   final bool isPlayingTrailer;
+  final bool isTrailerMuted;
   final bool isMobile;
-
-  /// True when the trailer started from a tap on the Watch Trailer button.
-  /// Auto-play stays muted so browser autoplay policies don't block it.
-  final bool trailerUserInitiated;
   final bool isWide;
+  final String title;
+  final VoidCallback onPlay;
+  final String playLabel;
+  final bool isAddedToWatchlist;
+  final VoidCallback onToggleWatchlist;
+  final bool isLiked;
+  final VoidCallback onRate;
+  final bool isUnreleased;
+  final VoidCallback? onRemindMe;
+  final VoidCallback? onShareDiscord;
+  final VoidCallback onToggleMute;
+  final VoidCallback onClose;
+  final VoidCallback? onToggleTrailer;
+  final VoidCallback? onCloseTrailer;
+  final bool isDetailsLoading;
+  final bool trailerUserInitiated;
   final String year;
   final String rating;
   final double ratingFraction;
   final dynamic runtime;
-  final String title;
-  final bool isDetailsLoading;
-  final VoidCallback onToggleTrailer;
-  final VoidCallback onCloseTrailer;
-  final VoidCallback onClose;
 
   const CinemaHero({
     super.key,
@@ -39,23 +51,34 @@ class CinemaHero extends StatelessWidget {
     this.trailerKey,
     required this.isLoadingTrailer,
     required this.isPlayingTrailer,
+    this.isTrailerMuted = true,
     required this.isMobile,
-    required this.trailerUserInitiated,
     required this.isWide,
-    required this.year,
-    required this.rating,
-    required this.ratingFraction,
-    required this.runtime,
     required this.title,
-    required this.isDetailsLoading,
-    required this.onToggleTrailer,
-    required this.onCloseTrailer,
+    this.onPlay = _noop,
+    this.playLabel = 'Play',
+    this.isAddedToWatchlist = false,
+    this.onToggleWatchlist = _noop,
+    this.isLiked = false,
+    this.onRate = _noop,
+    this.isUnreleased = false,
+    this.onRemindMe,
+    this.onShareDiscord,
+    this.onToggleMute = _noop,
     required this.onClose,
+    this.onToggleTrailer,
+    this.onCloseTrailer,
+    this.isDetailsLoading = false,
+    this.trailerUserInitiated = false,
+    this.year = '',
+    this.rating = '',
+    this.ratingFraction = 0.0,
+    this.runtime,
   });
 
   @override
   Widget build(BuildContext context) {
-    final height = isMobile ? 350.0 : 470.0;
+    final height = isMobile ? 280.0 : 440.0;
     return SizedBox(
       height: height,
       width: double.infinity,
@@ -68,63 +91,22 @@ class CinemaHero extends StatelessWidget {
             _buildBackdrop(context),
           _buildScrims(),
           _buildTopBar(context),
-          if (trailerKey != null && !isLoadingTrailer && !isPlayingTrailer)
-            _buildTrailerCta(),
-          if (isWide) _buildPosterCard(),
-          _buildTitleBlock(),
+          if (trailerKey != null) _buildVolumeButton(),
+          _buildTitleAndActions(context),
         ],
       ),
     );
   }
 
   Widget _buildTrailer(BuildContext context) {
-    // Home-Screen-web (standalone) stretches under the iPhone status bar,
-    // so every fixed top offset also adds the live top inset. Browsers and
-    // desktop report 0 here and stay pixel-identical.
-    final topInset = MediaQuery.paddingOf(context).top;
     return Stack(
       fit: StackFit.expand,
       children: [
         TrailerPlayer(
           videoKey: trailerKey!,
-          // Mobile is always muted; desktop is muted only when the trailer
-          // auto-played (tap-to-play is a user gesture, so sound is fine).
-          muted: isMobile || !trailerUserInitiated,
+          muted: isTrailerMuted,
           autoplay: true,
           loop: true,
-        ),
-        Positioned(
-          top: 60 + topInset,
-          left: 16,
-          child: GestureDetector(
-            onTap: onCloseTrailer,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.close_rounded,
-                    color: Colors.white,
-                    size: 15,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Close Trailer',
-                    style: AppTypography.outfitBold.copyWith(
-                      color: Colors.white,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
       ],
     );
@@ -154,7 +136,7 @@ class CinemaHero extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppColors.shimmerBase, AppColors.inkDeep],
+          colors: [AppColors.shimmerBase, NetflixColors.surface],
         ),
       ),
       alignment: Alignment.center,
@@ -180,21 +162,21 @@ class CinemaHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Top scrim so the handle and close button stay legible.
+          // Top scrim for close button legibility
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  AppColors.inkDeep.withValues(alpha: 0.85),
+                  Colors.black.withValues(alpha: 0.65),
                   Colors.transparent,
                 ],
                 stops: const [0, 0.35],
               ),
             ),
           ),
-          // Bottom scrim melting into the page background.
+          // Bottom scrim melting seamlessly into the dialog card background
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -202,39 +184,25 @@ class CinemaHero extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.transparent,
-                  AppColors.inkDeep.withValues(alpha: 0.35),
-                  AppColors.inkDeep.withValues(alpha: 0.92),
-                  AppColors.inkDeep,
+                  NetflixColors.surface.withValues(alpha: 0.35),
+                  NetflixColors.surface.withValues(alpha: 0.85),
+                  NetflixColors.surface,
                 ],
-                stops: const [0, 0.52, 0.82, 1],
+                stops: const [0, 0.45, 0.78, 1.0],
               ),
             ),
           ),
-          // Left scrim for title legibility on busy backdrops.
+          // Left scrim for title and button legibility
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 colors: [
-                  AppColors.inkDeep.withValues(alpha: 0.55),
+                  Colors.black.withValues(alpha: 0.55),
                   Colors.transparent,
                 ],
                 stops: const [0, 0.5],
-              ),
-            ),
-          ),
-          // Soft rose glow near the bottom-left, kept very subtle.
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: const Alignment(0.35, 1.1),
-                radius: 1.1,
-                colors: [
-                  AppColors.deepRose.withValues(alpha: 0.22),
-                  Colors.transparent,
-                ],
-                stops: const [0, 0.6],
               ),
             ),
           ),
@@ -244,275 +212,256 @@ class CinemaHero extends StatelessWidget {
   }
 
   Widget _buildTopBar(BuildContext context) {
-    // Same inset deal as [_buildTrailer]: the drag handle and the drawer
-    // close X must sit below the iPhone status bar in the installed web
-    // app, or Clair can't tap the X (it renders under the clock/battery).
+    // Both hero variants must add the live top inset to their fixed
+    // offsets so the close X sits below the status bar on mobile.
     final topInset = MediaQuery.paddingOf(context).top;
-    return Stack(
-      children: [
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Column(
-            children: [
-              SizedBox(height: 12 + topInset),
-              Container(
-                width: 44,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Positioned(top: 10 + topInset, right: 16, child: _buildCloseButton()),
-      ],
+    return Positioned(
+      top: 10 + topInset,
+      right: 16,
+      child: _buildCloseButton(),
     );
   }
 
   Widget _buildCloseButton() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
       child: GestureDetector(
-          onTap: onClose,
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  blurRadius: 12,
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.close_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-        ),
-    );
-  }
-
-  Widget _buildTrailerCta() {
-    return Positioned(
-      top: 0,
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: GestureDetector(
-          onTap: onToggleTrailer,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-            decoration: BoxDecoration(
-              color: AppColors.inkDeep.withValues(alpha: 0.55),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: AppColors.roseQuartz.withValues(alpha: 0.35),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [AppColors.auroraRose, AppColors.deepRose],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.deepRose.withValues(alpha: 0.6),
-                        blurRadius: 14,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.play_arrow_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Watch Trailer',
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: Colors.white,
-                    fontSize: 13,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPosterCard() {
-    return Positioned(
-      right: 28,
-      bottom: 24,
-      width: 132,
-      child: AspectRatio(
-        aspectRatio: 2 / 3,
+        onTap: onClose,
         child: Container(
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xCC181818),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.55),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: AppColors.deepRose.withValues(alpha: 0.25),
-                blurRadius: 28,
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 10,
               ),
             ],
-            border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(13),
-            child: posterUrl.isNotEmpty
-                ? AppNetworkImage(
-                    imageUrl: posterUrl,
-                    fit: BoxFit.cover,
-                    cacheWidth: 400,
-                    placeholder: const ColoredBox(
-                      color: AppColors.shimmerBase,
-                    ),
-                    errorWidget: const ColoredBox(
-                      color: AppColors.shimmerBase,
-                    ),
-                  )
-                : const ColoredBox(color: AppColors.shimmerBase),
+          child: const Icon(
+            Icons.close_rounded,
+            color: Colors.white,
+            size: 20,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTitleBlock() {
-    final ratingNum = double.tryParse(rating);
-    final filledStars = (ratingFraction * 5).round();
+  Widget _buildVolumeButton() {
+    return Positioned(
+      bottom: 24,
+      right: 20,
+      child: Tooltip(
+        message: isTrailerMuted ? 'Unmute' : 'Mute',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onToggleMute,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0x99181818),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.4),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Icon(
+                isTrailerMuted
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitleAndActions(BuildContext context) {
     return Positioned(
       left: 24,
-      right: isWide ? 200 : 56,
-      bottom: 18,
+      right: 76,
+      bottom: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             cleanTitle(title),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: AppTypography.cormorantBlackWhite.copyWith(
-              fontSize: isMobile ? 31 : 44,
-              height: 1.05,
+            style: AppTypography.outfitBold.copyWith(
+              fontSize: isMobile ? 26 : 38,
+              color: Colors.white,
+              height: 1.1,
               shadows: [
                 Shadow(
-                  color: Colors.black.withValues(alpha: 0.75),
-                  blurRadius: 18,
+                  color: Colors.black.withValues(alpha: 0.8),
+                  blurRadius: 16,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Wrap(
-            spacing: 8,
-            runSpacing: 6,
+            spacing: 10,
+            runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (ratingNum != null)
-                Text(
-                  '${(ratingNum * 10).round()}% Match',
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: AppColors.cinemaMatch,
-                    fontSize: 13.5,
-                  ),
-                ),
-              if (ratingNum != null) ...[
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(5, (i) {
-                    return Icon(
-                      Icons.star_rounded,
-                      size: 14,
-                      color: i < filledStars
-                          ? AppColors.warmAmber
-                          : Colors.white.withValues(alpha: 0.28),
-                    );
-                  }),
-                ),
-                Text(
-                  rating,
-                  style: AppTypography.outfitWhite.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+              // White Netflix Play Button
+              _buildPlayButton(),
+              if (isUnreleased) ...[
+                _CircleActionButton(
+                  icon: Icons.notifications_none_rounded,
+                  tooltip: 'Remind Me',
+                  onTap: onRemindMe ?? () {},
                 ),
               ],
-              if (year.isNotEmpty)
-                Text(
-                  year,
-                  style: AppTypography.outfitWhite.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                  ),
+              _CircleActionButton(
+                icon: isAddedToWatchlist
+                    ? Icons.check_rounded
+                    : Icons.add_rounded,
+                tooltip: isAddedToWatchlist
+                    ? 'In Watchlist'
+                    : 'Add to Watchlist',
+                onTap: onToggleWatchlist,
+                activeColor: isAddedToWatchlist ? AppColors.deepRose : null,
+              ),
+              _CircleActionButton(
+                icon: isLiked
+                    ? Icons.thumb_up_alt_rounded
+                    : Icons.thumb_up_off_alt_rounded,
+                tooltip: isLiked ? 'Rated' : 'Rate',
+                onTap: onRate,
+                activeColor: isLiked ? AppColors.deepRose : null,
+              ),
+              if (onShareDiscord != null) ...[
+                _CircleActionButton(
+                  icon: Icons.share_rounded,
+                  tooltip: 'Share to #watch-party',
+                  onTap: onShareDiscord!,
                 ),
-              if (runtime != null)
-                Text(
-                  '${runtime}m',
-                  style: AppTypography.outfitWhite.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.55),
-                  ),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Text(
-                  'HD',
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 9,
-                    letterSpacing: 0.5,
-                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayButton() {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onPlay,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 18 : 24,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.black,
+                size: 26,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                playLabel,
+                style: AppTypography.outfitBold.copyWith(
+                  color: Colors.black,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
                 ),
               ),
             ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleActionButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final Color? activeColor;
+
+  const _CircleActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.activeColor,
+  });
+
+  @override
+  State<_CircleActionButton> createState() => _CircleActionButtonState();
+}
+
+class _CircleActionButtonState extends State<_CircleActionButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _hovered
+                  ? Colors.white.withValues(alpha: 0.25)
+                  : Colors.black.withValues(alpha: 0.5),
+              border: Border.all(
+                color: widget.activeColor ??
+                    (_hovered
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.4)),
+                width: 1.5,
+              ),
+            ),
+            child: Icon(
+              widget.icon,
+              size: 20,
+              color: widget.activeColor ?? Colors.white,
+            ),
+          ),
+        ),
       ),
     );
   }
