@@ -44,7 +44,16 @@ class _ThreeDotsState extends State<_ThreeDots>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -114,7 +123,16 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    if (!AppMotion.reduced) _c.repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -226,7 +244,16 @@ class _ReplyingBadgeState extends State<_ReplyingBadge>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -289,7 +316,9 @@ class _ReplyingBadgeState extends State<_ReplyingBadge>
                     final phase = (t - i * 0.2) % 1.0;
                     final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
                     final y = AppMotion.reduced ? 0.0 : -1.8 * wave;
-                    final alpha = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                    final alpha = AppMotion.reduced
+                        ? 0.7
+                        : (0.35 + 0.65 * wave);
                     return Transform.translate(
                       offset: Offset(0, y),
                       child: Opacity(
@@ -334,7 +363,16 @@ class _StreamingCaretState extends State<_StreamingCaret>
       vsync: this,
       duration: const Duration(milliseconds: 640),
     );
-    if (!AppMotion.reduced) _c.repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -379,11 +417,7 @@ class _StreamingTailIndicator extends StatelessWidget {
     return const Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _StreamingCaret(),
-        SizedBox(width: 7),
-        _StreamingDotsWave(),
-      ],
+      children: [_StreamingCaret(), SizedBox(width: 7), _StreamingDotsWave()],
     );
   }
 }
@@ -407,7 +441,16 @@ class _StreamingDotsWaveState extends State<_StreamingDotsWave>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -431,8 +474,12 @@ class _StreamingDotsWaveState extends State<_StreamingDotsWave>
                 builder: (_) {
                   final phase = (t - i * 0.22) % 1.0;
                   final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
-                  final dotScale = AppMotion.reduced ? 1.0 : (0.75 + 0.40 * wave);
-                  final dotOpacity = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                  final dotScale = AppMotion.reduced
+                      ? 1.0
+                      : (0.75 + 0.40 * wave);
+                  final dotOpacity = AppMotion.reduced
+                      ? 0.7
+                      : (0.35 + 0.65 * wave);
                   return Opacity(
                     opacity: dotOpacity,
                     child: Transform.scale(

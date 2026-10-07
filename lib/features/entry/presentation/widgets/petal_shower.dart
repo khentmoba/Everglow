@@ -27,11 +27,6 @@ class _PetalShowerState extends State<PetalShower>
       duration: const Duration(seconds: 4),
       vsync: this,
     );
-    // Reduced motion: petals stay hidden (see build) and the ticker
-    // never starts, so there is no perpetual background animation.
-    if (!AppMotion.reduced) {
-      _controller.repeat();
-    }
 
     // Pre-render a single petal shape into a Picture so every frame
     // replays it with a simple translate+rotate instead of allocating
@@ -72,6 +67,28 @@ class _PetalShowerState extends State<PetalShower>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
+  }
+
+  @override
+  void didUpdateWidget(covariant PetalShower oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    if (!widget.isVisible ||
+        AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     _petalShapePicture.dispose();
@@ -80,7 +97,7 @@ class _PetalShowerState extends State<PetalShower>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isVisible || AppMotion.reduced) {
+    if (!widget.isVisible || AppMotion.reduceAmbientMotion(context)) {
       return const SizedBox.shrink();
     }
 

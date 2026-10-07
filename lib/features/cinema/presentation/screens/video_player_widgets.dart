@@ -183,9 +183,16 @@ class _PulsingDotState extends State<_PulsingDot>
       duration: const Duration(milliseconds: 1600),
     );
     _pulse = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-    if (AppTheme.shouldReduceMotion) {
-      _controller.value = 0.35;
-    } else {
+    _controller.value = 0.35;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
       _controller.repeat();
     }
   }
@@ -258,9 +265,16 @@ class _CinematicLoaderState extends State<_CinematicLoader>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    if (AppTheme.shouldReduceMotion) {
-      _controller.value = 0.5;
-    } else {
+    _controller.value = 0.5;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
       _controller.repeat();
     }
   }

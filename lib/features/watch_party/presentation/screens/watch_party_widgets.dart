@@ -78,9 +78,16 @@ class _WatchPartyCinematicLoaderState extends State<_WatchPartyCinematicLoader>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    if (AppTheme.shouldReduceMotion) {
-      _controller.value = 0.5;
-    } else {
+    _controller.value = 0.5;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
       _controller.repeat();
     }
   }

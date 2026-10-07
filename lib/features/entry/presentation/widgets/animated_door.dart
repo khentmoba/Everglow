@@ -70,11 +70,6 @@ class _AnimatedDoorState extends State<AnimatedDoor>
       duration: const Duration(seconds: 3),
       vsync: this,
     );
-    // Reduced motion: hold the door still instead of breathing forever.
-    // Sparkles render one static frame via the same controller value.
-    if (!AppMotion.reduced) {
-      _breatheController.repeat(reverse: true);
-    }
 
     _entrance = CurvedAnimation(
       parent: _entranceController,
@@ -107,6 +102,17 @@ class _AnimatedDoorState extends State<AnimatedDoor>
     _entranceCompleted = true;
     if (mounted && widget.onEntranceComplete != null) {
       widget.onEntranceComplete!();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _breatheController.stop();
+    } else if (!_breatheController.isAnimating) {
+      _breatheController.repeat(reverse: true);
     }
   }
 

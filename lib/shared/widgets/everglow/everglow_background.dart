@@ -113,11 +113,39 @@ class _EverglowBackgroundState extends State<EverglowBackground>
   @override
   void initState() {
     super.initState();
-    if (!AppMotion.reduced && widget.showPetals) {
+    if (widget.showPetals) {
       _controller = AnimationController(
         vsync: this,
         duration: const Duration(seconds: 20),
-      )..repeat(reverse: true);
+      );
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
+  }
+
+  @override
+  void didUpdateWidget(covariant EverglowBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showPetals && _controller == null) {
+      _controller = AnimationController(
+        vsync: this,
+        duration: const Duration(seconds: 20),
+      );
+    }
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    if (!widget.showPetals ||
+        AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _controller?.stop();
+    } else if (!(_controller?.isAnimating ?? true)) {
+      _controller?.repeat(reverse: true);
     }
   }
 
@@ -153,7 +181,9 @@ class _EverglowBackgroundState extends State<EverglowBackground>
                           ),
                         ),
                       // Optional animated petal overlay (only when not reduced)
-                      if (widget.showPetals && _controller != null)
+                      if (widget.showPetals &&
+                          !AppMotion.reduced &&
+                          _controller != null)
                         Positioned.fill(
                           child: AnimatedBuilder(
                             animation: _controller!,
