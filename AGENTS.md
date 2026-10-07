@@ -92,6 +92,7 @@ These tooling checks validate the measuring tools and offline behavior;
 claims about app speed still need measurements described in `docs/PERF_NOTES.md``.
 For CI failures, runner recovery, and preview commands, see
 [`docs/CI_TROUBLESHOOTING.md`](docs/CI_TROUBLESHOOTING.md).
+Before removing a worktree, follow [`docs/WORKTREE_CLEANUP.md`](docs/WORKTREE_CLEANUP.md).
 
 ## Releases — keep the version, README, and GitHub in sync
 
