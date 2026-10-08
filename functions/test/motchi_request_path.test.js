@@ -9,7 +9,7 @@ function sse(message) {
 }
 
 test('real handler retrieves fresh server facts, skips general memory work, and rejects client facts', async () => {
-  process.env.TOKENHARBOR_API_KEY ||= 'demo-test-key';
+  process.env.AGNES_API_KEY ||= 'demo-test-key';
   let lastPayload;
   const request = await createProbe({ modelFetch: async (_url, opts) => {
     lastPayload = JSON.parse(opts.body);

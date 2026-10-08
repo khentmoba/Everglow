@@ -2,7 +2,7 @@
 'use strict';
 
 // Runs the REAL Motchi handler and tool loop with demo Firestore/auth.
-// --live uses TokenHarbor (paid calls); nothing can touch production data.
+// --live uses Agnes (paid calls); nothing can touch production data.
 // Compare an archived functions directory with --functions PATH --legacy-client.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -110,7 +110,7 @@ async function createProbe({ functionsDir = path.join(__dirname, '../functions')
     const events = [];
     const realFetch = global.fetch;
     global.fetch = async (url, opts) => {
-      assert.equal(String(url), 'https://tokenharbor.ai/v1/chat/completions', 'probe forbids third-party calls');
+      assert.equal(String(url), 'https://apihub.agnes-ai.com/v1/chat/completions', 'probe forbids third-party calls');
       const payload = JSON.parse(opts.body);
       const system = payload.messages[0].content;
       calls.push({
@@ -166,8 +166,8 @@ async function createProbe({ functionsDir = path.join(__dirname, '../functions')
 
 async function main() {
   const args = process.argv.slice(2);
-  if (!args.includes('--live')) throw new Error('Pass --live to authorize paid demo requests to TokenHarbor.');
-  if (!process.env.TOKENHARBOR_API_KEY) throw new Error('TOKENHARBOR_API_KEY is not configured.');
+  if (!args.includes('--live')) throw new Error('Pass --live to authorize paid demo requests to Agnes.');
+  if (!process.env.AGNES_API_KEY) throw new Error('AGNES_API_KEY is not configured.');
   const idx = args.indexOf('--functions');
   const request = await createProbe({
     functionsDir: idx >= 0 ? args[idx + 1] : undefined,

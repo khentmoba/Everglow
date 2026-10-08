@@ -60,7 +60,7 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
       assistantReply: 'You have a dinner planned at 7 PM!',
       tools: [{ name: 'get_calendar', args: {}, resultSummary: 'Dinner at 7 PM', elapsedMs: 120 }],
       reasoning: 'Checking calendar for events',
-      model: 'glm-5.3-flash',
+      model: 'agnes-3.0-flash',
       durationMs: 1500,
       requestTrace: { modelCalls: 2, memoryCount: 3, firstTokenMs: 900, secret: 'must not persist', promptChars: Infinity },
     });
@@ -79,7 +79,7 @@ test('recordMotchiTurn creates new session doc on first turn', async () => {
     assert.equal(docData.turns[0].tools.length, 1);
     assert.equal(docData.turns[0].tools[0].name, 'get_calendar');
     assert.equal(docData.turns[0].reasoning, 'Checking calendar for events');
-    assert.equal(docData.turns[0].model, 'glm-5.3-flash');
+    assert.equal(docData.turns[0].model, 'agnes-3.0-flash');
     assert.equal(docData.turns[0].durationMs, 1500);
     assert.equal(docData.turns[0].requestTrace.modelCalls, 2);
     assert.equal(docData.turns[0].requestTrace.memoryCount, 3);
@@ -101,7 +101,7 @@ test('recordMotchiTurn updates existing session on subsequent turns', async () =
     assistantReply: 'Hey Khent!',
     tools: [],
     reasoning: '',
-    model: 'glm-5.3-flash',
+    model: 'agnes-3.0-flash',
     durationMs: 800,
     error: null,
     imageCount: 0,
