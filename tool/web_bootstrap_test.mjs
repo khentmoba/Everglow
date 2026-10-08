@@ -49,12 +49,21 @@ test('browser tabs and cached shells without a host use full-page Flutter', () =
   assert.equal(boot(true, false).config.hostElement, undefined);
 });
 
-test('iPhone launch metadata avoids Safari fullscreen system gaps', () => {
-  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black"/);
+test('iPhone launch metadata lets artwork paint behind the status bar', () => {
+  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
   assert.match(html, /name="viewport" content="[^"]*viewport-fit=contain"/);
 });
 
-for (const mode of ['browser', 'ios', 'standalone', 'fullscreen']) {
+test('installed document and Flutter host share the full viewport height', () => {
+  const rule = html.match(/html\.eg-standalone\s*,\s*html\.eg-standalone body\s*,\s*html\.eg-standalone #eg-app\s*\{([^}]+)\}/);
+  assert.ok(rule, 'sizing only the document leaves the installed host on shortened fixed bounds');
+  assert.match(rule[1], /height:\s*100vh\s*;/);
+  assert.match(rule[1], /bottom:\s*auto\s*;/);
+});
+
+for (const [mode, standalone] of [
+  ['browser', false], ['ios', true], ['standalone', true], ['fullscreen', true],
+]) {
   test(`viewport policy survives engine metadata changes (${mode})`, () => {
     const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
       .find((match) => match[1].includes('function lockMeta()'))[1];
@@ -68,9 +77,14 @@ for (const mode of ['browser', 'ios', 'standalone', 'fullscreen']) {
     const head = {appendChild: (node) => metas.push(node)};
     let mutation;
     let resizes = 0;
+    let installedClass;
     vm.runInNewContext(script, {
       document: {
         head,
+        documentElement: {classList: {toggle: (name, value) => {
+          assert.equal(name, 'eg-standalone');
+          installedClass = value;
+        }}},
         querySelectorAll: () => metas,
         createElement: () => meta(''),
         addEventListener() {},
@@ -88,7 +102,9 @@ for (const mode of ['browser', 'ios', 'standalone', 'fullscreen']) {
       Event: class {},
       setTimeout: (fn) => fn(),
     });
-    const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
+    const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=' +
+      (standalone ? 'cover' : 'contain');
+    assert.equal(installedClass, standalone, 'host sizing must be selected before Flutter starts');
     assert.equal(metas[0].content, expected);
     metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
     mutation();
