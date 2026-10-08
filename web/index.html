@@ -21,12 +21,14 @@
   <meta name="description" content="Everglow - A private digital relationship scrapbook">
   <meta name="theme-color" content="#1a0f1e">
   <meta name="color-scheme" content="dark">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Keep system areas outside the web view. Translucent fullscreen + cover
+       can leave a system-owned gap in installed Safari apps (WebKit #301994). -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Everglow">
   <meta name="format-detection" content="telephone=no">
   <meta name="google" content="notranslate">
@@ -63,7 +65,7 @@
   <style>
     /* Instant dark splash: avoids white flash and gives LCP feedback before
        CanvasKit/main.dart.js download + compile (the long pole on web).
-       Fixed full-screen bounds prevent iOS chin gap and document scrolling. */
+       Keep the app within the browser's usable viewport without page scrolling. */
     html, body {
       position: fixed;
       top: 0;
@@ -71,14 +73,6 @@
       right: 0;
       bottom: 0;
       width: 100%;
-      height: 100%;
-      height: 100dvh;
-      min-height: 100vh;
-      min-height: 100dvh;
-      /* iOS Home Screen apps can mis-measure %/vh around the status bar,
-         leaving an empty band below the app. fill-available tracks the real
-         window instead; ignored where unsupported, so browsers are unchanged. */
-      min-height: -webkit-fill-available;
       margin: 0;
       padding: 0;
       overflow: hidden;
@@ -92,8 +86,7 @@
       color-scheme: dark;
     }
 
-    /* The installed app measures this full-window surface instead of iOS's
-       document viewport, which can exclude the system areas. */
+    /* The installed app fills the usable viewport, not the physical screen. */
     #eg-app {
       position: fixed;
       inset: 0;
@@ -204,14 +197,10 @@
   <script>
     // Enforce viewport meta tag against Flutter Web's FullPageEmbeddingStrategy:
     // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
-    // user-scalable=no & viewport-fit=cover, which causes accidental zoom & layout
-    // stretching on mobile devices. This observer guarantees the tag stays locked.
-    // If the engine ever measures a viewport WITHOUT cover (e.g. it boots in the
-    // gap between Flutter's replacement and our restore), its canvas stays short
-    // and the Home Screen app shows an empty dark band at the bottom. The resize
-    // nudge below makes the engine re-measure the true full window in that case.
+    // user-scalable=no & viewport-fit=contain. Keep the usable viewport policy
+    // after engine startup too; cover reintroduces Safari's fullscreen gap.
     (function () {
-      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
       var resizeQueued = false;
       function nudgeEngine() {
         if (resizeQueued) return;
@@ -248,7 +237,7 @@
         });
       }
       // Re-assert once the engine is up: heals an early measurement taken
-      // before cover was restored. One extra layout during splash fade.
+      // before contain was restored. One extra layout during splash fade.
       window.addEventListener('flutter-first-frame', function () {
         lockMeta();
         nudgeEngine();
@@ -300,9 +289,9 @@
 
   <script>
     // Installed-web-app inset bridge (Add to Home Screen, standalone only).
-    // With viewport-fit=cover the standalone view stretches under the iPhone
-    // status bar, while Flutter's SafeArea reports zero padding on web — so
-    // Dart measures env(safe-area-inset-top) and pads content below the bar.
+    // Retain measured protection for shells that still expose system overlaps,
+    // including older installs that cached the translucent status-bar setting.
+    // With the contained viewport these readings normally resolve to zero.
     // Plain Safari tabs return 0/false here, leaving browser layout alone.
     (function () {
       function isStandalone() {
