@@ -79,3 +79,22 @@ deployment, and the tablet/desktop scroll cases. The phone case revealed that
 the revised extent can shrink as well: offset 5969, maximum 5863. The metrics
 follower now corrects distance from the bottom in either direction. The strict
 phone assertion remains in place; final browser confirmation is pending CI.
+
+Run 37844388999 confirmed all 23 Chrome tests, all 1,533 regular tests,
+analysis, guards, release build and agent smoke sweep passed on 8d524ac7.
+
+## Real chat from the preview
+
+Agent mode has no Firebase sign-in token for real AI replies. Motchi now offers
+`Sign in to chat` in that mode and disables sending until signed in. The action
+disables agent mode, removes its URL parameter before logout can refresh the
+router, and opens the normal login door with `/motchi` as the return destination.
+Real accounts continue through the existing authenticated AI service.
+The browser regression uses a fake auth service to verify the transition;
+no passcode or real couple conversation is used for proof.
+
+After this addition, local analysis, 1,533 regular tests, all 15 guards and the
+release web build passed. The new Chrome sign-in test is pending CI. The local
+release server returned HTTP 200, but the collaborative browser snapshot timed
+out repeatedly before interaction proof could be captured; the hosted preview
+must supply that remaining check. Keep the PR draft until it is verified.

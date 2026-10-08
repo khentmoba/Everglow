@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/services/auth_service.dart';
+import 'package:everglow/core/agent/agent_mode.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/features/ai/domain/memory/memory_fact.dart';
@@ -17,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeConversationRepo implements IAIConversationRepository {
   _FakeConversationRepo(this.conversation);
@@ -141,10 +143,22 @@ class _StreamingAIService extends AIService {
 
 class _FakeAuthService extends ChangeNotifier implements AuthService {
   @override
+  bool get isAgentSession => false;
+  @override
   String? get currentUser => 'clairjassen';
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+class _PreviewAuthService extends _FakeAuthService {
+  bool loggedOut = false;
+
+  @override
+  bool get isAgentSession => true;
+
+  @override
+  Future<void> logout() async => loggedOut = true;
 }
 
 class _InteractionAIService extends AIService {
@@ -201,6 +215,62 @@ class _InteractionAIService extends AIService {
 }
 
 void main() {
+  testWidgets('preview offers real sign-in and returns to Motchi after login', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    AgentMode.isActive.value = true;
+    addTearDown(() => AgentMode.isActive.value = false);
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final auth = _PreviewAuthService();
+    final ai = _InteractionAIService();
+    final router = GoRouter(
+      initialLocation: '/motchi?agent=clair',
+      routes: [
+        GoRoute(path: '/motchi', builder: (_, _) => const MotchiScreen()),
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: Text('Sign-in door')),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: auth),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.gamifiedTheme,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isFalse,
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'Sign in to chat'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign-in door'), findsOneWidget);
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['from'],
+      '/motchi',
+    );
+    expect(AgentMode.isActive.value, isFalse);
+    expect(auth.loggedOut, isTrue);
+    expect(ai.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    router.dispose();
+    auth.dispose();
+    ai.dispose();
+  });
+
   testWidgets(
     'quiet welcome and composer fit small phones, tablets and keyboards',
     (tester) async {
