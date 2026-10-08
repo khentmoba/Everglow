@@ -5,7 +5,8 @@
 The original target remains **unverified**: sustained ≥55 FPS, <5% jank,
 zero presentation drops on every key phone screen, and first interactive
 <2.5s on throttled 3G. Do not close that goal from synthetic desktop readings.
-The blocked goal stays paused; this cleanup repairs defects and bad evidence.
+The active app-wide optimization audit is recorded in `docs/PERF_AUDIT.md`.
+It corrects avoidable work while keeping those device acceptance targets open.
 
 The earlier 138,580ms slow3G, 0ms boot-freeze, 991ms fully-offline and
 9.9–19.2% “phone-representable” claims are withdrawn. The cold driver did not
@@ -19,6 +20,17 @@ real-device and authenticated feature behavior still need matching evidence.
 
 ## Changes retained
 
+- Phones (viewport shortest side below 600 logical pixels, including landscape)
+  now keep the dashboard's ambient backdrop and header decoration still, and
+  use still shared/anime loading placeholders. This is Khent's requested
+  automatic lighter-effects policy; tablets retain motion. It does not change
+  render resolution, media playback, or image decode paths.
+- Shared loading shimmer detaches from inactive `TickerMode` pages and pauses
+  outside the resumed app lifecycle. Regression checks failed on both paths
+  before the change and pass afterwards. `test/phone_ambient_motion_test.dart`
+  checks that phone decoration schedules no continuing animation frames and
+  that tablet motion returns after resizing. These are scheduling checks, not
+  measurements of battery use or iPhone presentation FPS.
 - `DeferredSection` defers offscreen dashboard content, with finite lists and
   coalesced geometry checks. Tests: `test/deferred_section_test.dart` and
   `test/core/perf/scroll_jank_benchmark_test.dart`.
@@ -174,3 +186,135 @@ Neither guard proves performance, image sharpness or privacy by itself.
 Shipped scaffolding is not a speed improvement. State measured results,
 evidence and limitations separately. Further optimization follows reliable
 measurements and real-phone readings, not the withdrawn historical tables.
+
+## Extended phone optimization (PR #494)
+
+The phone policy now covers shared shelves, anime airing tickers, decorative
+emblems/presence dots, manga loading pulses, guardian idle floating and jukebox
+card/vinyl effects. Phones show still decoration and manually swipe shelves;
+tablet/desktop motion remains available. Active media playback and tap actions
+are separate from this ambient-motion policy.
+
+Saved anime collections and playlist details now use lazy sliver grids rather
+than eager grids inside another scroll view. In the synthetic 414 x 896 widget
+check in `test/full_phone_optimization_test.dart`, the 100-card shared shelf
+initially built 5 cards (95% fewer than the reproduced 100), and a 200-item anime
+collection mounted 6 cards instead of 200 (97% fewer). Horizontal and vertical
+scroll checks reached later cards while retaining a bounded mounted collection.
+These are widget-count reductions, not measured whole-app memory or FPS gains.
+
+`AppNetworkImage` now applies existing decode bounds to bundled assets with a
+known display/cache size and respects the existing web `sizeddecode=0` rollback.
+Unknown display sizes keep their natural resolution. Remote web decoding stays
+on its existing implementation. Partner presence and doodle indicators retain
+their stream between freshness timer rebuilds instead of resubscribing each time.
+
+Desktop browser timing is not an iPhone 11 result. An attempted benchmark against
+an unstamped raw Flutter build was rejected by the harness; it is not valid speed
+evidence. The real-phone acceptance targets above remain open until an installed
+Safari/PWA before/after recording is available. This pass does not establish a
+whole-app percentage gain, battery saving, or guaranteed 60 FPS.
+
+### Inactive timer and Jukebox follow-up
+
+Partner presence/doodle freshness timers now stop when the app is not resumed
+or their page disables `TickerMode`. Returning refreshes the timestamp immediately
+and retains the existing presence stream. Unrevealed dashboard sections pause
+their 400ms safety-net and delayed reveal timers while inactive, then schedule
+a geometry check on return. The foreground safety net remains in place.
+`test/shared/widgets/partner_indicator_activity_test.dart` checks that a hidden
+or inactive page does not rebuild from freshness ticks, resumes immediately,
+and still creates only two presence streams across both indicators.
+`test/deferred_section_test.dart` checks immediate resume and retains the existing
+no-scroll geometry recovery and programmatic-scroll regression checks.
+
+The Jukebox ambient controller continuously notified an entrance-only builder;
+its glow widgets were already cached in the builder's child and did not move on
+those ticks. That unnecessary loop is removed. The idle header no longer starts
+a pulse when nobody is playing, and phone leaderboard shimmer/sparkle decoration
+stays still. `test/features/jukebox/jukebox_idle_motion_test.dart` verifies that
+the idle phone Jukebox settles, and leaderboard effects resume on tablet resize.
+These checks establish stopped scheduling/rebuild work, not device FPS or battery
+percentages. Remote thumbnail URLs were inspected and already have bounded CDN
+variants; this follow-up does not reduce image sharpness or render resolution.
+
+### App-wide audit follow-up
+
+The remaining phone decoration in Garden, Starlight, entry-door breathing and
+petals, anime badges, Motchi streaming/tool indicators, countdown separators,
+partner mood hearts, music leaderboard badges, optional shared backdrop petals,
+and player status/loading overlays now stops its continuous animation loops.
+Finite door unlocking, plant growth, streamed replies, and playback updates
+remain functional. `test/remaining_phone_motion_test.dart` checks phone settling,
+door unlocking, plant growth, hidden petals and tablet motion restoration;
+`test/features/anime/animex_motchi_sidebar_test.dart` checks thinking and replying
+updates without ongoing phone indicator frames.
+
+Manga Currently Reading now builds cards lazily and computes the merged list
+once per build. This is a structural change; no populated authenticated manga
+performance measurement was taken. Other audited Books/Gallery/Chat lists
+already build on demand and retain their existing behavior.
+
+Marking the current presence user offline now cancels the heartbeat timer.
+Returning restarts the heartbeat and touches the existing session rather than
+orphaning it. Against the previous service,
+`test/core/services/presence_heartbeat_test.dart` observes four extra writes in
+six minutes offline; with the fix the write count stays unchanged, then advances
+again after resuming. This is a synthetic service check, not a battery estimate.
+
+Jukebox also pauses its Last.fm polling and reconnect timer while the app is
+inactive. Returning refreshes immediately, recovering a failed stream if needed,
+while an in-flight guard prevents overlapping polls.
+`test/features/jukebox/jukebox_provider_test.dart` verifies unchanged fetch/listen
+counts during a hidden interval and resumed polling/reconnection afterwards.
+Existing live/idle cadence, stream replay and disposal tests continue to pass.
+The statistics provider's one-minute/ten-minute refresh timers also pause while
+inactive, and it avoids creating timers if initialization finishes after
+disposal. `test/features/jukebox/music_stats_provider_test.dart` checks that
+eleven hidden minutes produce no additional recent/top-track fetches, then
+recent tracks refresh on return while the existing leaderboard stays visible.
+
+### Startup route loading follow-up
+
+A matching stamped release comparison defers Dashboard/Letterbox, Cinema/player,
+Anime, Manga home, Jukebox and Books entry/detail/reader/categories through the
+existing DeferredRouteLoader, with its loading and retry states. Query arguments
+and missing-extra guards are retained. First visits fetch the relevant chunks;
+this reduces initial code, not total code needed to visit every feature.
+
+Initial main.dart.js shrank from 6,873,114 to 4,822,468 bytes (29.84%), or from
+1,985,566 to 1,401,243 bytes with deterministic gzip (29.43%). Exact hashes and
+sizes are in docs/pr-proof/pr-494/startup-artifacts.json. Both builds include the
+other current audit fixes and use AGENT_MODE/EG_PERF_BENCH; this comparison
+isolates the route-loading follow-up rather than the entire PR against main.
+
+One cold desktop trace per version, 430 x 932 at DPR 2 and CPU throttle 4,
+observed main-script evaluation at 2,085ms before and 1,490ms after. This is a
+single diagnostic observation, not a statistically established timing gain.
+The corresponding one-run grid benchmark still FAILS its strict full-session
+200ms long-task budget: worst long task 2,067ms before and 1,514ms after.
+The trace associates the dominant startup task with main-script evaluation;
+first layout/rendering also remains expensive. No budget was relaxed or failure
+hidden. Scroll movement was observed in both runs. Rolling frame-meter FPS is
+not display FPS and cannot predict Clair's iPhone frame rate.
+
+Reports: docs/pr-proof/pr-494/startup-before-bench.md and
+ docs/pr-proof/pr-494/startup-after-bench.md; trace summaries:
+ docs/pr-proof/pr-494/startup-before-trace.json and
+ docs/pr-proof/pr-494/startup-after-trace.json. These are local dirty release
+artifacts based on d0155111, stamped 6.1.0+1-d0155111; source hashes distinguish
+versions. Windows / RTX 4070 headless Chrome is not an iPhone calibration.
+Real-device first-interactive, sustained FPS, heat and battery targets stay open.
+
+### Manga chapter wait follow-up
+
+The final repeat-controller audit found ChapterLoadingStage still repainting
+its page illustration and waiting copy every frame on phones during a fetch.
+It now uses the same AppMotion phone/reduced-motion policy and stops while
+TickerMode disables its page. Chapter title, subtitle and a still waiting
+illustration/copy remain visible; chapter fetching itself is unchanged.
+The new test in test/features/manga/chapter_loading_stage_test.dart fails
+against the prior widget because the phone keeps requesting frames, then
+passes with the fix; tablet motion and inactive-page restoration are checked.
+This proves stopped scheduling during chapter waits, not chapter download
+speed, presentation FPS or battery savings.

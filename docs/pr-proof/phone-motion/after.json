@@ -1,0 +1,48 @@
+{
+  "phase": "after",
+  "environment": "Windows desktop Chrome, release agent build, 414x896 CSS px, DPR 2, no CPU/network throttle; not an iPhone measurement",
+  "start": {
+    "fps": 0,
+    "buildAvgMs": 0,
+    "buildWorstMs": 0,
+    "rasterAvgMs": 0,
+    "rasterWorstMs": 0,
+    "worstFrameMs": 0,
+    "jankPercent": 0,
+    "slowFramePercent": 0,
+    "frames": 0,
+    "devicePixelRatio": 2,
+    "sampleSequence": 12,
+    "sessionFrames": 0,
+    "sessionWorstBuildMs": 0,
+    "sessionWorstRasterMs": 0,
+    "sessionWorstFrameMs": 0,
+    "sessionOver200ms": 0,
+    "sessionOverBudgetPercent": 0,
+    "sessionSlowFramePercent": 0
+  },
+  "end": {
+    "fps": 262.89,
+    "buildAvgMs": 0.69,
+    "buildWorstMs": 3.9,
+    "rasterAvgMs": 1.73,
+    "rasterWorstMs": 2.7,
+    "worstFrameMs": 7.2,
+    "jankPercent": 0,
+    "slowFramePercent": 0,
+    "frames": 240,
+    "devicePixelRatio": 2,
+    "sampleSequence": 37,
+    "sessionFrames": 2409,
+    "sessionWorstBuildMs": 6.1,
+    "sessionWorstRasterMs": 5.2,
+    "sessionWorstFrameMs": 10.5,
+    "sessionOver200ms": 0,
+    "sessionOverBudgetPercent": 0,
+    "sessionSlowFramePercent": 0
+  },
+  "scroll": {
+    "titleTopBefore": 319,
+    "titleTopAfter": 181.5
+  }
+}

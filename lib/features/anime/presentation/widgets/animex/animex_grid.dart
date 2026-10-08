@@ -5,12 +5,14 @@ import '../../../../cinema/data/models/media_item.dart';
 import 'animex_poster_card.dart';
 import 'animex_skeleton.dart';
 import 'animex_tokens.dart';
+import '../../../../../core/theme/app_motion.dart';
 
 /// Responsive auto-fill poster grid with a staggered entrance animation.
 class AnimeXGrid extends StatelessWidget {
   final List<MediaItem> items;
   final void Function(MediaItem) onTap;
   final bool loading;
+  final bool sliver;
   final int skeletonCount;
   final Map<int, double>? progressByIndex;
   final Map<int, double>? scoreByIndex;
@@ -21,6 +23,7 @@ class AnimeXGrid extends StatelessWidget {
     required this.items,
     required this.onTap,
     this.loading = false,
+    this.sliver = false,
     this.skeletonCount = 12,
     this.progressByIndex,
     this.scoreByIndex,
@@ -29,6 +32,34 @@ class AnimeXGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (sliver) {
+      if (loading) {
+        return SliverToBoxAdapter(
+          child: AnimeXSkeletonGrid(count: skeletonCount),
+        );
+      }
+      return SliverLayoutBuilder(
+        builder: (context, constraints) {
+          final columns = (constraints.crossAxisExtent / 140).floor().clamp(
+            2,
+            8,
+          );
+          final width =
+              (constraints.crossAxisExtent - 14 * (columns - 1)) / columns;
+          return SliverGrid.builder(
+            itemCount: items.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 28,
+              childAspectRatio:
+                  width / (width * 1.5 + AnimeXTokens.posterDetailsHeight),
+            ),
+            itemBuilder: (context, i) => _card(i, width),
+          );
+        },
+      );
+    }
     if (loading) {
       return AnimeXSkeletonGrid(count: skeletonCount);
     }
@@ -51,24 +82,27 @@ class AnimeXGrid extends StatelessWidget {
             crossAxisSpacing: spacing,
             mainAxisSpacing: spacing * 2,
             childAspectRatio:
-                tileWidth / (tileWidth * 1.5 + AnimeXTokens.posterDetailsHeight),
+                tileWidth /
+                (tileWidth * 1.5 + AnimeXTokens.posterDetailsHeight),
           ),
-          itemBuilder: (context, i) {
-            final item = items[i];
-            return _Staggered(
-              index: i,
-              child: AnimeXPosterCard(
-                item: item,
-                width: tileWidth,
-                onTap: () => onTap(item),
-                progress: progressByIndex?[i],
-                score: scoreByIndex?[i],
-                hoverAction: hoverActionBuilder?.call(item),
-              ),
-            );
-          },
+          itemBuilder: (context, i) => _card(i, tileWidth),
         );
       },
+    );
+  }
+
+  Widget _card(int i, double width) {
+    final item = items[i];
+    return _Staggered(
+      index: i,
+      child: AnimeXPosterCard(
+        item: item,
+        width: width,
+        onTap: () => onTap(item),
+        progress: progressByIndex?[i],
+        score: scoreByIndex?[i],
+        hoverAction: hoverActionBuilder?.call(item),
+      ),
     );
   }
 }
@@ -81,6 +115,7 @@ class _Staggered extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AppMotion.reduceAmbientMotion(context)) return child;
     return TweenAnimationBuilder<double>(
       key: ValueKey('stagger-$index'),
       tween: Tween(begin: 0, end: 1),

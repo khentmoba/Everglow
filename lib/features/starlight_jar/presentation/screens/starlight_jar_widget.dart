@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
@@ -107,7 +108,7 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
     _idleController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 14),
-    )..repeat();
+    );
     _surpriseConfetti = ConfettiController(
       duration: const Duration(seconds: 2),
     );
@@ -120,6 +121,17 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
         _onThisDayNotes = notes;
         _showOnThisDay = true;
       });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _idleController.stop();
+    } else if (!_idleController.isAnimating) {
+      _idleController.repeat();
     }
   }
 
@@ -648,7 +660,8 @@ class _StarlightJarWidgetState extends State<StarlightJarWidget>
                                             motionCache: _motionCache,
                                           ),
                                           isComplex: true,
-                                          willChange: true,
+                                          willChange:
+                                              _idleController.isAnimating,
                                         ),
                                       ),
                                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/theme/app_motion.dart';
 
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -133,7 +134,18 @@ class _PulsingDotState extends State<_PulsingDot>
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _ctrl.stop();
+    } else if (!_ctrl.isAnimating) {
+      _ctrl.repeat(reverse: true);
+    }
   }
 
   @override

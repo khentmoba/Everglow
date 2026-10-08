@@ -60,6 +60,13 @@ class AppMotion {
   /// Whether the user has reduced-motion enabled.
   static bool get reduced => AppTheme.shouldReduceMotion;
 
+  /// Phones keep the artwork, without continuously repainting decoration.
+  /// The shortest side also covers landscape phones; tablets keep their motion.
+  static bool reduceAmbientMotion(BuildContext context) =>
+      reduced ||
+      MediaQuery.disableAnimationsOf(context) ||
+      MediaQuery.sizeOf(context).shortestSide < 600;
+
   /// Returns [duration] or [Duration.zero] depending on the
   /// user's motion preference. Drop in front of every
   /// `AnimatedContainer` / `AnimatedScale` / `TweenAnimationBuilder`.

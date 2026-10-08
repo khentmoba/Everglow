@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../data/models/user_mood.dart';
 import '../../data/services/mood_service.dart';
 import '../../../../core/services/auth_service.dart';
@@ -57,12 +58,22 @@ class _MoodHeartState extends State<_MoodHeart>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    );
 
     _pulseAnimation = Tween<double>(
       begin: 1.0,
       end: 1.2,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override
@@ -115,10 +126,7 @@ class _MoodHeartState extends State<_MoodHeart>
             scale: _pulseAnimation,
             child: Text(
               widget.emoji,
-              style: TextStyle(
-                fontSize: isAmazing ? 26 : 22,
-                height: 1.0,
-              ),
+              style: TextStyle(fontSize: isAmazing ? 26 : 22, height: 1.0),
             ),
           ),
         ),

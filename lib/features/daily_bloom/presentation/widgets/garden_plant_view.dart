@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../data/models/plant_type.dart';
 import 'lily_painter.dart';
 import 'rose_painter.dart';
@@ -31,7 +32,18 @@ class _GardenPlantViewState extends State<GardenPlantView>
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _breathingController.stop();
+    } else if (!_breathingController.isAnimating) {
+      _breathingController.repeat(reverse: true);
+    }
   }
 
   @override

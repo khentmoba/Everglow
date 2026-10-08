@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -90,6 +91,8 @@ class _FakeSync extends MusicSyncService {
   final List<TopMusicTrack> topTracks;
   final List<MusicStatus> recentTracks;
   final int totalPlays;
+  int topFetches = 0;
+  int recentFetches = 0;
 
   @override
   Future<List<TopMusicTrack>> fetchTopTracks(
@@ -97,13 +100,19 @@ class _FakeSync extends MusicSyncService {
     int limit = 10,
     int page = 1,
     String period = 'overall',
-  }) async => topTracks;
+  }) async {
+    topFetches++;
+    return topTracks;
+  }
 
   @override
   Future<List<MusicStatus>> fetchRecentTracks(
     String username, {
     int limit = 5,
-  }) async => recentTracks;
+  }) async {
+    recentFetches++;
+    return recentTracks;
+  }
 
   @override
   Future<int> fetchUserTotalPlays(String username) async => totalPlays;
@@ -120,8 +129,34 @@ Future<void> _waitFor(bool Function() condition) async {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('music statistics stop hidden polling and refresh on return', (
+    tester,
+  ) async {
+    final sync = _FakeSync(
+      topTracks: [_topTrack('Demo track', 100)],
+      recentTracks: [_recent('Demo track')],
+      totalPlays: 100,
+    );
+    final provider = MusicStatsProvider(syncService: sync);
+    addTearDown(provider.dispose);
+    await tester.pump();
+    expect(provider.isLoading, isFalse);
+    expect(sync.recentFetches, 2);
+    expect(sync.topFetches, 2);
+    provider.didChangeAppLifecycleState(AppLifecycleState.hidden);
+    await tester.pump(const Duration(minutes: 11));
+    expect(sync.recentFetches, 2);
+    expect(sync.topFetches, 2);
+    provider.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(sync.recentFetches, 4);
+    expect(provider.topTracks.single.trackName, 'Demo track');
+    provider.didChangeAppLifecycleState(AppLifecycleState.hidden);
   });
 
   group('MusicStatsProvider leaderboard', () {

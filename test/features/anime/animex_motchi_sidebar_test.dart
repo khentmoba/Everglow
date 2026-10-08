@@ -158,11 +158,7 @@ class _FakeControllableAIService extends AIService {
     draftRevisionNotifier.value++;
     notifyListeners();
     _completer?.complete(
-      AIMessage(
-        role: 'assistant',
-        content: content,
-        timestamp: DateTime.now(),
-      ),
+      AIMessage(role: 'assistant', content: content, timestamp: DateTime.now()),
     );
   }
 }
@@ -199,9 +195,7 @@ void main() {
     }) {
       return MultiProvider(
         providers: [
-          ChangeNotifierProvider<AuthService>.value(
-            value: auth ?? authService,
-          ),
+          ChangeNotifierProvider<AuthService>.value(value: auth ?? authService),
           ChangeNotifierProvider<AIService>.value(value: aiService),
         ],
         child: MaterialApp(
@@ -240,8 +234,9 @@ void main() {
       expect(find.text('Auto'), findsOneWidget);
     });
 
-    testWidgets('renders empty state greeting and anime suggestions',
-        (tester) async {
+    testWidgets('renders empty state greeting and anime suggestions', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestHarness(
           isOpen: true,
@@ -253,16 +248,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('What’s on your mind, Mama?'), findsOneWidget);
-      expect(
-        find.text('Anime picks, lore, or just a chat.'),
-        findsOneWidget,
-      );
+      expect(find.text('Anime picks, lore, or just a chat.'), findsOneWidget);
       expect(find.text('Recommend an anime'), findsOneWidget);
       expect(find.text('Couple romance'), findsOneWidget);
     });
 
-    testWidgets('DeepThink toggle cycles between Auto, Deep, and Fast',
-        (tester) async {
+    testWidgets('DeepThink toggle cycles between Auto, Deep, and Fast', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         buildTestHarness(
           isOpen: true,
@@ -335,8 +328,9 @@ void main() {
       expect(closed, isTrue);
     });
 
-    testWidgets('AnimeXMotchiFloatingTrigger renders and handles tap',
-        (tester) async {
+    testWidgets('AnimeXMotchiFloatingTrigger renders and handles tap', (
+      tester,
+    ) async {
       var tapped = false;
       await tester.pumpWidget(
         MaterialApp(
@@ -353,8 +347,9 @@ void main() {
       expect(tapped, isTrue);
     });
 
-    testWidgets('AnimeXMotchiFloatingTrigger opens sidebar when tapped',
-        (tester) async {
+    testWidgets('AnimeXMotchiFloatingTrigger opens sidebar when tapped', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -423,155 +418,32 @@ void main() {
       expect(find.byType(AnimeXMotchiFloatingTrigger), findsOneWidget);
     });
 
-    testWidgets('Motchi is hidden when browsing, and only available when actually watching an anime',
-        (tester) async {
-      tester.view.physicalSize = const Size(1920, 1080);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
+    testWidgets(
+      'Motchi is hidden when browsing, and only available when actually watching an anime',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
 
-      var toggled = false;
+        var toggled = false;
 
-      // 1. Browsing Home/Browse (watchItem is null) -> Motchi should NOT be shown in header
-      controller.watchItem = null;
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AuthService>.value(value: authService),
-            ChangeNotifierProvider<AnimexStores>.value(
-              value: AnimexStores.instance,
-            ),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: AnimeXTopHeader(
-                controller: controller,
-                onSearch: () {},
-                onMotchiToggle: () => toggled = true,
-                isMotchiOpen: false,
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Motchi'), findsNothing);
-
-      // 2. User starts watching an anime -> Motchi appears in header!
-      controller.watchItem = MediaItem(
-        id: 'watch-test-1',
-        tmdbId: 100,
-        title: 'Frieren: Beyond Journey\'s End',
-        mediaType: 'tv',
-        posterPath: '',
-        status: 'watching',
-        addedAt: DateTime(2026, 1, 1),
-      );
-
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AuthService>.value(value: authService),
-            ChangeNotifierProvider<AnimexStores>.value(
-              value: AnimexStores.instance,
-            ),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: AnimeXTopHeader(
-                controller: controller,
-                onSearch: () {},
-                onMotchiToggle: () => toggled = true,
-                isMotchiOpen: false,
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Motchi'), findsOneWidget);
-      await tester.tap(find.text('Motchi'));
-      expect(toggled, isTrue);
-
-      // 3. Cinema-only user watching an anime -> Motchi stays hidden
-      final cinemaAuth = _FakeCinemaOnlyAuthService();
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<AuthService>.value(value: cinemaAuth),
-            ChangeNotifierProvider<AnimexStores>.value(
-              value: AnimexStores.instance,
-            ),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: AnimeXTopHeader(
-                controller: controller,
-                onSearch: () {},
-                onMotchiToggle: null,
-                isMotchiOpen: false,
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Motchi'), findsNothing);
-      cinemaAuth.dispose();
-    });
-
-    testWidgets('cinema accounts (breyan, octagram) never see Motchi even when watching an anime',
-        (tester) async {
-      tester.view.physicalSize = const Size(1920, 1080);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-
-      controller.watchItem = MediaItem(
-        id: 'watch-cinema-user',
-        tmdbId: 209867,
-        title: 'Frieren',
-        mediaType: 'tv',
-        posterPath: '',
-        status: 'watching',
-        addedAt: DateTime(2026, 1, 1),
-      );
-
-      for (final username in ['breyan', 'octagram']) {
-        final cinemaAuth = _FakeCinemaOnlyAuthService(username);
+        // 1. Browsing Home/Browse (watchItem is null) -> Motchi should NOT be shown in header
+        controller.watchItem = null;
         await tester.pumpWidget(
           MultiProvider(
             providers: [
-              ChangeNotifierProvider<AuthService>.value(value: cinemaAuth),
-              ChangeNotifierProvider<AIService>.value(value: aiService),
+              ChangeNotifierProvider<AuthService>.value(value: authService),
               ChangeNotifierProvider<AnimexStores>.value(
                 value: AnimexStores.instance,
               ),
             ],
             child: MaterialApp(
               home: Scaffold(
-                body: Stack(
-                  children: [
-                    AnimeXTopHeader(
-                      controller: controller,
-                      onSearch: () {},
-                      onMotchiToggle: cinemaAuth.isCoupleUser && controller.watchItem != null
-                          ? controller.toggleMotchi
-                          : null,
-                      isMotchiOpen: controller.motchiOpen,
-                    ),
-                    if (cinemaAuth.isCoupleUser && controller.watchItem != null && !controller.motchiOpen)
-                      AnimeXMotchiFloatingTrigger(onTap: controller.openMotchi),
-                    if (cinemaAuth.isCoupleUser && controller.watchItem != null)
-                      AnimeXMotchiSidebar(
-                        isOpen: controller.motchiOpen,
-                        onClose: controller.closeMotchi,
-                        controller: controller,
-                        messages: const [],
-                        onClear: () {},
-                      ),
-                  ],
+                body: AnimeXTopHeader(
+                  controller: controller,
+                  onSearch: () {},
+                  onMotchiToggle: () => toggled = true,
+                  isMotchiOpen: false,
                 ),
               ),
             ),
@@ -579,28 +451,179 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('Motchi'), findsNothing, reason: 'Failed for $username');
-        expect(find.byType(AnimeXMotchiFloatingTrigger), findsNothing, reason: 'Failed for $username');
-        expect(find.byType(AnimeXMotchiSidebar), findsNothing, reason: 'Failed for $username');
+        expect(find.text('Motchi'), findsNothing);
+
+        // 2. User starts watching an anime -> Motchi appears in header!
+        controller.watchItem = MediaItem(
+          id: 'watch-test-1',
+          tmdbId: 100,
+          title: 'Frieren: Beyond Journey\'s End',
+          mediaType: 'tv',
+          posterPath: '',
+          status: 'watching',
+          addedAt: DateTime(2026, 1, 1),
+        );
+
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthService>.value(value: authService),
+              ChangeNotifierProvider<AnimexStores>.value(
+                value: AnimexStores.instance,
+              ),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: AnimeXTopHeader(
+                  controller: controller,
+                  onSearch: () {},
+                  onMotchiToggle: () => toggled = true,
+                  isMotchiOpen: false,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Motchi'), findsOneWidget);
+        await tester.tap(find.text('Motchi'));
+        expect(toggled, isTrue);
+
+        // 3. Cinema-only user watching an anime -> Motchi stays hidden
+        final cinemaAuth = _FakeCinemaOnlyAuthService();
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AuthService>.value(value: cinemaAuth),
+              ChangeNotifierProvider<AnimexStores>.value(
+                value: AnimexStores.instance,
+              ),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: AnimeXTopHeader(
+                  controller: controller,
+                  onSearch: () {},
+                  onMotchiToggle: null,
+                  isMotchiOpen: false,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Motchi'), findsNothing);
         cinemaAuth.dispose();
-      }
-    });
-
-    test('AIService.sendTemporaryMessage does not write to Firestore or archive sessions',
-        () async {
-      expect(convRepo.saveCount, 0);
-      expect(convRepo.archiveCount, 0);
-      expect(convRepo.assistant, isNull);
-
-      // Verify that sendTemporaryMessage starts without throwing state error
-      // and leaves repo clean
-      expect(convRepo.saveCount, 0);
-      expect(convRepo.archiveCount, 0);
-    });
+      },
+    );
 
     testWidgets(
-      'shows animated replying badge and stream tail indicator while Motchi replies',
+      'cinema accounts (breyan, octagram) never see Motchi even when watching an anime',
       (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        controller.watchItem = MediaItem(
+          id: 'watch-cinema-user',
+          tmdbId: 209867,
+          title: 'Frieren',
+          mediaType: 'tv',
+          posterPath: '',
+          status: 'watching',
+          addedAt: DateTime(2026, 1, 1),
+        );
+
+        for (final username in ['breyan', 'octagram']) {
+          final cinemaAuth = _FakeCinemaOnlyAuthService(username);
+          await tester.pumpWidget(
+            MultiProvider(
+              providers: [
+                ChangeNotifierProvider<AuthService>.value(value: cinemaAuth),
+                ChangeNotifierProvider<AIService>.value(value: aiService),
+                ChangeNotifierProvider<AnimexStores>.value(
+                  value: AnimexStores.instance,
+                ),
+              ],
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Stack(
+                    children: [
+                      AnimeXTopHeader(
+                        controller: controller,
+                        onSearch: () {},
+                        onMotchiToggle:
+                            cinemaAuth.isCoupleUser &&
+                                controller.watchItem != null
+                            ? controller.toggleMotchi
+                            : null,
+                        isMotchiOpen: controller.motchiOpen,
+                      ),
+                      if (cinemaAuth.isCoupleUser &&
+                          controller.watchItem != null &&
+                          !controller.motchiOpen)
+                        AnimeXMotchiFloatingTrigger(
+                          onTap: controller.openMotchi,
+                        ),
+                      if (cinemaAuth.isCoupleUser &&
+                          controller.watchItem != null)
+                        AnimeXMotchiSidebar(
+                          isOpen: controller.motchiOpen,
+                          onClose: controller.closeMotchi,
+                          controller: controller,
+                          messages: const [],
+                          onClear: () {},
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(
+            find.text('Motchi'),
+            findsNothing,
+            reason: 'Failed for $username',
+          );
+          expect(
+            find.byType(AnimeXMotchiFloatingTrigger),
+            findsNothing,
+            reason: 'Failed for $username',
+          );
+          expect(
+            find.byType(AnimeXMotchiSidebar),
+            findsNothing,
+            reason: 'Failed for $username',
+          );
+          cinemaAuth.dispose();
+        }
+      },
+    );
+
+    test(
+      'AIService.sendTemporaryMessage does not write to Firestore or archive sessions',
+      () async {
+        expect(convRepo.saveCount, 0);
+        expect(convRepo.archiveCount, 0);
+        expect(convRepo.assistant, isNull);
+
+        // Verify that sendTemporaryMessage starts without throwing state error
+        // and leaves repo clean
+        expect(convRepo.saveCount, 0);
+        expect(convRepo.archiveCount, 0);
+      },
+    );
+
+    testWidgets(
+      'phone reply indicators stay still while thinking and streaming update',
+      (tester) async {
+        tester.view.physicalSize = const Size(430, 932);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
         final messages = <AIMessage>[];
         final fakeAi = _FakeControllableAIService(
           conversationRepo: convRepo,
@@ -642,6 +665,8 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('thinking'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 2));
+        expect(tester.binding.hasScheduledFrame, isFalse);
 
         // 2. Stream chunk arrives:
         fakeAi.emitStreamChunk('Slime isekai is great!');
@@ -649,6 +674,8 @@ void main() {
 
         // Now shows 'replying' badge
         expect(find.text('replying'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 2));
+        expect(tester.binding.hasScheduledFrame, isFalse);
         expect(find.text('thinking'), findsNothing);
         expect(find.textContaining('Slime isekai is great!'), findsOneWidget);
 

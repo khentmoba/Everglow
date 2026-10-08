@@ -1,0 +1,234 @@
+{
+  "settings": {
+    "width": 430,
+    "height": 932,
+    "dpr": 2,
+    "cpuThrottle": 4
+  },
+  "readings": {
+    "tasks": [
+      {
+        "dur": 77,
+        "start": 146.29999999701977
+      },
+      {
+        "dur": 83,
+        "start": 327.19999999552965
+      },
+      {
+        "dur": 1490,
+        "start": 413.5
+      },
+      {
+        "dur": 56,
+        "start": 1926.2999999970198
+      },
+      {
+        "dur": 180,
+        "start": 2120.1999999955297
+      },
+      {
+        "dur": 369,
+        "start": 2592.0999999940395
+      },
+      {
+        "dur": 456,
+        "start": 2965.89999999851
+      },
+      {
+        "dur": 566,
+        "start": 3424.1999999955297
+      },
+      {
+        "dur": 68,
+        "start": 4094.2999999970198
+      }
+    ],
+    "resources": [
+      {
+        "url": "canvaskit.wasm",
+        "start": 141.89999999850988,
+        "duration": 183,
+        "transfer": 0
+      },
+      {
+        "url": "canvaskit.js",
+        "start": 142.89999999850988,
+        "duration": 58.69999999552965,
+        "transfer": 0
+      },
+      {
+        "url": "main.dart.js?v=6.1.0+1-d0155111",
+        "start": 145.89999999850988,
+        "duration": 146.19999999552965,
+        "transfer": 1414251
+      }
+    ],
+    "mirror": {
+      "fps": 0,
+      "buildAvgMs": 13.18,
+      "buildWorstMs": 29.9,
+      "rasterAvgMs": 32.98,
+      "rasterWorstMs": 498.5,
+      "worstFrameMs": 562.4,
+      "jankPercent": 100,
+      "slowFramePercent": 8.7,
+      "frames": 23,
+      "devicePixelRatio": 2,
+      "sampleSequence": 22,
+      "sessionFrames": 23,
+      "sessionWorstBuildMs": 29.9,
+      "sessionWorstRasterMs": 498.5,
+      "sessionWorstFrameMs": 562.4,
+      "sessionOver200ms": 1,
+      "sessionOverBudgetPercent": 100,
+      "sessionSlowFramePercent": 8.7
+    }
+  },
+  "slow": [
+    {
+      "name": "EvaluateScript",
+      "ms": 1490,
+      "ts": 58633139768,
+      "url": "http://127.0.0.1:59038/main.dart.js?v=6.1.0+1-d0155111",
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "v8.run",
+      "ms": 1490,
+      "ts": 58633139953,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "UpdateLayoutTree",
+      "ms": 1137,
+      "ts": 58633462507,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "FireAnimationFrame",
+      "ms": 563,
+      "ts": 58636150448,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "v8.callFunction",
+      "ms": 563,
+      "ts": 58636150618,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "v8.callFunction",
+      "ms": 501,
+      "ts": 58636210782,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "FunctionCall",
+      "ms": 501,
+      "ts": 58636210784,
+      "url": "http://127.0.0.1:59038/main.dart.js?v=6.1.0+1-d0155111",
+      "function": "$1",
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "TimerFire",
+      "ms": 457,
+      "ts": 58635692127,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "v8.callFunction",
+      "ms": 457,
+      "ts": 58635692132,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "FunctionCall",
+      "ms": 446,
+      "ts": 58635692133,
+      "url": "http://127.0.0.1:59038/main.dart.js?v=6.1.0+1-d0155111",
+      "function": "$0",
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "TimerFire",
+      "ms": 369,
+      "ts": 58635318372,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "v8.callFunction",
+      "ms": 369,
+      "ts": 58635318376,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "EvaluateScript",
+      "ms": 356,
+      "ts": 58632837727,
+      "url": "http://127.0.0.1:59038/sw.js",
+      "thread": 4028,
+      "pid": 31028
+    },
+    {
+      "name": "v8.run",
+      "ms": 355,
+      "ts": 58632838310,
+      "thread": 4028,
+      "pid": 31028
+    },
+    {
+      "name": "FunctionCall",
+      "ms": 341,
+      "ts": 58635318377,
+      "url": "http://127.0.0.1:59038/main.dart.js?v=6.1.0+1-d0155111",
+      "function": "$0",
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "BackgroundJSStreamManager::RunScriptStreamingTask",
+      "ms": 137,
+      "ts": 58632967535,
+      "thread": 35588,
+      "pid": 31028
+    },
+    {
+      "name": "v8.parseOnBackground",
+      "ms": 137,
+      "ts": 58632967538,
+      "url": "http://127.0.0.1:59038/main.dart.js?v=6.1.0+1-d0155111",
+      "thread": 35588,
+      "pid": 31028
+    },
+    {
+      "name": "v8.callFunction",
+      "ms": 121,
+      "ts": 58634846754,
+      "thread": 15568,
+      "pid": 31028
+    },
+    {
+      "name": "FunctionCall",
+      "ms": 121,
+      "ts": 58634846756,
+      "url": "http://127.0.0.1:59038/main.dart.js?v=6.1.0+1-d0155111",
+      "function": "$1",
+      "thread": 15568,
+      "pid": 31028
+    }
+  ]
+}

@@ -41,7 +41,18 @@ class _PulsingDotState extends State<_PulsingDot>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -117,15 +128,29 @@ class _EqualizerBarsState extends State<_EqualizerBars>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 420),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncMotion();
   }
 
   @override
   void didUpdateWidget(covariant _EqualizerBars oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.active && !_c.isAnimating) {
+    _syncMotion();
+  }
+
+  void _syncMotion() {
+    final animate =
+        widget.active &&
+        !AppMotion.reduceAmbientMotion(context) &&
+        TickerMode.valuesOf(context).enabled;
+    if (animate && !_c.isAnimating) {
       _c.repeat();
-    } else if (!widget.active && _c.isAnimating) {
+    } else if (!animate && _c.isAnimating) {
       _c.stop();
     }
   }

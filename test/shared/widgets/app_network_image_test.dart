@@ -28,7 +28,10 @@ void main() {
     test('accepts valid HTTP/HTTPS URLs', () {
       expect(AppNetworkImage.isValidUrl('https://example.com/pic.jpg'), isTrue);
       expect(AppNetworkImage.isValidUrl('http://example.com/pic.png'), isTrue);
-      expect(AppNetworkImage.isValidUrl('blob:https://example.com/uuid'), isTrue);
+      expect(
+        AppNetworkImage.isValidUrl('blob:https://example.com/uuid'),
+        isTrue,
+      );
       expect(AppNetworkImage.isValidUrl('data:image/png;base64,abc'), isTrue);
     });
 
@@ -62,7 +65,10 @@ void main() {
         );
       });
       await tester.pump();
-      expect(tester.widget<Image>(find.byType(Image)).image, isA<AssetImage>());
+      final provider =
+          tester.widget<Image>(find.byType(Image)).image as ResizeImage;
+      expect(provider.width, 200);
+      expect(provider.imageProvider, isA<AssetImage>());
       expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -71,11 +77,7 @@ void main() {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: AppNetworkImage(
-              imageUrl: '',
-              width: 100,
-              height: 150,
-            ),
+            body: AppNetworkImage(imageUrl: '', width: 100, height: 150),
           ),
         ),
       );
@@ -153,87 +155,93 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
-      final first =
-          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+      final first = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
 
       // First backoff is 2s: advancing past it rebuilds the inner image
       // with a new key so it re-resolves instead of staying stuck.
       await tester.pump(const Duration(seconds: 3));
-      final second =
-          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+      final second = tester.widget<CachedNetworkImage>(
+        find.byType(CachedNetworkImage),
+      );
       expect(second.key, isNot(equals(first.key)));
     });
 
-    testWidgets('web implementation renders Image.network without RepaintBoundary', (
-      tester,
-    ) async {
-      AppNetworkImage.debugUseWebImplementation = true;
-      addTearDown(() => AppNetworkImage.debugUseWebImplementation = null);
+    testWidgets(
+      'web implementation renders Image.network without RepaintBoundary',
+      (tester) async {
+        AppNetworkImage.debugUseWebImplementation = true;
+        addTearDown(() => AppNetworkImage.debugUseWebImplementation = null);
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: AppNetworkImage(
-              imageUrl: 'https://example.com/poster.jpg',
-              width: 120,
-              height: 180,
-              cacheWidth: 400,
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: AppNetworkImage(
+                imageUrl: 'https://example.com/poster.jpg',
+                width: 120,
+                height: 180,
+                cacheWidth: 400,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // On web, Image.network is rendered instead of CachedNetworkImage to avoid
-      // WebGL texImage2D crash after alt-tabbing.
-      expect(find.byType(CachedNetworkImage), findsNothing);
-      expect(find.byType(Image), findsOneWidget);
+        // On web, Image.network is rendered instead of CachedNetworkImage to avoid
+        // WebGL texImage2D crash after alt-tabbing.
+        expect(find.byType(CachedNetworkImage), findsNothing);
+        expect(find.byType(Image), findsOneWidget);
 
-      final imageWidget = tester.widget<Image>(find.byType(Image));
-      expect(imageWidget.gaplessPlayback, isTrue);
-      expect(imageWidget.excludeFromSemantics, isTrue);
+        final imageWidget = tester.widget<Image>(find.byType(Image));
+        expect(imageWidget.gaplessPlayback, isTrue);
+        expect(imageWidget.excludeFromSemantics, isTrue);
 
-      // On web, RepaintBoundary is avoided on each thumbnail (flutter/flutter#192347).
-      expect(
-        find.descendant(
-          of: find.byType(AppNetworkImage),
-          matching: find.byType(RepaintBoundary),
-        ),
-        findsNothing,
-      );
-    });
+        // On web, RepaintBoundary is avoided on each thumbnail (flutter/flutter#192347).
+        expect(
+          find.descendant(
+            of: find.byType(AppNetworkImage),
+            matching: find.byType(RepaintBoundary),
+          ),
+          findsNothing,
+        );
+      },
+    );
 
-    testWidgets('onAppResumed immediately retries failed images without waiting for backoff', (
-      tester,
-    ) async {
-      const url = 'https://example.com/failed-then-wake.jpg';
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: AppNetworkImage(
-              imageUrl: url,
-              width: 120,
-              height: 180,
-              cacheManager: _FailingCacheManager(),
+    testWidgets(
+      'onAppResumed immediately retries failed images without waiting for backoff',
+      (tester) async {
+        const url = 'https://example.com/failed-then-wake.jpg';
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: AppNetworkImage(
+                imageUrl: url,
+                width: 120,
+                height: 180,
+                cacheManager: _FailingCacheManager(),
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Let the failure occur.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
-      final first =
-          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
+        // Let the failure occur.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.byIcon(Icons.broken_image_outlined), findsOneWidget);
+        final first = tester.widget<CachedNetworkImage>(
+          find.byType(CachedNetworkImage),
+        );
 
-      // Without waiting for the 2s/8s timer, simulate returning from alt-tab
-      AppNetworkImage.onAppResumed();
-      await tester.pump();
+        // Without waiting for the 2s/8s timer, simulate returning from alt-tab
+        AppNetworkImage.onAppResumed();
+        await tester.pump();
 
-      final second =
-          tester.widget<CachedNetworkImage>(find.byType(CachedNetworkImage));
-      expect(second.key, isNot(equals(first.key)));
-    });
+        final second = tester.widget<CachedNetworkImage>(
+          find.byType(CachedNetworkImage),
+        );
+        expect(second.key, isNot(equals(first.key)));
+      },
+    );
 
     testWidgets('onError fires for a failed load so shelves can heal', (
       tester,

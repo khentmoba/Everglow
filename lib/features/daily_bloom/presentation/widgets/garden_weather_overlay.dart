@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_art.dart';
+import '../../../../core/theme/app_motion.dart';
 
 /// Seasonal weather particle overlay for the garden.
 /// Uses month-based seasons — no external API needed.
@@ -35,8 +36,19 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 8),
-    )..repeat();
+    );
     _particles = List.generate(15, (_) => _createParticle());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
   }
 
   _Particle _createParticle() {
@@ -66,21 +78,23 @@ class _GardenWeatherOverlayState extends State<GardenWeatherOverlay>
           animation: _controller,
           builder: (context, _) {
             // Update particle positions
-            for (final p in _particles) {
-              p.y += p.speed;
-              p.x += p.drift;
-              p.rotation += p.rotSpeed;
-              if (p.y > 1.2) {
-                p.y = -0.1;
-                p.x = _random.nextDouble();
+            if (_controller.isAnimating) {
+              for (final p in _particles) {
+                p.y += p.speed;
+                p.x += p.drift;
+                p.rotation += p.rotSpeed;
+                if (p.y > 1.2) {
+                  p.y = -0.1;
+                  p.x = _random.nextDouble();
+                }
               }
             }
-
             return CustomPaint(
               size: Size.infinite,
               painter: _WeatherPainter(
                 particles: _particles,
                 season: widget.season,
+                still: AppMotion.reduceAmbientMotion(context),
               ),
             );
           },
@@ -108,8 +122,13 @@ class _Particle {
 class _WeatherPainter extends CustomPainter {
   final List<_Particle> particles;
   final int season;
+  final bool still;
 
-  _WeatherPainter({required this.particles, required this.season});
+  _WeatherPainter({
+    required this.particles,
+    required this.season,
+    required this.still,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -117,7 +136,7 @@ class _WeatherPainter extends CustomPainter {
 
     for (final p in particles) {
       final dx = p.x * size.width;
-      final dy = p.y * size.height;
+      final dy = (still ? p.y.abs() % 1 : p.y) * size.height;
 
       switch (season) {
         case 0: // Winter — snowflakes

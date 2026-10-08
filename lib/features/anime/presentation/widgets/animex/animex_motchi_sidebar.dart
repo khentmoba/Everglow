@@ -90,16 +90,14 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
       curve: Curves.easeOut,
       reverseCurve: Curves.easeIn,
     );
-    _slide = Tween<Offset>(
-      begin: const Offset(1.0, 0.0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _anim,
-        curve: AppMotion.drawer,
-        reverseCurve: Curves.easeInCubic,
-      ),
-    );
+    _slide = Tween<Offset>(begin: const Offset(1.0, 0.0), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _anim,
+            curve: AppMotion.drawer,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        );
 
     _scroll.addListener(_onScroll);
     _input.addListener(_onInputChanged);
@@ -207,11 +205,7 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
       _attachedImageUrls.clear();
       if (!retry) {
         widget.messages.add(
-          AIMessage(
-            role: 'user',
-            content: text,
-            imageUrls: imagesToSend,
-          ),
+          AIMessage(role: 'user', content: text, imageUrls: imagesToSend),
         );
       }
     });
@@ -337,8 +331,9 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
       final result = await _webBridge.recognizeOnce(lang: 'en-US');
       if (result != null && result.trim().isNotEmpty && mounted) {
         final current = _input.text;
-        final next =
-            current.isEmpty ? result.trim() : '$current ${result.trim()}';
+        final next = current.isEmpty
+            ? result.trim()
+            : '$current ${result.trim()}';
         _input.text = next;
         _input.selection = TextSelection.fromPosition(
           TextPosition(offset: next.length),
@@ -408,8 +403,7 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
                       color: AppColors.inkDeep,
                       border: Border(
                         left: BorderSide(
-                          color:
-                              AppColors.moonlight.withValues(alpha: 0.12),
+                          color: AppColors.moonlight.withValues(alpha: 0.12),
                           width: 1,
                         ),
                       ),
@@ -594,7 +588,8 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
       child: ValueListenableBuilder<int>(
         valueListenable: ai.draftRevisionNotifier,
         builder: (context, _, _) {
-          final hasStream = ai.draftResponse.isNotEmpty ||
+          final hasStream =
+              ai.draftResponse.isNotEmpty ||
               ai.draftReasoning.isNotEmpty ||
               ai.activeTools.isNotEmpty ||
               ai.toolResultsNotifier.value.isNotEmpty;
@@ -762,9 +757,7 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
       decoration: BoxDecoration(
         color: AppColors.deepRose.withValues(alpha: 0.15),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: AppColors.deepRose.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -787,10 +780,7 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
           GestureDetector(
             onTap: () => _send(retry: true),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppColors.deepRose.withValues(alpha: 0.2),
                 borderRadius: AppRadius.radiusSm,
@@ -986,8 +976,7 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
                                 backgroundColor: AppColors.roseQuartz,
                                 disabledBackgroundColor: AppColors.glassSoft,
                                 foregroundColor: AppColors.inkDeep,
-                                disabledForegroundColor:
-                                    AppColors.textDisabled,
+                                disabledForegroundColor: AppColors.textDisabled,
                                 minimumSize: const Size(44, 44),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: AppRadius.radiusMd,
@@ -1030,17 +1019,17 @@ class _AnimeMotchiAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ClipRRect(
-        borderRadius: BorderRadius.circular(size * 0.35),
-        child: Image.asset(
-          'assets/images/motchi_avatar.webp',
-          width: size,
-          height: size,
-          cacheWidth: PerfSettings.sizedDecodeWidth((size * 3).round()),
-          cacheHeight: PerfSettings.sizedDecodeWidth((size * 3).round()),
-          filterQuality: FilterQuality.high,
-          fit: BoxFit.cover,
-        ),
-      );
+    borderRadius: BorderRadius.circular(size * 0.35),
+    child: Image.asset(
+      'assets/images/motchi_avatar.webp',
+      width: size,
+      height: size,
+      cacheWidth: PerfSettings.sizedDecodeWidth((size * 3).round()),
+      cacheHeight: PerfSettings.sizedDecodeWidth((size * 3).round()),
+      filterQuality: FilterQuality.high,
+      fit: BoxFit.cover,
+    ),
+  );
 }
 
 class _AnimeDeepThinkPill extends StatelessWidget {
@@ -1052,12 +1041,18 @@ class _AnimeDeepThinkPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, tooltip) = switch (mode) {
-      AnimeMotchiDeepThink.auto =>
-        ('Auto', 'Thinking: Auto — tap for deep reasoning'),
-      AnimeMotchiDeepThink.on =>
-        ('Deep', 'Thinking: Always on — tap for fast replies'),
-      AnimeMotchiDeepThink.off =>
-        ('Fast', 'Thinking: Off — tap for automatic thinking'),
+      AnimeMotchiDeepThink.auto => (
+        'Auto',
+        'Thinking: Auto — tap for deep reasoning',
+      ),
+      AnimeMotchiDeepThink.on => (
+        'Deep',
+        'Thinking: Always on — tap for fast replies',
+      ),
+      AnimeMotchiDeepThink.off => (
+        'Fast',
+        'Thinking: Off — tap for automatic thinking',
+      ),
     };
     return Tooltip(
       message: tooltip,
@@ -1127,15 +1122,15 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
   @override
   Widget build(BuildContext context) {
     final bubbleText = widget.isUser ? widget.text : widget.text.trimLeft();
-    final displayText =
-        widget.isUser ? widget.text : stripMarkdown(bubbleText);
+    final displayText = widget.isUser ? widget.text : stripMarkdown(bubbleText);
     final hasReasoning =
         widget.reasoning != null && widget.reasoning!.isNotEmpty;
 
     final timeStr = widget.timestamp != null
         ? DateFormat('h:mm a').format(widget.timestamp!)
         : '';
-    final isToday = widget.timestamp != null &&
+    final isToday =
+        widget.timestamp != null &&
         DateTime.now().day == widget.timestamp!.day &&
         DateTime.now().month == widget.timestamp!.month &&
         DateTime.now().year == widget.timestamp!.year;
@@ -1146,8 +1141,9 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
       child: Row(
-        mainAxisAlignment:
-            widget.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: widget.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Flexible(
@@ -1155,7 +1151,8 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
               onLongPress: () => copyText(context, displayText),
               child: Container(
                 constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width *
+                  maxWidth:
+                      MediaQuery.sizeOf(context).width *
                       (widget.isUser ? 0.85 : 1),
                 ),
                 padding: widget.isUser
@@ -1199,8 +1196,8 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
                     ],
                     if (hasReasoning)
                       GestureDetector(
-                        onTap: () => setState(
-                            () => _showReasoning = !_showReasoning),
+                        onTap: () =>
+                            setState(() => _showReasoning = !_showReasoning),
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(
@@ -1249,8 +1246,7 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
                                 EverglowMarkdown(
                                   text: widget.reasoning!,
                                   paragraphGap: 4,
-                                  baseStyle:
-                                      AppTypography.bodySmall().copyWith(
+                                  baseStyle: AppTypography.bodySmall().copyWith(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
                                     color: AppColors.textMuted,
@@ -1288,8 +1284,7 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
                         children: [
                           _AnimeMarkdownText(
                             text: bubbleText,
-                            baseStyle:
-                                AppTypography.bodyMedium().copyWith(
+                            baseStyle: AppTypography.bodyMedium().copyWith(
                               color: AppColors.textHigh,
                               fontFamily: AppTypography.reading,
                               height: 1.65,
@@ -1312,10 +1307,8 @@ class _AnimeMessageBubbleState extends State<_AnimeMessageBubble> {
                             if (displayText.trim().isNotEmpty) ...[
                               IconButton(
                                 tooltip: 'Copy message',
-                                onPressed: () =>
-                                    copyText(context, displayText),
-                                icon:
-                                    const Icon(Icons.copy_rounded, size: 17),
+                                onPressed: () => copyText(context, displayText),
+                                icon: const Icon(Icons.copy_rounded, size: 17),
                                 color: AppColors.textMuted,
                                 constraints: const BoxConstraints(
                                   minWidth: 44,
@@ -1429,7 +1422,8 @@ class _AnimeMarkdownText extends StatelessWidget {
     return EverglowMarkdown(
       text: text,
       plain: true,
-      baseStyle: baseStyle ??
+      baseStyle:
+          baseStyle ??
           AppTypography.bodyMedium().copyWith(
             fontFamily: AppTypography.reading,
             fontWeight: FontWeight.w400,
@@ -1483,7 +1477,16 @@ class _AnimeThreeDotsState extends State<_AnimeThreeDots>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -1547,7 +1550,16 @@ class _AnimeAnsweringAvatarState extends State<_AnimeAnsweringAvatar>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    if (!AppMotion.reduced) _c.repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -1659,7 +1671,16 @@ class _AnimeReplyingBadgeState extends State<_AnimeReplyingBadge>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -1722,7 +1743,9 @@ class _AnimeReplyingBadgeState extends State<_AnimeReplyingBadge>
                     final phase = (t - i * 0.2) % 1.0;
                     final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
                     final y = AppMotion.reduced ? 0.0 : -1.8 * wave;
-                    final alpha = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                    final alpha = AppMotion.reduced
+                        ? 0.7
+                        : (0.35 + 0.65 * wave);
                     return Transform.translate(
                       offset: Offset(0, y),
                       child: Opacity(
@@ -1766,7 +1789,16 @@ class _AnimeStreamingCaretState extends State<_AnimeStreamingCaret>
       vsync: this,
       duration: const Duration(milliseconds: 640),
     );
-    if (!AppMotion.reduced) _c.repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -1840,7 +1872,16 @@ class _AnimeStreamingDotsWaveState extends State<_AnimeStreamingDotsWave>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-    if (!AppMotion.reduced) _c.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -1864,8 +1905,12 @@ class _AnimeStreamingDotsWaveState extends State<_AnimeStreamingDotsWave>
                 builder: (_) {
                   final phase = (t - i * 0.22) % 1.0;
                   final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
-                  final dotScale = AppMotion.reduced ? 1.0 : (0.75 + 0.40 * wave);
-                  final dotOpacity = AppMotion.reduced ? 0.7 : (0.35 + 0.65 * wave);
+                  final dotScale = AppMotion.reduced
+                      ? 1.0
+                      : (0.75 + 0.40 * wave);
+                  final dotOpacity = AppMotion.reduced
+                      ? 0.7
+                      : (0.35 + 0.65 * wave);
                   return Opacity(
                     opacity: dotOpacity,
                     child: Transform.scale(
@@ -2002,7 +2047,17 @@ class _AnimeToolStatusChipState extends State<_AnimeToolStatusChip>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -2625,10 +2680,7 @@ class AnimeXMotchiFloatingTrigger extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [
-                Color(0xFF1E1E2C),
-                Color(0xFF13131D),
-              ],
+              colors: [Color(0xFF1E1E2C), Color(0xFF13131D)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -2658,10 +2710,7 @@ class AnimeXMotchiFloatingTrigger extends StatelessWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.blushGold,
-                    width: 1.2,
-                  ),
+                  border: Border.all(color: AppColors.blushGold, width: 1.2),
                 ),
                 child: ClipOval(
                   child: Image.asset(

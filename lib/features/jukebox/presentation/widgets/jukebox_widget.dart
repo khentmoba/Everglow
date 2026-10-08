@@ -23,7 +23,6 @@ class JukeboxWidget extends StatefulWidget {
 class _JukeboxWidgetState extends State<JukeboxWidget>
     with TickerProviderStateMixin {
   late ConfettiController _confettiController;
-  late AnimationController _ambientController;
   late AnimationController _entranceController;
 
   @override
@@ -32,10 +31,6 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 3),
     );
-    _ambientController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 8),
-    )..repeat();
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 700),
@@ -48,7 +43,6 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
   @override
   void dispose() {
     _confettiController.dispose();
-    _ambientController.dispose();
     _entranceController.dispose();
     super.dispose();
   }
@@ -86,10 +80,7 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
           alignment: Alignment.topCenter,
           children: [
             AnimatedBuilder(
-              animation: Listenable.merge([
-                _ambientController,
-                _entranceController,
-              ]),
+              animation: _entranceController,
               builder: (context, child) {
                 final e = CurvedAnimation(
                   parent: _entranceController,
@@ -143,27 +134,22 @@ class _JukeboxWidgetState extends State<JukeboxWidget>
                       borderRadius: AppRadius.radiusX2,
                       child: Stack(
                         children: [
-                          Positioned(
+                          const Positioned(
                             top: -40,
                             left: -30,
                             child: _GlowOrb(
                               color: AppColors.deepRose,
                               size: 180,
-                              t:
-                                  (_ambientController.value * 2 * math.pi) %
-                                  (2 * math.pi),
+                              t: 0,
                             ),
                           ),
-                          Positioned(
+                          const Positioned(
                             bottom: -50,
                             right: -20,
                             child: _GlowOrb(
                               color: AppColors.auroraLilac,
                               size: 220,
-                              t:
-                                  (_ambientController.value * 2 * math.pi +
-                                      1.2) %
-                                  (2 * math.pi),
+                              t: 1.2,
                             ),
                           ),
                           Positioned.fill(
@@ -314,15 +300,29 @@ class _JukeboxHeaderState extends State<_JukeboxHeader>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
   }
 
   @override
   void didUpdateWidget(covariant _JukeboxHeader oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.eitherLive && !_pulse.isAnimating) {
+    _syncPulse();
+  }
+
+  void _syncPulse() {
+    final animate =
+        widget.eitherLive &&
+        !AppMotion.reduceAmbientMotion(context) &&
+        TickerMode.valuesOf(context).enabled;
+    if (animate && !_pulse.isAnimating) {
       _pulse.repeat(reverse: true);
-    } else if (!widget.eitherLive && _pulse.isAnimating) {
+    } else if (!animate && _pulse.isAnimating) {
       _pulse.stop();
     }
   }

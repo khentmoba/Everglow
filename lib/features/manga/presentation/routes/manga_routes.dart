@@ -3,7 +3,7 @@ import '../../../../core/router/deferred_route.dart';
 import '../../../../core/router/route_helpers.dart';
 
 import '../../data/models/manga_item.dart';
-import '../screens/katana_home_screen.dart';
+import '../screens/katana_home_screen.dart' deferred as manga_lib;
 // The reader (35KB+ of paging/zoom/chapter logic) splits out of the initial
 // bundle via a deferred import (see docs/PERF_NOTES.md). Direct pushes from
 // [MangaDetailsDrawer] use the same chunk via their own deferred import.
@@ -13,7 +13,11 @@ import '../screens/manga_reader_screen.dart' deferred as reader_lib;
 final List<GoRoute> mangaRoutes = [
   GoRoute(
     path: "/manga",
-    builder: (_, _) => const KatanaHomeScreen(),
+    builder: (_, _) => DeferredRouteLoader(
+      label: 'Mangacelestia',
+      loadLibrary: manga_lib.loadLibrary,
+      builder: () => manga_lib.KatanaHomeScreen(),
+    ),
     routes: [
       GoRoute(
         path: "reader",

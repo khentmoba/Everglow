@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'stats_fx.dart';
@@ -57,9 +58,7 @@ class LeaderboardHeader extends StatelessWidget {
                         shadows: isLeader
                             ? [
                                 Shadow(
-                                  color: championAccent.withValues(
-                                    alpha: 0.35,
-                                  ),
+                                  color: championAccent.withValues(alpha: 0.35),
                                   blurRadius: 12,
                                 ),
                               ]
@@ -282,7 +281,11 @@ class _LeaderboardIcon extends StatelessWidget {
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.blushTint, Color(0xFFFF8FAB), AppColors.cinemaPink],
+            colors: [
+              AppColors.blushTint,
+              Color(0xFFFF8FAB),
+              AppColors.cinemaPink,
+            ],
           ),
           border: Border.all(
             color: AppColors.petalWhite.withValues(alpha: 0.78),
@@ -350,7 +353,17 @@ class _HeaderCrownSparkleState extends State<_HeaderCrownSparkle>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override
@@ -385,7 +398,11 @@ class _TotalListensPill extends StatelessWidget {
   final String countText;
   final bool isLeader;
   final bool isPink;
-  const _TotalListensPill({required this.countText, required this.isLeader, this.isPink = false});
+  const _TotalListensPill({
+    required this.countText,
+    required this.isLeader,
+    this.isPink = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -609,7 +626,17 @@ class _ChampionBadgeState extends State<_ChampionBadge>
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _pulse.stop();
+    } else if (!_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    }
   }
 
   @override
@@ -653,7 +680,11 @@ class _ChampionBadgeState extends State<_ChampionBadge>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (widget.isPink ? AppColors.auroraRose : AppColors.auroraGold).withValues(alpha: glow),
+                  color:
+                      (widget.isPink
+                              ? AppColors.auroraRose
+                              : AppColors.auroraGold)
+                          .withValues(alpha: glow),
                   blurRadius: 16,
                   offset: const Offset(0, 3),
                 ),
@@ -678,15 +709,25 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 height: 16,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: (widget.isPink ? AppColors.roseDark : AppColors.goldShadow).withValues(alpha: 0.14),
+                  color:
+                      (widget.isPink
+                              ? AppColors.roseDark
+                              : AppColors.goldShadow)
+                          .withValues(alpha: 0.14),
                   border: Border.all(
-                    color: (widget.isPink ? AppColors.roseDark : AppColors.goldShadow).withValues(alpha: 0.22),
+                    color:
+                        (widget.isPink
+                                ? AppColors.roseDark
+                                : AppColors.goldShadow)
+                            .withValues(alpha: 0.22),
                   ),
                 ),
                 child: Icon(
                   Icons.emoji_events_rounded,
                   size: 10,
-                  color: widget.isPink ? AppColors.roseDark : AppColors.goldShadow,
+                  color: widget.isPink
+                      ? AppColors.roseDark
+                      : AppColors.goldShadow,
                 ),
               ),
               const SizedBox(width: 5),
@@ -695,7 +736,9 @@ class _ChampionBadgeState extends State<_ChampionBadge>
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 11,
                   height: 1,
-                  color: widget.isPink ? AppColors.roseDark : AppColors.goldShadow,
+                  color: widget.isPink
+                      ? AppColors.roseDark
+                      : AppColors.goldShadow,
                   letterSpacing: 0.9,
                 ),
               ),
@@ -703,7 +746,9 @@ class _ChampionBadgeState extends State<_ChampionBadge>
               Icon(
                 Icons.auto_awesome_rounded,
                 size: 9,
-                color: widget.isPink ? AppColors.roseDark : AppColors.goldShadow,
+                color: widget.isPink
+                    ? AppColors.roseDark
+                    : AppColors.goldShadow,
               ),
             ],
           ),
@@ -735,11 +780,21 @@ class _ChampionBadgeShimmerState extends State<_ChampionBadgeShimmer>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
-    )..repeat();
+    );
     _a = Tween<double>(
       begin: -1.2,
       end: 1.6,
     ).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -791,11 +846,21 @@ class _ChampionShimmerState extends State<_ChampionShimmer>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2800),
-    )..repeat();
+    );
     _a = Tween<double>(
       begin: -1.2,
       end: 1.8,
     ).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
   }
 
   @override
@@ -847,7 +912,17 @@ class _PulsingDotState extends State<_PulsingDot>
     _c = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
   }
 
   @override

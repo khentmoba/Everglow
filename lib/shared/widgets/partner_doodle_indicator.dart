@@ -15,13 +15,33 @@ class PartnerDoodleIndicator extends StatefulWidget {
   State<PartnerDoodleIndicator> createState() => _PartnerDoodleIndicatorState();
 }
 
-class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
+class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator>
+    with WidgetsBindingObserver {
   Timer? _ticker;
   DateTime _now = DateTime.now();
+  String? _presenceUid;
+  Stream<PresenceStatus>? _presenceStream;
+  bool _appActive = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncTicker();
+  }
+
+  void _syncTicker() {
+    _ticker?.cancel();
+    _ticker = null;
+    if (!_appActive || !TickerMode.valuesOf(context).enabled) return;
+    _now = DateTime.now();
     // Freshness ticker: doodle state flips on 15s touch windows, and the
     // widget only shows active/idle — 1s granularity is plenty. The
     // previous 250ms setState rebuilt this subtree (StreamBuilder
@@ -32,7 +52,15 @@ class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    _syncTicker();
+    if (_appActive) setState(() {});
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
   }
@@ -42,16 +70,24 @@ class _PartnerDoodleIndicatorState extends State<PartnerDoodleIndicator> {
     // select() instead of watch(): partner fields change rarely, and a
     // full watch rebuilds this indicator (and re-evaluates the stream
     // builder below) on every unrelated auth notify.
-    final partnerUid = context.select<AuthService, String?>((a) => a.partnerUid);
-    final partnerName = context.select<AuthService, String>((a) => a.partnerName);
+    final partnerUid = context.select<AuthService, String?>(
+      (a) => a.partnerUid,
+    );
+    final partnerName = context.select<AuthService, String>(
+      (a) => a.partnerName,
+    );
     final presence = context.read<PresenceService>();
 
     if (partnerUid == null) {
       return const SizedBox.shrink();
     }
 
+    if (_presenceUid != partnerUid) {
+      _presenceUid = partnerUid;
+      _presenceStream = presence.watchPresence(partnerUid);
+    }
     return StreamBuilder<PresenceStatus>(
-      stream: presence.watchPresence(partnerUid),
+      stream: _presenceStream,
       builder: (context, snapshot) {
         final status = snapshot.data ?? PresenceStatus.empty(partnerUid);
         final isDoodling = status.isActivelyDoodlingAt(_now);

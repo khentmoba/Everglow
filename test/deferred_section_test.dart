@@ -22,10 +22,8 @@ class _SectionState extends State<_Section> {
   }
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 400,
-    child: Text('section ${widget.id}'),
-  );
+  Widget build(BuildContext context) =>
+      SizedBox(height: 400, child: Text('section ${widget.id}'));
 }
 
 Widget harness({
@@ -68,6 +66,42 @@ Future<void> scrollToEnd(
 }
 
 void main() {
+  testWidgets('hidden app defers section work and reveals on resume', (
+    tester,
+  ) async {
+    final built = <int>{};
+    final spacer = ValueNotifier<double>(3000);
+    addTearDown(spacer.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: ValueListenableBuilder<double>(
+                valueListenable: spacer,
+                builder: (_, height, _) => SizedBox(height: height),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: DeferredSection(child: _Section(id: 1, built: built)),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(built, isEmpty);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    spacer.value = 0;
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    expect(built, isEmpty);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump();
+    expect(built, contains(1));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   testWidgets('reveals through the dashboard wrapper patterns', (tester) async {
     // Mirrors how the dashboard actually uses this widget: an entrance-motion
     // wrapper around the child, and one DeferredSection per column of a
@@ -87,10 +121,8 @@ void main() {
                 child: TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: 1),
                   duration: const Duration(milliseconds: 300),
-                  builder: (context, opacity, child) => Opacity(
-                    opacity: opacity,
-                    child: child,
-                  ),
+                  builder: (context, opacity, child) =>
+                      Opacity(opacity: opacity, child: child),
                   child: _Section(id: 0, built: built),
                 ),
               ),
@@ -179,7 +211,9 @@ void main() {
         home: CustomScrollView(
           slivers: [
             for (var i = 0; i < 20; i++)
-              SliverToBoxAdapter(child: _Section(id: i, built: built)),
+              SliverToBoxAdapter(
+                child: _Section(id: i, built: built),
+              ),
           ],
         ),
       ),
@@ -199,7 +233,11 @@ void main() {
 
     expect(built, isNotEmpty, reason: 'the visible sections must still build');
     expect(built, isNot(contains(19)), reason: 'far sections must not build');
-    expect(built.length, lessThanOrEqualTo(4), reason: 'cold frame 1 mounts <= 4 sections');
+    expect(
+      built.length,
+      lessThanOrEqualTo(4),
+      reason: 'cold frame 1 mounts <= 4 sections',
+    );
 
     await scrollToEnd(tester, controller);
 
