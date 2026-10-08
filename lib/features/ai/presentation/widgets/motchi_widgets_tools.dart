@@ -1,20 +1,34 @@
 part of 'motchi_screen.dart';
 
 /// Active actions wrap so every running tool remains visible on a phone.
+// Zero-duration AnimatedSize can notify layout while it is still laying out.
+class _MotchiAnimatedSize extends StatelessWidget {
+  const _MotchiAnimatedSize({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (AppMotion.reduced || MediaQuery.disableAnimationsOf(context)) {
+      return child;
+    }
+    return AnimatedSize(
+      duration: AppMotion.medium,
+      curve: AppMotion.easeOutStrong,
+      alignment: Alignment.topLeft,
+      child: child,
+    );
+  }
+}
+
+/// Active actions wrap so every running tool remains visible on a phone.
 class _LiveToolStrip extends StatelessWidget {
   final AIService ai;
   const _LiveToolStrip({required this.ai});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: AppMotion.orZero(
-        MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : AppMotion.medium,
-      ),
-      curve: AppMotion.easeOutStrong,
-      alignment: Alignment.topLeft,
+    return _MotchiAnimatedSize(
       child: ValueListenableBuilder<List<String>>(
         valueListenable: ai.activeToolsNotifier,
         builder: (context, tools, _) {

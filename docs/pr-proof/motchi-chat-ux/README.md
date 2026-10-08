@@ -157,3 +157,12 @@ measure the intermediate layout, so this does not prove transition timing.
 The browser regression now asserts an intermediate height and immediate toggles
 with reduced motion enabled; Linux CI confirmation remains pending. Local
 analysis, 1,534 regular tests, all 15 guards and the synthetic release build passed.
+
+Run 37855310834 passed 25 Chrome tests and the normal 80ms/finished size
+assertions, then failed when reduced motion changed the thoughts size.
+Flutter reported RenderAnimatedSize mutating during its own layout with a
+zero-duration controller. Reduced motion now returns the child directly,
+without a size-animation render object. The regression verifies notes appear
+and disappear after a single pump, with no AnimatedSize ancestor and no
+exception; normal-motion intermediate-height assertions remain unchanged.
+Linux Chrome confirmation of this fix is pending.

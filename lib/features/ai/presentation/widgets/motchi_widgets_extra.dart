@@ -240,14 +240,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                 ),
                               ),
                             ),
-                            AnimatedSize(
-                              duration: AppMotion.orZero(
-                                MediaQuery.disableAnimationsOf(context)
-                                    ? Duration.zero
-                                    : AppMotion.medium,
-                              ),
-                              curve: AppMotion.easeOutStrong,
-                              alignment: Alignment.topLeft,
+                            _MotchiAnimatedSize(
                               child: _showReasoning
                                   ? Padding(
                                       padding: const EdgeInsets.fromLTRB(

@@ -302,10 +302,22 @@ void main() {
       await tester.pump();
       await tester.tap(toggle);
       await tester.pump();
-      expect(notesBox.size.height, greaterThan(0));
+      final reducedNotes = find.text(
+        'Synthetic planning notes.',
+        findRichText: true,
+      );
+      expect(reducedNotes, findsWidgets);
+      expect(
+        find.ancestor(
+          of: reducedNotes.first,
+          matching: find.byType(AnimatedSize),
+        ),
+        findsNothing,
+      );
       await tester.tap(toggle);
       await tester.pump();
-      expect(notesBox.size.height, 0);
+      expect(reducedNotes, findsNothing);
+      expect(tester.takeException(), isNull);
       ai.reasoning = '';
       ai.draftReasoningNotifier.value = '';
       ai.draftRevisionNotifier.value++;
