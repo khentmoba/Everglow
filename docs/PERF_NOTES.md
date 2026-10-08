@@ -88,6 +88,20 @@ The added PNG is 95,960 raw bytes. Full protocol, screenshots, raw rows, asset
 provenance and the incomplete extra browser-widget test are recorded in
 `docs/pr-proof/pr-496/README.md`. The original device acceptance target remains open.
 
+### Dashboard landing mount burst (candidate)
+
+Khent clarified that fast scrolling into unloaded cards triggers the remaining
+lag. A regression reproduced six section mounts in one frame after an unloaded
+jump. `DeferredSection` now grants one new mount per frame and retries waiting
+cards only while they remain near the viewport, on an active page and below
+Flutter's deferred-loading velocity threshold. Existing cards remain mounted.
+Tests cover the mount cap, phone pairs, renewed flings, recovery and disposal.
+Three matching cold release diagnostics improved first-up reported peaks from
+222/203/241ms to 112/169/169ms, but first-down peaks remained ~343–420ms and
+first-down long-task counts increased. This proves neither overall smoothness
+nor phone presentation FPS. Protocol, raw rows and screenshots are recorded in
+`docs/pr-proof/pr-496/card-burst.md`; the device target stays open.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.

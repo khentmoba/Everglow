@@ -67,10 +67,8 @@ Future<void> scrollToEnd(
   ScrollController controller,
 ) async {
   controller.jumpTo(controller.position.maxScrollExtent);
-  await tester.pump();
-  // Let reveals triggered by the scroll land, then settle any extent change
-  // they caused (a real section is taller than its placeholder).
-  await tester.pump();
+  // Let staggered reveals land, then settle any extent change they caused.
+  await tester.pumpAndSettle();
   if (controller.position.pixels < controller.position.maxScrollExtent) {
     controller.jumpTo(controller.position.maxScrollExtent);
     await tester.pump();
@@ -78,6 +76,84 @@ Future<void> scrollToEnd(
 }
 
 void main() {
+  testWidgets('landing cards mount one per frame instead of a timer burst', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final built = <int>{};
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      harness(built: built, controller: controller, deferMs: 80),
+    );
+    await tester.pumpAndSettle();
+    final before = Set<int>.of(built);
+    controller.jumpTo(3000);
+    await tester.pump();
+    var lastCount = built.length;
+    // Several nearby cards share the same reveal deadline after a fast jump.
+    await tester.pump(const Duration(milliseconds: 81));
+    expect(built.length - lastCount, lessThanOrEqualTo(1));
+    for (var frame = 0; frame < 6; frame++) {
+      lastCount = built.length;
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(built.length - lastCount, lessThanOrEqualTo(1));
+    }
+    expect(built.difference(before).length, greaterThanOrEqualTo(2));
+    // Once revealed, scrolling back must not unload existing cards.
+    controller.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(built, containsAll(before));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('queued reveals recheck a renewed fling and recover when idle', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final built = <int>{};
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      harness(built: built, controller: controller, deferMs: 80),
+    );
+    await tester.pumpAndSettle();
+    controller.jumpTo(3000);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 81));
+    final before = Set<int>.of(built);
+    (controller.position as ScrollPositionWithSingleContext).goBallistic(6000);
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump(const Duration(milliseconds: 100));
+    // One already-granted mount can finish; waiting cards must not join it.
+    expect(built.difference(before).length, lessThanOrEqualTo(1));
+    (controller.position as ScrollPositionWithSingleContext).goIdle();
+    await tester.pumpAndSettle();
+    expect(built.difference(before).length, greaterThanOrEqualTo(2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('disposing a queued section leaves no retry frames running', (
+    tester,
+  ) async {
+    final built = <int>{};
+    await tester.pumpWidget(harness(built: built, deferMs: 80));
+    await tester.pump(const Duration(milliseconds: 81));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(tester.binding.hasScheduledFrame, isFalse);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final width in [430.0, 810.0]) {
     testWidgets('fast fling at $width postpones new sections until slowing', (
       tester,
@@ -92,6 +168,8 @@ void main() {
         harness(built: built, controller: controller, deferMs: 80),
       );
       await tester.pump(const Duration(milliseconds: 121));
+      await tester
+          .pumpAndSettle(); // finish the initial screen before the fling
       final before = Set<int>.of(built);
       // Real ballistic activity; jumpTo has no sustained fling velocity.
       (controller.position as ScrollPositionWithSingleContext).goBallistic(
@@ -199,6 +277,8 @@ void main() {
     final reserved = tester.getSize(find.byType(DashboardPair)).height;
     expect(reserved, 812);
     await tester.pump(const Duration(milliseconds: 121));
+    expect(built, {0}, reason: 'the pair must not mount in one frame');
+    await tester.pump(const Duration(milliseconds: 16));
     expect(built, containsAll([0, 1]));
     expect(tester.getSize(find.byType(DashboardPair)).height, reserved);
     await tester.pumpWidget(const SizedBox.shrink());

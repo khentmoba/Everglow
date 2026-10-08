@@ -73,6 +73,9 @@ class _DeferredSectionState extends State<DeferredSection>
   ScrollPosition? _position;
   bool _visible = false;
   bool _checkScheduled = false;
+  bool _revealRetryScheduled = false;
+  // Nearby sections often share a timer deadline. Give each mount its own frame.
+  static bool _mountPending = false;
   bool _warnedNoPosition = false;
   Timer? _deferTimer;
   Timer? _safetyNet;
@@ -237,6 +240,19 @@ class _DeferredSectionState extends State<DeferredSection>
     _deferTimer = null;
     // A quick swipe can leave the section behind before its timer fires.
     if (_deferForFastScroll || !_isNearViewport()) return;
+    if (_mountPending) {
+      if (!_revealRetryScheduled) {
+        _revealRetryScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _revealRetryScheduled = false;
+          _reveal();
+        });
+        WidgetsBinding.instance.scheduleFrame();
+      }
+      return;
+    }
+    _mountPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _mountPending = false);
     _safetyNet?.cancel();
     _safetyNet = null;
     _position?.removeListener(_onScroll);
