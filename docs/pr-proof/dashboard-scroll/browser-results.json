@@ -1,0 +1,54 @@
+[
+  {
+    "width": 430,
+    "maxOffset": 9960,
+    "returnOffset": 0,
+    "lowerText": "CLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nEnter Everglow Academy ENTER PORTAL\nPlay Zone\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant",
+    "scrollPerf": {
+      "fps": 49.96,
+      "buildAvgMs": 0.72,
+      "buildWorstMs": 3.1,
+      "rasterAvgMs": 1.22,
+      "rasterWorstMs": 2.7,
+      "worstFrameMs": 5.9,
+      "jankPercent": 0,
+      "slowFramePercent": 0,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 19,
+      "sessionFrames": 476,
+      "sessionWorstBuildMs": 149,
+      "sessionWorstRasterMs": 118.2,
+      "sessionWorstFrameMs": 167.5,
+      "sessionOver200ms": 0,
+      "sessionOverBudgetPercent": 6.72,
+      "sessionSlowFramePercent": 4.2
+    }
+  },
+  {
+    "width": 810,
+    "maxOffset": 7200,
+    "returnOffset": 0,
+    "lowerText": "CLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nPlay Zone\nEnter Everglow Academy ENTER PORTAL\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant",
+    "scrollPerf": {
+      "fps": 270.2,
+      "buildAvgMs": 1.27,
+      "buildWorstMs": 3,
+      "rasterAvgMs": 1.61,
+      "rasterWorstMs": 3,
+      "worstFrameMs": 7.2,
+      "jankPercent": 0,
+      "slowFramePercent": 0,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 17,
+      "sessionFrames": 1091,
+      "sessionWorstBuildMs": 195.2,
+      "sessionWorstRasterMs": 44.6,
+      "sessionWorstFrameMs": 209.8,
+      "sessionOver200ms": 1,
+      "sessionOverBudgetPercent": 1.65,
+      "sessionSlowFramePercent": 0.92
+    }
+  }
+]
