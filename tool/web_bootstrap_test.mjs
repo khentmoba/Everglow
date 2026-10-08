@@ -49,14 +49,12 @@ test('browser tabs and cached shells without a host use full-page Flutter', () =
   assert.equal(boot(true, false).config.hostElement, undefined);
 });
 
-test('iPhone launch metadata lets artwork paint behind the status bar', () => {
-  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
+test('iPhone launch metadata avoids Safari fullscreen system gaps', () => {
+  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black"/);
   assert.match(html, /name="viewport" content="[^"]*viewport-fit=contain"/);
 });
 
-for (const [mode, standalone] of [
-  ['browser', false], ['ios', true], ['standalone', true], ['fullscreen', true],
-]) {
+for (const mode of ['browser', 'ios', 'standalone', 'fullscreen']) {
   test(`viewport policy survives engine metadata changes (${mode})`, () => {
     const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
       .find((match) => match[1].includes('function lockMeta()'))[1];
@@ -90,8 +88,7 @@ for (const [mode, standalone] of [
       Event: class {},
       setTimeout: (fn) => fn(),
     });
-    const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=' +
-      (standalone ? 'cover' : 'contain');
+    const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
     assert.equal(metas[0].content, expected);
     metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
     mutation();

@@ -26,9 +26,9 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!-- Let route artwork paint behind the status bar; shared Flutter insets
-       keep controls clear of the system icons. -->
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- Fullscreen Safari can reserve an unreachable bottom strip (WebKit #301994).
+       Keep the configuration confirmed on-device to remove it. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Everglow">
   <meta name="format-detection" content="telephone=no">
   <meta name="google" content="notranslate">
@@ -197,14 +197,10 @@
   <script>
     // Enforce viewport meta tag against Flutter Web's FullPageEmbeddingStrategy:
     // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
-    // user-scalable=no & viewport-fit. Installed apps paint behind system areas;
-    // browser tabs retain their contained viewport.
+    // user-scalable=no & viewport-fit. Keep the contained viewport in installed
+    // apps too: cover + a translucent status bar reintroduces Safari's bottom gap.
     (function () {
-      var standalone = window.navigator.standalone === true ||
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.matchMedia('(display-mode: fullscreen)').matches;
-      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=' +
-        (standalone ? 'cover' : 'contain');
+      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
       var resizeQueued = false;
       function nudgeEngine() {
         if (resizeQueued) return;
@@ -293,8 +289,8 @@
 
   <script>
     // Installed-web-app inset bridge (Add to Home Screen, standalone only).
-    // Publish system overlaps so shared Flutter SafeAreas protect controls
-    // while each route's background fills the installed app viewport.
+    // Retain protection for older installed shells exposing system overlaps.
+    // The contained viewport normally reports zero system insets.
     // Plain Safari tabs return 0/false here, leaving browser layout alone.
     (function () {
       function isStandalone() {
