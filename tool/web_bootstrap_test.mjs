@@ -5,6 +5,7 @@ import vm from 'node:vm';
 
 const source = readFileSync(new URL('../web/flutter_bootstrap.js', import.meta.url), 'utf8')
   .replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');
+const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 
 function boot(standalone, hasHost = true) {
   const listeners = {};
@@ -46,4 +47,56 @@ test('installed app keeps its full-window host while editing', () => {
 test('browser tabs and cached shells without a host use full-page Flutter', () => {
   assert.equal(boot(false).config.hostElement, undefined);
   assert.equal(boot(true, false).config.hostElement, undefined);
+});
+
+test('iPhone launch metadata reserves system areas rather than translucent fullscreen', () => {
+  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black"/);
+  assert.match(html, /name="viewport" content="[^"]*viewport-fit=contain"/);
+});
+
+test('viewport policy survives Flutter replacing or removing its meta tag', () => {
+  const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .find((match) => match[1].includes('function lockMeta()'))[1];
+  const events = {};
+  const meta = (content) => ({
+    content,
+    getAttribute() { return this.content; },
+    setAttribute(_, value) { this.content = value; },
+  });
+  let metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0')];
+  const head = {appendChild: (node) => metas.push(node)};
+  let mutation;
+  let resizes = 0;
+  vm.runInNewContext(script, {
+    document: {
+      head,
+      querySelectorAll: () => metas,
+      createElement: () => meta(''),
+      addEventListener() {},
+    },
+    window: {
+      addEventListener: (name, fn) => { events[name] = fn; },
+      dispatchEvent: () => { resizes++; },
+    },
+    MutationObserver: class {
+      constructor(fn) { mutation = fn; }
+      observe() {}
+    },
+    Event: class {},
+    setTimeout: (fn) => fn(),
+  });
+  const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
+  assert.equal(metas[0].content, expected);
+  metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
+  mutation();
+  assert.ok(metas.every((node) => node.content === expected));
+  const resizeCount = resizes;
+  mutation();
+  assert.equal(resizes, resizeCount, 'unchanged metadata must not cause a resize loop');
+  metas = [];
+  mutation();
+  assert.equal(metas.length, 1);
+  assert.equal(metas[0].content, expected);
+  events['flutter-first-frame']();
+  assert.equal(metas[0].content, expected);
 });
