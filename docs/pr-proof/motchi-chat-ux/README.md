@@ -57,3 +57,10 @@ reply modes, editable starters, send/stop, IME/Shift handling, initial-load
 recovery, navigation and the answering glow. Analysis, regular tests, guards,
 web build and deployment also passed. The hosted preview opened Motchi correctly.
 The regular 1,533 tests and 15 guards passed again after the diagnostic edit.
+
+The diagnostic run 37841067036 exposed a premature assertion after tapping
+Latest message: actual scroll offset 0, expected 3729. The test now gives the
+post-frame scroll callback and the first animation tick separate frames before
+advancing the 300 ms animation. The bottom-position assertion is unchanged,
+and a further streamed chunk must remain followed. Browser confirmation is
+pending the next Linux CI run.

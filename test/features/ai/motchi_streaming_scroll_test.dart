@@ -729,13 +729,23 @@ void main() {
     final latest = find.widgetWithText(FilledButton, 'Latest message');
     expect(tester.getSize(latest).height, greaterThanOrEqualTo(48));
     await tester.tap(latest);
+    // The post-frame callback schedules the animation; its first tick starts it.
+    await tester.pump();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
     expect(
       controller.position.pixels,
       closeTo(controller.position.maxScrollExtent, 1),
     );
     expect(find.text('Latest message'), findsNothing);
+    ai.stream(List.filled(36, 'The next streamed line.').join('\n'));
+    await tester.pump();
+    await tester.pump();
+    expect(
+      controller.position.pixels,
+      closeTo(controller.position.maxScrollExtent, 1),
+    );
   });
 
   testWidgets('a reply in flight keeps a visible, moving answering glow', (
