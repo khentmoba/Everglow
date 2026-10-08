@@ -656,6 +656,12 @@ void main() {
   });
 
   testWidgets('keeps the latest streamed reply in view', (tester) async {
+    final originalOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      debugPrintSynchronously(details.toString());
+      originalOnError?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = originalOnError);
     tester.view.physicalSize = const Size(430, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

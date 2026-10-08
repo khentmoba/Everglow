@@ -45,3 +45,15 @@ The credential-free release preview exercises the history error path.
 Successful history switching/retry is covered by the fake repository tests;
 successful AI generation, streaming and keyboard behavior remain pending the
 browser suite. No real AI request was made during screenshot capture.
+
+## First Linux CI result
+
+Quality run 37839956474 executed the Chrome suite: 20 passed, 1 failed.
+The failing case is `keeps the latest streamed reply in view`; its assertion
+details were omitted by the reporter. Error logging was added to that test
+without changing its assertions, so the next CI run can identify the cause.
+The other Motchi browser cases passed, including responsive welcome/composer,
+reply modes, editable starters, send/stop, IME/Shift handling, initial-load
+recovery, navigation and the answering glow. Analysis, regular tests, guards,
+web build and deployment also passed. The hosted preview opened Motchi correctly.
+The regular 1,533 tests and 15 guards passed again after the diagnostic edit.
