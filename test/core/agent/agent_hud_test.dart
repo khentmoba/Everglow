@@ -32,6 +32,15 @@ void main() {
     await tester.tap(find.byIcon(Icons.bolt_rounded));
     await tester.pumpAndSettle();
     expect(find.text('AGENT SANDBOX'), findsOneWidget);
+    await tester.tap(find.text('Screen edges'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Screen measurement is available on web.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Close measurement'));
+    await tester.pumpAndSettle();
+    expect(find.text('Screen measurement is available on web.'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

@@ -7,6 +7,8 @@ class WebStandalone {
 
   static bool isStandalone() => false;
 
+  static String viewportReport() => 'Screen measurement is available on web.';
+
   static double safeAreaTop() => 0;
 
   static EdgeInsets safeAreaPadding() => EdgeInsets.zero;

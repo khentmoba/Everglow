@@ -2,6 +2,9 @@
 
 This replaces the opaque-status-bar fallback originally proposed in #502.
 The goal is artwork behind the status bar AND no separate bottom strip.
+Khent tested commit `2b24ad1` through a newly installed preview Home Screen
+icon and reports that neither edge bleeds. The candidate has failed the
+requested device outcome. It must not be treated as a solved iPhone issue.
 Khent's Cinema screenshot confirms real artwork behind the system icons,
 while a purple strip remains below the black navigation. Private device
 screenshots are not copied into this public repository.
@@ -75,6 +78,36 @@ The preview still logs the existing early `didChangeViewFocus` RenderBox error,
 missing local environment-file 404, and denied fake Agent Mode XP/presence
 requests. No real environment file was read or copied; no clean-console claim.
 
-Keep the PR draft pending latest CI/hosted preview and a physical Home Screen
-test of BOTH edges, existing-icon metadata adoption, rotation, and keyboard.
-Chromium cannot prove iOS system-bar behavior. The goal remains active.
+## Device investigation
+
+The demo HUD now has a **Screen edges** button. It captures the screen and
+window dimensions, visual viewport, actual document/body/host/Flutter-view
+bounds, safe insets, installed class, and viewport/status-bar metadata. The
+report stays on the device, reads no user content, and makes no requests.
+Close and reopen it after rotation to capture fresh measurements.
+
+Diagnostics update checks: analysis has zero issues; all 1,530 VM/widget tests,
+all 15 Dart guards, and all 8 bootstrap tests passed again. The local
+`flutter test --platform chrome test/core/system/web_standalone_browser_test.dart
+--no-pub --reporter=expanded` run launched Chrome but stalled at suite loading
+and was stopped. No browser test passed in that run; CI must verify the added
+short-host measurement regression.
+
+The updated release build passed. In the actual release app at 430 x 932 in
+T3 Chromium, clicked **Screen edges** and verified all displayed bounds against
+the page; `screen-measurement.png` shows the complete panel with synthetic
+Dashboard data. Clicked **Close measurement**, temporarily set the host to
+top=10px/height=500px in the browser, then reopened the panel: it correctly
+reported `#eg-app: y=10..510, h=500`. This proves fresh measurement and the
+button interaction in an ordinary Chromium tab; it does not prove physical
+Safari behavior or substitute for the interrupted browser test suite.
+
+This is diagnostic evidence, not another proposed layout fix. A screenshot
+of the report together with both system edges will distinguish a shortened
+Flutter host from a shortened browser viewport and identify whether the
+installed metadata is active. The HUD remains restricted to local/compiled
+Agent Mode sessions. Normal user UI does not show this control.
+
+Keep the PR draft pending device measurements and a verified correction.
+Chromium cannot prove iOS system-bar behavior. Both-edge bleed, physical
+keyboard, and rotation remain unresolved on the reported iPhone.
