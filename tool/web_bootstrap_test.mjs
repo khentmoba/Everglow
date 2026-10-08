@@ -49,54 +49,61 @@ test('browser tabs and cached shells without a host use full-page Flutter', () =
   assert.equal(boot(true, false).config.hostElement, undefined);
 });
 
-test('iPhone launch metadata reserves system areas rather than translucent fullscreen', () => {
-  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black"/);
+test('iPhone launch metadata lets artwork paint behind the status bar', () => {
+  assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
   assert.match(html, /name="viewport" content="[^"]*viewport-fit=contain"/);
 });
 
-test('viewport policy survives Flutter replacing or removing its meta tag', () => {
-  const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
-    .find((match) => match[1].includes('function lockMeta()'))[1];
-  const events = {};
-  const meta = (content) => ({
-    content,
-    getAttribute() { return this.content; },
-    setAttribute(_, value) { this.content = value; },
+for (const [mode, standalone] of [
+  ['browser', false], ['ios', true], ['standalone', true], ['fullscreen', true],
+]) {
+  test(`viewport policy survives engine metadata changes (${mode})`, () => {
+    const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+      .find((match) => match[1].includes('function lockMeta()'))[1];
+    const events = {};
+    const meta = (content) => ({
+      content,
+      getAttribute() { return this.content; },
+      setAttribute(_, value) { this.content = value; },
+    });
+    let metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0')];
+    const head = {appendChild: (node) => metas.push(node)};
+    let mutation;
+    let resizes = 0;
+    vm.runInNewContext(script, {
+      document: {
+        head,
+        querySelectorAll: () => metas,
+        createElement: () => meta(''),
+        addEventListener() {},
+      },
+      window: {
+        navigator: {standalone: mode === 'ios'},
+        matchMedia: (query) => ({matches: query === `(display-mode: ${mode})`}),
+        addEventListener: (name, fn) => { events[name] = fn; },
+        dispatchEvent: () => { resizes++; },
+      },
+      MutationObserver: class {
+        constructor(fn) { mutation = fn; }
+        observe() {}
+      },
+      Event: class {},
+      setTimeout: (fn) => fn(),
+    });
+    const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=' +
+      (standalone ? 'cover' : 'contain');
+    assert.equal(metas[0].content, expected);
+    metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
+    mutation();
+    assert.ok(metas.every((node) => node.content === expected));
+    const resizeCount = resizes;
+    mutation();
+    assert.equal(resizes, resizeCount, 'unchanged metadata must not cause a resize loop');
+    metas = [];
+    mutation();
+    assert.equal(metas.length, 1);
+    assert.equal(metas[0].content, expected);
+    events['flutter-first-frame']();
+    assert.equal(metas[0].content, expected);
   });
-  let metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0')];
-  const head = {appendChild: (node) => metas.push(node)};
-  let mutation;
-  let resizes = 0;
-  vm.runInNewContext(script, {
-    document: {
-      head,
-      querySelectorAll: () => metas,
-      createElement: () => meta(''),
-      addEventListener() {},
-    },
-    window: {
-      addEventListener: (name, fn) => { events[name] = fn; },
-      dispatchEvent: () => { resizes++; },
-    },
-    MutationObserver: class {
-      constructor(fn) { mutation = fn; }
-      observe() {}
-    },
-    Event: class {},
-    setTimeout: (fn) => fn(),
-  });
-  const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
-  assert.equal(metas[0].content, expected);
-  metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
-  mutation();
-  assert.ok(metas.every((node) => node.content === expected));
-  const resizeCount = resizes;
-  mutation();
-  assert.equal(resizes, resizeCount, 'unchanged metadata must not cause a resize loop');
-  metas = [];
-  mutation();
-  assert.equal(metas.length, 1);
-  assert.equal(metas[0].content, expected);
-  events['flutter-first-frame']();
-  assert.equal(metas[0].content, expected);
-});
+}
