@@ -73,6 +73,21 @@ content and the original device target remain open. Provenance, regeneration
 and full results: `docs/fonts/README.md` and
 `docs/pr-proof/dashboard-cold-fonts/README.md`.
 
+### Warm dashboard guardian follow-up (candidate)
+
+Khent reported the font preview was much better, with some fast-scroll lag
+remaining after loading. Phones (including landscape) and reduced-ambient-motion
+users now draw a still rendered from the existing guardian cat model, avoiding
+an embedded 3D viewer for an already-still 80px mascot. Tablet/desktop 3D and
+all guardian tap/chat actions remain. Two matching local release runs at
+430 x 932 / DPR 3 / CPU 4 reduced repeat-down worst reported frames from
+64.5/69.5ms to 53.5/41.5ms, and repeat-down long tasks from 11/14 to 2/0.
+Not every phase improved: first-up peaks worsened, repeat-up still reached 96ms.
+This is a desktop diagnostic, not a phone/Safari or presentation-FPS verdict.
+The added PNG is 95,960 raw bytes. Full protocol, screenshots, raw rows, asset
+provenance and the incomplete extra browser-widget test are recorded in
+`docs/pr-proof/pr-496/README.md`. The original device acceptance target remains open.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.

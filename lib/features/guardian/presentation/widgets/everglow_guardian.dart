@@ -425,9 +425,15 @@ class _EverglowGuardianState extends State<EverglowGuardian>
                     ),
                   );
                 },
-                // Static 3D angle: auto-rotate forces a re-render every frame
-                // (battery drain on phones) for an 80px corner mascot.
-                child: const CatVisuals(size: 80, autoRotate: false),
+                // Same cat, without an embedded WebGL view competing with phone scroll.
+                child: AppMotion.reduceAmbientMotion(context)
+                    ? Image.asset(
+                        'assets/images/guardian_cat.png',
+                        width: 80,
+                        height: 80,
+                        semanticLabel: 'Everglow Guardian Cat',
+                      )
+                    : const CatVisuals(size: 80, autoRotate: false),
               ),
             ),
           ],
