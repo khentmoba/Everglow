@@ -825,7 +825,10 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 onNotification: (notification) {
                   if (!_userScrolledUp &&
                       !_scrollingToBottom &&
-                      notification.metrics.extentAfter > 1) {
+                      (notification.metrics.maxScrollExtent -
+                                  notification.metrics.pixels)
+                              .abs() >
+                          1) {
                     _scrollToBottom(animated: false);
                   }
                   return false;

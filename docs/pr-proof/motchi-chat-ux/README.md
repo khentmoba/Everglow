@@ -73,3 +73,9 @@ the animation. The regression now runs at 430, 810 and 1280 CSS pixels and
 requires both a completed jump and continued following of the next chunk.
 That run also had a separate Chrome-startup failure after successful release
 compilation; the completed web job was retried without changing the harness.
+
+Run 37843437021 passed release compilation, the complete agent smoke sweep,
+deployment, and the tablet/desktop scroll cases. The phone case revealed that
+the revised extent can shrink as well: offset 5969, maximum 5863. The metrics
+follower now corrects distance from the bottom in either direction. The strict
+phone assertion remains in place; final browser confirmation is pending CI.
