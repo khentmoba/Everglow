@@ -521,10 +521,12 @@ class _ThinkingIndicator extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const _AnsweringAvatar(size: 20),
-              const SizedBox(width: 8),
               Text(
                 'Motchi',
                 style: AppTypography.bodySmall().copyWith(
@@ -532,7 +534,6 @@ class _ThinkingIndicator extends StatelessWidget {
                   color: AppColors.textMedium,
                 ),
               ),
-              const SizedBox(width: 8),
               const _ReplyingBadge(isThinking: true),
             ],
           ),

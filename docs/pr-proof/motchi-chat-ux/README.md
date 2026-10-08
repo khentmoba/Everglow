@@ -135,3 +135,11 @@ thoughts target measured 48px, clicking it collapsed the notes, and no layout
 error appeared in the browser console. The failing test now logs Flutter
 exceptions synchronously, with all assertions unchanged, to obtain the missing
 CI diagnostic. This local check does not substitute for a passing Chrome test.
+
+Run 37853209914 identified a 79px overflow in the name/thinking-badge row at
+`motchi_widgets_extra.dart:159`, not in the tool cards. Both the streaming reply
+header and the initial thinking header now wrap their contents when needed.
+The same large-text test also exercises the initial thinking state with no
+reasoning text; its no-exception and 48px assertions remain intact. Linux browser
+confirmation is pending. That run's web build compiled but Chrome startup failed
+before the agent smoke sweep; no app assertion failed in that web job.

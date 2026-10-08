@@ -264,12 +264,25 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Searching movies…'), findsOneWidget);
       expect(find.text('Checking the weather…'), findsOneWidget);
+      expect(
+        find.text('Synthetic planning notes.', findRichText: true),
+        findsWidgets,
+      );
       final toggle = find.widgetWithText(TextButton, "Motchi's thoughts…");
       expect(tester.getSize(toggle).height, greaterThanOrEqualTo(48));
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);
       await tester.pump();
-      expect(find.text('Synthetic planning notes.'), findsNothing);
+      expect(
+        find.text('Synthetic planning notes.', findRichText: true),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      ai.reasoning = '';
+      ai.draftReasoningNotifier.value = '';
+      ai.draftRevisionNotifier.value++;
+      await tester.pump();
+      expect(find.text('Thinking…'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       ai.dispose();

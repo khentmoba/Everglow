@@ -156,13 +156,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       : CrossAxisAlignment.start,
                   children: [
                     if (!widget.isUser) ...[
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           widget.isStreaming
                               ? const _AnsweringAvatar(size: 20)
                               : const _MotchiAvatar(size: 20),
-                          const SizedBox(width: 8),
                           Text(
                             'Motchi',
                             style: AppTypography.bodySmall().copyWith(
@@ -171,7 +172,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             ),
                           ),
                           if (widget.isStreaming) ...[
-                            const SizedBox(width: 8),
                             _ReplyingBadge(
                               isThinking: cleanBubbleText.trim().isEmpty,
                             ),
