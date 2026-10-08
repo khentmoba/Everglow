@@ -37,8 +37,32 @@ if (typeof window !== 'undefined') {
 }
 {{flutter_js}}
 {{flutter_build_config}}
-_flutter.loader.load({
-  config: {
-    canvasKitVariant: "full"
+var everglowConfig = {canvasKitVariant: "full"};
+if (window.__everglowIsStandalone && window.__everglowIsStandalone()) {
+  var host = document.getElementById('eg-app');
+  if (host) {
+    everglowConfig.hostElement = host;
+    // Embedded Flutter measures the host, but does not supply keyboard
+    // insets. Resize its surface to the visible area while editing instead.
+    var viewport = window.visualViewport;
+    function fitKeyboard() {
+      var active = document.activeElement;
+      var editing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      var covered = viewport && editing && viewport.scale === 1
+        ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+        : 0;
+      host.style.bottom = covered + 'px';
+    }
+    if (viewport) {
+      viewport.addEventListener('resize', fitKeyboard);
+      viewport.addEventListener('scroll', fitKeyboard);
+    }
+    window.addEventListener('resize', fitKeyboard);
+    document.addEventListener('focusin', fitKeyboard);
+    document.addEventListener('focusout', function () { setTimeout(fitKeyboard, 0); });
+    fitKeyboard();
   }
+}
+_flutter.loader.load({
+  config: everglowConfig
 });

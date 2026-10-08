@@ -12,6 +12,8 @@ void main() {
     expect(WebStandalone.isStandalone(), isFalse);
     expect(WebStandalone.safeAreaTop(), 0);
     expect(WebStandalone.probeSafeAreaTop(), 0);
+    expect(WebStandalone.safeAreaPadding(), EdgeInsets.zero);
+    expect(WebStandalone.probeSafeAreaPadding(), EdgeInsets.zero);
   });
 
   testWidgets('WebStandaloneInsets returns its child untouched off-web', (
