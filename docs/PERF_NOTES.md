@@ -48,6 +48,63 @@ real-device and authenticated feature behavior still need matching evidence.
   22× fewer pixels; this is arithmetic, not measured whole-app RAM/GPU savings.
 - Carousel hold is 20 seconds, a pacing choice rather than a measured speed win.
 
+### Fast dashboard fling follow-up (candidate)
+
+`DeferredSection` now honors Flutter's deferred-loading velocity heuristic
+while scrolling and retries when scrolling stops. Regression tests prevent new
+card mounts during fast phone/tablet flings, including a pending reveal timer;
+idle jumps and existing cards are unchanged. Three-run local release swipe
+comparisons did not establish an overall timing gain (some readings worsened).
+Landing work and actual phone/Safari behavior remain unverified. Details and
+raw diagnostic results: `docs/pr-proof/dashboard-fast-scroll/README.md`.
+
+### Cold dashboard font follow-up (candidate)
+
+Khent's first #496 preview check still found lag. Cold CPU profiles of local
+and deployed builds showed repeated CanvasKit typeface setup as new Noto fonts
+arrived. The theme now uses two small bundled 2D emoji/symbol fallbacks (323,936
+raw bytes total), preserving existing text fonts and normal fallback for other
+characters. In three matching local release runs (430px / DPR 2 / CPU 4), Noto
+requests dropped from 8 to 1 per run and first-down worst reported frames moved
+from 850/1136/1070ms to 329/252/545ms. These are desktop diagnostics, not a phone
+calibration, presentation FPS or first-interactive verdict. Other phases still
+include stalls (one after first-up long task was 600ms); Safari/native/live
+content and the original device target remain open. Provenance, regeneration
+and full results: `docs/fonts/README.md` and
+`docs/pr-proof/dashboard-cold-fonts/README.md`.
+
+### Warm dashboard guardian follow-up (candidate)
+
+Khent reported the font preview was much better, with some fast-scroll lag
+remaining after loading. Phones (including landscape) and reduced-ambient-motion
+users now draw a still rendered from the existing guardian cat model, avoiding
+an embedded 3D viewer for an already-still 80px mascot. Tablet/desktop 3D and
+all guardian tap/chat actions remain. Two matching local release runs at
+430 x 932 / DPR 3 / CPU 4 reduced repeat-down worst reported frames from
+64.5/69.5ms to 53.5/41.5ms, and repeat-down long tasks from 11/14 to 2/0.
+Not every phase improved: first-up peaks worsened, repeat-up still reached 96ms.
+This is a desktop diagnostic, not a phone/Safari or presentation-FPS verdict.
+The added PNG is 95,960 raw bytes. Full protocol, screenshots, raw rows, asset
+provenance and the incomplete extra browser-widget test are recorded in
+`docs/pr-proof/pr-496/README.md`. The original device acceptance target remains open.
+
+### Dashboard landing mount burst (candidate)
+
+Khent clarified that fast scrolling into unloaded cards triggers the remaining
+lag. A regression reproduced six section mounts in one frame after an unloaded
+jump. `DeferredSection` now grants one new mount per frame and retries waiting
+cards only while they remain near the viewport, on an active page and below
+Flutter's deferred-loading velocity threshold. Existing cards remain mounted.
+Tests cover the mount cap, phone pairs, renewed flings, recovery and disposal.
+Three matching cold release diagnostics improved first-up reported peaks from
+222/203/241ms to 112/169/169ms, but first-down peaks remained ~343–420ms and
+first-down long-task counts increased. This proves neither overall smoothness
+nor phone presentation FPS. Protocol, raw rows and screenshots are recorded in
+`docs/pr-proof/pr-496/card-burst.md`. Khent's updated iPhone/Safari preview check
+reported "a whole lot better" and he requested PR finalization. Native glide
+was left unchanged. Quantified device targets and populated-live-card timing
+remain open; subjective phone feedback does not close them.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.

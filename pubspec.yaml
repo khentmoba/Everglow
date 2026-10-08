@@ -58,6 +58,7 @@ flutter:
   assets:
     - assets/images/logo.jpg
     - assets/images/motchi_avatar.webp
+    - assets/images/guardian_cat.png
     - assets/images/milestones/
     - assets/images/demo/
     - assets/data/
@@ -86,6 +87,12 @@ flutter:
           weight: 800
         - asset: assets/google_fonts/Outfit-Black.ttf
           weight: 900
+    - family: Everglow Emoji
+      fonts:
+        - asset: assets/google_fonts/EverglowEmoji.ttf
+    - family: Everglow Symbols
+      fonts:
+        - asset: assets/google_fonts/EverglowSymbols.ttf
     - family: Dancing Script
       fonts:
         - asset: assets/google_fonts/DancingScript-Bold.ttf

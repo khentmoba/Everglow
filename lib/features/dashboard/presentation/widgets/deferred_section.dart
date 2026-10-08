@@ -73,6 +73,9 @@ class _DeferredSectionState extends State<DeferredSection>
   ScrollPosition? _position;
   bool _visible = false;
   bool _checkScheduled = false;
+  bool _revealRetryScheduled = false;
+  // Nearby sections often share a timer deadline. Give each mount its own frame.
+  static bool _mountPending = false;
   bool _warnedNoPosition = false;
   Timer? _deferTimer;
   Timer? _safetyNet;
@@ -132,6 +135,7 @@ class _DeferredSectionState extends State<DeferredSection>
     _deferTimer?.cancel();
     _safetyNet?.cancel();
     _position?.removeListener(_onScroll);
+    _position?.isScrollingNotifier.removeListener(_onScroll);
     super.dispose();
   }
 
@@ -157,8 +161,12 @@ class _DeferredSectionState extends State<DeferredSection>
     final position = _positionOf(Scrollable.maybeOf(context));
     if (position == _position) return;
     _position?.removeListener(_onScroll);
+    _position?.isScrollingNotifier.removeListener(_onScroll);
     _position = position;
     _position?.addListener(_onScroll);
+    // Stopping a fling need not change pixels. Reveal the landing cards then,
+    // rather than leaving placeholders until the next safety-net tick.
+    _position?.isScrollingNotifier.addListener(_onScroll);
   }
 
   ScrollPosition? _positionOf(ScrollableState? scrollable) {
@@ -188,7 +196,7 @@ class _DeferredSectionState extends State<DeferredSection>
 
   void _check() {
     if (_visible || !mounted || !_active) return;
-    if (!_isNearViewport()) {
+    if (_deferForFastScroll || !_isNearViewport()) {
       _deferTimer?.cancel();
       _deferTimer = null;
       return;
@@ -201,6 +209,12 @@ class _DeferredSectionState extends State<DeferredSection>
     }
     _reveal();
   }
+
+  // Use Flutter's velocity heuristic, also used for deferred image loading.
+  // Already mounted cards stay visible; only new, expensive mounts wait.
+  bool get _deferForFastScroll =>
+      (_position?.isScrollingNotifier.value ?? false) &&
+      (_position?.recommendDeferredLoading(context) ?? false);
 
   bool _isNearViewport() {
     if (_viewportHeight <= 0) return false;
@@ -225,10 +239,24 @@ class _DeferredSectionState extends State<DeferredSection>
     _deferTimer?.cancel();
     _deferTimer = null;
     // A quick swipe can leave the section behind before its timer fires.
-    if (!_isNearViewport()) return;
+    if (_deferForFastScroll || !_isNearViewport()) return;
+    if (_mountPending) {
+      if (!_revealRetryScheduled) {
+        _revealRetryScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _revealRetryScheduled = false;
+          _reveal();
+        });
+        WidgetsBinding.instance.scheduleFrame();
+      }
+      return;
+    }
+    _mountPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _mountPending = false);
     _safetyNet?.cancel();
     _safetyNet = null;
     _position?.removeListener(_onScroll);
+    _position?.isScrollingNotifier.removeListener(_onScroll);
     _position = null;
     setState(() => _visible = true);
   }
