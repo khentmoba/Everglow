@@ -25,6 +25,14 @@ class AppTypography {
   static const String script = 'Dancing Script';
   static const String hand = 'Caveat';
 
+  // Common UI emoji/symbols are bundled so new cards do not download separate
+  // fallback fonts and rebuild CanvasKit's whole font collection mid-scroll.
+  // Uncovered emoji and languages retain Flutter's normal fallback behavior.
+  static const List<String> fontFallback = [
+    'Everglow Emoji',
+    'Everglow Symbols',
+  ];
+
   // Cached Display / Headline (Cormorant Garamond)
   // NOTE: only 400/600/700 are bundled — never request w800/w900 for
   // Cormorant (Flutter would synthesize faux-bold = soft text on web).
@@ -268,20 +276,20 @@ class AppTypography {
   // Build a complete TextTheme for ThemeData
 
   static TextTheme get textTheme => TextTheme(
-        displayLarge: _displayLarge,
-        displayMedium: _displayMedium,
-        displaySmall: _displaySmall,
-        headlineLarge: _headlineLarge,
-        headlineMedium: _headlineMedium,
-        headlineSmall: _headlineSmall,
-        titleLarge: _titleLarge,
-        titleMedium: _titleMedium,
-        titleSmall: _titleSmall,
-        bodyLarge: _bodyLarge,
-        bodyMedium: _bodyMedium,
-        bodySmall: _bodySmall,
-        labelLarge: _labelLarge,
-        labelMedium: _labelMedium,
-        labelSmall: _labelSmall,
-      );
+    displayLarge: _displayLarge,
+    displayMedium: _displayMedium,
+    displaySmall: _displaySmall,
+    headlineLarge: _headlineLarge,
+    headlineMedium: _headlineMedium,
+    headlineSmall: _headlineSmall,
+    titleLarge: _titleLarge,
+    titleMedium: _titleMedium,
+    titleSmall: _titleSmall,
+    bodyLarge: _bodyLarge,
+    bodyMedium: _bodyMedium,
+    bodySmall: _bodySmall,
+    labelLarge: _labelLarge,
+    labelMedium: _labelMedium,
+    labelSmall: _labelSmall,
+  ).apply(fontFamilyFallback: fontFallback);
 }

@@ -58,6 +58,21 @@ comparisons did not establish an overall timing gain (some readings worsened).
 Landing work and actual phone/Safari behavior remain unverified. Details and
 raw diagnostic results: `docs/pr-proof/dashboard-fast-scroll/README.md`.
 
+### Cold dashboard font follow-up (candidate)
+
+Khent's first #496 preview check still found lag. Cold CPU profiles of local
+and deployed builds showed repeated CanvasKit typeface setup as new Noto fonts
+arrived. The theme now uses two small bundled 2D emoji/symbol fallbacks (323,936
+raw bytes total), preserving existing text fonts and normal fallback for other
+characters. In three matching local release runs (430px / DPR 2 / CPU 4), Noto
+requests dropped from 8 to 1 per run and first-down worst reported frames moved
+from 850/1136/1070ms to 329/252/545ms. These are desktop diagnostics, not a phone
+calibration, presentation FPS or first-interactive verdict. Other phases still
+include stalls (one after first-up long task was 600ms); Safari/native/live
+content and the original device target remain open. Provenance, regeneration
+and full results: `docs/fonts/README.md` and
+`docs/pr-proof/dashboard-cold-fonts/README.md`.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.
