@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/utils/logger.dart';
 
 /// Keeps a heavy dashboard section out of the tree until the scroll view brings
@@ -83,6 +84,7 @@ class _DeferredSectionState extends State<DeferredSection>
   /// Cached in [didChangeDependencies] so the check never has to look up an
   /// inherited widget from a timer callback.
   double _viewportHeight = 0;
+  bool _phone = false;
 
   @override
   void initState() {
@@ -117,7 +119,9 @@ class _DeferredSectionState extends State<DeferredSection>
     if (_visible) return;
     _pageActive = TickerMode.valuesOf(context).enabled;
     _syncSafetyNet();
-    _viewportHeight = MediaQuery.sizeOf(context).height;
+    final size = MediaQuery.sizeOf(context);
+    _viewportHeight = size.height;
+    _phone = size.width < AppBreakpoint.mobile;
     _syncScrollListener();
     _scheduleCheck();
   }
@@ -184,9 +188,15 @@ class _DeferredSectionState extends State<DeferredSection>
 
   void _check() {
     if (_visible || !mounted || !_active) return;
-    if (!_isNearViewport()) return;
-    if (widget.deferMs > 0) {
-      _deferTimer ??= Timer(Duration(milliseconds: widget.deferMs), _reveal);
+    if (!_isNearViewport()) {
+      _deferTimer?.cancel();
+      _deferTimer = null;
+      return;
+    }
+    // Long entrance staggers let a phone swipe outrun the reserved space.
+    final delay = _phone ? widget.deferMs.clamp(0, 120) : widget.deferMs;
+    if (delay > 0) {
+      _deferTimer ??= Timer(Duration(milliseconds: delay), _reveal);
       return;
     }
     _reveal();
@@ -205,7 +215,8 @@ class _DeferredSectionState extends State<DeferredSection>
       return false;
     }
     final bottom = top + box.size.height;
-    return top < _viewportHeight + DeferredSection.preloadMargin &&
+    final margin = _phone ? 500.0 : DeferredSection.preloadMargin;
+    return top < _viewportHeight + margin &&
         bottom > -DeferredSection.keepAboveMargin;
   }
 
@@ -213,6 +224,8 @@ class _DeferredSectionState extends State<DeferredSection>
     if (!mounted || _visible || !_active) return;
     _deferTimer?.cancel();
     _deferTimer = null;
+    // A quick swipe can leave the section behind before its timer fires.
+    if (!_isNearViewport()) return;
     _safetyNet?.cancel();
     _safetyNet = null;
     _position?.removeListener(_onScroll);
@@ -225,7 +238,7 @@ class _DeferredSectionState extends State<DeferredSection>
     return KeyedSubtree(
       key: _key,
       child: _visible
-          ? widget.child
+          ? RepaintBoundary(child: widget.child)
           : SizedBox(height: widget.placeholderHeight),
     );
   }

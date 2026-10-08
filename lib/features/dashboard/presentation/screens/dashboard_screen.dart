@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
@@ -319,6 +320,24 @@ class _DashboardScreenState extends State<DashboardScreen>
     int deferMs = 0,
     bool hero = false,
   }) {
+    if (child is DashboardPair) {
+      // Each stacked phone card reserves its own height and loads independently.
+      // On tablets the same pair still lays out side by side.
+      return SliverToBoxAdapter(
+        child: DashboardPair(
+          left: DeferredSection(
+            placeholderHeight: placeholderHeight,
+            deferMs: deferMs,
+            child: child.left,
+          ),
+          right: DeferredSection(
+            placeholderHeight: placeholderHeight,
+            deferMs: deferMs + 60,
+            child: child.right,
+          ),
+        ),
+      );
+    }
     // Product motion: hero gets single FadeInDown, zone content defers via DeferredSection only (no per-sliver stagger)
     final Widget animated;
     if (!widget.animate || !hero) {
@@ -470,6 +489,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                   constraints: BoxConstraints(maxWidth: contentMaxWidth),
                   child: CustomScrollView(
                     controller: _scrollController,
+                    // Lay out phone placeholders far enough ahead for preloading.
+                    scrollCacheExtent: ScrollCacheExtent.pixels(
+                      AppBreakpoint.isMobile(context) ? 500 : 250,
+                    ),
                     slivers: [
                       // Offline remember-me: saved copy with a quiet banner.
                       const _OfflineBannerSliver(),

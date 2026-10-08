@@ -1,7 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/dashboard/presentation/widgets/deferred_section.dart';
+import 'package:everglow/features/dashboard/presentation/widgets/dashboard_zone_header.dart';
+
+class _PaintCounter extends CustomPainter {
+  int paints = 0;
+
+  @override
+  void paint(Canvas canvas, Size size) => paints++;
+
+  @override
+  bool shouldRepaint(covariant _PaintCounter oldDelegate) => false;
+}
 
 /// Counts which sections actually got mounted.
 class _Section extends StatefulWidget {
@@ -66,6 +78,139 @@ Future<void> scrollToEnd(
 }
 
 void main() {
+  testWidgets('phone cards preload beyond the old 280px margin', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final built = <int>{};
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+          slivers: [
+            const SliverToBoxAdapter(child: SizedBox(height: 1282)),
+            SliverToBoxAdapter(
+              child: DeferredSection(
+                deferMs: 700,
+                child: _Section(id: 0, built: built),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 121));
+    expect(built, contains(0));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('stacked pair reserves both card heights before reveal', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final built = <int>{};
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: DashboardPair(
+                left: DeferredSection(
+                  placeholderHeight: 400,
+                  deferMs: 700,
+                  child: _Section(id: 0, built: built),
+                ),
+                right: DeferredSection(
+                  placeholderHeight: 400,
+                  deferMs: 760,
+                  child: _Section(id: 1, built: built),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    final reserved = tester.getSize(find.byType(DashboardPair)).height;
+    expect(reserved, 812);
+    await tester.pump(const Duration(milliseconds: 121));
+    expect(built, containsAll([0, 1]));
+    expect(tester.getSize(find.byType(DashboardPair)).height, reserved);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('skipped pending sections stay deferred and load on return', (
+    tester,
+  ) async {
+    final built = <int>{};
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      harness(built: built, deferMs: 700, controller: controller),
+    );
+    controller.jumpTo(3000);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 710));
+    expect(built, isNot(contains(0)));
+    controller.jumpTo(0);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 710));
+    expect(built, contains(0));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('unchanged section artwork is reused while scrolling', (
+    tester,
+  ) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    final painter = _PaintCounter();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CustomScrollView(
+          controller: controller,
+          slivers: [
+            SliverToBoxAdapter(
+              child: DeferredSection(
+                child: CustomPaint(
+                  painter: painter,
+                  size: const Size(400, 1200),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 3000)),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    final initial = painter.paints;
+    for (var i = 1; i <= 10; i++) {
+      controller.jumpTo(i * 10);
+      await tester.pump();
+    }
+    expect(painter.paints, initial);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('phone reveal delay is bounded instead of waiting 700ms', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final built = <int>{};
+    await tester.pumpWidget(harness(built: built, deferMs: 700));
+    await tester.pump(const Duration(milliseconds: 121));
+    expect(built, contains(0));
+    expect(built, isNot(contains(19)));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('hidden app defers section work and reveals on resume', (
     tester,
   ) async {
