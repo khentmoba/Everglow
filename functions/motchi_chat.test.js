@@ -149,21 +149,26 @@ test('streaming error catch preserves streamed content and isolates background t
   assert.match(src, /if \(!_streamedFinalReply\.trim\(\)\) \{\s*sendEvent\(\{ error:/);
 });
 
-test('retries use the fast 1s step (TokenHarbor has no RPM window)', () => {
+test('Agnes retries wait for rate limits but keep transient retries fast', () => {
   const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  // TokenHarbor is pay-as-you-go — the Sep 2026 Agnes 5/min RPM window
-  // (12s 429 backoff) is gone. Every retry keeps the fast 1s step.
-  assert.doesNotMatch(src, /lastWas429/);
-  assert.doesNotMatch(src, /12000 \* \(attempt \+ 1\)/);
-  assert.match(src, /const waitMs = 1000 \* \(attempt \+ 1\)/);
+  assert.match(src, /lastWas429 = streamResp.status === 429/);
+  assert.match(src, /lastWas429 = false/);
+  assert.match(src, /const waitMs = lastWas429 \? 12000 \* \(attempt \+ 1\) : 1000 \* \(attempt \+ 1\)/);
 });
 
-test('chat uses the fast TokenHarbor provider', () => {
-  const src = fs.readFileSync(path.join(__dirname, 'motchi_chat.js'), 'utf8');
-  assert.match(src, /process\.env\.TOKENHARBOR_API_KEY/);
-  assert.match(src, /const model = 'glm-5\.3-flash'/);
-  assert.match(src, /tokenharbor\.ai\/v1\/chat\/completions/);
-  assert.doesNotMatch(src, /AGNES_API_KEY|agnes-3\.0-flash|apihub\.agnes-ai\.com\/v1\/chat\/completions/);
+test('all Motchi model calls and deployment use Agnes Flash', () => {
+  for (const file of ['motchi_chat.js', 'motchi_memory.js', 'motchi_schedules.js', 'motchi_study.js']) {
+    const src = fs.readFileSync(path.join(__dirname, file), 'utf8');
+    assert.match(src, /process\.env\.AGNES_API_KEY/);
+    assert.ok(src.includes("'agnes-3.0-flash'"));
+    assert.ok(src.includes('https://apihub.agnes-ai.com/v1/chat/completions'));
+    assert.match(src, /chat_template_kwargs: \{ enable_thinking:/);
+    assert.doesNotMatch(src, /TOKENHARBOR|tokenharbor|glm-5/);
+  }
+  const deploy = fs.readFileSync(path.join(__dirname, '../.github/workflows/deploy.yml'), 'utf8');
+  assert.ok(deploy.includes('secrets.AGNES_API_KEY'));
+  assert.ok(deploy.includes('AGNES_API_KEY=${AGNES_API_KEY}'));
+  assert.doesNotMatch(deploy, /TOKENHARBOR_API_KEY/);
 });
 
 test('game guide only rides artifact asks (prompt diet)', () => {

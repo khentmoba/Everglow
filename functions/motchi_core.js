@@ -622,7 +622,7 @@ function shouldExtractMemory(userMessage, motchiReply) {
   return user.length >= 120;
 }
 
-// GLM 5.3 Flash via TokenHarbor: 1M context window. Keep the proven 120K
+// Agnes 3.0 Flash: 512K context window. Keep the proven 120K
 // input budget as a cost guard; the extra headroom is reserve, not license.
 const LLM_INPUT_TOKEN_BUDGET = 120000;
 

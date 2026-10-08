@@ -11,7 +11,7 @@ const path = require('node:path');
 const chatPath = path.join(__dirname, '../motchi_chat.js');
 const realRequire = createRequire(chatPath);
 
-async function journey(stream, { interrupt = false, recall = false } = {}) {
+async function journey(stream, { interrupt = false, recall = false, enableThinking = false } = {}) {
   const facts = [{ id: 'demo-clair', fact: 'Clair prefers short movies', subject: 'Clair' }];
   const calls = [];
   const saved = [];
@@ -59,8 +59,12 @@ async function journey(stream, { interrupt = false, recall = false } = {}) {
     ) },
   }));
   let rounds = 0;
-  const mockFetch = async (_, request) => {
+  const mockFetch = async (url, request) => {
+    assert.equal(url, 'https://apihub.agnes-ai.com/v1/chat/completions');
     const body = JSON.parse(request.body);
+    assert.equal(body.model, 'agnes-3.0-flash');
+    assert.deepEqual(body.chat_template_kwargs, { enable_thinking: enableThinking });
+    assert.equal(body.enable_thinking, undefined);
     prompts.push(body.messages);
     const first = rounds++ === 0;
     if (!first && interrupt) throw new Error('model disconnected');
@@ -80,7 +84,7 @@ async function journey(stream, { interrupt = false, recall = false } = {}) {
   const sandbox = {
     require: (name) => modules[name] || realRequire(name),
     module: { exports: {} }, console: { log() {}, warn() {}, error() {} },
-    process: { env: { TOKENHARBOR_API_KEY: 'fake-test-only' } },
+    process: { env: { AGNES_API_KEY: 'fake-test-only' } },
     fetch: mockFetch, TextDecoder, AbortSignal,
     setTimeout: (fn) => setTimeout(fn, 0), clearTimeout,
     setInterval, clearInterval,
@@ -93,7 +97,7 @@ async function journey(stream, { interrupt = false, recall = false } = {}) {
   };
   await sandbox.module.exports.handleProxyAI({
     method: 'POST', query: {}, body: {
-      feature: 'assistant', stream, canvas: false,
+      feature: 'assistant', stream, canvas: false, enableThinking,
       messages: [{ role: 'user', content: 'Plan our date night and add a calendar event and a reminder' }],
     },
   }, res);
@@ -128,3 +132,11 @@ test('facts read by a tool can be cited without automatic memory injection', asy
   const result = await journey(false, { recall: true });
   assert.equal(result.details.memories[0].id, 'demo-clair');
 });
+
+for (const stream of [false, true]) {
+  test(`${stream ? 'streaming' : 'JSON'} Agnes deep thinking keeps tool execution`, async () => {
+    const result = await journey(stream, { enableThinking: true });
+    assert.deepEqual(result.calls, ['add_calendar_event', 'create_reminder']);
+    assert.equal(result.saved.length, 1);
+  });
+}

@@ -64,16 +64,16 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     const trimmedUser = String(userMessage).slice(0, 800).trim();
     const trimmedReply = String(motchiReply).slice(0, 1200).trim();
     if (trimmedUser.length < 10 && trimmedReply.length < 20) return;
-    const apiKey = process.env.TOKENHARBOR_API_KEY;
+    const apiKey = process.env.AGNES_API_KEY;
     if (!apiKey) return;
-    const resp = await fetch('https://tokenharbor.ai/v1/chat/completions', {
+    const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'glm-5.3-flash',
+        model: 'agnes-3.0-flash',
         messages: [
           {
             role: 'system',
@@ -84,7 +84,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         max_tokens: 250,
         temperature: 0.2,
         stream: false,
-        enable_thinking: false,
+        chat_template_kwargs: { enable_thinking: false },
       }),
       signal: AbortSignal.timeout(15000),
     });
