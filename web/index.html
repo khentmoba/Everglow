@@ -26,9 +26,9 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <!-- Keep system areas outside the web view. Translucent fullscreen + cover
-       can leave a system-owned gap in installed Safari apps (WebKit #301994). -->
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <!-- Let route artwork paint behind the status bar; shared Flutter insets
+       keep controls clear of the system icons. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Everglow">
   <meta name="format-detection" content="telephone=no">
   <meta name="google" content="notranslate">
@@ -86,7 +86,7 @@
       color-scheme: dark;
     }
 
-    /* The installed app fills the usable viewport, not the physical screen. */
+    /* Fill the viewport without competing vh/dvh minimum heights. */
     #eg-app {
       position: fixed;
       inset: 0;
@@ -197,10 +197,14 @@
   <script>
     // Enforce viewport meta tag against Flutter Web's FullPageEmbeddingStrategy:
     // Flutter replaces index.html's viewport tag with maximum-scale=5.0 and drops
-    // user-scalable=no & viewport-fit=contain. Keep the usable viewport policy
-    // after engine startup too; cover reintroduces Safari's fullscreen gap.
+    // user-scalable=no & viewport-fit. Installed apps paint behind system areas;
+    // browser tabs retain their contained viewport.
     (function () {
-      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=contain';
+      var standalone = window.navigator.standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches;
+      var expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=' +
+        (standalone ? 'cover' : 'contain');
       var resizeQueued = false;
       function nudgeEngine() {
         if (resizeQueued) return;
@@ -237,7 +241,7 @@
         });
       }
       // Re-assert once the engine is up: heals an early measurement taken
-      // before contain was restored. One extra layout during splash fade.
+      // before the viewport policy was restored. One layout during splash fade.
       window.addEventListener('flutter-first-frame', function () {
         lockMeta();
         nudgeEngine();
@@ -289,9 +293,8 @@
 
   <script>
     // Installed-web-app inset bridge (Add to Home Screen, standalone only).
-    // Retain measured protection for shells that still expose system overlaps,
-    // including older installs that cached the translucent status-bar setting.
-    // With the contained viewport these readings normally resolve to zero.
+    // Publish system overlaps so shared Flutter SafeAreas protect controls
+    // while each route's background fills the installed app viewport.
     // Plain Safari tabs return 0/false here, leaving browser layout alone.
     (function () {
       function isStandalone() {
