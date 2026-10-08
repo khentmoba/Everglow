@@ -93,8 +93,12 @@ Real accounts continue through the existing authenticated AI service.
 The browser regression uses a fake auth service to verify the transition;
 no passcode or real couple conversation is used for proof.
 
-After this addition, local analysis, 1,533 regular tests, all 15 guards and the
-release web build passed. The new Chrome sign-in test is pending CI. The local
-release server returned HTTP 200, but the collaborative browser snapshot timed
-out repeatedly before interaction proof could be captured; the hosted preview
-must supply that remaining check. Keep the PR draft until it is verified.
+Quality run 37848133978 passed analysis, regular tests, all guards, the selected
+Chrome suite including the new sign-in regression, release build, agent smoke
+sweep and preview deployment on d24546f5.
+
+The hosted preview was inspected at 430 x 900 CSS pixels. `preview-sign-in.png`
+shows only the synthetic welcome, sign-in notice and disabled composer. Clicking
+`Sign in to chat` opened the normal passcode door at `/?from=/motchi`, with no
+agent parameter or redirect loop. No credentials were entered. Actual signed-in
+AI generation remains unverified manually; real replies use the existing service.
