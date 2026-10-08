@@ -100,7 +100,10 @@ Three matching cold release diagnostics improved first-up reported peaks from
 222/203/241ms to 112/169/169ms, but first-down peaks remained ~343–420ms and
 first-down long-task counts increased. This proves neither overall smoothness
 nor phone presentation FPS. Protocol, raw rows and screenshots are recorded in
-`docs/pr-proof/pr-496/card-burst.md`; the device target stays open.
+`docs/pr-proof/pr-496/card-burst.md`. Khent's updated iPhone/Safari preview check
+reported "a whole lot better" and he requested PR finalization. Native glide
+was left unchanged. Quantified device targets and populated-live-card timing
+remain open; subjective phone feedback does not close them.
 
 ## Opt-in meter
 

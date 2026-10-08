@@ -69,5 +69,12 @@ Desktop CPU throttling is not calibrated phone/Safari/PWA performance.
   content. Screenshots are not speed proof. Phone retained still cat; tablet 3D.
 - Impeccable detector: no findings for changed widget.
 - Manual harness/offline tooling suites: N/A, no tooling/loader/worker changes.
-- Actual phone burst-loading behavior and populated live-card timing remain
-  unverified; keep the PR draft until Khent tests the updated preview.
+- Khent tested the published d0032ae preview on iPhone/Safari and reported it
+  was "a whole lot better", then asked to finalize the PR. This is subjective
+  phone feedback, not a quantified FPS or populated-live-card timing result.
+  The requested extra after-release glide tuning was not implemented; native
+  iPhone scroll physics remain unchanged.
+
+Finalization compacts the eight measurement JSON files to one line per run.
+Parsed records were compared before/after with `assert.deepStrictEqual`;
+no measurement fields, screenshots, licenses or tested app behavior were removed.
