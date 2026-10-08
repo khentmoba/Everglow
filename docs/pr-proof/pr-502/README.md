@@ -102,11 +102,33 @@ reported `#eg-app: y=10..510, h=500`. This proves fresh measurement and the
 button interaction in an ordinary Chromium tab; it does not prove physical
 Safari behavior or substitute for the interrupted browser test suite.
 
+Hosted verification of `9a55896` found that the report was unreachable: CI
+builds without `AGENT_MODE=true`, and the HUD had an extra local/compiled-only
+gate even when an explicit demo session was active. The follow-up removes
+that extra gate. The HUD remains hidden unless Agent Mode is active, as
+requested via `?agent=...` or its saved demo session. Ordinary sessions still
+hide every demo control. Verification must use a release build WITHOUT the
+compile flag to match the preview.
+
+CI also caught a browser-test assertion expecting `59.0 / 34.0`; browser Dart
+reports the correct safe insets as `59 / 34`. The assertion is corrected,
+with both actual host-bounds assertions retained.
+
+Follow-up verification: `flutter analyze --no-pub` has zero issues; all 1,531
+VM/widget tests, all 15 listed Dart guards, and all 8 bootstrap tests passed.
+`flutter build web --release --no-pub` passed WITHOUT `AGENT_MODE=true`.
+Served that build through a disposable Chrome hostname mapping
+(`preview-check.test` to the local server), so the old localhost exception
+cannot make the toolbar appear. Verified that an ordinary launch renders
+without Screen edges, while `?agent=dashboard` shows the toolbar and its full
+report. `screen-measurement.png` is now captured from that release-mode check
+at 430 x 932, with fake data. Hosted preview verification awaits this commit's
+deployment; the corrected browser regression still awaits CI.
+
 This is diagnostic evidence, not another proposed layout fix. A screenshot
 of the report together with both system edges will distinguish a shortened
 Flutter host from a shortened browser viewport and identify whether the
-installed metadata is active. The HUD remains restricted to local/compiled
-Agent Mode sessions. Normal user UI does not show this control.
+installed metadata is active. Normal user UI does not show this control.
 
 Keep the PR draft pending device measurements and a verified correction.
 Chromium cannot prove iOS system-bar behavior. Both-edge bleed, physical

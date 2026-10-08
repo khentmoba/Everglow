@@ -60,7 +60,7 @@ void main() {
     final report = WebStandalone.viewportReport();
     expect(report, contains('Installed: true'));
     expect(report, contains('#eg-app: y=10..510, h=500'));
-    expect(report, contains('Safe top/bottom: 59.0 / 34.0'));
+    expect(report, contains('Safe top/bottom: 59 / 34'));
     js('window.egHost.style.height = "600px";');
     expect(
       WebStandalone.viewportReport(),

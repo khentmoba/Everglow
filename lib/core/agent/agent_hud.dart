@@ -24,7 +24,7 @@ class AgentHudOverlay extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: AgentMode.isActive,
       builder: (context, active, _) {
-        if (!active || !(AgentMode.isLocalDev || AgentMode.isCompiledIn)) {
+        if (!active) {
           return child;
         }
         return ValueListenableBuilder<bool>(
