@@ -30,6 +30,16 @@ separators. No assertions ran; these attempts are not counted as passing.
 The suite is now included in Quality's Linux browser-test command. The release
 app rendered successfully in the collaborative Chromium preview.
 
+The first Linux CI run executed 19 browser tests: 18 passed, and the new
+focused-field regression failed because the widget-test environment drops
+engine platform messages even with the keyboard stub unregistered. Its setup
+now allows engine messages for that test and restores all environment settings
+afterward. The actual engine input is asserted focused before the inset check.
+Locally, all three standalone browser tests then passed using a temporary
+root-level suite entry and fulfilling only the broken CanvasKit requests from
+the installed SDK files. Neither the SDK nor CI uses this temporary workaround;
+the normal Linux CI command remains the final check.
+
 After review, keyboard handling keeps the host full-window and publishes the
 visible-viewport overlap through MediaQuery.viewInsets instead of shrinking
 the HTML host. The browser regression test focuses a real Flutter text field,

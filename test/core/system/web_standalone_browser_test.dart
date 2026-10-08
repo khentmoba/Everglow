@@ -2,6 +2,7 @@
 library;
 
 import 'dart:js_interop';
+import 'dart:ui_web' as ui_web;
 
 import 'package:everglow/core/system/web_standalone.dart';
 import 'package:flutter/material.dart';
@@ -126,6 +127,19 @@ void main() {
     (tester) async {
       const action = Key('action');
       late MediaQueryData measured;
+      // Unregistering the stub alone still drops messages in web widget tests.
+      // Let the engine create its real DOM text field for this regression.
+      final environment = ui_web.TestEnvironment.instance;
+      ui_web.TestEnvironment.setUp(
+        ui_web.TestEnvironment(
+          forceTestFonts: environment.forceTestFonts,
+          disableFontFallbacks: environment.disableFontFallbacks,
+          keepSemanticsDisabledOnUpdate:
+              environment.keepSemanticsDisabledOnUpdate,
+          defaultToTestUrlStrategy: environment.defaultToTestUrlStrategy,
+        ),
+      );
+      addTearDown(() => ui_web.TestEnvironment.setUp(environment));
       tester.testTextInput.unregister();
       addTearDown(tester.testTextInput.register);
       await tester.pumpWidget(
@@ -157,6 +171,11 @@ void main() {
       final size = measured.size;
       await tester.tap(find.byType(TextField));
       await tester.pump();
+      expect(
+        (_eval('document.activeElement.tagName'.toJS) as JSString).toDart,
+        'INPUT',
+        reason: 'The keyboard bridge needs the engine DOM field focused.',
+      );
       expect(WebStandalone.keyboardInset(), 0);
 
       js(
