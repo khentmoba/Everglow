@@ -170,6 +170,10 @@ class _InteractionAIService extends AIService {
         ),
       );
 
+  String reasoning = '';
+  @override
+  String get draftReasoning => reasoning;
+
   bool loading = false;
   Completer<String>? pending;
   final requests = <({String message, bool? thinking, bool canvas})>[];
@@ -215,6 +219,99 @@ class _InteractionAIService extends AIService {
 }
 
 void main() {
+  testWidgets(
+    'running actions wrap and thoughts can be collapsed on a small phone',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ai = _InteractionAIService()..loading = true;
+      ai.reasoning = 'Synthetic planning notes.';
+      ai.draftReasoningNotifier.value = ai.reasoning;
+      ai.activeToolsNotifier.value = [
+        'search_movies',
+        'get_weather',
+        'get_date_ideas',
+      ];
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.gamifiedTheme,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.6)),
+              child: child!,
+            ),
+            home: const MotchiScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Searching movies…'), findsOneWidget);
+      expect(find.text('Checking the weather…'), findsOneWidget);
+      final toggle = find.widgetWithText(TextButton, "Motchi's thoughts…");
+      expect(tester.getSize(toggle).height, greaterThanOrEqualTo(48));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(find.text('Synthetic planning notes.'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    },
+  );
+
+  testWidgets('sources wrap on a small phone and invalid links stay disabled', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.gamifiedTheme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.6)),
+          child: child!,
+        ),
+        home: const Scaffold(
+          body: WebSourcesCard(
+            sources: [
+              {
+                'title':
+                    'A long synthetic source title that should stay readable on a small phone',
+                'url': 'https://example.com/a',
+                'site': 'Example',
+              },
+              {'title': 'Unavailable source', 'url': 'javascript:alert(1)'},
+            ],
+          ),
+        ),
+      ),
+    );
+    final tiles = tester.widgetList<InkWell>(find.byType(InkWell)).toList();
+    expect(tiles.first.onTap, isNotNull);
+    expect(tiles.last.onTap, isNull);
+    expect(
+      tester.getSize(find.byType(InkWell).first).height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(find.text('example.com'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('preview offers real sign-in and returns to Motchi after login', (
     tester,
   ) async {

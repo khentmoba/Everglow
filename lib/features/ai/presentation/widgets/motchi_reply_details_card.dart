@@ -93,7 +93,7 @@ class MotchiReplyDetailsCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.panelGlass,
-        borderRadius: AppRadius.radiusLg,
+        borderRadius: AppRadius.radiusMd,
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -101,9 +101,31 @@ class MotchiReplyDetailsCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (details.steps.isNotEmpty || details.interrupted) ...[
-            Text('What happened', style: AppTypography.labelSmall()),
+            Row(
+              children: [
+                Icon(
+                  details.needsAttention
+                      ? Icons.info_outline_rounded
+                      : Icons.task_alt_rounded,
+                  size: 20,
+                  color: AppColors.softLavender,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'What happened',
+                    style: AppTypography.bodyMedium(),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: AppSpacing.xs),
-            Text(details.summary, style: AppTypography.bodySmall()),
+            Text(
+              details.summary,
+              style: AppTypography.bodySmall().copyWith(
+                color: AppColors.textMedium,
+              ),
+            ),
             for (final step in details.steps) ...[
               const SizedBox(height: AppSpacing.sm),
               _StepRow(step: step),
@@ -111,19 +133,29 @@ class MotchiReplyDetailsCard extends StatelessWidget {
           ],
           if (details.needsAttention && onContinue != null)
             TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(48, 48),
+                visualDensity: VisualDensity.standard,
+                foregroundColor: AppColors.softLavender,
+              ),
               onPressed: onContinue,
               child: const Text('Help finish unfinished steps'),
             ),
           if (details.memories.isNotEmpty) ...[
             if (details.steps.isNotEmpty) const SizedBox(height: AppSpacing.md),
-            Text('Memories Motchi cited', style: AppTypography.labelSmall()),
+            Text('Memories Motchi cited', style: AppTypography.bodyMedium()),
             Text(
               'These saved facts helped shape this reply.',
               style: AppTypography.bodySmall(),
             ),
             for (final memory in details.memories)
               TextButton(
-                style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+                style: TextButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  minimumSize: const Size(48, 48),
+                  visualDensity: VisualDensity.standard,
+                  foregroundColor: AppColors.textHigh,
+                ),
                 onPressed: () => _inspectMemory(context, memory),
                 child: Row(
                   children: [
@@ -146,6 +178,11 @@ class MotchiReplyDetailsCard extends StatelessWidget {
               ),
             if (onOpenMemoryBook != null)
               TextButton(
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  visualDensity: VisualDensity.standard,
+                  foregroundColor: AppColors.softLavender,
+                ),
                 onPressed: onOpenMemoryBook,
                 child: const Text('Open Memory Book'),
               ),
@@ -176,18 +213,49 @@ class _StepRow extends StatelessWidget {
     };
     final tool = '${step['tool'] ?? ''}'.replaceAll('_', ' ');
     final title = '${step['title'] ?? ''}';
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: color, semanticLabel: label),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            '$label · $tool${title.isEmpty ? '' : '\n$title'}',
-            style: AppTypography.bodySmall(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 20, color: color),
           ),
-        ),
-      ],
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tool.isEmpty
+                      ? 'Action'
+                      : '${tool[0].toUpperCase()}${tool.substring(1)}',
+                  style: AppTypography.bodySmall().copyWith(
+                    color: AppColors.textHigh,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  label,
+                  style: AppTypography.bodySmall().copyWith(color: color),
+                ),
+                if (title.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: AppTypography.bodySmall().copyWith(
+                      color: AppColors.textMedium,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

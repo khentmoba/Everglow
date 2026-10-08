@@ -181,68 +181,77 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       const SizedBox(height: 10),
                     ],
                     if (hasReasoning)
-                      GestureDetector(
-                        onTap: () =>
-                            setState(() => _showReasoning = !_showReasoning),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.glassSoft,
-                            borderRadius: AppRadius.radiusMd,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.pets_rounded,
-                                    size: 13,
-                                    color: AppColors.blushGold,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Motchi\'s thoughts${widget.isStreaming ? '…' : ''}',
-                                    style: AppTypography.bodySmall().copyWith(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.blushGold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Icon(
-                                    _showReasoning
-                                        ? Icons.keyboard_arrow_up_rounded
-                                        : Icons.keyboard_arrow_down_rounded,
-                                    size: 14,
-                                    color: AppColors.blushGold.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                  ),
-                                ],
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.glassSoft,
+                          borderRadius: AppRadius.radiusMd,
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(48, 48),
+                                visualDensity: VisualDensity.standard,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                foregroundColor: AppColors.textHigh,
                               ),
-                              if (_showReasoning) ...[
-                                const SizedBox(height: 4),
-                                EverglowMarkdown(
+                              onPressed: () => setState(
+                                () => _showReasoning = !_showReasoning,
+                              ),
+                              child: Semantics(
+                                expanded: _showReasoning,
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.psychology_outlined,
+                                      size: 18,
+                                      color: AppColors.softLavender,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        "Motchi's thoughts${widget.isStreaming ? '…' : ''}",
+                                        style: AppTypography.bodySmall()
+                                            .copyWith(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ),
+                                    Icon(
+                                      _showReasoning
+                                          ? Icons.keyboard_arrow_up_rounded
+                                          : Icons.keyboard_arrow_down_rounded,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (_showReasoning)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  12,
+                                ),
+                                child: EverglowMarkdown(
                                   text: widget.reasoning!,
-                                  paragraphGap: 4,
+                                  paragraphGap: 6,
                                   baseStyle: AppTypography.bodySmall().copyWith(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.textMuted,
+                                    fontSize: 13,
+                                    color: AppColors.textMedium,
                                     height: 1.5,
-                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
-                              ],
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
                       ),
                     if (widget.imageUrls.isNotEmpty) ...[

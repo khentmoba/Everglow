@@ -102,3 +102,26 @@ shows only the synthetic welcome, sign-in notice and disabled composer. Clicking
 `Sign in to chat` opened the normal passcode door at `/?from=/motchi`, with no
 agent parameter or redirect loop. No credentials were entered. Actual signed-in
 AI generation remains unverified manually; real replies use the existing service.
+
+## Tool activity and reply details polish
+
+`tools-phone.png` (430 x 1000), `tools-tablet.png` (810 x 1080), and
+`tools-live-phone.png` (430 x 900) show the actual Motchi widgets with synthetic
+conversation, action receipts, cited memories, sources, and active tools. A
+temporary Flutter entry point supplied fake repositories and auth; it made no
+Firebase or AI requests and was removed after capture. The example.com and
+example.org links are synthetic sources, not research supporting the demo reply.
+
+Active tools wrap instead of hiding offscreen. Tool labels use readable text and
+the existing icon family. Receipts separate action names, outcomes, and details;
+failed, waiting, unscheduled, and unconfirmed outcomes retain their meaning.
+Sources use full-width keyboard-accessible links. Thoughts have a keyboard/touch
+toggle with a standard 48px target, and their content remains selectable markdown.
+
+The collaborative browser reported an unavailable automation host, so capture
+used disposable headless Chrome through the existing CDP harness. All three
+images were inspected after the splash disappeared; the thoughts toggle was
+clicked and its content collapsed. A 320px/1.6x text receipt regression passes.
+Regular tests: 1,534 passed. All 15 guards and analysis passed. New Chrome
+regressions cover wrapped tools/thoughts and source layout/invalid links; Linux CI
+must verify those before this update leaves draft. No backend behavior changed.
