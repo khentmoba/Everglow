@@ -189,3 +189,24 @@ frame-rate measurement). The temporary entry point and capture script were
 removed. Linux Chrome regressions now check thinking-dot/halo/caret motion at
 430 and 810px, the tool pulse at 320px, and reduced-motion stillness. Browser CI
 confirmation remains pending; the synthetic release build and analysis passed.
+
+Standalone HTML game recovery: synthetic tests reproduced four failures before
+this change (unfenced page, unlabeled page fence, incomplete stream, empty code
+card). All 54 targeted parser/Markdown tests passed after. Complete standalone
+HTML documents now use the existing canvas artifact parser, with its existing
+size cap and opaque-origin sandbox. Explicit non-artifact code fences stay code;
+partial standalone pages are hidden while streaming. Empty code blocks do not
+render a blank code card.
+
+Synthetic release proof at 430x900 in disposable Chrome (T3 host unavailable):
+html-game-phone.png shows a game card plus prose without HTML/JavaScript text.
+Clicked Play, then activated the synthetic Reveal a pair and Restart controls
+inside the iframe: score was Moves: 0 -> Moves: 1 -> Moves: 0. The iframe
+sandbox attribute remained allow-scripts. html-game-open-phone.png shows the
+opened demo app after reset. Both screenshots inspected. These are synthetic
+fixtures, not the user's screenshot or real conversation data. The supplied
+screenshot does not expose the original opening fence, so exact original reply
+format remains unverified; the reproduced failure shape is covered by tests.
+Temporary fixture/capture files were removed. Local analysis and synthetic
+release build passed; full tests/guards and Linux Chrome CI still pending.
+Full local confirmation: flutter analyze --no-pub passed, 1,539 regular tests passed, all 15 actual Dart guards passed, and git diff --check passed. New hosted build/Chrome CI confirmation remains pending.
