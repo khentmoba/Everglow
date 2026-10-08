@@ -78,6 +78,67 @@ Future<void> scrollToEnd(
 }
 
 void main() {
+  for (final width in [430.0, 810.0]) {
+    testWidgets('fast fling at $width postpones new sections until slowing', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 932);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final built = <int>{};
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        harness(built: built, controller: controller, deferMs: 80),
+      );
+      await tester.pump(const Duration(milliseconds: 121));
+      final before = Set<int>.of(built);
+      // Real ballistic activity; jumpTo has no sustained fling velocity.
+      (controller.position as ScrollPositionWithSingleContext).goBallistic(
+        6000,
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(controller.offset, greaterThan(1000));
+      expect(built, before, reason: 'do not mount cards during a fast fling');
+
+      (controller.position as ScrollPositionWithSingleContext).goIdle();
+      // Stopping must trigger recovery without another pixel notification.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 121));
+      await tester.pump();
+      expect(built.difference(before), isNotEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets(
+    'a pending reveal waits if a fast fling starts before its timer',
+    (tester) async {
+      final built = <int>{};
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        harness(built: built, controller: controller, deferMs: 80),
+      );
+      expect(built, isEmpty);
+      (controller.position as ScrollPositionWithSingleContext).goBallistic(
+        6000,
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 90));
+      expect(built, isEmpty);
+      (controller.position as ScrollPositionWithSingleContext).goIdle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 81));
+      await tester.pump();
+      expect(built, isNotEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('phone cards preload beyond the old 280px margin', (
     tester,
   ) async {

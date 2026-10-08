@@ -1,0 +1,440 @@
+[
+  {
+    "width": 430,
+    "run": 1,
+    "dpr": 1,
+    "initial": [
+      {
+        "top": 0,
+        "height": 9714,
+        "view": 932
+      }
+    ],
+    "down": [
+      {
+        "top": 9960,
+        "height": 10892,
+        "view": 932
+      }
+    ],
+    "up": [
+      {
+        "top": 0,
+        "height": 10892,
+        "view": 932
+      }
+    ],
+    "text": "CLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nEnter Everglow Academy ENTER PORTAL\nPlay Zone\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "perf": {
+      "fps": 135.24,
+      "buildAvgMs": 0.82,
+      "buildWorstMs": 6.7,
+      "rasterAvgMs": 1.4,
+      "rasterWorstMs": 16.4,
+      "worstFrameMs": 19.6,
+      "jankPercent": 0.83,
+      "slowFramePercent": 0,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 18,
+      "sessionFrames": 397,
+      "sessionWorstBuildMs": 146.5,
+      "sessionWorstRasterMs": 107.9,
+      "sessionWorstFrameMs": 170.6,
+      "sessionOver200ms": 0,
+      "sessionOverBudgetPercent": 4.79,
+      "sessionSlowFramePercent": 3.02
+    },
+    "longTasks": {
+      "count": 11,
+      "worstMs": 171,
+      "totalMs": 1024,
+      "overBar": 0
+    }
+  },
+  {
+    "width": 430,
+    "run": 2,
+    "dpr": 1,
+    "initial": [
+      {
+        "top": 0,
+        "height": 9714,
+        "view": 932
+      }
+    ],
+    "down": [
+      {
+        "top": 9880,
+        "height": 10892,
+        "view": 932
+      }
+    ],
+    "up": [
+      {
+        "top": 0,
+        "height": 10892,
+        "view": 932
+      }
+    ],
+    "text": "You aren't watching any anime right now.\nCLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nEnter Everglow Academy ENTER PORTAL\nPlay Zone\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "perf": {
+      "fps": 262.63,
+      "buildAvgMs": 3.39,
+      "buildWorstMs": 231.5,
+      "rasterAvgMs": 2.78,
+      "rasterWorstMs": 54,
+      "worstFrameMs": 254.5,
+      "jankPercent": 6.25,
+      "slowFramePercent": 2.92,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 20,
+      "sessionFrames": 340,
+      "sessionWorstBuildMs": 231.5,
+      "sessionWorstRasterMs": 125,
+      "sessionWorstFrameMs": 254.5,
+      "sessionOver200ms": 2,
+      "sessionOverBudgetPercent": 7.94,
+      "sessionSlowFramePercent": 4.71
+    },
+    "longTasks": {
+      "count": 12,
+      "worstMs": 257,
+      "totalMs": 1244,
+      "overBar": 2
+    }
+  },
+  {
+    "width": 430,
+    "run": 3,
+    "dpr": 1,
+    "initial": [
+      {
+        "top": 0,
+        "height": 9714,
+        "view": 932
+      }
+    ],
+    "down": [
+      {
+        "top": 8797,
+        "height": 10788,
+        "view": 932
+      }
+    ],
+    "up": [
+      {
+        "top": 0,
+        "height": 10788,
+        "view": 932
+      }
+    ],
+    "text": "TAP THE HEART\ncurated together\nCurrently Watching\nView All\nME\nYou aren't watching anything right now.\nCLAIR\nNothing playing on their end.\nWatch Together\nNEW\nMOVIE NIGHT IN REAL TIME\nOpen Watch Together LIVE Movie night in real time — press play together. TAP TO ENTER THE ROOM\nWatched\ncurated together\nView All\nME\nYou haven't finished anything yet.\nCLAIR\nNothing finished on their end.\nAnime\ncurated together\nNEW\nView All\nWATCHING NOW\nME\nYou aren't watching any anime right now.\nCLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "perf": {
+      "fps": 179.24,
+      "buildAvgMs": 1.63,
+      "buildWorstMs": 64.1,
+      "rasterAvgMs": 2.68,
+      "rasterWorstMs": 103.8,
+      "worstFrameMs": 110.8,
+      "jankPercent": 3.75,
+      "slowFramePercent": 2.08,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 19,
+      "sessionFrames": 354,
+      "sessionWorstBuildMs": 152.7,
+      "sessionWorstRasterMs": 119,
+      "sessionWorstFrameMs": 170.2,
+      "sessionOver200ms": 0,
+      "sessionOverBudgetPercent": 6.21,
+      "sessionSlowFramePercent": 4.52
+    },
+    "longTasks": {
+      "count": 13,
+      "worstMs": 171,
+      "totalMs": 1325,
+      "overBar": 0
+    }
+  },
+  {
+    "width": 810,
+    "run": 1,
+    "dpr": 1,
+    "initial": [
+      {
+        "top": 0,
+        "height": 7838,
+        "view": 932
+      }
+    ],
+    "down": [
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 7229,
+        "height": 8213,
+        "view": 932
+      }
+    ],
+    "up": [
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8094,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8232,
+        "view": 932
+      }
+    ],
+    "text": "You aren't watching any anime right now.\nCLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nPlay Zone\nEnter Everglow Academy ENTER PORTAL\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "perf": {
+      "fps": 228.18,
+      "buildAvgMs": 1.41,
+      "buildWorstMs": 4,
+      "rasterAvgMs": 1.81,
+      "rasterWorstMs": 5.8,
+      "worstFrameMs": 10.7,
+      "jankPercent": 0,
+      "slowFramePercent": 0,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 19,
+      "sessionFrames": 476,
+      "sessionWorstBuildMs": 177.3,
+      "sessionWorstRasterMs": 78.2,
+      "sessionWorstFrameMs": 187.8,
+      "sessionOver200ms": 0,
+      "sessionOverBudgetPercent": 2.52,
+      "sessionSlowFramePercent": 1.68
+    },
+    "longTasks": {
+      "count": 9,
+      "worstMs": 196,
+      "totalMs": 1015,
+      "overBar": 0
+    }
+  },
+  {
+    "width": 810,
+    "run": 2,
+    "dpr": 1,
+    "initial": [
+      {
+        "top": 0,
+        "height": 7838,
+        "view": 932
+      }
+    ],
+    "down": [
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 7044,
+        "height": 7976,
+        "view": 932
+      }
+    ],
+    "up": [
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7857,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8124,
+        "view": 932
+      }
+    ],
+    "text": "CLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nPlay Zone\nEnter Everglow Academy ENTER PORTAL\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "perf": {
+      "fps": 153.81,
+      "buildAvgMs": 1.53,
+      "buildWorstMs": 5.8,
+      "rasterAvgMs": 2.01,
+      "rasterWorstMs": 3.9,
+      "worstFrameMs": 9.7,
+      "jankPercent": 0,
+      "slowFramePercent": 0,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 19,
+      "sessionFrames": 472,
+      "sessionWorstBuildMs": 230.4,
+      "sessionWorstRasterMs": 75.4,
+      "sessionWorstFrameMs": 238,
+      "sessionOver200ms": 1,
+      "sessionOverBudgetPercent": 2.54,
+      "sessionSlowFramePercent": 1.27
+    },
+    "longTasks": {
+      "count": 7,
+      "worstMs": 245,
+      "totalMs": 882,
+      "overBar": 1
+    }
+  },
+  {
+    "width": 810,
+    "run": 3,
+    "dpr": 1,
+    "initial": [
+      {
+        "top": 0,
+        "height": 7838,
+        "view": 932
+      }
+    ],
+    "down": [
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 7173,
+        "height": 8105,
+        "view": 932
+      }
+    ],
+    "up": [
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 7986,
+        "view": 932
+      },
+      {
+        "top": 0,
+        "height": 8105,
+        "view": 932
+      }
+    ],
+    "text": "CLAIR\nNothing playing on their end.\nFINISHED\nME\nYou haven't finished any anime yet.\nCLAIR\nNothing finished on their end.\nOur Books\ncurated together\nView All\nME\nYou haven't added any books to \"Ours\" yet.\nCLAIR\nThey haven't added any books to \"Ours\" yet.\nReading\ncurated together\nView All\nME\nYou aren't reading anything right now.\nCLAIR\nNothing on their reading list.\nEverglow Academy\nPlay Zone\nEnter Everglow Academy ENTER PORTAL\nEnter Play Zone ENTER PLAY ZONE\nOpen creator tools Open creator tools\nClair is feeling 💖 💖\nOpen Everglow Canvas Open Everglow Canvas\nOpen Sanctuary chat Open Sanctuary chat\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "perf": {
+      "fps": 226.38,
+      "buildAvgMs": 1.31,
+      "buildWorstMs": 6.3,
+      "rasterAvgMs": 1.73,
+      "rasterWorstMs": 12.9,
+      "worstFrameMs": 18,
+      "jankPercent": 0.42,
+      "slowFramePercent": 0,
+      "frames": 240,
+      "devicePixelRatio": 1,
+      "sampleSequence": 18,
+      "sessionFrames": 461,
+      "sessionWorstBuildMs": 166.9,
+      "sessionWorstRasterMs": 77.9,
+      "sessionWorstFrameMs": 178.3,
+      "sessionOver200ms": 0,
+      "sessionOverBudgetPercent": 2.17,
+      "sessionSlowFramePercent": 1.3
+    },
+    "longTasks": {
+      "count": 8,
+      "worstMs": 180,
+      "totalMs": 825,
+      "overBar": 0
+    }
+  }
+]

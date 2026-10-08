@@ -48,6 +48,16 @@ real-device and authenticated feature behavior still need matching evidence.
   22× fewer pixels; this is arithmetic, not measured whole-app RAM/GPU savings.
 - Carousel hold is 20 seconds, a pacing choice rather than a measured speed win.
 
+### Fast dashboard fling follow-up (candidate)
+
+`DeferredSection` now honors Flutter's deferred-loading velocity heuristic
+while scrolling and retries when scrolling stops. Regression tests prevent new
+card mounts during fast phone/tablet flings, including a pending reveal timer;
+idle jumps and existing cards are unchanged. Three-run local release swipe
+comparisons did not establish an overall timing gain (some readings worsened).
+Landing work and actual phone/Safari behavior remain unverified. Details and
+raw diagnostic results: `docs/pr-proof/dashboard-fast-scroll/README.md`.
+
 ## Opt-in meter
 
 `?perf=1` enables the diagnostic; `?perf=0` disables it. The preference persists.
