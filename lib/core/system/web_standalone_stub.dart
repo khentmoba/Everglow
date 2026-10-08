@@ -9,6 +9,12 @@ class WebStandalone {
 
   static double safeAreaTop() => 0;
 
+  static EdgeInsets safeAreaPadding() => EdgeInsets.zero;
+  static double keyboardInset() => 0;
+
+  @visibleForTesting
+  static EdgeInsets probeSafeAreaPadding() => EdgeInsets.zero;
+
   @visibleForTesting
   static double probeSafeAreaTop() => 0;
 }

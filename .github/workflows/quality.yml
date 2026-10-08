@@ -77,6 +77,7 @@ jobs:
           test/features/anime/animex_player_web_bridge_test.dart
           test/embedded_media_web_memory_test.dart
           test/features/ai/motchi_streaming_scroll_test.dart
+          test/core/system/web_standalone_browser_test.dart
 
   web_build:
     needs: changes
@@ -94,7 +95,7 @@ jobs:
           node-version: '22'
       - run: flutter pub get
       - name: Test generated service worker without Chrome
-        run: node --test tool/service_worker_test.mjs
+        run: node --test tool/service_worker_test.mjs tool/web_bootstrap_test.mjs
       - name: Prepare local env asset
         run: |
           if [ ! -f assets/env.txt ]; then

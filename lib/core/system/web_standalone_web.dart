@@ -51,9 +51,7 @@ class WebStandalone {
     }
     try {
       final flag = _iosNavigatorStandalone;
-      if (flag != null &&
-          flag.isA<JSBoolean>() &&
-          (flag as JSBoolean).toDart) {
+      if (flag != null && flag.isA<JSBoolean>() && (flag as JSBoolean).toDart) {
         return true;
       }
     } catch (_) {
@@ -83,9 +81,43 @@ class WebStandalone {
   /// Measures `env(safe-area-inset-top)` with a throwaway probe node.
   @visibleForTesting
   static double probeSafeAreaTop() {
+    return probeSafeAreaPadding().top;
+  }
+
+  /// All system overlaps, so navigation backgrounds reach the home indicator
+  /// while controls also clear the notch when the phone rotates.
+  static EdgeInsets safeAreaPadding() {
+    if (!isStandalone()) return EdgeInsets.zero;
+    final padding = probeSafeAreaPadding();
+    return padding.copyWith(top: math.max(padding.top, safeAreaTop()));
+  }
+
+  /// Embedded Flutter leaves viewInsets at zero, even on a mobile keyboard.
+  static double keyboardInset() {
+    final host = web.document.getElementById('eg-app');
+    final viewport = web.window.visualViewport;
+    final active = web.document.activeElement;
+    if (!isStandalone() ||
+        host?.getAttribute('flt-embedding') != 'custom-element' ||
+        viewport == null ||
+        viewport.scale != 1 ||
+        active == null ||
+        (active.tagName != 'INPUT' &&
+            active.tagName != 'TEXTAREA' &&
+            active.getAttribute('contenteditable') != 'true')) {
+      return 0;
+    }
+    final bounds = host!.getBoundingClientRect();
+    return (bounds.bottom - viewport.height - viewport.offsetTop)
+        .clamp(0, bounds.height)
+        .toDouble();
+  }
+
+  @visibleForTesting
+  static EdgeInsets probeSafeAreaPadding() {
     try {
       final body = web.document.body;
-      if (body == null) return 0;
+      if (body == null) return EdgeInsets.zero;
       final probe = web.document.createElement('div') as web.HTMLDivElement;
       probe.style.position = 'fixed';
       probe.style.top = '0px';
@@ -93,25 +125,34 @@ class WebStandalone {
       probe.style.width = '0px';
       probe.style.height = '0px';
       probe.style.paddingTop = 'env(safe-area-inset-top)';
+      probe.style.paddingRight = 'env(safe-area-inset-right)';
+      probe.style.paddingBottom = 'env(safe-area-inset-bottom)';
+      probe.style.paddingLeft = 'env(safe-area-inset-left)';
       probe.style.visibility = 'hidden';
       probe.style.pointerEvents = 'none';
       body.append(probe);
       try {
-        final raw = web.window.getComputedStyle(probe).paddingTop;
-        final match = RegExp(r'([\d.]+)').firstMatch(raw);
-        if (match != null) {
-          final value = double.tryParse(match.group(1) ?? '');
-          if (value != null && value.isFinite && value >= 0 && value < 200) {
-            return value;
-          }
+        final style = web.window.getComputedStyle(probe);
+        double inset(String raw) {
+          final value = double.tryParse(raw.replaceFirst('px', ''));
+          return value != null && value.isFinite && value >= 0 && value < 200
+              ? value
+              : 0;
         }
+
+        return EdgeInsets.fromLTRB(
+          inset(style.paddingLeft),
+          inset(style.paddingTop),
+          inset(style.paddingRight),
+          inset(style.paddingBottom),
+        );
       } finally {
         probe.remove();
       }
     } catch (_) {
       // DOM unavailable or env() unsupported: no inset.
     }
-    return 0;
+    return EdgeInsets.zero;
   }
 }
 
@@ -123,8 +164,8 @@ class WebStandalone {
 /// stay full-bleed (they live below the padding, outside any SafeArea).
 /// Everywhere else — Safari tabs, native, tests — the measured inset is 0
 /// and the tree is returned untouched, so those paths cannot shift by even
-/// a pixel. Bottom is deliberately left alone: scrolling stays
-/// edge-to-edge down to the home indicator, exactly as Clair sees it today.
+/// a pixel. Insets protect content only; route and navigation backgrounds
+/// still paint all the way to the screen edges.
 class WebStandaloneInsets extends StatefulWidget {
   final Widget child;
 
@@ -135,8 +176,10 @@ class WebStandaloneInsets extends StatefulWidget {
 }
 
 class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
-  double _top = 0;
+  EdgeInsets _padding = EdgeInsets.zero;
+  double _keyboard = 0;
   web.EventListener? _resizeListener;
+  web.EventListener? _blurListener;
 
   @override
   void initState() {
@@ -150,6 +193,17 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
               as web.EventListener;
       web.window.addEventListener('resize', _resizeListener!);
       web.window.addEventListener('orientationchange', _resizeListener!);
+      web.window.visualViewport?.addEventListener('resize', _resizeListener!);
+      web.window.visualViewport?.addEventListener('scroll', _resizeListener!);
+      web.document.addEventListener('focusin', _resizeListener!);
+      _blurListener =
+          ((web.Event _) {
+                Future.delayed(Duration.zero, () {
+                  if (mounted) _refresh();
+                });
+              }).toJS
+              as web.EventListener;
+      web.document.addEventListener('focusout', _blurListener!);
     } catch (_) {
       _resizeListener = null;
     }
@@ -165,9 +219,13 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
   }
 
   void _refresh() {
-    final value = WebStandalone.safeAreaTop();
-    if (mounted && (value - _top).abs() > 0.5) {
-      setState(() => _top = value);
+    final value = WebStandalone.safeAreaPadding();
+    final keyboard = WebStandalone.keyboardInset();
+    if (mounted && (value != _padding || keyboard != _keyboard)) {
+      setState(() {
+        _padding = value;
+        _keyboard = keyboard;
+      });
     }
   }
 
@@ -178,6 +236,12 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
       if (listener != null) {
         web.window.removeEventListener('resize', listener);
         web.window.removeEventListener('orientationchange', listener);
+        web.window.visualViewport?.removeEventListener('resize', listener);
+        web.window.visualViewport?.removeEventListener('scroll', listener);
+        web.document.removeEventListener('focusin', listener);
+      }
+      if (_blurListener != null) {
+        web.document.removeEventListener('focusout', _blurListener!);
       }
     } catch (_) {
       // Page tearing down: nothing to clean up.
@@ -187,17 +251,41 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
 
   @override
   Widget build(BuildContext context) {
-    if (_top <= 0) return widget.child;
+    if (_padding == EdgeInsets.zero && _keyboard == 0) return widget.child;
     final mq = MediaQuery.of(context);
-    final top = math.max(mq.padding.top, _top);
-    final viewTop = math.max(mq.viewPadding.top, _top);
-    if (top <= mq.padding.top && viewTop <= mq.viewPadding.top) {
-      return widget.child;
-    }
+    final viewInsets = mq.viewInsets.copyWith(
+      bottom: math.max(mq.viewInsets.bottom, _keyboard),
+    );
+    final viewPadding = EdgeInsets.fromLTRB(
+      math.max(mq.viewPadding.left, _padding.left),
+      math.max(mq.viewPadding.top, _padding.top),
+      math.max(mq.viewPadding.right, _padding.right),
+      math.max(mq.viewPadding.bottom, _padding.bottom),
+    );
+    // A visible keyboard already covers the home indicator.
+    final padding = EdgeInsets.fromLTRB(
+      math.max(
+        mq.padding.left,
+        math.max(0, viewPadding.left - mq.viewInsets.left),
+      ),
+      math.max(
+        mq.padding.top,
+        math.max(0, viewPadding.top - mq.viewInsets.top),
+      ),
+      math.max(
+        mq.padding.right,
+        math.max(0, viewPadding.right - mq.viewInsets.right),
+      ),
+      math.max(
+        0,
+        math.max(mq.padding.bottom, viewPadding.bottom) - viewInsets.bottom,
+      ),
+    );
     return MediaQuery(
       data: mq.copyWith(
-        padding: mq.padding.copyWith(top: top),
-        viewPadding: mq.viewPadding.copyWith(top: viewTop),
+        padding: padding,
+        viewPadding: viewPadding,
+        viewInsets: viewInsets,
       ),
       child: widget.child,
     );

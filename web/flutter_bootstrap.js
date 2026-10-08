@@ -37,8 +37,13 @@ if (typeof window !== 'undefined') {
 }
 {{flutter_js}}
 {{flutter_build_config}}
-_flutter.loader.load({
-  config: {
-    canvasKitVariant: "full"
+var everglowConfig = {canvasKitVariant: "full"};
+if (window.__everglowIsStandalone && window.__everglowIsStandalone()) {
+  var host = document.getElementById('eg-app');
+  if (host) {
+    everglowConfig.hostElement = host;
   }
+}
+_flutter.loader.load({
+  config: everglowConfig
 });

@@ -92,6 +92,14 @@
       color-scheme: dark;
     }
 
+    /* The installed app measures this full-window surface instead of iOS's
+       document viewport, which can exclude the system areas. */
+    #eg-app {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+    }
+
     /* Prevent hidden text-editing textarea from intercepting pointermove/touch events
        and corrupting offsetY relative to flutter-view (Chromium issue #184524) */
     flt-text-editing-host {
@@ -342,6 +350,7 @@
 
 </head>
 <body spellcheck="false" translate="no">
+  <div id="eg-app"></div>
   <div id="eg-splash" aria-hidden="true">
     <div class="eg-heart">💗</div>
     <div class="eg-title">Everglow</div>
