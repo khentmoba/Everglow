@@ -92,6 +92,27 @@ class WebStandalone {
     return padding.copyWith(top: math.max(padding.top, safeAreaTop()));
   }
 
+  /// Embedded Flutter leaves viewInsets at zero, even on a mobile keyboard.
+  static double keyboardInset() {
+    final host = web.document.getElementById('eg-app');
+    final viewport = web.window.visualViewport;
+    final active = web.document.activeElement;
+    if (!isStandalone() ||
+        host?.getAttribute('flt-embedding') != 'custom-element' ||
+        viewport == null ||
+        viewport.scale != 1 ||
+        active == null ||
+        (active.tagName != 'INPUT' &&
+            active.tagName != 'TEXTAREA' &&
+            active.getAttribute('contenteditable') != 'true')) {
+      return 0;
+    }
+    final bounds = host!.getBoundingClientRect();
+    return (bounds.bottom - viewport.height - viewport.offsetTop)
+        .clamp(0, bounds.height)
+        .toDouble();
+  }
+
   @visibleForTesting
   static EdgeInsets probeSafeAreaPadding() {
     try {
@@ -156,7 +177,9 @@ class WebStandaloneInsets extends StatefulWidget {
 
 class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
   EdgeInsets _padding = EdgeInsets.zero;
+  double _keyboard = 0;
   web.EventListener? _resizeListener;
+  web.EventListener? _blurListener;
 
   @override
   void initState() {
@@ -170,6 +193,17 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
               as web.EventListener;
       web.window.addEventListener('resize', _resizeListener!);
       web.window.addEventListener('orientationchange', _resizeListener!);
+      web.window.visualViewport?.addEventListener('resize', _resizeListener!);
+      web.window.visualViewport?.addEventListener('scroll', _resizeListener!);
+      web.document.addEventListener('focusin', _resizeListener!);
+      _blurListener =
+          ((web.Event _) {
+                Future.delayed(Duration.zero, () {
+                  if (mounted) _refresh();
+                });
+              }).toJS
+              as web.EventListener;
+      web.document.addEventListener('focusout', _blurListener!);
     } catch (_) {
       _resizeListener = null;
     }
@@ -186,8 +220,12 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
 
   void _refresh() {
     final value = WebStandalone.safeAreaPadding();
-    if (mounted && value != _padding) {
-      setState(() => _padding = value);
+    final keyboard = WebStandalone.keyboardInset();
+    if (mounted && (value != _padding || keyboard != _keyboard)) {
+      setState(() {
+        _padding = value;
+        _keyboard = keyboard;
+      });
     }
   }
 
@@ -198,6 +236,12 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
       if (listener != null) {
         web.window.removeEventListener('resize', listener);
         web.window.removeEventListener('orientationchange', listener);
+        web.window.visualViewport?.removeEventListener('resize', listener);
+        web.window.visualViewport?.removeEventListener('scroll', listener);
+        web.document.removeEventListener('focusin', listener);
+      }
+      if (_blurListener != null) {
+        web.document.removeEventListener('focusout', _blurListener!);
       }
     } catch (_) {
       // Page tearing down: nothing to clean up.
@@ -207,24 +251,17 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
 
   @override
   Widget build(BuildContext context) {
-    if (_padding == EdgeInsets.zero) return widget.child;
+    if (_padding == EdgeInsets.zero && _keyboard == 0) return widget.child;
     final mq = MediaQuery.of(context);
+    final viewInsets = mq.viewInsets.copyWith(
+      bottom: math.max(mq.viewInsets.bottom, _keyboard),
+    );
     final viewPadding = EdgeInsets.fromLTRB(
       math.max(mq.viewPadding.left, _padding.left),
       math.max(mq.viewPadding.top, _padding.top),
       math.max(mq.viewPadding.right, _padding.right),
       math.max(mq.viewPadding.bottom, _padding.bottom),
     );
-    // Embedded mode already shortens the host above the keyboard.
-    final hostBottom =
-        double.tryParse(
-          ((web.document.getElementById('eg-app') as web.HTMLElement?)
-                      ?.style
-                      .bottom ??
-                  '')
-              .replaceFirst('px', ''),
-        ) ??
-        0;
     // A visible keyboard already covers the home indicator.
     final padding = EdgeInsets.fromLTRB(
       math.max(
@@ -240,14 +277,16 @@ class _WebStandaloneInsetsState extends State<WebStandaloneInsets> {
         math.max(0, viewPadding.right - mq.viewInsets.right),
       ),
       math.max(
-        mq.padding.bottom,
-        hostBottom > 0
-            ? 0
-            : math.max(0, viewPadding.bottom - mq.viewInsets.bottom),
+        0,
+        math.max(mq.padding.bottom, viewPadding.bottom) - viewInsets.bottom,
       ),
     );
     return MediaQuery(
-      data: mq.copyWith(padding: padding, viewPadding: viewPadding),
+      data: mq.copyWith(
+        padding: padding,
+        viewPadding: viewPadding,
+        viewInsets: viewInsets,
+      ),
       child: widget.child,
     );
   }

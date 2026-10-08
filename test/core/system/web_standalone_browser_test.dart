@@ -17,6 +17,14 @@ void main() {
     js('''
       window.egOriginalStyle = window.getComputedStyle;
       window.egOriginalStandalone = Object.getOwnPropertyDescriptor(navigator, 'standalone');
+      window.egOriginalViewport = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+      window.egViewport = Object.assign(new EventTarget(), {height: innerHeight, width: innerWidth, offsetTop: 0, offsetLeft: 0, pageTop: 0, pageLeft: 0, scale: 1});
+      Object.defineProperty(window, 'visualViewport', {value: window.egViewport, configurable: true});
+      window.egHost = document.createElement('div');
+      window.egHost.id = 'eg-app';
+      window.egHost.setAttribute('flt-embedding', 'custom-element');
+      window.egHost.style.cssText = 'position:fixed;inset:0;pointer-events:none';
+      document.body.appendChild(window.egHost);
       window.egInsets = {paddingTop: '59px', paddingRight: '0px', paddingBottom: '34px', paddingLeft: '0px'};
       Object.defineProperty(navigator, 'standalone', {value: true, configurable: true});
       window.getComputedStyle = function(node) {
@@ -29,6 +37,9 @@ void main() {
   tearDown(() {
     js('''
       window.getComputedStyle = window.egOriginalStyle;
+      window.egHost.remove();
+      if (window.egOriginalViewport) Object.defineProperty(window, 'visualViewport', window.egOriginalViewport);
+      else delete window.visualViewport;
       if (window.egOriginalStandalone) {
         Object.defineProperty(navigator, 'standalone', window.egOriginalStandalone);
       } else {
@@ -37,6 +48,9 @@ void main() {
       delete window.egOriginalStyle;
       delete window.egOriginalStandalone;
       delete window.egInsets;
+      delete window.egHost;
+      delete window.egViewport;
+      delete window.egOriginalViewport;
     ''');
   });
 
@@ -106,4 +120,70 @@ void main() {
     );
     expect(WebStandalone.safeAreaPadding(), const EdgeInsets.only(left: 44));
   });
+
+  testWidgets(
+    'focused Flutter field and bottom action clear the keyboard without clipping the canvas',
+    (tester) async {
+      const action = Key('action');
+      late MediaQueryData measured;
+      tester.testTextInput.unregister();
+      addTearDown(tester.testTextInput.register);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: WebStandaloneInsets(
+            child: Builder(
+              builder: (context) {
+                measured = MediaQuery.of(context);
+                return Scaffold(
+                  body: SafeArea(
+                    child: Column(
+                      children: [
+                        const TextField(),
+                        const Spacer(),
+                        ElevatedButton(
+                          key: action,
+                          onPressed: () {},
+                          child: const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      final size = measured.size;
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      expect(WebStandalone.keyboardInset(), 0);
+
+      js(
+        "window.egViewport.height = innerHeight - 300; window.egViewport.dispatchEvent(new Event('resize'));",
+      );
+      await tester.pump();
+      expect(measured.size, size);
+      expect(measured.viewInsets.bottom, 300);
+      expect(measured.padding.bottom, 0);
+      expect(
+        tester.getBottomRight(find.byKey(action)).dy,
+        lessThanOrEqualTo(size.height - 300),
+      );
+      expect(find.byType(TextField), findsOneWidget);
+
+      js(
+        "window.egViewport.height = innerHeight; window.egViewport.dispatchEvent(new Event('resize'));",
+      );
+      await tester.pump();
+      expect(measured.viewInsets.bottom, 0);
+      expect(measured.padding.bottom, 34);
+      expect(
+        tester.getBottomRight(find.byKey(action)).dy,
+        greaterThan(size.height - 300),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 500));
+    },
+  );
 }

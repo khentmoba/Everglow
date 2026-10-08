@@ -22,9 +22,27 @@ replaced with its supported host-element measurement for installed apps.
 Physical Safari Add to Home Screen verification remains required.
 
 The dedicated Flutter browser test suite stalled at loading with both Chrome
-and Chrome Headless Shell 154, including a WebAssembly retry. No test results
-were produced; these attempts are not counted as passing. The release app
-rendered successfully in the collaborative Chromium preview.
+and Chrome Headless Shell 154, including a WebAssembly retry. Diagnostics
+confirmed two Windows Flutter 3.44.4 runner faults: CanvasKit requests return
+404 because its handler checks a slash path after converting to Windows
+separators, and the generated HTML test selector loses its unescaped folder
+separators. No assertions ran; these attempts are not counted as passing.
+The suite is now included in Quality's Linux browser-test command. The release
+app rendered successfully in the collaborative Chromium preview.
+
+After review, keyboard handling keeps the host full-window and publishes the
+visible-viewport overlap through MediaQuery.viewInsets instead of shrinking
+the HTML host. The browser regression test focuses a real Flutter text field,
+simulates the keyboard viewport shrinking, and checks that a bottom action
+moves above it while the canvas size stays unchanged, then returns on dismissal.
+Node bootstrap tests verify the host is no longer resized by JavaScript.
+
+In the release preview, opened Bucket List's new-dream sheet and focused its
+Flutter text field. A synthetic 300px visual-viewport overlap kept the host
+at 932px while the sheet's visible content area reduced from 720px to 519px;
+restoring the viewport restored the original form layout. No form was saved.
+This checks inset propagation and dismissal, not a real iOS keyboard or the
+form's submit action. The dedicated regression checks the bottom action.
 
 The preview also logged an early didChangeViewFocus RenderBox error in both
 full-page and installed-host runs, plus permission-denied messages for fake

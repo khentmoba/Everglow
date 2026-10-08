@@ -13,6 +13,7 @@ void main() {
     expect(WebStandalone.safeAreaTop(), 0);
     expect(WebStandalone.probeSafeAreaTop(), 0);
     expect(WebStandalone.safeAreaPadding(), EdgeInsets.zero);
+    expect(WebStandalone.keyboardInset(), 0);
     expect(WebStandalone.probeSafeAreaPadding(), EdgeInsets.zero);
   });
 
