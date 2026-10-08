@@ -143,3 +143,17 @@ The same large-text test also exercises the initial thinking state with no
 reasoning text; its no-exception and 48px assertions remain intact. Linux browser
 confirmation is pending. That run's web build compiled but Chrome startup failed
 before the agent smoke sweep; no app assertion failed in that web job.
+
+Quality run 37854024429 on 60e4b665 confirmed the header fix: all 26 Chrome
+tests passed alongside 1,534 regular tests, analysis, 15 guards, release build,
+agent smoke and preview deployment.
+
+Motion follow-up: thought details and changing tool rows resize with the existing
+220ms strong ease-out token; the thoughts chevron rotates over 160ms. Both honor
+app and platform reduced-motion preferences. A synthetic release build was
+opened in disposable Chrome at 430x900. Clicking collapse hid the notes, and
+opening then closing again after 60ms settled collapsed. DOM sampling could not
+measure the intermediate layout, so this does not prove transition timing.
+The browser regression now asserts an intermediate height and immediate toggles
+with reduced motion enabled; Linux CI confirmation remains pending. Local
+analysis, 1,534 regular tests, all 15 guards and the synthetic release build passed.

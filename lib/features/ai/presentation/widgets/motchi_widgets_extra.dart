@@ -189,7 +189,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           border: Border.all(color: AppColors.border),
                         ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             TextButton(
                               style: TextButton.styleFrom(
@@ -223,34 +223,52 @@ class _MessageBubbleState extends State<_MessageBubble> {
                                             ),
                                       ),
                                     ),
-                                    Icon(
-                                      _showReasoning
-                                          ? Icons.keyboard_arrow_up_rounded
-                                          : Icons.keyboard_arrow_down_rounded,
-                                      size: 20,
+                                    AnimatedRotation(
+                                      turns: _showReasoning ? 0.5 : 0,
+                                      duration: AppMotion.orZero(
+                                        MediaQuery.disableAnimationsOf(context)
+                                            ? Duration.zero
+                                            : AppMotion.fast,
+                                      ),
+                                      curve: AppMotion.easeOutStrong,
+                                      child: const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                            if (_showReasoning)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  12,
-                                  0,
-                                  12,
-                                  12,
-                                ),
-                                child: EverglowMarkdown(
-                                  text: widget.reasoning!,
-                                  paragraphGap: 6,
-                                  baseStyle: AppTypography.bodySmall().copyWith(
-                                    fontSize: 13,
-                                    color: AppColors.textMedium,
-                                    height: 1.5,
-                                  ),
-                                ),
+                            AnimatedSize(
+                              duration: AppMotion.orZero(
+                                MediaQuery.disableAnimationsOf(context)
+                                    ? Duration.zero
+                                    : AppMotion.medium,
                               ),
+                              curve: AppMotion.easeOutStrong,
+                              alignment: Alignment.topLeft,
+                              child: _showReasoning
+                                  ? Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        12,
+                                        0,
+                                        12,
+                                        12,
+                                      ),
+                                      child: EverglowMarkdown(
+                                        text: widget.reasoning!,
+                                        paragraphGap: 6,
+                                        baseStyle: AppTypography.bodySmall()
+                                            .copyWith(
+                                              fontSize: 13,
+                                              color: AppColors.textMedium,
+                                              height: 1.5,
+                                            ),
+                                      ),
+                                    )
+                                  : const SizedBox(width: double.infinity),
+                            ),
                           ],
                         ),
                       ),

@@ -270,14 +270,42 @@ void main() {
       );
       final toggle = find.widgetWithText(TextButton, "Motchi's thoughts…");
       expect(tester.getSize(toggle).height, greaterThanOrEqualTo(48));
+      final notesBox = tester.renderObject<RenderBox>(
+        find
+            .ancestor(
+              of: find
+                  .text('Synthetic planning notes.', findRichText: true)
+                  .first,
+              matching: find.byType(AnimatedSize),
+            )
+            .first,
+      );
+      final expandedHeight = notesBox.size.height;
       await tester.ensureVisible(toggle);
       await tester.tap(toggle);
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(notesBox.size.height, greaterThan(0));
+      expect(notesBox.size.height, lessThan(expandedHeight));
+      await tester.pump(const Duration(milliseconds: 240));
+      expect(notesBox.size.height, 0);
       expect(
         find.text('Synthetic planning notes.', findRichText: true),
         findsNothing,
       );
       expect(tester.takeException(), isNull);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(notesBox.size.height, greaterThan(0));
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(notesBox.size.height, 0);
       ai.reasoning = '';
       ai.draftReasoningNotifier.value = '';
       ai.draftRevisionNotifier.value++;

@@ -7,22 +7,31 @@ class _LiveToolStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<String>>(
-      valueListenable: ai.activeToolsNotifier,
-      builder: (context, tools, _) {
-        if (tools.isEmpty) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final tool in tools)
-                _ToolStatusChip(key: ValueKey(tool), status: tool),
-            ],
-          ),
-        );
-      },
+    return AnimatedSize(
+      duration: AppMotion.orZero(
+        MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : AppMotion.medium,
+      ),
+      curve: AppMotion.easeOutStrong,
+      alignment: Alignment.topLeft,
+      child: ValueListenableBuilder<List<String>>(
+        valueListenable: ai.activeToolsNotifier,
+        builder: (context, tools, _) {
+          if (tools.isEmpty) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final tool in tools)
+                  _ToolStatusChip(key: ValueKey(tool), status: tool),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
