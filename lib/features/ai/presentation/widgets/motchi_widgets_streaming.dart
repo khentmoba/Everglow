@@ -49,7 +49,8 @@ class _ThreeDotsState extends State<_ThreeDots>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
@@ -128,7 +129,8 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat(reverse: true);
@@ -249,7 +251,8 @@ class _ReplyingBadgeState extends State<_ReplyingBadge>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
@@ -368,7 +371,8 @@ class _StreamingCaretState extends State<_StreamingCaret>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat(reverse: true);
@@ -446,7 +450,8 @@ class _StreamingDotsWaveState extends State<_StreamingDotsWave>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
@@ -583,25 +588,13 @@ class _ErrorBanner extends StatelessWidget {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: onRetry,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.deepRose.withValues(alpha: 0.2),
-                    borderRadius: AppRadius.radiusSm,
-                  ),
-                  child: Text(
-                    'Retry',
-                    style: AppTypography.bodySmall().copyWith(
-                      color: AppColors.petalWhite,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              TextButton(
+                onPressed: ai.isLoading ? null : onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.petalWhite,
+                  minimumSize: const Size(64, 48),
                 ),
+                child: const Text('Retry'),
               ),
             ],
           ),
@@ -614,6 +607,7 @@ class _ErrorBanner extends StatelessWidget {
 // ─── Composer input ─────────────────────────────────────────────
 
 class _ComposerInput extends StatefulWidget {
+  final bool enabled;
   final GlobalKey inputKey;
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -624,13 +618,14 @@ class _ComposerInput extends StatefulWidget {
   final void Function(int) onRemoveImage;
   final bool centered;
   final DeepThinkMode deepThinkMode;
-  final VoidCallback onToggleDeepThink;
+  final ValueChanged<DeepThinkMode> onSelectDeepThink;
   // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
   // OFF keeps Motchi as plain chat. Defaults OFF.
   final bool canvasEnabled;
   final VoidCallback? onToggleCanvas;
 
   const _ComposerInput({
+    this.enabled = true,
     required this.inputKey,
     required this.controller,
     required this.focusNode,
@@ -641,7 +636,7 @@ class _ComposerInput extends StatefulWidget {
     required this.onRemoveImage,
     this.centered = false,
     required this.deepThinkMode,
-    required this.onToggleDeepThink,
+    required this.onSelectDeepThink,
     this.canvasEnabled = false,
     this.onToggleCanvas,
   });
@@ -701,7 +696,8 @@ class _ComposerInputState extends State<_ComposerInput> {
     return Selector<AIService, bool>(
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
-        final canSend = _hasText || widget.attachedImages.isNotEmpty;
+        final canSend =
+            widget.enabled && (_hasText || widget.attachedImages.isNotEmpty);
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 752),
@@ -751,7 +747,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                   AnimatedContainer(
                     duration: AppMotion.fast,
                     decoration: BoxDecoration(
-                      color: AppColors.silk.withValues(alpha: 0.55),
+                      color: AppColors.silk,
                       borderRadius: AppRadius.radiusLg,
                       border: Border.all(
                         color: _focused
@@ -763,8 +759,10 @@ class _ComposerInputState extends State<_ComposerInput> {
                       onFocusChange: (v) => setState(() => _focused = v),
                       onKeyEvent: (_, event) {
                         if (event is KeyDownEvent &&
+                            widget.focusNode.hasFocus &&
                             event.logicalKey == LogicalKeyboardKey.enter &&
                             !HardwareKeyboard.instance.isShiftPressed &&
+                            !widget.controller.value.isComposingRangeValid &&
                             !isLoading &&
                             canSend) {
                           widget.onSend();
@@ -776,6 +774,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           TextField(
+                            enabled: widget.enabled,
                             controller: widget.controller,
                             focusNode: widget.focusNode,
                             style: AppTypography.bodyLarge().copyWith(
@@ -787,6 +786,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                             minLines: 1,
                             maxLines: 6,
                             textInputAction: TextInputAction.newline,
+                            cursorColor: AppColors.roseQuartz,
                             decoration: InputDecoration(
                               hintText: 'Message Motchi…',
                               hintStyle: AppTypography.bodyLarge().copyWith(
@@ -811,6 +811,11 @@ class _ComposerInputState extends State<_ComposerInput> {
                             child: Row(
                               children: [
                                 PopupMenuButton<String>(
+                                  enabled: widget.enabled,
+                                  style: IconButton.styleFrom(
+                                    minimumSize: const Size(48, 48),
+                                    visualDensity: VisualDensity.standard,
+                                  ),
                                   tooltip: 'Add to message',
                                   icon: _isListening
                                       ? const SizedBox(
@@ -909,7 +914,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                                 ),
                                 _DeepThinkPill(
                                   mode: widget.deepThinkMode,
-                                  onTap: widget.onToggleDeepThink,
+                                  onSelected: widget.onSelectDeepThink,
                                 ),
                                 if (widget.canvasEnabled)
                                   IconButton(
@@ -959,7 +964,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: Text(
-                        'Just for you two · Motchi can make mistakes',
+                        'Enter to send · Shift + Enter for a new line',
                         style: AppTypography.bodySmall().copyWith(
                           color: AppColors.textDisabled,
                         ),

@@ -13,12 +13,16 @@ import 'package:provider/provider.dart';
 class _FakeConversationRepo implements IAIConversationRepository {
   AIConversation? assistantConv;
   List<AISession> archived = [];
+  bool failList = false;
+  Completer<void>? sessionGate;
   final _controller = StreamController<List<AISession>>.broadcast();
 
   void emitArchived(List<AISession> sessions) {
     archived = List.of(sessions);
     _controller.add(archived);
   }
+
+  void failHistory() => _controller.addError(StateError('offline'));
 
   void dispose() => _controller.close();
 
@@ -64,13 +68,18 @@ class _FakeConversationRepo implements IAIConversationRepository {
   }
 
   @override
-  Future<List<AISession>> listSessions({int limit = 50}) async => archived;
+  Future<List<AISession>> listSessions({int limit = 50}) async {
+    if (failList) throw StateError('offline');
+    return archived;
+  }
 
   @override
   Stream<List<AISession>> watchSessions({int limit = 50}) => _controller.stream;
 
   @override
-  Future<void> loadSession(String sessionId) async {}
+  Future<void> loadSession(String sessionId) async {
+    await sessionGate?.future;
+  }
 
   @override
   Future<void> deleteSession(String sessionId) async {
@@ -167,6 +176,75 @@ void main() {
 
       expect(find.text('Hello Motchi'), findsOneWidget);
       expect(find.textContaining('No conversations yet'), findsNothing);
+    },
+  );
+
+  testWidgets('history errors keep saved rows and offer a working retry', (
+    tester,
+  ) async {
+    await pumpSidebar(tester);
+    convRepo.emitArchived([_session('a', 'Movie night')]);
+    await tester.pump();
+    convRepo.failHistory();
+    await tester.pump();
+    expect(find.text('Movie night'), findsOneWidget);
+    expect(find.textContaining('History couldn’t load'), findsOneWidget);
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(find.textContaining('History couldn’t load'), findsNothing);
+    expect(find.text('Movie night'), findsOneWidget);
+  });
+
+  testWidgets('failed empty history is not presented as no conversations', (
+    tester,
+  ) async {
+    await pumpSidebar(tester);
+    convRepo.failHistory();
+    await tester.pump();
+    expect(find.textContaining('No conversations yet'), findsNothing);
+    convRepo.failList = true;
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(find.textContaining('History couldn’t load'), findsOneWidget);
+    convRepo.failList = false;
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(find.textContaining('No conversations yet'), findsOneWidget);
+  });
+
+  testWidgets(
+    'opening a conversation shows progress and recovers after failure',
+    (tester) async {
+      await pumpSidebar(tester);
+      convRepo.emitArchived([_session('a', 'Movie night')]);
+      await tester.pump();
+      convRepo.sessionGate = Completer<void>();
+      await tester.tap(find.text('Movie night'));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'New conversation'),
+            )
+            .onPressed,
+        isNull,
+      );
+      convRepo.sessionGate!.completeError(StateError('offline'));
+      await tester.pump();
+      expect(
+        find.textContaining('Couldn’t open this conversation'),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'New conversation'),
+            )
+            .onPressed,
+        isNotNull,
+      );
     },
   );
 

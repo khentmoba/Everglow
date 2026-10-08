@@ -251,7 +251,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                       if (widget.text.isNotEmpty) const SizedBox(height: 8),
                     ],
                     if (widget.isUser)
-                      Text(
+                      SelectableText(
                         widget.text,
                         style: AppTypography.bodyMedium().copyWith(
                           color: AppColors.petalWhite,
@@ -279,17 +279,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
                             StudyArtifactEntry(artifacts: artifacts),
                           _MarkdownText(
                             text: cleanBubbleText,
-                            baseStyle: AppTypography.bodyMedium()
-                                .copyWith(
-                                  color: AppColors.textHigh,
-                                  fontFamily: AppTypography.reading,
-                                  height: 1.65,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w400,
-                                ),
+                            baseStyle: AppTypography.bodyMedium().copyWith(
+                              color: AppColors.textHigh,
+                              fontFamily: AppTypography.reading,
+                              height: 1.65,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
-                          if (widget.isStreaming &&
-                              cleanBubbleText.isNotEmpty)
+                          if (widget.isStreaming && cleanBubbleText.isNotEmpty)
                             const Padding(
                               padding: EdgeInsets.only(top: 8),
                               child: _StreamingTailIndicator(),
@@ -326,20 +324,49 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           ],
                         ),
                       ),
-                    if (widget.timestamp != null && widget.isUser)
+                    if (widget.isUser && !widget.isStreaming)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              isToday ? timeStr : fullDateStr,
-                              style: AppTypography.bodySmall().copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.textMuted,
+                            IconButton(
+                              tooltip: 'Copy your message',
+                              onPressed: () => copyText(context, displayText),
+                              icon: const Icon(Icons.copy_rounded, size: 16),
+                              color: AppColors.textMuted,
+                              constraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 44,
                               ),
                             ),
+                            if (widget.onUseAsDraft != null)
+                              IconButton(
+                                tooltip: 'Use as draft',
+                                onPressed: widget.onUseAsDraft,
+                                icon: const Icon(
+                                  Icons.edit_note_rounded,
+                                  size: 20,
+                                ),
+                                color: AppColors.textMuted,
+                                constraints: const BoxConstraints(
+                                  minWidth: 44,
+                                  minHeight: 44,
+                                ),
+                              ),
+                            if (widget.timestamp != null)
+                              Flexible(
+                                child: Text(
+                                  isToday ? timeStr : fullDateStr,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.bodySmall().copyWith(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),

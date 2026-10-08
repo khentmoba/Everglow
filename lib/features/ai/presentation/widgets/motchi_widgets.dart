@@ -22,7 +22,7 @@ class _MotchiAvatar extends StatelessWidget {
 class _MotchiHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onSidebarToggle;
-  final VoidCallback onNewChat;
+  final VoidCallback? onNewChat;
   final bool sidebarOpen;
 
   const _MotchiHeader({
@@ -34,17 +34,24 @@ class _MotchiHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.divider)),
+      ),
       child: Row(
         children: [
           IconButton(
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             onPressed: onBack,
             icon: const Icon(Icons.arrow_back_rounded, size: 20),
             color: AppColors.textMuted,
             tooltip: 'Back',
           ),
           IconButton(
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             onPressed: onSidebarToggle,
             icon: Icon(
               sidebarOpen ? Icons.close_rounded : Icons.menu_rounded,
@@ -54,7 +61,7 @@ class _MotchiHeader extends StatelessWidget {
             tooltip: sidebarOpen ? 'Close history' : 'History',
           ),
           const SizedBox(width: 8),
-          const _MotchiAvatar(size: 24),
+          const _MotchiAvatar(size: 32),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -69,12 +76,18 @@ class _MotchiHeader extends StatelessWidget {
             ),
           ),
           IconButton(
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             onPressed: onNewChat,
             icon: const Icon(Icons.add_comment_outlined, size: 20),
             color: AppColors.textMuted,
             tooltip: 'New chat',
           ),
           PopupMenuButton<String>(
+            style: IconButton.styleFrom(
+              minimumSize: const Size(48, 48),
+              visualDensity: VisualDensity.standard,
+            ),
             tooltip: 'More from Motchi',
             icon: Icon(Icons.more_horiz_rounded, color: AppColors.textMuted),
             color: AppColors.silk,
@@ -104,39 +117,81 @@ class _MotchiHeader extends StatelessWidget {
 
 class _DeepThinkPill extends StatelessWidget {
   final DeepThinkMode mode;
-  final VoidCallback onTap;
+  final ValueChanged<DeepThinkMode> onSelected;
 
-  const _DeepThinkPill({required this.mode, required this.onTap});
+  const _DeepThinkPill({required this.mode, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
-    final (label, tooltip) = switch (mode) {
-      DeepThinkMode.auto => ('Auto', 'Thinking: Auto — tap for deep reasoning'),
-      DeepThinkMode.on => (
-        'Deep',
-        'Thinking: Always on — tap for fast replies',
-      ),
-      DeepThinkMode.off => (
-        'Fast',
-        'Thinking: Off — tap for automatic thinking',
-      ),
+    final label = switch (mode) {
+      DeepThinkMode.auto => 'Auto',
+      DeepThinkMode.on => 'Deep',
+      DeepThinkMode.off => 'Fast',
     };
-    return Tooltip(
-      message: tooltip,
-      child: TextButton(
-        onPressed: onTap,
-        style: TextButton.styleFrom(
-          foregroundColor: mode == DeepThinkMode.on
-              ? AppColors.roseQuartz
-              : AppColors.textMuted,
-          textStyle: AppTypography.bodySmall().copyWith(
-            fontFamily: AppTypography.reading,
+    return PopupMenuButton<DeepThinkMode>(
+      tooltip: 'Reply mode: $label',
+      initialValue: mode,
+      onSelected: onSelected,
+      color: AppColors.silk,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusLg),
+      itemBuilder: (_) => [
+        for (final (value, title, description) in const [
+          (DeepThinkMode.auto, 'Auto', 'Let Motchi choose how much to think'),
+          (DeepThinkMode.on, 'Deep', 'Take more time for tricky questions'),
+          (DeepThinkMode.off, 'Fast', 'Keep replies quick and simple'),
+        ])
+          PopupMenuItem(
+            value: value,
+            child: Row(
+              children: [
+                Icon(
+                  value == mode ? Icons.check_rounded : Icons.remove_rounded,
+                  size: 18,
+                  color: value == mode
+                      ? AppColors.roseQuartz
+                      : AppColors.textMuted,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(title, style: AppTypography.bodyMedium()),
+                      Text(description, style: AppTypography.bodySmall()),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          minimumSize: const Size(64, 44),
-          visualDensity: VisualDensity.standard,
+      ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 64, minHeight: 48),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AppTypography.bodySmall().copyWith(
+                  fontFamily: AppTypography.reading,
+                  color: mode == DeepThinkMode.on
+                      ? AppColors.roseQuartz
+                      : AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 16,
+                color: AppColors.textMuted,
+              ),
+            ],
+          ),
         ),
-        child: Text(label),
       ),
     );
   }
@@ -165,6 +220,8 @@ class _GreetingEmptyState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const _MotchiAvatar(size: 56),
+              const SizedBox(height: 24),
               Text(
                 pet.isEmpty
                     ? 'What’s on your mind?'
@@ -187,7 +244,15 @@ class _GreetingEmptyState extends StatelessWidget {
                   height: 1.6,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              Text(
+                'Choose a starting point, then make it yours.',
+                style: AppTypography.bodySmall().copyWith(
+                  fontFamily: AppTypography.reading,
+                  color: AppColors.textMuted,
+                ),
+              ),
+              const SizedBox(height: 12),
               for (final (label, prompt, icon) in const [
                 (
                   'Pick a movie',
@@ -210,28 +275,35 @@ class _GreetingEmptyState extends StatelessWidget {
                   Icons.sports_esports_outlined,
                 ),
               ])
-                TextButton(
-                  onPressed: () => onTap(prompt),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textMedium,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    minimumSize: const Size.fromHeight(48),
-                    visualDensity: VisualDensity.standard,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.radiusSm,
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TextButton(
+                    onPressed: () => onTap(prompt),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textMedium,
+                      backgroundColor: AppColors.glassSoft,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      minimumSize: const Size.fromHeight(48),
+                      visualDensity: VisualDensity.standard,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppRadius.radiusSm,
+                      ),
+                      textStyle: AppTypography.bodyMedium().copyWith(
+                        fontFamily: AppTypography.reading,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                    textStyle: AppTypography.bodyMedium().copyWith(
-                      fontFamily: AppTypography.reading,
-                      fontWeight: FontWeight.w400,
+                    child: Row(
+                      children: [
+                        Icon(icon, size: 18, color: AppColors.textMuted),
+                        const SizedBox(width: 14),
+                        Expanded(child: Text(label)),
+                        const Icon(Icons.arrow_outward_rounded, size: 15),
+                      ],
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 18, color: AppColors.textMuted),
-                      const SizedBox(width: 14),
-                      Expanded(child: Text(label)),
-                      const Icon(Icons.arrow_outward_rounded, size: 15),
-                    ],
                   ),
                 ),
             ],
@@ -251,6 +323,7 @@ class _MessageBubble extends StatefulWidget {
   final bool isStreaming;
   final String? reasoning;
   final List<String> imageUrls;
+  final VoidCallback? onUseAsDraft;
   // Canvas toggle from the chat bar — when false the bubble stays plain
   // text (hidden blocks still stripped so raw JSON never shows).
   final bool showArtifacts;
@@ -269,6 +342,7 @@ class _MessageBubble extends StatefulWidget {
     this.isStreaming = false,
     this.reasoning,
     this.imageUrls = const [],
+    this.onUseAsDraft,
     this.showArtifacts = true,
     this.keepFullText = false,
   });

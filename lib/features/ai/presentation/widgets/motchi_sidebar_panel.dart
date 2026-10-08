@@ -6,6 +6,9 @@ class _SidebarPanel extends StatelessWidget {
   final ValueChanged<String> onQueryChanged;
   final List<AISession> sessions;
   final bool isLoading;
+  final bool historyFailed;
+  final String? switchingId;
+  final bool busy;
   final Map<String, List<AISession>> grouped;
   final String? activeId;
   final VoidCallback onNewChat;
@@ -21,6 +24,9 @@ class _SidebarPanel extends StatelessWidget {
     required this.onQueryChanged,
     required this.sessions,
     required this.isLoading,
+    required this.historyFailed,
+    required this.switchingId,
+    required this.busy,
     required this.grouped,
     required this.activeId,
     required this.onNewChat,
@@ -74,6 +80,26 @@ class _SidebarPanel extends StatelessWidget {
           _buildMotchiHub(context),
           _buildSearch(context),
           _buildHistoryHeader(),
+          if (historyFailed)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'History couldn’t load. Your current chat is still here.',
+                    style: AppTypography.bodySmall().copyWith(
+                      color: AppColors.textMedium,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: isLoading ? null : onRefresh,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: isLoading
                 ? Center(
@@ -83,7 +109,9 @@ class _SidebarPanel extends StatelessWidget {
                     ),
                   )
                 : sessions.isEmpty
-                ? _buildEmpty(query.isNotEmpty)
+                ? historyFailed
+                      ? const SizedBox.shrink()
+                      : _buildEmpty(query.isNotEmpty)
                 : _buildSessionList(),
           ),
           _buildFooter(bottomPad),
@@ -120,6 +148,8 @@ class _SidebarPanel extends StatelessWidget {
           ),
           IconButton(
             tooltip: 'Close sidebar',
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             onPressed: onClose,
             icon: const Icon(Icons.close_rounded, size: 20),
             color: AppColors.textMuted,
@@ -133,12 +163,13 @@ class _SidebarPanel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
       child: FilledButton.icon(
-        onPressed: onNewChat,
+        onPressed: busy ? null : onNewChat,
         icon: const Icon(Icons.add_rounded, size: 19),
         label: const Text('New conversation'),
         style: FilledButton.styleFrom(
           alignment: Alignment.centerLeft,
           minimumSize: const Size.fromHeight(48),
+          visualDensity: VisualDensity.standard,
           backgroundColor: AppColors.glassSoft,
           foregroundColor: AppColors.petalWhite,
           shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusSm),
@@ -217,6 +248,7 @@ class _SidebarPanel extends StatelessWidget {
           ),
           suffixIcon: query.isNotEmpty
               ? IconButton(
+                  tooltip: 'Clear search',
                   onPressed: () {
                     searchCtl.clear();
                     onQueryChanged('');
@@ -229,8 +261,8 @@ class _SidebarPanel extends StatelessWidget {
                   splashRadius: 14,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
+                    minWidth: 44,
+                    minHeight: 44,
                   ),
                 )
               : null,
@@ -310,7 +342,7 @@ class _SidebarPanel extends StatelessWidget {
           ],
           const Spacer(),
           IconButton(
-            onPressed: onRefresh,
+            onPressed: isLoading ? null : onRefresh,
             icon: Icon(
               Icons.refresh_rounded,
               color: AppColors.textMuted,
@@ -319,7 +351,8 @@ class _SidebarPanel extends StatelessWidget {
             tooltip: 'Refresh conversations',
             splashRadius: 16,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
           ),
         ],
       ),
@@ -361,8 +394,9 @@ class _SidebarPanel extends StatelessWidget {
               (session) => _SessionItem(
                 session: session,
                 isActive: session.id == activeId,
-                onTap: () => onSwitch(session),
-                onDelete: () => onDelete(session),
+                onTap: busy ? null : () => onSwitch(session),
+                onDelete: busy ? null : () => onDelete(session),
+                isLoading: switchingId == session.id,
               ),
             ),
             const SizedBox(height: 4),
