@@ -49,7 +49,8 @@ class _ThreeDotsState extends State<_ThreeDots>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
         !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
@@ -81,6 +82,7 @@ class _ThreeDotsState extends State<_ThreeDots>
                 child: Transform.scale(
                   scale: scale,
                   child: Container(
+                    key: ValueKey('motchi-thinking-dot-$i'),
                     width: 6,
                     height: 6,
                     decoration: const BoxDecoration(
@@ -129,7 +131,8 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
         !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
@@ -251,7 +254,8 @@ class _ReplyingBadgeState extends State<_ReplyingBadge>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
         !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
@@ -371,7 +375,8 @@ class _StreamingCaretState extends State<_StreamingCaret>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
         !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
@@ -392,6 +397,7 @@ class _StreamingCaretState extends State<_StreamingCaret>
       builder: (_, _) => Opacity(
         opacity: AppMotion.reduced ? 0.8 : (0.25 + 0.75 * _c.value),
         child: Container(
+          key: const ValueKey('motchi-streaming-caret'),
           width: 3,
           height: 14,
           decoration: BoxDecoration(
@@ -450,7 +456,8 @@ class _StreamingDotsWaveState extends State<_StreamingDotsWave>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
         !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {

@@ -268,6 +268,21 @@ void main() {
         find.text('Synthetic planning notes.', findRichText: true),
         findsWidgets,
       );
+      double toolPulse() => tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(
+                    const ValueKey('motchi-tool-pulse-search_movies'),
+                  ),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+      final pulseBefore = toolPulse();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(toolPulse(), isNot(closeTo(pulseBefore, 0.001)));
       final toggle = find.widgetWithText(TextButton, "Motchi's thoughts…");
       expect(tester.getSize(toggle).height, greaterThanOrEqualTo(48));
       final notesBox = tester.renderObject<RenderBox>(
@@ -300,6 +315,9 @@ void main() {
         tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
       );
       await tester.pump();
+      final reducedPulse = toolPulse();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(toolPulse(), reducedPulse);
       await tester.tap(toggle);
       await tester.pump();
       final reducedNotes = find.text(
@@ -983,71 +1001,108 @@ void main() {
     });
   }
 
-  testWidgets('a reply in flight keeps a visible, moving answering glow', (
-    tester,
-  ) async {
-    const halo = ValueKey('motchi-answering-halo');
-    Color haloAlphaAt(WidgetTester t) {
-      final box =
-          t.widget<Container>(find.byKey(halo)).decoration! as BoxDecoration;
-      return (box.gradient! as RadialGradient).colors.first;
-    }
+  for (final width in [430.0, 810.0]) {
+    testWidgets('active reply indicators animate at ${width.toInt()}px', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const halo = ValueKey('motchi-answering-halo');
+      double opacityAt(String key) => tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(ValueKey(key)),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+      Color haloAlphaAt(WidgetTester t) {
+        final box =
+            t.widget<Container>(find.byKey(halo)).decoration! as BoxDecoration;
+        return (box.gradient! as RadialGradient).colors.first;
+      }
 
-    final ai = _StreamingAIService(
-      memoryRepo: _FakeMemoryRepo(),
-      conversationRepo: _FakeConversationRepo(
-        AIConversation(
-          id: 'assistant',
-          feature: 'assistant',
-          messages: [
-            AIMessage(role: 'user', content: 'What are the brackets?'),
-          ],
+      final ai = _StreamingAIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: _FakeConversationRepo(
+          AIConversation(
+            id: 'assistant',
+            feature: 'assistant',
+            messages: [
+              AIMessage(role: 'user', content: 'What are the brackets?'),
+            ],
+          ),
         ),
-      ),
-    );
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AIService>.value(value: ai),
-          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
-        ],
-        child: const MaterialApp(home: MotchiScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: const MaterialApp(home: MotchiScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
 
-    // Before any text: the thinking header still breathes and shows thinking badge.
-    expect(find.byKey(halo), findsOneWidget);
-    expect(find.text('thinking'), findsOneWidget);
-    final beforeText = haloAlphaAt(tester).a;
-    await tester.pump(const Duration(milliseconds: 1100));
-    expect(
-      haloAlphaAt(tester).a,
-      isNot(closeTo(beforeText, 0.001)),
-      reason: 'the halo must animate, not sit still',
-    );
+      // Before any text: the thinking header still breathes and shows thinking badge.
+      expect(find.byKey(halo), findsOneWidget);
+      expect(find.text('thinking'), findsOneWidget);
+      final beforeText = haloAlphaAt(tester).a;
+      final beforeDots = opacityAt('motchi-thinking-dot-0');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        opacityAt('motchi-thinking-dot-0'),
+        isNot(closeTo(beforeDots, 0.001)),
+      );
+      expect(
+        haloAlphaAt(tester).a,
+        isNot(closeTo(beforeText, 0.001)),
+        reason: 'the halo must animate, not sit still',
+      );
 
-    ai.stream('Let me check the bracket draw.');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    // Mid-reply the glow is still there, replying badge shows, and the text
-    // is never hidden behind an entrance fade that has not run yet.
-    expect(find.byKey(halo), findsOneWidget);
-    expect(find.text('replying'), findsOneWidget);
-    expect(find.text('thinking'), findsNothing);
-    expect(
-      find.textContaining('Let me check the bracket draw.'),
-      findsOneWidget,
-    );
-    final midway = haloAlphaAt(tester).a;
-    await tester.pump(const Duration(milliseconds: 900));
-    expect(haloAlphaAt(tester).a, isNot(closeTo(midway, 0.001)));
-    expect(tester.takeException(), isNull);
+      ai.stream('Let me check the bracket draw.');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      // Mid-reply the glow is still there, replying badge shows, and the text
+      // is never hidden behind an entrance fade that has not run yet.
+      expect(find.byKey(halo), findsOneWidget);
+      expect(find.text('replying'), findsOneWidget);
+      expect(find.text('thinking'), findsNothing);
+      expect(
+        find.textContaining('Let me check the bracket draw.'),
+        findsOneWidget,
+      );
+      final midway = haloAlphaAt(tester).a;
+      final caret = opacityAt('motchi-streaming-caret');
+      await tester.pump(const Duration(milliseconds: 180));
+      expect(haloAlphaAt(tester).a, isNot(closeTo(midway, 0.001)));
+      expect(opacityAt('motchi-streaming-caret'), isNot(closeTo(caret, 0.001)));
 
-    // The tree comes down before dispose: a disposed notifier must not
-    // still have listeners attached.
-    await tester.pumpWidget(const SizedBox.shrink());
-    ai.dispose();
-  });
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      final reducedHalo = haloAlphaAt(tester).a;
+      final reducedCaret = opacityAt('motchi-streaming-caret');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(haloAlphaAt(tester).a, reducedHalo);
+      expect(opacityAt('motchi-streaming-caret'), reducedCaret);
+      expect(tester.takeException(), isNull);
+
+      // The tree comes down before dispose: a disposed notifier must not
+      // still have listeners attached.
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    });
+  }
 }

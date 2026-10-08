@@ -1,6 +1,5 @@
 part of 'motchi_screen.dart';
 
-/// Active actions wrap so every running tool remains visible on a phone.
 // Zero-duration AnimatedSize can notify layout while it is still laying out.
 class _MotchiAnimatedSize extends StatelessWidget {
   const _MotchiAnimatedSize({required this.child});
@@ -78,7 +77,8 @@ class _ToolStatusChipState extends State<_ToolStatusChip>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) ||
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
         !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
@@ -114,6 +114,7 @@ class _ToolStatusChipState extends State<_ToolStatusChip>
               builder: (_, _) => Opacity(
                 opacity: 0.45 + 0.55 * _c.value,
                 child: Container(
+                  key: ValueKey('motchi-tool-pulse-${widget.status}'),
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(

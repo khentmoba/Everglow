@@ -166,3 +166,26 @@ without a size-animation render object. The regression verifies notes appear
 and disappear after a single pump, with no AnimatedSize ancestor and no
 exception; normal-motion intermediate-height assertions remain unchanged.
 Linux Chrome confirmation of this fix is pending.
+
+Phone activity motion correction: the thinking dots, answering avatar, reply
+badge, streaming caret/wave and tool-status pulse previously called
+AppMotion.reduceAmbientMotion, which unconditionally freezes phone viewports.
+They now honor app/platform reduced motion and TickerMode without freezing
+active reply feedback based on screen size.
+
+Disposable Chrome, synthetic release fixture, DPR 1: captured 14 frames with
+120ms waits between captures at 430x900 and 810x900. The previous phone build's
+first/eleventh frames were pixel-identical with reduced motion off. Updated
+phone frame changes were bounded to (10,233)-(220,421); tablet changes to
+(42,236)-(459,374), covering active indicators. With prefers-reduced-motion
+emulated as reduce, updated phone frames were pixel-identical. Screens were
+inspected and show synthetic chat/tool activity, not a gateway or private data.
+The old fixture includes synthetic thought notes; the new fixture omits those,
+so pixel comparisons are within each recording, not between different fixtures.
+
+motion-phone.png is the inspected new phone screenshot. motion-phone.gif is
+that same capture sequence replayed at 150ms per frame (sampled proof, not a
+frame-rate measurement). The temporary entry point and capture script were
+removed. Linux Chrome regressions now check thinking-dot/halo/caret motion at
+430 and 810px, the tool pulse at 320px, and reduced-motion stillness. Browser CI
+confirmation remains pending; the synthetic release build and analysis passed.
