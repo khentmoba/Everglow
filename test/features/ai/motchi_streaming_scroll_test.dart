@@ -222,6 +222,12 @@ void main() {
   testWidgets(
     'running actions wrap and thoughts can be collapsed on a small phone',
     (tester) async {
+      final originalOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        debugPrintSynchronously(details.toString());
+        originalOnError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = originalOnError);
       tester.view.physicalSize = const Size(320, 900);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);

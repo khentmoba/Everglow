@@ -125,3 +125,13 @@ clicked and its content collapsed. A 320px/1.6x text receipt regression passes.
 Regular tests: 1,534 passed. All 15 guards and analysis passed. New Chrome
 regressions cover wrapped tools/thoughts and source layout/invalid links; Linux CI
 must verify those before this update leaves draft. No backend behavior changed.
+
+Quality run 37851963595 passed regular tests, guards, analysis, release build,
+agent smoke and deployment. Its Chrome suite passed 25 tests; only the new
+320px/1.6x active-tools/thoughts test failed, and the reporter omitted the
+underlying exception. The same synthetic release state was checked locally
+at those exact dimensions/text scaling: all three tool labels appeared, the
+thoughts target measured 48px, clicking it collapsed the notes, and no layout
+error appeared in the browser console. The failing test now logs Flutter
+exceptions synchronously, with all assertions unchanged, to obtain the missing
+CI diagnostic. This local check does not substitute for a passing Chrome test.
