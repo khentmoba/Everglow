@@ -64,3 +64,12 @@ post-frame scroll callback and the first animation tick separate frames before
 advancing the 300 ms animation. The bottom-position assertion is unchanged,
 and a further streamed chunk must remain followed. Browser confirmation is
 pending the next Linux CI run.
+
+Run 37842106545 revealed the second issue: after the scroll reached its
+estimated bottom (3729), newly laid-out rows revised the maximum to 5969.
+Motchi now follows scroll-metrics changes while following is active, suppresses
+user-away detection during its own movement, and lets user scrolling interrupt
+the animation. The regression now runs at 430, 810 and 1280 CSS pixels and
+requires both a completed jump and continued following of the next chunk.
+That run also had a separate Chrome-startup failure after successful release
+compilation; the completed web job was retried without changing the harness.

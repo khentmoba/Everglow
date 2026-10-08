@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -59,6 +60,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
   bool _conversationFailed = false;
   bool _startingChat = false;
   bool _userScrolledUp = false;
+  bool _scrollingToBottom = false;
   DeepThinkMode _deepThinkMode = DeepThinkMode.auto;
   // Canvas toggle — when off, Motchi just chats normally instead of making
   // interactive quizzes / cards / games proactively. Defaults OFF so quick
@@ -145,9 +147,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   void _onScroll() {
-    _userScrolledUp =
-        _scroll.hasClients &&
-        _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
+    if (!_scrollingToBottom) {
+      _userScrolledUp =
+          _scroll.hasClients &&
+          _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
+    }
     final show =
         _scroll.hasClients &&
         _scroll.position.maxScrollExtent - _scroll.position.pixels > 300;
@@ -257,16 +261,22 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   void _scrollToBottom({bool animated = true}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       if (_scroll.hasClients) {
+        _scrollingToBottom = true;
         if (animated) {
-          _scroll.animateTo(
+          await _scroll.animateTo(
             _scroll.position.maxScrollExtent,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
           );
+          if (!mounted || !_scrollingToBottom) return;
+          _scrollingToBottom = false;
+          if (!_userScrolledUp) _scrollToBottom(animated: false);
         } else {
           _scroll.jumpTo(_scroll.position.maxScrollExtent);
+          _scrollingToBottom = false;
         }
       }
     });
@@ -791,7 +801,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
             );
 
             if (centered) {
-              return ScrollConfiguration(
+              list = ScrollConfiguration(
                 behavior: ScrollConfiguration.of(
                   context,
                 ).copyWith(scrollbars: true),
@@ -802,7 +812,27 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 ),
               );
             }
-            return list;
+            return NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is UserScrollNotification &&
+                    notification.direction != ScrollDirection.idle) {
+                  _scrollingToBottom = false;
+                  _onScroll();
+                }
+                return false;
+              },
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: (notification) {
+                  if (!_userScrolledUp &&
+                      !_scrollingToBottom &&
+                      notification.metrics.extentAfter > 1) {
+                    _scrollToBottom(animated: false);
+                  }
+                  return false;
+                },
+                child: list,
+              ),
+            );
           },
         ),
         if (_showScrollButton)
