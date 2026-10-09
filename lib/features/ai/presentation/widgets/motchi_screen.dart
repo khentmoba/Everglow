@@ -220,12 +220,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
             textColor: AppColors.blushGold,
             onPressed: () {
               final message = _restoreMessage(last);
-              if (message.isNotEmpty) {
-                context.read<AIService>().sendMessage(
-                  feature: 'assistant',
-                  message: message,
-                );
-              }
+              if (message.isNotEmpty) _sendQuick(message);
             },
           ),
         ),
@@ -284,7 +279,13 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   Future<void> _send({bool retry = false}) async {
-    if (_isSending || _conversationLoading || _conversationFailed) return;
+    if (_isSending ||
+        _conversationLoading ||
+        _conversationFailed ||
+        _startingChat ||
+        context.read<AIService>().isNavigating) {
+      return;
+    }
     final lastReply = context
         .read<AIService>()
         .assistantConversation
@@ -370,6 +371,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   void _sendQuick(String text) {
+    if (_startingChat || context.read<AIService>().isNavigating) return;
     _input.text = text;
     _send();
   }
@@ -427,6 +429,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
   void _newChat() async {
     final ai = context.read<AIService>();
     if (ai.isLoading ||
+        ai.isNavigating ||
         _isSending ||
         _startingChat ||
         _conversationLoading ||
@@ -499,6 +502,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+    final navigating = context.select<AIService, bool>((ai) => ai.isNavigating);
     final isPreview = context.select<AuthService, bool>(
       (auth) => auth.isAgentSession,
     );
@@ -537,7 +541,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                         setState(() => _isSidebarOpen = false),
                                     onNewChat: _newChat,
                                     navigationBusy:
-                                        _conversationLoading || _startingChat,
+                                        _conversationLoading ||
+                                        _startingChat ||
+                                        navigating,
                                     onSessionOpened: _onSessionOpened,
                                   ),
                                 ),
@@ -560,6 +566,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                               ),
                               onNewChat:
                                   loading ||
+                                      navigating ||
                                       _startingChat ||
                                       _conversationLoading ||
                                       _conversationFailed
@@ -604,7 +611,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                 !isPreview &&
                                 !_conversationLoading &&
                                 !_conversationFailed &&
-                                !_startingChat,
+                                !_startingChat &&
+                                !navigating,
                             controller: _input,
                             focusNode: _focusNode,
                             onSend: _send,
@@ -632,7 +640,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 isOpen: _isSidebarOpen,
                 onClose: () => setState(() => _isSidebarOpen = false),
                 onNewChat: _newChat,
-                navigationBusy: _conversationLoading || _startingChat,
+                navigationBusy:
+                    _conversationLoading || _startingChat || navigating,
                 onSessionOpened: _onSessionOpened,
               ),
           ],
@@ -701,6 +710,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
             final callerName = context.read<AuthService>().currentUser;
             final allMsgs = snapshot.$1?.messages ?? const <AIMessage>[];
             final loading = snapshot.$3;
+            final busy = loading || ai.isNavigating || _startingChat;
 
             if (allMsgs.isEmpty && !loading) {
               return _GreetingEmptyState(
@@ -796,7 +806,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       userAskedForVisibleQuiz(_prevUserText(allMsgs, i)),
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
-                  onUseAsDraft: isUserMsg && !loading && msg.content.isNotEmpty
+                  onUseAsDraft: isUserMsg && !busy && msg.content.isNotEmpty
                       ? () => _preparePrompt(msg.content)
                       : null,
                 );
@@ -828,8 +838,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                           details: msg.details,
                           onOpenMemoryBook: () =>
                               context.push('/motchi-memory'),
-                          onCorrectMemory: loading ? null : _sendQuick,
-                          onContinue: loading
+                          onCorrectMemory: busy ? null : _sendQuick,
+                          onContinue: busy
                               ? null
                               : () => _sendQuick(
                                   'Help finish only the unfinished steps from this request: ${_prevUserText(allMsgs, i)}. Check existing records for any unconfirmed action first; do not repeat completed saves or sends.',

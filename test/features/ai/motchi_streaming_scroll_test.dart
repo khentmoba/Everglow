@@ -12,6 +12,7 @@ import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/features/ai/domain/memory/memory_fact.dart';
 import 'package:everglow/features/ai/domain/models/ai_conversation.dart';
+import 'package:everglow/features/ai/domain/motchi_reply_details.dart';
 import 'package:everglow/features/ai/domain/repositories/ai_conversation_repo_interface.dart';
 import 'package:everglow/features/ai/domain/repositories/ai_memory_repo_interface.dart';
 import 'package:everglow/features/ai/presentation/widgets/motchi_screen.dart';
@@ -28,6 +29,10 @@ class _FakeConversationRepo implements IAIConversationRepository {
   AIConversation? conversation;
   bool failAssistant = false;
   Completer<void>? assistantGate;
+  Completer<void>? sessionGate;
+  Completer<void>? clearGate;
+  AIConversation? archivedConversation;
+  List<AISession> sessions = [];
 
   @override
   AIConversation? get assistant => conversation;
@@ -55,6 +60,7 @@ class _FakeConversationRepo implements IAIConversationRepository {
 
   @override
   Future<void> clear(String feature, {bool archive = true}) async {
+    await clearGate?.future;
     if (feature == 'assistant') {
       conversation = AIConversation(id: feature, feature: feature);
     }
@@ -70,14 +76,17 @@ class _FakeConversationRepo implements IAIConversationRepository {
   void startFresh() => conversation = null;
 
   @override
-  Future<List<AISession>> listSessions({int limit = 50}) async => const [];
+  Future<List<AISession>> listSessions({int limit = 50}) async => sessions;
 
   @override
   Stream<List<AISession>> watchSessions({int limit = 50}) =>
-      const Stream.empty();
+      Stream.value(sessions);
 
   @override
-  Future<void> loadSession(String sessionId) async {}
+  Future<void> loadSession(String sessionId) async {
+    await sessionGate?.future;
+    if (archivedConversation != null) conversation = archivedConversation;
+  }
 
   @override
   Future<void> deleteSession(String sessionId) async {}
@@ -164,12 +173,14 @@ class _PreviewAuthService extends _FakeAuthService {
 }
 
 class _InteractionAIService extends AIService {
-  _InteractionAIService()
+  _InteractionAIService({_FakeConversationRepo? conversationRepo})
     : super(
         memoryRepo: _FakeMemoryRepo(),
-        conversationRepo: _FakeConversationRepo(
-          AIConversation(id: 'demo', feature: 'assistant'),
-        ),
+        conversationRepo:
+            conversationRepo ??
+            _FakeConversationRepo(
+              AIConversation(id: 'demo', feature: 'assistant'),
+            ),
       );
 
   String reasoning = '';
@@ -256,6 +267,174 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('history opening locks the main chat after the drawer closes', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final width in [430.0, 810.0, 1280.0]) {
+      tester.view.physicalSize = Size(width, 900);
+      final oldConversation = AIConversation(
+        id: 'demo',
+        feature: 'assistant',
+        messages: [
+          AIMessage(role: 'user', content: 'Current question'),
+          AIMessage(role: 'assistant', content: 'Current answer'),
+        ],
+      );
+      final archived = AIConversation(
+        id: 'demo',
+        feature: 'assistant',
+        messages: [
+          AIMessage(role: 'user', content: 'Archived question'),
+          AIMessage(role: 'assistant', content: 'Archived answer'),
+        ],
+      );
+      final repo = _FakeConversationRepo(oldConversation)
+        ..sessionGate = Completer<void>()
+        ..archivedConversation = archived
+        ..sessions = [
+          AISession(
+            id: 'archived',
+            feature: 'assistant',
+            messageCount: 2,
+            hasSummary: false,
+            summary: null,
+            createdAt: DateTime.now(),
+            title: 'Saved movie night',
+          ),
+        ];
+      final ai = _InteractionAIService(conversationRepo: repo);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: MaterialApp(
+            key: ValueKey(width),
+            theme: AppTheme.gamifiedTheme,
+            home: const MotchiScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final originalId = ai.currentSessionId;
+      if (width < 1024) {
+        await tester.tap(find.byTooltip('History'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Saved movie night'));
+      await tester.pump();
+      expect(ai.isNavigating, isTrue);
+      expect(ai.currentSessionId, originalId);
+      if (width < 1024) {
+        await tester.tap(find.byTooltip('Close sidebar'));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      final field = tester.widget<TextField>(find.byType(TextField).first);
+      expect(field.enabled, isFalse);
+      field.controller!.text = 'Keep this draft';
+      await tester.pump();
+      for (final tooltip in ['Send message', 'New chat']) {
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byWidgetPredicate(
+                  (w) => w is IconButton && w.tooltip == tooltip,
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+      }
+      expect(ai.requests, isEmpty);
+      repo.sessionGate!.complete();
+      await tester.pumpAndSettle();
+      expect(ai.isNavigating, isFalse);
+      expect(ai.currentSessionId, 'archived');
+      expect(
+        find.widgetWithText(SelectableText, 'Archived question'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).enabled,
+        isTrue,
+      );
+      expect(field.controller!.text, 'Keep this draft');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    }
+  });
+
+  testWidgets('new chat also locks old reply actions during its reset', (
+    tester,
+  ) async {
+    final conversation = AIConversation(
+      id: 'demo',
+      feature: 'assistant',
+      messages: [
+        AIMessage(role: 'user', content: 'Save an evening plan'),
+        AIMessage(
+          role: 'assistant',
+          content: 'The save needs another try.',
+          details: const MotchiReplyDetails(
+            steps: [
+              {'tool': 'add_calendar_event', 'status': 'failed', 'write': true},
+            ],
+          ),
+        ),
+      ],
+    );
+    final repo = _FakeConversationRepo(conversation)
+      ..clearGate = Completer<void>();
+    final ai = _InteractionAIService(conversationRepo: repo);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.gamifiedTheme,
+          home: const MotchiScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final continueAction = tester
+        .widget<TextButton>(
+          find.widgetWithText(TextButton, 'Help finish unfinished steps'),
+        )
+        .onPressed!;
+    await tester.tap(find.byTooltip('New chat'));
+    await tester.pump();
+    expect(ai.isNavigating, isTrue);
+    expect(find.text('Help finish unfinished steps'), findsNothing);
+    continueAction();
+    await tester.pump();
+    expect(ai.requests, isEmpty);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isFalse,
+    );
+    repo.clearGate!.complete();
+    await tester.pumpAndSettle();
+    expect(ai.isNavigating, isFalse);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isTrue,
+    );
+    expect(find.text('Save an evening plan'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    ai.dispose();
+  });
 
   testWidgets(
     'mic starts prefixed browser speech and stops into an editable draft',

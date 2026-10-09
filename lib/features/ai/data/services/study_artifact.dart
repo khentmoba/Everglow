@@ -361,12 +361,13 @@ String _normTag(String tag) {
 }
 
 // Recover complete HTML pages when the model omits the artifact fence.
+// A doctype page may omit outer HTML tags; require a closed body instead.
 final _standaloneHtmlStart = RegExp(
   r'(?:^|\n)[ \t]*(?:```[ \t]*\r?\n[ \t]*)?(?:<!doctype\s+html\b|<html\b)',
   caseSensitive: false,
 );
 final _standaloneHtmlPage = RegExp(
-  r'(?:^|\n)[ \t]*(?:```[ \t]*\r?\n[ \t]*)?((?:<!doctype\s+html\b[^>]*>\s*)?<html\b[\s\S]*?</html\s*>)[ \t]*(?:\r?\n[ \t]*```[ \t]*(?=\r?\n|$))?',
+  r'(?:^|\n)[ \t]*(?:```[ \t]*\r?\n[ \t]*)?((?:<!doctype\s+html\b[^>]*>\s*)?<html\b[\s\S]*?</html\s*>|<!doctype\s+html\b[^>]*>[\s\S]*?<body\b[^>]*>[\s\S]*?</body\s*>(?:\s*</html\s*>)?)[ \t]*(?:\r?\n[ \t]*```[ \t]*(?=\r?\n|$))?',
   caseSensitive: false,
 );
 

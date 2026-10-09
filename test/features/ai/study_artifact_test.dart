@@ -248,6 +248,60 @@ A: Yes.
       },
     );
 
+    const doctypePage =
+        '<!DOCTYPE html><head><title>Game</title></head>'
+        '<body><button>Play</button></body>';
+
+    test('recovers a doctype page with omitted outer HTML tags', () {
+      final reply = 'Your game is ready!\n$doctypePage';
+      final artifacts = parseStudyArtifacts(reply);
+      expect(artifacts.html, hasLength(1));
+      expect(artifacts.html.single.title, 'Game');
+      expect(artifacts.html.single.html, doctypePage);
+      expect(stripArtifactBlocks(reply), 'Your game is ready!');
+      expect(stripStreamingArtifacts(reply), 'Your game is ready!');
+    });
+
+    test('consumes optional HTML end tags and unlabeled fences', () {
+      for (final html in [
+        '$doctypePage</html>',
+        doctypePage.replaceFirst('<head>', '<html><head>'),
+        doctypePage.replaceFirst('</body>', '</BODY >'),
+      ]) {
+        final reply = 'Ready!\n```\n$html\n```\nHave fun!';
+        expect(parseStudyArtifacts(reply).html.single.html, html);
+        expect(stripArtifactBlocks(reply), 'Ready!\nHave fun!');
+      }
+    });
+
+    test('does not recover a doctype page until its body closes', () {
+      for (final html in [
+        '<!DOCTYPE html><head><title>Game</title></head>',
+        doctypePage.replaceFirst('</body>', ''),
+        doctypePage.replaceFirst('</body>', '</body'),
+        doctypePage.replaceFirst('</body>', '</bodyguard>'),
+      ]) {
+        final draft = 'Making your game.\n$html';
+        expect(parseStudyArtifacts(draft).html, isEmpty);
+        expect(stripStreamingArtifacts(draft), 'Making your game.');
+        expect(stripArtifactBlocks(draft), 'Making your game.');
+      }
+    });
+
+    test('keeps doctype pages in explicit non-artifact code fences', () {
+      final example = 'Source example:\n```text\n$doctypePage\n```';
+      expect(parseStudyArtifacts(example).html, isEmpty);
+      expect(stripArtifactBlocks(example), example);
+      expect(stripStreamingArtifacts(example), example);
+    });
+
+    test('still caps recovered doctype pages', () {
+      final oversized = doctypePage.replaceFirst('Play', 'x' * kMaxHtmlChars);
+      final reply = 'Ready!\n$oversized';
+      expect(parseStudyArtifacts(reply).html, isEmpty);
+      expect(stripArtifactBlocks(reply), 'Ready!');
+    });
+
     test('hides unfinished unfenced pages during streaming', () {
       expect(
         stripStreamingArtifacts(

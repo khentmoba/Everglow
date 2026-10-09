@@ -212,7 +212,10 @@ class _MotchiSidebarState extends State<MotchiSidebar>
   }
 
   Future<void> _switchSession(AISession session) async {
-    if (widget.navigationBusy || _switchingId != null || _ai?.isLoading == true) {
+    if (widget.navigationBusy ||
+        _switchingId != null ||
+        _ai?.isLoading == true ||
+        _ai?.isNavigating == true) {
       return;
     }
     if (session.id == '__live__') {
@@ -245,7 +248,10 @@ class _MotchiSidebarState extends State<MotchiSidebar>
   }
 
   Future<void> _deleteSession(AISession session) async {
-    if (widget.navigationBusy || _switchingId != null || _ai?.isLoading == true) {
+    if (widget.navigationBusy ||
+        _switchingId != null ||
+        _ai?.isLoading == true ||
+        _ai?.isNavigating == true) {
       return;
     }
     final confirmed = await showDialog<bool>(
@@ -429,7 +435,8 @@ class _MotchiSidebarState extends State<MotchiSidebar>
         busy:
             widget.navigationBusy ||
             _switchingId != null ||
-            _ai?.isLoading == true,
+            _ai?.isLoading == true ||
+            _ai?.isNavigating == true,
         grouped: _groupByDate(_filtered),
         activeId: _activeSessionId,
         onNewChat: widget.onNewChat,
@@ -512,7 +519,8 @@ class _MotchiSidebarState extends State<MotchiSidebar>
                         busy:
                             widget.navigationBusy ||
                             _switchingId != null ||
-                            _ai?.isLoading == true,
+                            _ai?.isLoading == true ||
+                            _ai?.isNavigating == true,
                         grouped: _groupByDate(_filtered),
                         activeId: _activeSessionId,
                         onNewChat: widget.onNewChat,
