@@ -252,8 +252,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
       barrierLabel: 'Close details',
       barrierColor: Colors.black.withValues(alpha: 0.65),
       transitionDuration: const Duration(milliseconds: 320),
-      pageBuilder: (context, _, _) =>
-          EpisodeDrawer(item: drawerItem, cinemaVariant: true),
+      pageBuilder: (context, _, _) => EpisodeDrawer(
+        item: drawerItem,
+        cinemaVariant: true,
+        topTenRank: topTenRankFor(_topTenToday, item),
+        topTenItems: _topTenToday,
+      ),
       transitionBuilder: (context, animation, _, child) {
         final offset =
             Tween<Offset>(

@@ -372,8 +372,11 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) =>
-          EpisodeDrawer(item: item, cinemaVariant: widget.cinemaVariant),
+      builder: (context) => EpisodeDrawer(
+        item: item,
+        cinemaVariant: widget.cinemaVariant,
+        topTenRank: topTenRankFor(widget.topTenItems ?? const [], item),
+      ),
     );
   }
 
