@@ -133,3 +133,32 @@ installed metadata is active. Normal user UI does not show this control.
 Keep the PR draft pending device measurements and a verified correction.
 Chromium cannot prove iOS system-bar behavior. Both-edge bleed, physical
 keyboard, and rotation remain unresolved on the reported iPhone.
+
+## Installation correction after the missing-toolbar screenshot
+
+The private iPhone screenshot has no demo HUD and shows normal account progress.
+It also shows a distinct bottom strip; the background appears behind the status
+icons. This does not establish which commit or browser bounds the icon used.
+Do not copy the screenshot or account progress into this public repository.
+
+The normal manifest has `start_url: "."`, which drops demo query parameters on
+installed launch. Saved Safari demo preferences were an unreliable prerequisite
+for reaching the measurement panel. An explicit `screencheck=1` link now selects
+`manifest_screen.json` and the name **Everglow screen test**. That separate
+manifest's launch URL always includes `agent=dashboard&screencheck=1`, so it
+activates demo mode without transferred Safari preferences. Normal installs
+retain the original manifest and start URL. Both manifests bypass worker caching
+and revalidate hosting responses.
+
+The bootstrap regression checks ordinary/agent-only/screen-test selection and
+the demo launch parameters. Nine bootstrap tests, all 1,531 VM/widget tests,
+and all 14 worker tests (zero skipped, real Chrome offline boot included)
+passed. Analysis has zero issues; all 15 listed Dart guards passed.
+`flutter build web --release --no-pub` passed. In T3 Chromium at 430 x 932,
+cleared only the isolated local demo browser's state, then opened the screen-test
+launch URL. Verified the selected manifest, its explicit demo launch URL, and
+the install title **Everglow screen test**; the demo Dashboard and Screen edges
+panel appeared without prior preferences. The refreshed proof image is from
+that launch. This tests manifest selection and fresh-session launch, not iOS
+installation. A physical iPhone launch is still required to verify the system
+areas and the new installation flow.

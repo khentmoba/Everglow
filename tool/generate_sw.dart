@@ -60,7 +60,7 @@ const PRECACHE=["/index.html"];
 // version probes and Cloud Functions. Only HTML and boot loaders have an
 // offline cache fallback; /api/*, manifests and worker scripts never do.
 const BOOT_LOADERS=["/flutter_bootstrap.js","/flutter.js"];
-const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json"];
+const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json","/manifest_screen.json"];
 function isNoStore(path) {
   if (path.startsWith("/api/")) return true;
   for (const n of NO_STORE) if (path === n) return true;

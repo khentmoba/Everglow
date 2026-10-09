@@ -39,6 +39,13 @@
 
   <title>Everglow</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // A screen-test icon must reopen demo mode even with fresh iOS storage.
+    if (new URLSearchParams(window.location.search).get('screencheck') === '1') {
+      document.querySelector('link[rel="manifest"]').href = 'manifest_screen.json';
+      document.querySelector('meta[name="apple-mobile-web-app-title"]').content = 'Everglow screen test';
+    }
+  </script>
 
   <!-- Early connections: Flutter + Firebase backends first (critical path).
        Media CDNs are NOT preconnected here on purpose — model-viewer/HLS

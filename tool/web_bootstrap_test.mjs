@@ -7,6 +7,26 @@ const source = readFileSync(new URL('../web/flutter_bootstrap.js', import.meta.u
   .replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');
 const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 
+test('screen-test installation keeps demo activation in its launch URL', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../web/manifest_screen.json', import.meta.url), 'utf8'));
+  const launch = new URL(manifest.start_url, 'https://preview.example/');
+  assert.equal(launch.searchParams.get('agent'), 'dashboard');
+  assert.equal(launch.searchParams.get('screencheck'), '1');
+  assert.equal(manifest.display, 'standalone');
+  const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .find(match => match[1].includes("href = 'manifest_screen.json'"))[1];
+  for (const [search, expected] of [['', 'manifest.json'], ['?agent=dashboard', 'manifest.json'], ['?agent=dashboard&screencheck=1', 'manifest_screen.json']]) {
+    const link = {href: 'manifest.json'};
+    const title = {content: 'Everglow'};
+    vm.runInNewContext(script, {
+      URLSearchParams, window: {location: {search}},
+      document: {querySelector: selector => selector.startsWith('link') ? link : title},
+    });
+    assert.equal(link.href, expected);
+    assert.equal(title.content, expected === 'manifest.json' ? 'Everglow' : 'Everglow screen test');
+  }
+});
+
 function boot(standalone, hasHost = true) {
   const listeners = {};
   const host = {style: {}};
