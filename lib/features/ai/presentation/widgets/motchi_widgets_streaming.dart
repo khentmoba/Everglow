@@ -669,27 +669,57 @@ class _ComposerInputState extends State<_ComposerInput> {
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
+    _bridge.cancelRecognition();
     super.dispose();
   }
 
   Future<void> _startVoice() async {
-    if (!_bridge.isSpeechSupported || _isListening) return;
+    if (_isListening) {
+      _bridge.stopRecognition();
+      return;
+    }
+    if (!_bridge.isSpeechSupported) {
+      widget.focusNode.requestFocus();
+      _voiceNotice('Use the microphone on your keyboard to dictate.');
+      return;
+    }
     setState(() => _isListening = true);
     try {
       final result = await _bridge.recognizeOnce(lang: 'en-US');
-      if (result != null && result.trim().isNotEmpty && mounted) {
+      if (!mounted) return;
+      if (result != null && result.trim().isNotEmpty) {
         final current = widget.controller.text;
         final next = current.isEmpty
             ? result.trim()
             : '$current ${result.trim()}';
-        widget.controller.text = next;
-        widget.controller.selection = TextSelection.fromPosition(
-          TextPosition(offset: next.length),
+        widget.controller.value = TextEditingValue(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
         );
+      } else {
+        _voiceNotice('No speech caught. Try again or use keyboard dictation.');
       }
+    } catch (error) {
+      Logger.e('Motchi voice input failed', error: error);
+      if (!mounted) return;
+      final denied =
+          error is StateError &&
+          (error.message == 'not-allowed' ||
+              error.message == 'service-not-allowed');
+      _voiceNotice(
+        denied
+            ? 'Allow microphone and speech access, then try again. Keyboard dictation works too.'
+            : 'Speech input is unavailable here. Try Safari with Siri enabled, or use keyboard dictation.',
+      );
     } finally {
       if (mounted) setState(() => _isListening = false);
     }
+  }
+
+  void _voiceNotice(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _onTextChanged() {
@@ -705,7 +735,9 @@ class _ComposerInputState extends State<_ComposerInput> {
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
         final canSend =
-            widget.enabled && (_hasText || widget.attachedImages.isNotEmpty);
+            widget.enabled &&
+            !_isListening &&
+            (_hasText || widget.attachedImages.isNotEmpty);
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 752),
@@ -772,6 +804,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                             !HardwareKeyboard.instance.isShiftPressed &&
                             !widget.controller.value.isComposingRangeValid &&
                             !isLoading &&
+                            !_isListening &&
                             canSend) {
                           widget.onSend();
                           return KeyEventResult.handled;
@@ -814,6 +847,20 @@ class _ComposerInputState extends State<_ComposerInput> {
                               ),
                             ),
                           ),
+                          if (_isListening)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              child: Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  'Listening. Tap Stop when you are done.',
+                                  style: AppTypography.bodySmall(),
+                                ),
+                              ),
+                            ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(6, 2, 8, 8),
                             child: Row(
@@ -825,21 +872,11 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     visualDensity: VisualDensity.standard,
                                   ),
                                   tooltip: 'Add to message',
-                                  icon: _isListening
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: AppColors.roseQuartz,
-                                            semanticsLabel: 'Listening',
-                                          ),
-                                        )
-                                      : Icon(
-                                          Icons.add_rounded,
-                                          color: AppColors.textMuted,
-                                          size: 22,
-                                        ),
+                                  icon: Icon(
+                                    Icons.add_rounded,
+                                    color: AppColors.textMuted,
+                                    size: 22,
+                                  ),
                                   color: AppColors.silk,
                                   surfaceTintColor: Colors.transparent,
                                   shape: RoundedRectangleBorder(
@@ -849,8 +886,6 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     switch (action) {
                                       case 'images':
                                         widget.onPickImages();
-                                      case 'voice':
-                                        _startVoice();
                                       case 'canvas':
                                         widget.onToggleCanvas?.call();
                                     }
@@ -863,17 +898,6 @@ class _ComposerInputState extends State<_ComposerInput> {
                                         style: AppTypography.bodyMedium(),
                                       ),
                                     ),
-                                    if (_bridge.isSpeechSupported)
-                                      PopupMenuItem(
-                                        value: 'voice',
-                                        enabled: !_isListening,
-                                        child: Text(
-                                          _isListening
-                                              ? 'Listening…'
-                                              : 'Voice input',
-                                          style: AppTypography.bodyMedium(),
-                                        ),
-                                      ),
                                     PopupMenuItem(
                                       value: 'canvas',
                                       child: Row(
@@ -935,6 +959,27 @@ class _ComposerInputState extends State<_ComposerInput> {
                                     ),
                                   ),
                                 const Spacer(),
+                                if (!isLoading)
+                                  IconButton(
+                                    tooltip: _isListening
+                                        ? 'Stop voice input'
+                                        : 'Dictate message',
+                                    onPressed: widget.enabled
+                                        ? _startVoice
+                                        : null,
+                                    style: IconButton.styleFrom(
+                                      minimumSize: const Size(48, 48),
+                                      visualDensity: VisualDensity.standard,
+                                      foregroundColor: _isListening
+                                          ? AppColors.roseQuartz
+                                          : AppColors.textMuted,
+                                    ),
+                                    icon: Icon(
+                                      _isListening
+                                          ? Icons.stop_circle_outlined
+                                          : Icons.mic_none_rounded,
+                                    ),
+                                  ),
                                 IconButton(
                                   onPressed: isLoading
                                       ? widget.onStop

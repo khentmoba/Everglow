@@ -2,6 +2,8 @@
 library;
 
 import 'dart:async';
+// ignore: deprecated_member_use, avoid_web_libraries_in_flutter
+import 'dart:js' as js;
 
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/services/auth_service.dart';
@@ -219,6 +221,135 @@ class _InteractionAIService extends AIService {
 }
 
 void main() {
+  Future<void> pumpVoice(WidgetTester tester) async {
+    final oldWebkit = js.context['webkitSpeechRecognition'];
+    final oldStandard = js.context['SpeechRecognition'];
+    addTearDown(() {
+      js.context['webkitSpeechRecognition'] = oldWebkit;
+      js.context['SpeechRecognition'] = oldStandard;
+    });
+    js.context.callMethod('eval', [
+      r"""
+      window.__voiceStarted = false; window.__voiceAborted = false;
+      window.webkitSpeechRecognition = function() {
+        window.__voice = this;
+        this.start = function(){ window.__voiceStarted = true; };
+        this.stop = function(){ this.onresult({results:[[{transcript:'a cosy movie night'}]]}); };
+        this.abort = function(){ window.__voiceAborted = true; };
+      };
+    """,
+    ]);
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final ai = _InteractionAIService();
+    addTearDown(ai.dispose);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: const MaterialApp(home: MotchiScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'mic starts prefixed browser speech and stops into an editable draft',
+    (tester) async {
+      await pumpVoice(tester);
+      await tester.enterText(find.byType(TextField).first, 'Plan');
+      await tester.pump();
+      final mic = find.byTooltip('Dictate message');
+      expect(tester.getSize(mic).height, greaterThanOrEqualTo(48));
+      await tester.tap(mic);
+      await tester.pump();
+      expect(js.context['__voiceStarted'], isTrue);
+      expect(find.byTooltip('Stop voice input'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (w) => w is IconButton && w.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byTooltip('Stop voice input'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'Plan a cosy movie night',
+      );
+      expect(find.byTooltip('Dictate message'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (w) => w is IconButton && w.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'mic permission failure recovers and leaving aborts the microphone',
+    (tester) async {
+      await pumpVoice(tester);
+      await tester.tap(find.byTooltip('Dictate message'));
+      await tester.pump();
+      js.context.callMethod('eval', [
+        "window.__voice.onerror({error:'not-allowed'})",
+      ]);
+      await tester.pump();
+      expect(
+        find.textContaining('Allow microphone and speech access'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Dictate message'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.byTooltip('Dictate message'));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(js.context['__voiceAborted'], isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'unsupported speech offers keyboard dictation instead of hiding the mic',
+    (tester) async {
+      await pumpVoice(tester);
+      js.context['webkitSpeechRecognition'] = null;
+      js.context['SpeechRecognition'] = null;
+      await tester.tap(find.byTooltip('Dictate message'));
+      await tester.pump();
+      expect(
+        find.text('Use the microphone on your keyboard to dictate.'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).first)
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets(
     'running actions wrap and thoughts can be collapsed on a small phone',
     (tester) async {

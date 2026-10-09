@@ -210,3 +210,15 @@ format remains unverified; the reproduced failure shape is covered by tests.
 Temporary fixture/capture files were removed. Local analysis and synthetic
 release build passed; full tests/guards and Linux Chrome CI still pending.
 Full local confirmation: flutter analyze --no-pub passed, 1,539 regular tests passed, all 15 actual Dart guards passed, and git diff --check passed. New hosted build/Chrome CI confirmation remains pending.
+
+Voice input: voice-phone.png, voice-listening-phone.png and voice-draft-phone.png
+were captured and inspected from a synthetic release fixture at 430x900 in
+headless disposable Chrome after T3 reported its automation host unavailable.
+Clicked Dictate message with a simulated Safari-prefixed SpeechRecognition API;
+start ran immediately, Stop produced an editable draft and enabled Send.
+Injected not-allowed and confirmed the permission notice and restored mic.
+No real microphone, Apple permissions or physical iPhone were exercised.
+Three browser regression tests cover appending to an existing draft, Stop,
+permission recovery, cancellation on unmount and unsupported keyboard fallback.
+Linux Chrome CI is pending for those tests. No new dependency or audio backend.
+Voice local checks: analysis clean; 1,539 regular tests passed; all 15 guards passed; synthetic release build passed; diff check clean.
