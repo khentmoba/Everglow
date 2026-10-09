@@ -27,18 +27,6 @@ external JSNumber? _egSafeAreaTopBridge();
 class WebStandalone {
   WebStandalone._();
 
-  /// Temporary demo-only compositor test; closing the report restores painting.
-  static void setPaintProbe(bool enabled) {
-    if (enabled && !isStandalone()) return;
-    final host = web.document.getElementById('eg-app') as web.HTMLElement?;
-    if (host == null) return;
-    if (enabled) {
-      host.style.opacity = '0.99';
-    } else {
-      host.style.removeProperty('opacity');
-    }
-  }
-
   /// Local-only measurements for the demo HUD; never sends device data.
   static String viewportReport() {
     String bounds(String selector) {
@@ -83,7 +71,6 @@ class WebStandalone {
       'Canvas CSS: ${canvasRect?.width.toStringAsFixed(0)} x '
           '${canvasRect?.height.toStringAsFixed(0)}; '
           'backing: ${canvas?.width} x ${canvas?.height}',
-      'Paint probe: ${host?.style.opacity == '0.99' ? 'on' : 'off'}',
       bounds('html'),
       bounds('body'),
       bounds('#eg-app'),

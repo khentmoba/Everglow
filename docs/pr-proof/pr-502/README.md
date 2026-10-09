@@ -304,3 +304,40 @@ This simulation proves the new control and measurements, not Safari painting
 or removal of the reported strip. A second read-only independent review found
 no must-fix code defects, retaining browser-CI and physical-device requirements.
 PR502 remains draft pending the actual before/on/restored device comparison.
+
+## Paint experiment failed; initial metadata candidate
+
+Khent reports the paint workaround did not remove the bottom strip at all.
+The supplied restored/off-state screenshot confirms engine logical size and
+host client size 430x932, custom-element embedding, first canvas CSS 430x932,
+and canvas backing 1290x2796. Window and visual viewport remain 873px. The
+reported failure rules out this opacity probe as a working correction; the
+private screenshot is not published. Removed its button, state, setter,
+stub, and test rather than leaving a failed experiment in the app. Retained
+the renderer measurements.
+
+The remaining targeted startup hypothesis is the original viewport policy:
+index.html initially declared contain and changed to cover later in the head.
+This candidate declares cover from the initial HTML metadata; the existing
+head policy still changes ordinary browser tabs to contain before Flutter
+starts. Installed launches no longer begin contained. No sizing, safe-inset,
+status-bar, or renderer changes are stacked onto this experiment. We do not
+know whether this changes native WebKit viewport allocation on iOS 26.6.1;
+physical verification is still required.
+
+Windows checks: ten bootstrap tests passed, including initial-cover metadata
+and all four final viewport-policy modes (browser, iOS, standalone, fullscreen).
+The new initial-policy assertions failed in four modes before the HTML change;
+that is a policy regression test, not a Safari reproduction. Analysis zero
+issues, all 1,533 app tests, all 15 guards, and all 14 worker tests passed (zero
+skipped, real Chrome offline boot). Release build without the Agent Mode flag
+and all 64 phone/tablet agent-smoke cases passed.
+
+Local release Chrome: ordinary demo tab retains contain with a 430x932 view;
+Screen edges opens and the failed opacity controls are absent. The temporary
+installed-mode simulation at 430x932 with a deliberately 873px window/visual
+viewport retains cover, full engine/client/canvas CSS dimensions, safe59/34,
+and the readable report. Inspected `initial-cover.png`, compressed fake-data
+phone evidence. Neither that synthetic screenshot nor the source assertions
+prove the reported iOS gap is fixed. PR502 remains draft; no new install is
+required to try the refreshed candidate once it is deployed.

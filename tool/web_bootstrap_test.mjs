@@ -94,7 +94,7 @@ test('browser tabs and cached shells without a host use full-page Flutter', () =
 
 test('iPhone launch metadata lets artwork paint behind the status bar', () => {
   assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
-  assert.match(html, /name="viewport" content="[^"]*viewport-fit=contain"/);
+  assert.match(html, /name="viewport" content="[^"]*viewport-fit=cover"/);
 });
 
 test('installed document and Flutter host share the full viewport height', () => {
@@ -116,7 +116,9 @@ for (const [mode, standalone] of [
       getAttribute() { return this.content; },
       setAttribute(_, value) { this.content = value; },
     });
-    let metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0')];
+    const initialViewport = html.match(/<meta name="viewport" content="([^"]+)"/)[1];
+    assert.match(initialViewport, /viewport-fit=cover$/, 'installed launch must not begin contained');
+    let metas = [meta(initialViewport)];
     const head = {appendChild: (node) => metas.push(node)};
     let mutation;
     let resizes = 0;
@@ -149,7 +151,7 @@ for (const [mode, standalone] of [
       (standalone ? 'cover' : 'contain');
     assert.equal(installedClass, standalone, 'host sizing must be selected before Flutter starts');
     assert.equal(metas[0].content, expected);
-    metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
+    metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0'), meta('initial-scale=1.0')];
     mutation();
     assert.ok(metas.every((node) => node.content === expected));
     const resizeCount = resizes;
