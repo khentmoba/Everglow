@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -146,7 +147,7 @@ class AIConversationRepository implements IAIConversationRepository {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-      await _trimFullSessions();
+      unawaited(_trimFullSessions());
     } catch (e) {
       if (kDebugMode) debugPrint('Failed to archive session: $e');
     }

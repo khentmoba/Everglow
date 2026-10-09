@@ -163,7 +163,10 @@ class _SidebarPanel extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
       child: FilledButton.icon(
-        onPressed: busy ? null : onNewChat,
+        onPressed: busy ? null : () {
+          if (!desktop) onClose();
+          onNewChat();
+        },
         icon: const Icon(Icons.add_rounded, size: 19),
         label: const Text('New conversation'),
         style: FilledButton.styleFrom(

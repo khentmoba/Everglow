@@ -378,6 +378,78 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('tapping new conversation notifies onNewChat and closes mobile drawer', (
+    tester,
+  ) async {
+    bool closed = false;
+    bool newChatCalled = false;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AIService>.value(
+        value: ai,
+        child: MaterialApp(
+          home: Scaffold(
+            body: MotchiSidebar(
+              isOpen: true,
+              onClose: () => closed = true,
+              onNewChat: () => newChatCalled = true,
+            ),
+          ),
+        ),
+      ),
+    );
+    convRepo.emitArchived([_session('a', 'Old chat')]);
+    await tester.pump();
+
+    final newChatBtn = find.widgetWithText(FilledButton, 'New conversation');
+    expect(newChatBtn, findsOneWidget);
+    await tester.tap(newChatBtn);
+    await tester.pump();
+
+    expect(newChatCalled, isTrue);
+    expect(closed, isTrue);
+  });
+
+  testWidgets('tapping new conversation on desktop does not call onClose', (
+    tester,
+  ) async {
+    bool closed = false;
+    bool newChatCalled = false;
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AIService>.value(
+        value: ai,
+        child: MaterialApp(
+          home: Scaffold(
+            body: MotchiSidebar(
+              isOpen: true,
+              onClose: () => closed = true,
+              onNewChat: () => newChatCalled = true,
+            ),
+          ),
+        ),
+      ),
+    );
+    convRepo.emitArchived([_session('a', 'Old chat')]);
+    await tester.pump();
+
+    final newChatBtn = find.widgetWithText(FilledButton, 'New conversation');
+    expect(newChatBtn, findsOneWidget);
+    await tester.tap(newChatBtn);
+    await tester.pump();
+
+    expect(newChatCalled, isTrue);
+    expect(closed, isFalse);
+  });
 }
 
 void _noop() {}

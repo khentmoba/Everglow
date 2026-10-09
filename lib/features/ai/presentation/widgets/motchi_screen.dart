@@ -431,11 +431,14 @@ class _MotchiScreenState extends State<MotchiScreen> {
         ai.isNavigating ||
         _isSending ||
         _startingChat ||
-        _conversationLoading ||
-        _conversationFailed) {
+        _conversationLoading) {
       return;
     }
-    setState(() => _startingChat = true);
+    setState(() {
+      _startingChat = true;
+      _conversationFailed = false;
+      _isSidebarOpen = false;
+    });
     try {
       await ai.clearConversation('assistant', archive: true);
       if (!mounted) return;
@@ -445,7 +448,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
         _attachedImageUrls.clear();
         _lastSentMessage = null;
         _userScrolledUp = false;
+        _conversationFailed = false;
       });
+      _focusNode.requestFocus();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -458,12 +463,15 @@ class _MotchiScreenState extends State<MotchiScreen> {
           ),
         );
       }
-      return;
     } finally {
-      if (mounted) setState(() => _startingChat = false);
+      if (mounted) {
+        setState(() {
+          _startingChat = false;
+          _isSidebarOpen = false;
+        });
+      }
     }
     if (!mounted) return;
-    setState(() => _isSidebarOpen = false);
     _scrollToBottom(animated: false);
   }
 
@@ -542,8 +550,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                                   loading ||
                                       navigating ||
                                       _startingChat ||
-                                      _conversationLoading ||
-                                      _conversationFailed
+                                      _conversationLoading
                                   ? null
                                   : _newChat,
                               sidebarOpen: _isSidebarOpen,
