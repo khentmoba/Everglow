@@ -467,3 +467,36 @@ The screenshot and resize checks prove candidate selection, dimensions and demo
 rendering in Chromium, NOT that it fixes the physical iPhone strip. The existing
 screen-test icon can load this candidate without reinstalling after deployment.
 PR502 remains draft pending that physical result and keyboard/rotation checks.
+
+## CI recovery: new main browser test waits for a pending reply to settle
+
+Quality37966712752 on candidate8df0577 failed one browser test: Motchi's
+`agent session keeps composer enabled and allows clicking template message to
+send`; 32 other Chrome tests passed, including both screen-edge tests. The
+public job log/annotations provide only the generic failure, not its underlying
+assertion/stack. No Chrome-startup or candidate-CSS failure is claimed.
+
+CI tested merge3e0db29: maina1886458 plus candidate8df0577. The failing test came
+from main's PR504 and was absent in the pre-merge local branch. Brought that same
+main into this branch to examine the actual tested source. These widget-browser
+tests do not load web/index.html, so the normal-flow CSS is not exercised by
+this failing test.
+
+The fake send sets loading:true, starts an unresolved reply future and displays
+repeating thinking animations. Waiting for pumpAndSettle after Send conflicts
+with that invariant. The source review identified the same issue; the existing
+send/stop test uses pump after Send and settles only after stopping. Corrected
+only this post-Send wait to pump, retaining BOTH request-count/message assertions
+and all other interactions. No production behavior, animation, assertion or
+browser suite was disabled. The original CI exception remains unavailable;
+CI must confirm this source-grounded correction.
+
+Windows focused reproduction with --platform chrome, the exact plain-name and
+expanded reporter stalled at suite loading. It timed out after240 seconds with
+ZERO tests completed; this is an environment/loading blocker, not a passing or
+reproduced assertion. The fake pending-animation invariant is established by
+source, not by that incomplete run. Analysis zero issues, all1,567 VM/widget
+tests, all15 listed Dart guards and39 Node contract/selection/worktree/bootstrap
+tests passed after the correction. Production CSS/diagnostics are unchanged;
+no new visual proof is required for the test-only fix. The browser CI result
+and physical iPhone candidate outcome remain pending.

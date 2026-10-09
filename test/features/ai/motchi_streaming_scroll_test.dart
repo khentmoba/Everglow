@@ -710,61 +710,64 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('preview offers real sign-in and returns to Motchi after login', (
-    tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
-    AgentMode.isActive.value = true;
-    addTearDown(() => AgentMode.isActive.value = false);
-    tester.view.physicalSize = const Size(430, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final auth = _PreviewAuthService();
-    final ai = _InteractionAIService();
-    final router = GoRouter(
-      initialLocation: '/motchi?agent=clair',
-      routes: [
-        GoRoute(path: '/motchi', builder: (_, _) => const MotchiScreen()),
-        GoRoute(
-          path: '/',
-          builder: (_, _) => const Scaffold(body: Text('Sign-in door')),
-        ),
-      ],
-    );
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AIService>.value(value: ai),
-          ChangeNotifierProvider<AuthService>.value(value: auth),
+  testWidgets(
+    'agent session keeps composer enabled and allows clicking template message to send',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      AgentMode.isActive.value = true;
+      addTearDown(() => AgentMode.isActive.value = false);
+      tester.view.physicalSize = const Size(430, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final auth = _PreviewAuthService();
+      final ai = _InteractionAIService();
+      final router = GoRouter(
+        initialLocation: '/motchi?agent=clair',
+        routes: [
+          GoRoute(path: '/motchi', builder: (_, _) => const MotchiScreen()),
         ],
-        child: MaterialApp.router(
-          theme: AppTheme.gamifiedTheme,
-          routerConfig: router,
+      );
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(value: auth),
+          ],
+          child: MaterialApp.router(
+            theme: AppTheme.gamifiedTheme,
+            routerConfig: router,
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).enabled,
-      isFalse,
-    );
-    await tester.tap(find.widgetWithText(TextButton, 'Sign in to chat'));
-    await tester.pumpAndSettle();
-    expect(find.text('Sign-in door'), findsOneWidget);
-    expect(
-      router.routeInformationProvider.value.uri.queryParameters['from'],
-      '/motchi',
-    );
-    expect(AgentMode.isActive.value, isFalse);
-    expect(auth.loggedOut, isTrue);
-    expect(ai.requests, isEmpty);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-    router.dispose();
-    auth.dispose();
-    ai.dispose();
-  });
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).enabled,
+        isTrue,
+      );
+      await tester.tap(find.text('Pick a movie'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('What should we watch tonight from our watchlist?'),
+        findsOneWidget,
+      );
+      final sendButton = find.byTooltip('Send message');
+      expect(sendButton, findsOneWidget);
+      await tester.tap(sendButton);
+      // The fake reply stays pending, so its thinking animation never settles.
+      await tester.pump();
+      expect(ai.requests, hasLength(1));
+      expect(
+        ai.requests.first.message,
+        'What should we watch tonight from our watchlist?',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+      auth.dispose();
+      ai.dispose();
+    },
+  );
 
   testWidgets(
     'quiet welcome and composer fit small phones, tablets and keyboards',
