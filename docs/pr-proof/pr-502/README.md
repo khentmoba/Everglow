@@ -500,3 +500,18 @@ tests, all15 listed Dart guards and39 Node contract/selection/worktree/bootstrap
 tests passed after the correction. Production CSS/diagnostics are unchanged;
 no new visual proof is required for the test-only fix. The browser CI result
 and physical iPhone candidate outcome remain pending.
+
+## Passing CI and main's independent test correction
+
+All six hosted checks passed on544497b, including the browser suite, and the
+candidate preview deployed. Main then released6.2.0 and independently adopted
+pump after Send plus an explicit Stop-generating tap before settling. Resolved
+that overlapping test change by keeping main's complete version; the browser
+test now exactly matches main. Candidate CSS and every diagnostic file are
+unchanged. This does not cut a new release; it brings the existing main release
+into the task branch.
+
+Analysis zero issues, all1,567 VM/widget tests, all15 listed Dart guards
+(including6.2.0 release sync), and39 Node tests passed again. No new visual proof
+is needed for this test-only merge resolution. New-head CI/deployment and the
+physical normal-flow result remain pending.
