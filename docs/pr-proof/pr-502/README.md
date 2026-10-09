@@ -190,3 +190,21 @@ Screen edges: the complete measurement panel appeared. The inspected
 fake data; the earlier phone proof remains above. This does not prove iPhone
 installation. The PR stays draft pending a physical measurement and bottom-edge
 correction.
+
+## CI recovery: missing event base
+
+Quality runs 37884189853 and 37884211997 failed before app verification.
+The shallow checkout contained merge `1e5476eb` onto current base `ad02e3d9`,
+but the event's base was `33f560ee`, outside the downloaded history.
+The PR contract's diff failed with `fatal: bad object`; no evidence or app
+assertion failed. The check now fetches the event base only when absent.
+Fetch errors still fail the job; no gate is skipped or weakened.
+
+A disposable local Git repository with three commits and a depth-two clone
+reproduced the same missing-base failure before the fix (one failed, two
+passed contract tests). After the fix, all 26 contract/selection/worktree
+checks passed. Analysis zero issues, all 1,533 app tests passed, and all 15
+listed Dart guards passed again on Windows. Proof for this CI-only recovery
+is the failing/passing regression, not another UI screenshot. Browser/build
+wiring, app behavior, and the previously verified release build are unchanged.
+Hosted CI and the refreshed screen-test preview remain pending.
