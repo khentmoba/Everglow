@@ -415,3 +415,55 @@ passed, zero skipped. Release build without the Agent Mode flag passed. This
 CI-only conflict resolution has no new visual proof; the inspected plain-page
 proof above is unchanged. Hosted checks/deployment and physical iPhone outcome
 remain pending; no device correction is claimed.
+
+## Physical comparison: full plain page, shortened app; normal-flow candidate
+
+Khent's physical iPhone app/control/app comparison is now complete. The plain
+page reports Installed:true, screen/window/visual/pattern 430x932, visual
+ offset0/scale1, pattern y=0..932. Stripes and the bottom label visibly reach both
+edges. Returning to the app brings back the strip AND window/visual height873;
+engine/host/canvas remain932, backing1290x2796, safe59/34. Private screenshots
+are not published. This demonstrates full-height capability in the same installed
+session, then a repeatable shortened app viewport. It does not isolate app CSS
+from engine/startup behavior or prove which component changes native allocation.
+
+The next smallest candidate matches the working control's document flow:
+installed html/body become position:static with visible overflow, and the
+100vh Flutter host becomes position:relative so it participates in body flow.
+Clipping remains INSIDE the finite host and Flutter root. Ordinary browser
+roots stay fixed/contained. No metadata, size constants, insets, engine flags,
+new dependencies or guessed offsets are changed.
+
+An independent read-only source review found this compatible with Flutter's
+custom-element embedding, definite-height root and host resize observer. Its
+full-page viewport replacement does not run in this installed custom-host path;
+the shared resize nudge does not itself set viewport dimensions. No runtime
+must-fix issue was found. The reviewer and local run caught a new test regex
+matching the earlier combined-height rule instead of the separate host rule;
+the guard was anchored to that rule, not weakened. The pre-change guard failed
+on missing normal-flow roots; after the selector correction all13 tests pass.
+These are configuration guards, not a reproduced Safari failure.
+
+Windows re-verification: analysis zero issues, all1,567 VM/widget tests, all15
+listed Dart guards, all13 bootstrap tests, all14 worker checks (real disposable
+Chrome offline check, zero skipped), and release build without Agent Mode flag
+passed. Physical keyboard opening/dismissal, iPhone rotation and the new both-edge
+outcome remain unverified.
+
+Actual release app in a fresh incognito T3 Chromium context, using an untracked
+entry fixture to select standalone before startup: at430x932, root/body are
+static/visible-overflow, host/view relative/hidden-overflow, all dimensions932
+and document scrollHeight932. Clicked Screen edges; inspected
+`normal-flow-candidate.png`, synthetic Dashboard with measured full-size renderer
+and zero native safe insets. At932x430 and820x1180, all four bounds and document
+scroll extents exactly match the resized viewport. Ordinary browser launch
+restores fixed roots and contain with a full820x1180 view. The first local
+attempt reused an unstamped cached core from an older raw Flutter build and
+could not load a deferred Home library; removing only the isolated local demo
+worker/caches and repeating in incognito loaded the actual Dashboard. No change
+to production worker or private user state was made; no clean-console claim.
+
+The screenshot and resize checks prove candidate selection, dimensions and demo
+rendering in Chromium, NOT that it fixes the physical iPhone strip. The existing
+screen-test icon can load this candidate without reinstalling after deployment.
+PR502 remains draft pending that physical result and keyboard/rotation checks.

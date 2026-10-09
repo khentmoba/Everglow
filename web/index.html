@@ -101,11 +101,17 @@
       overflow: hidden;
     }
 
-    /* Safari's fixed bottom bounds can omit the status-bar height in installed
-       apps. Size the document AND Flutter host from the full CSS viewport. */
+    /* Let installed content establish the full page height; clip only the host. */
     html.eg-standalone, html.eg-standalone body, html.eg-standalone #eg-app {
       height: 100vh;
       bottom: auto;
+    }
+    html.eg-standalone, html.eg-standalone body {
+      position: static;
+      overflow: visible;
+    }
+    html.eg-standalone #eg-app {
+      position: relative;
     }
 
     /* Prevent hidden text-editing textarea from intercepting pointermove/touch events

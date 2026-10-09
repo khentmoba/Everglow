@@ -153,6 +153,18 @@ test('installed document and Flutter host share the full viewport height', () =>
   assert.match(rule[1], /bottom:\s*auto\s*;/);
 });
 
+test('installed roots stay in document flow while the Flutter host contains its layers', () => {
+  const roots = html.match(/html\.eg-standalone\s*,\s*html\.eg-standalone body\s*\{([^}]+)\}/);
+  assert.ok(roots, 'installed document roots must have their own normal-flow rule');
+  assert.match(roots[1], /position:\s*static\s*;/);
+  assert.match(roots[1], /overflow:\s*visible\s*;/);
+  const host = html.match(/^\s*html\.eg-standalone #eg-app\s*\{([^}]+)\}/m);
+  assert.ok(host, 'installed host must participate in the page layout');
+  assert.match(host[1], /position:\s*relative\s*;/);
+  assert.match(html, /#eg-app\s*\{[^}]*overflow:\s*hidden\s*;/);
+  assert.match(html, /html, body\s*\{[^}]*position:\s*fixed\s*;/);
+});
+
 for (const [mode, standalone] of [
   ['browser', false], ['ios', true], ['standalone', true], ['fullscreen', true],
 ]) {
