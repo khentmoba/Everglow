@@ -1,4 +1,4 @@
-﻿# Candidate for both installed-app edges
+﻿# Unresolved installed-app edges
 
 This replaces the opaque-status-bar fallback originally proposed in #502.
 The goal is artwork behind the status bar AND no separate bottom strip.
@@ -341,3 +341,61 @@ and the readable report. Inspected `initial-cover.png`, compressed fake-data
 phone evidence. Neither that synthetic screenshot nor the source assertions
 prove the reported iOS gap is fixed. PR502 remains draft; no new install is
 required to try the refreshed candidate once it is deployed.
+
+## Initial metadata failed; independent plain-page control
+
+The next private iPhone screenshot confirms the failed opacity button is gone,
+so the updated UI loaded. The bottom strip is unchanged. Initial-cover metadata
+is NOT a working correction. Engine/host/canvas CSS remain 430x932, backing
+1290x2796, while window/visual height is 873; safe insets remain 59/34. This does
+not prove whether native WebKit clipping or app compositing owns the strip.
+
+A read-only review found no established both-edge fix in the history. The next
+control isolates the app's rendering path instead of stacking more layout
+changes. In the existing screen-test icon, **Screen edges → Open plain paint
+control** navigates the SAME window to `/screen_test.html?paint=1`. This prevents
+that page's normal installed-launch redirect. Manifest identity, scope, launch
+URL, worker, and normal app metadata are unchanged; no reinstall is needed.
+
+The control uses the exact installed viewport/status/theme/color-scheme metadata,
+ordinary document flow, no fixed roots or overflow clipping, and no Flutter or
+app scripts. A patterned `100vh` block labels its first and last 59 CSS pixels.
+The report shows installed state, screen/window/visual dimensions and actual
+block bounds; resize refreshes it. A distinct document background lets visible
+STRIPES distinguish content paint from propagated background or system tint.
+The demo-only button is further limited to explicit `screencheck=1` launches.
+No report is sent anywhere, no data is loaded, and Return to demo app explicitly
+reactivates isolated Agent Mode in the same window.
+
+Physical comparison: app → control (screenshot without scrolling) → app.
+- Pattern fills both edges AND the app strip returns: plain DOM can reach there
+  in that session; narrow investigation to the app path or state it triggers.
+- Same strip with Installed:true and a verified full-size pattern: Flutter and
+  its fixed host are unnecessary to reproduce the failure. Stop resizing them;
+  further diagnosis requires iPhone/WebKit inspection.
+- Installed:false, changed bounds, or return also clears the strip: inconclusive.
+  Navigation can change native allocation, so this control cannot prove an
+  873px native drawable frame or distinguish host clipping from Flutter layers.
+
+Windows, Flutter3.44.4/Dart3.12.2/Node24.21.0: analysis zero issues; all 1,533
+VM/widget tests, all 15 listed Dart guards, 12 bootstrap tests, and 14 worker
+checks passed (real disposable Chrome offline check, zero skipped). Release
+build without the Agent Mode flag passed. The first worker invocation inherited
+TEMP/TMP under this git checkout from the app-test workaround; fixture git
+lookup appended the checkout commit and failed its version-only stamp assertion.
+Rerunning with the normal OS temp directory outside git passed; no test or
+production worker was changed, weakened, or skipped.
+
+Actual release app, T3 Chromium, 430x932: clicked Screen edges and Open plain
+paint control; the same tab reached the static page. Root/body are static with
+visible overflow, pattern y=0..932, Installed:false (ordinary desktop tab), zero
+Flutter views/canvases and no resource fetches. Inspected
+`plain-paint-control.png`: labels and stripes reach both edges. Clicked Return
+to demo app and verified its agent/screencheck launch URL. The VM tests cover
+both installed/noninstalled paint branches, redirect suppression, exact metadata,
+no app scripts/clipping styles, and refreshed bounds. These verify the control,
+not native Safari painting. Existing release-app env-file404, early focus/layout
+error, and denied fake XP/presence calls remain; no clean-console claim.
+
+PR502 stays draft. CI deployment and the physical app/control/app comparison
+are still pending; no both-edge or real-iPhone correction is claimed.

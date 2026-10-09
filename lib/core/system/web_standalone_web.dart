@@ -27,6 +27,13 @@ external JSNumber? _egSafeAreaTopBridge();
 class WebStandalone {
   WebStandalone._();
 
+  /// Keep the paint control inside the existing installed screen-test window.
+  static void openPaintControl() {
+    web.window.location.href = Uri.base
+        .resolve('/screen_test.html?paint=1')
+        .toString();
+  }
+
   /// Local-only measurements for the demo HUD; never sends device data.
   static String viewportReport() {
     String bounds(String selector) {

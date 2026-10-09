@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -280,6 +281,16 @@ class _AgentHudState extends State<AgentHud> {
                     style: const TextStyle(color: AppColors.auroraGold),
                   ),
                 ),
+                if (_viewportReport != null &&
+                    kIsWeb &&
+                    Uri.base.queryParameters['screencheck'] == '1')
+                  const TextButton(
+                    onPressed: WebStandalone.openPaintControl,
+                    child: Text(
+                      'Open plain paint control',
+                      style: TextStyle(color: AppColors.auroraGold),
+                    ),
+                  ),
                 if (_viewportReport != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 280),

@@ -40,13 +40,62 @@ test('install page stays put in Safari and activates demo on a fresh installed l
     let destination = null;
     // No preferences or login state exist in this simulated new install.
     vm.runInNewContext(script, {
+      URLSearchParams,
       navigator: {standalone: ios},
       window: {
         matchMedia: () => ({matches: displayMode}),
-        location: {replace: value => { destination = value; }},
+        location: {search: '', replace: value => { destination = value; }},
       },
     });
     assert.equal(destination, expected);
+  }
+});
+
+test('plain paint control matches installed metadata and has no app rendering scripts', () => {
+  const page = readFileSync(new URL('../web/screen_test.html', import.meta.url), 'utf8');
+  for (const name of ['viewport', 'apple-mobile-web-app-status-bar-style', 'theme-color', 'color-scheme']) {
+    const content = source => source.match(new RegExp(`<meta name="${name}" content="([^"]+)"`))[1];
+    assert.equal(content(page), content(html));
+  }
+  assert.match(page, /height: 100vh/);
+  assert.match(page, /repeating-linear-gradient/);
+  assert.doesNotMatch(page, /position:\s*fixed|overflow:\s*hidden|<script[^>]*src=/);
+  assert.match(page, /Plain paint control 1/);
+  assert.match(page, /href="\.\/\?agent=dashboard&amp;screencheck=1">Return to demo app/);
+});
+
+test('paint query prevents installed redirect and refreshes independent DOM measurements', () => {
+  const page = readFileSync(new URL('../web/screen_test.html', import.meta.url), 'utf8');
+  const script = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  for (const installed of [true, false]) {
+    let destination = null;
+    const classes = [];
+    const report = {textContent: ''};
+    const listeners = {};
+    const rect = {width: 430, height: 932, top: 0, bottom: 932};
+    const window = {
+      screen: {width: 430, height: 932}, innerWidth: 430, innerHeight: 873,
+      visualViewport: {height: 873, offsetTop: 0, scale: 1, addEventListener() {}},
+      matchMedia: () => ({matches: false}),
+      location: {search: '?paint=1', replace: value => { destination = value; }},
+      addEventListener: (name, callback) => { listeners[name] = callback; },
+    };
+    vm.runInNewContext(script, {
+      URLSearchParams, navigator: {standalone: installed}, window,
+      document: {
+        documentElement: {classList: {add: value => { classes.push(value); }}},
+        getElementById: id => id === 'paint-test' ? {getBoundingClientRect: () => rect} : report,
+      },
+    });
+    assert.equal(destination, null);
+    assert.deepEqual(classes, ['paint']);
+    assert.match(report.textContent, new RegExp(`Installed: ${installed}`));
+    assert.match(report.textContent, /Window: 430 x 873/);
+    assert.match(report.textContent, /Visual: 873 offset=0 scale=1/);
+    assert.match(report.textContent, /Pattern: 430 x 932 y=0\.\.932/);
+    Object.assign(rect, {width: 932, height: 430, bottom: 430});
+    listeners.resize();
+    assert.match(report.textContent, /Pattern: 932 x 430 y=0\.\.430/);
   }
 });
 
