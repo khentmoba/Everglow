@@ -754,12 +754,15 @@ void main() {
       final sendButton = find.byTooltip('Send message');
       expect(sendButton, findsOneWidget);
       await tester.tap(sendButton);
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(ai.requests, hasLength(1));
       expect(
         ai.requests.first.message,
         'What should we watch tonight from our watchlist?',
       );
+      expect(find.byTooltip('Stop generating'), findsOneWidget);
+      await tester.tap(find.byTooltip('Stop generating'));
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       router.dispose();

@@ -5,6 +5,63 @@ Every Everglow release, newest first. Each version also has a page at
 
 Releases are manual and curated — see "Releases" in `AGENTS.md`.
 
+## [6.2.0] - 2026-10-10 - The Together & Wonder Update
+
+A month of shared wonder: Watch Together live sync and Netflix-style Cinema,
+MangaCelestia and Anime overhauls, Safari voice chat with Motchi, the new Creator
+Studio, and a silky smooth feel on phones.
+
+### Watch Together & Cinema, Netflix-Style
+
+- **Watch Together live sync** — sync movies and shows together in real time,
+  with Discord watch-party integration.
+- **Netflix modal drawer** — rich show details, cast, similar recommendations,
+  and real Top 10 rank badges.
+- **Resume progress** — resume watching automatically across devices with
+  realtime shelf sync.
+- **Pure ad-free streams** — verified fast upstreams and resilient server
+  failover for cozy movie nights.
+
+### Anime & MangaCelestia Overhauls
+
+- **Anime episode selector** — PC sidebar and mobile card selector, inline
+  episode reveals, AniSkip opening/ending skips, and spotlight hero trailers.
+- **MangaCelestia reader** — upgraded reader with smooth chapter loading,
+  webtoon reading position memory, hot updates rail, and continue-reading shelf.
+- **Direct Anivexa streams** — verified direct streaming and instant trailer
+  previews.
+
+### Motchi AI Voice & Agnes Flash
+
+- **Voice input in chat** — tap to talk directly to Motchi on Safari and mobile.
+- **Agnes Flash power** — lightning-fast streaming replies, replying glow
+  animation, and quiet chat mode.
+- **Smarter companion** — vision analysis, expanded tool actions, and study
+  tools in Academy.
+
+### Creator Studio & Keepsakes
+
+- **Creator Studio** — custom love letters, surprise triggers, and memory
+  moments in one beautiful workspace.
+- **Love-letter styling** — wax seal stamps, stationery aesthetics, and
+  keepsake message dialogs.
+- **Time Together clock** — translucent glass keepsake clock celebrating every
+  day together.
+
+### Journal & Garden
+
+- **Refreshed Journal** — memory date selection, story card covers, chapters,
+  and cozy layout.
+- **Dual Garden Bloom** — dual-dashboard garden blooms with enhanced flower
+  painters and weather syncing.
+
+### Silky Smooth on Phones
+
+- **iPhone 11 & mobile polish** — buttery fast scrolling, eliminated edge gaps,
+  and native iOS status bar harmony.
+- **PWA tap precision** — snappy button taps and centered ergonomics for phones
+  and tablets.
+
 ## [6.1.0] - 2026-09-09 - The Glow-Up Update
 
 Two months of polish since v6.0.0: Motchi grew from a dozen tools to 50+,
