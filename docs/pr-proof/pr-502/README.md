@@ -208,3 +208,12 @@ listed Dart guards passed again on Windows. Proof for this CI-only recovery
 is the failing/passing regression, not another UI screenshot. Browser/build
 wiring, app behavior, and the previously verified release build are unchanged.
 Hosted CI and the refreshed screen-test preview remain pending.
+
+Run 37884681787 caught a test-isolation mistake: the new CLI regression
+inherited GitHub's `GITHUB_EVENT_PATH`, which took priority over its disposable
+fixture argument. The test now explicitly sets that variable to its own event
+file; production event selection is unchanged. Reproduced locally with an
+inherited event referencing a commit absent from the fixture: one contract
+test failed before, all 26 contract/selection/worktree tests passed after.
+Analysis zero issues, all 1,533 app tests and all 15 guards passed again.
+The hosted result is still pending; no CI-success claim.

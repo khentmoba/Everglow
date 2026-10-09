@@ -27,7 +27,7 @@ test('CLI fetches an event base missing from a shallow checkout', t => {
   assert.notEqual(spawnSync('git', ['cat-file', '-e', base], {cwd:checkout}).status, 0);
   const eventPath = join(root, 'event.json');
   writeFileSync(eventPath, JSON.stringify({pull_request:{draft:true, base:{sha:base}}}));
-  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./pr_contract.mjs', import.meta.url)), eventPath], {cwd:checkout, encoding:'utf8'});
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL('./pr_contract.mjs', import.meta.url)), eventPath], {cwd:checkout, encoding:'utf8', env:{...process.env, GITHUB_EVENT_PATH:eventPath}});
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /\[pr-contract\] OK/);
   assert.equal(spawnSync('git', ['cat-file', '-e', base], {cwd:checkout}).status, 0);
