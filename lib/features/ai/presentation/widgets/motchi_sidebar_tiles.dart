@@ -39,14 +39,16 @@ class _HubTile extends StatelessWidget {
 class _SessionItem extends StatelessWidget {
   final AISession session;
   final bool isActive;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
+  final VoidCallback? onTap;
+  final VoidCallback? onDelete;
+  final bool isLoading;
 
   const _SessionItem({
     required this.session,
     required this.isActive,
     required this.onTap,
     required this.onDelete,
+    this.isLoading = false,
   });
 
   @override
@@ -108,12 +110,21 @@ class _SessionItem extends StatelessWidget {
               ),
             ],
           ),
-          trailing: IconButton(
-            tooltip: 'Delete conversation',
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-            color: AppColors.textMuted,
-          ),
+          trailing: isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    semanticsLabel: 'Opening conversation',
+                  ),
+                )
+              : IconButton(
+                  tooltip: 'Delete conversation',
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  color: AppColors.textMuted,
+                ),
         ),
       ),
     );

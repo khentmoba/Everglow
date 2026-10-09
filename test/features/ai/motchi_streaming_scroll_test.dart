@@ -2,25 +2,37 @@
 library;
 
 import 'dart:async';
+// ignore: deprecated_member_use, avoid_web_libraries_in_flutter
+import 'dart:js' as js;
 
 import 'package:go_router/go_router.dart';
 import 'package:everglow/core/services/auth_service.dart';
+import 'package:everglow/core/agent/agent_mode.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/ai/data/services/ai_service.dart';
 import 'package:everglow/features/ai/domain/memory/memory_fact.dart';
 import 'package:everglow/features/ai/domain/models/ai_conversation.dart';
+import 'package:everglow/features/ai/domain/motchi_reply_details.dart';
 import 'package:everglow/features/ai/domain/repositories/ai_conversation_repo_interface.dart';
 import 'package:everglow/features/ai/domain/repositories/ai_memory_repo_interface.dart';
 import 'package:everglow/features/ai/presentation/widgets/motchi_screen.dart';
 import 'package:flutter/foundation.dart' show debugPrintSynchronously;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeConversationRepo implements IAIConversationRepository {
   _FakeConversationRepo(this.conversation);
 
   AIConversation? conversation;
+  bool failAssistant = false;
+  Completer<void>? assistantGate;
+  Completer<void>? sessionGate;
+  Completer<void>? clearGate;
+  AIConversation? archivedConversation;
+  List<AISession> sessions = [];
 
   @override
   AIConversation? get assistant => conversation;
@@ -48,26 +60,33 @@ class _FakeConversationRepo implements IAIConversationRepository {
 
   @override
   Future<void> clear(String feature, {bool archive = true}) async {
+    await clearGate?.future;
     if (feature == 'assistant') {
       conversation = AIConversation(id: feature, feature: feature);
     }
   }
 
   @override
-  Future<void> loadAssistant() async {}
+  Future<void> loadAssistant() async {
+    await assistantGate?.future;
+    if (failAssistant) throw StateError('offline');
+  }
 
   @override
   void startFresh() => conversation = null;
 
   @override
-  Future<List<AISession>> listSessions({int limit = 50}) async => const [];
+  Future<List<AISession>> listSessions({int limit = 50}) async => sessions;
 
   @override
   Stream<List<AISession>> watchSessions({int limit = 50}) =>
-      const Stream.empty();
+      Stream.value(sessions);
 
   @override
-  Future<void> loadSession(String sessionId) async {}
+  Future<void> loadSession(String sessionId) async {
+    await sessionGate?.future;
+    if (archivedConversation != null) conversation = archivedConversation;
+  }
 
   @override
   Future<void> deleteSession(String sessionId) async {}
@@ -135,20 +154,38 @@ class _StreamingAIService extends AIService {
 
 class _FakeAuthService extends ChangeNotifier implements AuthService {
   @override
+  bool get isAgentSession => false;
+  @override
   String? get currentUser => 'clairjassen';
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
+class _PreviewAuthService extends _FakeAuthService {
+  bool loggedOut = false;
+
+  @override
+  bool get isAgentSession => true;
+
+  @override
+  Future<void> logout() async => loggedOut = true;
+}
+
 class _InteractionAIService extends AIService {
-  _InteractionAIService()
+  _InteractionAIService({_FakeConversationRepo? conversationRepo})
     : super(
         memoryRepo: _FakeMemoryRepo(),
-        conversationRepo: _FakeConversationRepo(
-          AIConversation(id: 'demo', feature: 'assistant'),
-        ),
+        conversationRepo:
+            conversationRepo ??
+            _FakeConversationRepo(
+              AIConversation(id: 'demo', feature: 'assistant'),
+            ),
       );
+
+  String reasoning = '';
+  @override
+  String get draftReasoning => reasoning;
 
   bool loading = false;
   Completer<String>? pending;
@@ -195,6 +232,540 @@ class _InteractionAIService extends AIService {
 }
 
 void main() {
+  Future<void> pumpVoice(WidgetTester tester) async {
+    final oldWebkit = js.context['webkitSpeechRecognition'];
+    final oldStandard = js.context['SpeechRecognition'];
+    addTearDown(() {
+      js.context['webkitSpeechRecognition'] = oldWebkit;
+      js.context['SpeechRecognition'] = oldStandard;
+    });
+    js.context.callMethod('eval', [
+      r"""
+      window.__voiceStarted = false; window.__voiceAborted = false;
+      window.webkitSpeechRecognition = function() {
+        window.__voice = this;
+        this.start = function(){ window.__voiceStarted = true; };
+        this.stop = function(){ this.onresult({results:[[{transcript:'a cosy movie night'}]]}); };
+        this.abort = function(){ window.__voiceAborted = true; };
+      };
+    """,
+    ]);
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final ai = _InteractionAIService();
+    addTearDown(ai.dispose);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: const MaterialApp(home: MotchiScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('history opening locks the main chat after the drawer closes', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final width in [430.0, 810.0, 1280.0]) {
+      tester.view.physicalSize = Size(width, 900);
+      final oldConversation = AIConversation(
+        id: 'demo',
+        feature: 'assistant',
+        messages: [
+          AIMessage(role: 'user', content: 'Current question'),
+          AIMessage(role: 'assistant', content: 'Current answer'),
+        ],
+      );
+      final archived = AIConversation(
+        id: 'demo',
+        feature: 'assistant',
+        messages: [
+          AIMessage(role: 'user', content: 'Archived question'),
+          AIMessage(role: 'assistant', content: 'Archived answer'),
+        ],
+      );
+      final repo = _FakeConversationRepo(oldConversation)
+        ..sessionGate = Completer<void>()
+        ..archivedConversation = archived
+        ..sessions = [
+          AISession(
+            id: 'archived',
+            feature: 'assistant',
+            messageCount: 2,
+            hasSummary: false,
+            summary: null,
+            createdAt: DateTime.now(),
+            title: 'Saved movie night',
+          ),
+        ];
+      final ai = _InteractionAIService(conversationRepo: repo);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: MaterialApp(
+            key: ValueKey(width),
+            theme: AppTheme.gamifiedTheme,
+            home: const MotchiScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final originalId = ai.currentSessionId;
+      if (width < 1024) {
+        await tester.tap(find.byTooltip('History'));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.text('Saved movie night'));
+      await tester.pump();
+      expect(ai.isNavigating, isTrue);
+      expect(ai.currentSessionId, originalId);
+      if (width < 1024) {
+        await tester.tap(find.byTooltip('Close sidebar'));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+      // The desktop sidebar keeps its own search field, so match the
+      // composer by its hint rather than by tree order.
+      final composer = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == 'Message Motchi…',
+      );
+      final field = tester.widget<TextField>(composer);
+      expect(field.enabled, isFalse);
+      field.controller!.text = 'Keep this draft';
+      await tester.pump();
+      for (final tooltip in ['Send message', 'New chat']) {
+        expect(
+          tester
+              .widget<IconButton>(
+                find.byWidgetPredicate(
+                  (w) => w is IconButton && w.tooltip == tooltip,
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+      }
+      expect(ai.requests, isEmpty);
+      repo.sessionGate!.complete();
+      await tester.pumpAndSettle();
+      expect(ai.isNavigating, isFalse);
+      expect(ai.currentSessionId, 'archived');
+      expect(
+        find.widgetWithText(SelectableText, 'Archived question'),
+        findsOneWidget,
+      );
+      expect(tester.widget<TextField>(composer).enabled, isTrue);
+      expect(field.controller!.text, 'Keep this draft');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    }
+  });
+
+  testWidgets('new chat also locks old reply actions during its reset', (
+    tester,
+  ) async {
+    final conversation = AIConversation(
+      id: 'demo',
+      feature: 'assistant',
+      messages: [
+        AIMessage(role: 'user', content: 'Save an evening plan'),
+        AIMessage(
+          role: 'assistant',
+          content: 'The save needs another try.',
+          details: const MotchiReplyDetails(
+            steps: [
+              {'tool': 'add_calendar_event', 'status': 'failed', 'write': true},
+            ],
+          ),
+        ),
+      ],
+    );
+    final repo = _FakeConversationRepo(conversation)
+      ..clearGate = Completer<void>();
+    final ai = _InteractionAIService(conversationRepo: repo);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.gamifiedTheme,
+          home: const MotchiScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final continueAction = tester
+        .widget<TextButton>(
+          find.widgetWithText(TextButton, 'Help finish unfinished steps'),
+        )
+        .onPressed!;
+    await tester.tap(find.byTooltip('New chat'));
+    await tester.pump();
+    expect(ai.isNavigating, isTrue);
+    expect(find.text('Help finish unfinished steps'), findsNothing);
+    continueAction();
+    await tester.pump();
+    expect(ai.requests, isEmpty);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isFalse,
+    );
+    repo.clearGate!.complete();
+    await tester.pumpAndSettle();
+    expect(ai.isNavigating, isFalse);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isTrue,
+    );
+    expect(find.text('Save an evening plan'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    ai.dispose();
+  });
+
+  testWidgets(
+    'mic starts prefixed browser speech and stops into an editable draft',
+    (tester) async {
+      await pumpVoice(tester);
+      await tester.enterText(find.byType(TextField).first, 'Plan');
+      await tester.pump();
+      final mic = find.byTooltip('Dictate message');
+      expect(tester.getSize(mic).height, greaterThanOrEqualTo(48));
+      await tester.tap(mic);
+      await tester.pump();
+      expect(js.context['__voiceStarted'], isTrue);
+      expect(find.byTooltip('Stop voice input'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (w) => w is IconButton && w.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byTooltip('Stop voice input'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'Plan a cosy movie night',
+      );
+      expect(find.byTooltip('Dictate message'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(
+              find.byWidgetPredicate(
+                (w) => w is IconButton && w.tooltip == 'Send message',
+              ),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'mic permission failure recovers and leaving aborts the microphone',
+    (tester) async {
+      await pumpVoice(tester);
+      await tester.tap(find.byTooltip('Dictate message'));
+      await tester.pump();
+      js.context.callMethod('eval', [
+        "window.__voice.onerror({error:'not-allowed'})",
+      ]);
+      await tester.pump();
+      expect(
+        find.textContaining('Allow microphone and speech access'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Dictate message'), findsOneWidget);
+      // The notice timer starts after its entrance animation completes.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(
+        find.textContaining('Allow microphone and speech access'),
+        findsNothing,
+      );
+      await tester.tap(find.byTooltip('Dictate message'));
+      await tester.pump();
+      expect(find.byTooltip('Stop voice input'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(js.context['__voiceAborted'], isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'unsupported speech offers keyboard dictation instead of hiding the mic',
+    (tester) async {
+      await pumpVoice(tester);
+      js.context['webkitSpeechRecognition'] = null;
+      js.context['SpeechRecognition'] = null;
+      await tester.tap(find.byTooltip('Dictate message'));
+      await tester.pump();
+      expect(
+        find.text('Use the microphone on your keyboard to dictate.'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byType(TextField).first)
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'running actions wrap and thoughts can be collapsed on a small phone',
+    (tester) async {
+      final originalOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        debugPrintSynchronously(details.toString());
+        originalOnError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = originalOnError);
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final ai = _InteractionAIService()..loading = true;
+      ai.reasoning = 'Synthetic planning notes.';
+      ai.draftReasoningNotifier.value = ai.reasoning;
+      ai.activeToolsNotifier.value = [
+        'search_movies',
+        'get_weather',
+        'get_date_ideas',
+      ];
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.gamifiedTheme,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.6)),
+              child: child!,
+            ),
+            home: const MotchiScreen(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Searching movies…'), findsOneWidget);
+      expect(find.text('Checking the weather…'), findsOneWidget);
+      expect(
+        find.text('Synthetic planning notes.', findRichText: true),
+        findsWidgets,
+      );
+      double toolPulse() => tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(
+                    const ValueKey('motchi-tool-pulse-search_movies'),
+                  ),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+      final pulseBefore = toolPulse();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(toolPulse(), isNot(closeTo(pulseBefore, 0.001)));
+      final toggle = find.widgetWithText(TextButton, "Motchi's thoughts…");
+      expect(tester.getSize(toggle).height, greaterThanOrEqualTo(48));
+      final notesBox = tester.renderObject<RenderBox>(
+        find
+            .ancestor(
+              of: find
+                  .text('Synthetic planning notes.', findRichText: true)
+                  .first,
+              matching: find.byType(AnimatedSize),
+            )
+            .first,
+      );
+      final expandedHeight = notesBox.size.height;
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(notesBox.size.height, greaterThan(0));
+      expect(notesBox.size.height, lessThan(expandedHeight));
+      await tester.pump(const Duration(milliseconds: 240));
+      expect(notesBox.size.height, 0);
+      expect(
+        find.text('Synthetic planning notes.', findRichText: true),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      final reducedPulse = toolPulse();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(toolPulse(), reducedPulse);
+      await tester.tap(toggle);
+      await tester.pump();
+      final reducedNotes = find.text(
+        'Synthetic planning notes.',
+        findRichText: true,
+      );
+      expect(reducedNotes, findsWidgets);
+      expect(
+        find.ancestor(
+          of: reducedNotes.first,
+          matching: find.byType(AnimatedSize),
+        ),
+        findsNothing,
+      );
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(reducedNotes, findsNothing);
+      expect(tester.takeException(), isNull);
+      ai.reasoning = '';
+      ai.draftReasoningNotifier.value = '';
+      ai.draftRevisionNotifier.value++;
+      await tester.pump();
+      expect(find.text('Thinking…'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    },
+  );
+
+  testWidgets('sources wrap on a small phone and invalid links stay disabled', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.gamifiedTheme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.6)),
+          child: child!,
+        ),
+        home: const Scaffold(
+          body: WebSourcesCard(
+            sources: [
+              {
+                'title':
+                    'A long synthetic source title that should stay readable on a small phone',
+                'url': 'https://example.com/a',
+                'site': 'Example',
+              },
+              {'title': 'Unavailable source', 'url': 'javascript:alert(1)'},
+            ],
+          ),
+        ),
+      ),
+    );
+    final tiles = tester.widgetList<InkWell>(find.byType(InkWell)).toList();
+    expect(tiles.first.onTap, isNotNull);
+    expect(tiles.last.onTap, isNull);
+    expect(
+      tester.getSize(find.byType(InkWell).first).height,
+      greaterThanOrEqualTo(48),
+    );
+    expect(find.text('example.com'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('preview offers real sign-in and returns to Motchi after login', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    AgentMode.isActive.value = true;
+    addTearDown(() => AgentMode.isActive.value = false);
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final auth = _PreviewAuthService();
+    final ai = _InteractionAIService();
+    final router = GoRouter(
+      initialLocation: '/motchi?agent=clair',
+      routes: [
+        GoRoute(path: '/motchi', builder: (_, _) => const MotchiScreen()),
+        GoRoute(
+          path: '/',
+          builder: (_, _) => const Scaffold(body: Text('Sign-in door')),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: auth),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.gamifiedTheme,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isFalse,
+    );
+    await tester.tap(find.widgetWithText(TextButton, 'Sign in to chat'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign-in door'), findsOneWidget);
+    expect(
+      router.routeInformationProvider.value.uri.queryParameters['from'],
+      '/motchi',
+    );
+    expect(AgentMode.isActive.value, isFalse);
+    expect(auth.loggedOut, isTrue);
+    expect(ai.requests, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    router.dispose();
+    auth.dispose();
+    ai.dispose();
+  });
+
   testWidgets(
     'quiet welcome and composer fit small phones, tablets and keyboards',
     (tester) async {
@@ -266,8 +837,7 @@ void main() {
           await tester.tap(
             find.byWidgetPredicate(
               (widget) =>
-                  widget is PopupMenuItem<String> &&
-                  widget.value == 'canvas',
+                  widget is PopupMenuItem<String> && widget.value == 'canvas',
             ),
           );
           await tester.pumpAndSettle();
@@ -276,6 +846,18 @@ void main() {
             findsOneWidget,
           );
           expect(tester.takeException(), isNull);
+          for (final (previous, mode) in [
+            ('Auto', 'Deep'),
+            ('Deep', 'Fast'),
+            ('Fast', 'Auto'),
+          ]) {
+            await tester.tap(find.byTooltip('Reply mode: $previous'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(mode).last);
+            await tester.pumpAndSettle();
+            expect(find.byTooltip('Reply mode: $mode'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          }
         }
         tester.view.viewInsets = const FakeViewPadding(bottom: 280);
         await tester.pump();
@@ -320,18 +902,22 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Auto'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('Let Motchi choose how much to think'), findsOneWidget);
+    await tester.tap(find.text('Deep'));
+    await tester.pumpAndSettle();
     expect(find.text('Deep'), findsOneWidget);
     await tester.tap(find.text('Deep'));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fast'));
+    await tester.pumpAndSettle();
     expect(find.text('Fast'), findsOneWidget);
     await tester.tap(find.byTooltip('Add to message'));
     await tester.pumpAndSettle();
     expect(find.text('Attach images'), findsOneWidget);
     await tester.tap(
       find.byWidgetPredicate(
-        (widget) =>
-            widget is PopupMenuItem<String> && widget.value == 'canvas',
+        (widget) => widget is PopupMenuItem<String> && widget.value == 'canvas',
       ),
     );
     await tester.pumpAndSettle();
@@ -370,24 +956,118 @@ void main() {
     ai.dispose();
   });
 
-  testWidgets('welcome rows send their prompts and keep automatic Canvas', (
+  testWidgets(
+    'welcome rows prepare editable prompts and keep automatic Canvas',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      for (final (label, prompt, canvas) in const [
+        (
+          'Pick a movie',
+          'What should we watch tonight from our watchlist?',
+          false,
+        ),
+        ('Plan a date', 'Plan a cozy date night for us', false),
+        ('Quiz us', 'Quiz us with 5 fun questions', true),
+        ('Make a game', 'Build us a tiny game', true),
+      ]) {
+        final ai = _InteractionAIService();
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<AIService>.value(value: ai),
+              ChangeNotifierProvider<AuthService>.value(
+                value: _FakeAuthService(),
+              ),
+            ],
+            child: MaterialApp(
+              key: ValueKey(label),
+              theme: AppTheme.gamifiedTheme.copyWith(
+                visualDensity: VisualDensity.compact,
+              ),
+              home: const MotchiScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final button = find.widgetWithText(TextButton, label);
+        expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
+        await tester.tap(button);
+        await tester.pump();
+        expect(ai.requests, isEmpty);
+        final input = tester.widget<TextField>(find.byType(TextField).first);
+        expect(input.controller!.text, prompt);
+        expect(input.focusNode!.hasFocus, isTrue);
+        await tester.enterText(find.byType(TextField).first, '$prompt, please');
+        await tester.pump();
+        await tester.tap(find.byTooltip('Send message'));
+        await tester.pump();
+        expect(ai.requests, hasLength(1));
+        expect(ai.requests.single.message, '$prompt, please');
+        expect(ai.requests.single.canvas, canvas);
+        await tester.tap(find.byTooltip('Stop generating'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        ai.dispose();
+      }
+    },
+  );
+
+  testWidgets('Enter respects composition and Shift before sending', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    for (final (label, prompt, canvas) in const [
-      (
-        'Pick a movie',
-        'What should we watch tonight from our watchlist?',
-        false,
+    final ai = _InteractionAIService();
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIService>.value(value: ai),
+          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.gamifiedTheme,
+          home: const MotchiScreen(),
+        ),
       ),
-      ('Plan a date', 'Plan a cozy date night for us', false),
-      ('Quiz us', 'Quiz us with 5 fun questions', true),
-      ('Make a game', 'Build us a tiny game', true),
-    ]) {
-      final ai = _InteractionAIService();
+    );
+    await tester.pumpAndSettle();
+    final field = find.byType(TextField).first;
+    await tester.enterText(field, 'A quiet evening');
+    final controller = tester.widget<TextField>(field).controller!;
+    controller.value = controller.value.copyWith(
+      composing: TextRange(start: 0, end: controller.text.length),
+    );
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(ai.requests, isEmpty);
+    controller.value = controller.value.copyWith(composing: TextRange.empty);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(ai.requests, isEmpty);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(ai.requests, hasLength(1));
+    await tester.tap(find.byTooltip('Stop generating'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    ai.dispose();
+  });
+
+  testWidgets(
+    'conversation loading and failure protect the composer until retry',
+    (tester) async {
+      final repo = _FakeConversationRepo(
+        AIConversation(id: 'demo', feature: 'assistant'),
+      );
+      repo.assistantGate = Completer<void>();
+      repo.failAssistant = true;
+      final ai = AIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: repo,
+      );
       await tester.pumpWidget(
         MultiProvider(
           providers: [
@@ -397,29 +1077,37 @@ void main() {
             ),
           ],
           child: MaterialApp(
-            key: ValueKey(label),
-            theme: AppTheme.gamifiedTheme.copyWith(
-              visualDensity: VisualDensity.compact,
-            ),
+            theme: AppTheme.gamifiedTheme,
             home: const MotchiScreen(),
           ),
         ),
       );
-      await tester.pumpAndSettle();
-      final button = find.widgetWithText(TextButton, label);
-      expect(tester.getSize(button).height, greaterThanOrEqualTo(48));
-      await tester.tap(button);
       await tester.pump();
-      expect(ai.requests, hasLength(1));
-      expect(ai.requests.single.message, prompt);
-      expect(ai.requests.single.canvas, canvas);
-      await tester.tap(find.byTooltip('Stop generating'));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).enabled,
+        isFalse,
+      );
+      repo.assistantGate!.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Your conversation couldn’t load.'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).enabled,
+        isFalse,
+      );
+      repo.failAssistant = false;
+      await tester.tap(find.text('Try again'));
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expect(find.text('Your conversation couldn’t load.'), findsNothing);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).enabled,
+        isTrue,
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       ai.dispose();
-    }
-  });
+    },
+  );
 
   testWidgets('more menu keeps every Motchi destination reachable on phones', (
     tester,
@@ -512,6 +1200,14 @@ void main() {
       expect(tester.getSize(composer).width, greaterThan(width * 0.65));
       expect(find.text('Whispered for you two 🐾'), findsNothing);
       expect(find.text('Plan a date 🥂'), findsNothing);
+      await tester.tap(find.byTooltip('Use as draft'));
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(composer).controller!.text,
+        'Hello Motchi',
+      );
+      expect(ai.assistantConversation!.messages, hasLength(2));
+      expect(find.byTooltip('Copy your message'), findsOneWidget);
       await tester.enterText(composer, 'A cozy night in');
       await tester.pump();
       expect(find.text('A cozy night in'), findsOneWidget);
@@ -536,127 +1232,211 @@ void main() {
     }
   });
 
-  testWidgets('keeps the latest streamed reply in view', (tester) async {
-    tester.view.physicalSize = const Size(430, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  for (final width in [430.0, 810.0, 1280.0]) {
+    testWidgets('keeps the latest streamed reply in view at ${width.toInt()}px', (
+      tester,
+    ) async {
+      final originalOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        debugPrintSynchronously(details.toString());
+        originalOnError?.call(details);
+      };
+      addTearDown(() => FlutterError.onError = originalOnError);
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    final oldReply = List.filled(
-      12,
-      'An earlier reply with enough text to make the conversation scroll.',
-    ).join('\n');
-    final conversation = AIConversation(
-      id: 'assistant',
-      feature: 'assistant',
-      messages: [
-        AIMessage(role: 'user', content: 'Tell me a long story.'),
-        for (var i = 0; i < 5; i++)
-          AIMessage(role: 'assistant', content: oldReply),
-      ],
-    );
-    final repo = _FakeConversationRepo(conversation);
-    final ai = _StreamingAIService(
-      memoryRepo: _FakeMemoryRepo(),
-      conversationRepo: repo,
-    );
-    addTearDown(ai.dispose);
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AIService>.value(value: ai),
-          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
+      final oldReply = List.filled(
+        12,
+        'An earlier reply with enough text to make the conversation scroll.',
+      ).join('\n');
+      final conversation = AIConversation(
+        id: 'assistant',
+        feature: 'assistant',
+        messages: [
+          AIMessage(role: 'user', content: 'Tell me a long story.'),
+          for (var i = 0; i < 5; i++)
+            AIMessage(role: 'assistant', content: oldReply),
         ],
-        child: const MaterialApp(home: MotchiScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      final repo = _FakeConversationRepo(conversation);
+      final ai = _StreamingAIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: repo,
+      );
+      addTearDown(ai.dispose);
 
-    final listFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is ListView &&
-          widget.controller != null &&
-          widget.scrollDirection == Axis.vertical,
-    );
-    final list = tester.widget<ListView>(listFinder);
-    final controller = list.controller!;
-    expect(controller.position.maxScrollExtent, greaterThan(0));
-    controller.jumpTo(controller.position.maxScrollExtent);
-    await tester.pump();
-
-    ai.stream(
-      List.filled(30, 'A newly streamed line of Motchi text.').join('\n'),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(
-      controller.position.pixels,
-      closeTo(controller.position.maxScrollExtent, 1),
-    );
-  });
-
-  testWidgets('a reply in flight keeps a visible, moving answering glow', (
-    tester,
-  ) async {
-    const halo = ValueKey('motchi-answering-halo');
-    Color haloAlphaAt(WidgetTester t) {
-      final box = t.widget<Container>(find.byKey(halo)).decoration! as BoxDecoration;
-      return (box.gradient! as RadialGradient).colors.first;
-    }
-
-    final ai = _StreamingAIService(
-      memoryRepo: _FakeMemoryRepo(),
-      conversationRepo: _FakeConversationRepo(
-        AIConversation(
-          id: 'assistant',
-          feature: 'assistant',
-          messages: [AIMessage(role: 'user', content: 'What are the brackets?')],
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: const MaterialApp(home: MotchiScreen()),
         ),
-      ),
-    );
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<AIService>.value(value: ai),
-          ChangeNotifierProvider<AuthService>.value(value: _FakeAuthService()),
-        ],
-        child: const MaterialApp(home: MotchiScreen()),
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    // Before any text: the thinking header still breathes and shows thinking badge.
-    expect(find.byKey(halo), findsOneWidget);
-    expect(find.text('thinking'), findsOneWidget);
-    final beforeText = haloAlphaAt(tester).a;
-    await tester.pump(const Duration(milliseconds: 1100));
-    expect(
-      haloAlphaAt(tester).a,
-      isNot(closeTo(beforeText, 0.001)),
-      reason: 'the halo must animate, not sit still',
-    );
+      final listFinder = find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView &&
+            widget.controller != null &&
+            widget.scrollDirection == Axis.vertical,
+      );
+      final list = tester.widget<ListView>(listFinder);
+      final controller = list.controller!;
+      expect(controller.position.maxScrollExtent, greaterThan(0));
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pump();
 
-    ai.stream('Let me check the bracket draw.');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    // Mid-reply the glow is still there, replying badge shows, and the text
-    // is never hidden behind an entrance fade that has not run yet.
-    expect(find.byKey(halo), findsOneWidget);
-    expect(find.text('replying'), findsOneWidget);
-    expect(find.text('thinking'), findsNothing);
-    expect(find.textContaining('Let me check the bracket draw.'), findsOneWidget);
-    final midway = haloAlphaAt(tester).a;
-    await tester.pump(const Duration(milliseconds: 900));
-    expect(haloAlphaAt(tester).a, isNot(closeTo(midway, 0.001)));
-    expect(tester.takeException(), isNull);
+      ai.stream(
+        List.filled(30, 'A newly streamed line of Motchi text.').join('\n'),
+      );
+      await tester.pump();
+      await tester.pump();
 
-    // The tree comes down before dispose: a disposed notifier must not
-    // still have listeners attached.
-    await tester.pumpWidget(const SizedBox.shrink());
-    ai.dispose();
-  });
+      expect(
+        controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+      controller.jumpTo(0);
+      await tester.pump();
+      ai.stream(List.filled(32, 'Another streamed line.').join('\n'));
+      await tester.pump();
+      expect(controller.position.pixels, 0);
+      final latest = find.widgetWithText(FilledButton, 'Latest message');
+      expect(tester.getSize(latest).height, greaterThanOrEqualTo(48));
+      await tester.tap(latest);
+      // The post-frame callback schedules the animation; its first tick starts it.
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      // Lazy rows can revise the extent after arriving at the estimated bottom.
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump();
+      }
+      expect(
+        controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+      expect(find.text('Latest message'), findsNothing);
+      ai.stream(List.filled(36, 'The next streamed line.').join('\n'));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+    });
+  }
+
+  for (final width in [430.0, 810.0]) {
+    testWidgets('active reply indicators animate at ${width.toInt()}px', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const halo = ValueKey('motchi-answering-halo');
+      double opacityAt(String key) => tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(ValueKey(key)),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity;
+      Color haloAlphaAt(WidgetTester t) {
+        final box =
+            t.widget<Container>(find.byKey(halo)).decoration! as BoxDecoration;
+        return (box.gradient! as RadialGradient).colors.first;
+      }
+
+      final ai = _StreamingAIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: _FakeConversationRepo(
+          AIConversation(
+            id: 'assistant',
+            feature: 'assistant',
+            messages: [
+              AIMessage(role: 'user', content: 'What are the brackets?'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: const MaterialApp(home: MotchiScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      // Before any text: the avatar and dots show progress without a side badge.
+      expect(find.byKey(halo), findsOneWidget);
+      expect(find.text('thinking'), findsNothing);
+      expect(find.text('replying'), findsNothing);
+      final beforeText = haloAlphaAt(tester).a;
+      final beforeDots = opacityAt('motchi-thinking-dot-0');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        opacityAt('motchi-thinking-dot-0'),
+        isNot(closeTo(beforeDots, 0.001)),
+      );
+      expect(
+        haloAlphaAt(tester).a,
+        isNot(closeTo(beforeText, 0.001)),
+        reason: 'the halo must animate, not sit still',
+      );
+
+      ai.stream('Let me check the bracket draw.');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      // Mid-reply the glow is still there, there is no side badge, and the text
+      // is never hidden behind an entrance fade that has not run yet.
+      expect(find.byKey(halo), findsOneWidget);
+      expect(find.text('replying'), findsNothing);
+      expect(find.text('thinking'), findsNothing);
+      expect(
+        find.textContaining('Let me check the bracket draw.'),
+        findsOneWidget,
+      );
+      final midway = haloAlphaAt(tester).a;
+      final caret = opacityAt('motchi-streaming-caret');
+      await tester.pump(const Duration(milliseconds: 180));
+      expect(haloAlphaAt(tester).a, isNot(closeTo(midway, 0.001)));
+      expect(opacityAt('motchi-streaming-caret'), isNot(closeTo(caret, 0.001)));
+
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+      final reducedHalo = haloAlphaAt(tester).a;
+      final reducedCaret = opacityAt('motchi-streaming-caret');
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(haloAlphaAt(tester).a, reducedHalo);
+      expect(opacityAt('motchi-streaming-caret'), reducedCaret);
+      expect(tester.takeException(), isNull);
+
+      // The tree comes down before dispose: a disposed notifier must not
+      // still have listeners attached.
+      await tester.pumpWidget(const SizedBox.shrink());
+      ai.dispose();
+    });
+  }
 }

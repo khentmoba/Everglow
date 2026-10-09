@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -14,11 +15,13 @@ import '../../data/services/ai_service.dart';
 import '../../data/services/study_artifact.dart';
 import '../../domain/models/ai_conversation.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/text_utils.dart';
 import '../../../../shared/utils/greeting_utils.dart';
 
@@ -54,7 +57,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
   final GlobalKey _inputKey = GlobalKey();
   bool _showScrollButton = false;
   bool _isSending = false;
+  bool _conversationLoading = true;
+  bool _conversationFailed = false;
+  bool _startingChat = false;
   bool _userScrolledUp = false;
+  bool _scrollingToBottom = false;
   DeepThinkMode _deepThinkMode = DeepThinkMode.auto;
   // Canvas toggle — when off, Motchi just chats normally instead of making
   // interactive quizzes / cards / games proactively. Defaults OFF so quick
@@ -63,6 +70,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
   bool _canvasEnabled = false;
   String? _lastSentMessage;
   bool _isSidebarOpen = false;
+  bool _sidebarInitialized = false;
   final List<String> _attachedImages = [];
   final List<String> _attachedImageUrls = [];
   final ImagePicker _picker = ImagePicker();
@@ -81,17 +89,38 @@ class _MotchiScreenState extends State<MotchiScreen> {
       ai.addListener(_onAiChanged);
       ai.draftResponseNotifier.addListener(_onDraft);
       ai.toolResultsNotifier.addListener(_onToolResults);
-      await ai.loadAssistantConversation();
-      if (mounted && (ai.assistantConversation?.messages.isNotEmpty ?? false)) {
-        _scrollToBottom(animated: false);
-      }
+      await _loadConversation();
     });
+  }
+
+  Future<void> _loadConversation() async {
+    setState(() {
+      _conversationLoading = true;
+      _conversationFailed = false;
+    });
+    try {
+      await context.read<AIService>().loadAssistantConversation();
+      if (!mounted) return;
+      setState(() => _conversationLoading = false);
+      _scrollToBottom(animated: false);
+    } catch (error) {
+      Logger.e('Motchi conversation failed to load', error: error);
+      if (!mounted) return;
+      setState(() {
+        _conversationLoading = false;
+        _conversationFailed = true;
+      });
+    }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _aiService ??= context.read<AIService>();
+    if (!_sidebarInitialized) {
+      _isSidebarOpen = MediaQuery.sizeOf(context).width >= 1024;
+      _sidebarInitialized = true;
+    }
   }
 
   @override
@@ -119,9 +148,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   void _onScroll() {
-    _userScrolledUp =
-        _scroll.hasClients &&
-        _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
+    if (!_scrollingToBottom) {
+      _userScrolledUp =
+          _scroll.hasClients &&
+          _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
+    }
     final show =
         _scroll.hasClients &&
         _scroll.position.maxScrollExtent - _scroll.position.pixels > 300;
@@ -189,12 +220,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
             textColor: AppColors.blushGold,
             onPressed: () {
               final message = _restoreMessage(last);
-              if (message.isNotEmpty) {
-                context.read<AIService>().sendMessage(
-                  feature: 'assistant',
-                  message: message,
-                );
-              }
+              if (message.isNotEmpty) _sendQuick(message);
             },
           ),
         ),
@@ -231,23 +257,35 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   void _scrollToBottom({bool animated = true}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
       if (_scroll.hasClients) {
+        _scrollingToBottom = true;
         if (animated) {
-          _scroll.animateTo(
+          await _scroll.animateTo(
             _scroll.position.maxScrollExtent,
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeOutCubic,
           );
+          if (!mounted || !_scrollingToBottom) return;
+          _scrollingToBottom = false;
+          if (!_userScrolledUp) _scrollToBottom(animated: false);
         } else {
           _scroll.jumpTo(_scroll.position.maxScrollExtent);
+          _scrollingToBottom = false;
         }
       }
     });
   }
 
   Future<void> _send({bool retry = false}) async {
-    if (_isSending) return;
+    if (_isSending ||
+        _conversationLoading ||
+        _conversationFailed ||
+        _startingChat ||
+        context.read<AIService>().isNavigating) {
+      return;
+    }
     final lastReply = context
         .read<AIService>()
         .assistantConversation
@@ -319,24 +357,21 @@ class _MotchiScreenState extends State<MotchiScreen> {
     }
   }
 
-  void _cycleDeepThink() {
+  void _selectDeepThink(DeepThinkMode mode) {
     HapticFeedback.lightImpact();
-    setState(() {
-      switch (_deepThinkMode) {
-        case DeepThinkMode.auto:
-          _deepThinkMode = DeepThinkMode.on;
-          break;
-        case DeepThinkMode.on:
-          _deepThinkMode = DeepThinkMode.off;
-          break;
-        case DeepThinkMode.off:
-          _deepThinkMode = DeepThinkMode.auto;
-          break;
-      }
-    });
+    setState(() => _deepThinkMode = mode);
+  }
+
+  void _preparePrompt(String text) {
+    _input.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    _focusNode.requestFocus();
   }
 
   void _sendQuick(String text) {
+    if (_startingChat || context.read<AIService>().isNavigating) return;
     _input.text = text;
     _send();
   }
@@ -393,8 +428,25 @@ class _MotchiScreenState extends State<MotchiScreen> {
 
   void _newChat() async {
     final ai = context.read<AIService>();
+    if (ai.isLoading ||
+        ai.isNavigating ||
+        _isSending ||
+        _startingChat ||
+        _conversationLoading ||
+        _conversationFailed) {
+      return;
+    }
+    setState(() => _startingChat = true);
     try {
       await ai.clearConversation('assistant', archive: true);
+      if (!mounted) return;
+      _input.clear();
+      setState(() {
+        _attachedImages.clear();
+        _attachedImageUrls.clear();
+        _lastSentMessage = null;
+        _userScrolledUp = false;
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -407,87 +459,190 @@ class _MotchiScreenState extends State<MotchiScreen> {
           ),
         );
       }
+      return;
+    } finally {
+      if (mounted) setState(() => _startingChat = false);
     }
     if (!mounted) return;
     setState(() => _isSidebarOpen = false);
     _scrollToBottom(animated: false);
   }
 
+  void _onSessionOpened() {
+    setState(() {
+      _conversationFailed = false;
+      _userScrolledUp = false;
+    });
+    _scrollToBottom(animated: false);
+  }
+
+  Future<void> _signInFromPreview() async {
+    final auth = context.read<AuthService>();
+    final router = GoRouter.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    AgentMode.disable();
+    // Clear the agent query before logout notifies the router.
+    router.go('/?from=%2Fmotchi');
+    try {
+      await auth.logout();
+    } catch (error) {
+      Logger.e('Motchi preview sign-in failed', error: error);
+      if (messenger.mounted) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Couldn’t open sign-in. Please reload and try again.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+    final navigating = context.select<AIService, bool>((ai) => ai.isNavigating);
+    final isPreview = context.select<AuthService, bool>(
+      (auth) => auth.isAgentSession,
+    );
     return Scaffold(
       backgroundColor: AppColors.inkDeep,
       body: SafeArea(
         child: Stack(
           children: [
-            Row(
-              children: [
-                if (isDesktop)
-                  AnimatedContainer(
-                    duration: AppMotion.medium,
-                    curve: AppMotion.drawer,
-                    width: _isSidebarOpen ? 320 : 0,
-                    child: OverflowBox(
-                      maxWidth: 320,
-                      minWidth: 320,
-                      alignment: Alignment.centerLeft,
-                      child: IgnorePointer(
-                        ignoring: !_isSidebarOpen,
-                        child: AnimatedOpacity(
-                          duration: AppMotion.fast,
-                          opacity: _isSidebarOpen ? 1 : 0,
-                          child: MotchiSidebar(
-                            isOpen: true,
-                            onClose: () =>
-                                setState(() => _isSidebarOpen = false),
-                            onNewChat: _newChat,
+            ExcludeFocus(
+              excluding: !isDesktop && _isSidebarOpen,
+              child: ExcludeSemantics(
+                excluding: !isDesktop && _isSidebarOpen,
+                child: Row(
+                  children: [
+                    if (isDesktop)
+                      AnimatedContainer(
+                        duration: AppMotion.medium,
+                        curve: AppMotion.drawer,
+                        width: _isSidebarOpen ? 320 : 0,
+                        child: OverflowBox(
+                          maxWidth: 320,
+                          minWidth: 320,
+                          alignment: Alignment.centerLeft,
+                          child: IgnorePointer(
+                            ignoring: !_isSidebarOpen,
+                            child: AnimatedOpacity(
+                              duration: AppMotion.fast,
+                              opacity: _isSidebarOpen ? 1 : 0,
+                              child: ExcludeFocus(
+                                excluding: !_isSidebarOpen,
+                                child: ExcludeSemantics(
+                                  excluding: !_isSidebarOpen,
+                                  child: MotchiSidebar(
+                                    isOpen: true,
+                                    onClose: () =>
+                                        setState(() => _isSidebarOpen = false),
+                                    onNewChat: _newChat,
+                                    navigationBusy:
+                                        _conversationLoading ||
+                                        _startingChat ||
+                                        navigating,
+                                    onSessionOpened: _onSessionOpened,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Selector<AIService, bool>(
+                            selector: (_, ai) => ai.isLoading,
+                            builder: (_, loading, _) => _MotchiHeader(
+                              onBack: () => context.canPop()
+                                  ? context.pop()
+                                  : context.go('/dashboard'),
+                              onSidebarToggle: () => setState(
+                                () => _isSidebarOpen = !_isSidebarOpen,
+                              ),
+                              onNewChat:
+                                  loading ||
+                                      navigating ||
+                                      _startingChat ||
+                                      _conversationLoading ||
+                                      _conversationFailed
+                                  ? null
+                                  : _newChat,
+                              sidebarOpen: _isSidebarOpen,
+                            ),
+                          ),
+                          if (isPreview)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 8,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Sign in for real Motchi replies.',
+                                    style: AppTypography.bodyMedium(),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: _signInFromPreview,
+                                    style: TextButton.styleFrom(
+                                      minimumSize: const Size(48, 48),
+                                      visualDensity: VisualDensity.standard,
+                                    ),
+                                    icon: const Icon(Icons.login_rounded),
+                                    label: const Text('Sign in to chat'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          Expanded(child: _buildChatList(centered: isDesktop)),
+                          _ErrorBanner(
+                            lastSentMessage: _lastSentMessage,
+                            onRetry: () => _send(retry: true),
+                          ),
+                          _ComposerInput(
+                            inputKey: _inputKey,
+                            enabled:
+                                !isPreview &&
+                                !_conversationLoading &&
+                                !_conversationFailed &&
+                                !_startingChat &&
+                                !navigating,
+                            controller: _input,
+                            focusNode: _focusNode,
+                            onSend: _send,
+                            onStop: _stop,
+                            onPickImages: _pickImages,
+                            attachedImages: _attachedImages,
+                            onRemoveImage: _removeImage,
+                            centered: isDesktop,
+                            deepThinkMode: _deepThinkMode,
+                            onSelectDeepThink: _selectDeepThink,
+                            canvasEnabled: _canvasEnabled,
+                            onToggleCanvas: () => setState(
+                              () => _canvasEnabled = !_canvasEnabled,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _MotchiHeader(
-                        onBack: () => context.pop(),
-                        onSidebarToggle: () =>
-                            setState(() => _isSidebarOpen = !_isSidebarOpen),
-                        onNewChat: _newChat,
-                        sidebarOpen: _isSidebarOpen,
-                      ),
-                      Expanded(child: _buildChatList(centered: isDesktop)),
-                      _ErrorBanner(
-                        lastSentMessage: _lastSentMessage,
-                        onRetry: () => _send(retry: true),
-                      ),
-                      _ComposerInput(
-                        inputKey: _inputKey,
-                        controller: _input,
-                        focusNode: _focusNode,
-                        onSend: _send,
-                        onStop: _stop,
-                        onPickImages: _pickImages,
-                        attachedImages: _attachedImages,
-                        onRemoveImage: _removeImage,
-                        centered: isDesktop,
-                        deepThinkMode: _deepThinkMode,
-                        onToggleDeepThink: _cycleDeepThink,
-                        canvasEnabled: _canvasEnabled,
-                        onToggleCanvas: () =>
-                            setState(() => _canvasEnabled = !_canvasEnabled),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
             if (!isDesktop)
               MotchiSidebar(
                 isOpen: _isSidebarOpen,
                 onClose: () => setState(() => _isSidebarOpen = false),
                 onNewChat: _newChat,
+                navigationBusy:
+                    _conversationLoading || _startingChat || navigating,
+                onSessionOpened: _onSessionOpened,
               ),
           ],
         ),
@@ -506,6 +661,42 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   Widget _buildChatList({required bool centered}) {
+    if (_conversationLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.roseQuartz,
+          strokeWidth: 2,
+          semanticsLabel: 'Loading your conversation',
+        ),
+      );
+    }
+    if (_conversationFailed) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Your conversation couldn’t load.',
+                style: AppTypography.titleMedium(),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Try again to pick up where you left off.',
+                style: AppTypography.bodyMedium(),
+              ),
+              const SizedBox(height: 16),
+              TextButton.icon(
+                onPressed: _loadConversation,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Try again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Stack(
       children: [
         Selector<AIService, (AIConversation?, int, bool)>(
@@ -519,10 +710,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
             final callerName = context.read<AuthService>().currentUser;
             final allMsgs = snapshot.$1?.messages ?? const <AIMessage>[];
             final loading = snapshot.$3;
+            final busy = loading || ai.isNavigating || _startingChat;
 
             if (allMsgs.isEmpty && !loading) {
               return _GreetingEmptyState(
-                onTap: _sendQuick,
+                onTap: _preparePrompt,
                 centered: centered,
                 callerName: callerName,
               );
@@ -614,6 +806,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                       userAskedForVisibleQuiz(_prevUserText(allMsgs, i)),
                   timestamp: msg.timestamp,
                   imageUrls: msg.imageUrls,
+                  onUseAsDraft: isUserMsg && !busy && msg.content.isNotEmpty
+                      ? () => _preparePrompt(msg.content)
+                      : null,
                 );
                 // Web answers keep their tappable sources under the
                 // finished bubble (persisted on the message).
@@ -643,8 +838,8 @@ class _MotchiScreenState extends State<MotchiScreen> {
                           details: msg.details,
                           onOpenMemoryBook: () =>
                               context.push('/motchi-memory'),
-                          onCorrectMemory: loading ? null : _sendQuick,
-                          onContinue: loading
+                          onCorrectMemory: busy ? null : _sendQuick,
+                          onContinue: busy
                               ? null
                               : () => _sendQuick(
                                   'Help finish only the unfinished steps from this request: ${_prevUserText(allMsgs, i)}. Check existing records for any unconfirmed action first; do not repeat completed saves or sends.',
@@ -669,7 +864,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
             );
 
             if (centered) {
-              return ScrollConfiguration(
+              list = ScrollConfiguration(
                 behavior: ScrollConfiguration.of(
                   context,
                 ).copyWith(scrollbars: true),
@@ -680,7 +875,30 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 ),
               );
             }
-            return list;
+            return NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is UserScrollNotification &&
+                    notification.direction != ScrollDirection.idle) {
+                  _scrollingToBottom = false;
+                  _onScroll();
+                }
+                return false;
+              },
+              child: NotificationListener<ScrollMetricsNotification>(
+                onNotification: (notification) {
+                  if (!_userScrolledUp &&
+                      !_scrollingToBottom &&
+                      (notification.metrics.maxScrollExtent -
+                                  notification.metrics.pixels)
+                              .abs() >
+                          1) {
+                    _scrollToBottom(animated: false);
+                  }
+                  return false;
+                },
+                child: list,
+              ),
+            );
           },
         ),
         if (_showScrollButton)
@@ -692,31 +910,23 @@ class _MotchiScreenState extends State<MotchiScreen> {
               child: AnimatedOpacity(
                 opacity: _showScrollButton ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 200),
-                child: GestureDetector(
-                  onTap: () => _scrollToBottom(),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.panelGlass,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    _userScrolledUp = false;
+                    _scrollToBottom();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.silk,
+                    foregroundColor: AppColors.textHigh,
+                    minimumSize: const Size(48, 48),
+                    visualDensity: VisualDensity.standard,
+                    shape: RoundedRectangleBorder(
                       borderRadius: AppRadius.radiusFull,
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.textMuted,
-                      size: 18,
+                      side: BorderSide(color: AppColors.border),
                     ),
                   ),
+                  icon: const Icon(Icons.arrow_downward_rounded, size: 18),
+                  label: const Text('Latest message'),
                 ),
               ),
             ),

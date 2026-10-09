@@ -29,6 +29,50 @@ const demo = MotchiReplyDetails(
 );
 
 void main() {
+  testWidgets('long action receipts fit a small phone with larger text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.6)),
+          child: child!,
+        ),
+        home: const Scaffold(
+          body: SingleChildScrollView(
+            child: MotchiReplyDetailsCard(
+              details: MotchiReplyDetails(
+                steps: [
+                  {
+                    'tool': 'create_reminder',
+                    'status': 'unscheduled',
+                    'write': true,
+                    'title':
+                        'A long synthetic reminder title that should wrap rather than hide the result',
+                  },
+                  {
+                    'tool': 'add_calendar_event',
+                    'status': 'unknown',
+                    'write': true,
+                  },
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Saved, but not scheduled'), findsOneWidget);
+    expect(find.text('Could not confirm'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   test(
     'receipts survive conversation and session serialization, not model invention',
     () {
@@ -189,14 +233,10 @@ void main() {
           ),
         );
         expect(find.text('Some steps still need attention.'), findsOneWidget);
-        expect(
-          find.textContaining('Done · add calendar event'),
-          findsOneWidget,
-        );
-        expect(
-          find.textContaining('Did not complete · create reminder'),
-          findsOneWidget,
-        );
+        expect(find.textContaining('Add calendar event'), findsOneWidget);
+        expect(find.textContaining('Create reminder'), findsOneWidget);
+        expect(find.text('Done'), findsOneWidget);
+        expect(find.text('Did not complete'), findsOneWidget);
         await tester.tap(find.text('Open Memory Book'));
         expect(openedBook, isTrue);
         await tester.tap(find.text('Help finish unfinished steps'));
@@ -273,11 +313,15 @@ void main() {
       );
       expect(details.summary, 'Information found — nothing saved yet.');
       expect(details.needsAttention, isFalse);
-      expect(find.textContaining('Some steps still need attention'), findsNothing);
+      expect(
+        find.textContaining('Some steps still need attention'),
+        findsNothing,
+      );
       // The failed read is still reported — trust means showing it.
-      expect(find.textContaining('Done · read web page'), findsOneWidget);
+      expect(find.textContaining('Read web page'), findsNWidgets(2));
+      expect(find.text('Done'), findsNWidgets(2));
       expect(find.textContaining('fandom.com'), findsOneWidget);
-      expect(find.textContaining('Did not complete · read web page'), findsOneWidget);
+      expect(find.textContaining('Did not complete'), findsOneWidget);
       expect(find.textContaining('facebook.com'), findsOneWidget);
       expect(find.text('Help finish unfinished steps'), findsNothing);
       expect(continued, isFalse);
@@ -347,7 +391,8 @@ void main() {
       ),
     );
     expect(find.text('Some steps still need attention.'), findsOneWidget);
-    expect(find.textContaining('Did not complete · add calendar event'), findsOneWidget);
+    expect(find.textContaining('Add calendar event'), findsOneWidget);
+    expect(find.text('Did not complete'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -83,10 +83,7 @@ class ClarificationChoice {
   final String prompt;
   final List<String> choices;
 
-  const ClarificationChoice({
-    required this.prompt,
-    required this.choices,
-  });
+  const ClarificationChoice({required this.prompt, required this.choices});
 }
 
 /// What an assistant reply contains, after parsing.
@@ -110,7 +107,8 @@ class StudyArtifacts {
   bool get hasHtml => html.isNotEmpty;
   bool get hasLinks => links.isNotEmpty;
   bool get hasChoices => choices.isNotEmpty;
-  bool get isEmpty => !hasQuiz && !hasFlashcards && !hasHtml && !hasLinks && !hasChoices;
+  bool get isEmpty =>
+      !hasQuiz && !hasFlashcards && !hasHtml && !hasLinks && !hasChoices;
 }
 
 /// Max items kept per artifact (prompts ask 5 quiz / 10 cards; room to spare).
@@ -146,8 +144,7 @@ StudyArtifacts parseStudyArtifacts(String text) {
   final hasCardsJson = _fencedBodies(text, 'flashcards-json').isNotEmpty;
   final quiz = <QuizQuestion>[
     ..._parseQuizJsonBlocks(text),
-    if (!hasQuizJson)
-      ..._parseQuizMarkdownFallback(_withoutFencedBlocks(text)),
+    if (!hasQuizJson) ..._parseQuizMarkdownFallback(_withoutFencedBlocks(text)),
   ];
   final cards = <Flashcard>[
     ..._parseFlashcardsJsonBlocks(text),
@@ -157,9 +154,7 @@ StudyArtifacts parseStudyArtifacts(String text) {
   return StudyArtifacts(
     quiz: quiz.take(kMaxQuizQuestions).toList(),
     flashcards: cards.take(kMaxFlashcards).toList(),
-    html: _parseHtmlArtifactBlocks(
-      text,
-    ).take(kMaxHtmlArtifacts).toList(),
+    html: _parseHtmlArtifactBlocks(text).take(kMaxHtmlArtifacts).toList(),
     links: _parseAppLinkBlocks(text).take(kMaxAppLinks).toList(),
     choices: _parseChoicesJsonBlocks(text).take(3).toList(),
   );
@@ -196,7 +191,8 @@ String stripArtifactBlocks(String text, {bool collapseVisibleLists = true}) {
 /// chapter 5" still collapses, since the sheet holds the same questions.
 bool userAskedForVisibleQuiz(String userText) {
   final t = userText.toLowerCase();
-  final mentionsQuiz = t.contains('quiz') ||
+  final mentionsQuiz =
+      t.contains('quiz') ||
       t.contains('question') ||
       t.contains('trivia') ||
       t.contains('test me') ||
@@ -313,6 +309,11 @@ String _withoutTrailingOpenFence(String text) {
   if (open != null) {
     return text.substring(0, open.start).trimRight();
   }
+  for (final page in _standaloneHtmlStart.allMatches(text)) {
+    if (!_insideLabeledFence(text, page.start)) {
+      return text.substring(0, page.start).trimRight();
+    }
+  }
   return text;
 }
 
@@ -359,8 +360,27 @@ String _normTag(String tag) {
   return t;
 }
 
+// Recover complete HTML pages when the model omits the artifact fence.
+// A doctype page may omit outer HTML tags; require a closed body instead.
+final _standaloneHtmlStart = RegExp(
+  r'(?:^|\n)[ \t]*(?:```[ \t]*\r?\n[ \t]*)?(?:<!doctype\s+html\b|<html\b)',
+  caseSensitive: false,
+);
+final _standaloneHtmlPage = RegExp(
+  r'(?:^|\n)[ \t]*(?:```[ \t]*\r?\n[ \t]*)?((?:<!doctype\s+html\b[^>]*>\s*)?<html\b[\s\S]*?</html\s*>|<!doctype\s+html\b[^>]*>[\s\S]*?<body\b[^>]*>[\s\S]*?</body\s*>(?:\s*</html\s*>)?)[ \t]*(?:\r?\n[ \t]*```[ \t]*(?=\r?\n|$))?',
+  caseSensitive: false,
+);
+
+bool _insideLabeledFence(String text, int offset) => _fencePattern
+    .allMatches(text)
+    .any((fence) => offset > fence.start && offset < fence.end);
+
+Iterable<RegExpMatch> _standaloneHtmlPages(String text) => _standaloneHtmlPage
+    .allMatches(text)
+    .where((page) => !_insideLabeledFence(text, page.start));
+
 String _withoutFencedBlocks(String text) {
-  return text.replaceAllMapped(_fencePattern, (m) {
+  final withoutArtifacts = text.replaceAllMapped(_fencePattern, (m) {
     if (_normTag(m.group(1)!) == 'quiz-json' ||
         _normTag(m.group(1)!) == 'flashcards-json' ||
         _normTag(m.group(1)!) == 'html-artifact' ||
@@ -369,6 +389,11 @@ String _withoutFencedBlocks(String text) {
       return '';
     }
     return m.group(0)!;
+  });
+  return withoutArtifacts.replaceAllMapped(_standaloneHtmlPage, (page) {
+    return _insideLabeledFence(withoutArtifacts, page.start)
+        ? page.group(0)!
+        : '';
   });
 }
 
@@ -523,10 +548,7 @@ Iterable<String> _objectSpans(String arraySpan) sync* {
 }
 
 String _stripTrailingCommas(String s) {
-  return s.replaceAllMapped(
-    RegExp(r',(\s*[}\]])'),
-    (m) => m.group(1)!,
-  );
+  return s.replaceAllMapped(RegExp(r',(\s*[}\]])'), (m) => m.group(1)!);
 }
 
 List<QuizQuestion> _parseQuizJsonBlocks(String text) {
@@ -608,8 +630,9 @@ Flashcard? _cardFromJson(dynamic item) {
   final front = (item['front'] ?? item['q'] ?? item['question'] ?? '')
       .toString()
       .trim();
-  final back =
-      (item['back'] ?? item['a'] ?? item['answer'] ?? '').toString().trim();
+  final back = (item['back'] ?? item['a'] ?? item['answer'] ?? '')
+      .toString()
+      .trim();
   if (front.isEmpty || back.isEmpty) return null;
   if (front.length > 500 || back.length > 800) return null;
   return Flashcard(front: front, back: back);
@@ -619,19 +642,24 @@ Flashcard? _cardFromJson(dynamic item) {
 
 List<HtmlArtifact> _parseHtmlArtifactBlocks(String text) {
   final out = <HtmlArtifact>[];
-  for (final body in _fencedBodies(text, 'html-artifact')) {
+  final bodies = [
+    ..._fencedBodies(text, 'html-artifact'),
+    for (final page in _standaloneHtmlPages(text)) page.group(1)!,
+  ];
+  for (final body in bodies) {
     final html = body.trim();
     // Stay inside the size cap so one wild reply can't flood the chat
     // or the saved conversation.
     if (html.length < 20 || html.length > kMaxHtmlChars) continue;
     final lower = html.toLowerCase();
-    final isFullPage =
-        lower.contains('<html') || lower.contains('<!doctype');
+    final isFullPage = lower.contains('<html') || lower.contains('<!doctype');
     // Accept fragments too (a bare `style`/`div`/`script` game): the model
     // doesn't always emit a full document, so wrap fragments into one.
     // Anything without at least one HTML tag is prose, not an app.
-    final hasTag = RegExp(r'<[a-z][a-z0-9-]*(\s[^<>]*)?>', caseSensitive: false)
-        .hasMatch(html);
+    final hasTag = RegExp(
+      r'<[a-z][a-z0-9-]*(\s[^<>]*)?>',
+      caseSensitive: false,
+    ).hasMatch(html);
     if (!isFullPage && !hasTag) continue;
     out.add(
       HtmlArtifact(
@@ -671,7 +699,8 @@ List<AppLink> _parseAppLinkBlocks(String text) {
   final out = <AppLink>[];
   final seen = <String>{};
   for (final body in _fencedBodies(text, 'everglow-link')) {
-    final route = RegExp(r'/play-zone(?:/[a-z]+)*').firstMatch(body)?.group(0) ?? '';
+    final route =
+        RegExp(r'/play-zone(?:/[a-z]+)*').firstMatch(body)?.group(0) ?? '';
     if (route.isEmpty || seen.contains(route)) continue;
     final label = kAppLinkLabels[route];
     if (label == null) continue;
@@ -714,9 +743,9 @@ List<QuizQuestion> _parseQuizMarkdownFallback(String text) {
   final out = <QuizQuestion>[];
   var i = 0;
   while (i < lines.length) {
-    final qMatch =
-        RegExp(r'^\s*(?:\*{0,2}\s*)?(\d+)[.)]\s+(.{4,}?)\s*\*{0,2}\s*$')
-            .firstMatch(lines[i]);
+    final qMatch = RegExp(
+      r'^\s*(?:\*{0,2}\s*)?(\d+)[.)]\s+(.{4,}?)\s*\*{0,2}\s*$',
+    ).firstMatch(lines[i]);
     if (qMatch == null) {
       i++;
       continue;
@@ -725,8 +754,9 @@ List<QuizQuestion> _parseQuizMarkdownFallback(String text) {
     final options = <String>[];
     var j = i + 1;
     while (j < lines.length && options.length < 6) {
-      final opt = RegExp(r'^\s*(?:[-*•]\s*)?([A-E])[.)]\s+(.+?)\s*$')
-          .firstMatch(lines[j]);
+      final opt = RegExp(
+        r'^\s*(?:[-*•]\s*)?([A-E])[.)]\s+(.+?)\s*$',
+      ).firstMatch(lines[j]);
       if (opt == null) break;
       options.add(_cleanInline(opt.group(2)!));
       j++;
@@ -778,13 +808,17 @@ List<Flashcard> _parseFlashcardsMarkdownFallback(String text) {
     }
     String? back;
     if (i + 1 < lines.length) {
-      back = RegExp(r'^(?:A\s*[:\-]|Back\s*[:\-])\s*(.+)$', caseSensitive: false)
-          .firstMatch(lines[i + 1])
-          ?.group(1);
+      back = RegExp(
+        r'^(?:A\s*[:\-]|Back\s*[:\-])\s*(.+)$',
+        caseSensitive: false,
+      ).firstMatch(lines[i + 1])?.group(1);
     }
     if (back != null && back.trim().isNotEmpty) {
       out.add(
-        Flashcard(front: _cleanInline(front.group(1)!), back: _cleanInline(back)),
+        Flashcard(
+          front: _cleanInline(front.group(1)!),
+          back: _cleanInline(back),
+        ),
       );
       explicitHits++;
       i += 2;
