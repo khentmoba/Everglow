@@ -43,11 +43,13 @@ class EpisodeDrawer extends StatefulWidget {
   /// (hero poster, glass meta panel, large cast cards). Dashboard previews
   /// keep the classic layout by leaving this false.
   final bool cinemaVariant;
+  final int? topTenRank;
 
   const EpisodeDrawer({
     super.key,
     required this.item,
     this.cinemaVariant = false,
+    this.topTenRank,
   });
 
   @override
@@ -922,7 +924,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
               ),
               const SizedBox(width: 8),
               Text(
-                '#$_topTenRank in ${_isFilm ? 'Movies' : 'TV Shows'} Today',
+                '#$_topTenRank in the Philippines Today',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 14,
                   color: Colors.white,

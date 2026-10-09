@@ -47,6 +47,32 @@ void main() {
       await tester.runAsync(loader.load);
     }
     final items = await TMDBDiscoveryService().fetchPopularMovies();
+    for (final rank in [1, 2, 10, null]) {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthService>.value(
+          value: auth,
+          child: MaterialApp(
+            home: Scaffold(
+              body: EpisodeDrawer(
+                key: ValueKey(rank),
+                item: items.first,
+                cinemaVariant: true,
+                topTenRank: rank,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      expect(
+        find.textContaining('in the Philippines Today'),
+        rank == null ? findsNothing : findsOneWidget,
+      );
+      if (rank != null) {
+        expect(find.text('#$rank in the Philippines Today'), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    }
     await tester.pumpWidget(
       ChangeNotifierProvider<AuthService>.value(
         value: auth,
@@ -54,7 +80,11 @@ void main() {
           home: Scaffold(
             body: RepaintBoundary(
               key: const ValueKey('proof'),
-              child: EpisodeDrawer(item: items.first, cinemaVariant: true),
+              child: EpisodeDrawer(
+                item: items.first,
+                cinemaVariant: true,
+                topTenRank: 1,
+              ),
             ),
           ),
         ),

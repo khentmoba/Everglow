@@ -217,15 +217,7 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
     return tags.toSet().take(3).join(', ');
   }
 
-  int? get _topTenRank {
-    final pop = (_details?['popularity'] as num?)?.toDouble() ?? 0.0;
-    if (pop > 60) return 2;
-    if (pop > 40) return 3;
-    if (pop > 25) return 5;
-    if (pop > 15) return 8;
-    return null;
-  }
-
+  int? get _topTenRank => widget.topTenRank;
 
   bool _isMobile = false;
 
