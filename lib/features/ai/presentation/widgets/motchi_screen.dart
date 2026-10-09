@@ -15,7 +15,6 @@ import '../../data/services/ai_service.dart';
 import '../../data/services/study_artifact.dart';
 import '../../domain/models/ai_conversation.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -476,36 +475,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
     _scrollToBottom(animated: false);
   }
 
-  Future<void> _signInFromPreview() async {
-    final auth = context.read<AuthService>();
-    final router = GoRouter.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    AgentMode.disable();
-    // Clear the agent query before logout notifies the router.
-    router.go('/?from=%2Fmotchi');
-    try {
-      await auth.logout();
-    } catch (error) {
-      Logger.e('Motchi preview sign-in failed', error: error);
-      if (messenger.mounted) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Couldn’t open sign-in. Please reload and try again.',
-            ),
-          ),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
     final navigating = context.select<AIService, bool>((ai) => ai.isNavigating);
-    final isPreview = context.select<AuthService, bool>(
-      (auth) => auth.isAgentSession,
-    );
     return Scaffold(
       backgroundColor: AppColors.inkDeep,
       body: SafeArea(
@@ -575,31 +549,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                               sidebarOpen: _isSidebarOpen,
                             ),
                           ),
-                          if (isPreview)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 8,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Sign in for real Motchi replies.',
-                                    style: AppTypography.bodyMedium(),
-                                  ),
-                                  TextButton.icon(
-                                    onPressed: _signInFromPreview,
-                                    style: TextButton.styleFrom(
-                                      minimumSize: const Size(48, 48),
-                                      visualDensity: VisualDensity.standard,
-                                    ),
-                                    icon: const Icon(Icons.login_rounded),
-                                    label: const Text('Sign in to chat'),
-                                  ),
-                                ],
-                              ),
-                            ),
                           Expanded(child: _buildChatList(centered: isDesktop)),
                           _ErrorBanner(
                             lastSentMessage: _lastSentMessage,
@@ -608,7 +557,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                           _ComposerInput(
                             inputKey: _inputKey,
                             enabled:
-                                !isPreview &&
                                 !_conversationLoading &&
                                 !_conversationFailed &&
                                 !_startingChat &&
