@@ -162,3 +162,31 @@ panel appeared without prior preferences. The refreshed proof image is from
 that launch. This tests manifest selection and fresh-session launch, not iOS
 installation. A physical iPhone launch is still required to verify the system
 areas and the new installation flow.
+
+## Screen-test URL lost during navigation
+
+Khent reports that the newly added icon still opens without the diagnostic HUD.
+The screenshot still shows a separate bottom strip. This is not a successful
+installation test, and the private screenshot is not published.
+
+The hosted root launch redirected to `/dashboard`, dropping both `agent` and
+`screencheck` from the address. The manifest retained a demo start URL, but that
+alone did not deliver the requested device outcome. The router now preserves
+the launch query on screen-test gateway jumps; ordinary jumps are unchanged.
+This repairs a demonstrated URL-loss bug, not a proven diagnosis of iOS's
+installation behavior or the bottom strip.
+
+Windows checks: analysis zero issues, 1,533 app tests passed, all 15 listed
+Dart guards passed, nine bootstrap tests passed, and the release build passed
+without the Agent Mode compile flag. The first combined verification command
+hit its five-minute timeout during the build; a separate build completed with
+exit zero. Two new tests cover retaining test parameters and ordinary jumps.
+
+In the local release app, root launch became
+`/dashboard?agent=dashboard&screencheck=1`. Opened that final URL in a separate
+fresh origin, verified the screen-test manifest remained selected, and clicked
+Screen edges: the complete measurement panel appeared. The inspected
+`screen-query-reload.png` records this desktop Chromium check (1280x800), using
+fake data; the earlier phone proof remains above. This does not prove iPhone
+installation. The PR stays draft pending a physical measurement and bottom-edge
+correction.
