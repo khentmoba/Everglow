@@ -1,5 +1,24 @@
 # Motchi Chat UI and UX proof
 
+## CI recovery after badge removal
+
+Run 37918214902 passed 29 Chrome tests, including the 320px/1.6x composer
+and absent-side-badge regressions. The permission/retry mic case failed:
+its second tap hit the still-visible SnackBar instead of the mic. The
+notice timer starts after its entrance animation, so the test now finishes
+that animation before advancing the timeout, requires the notice gone,
+and requires Stop voice input before testing disposal. App behavior is
+unchanged. Linux Chrome must confirm the corrected test.
+
+The same run compiled the release app but its smoke check could not start
+Chrome; no destination assertions ran. The new CI run must verify that.
+The PR-event run also failed before app checks because its recorded base
+SHA differed from the checked-out merge base. The PR contract now compares
+against the merge's first parent, as required by Quality's PR checkout.
+A real temporary Git merge regression with an unavailable event base passes;
+proof requirements are unchanged. All 24 selection/contract tests, local
+analysis, 1,539 regular tests, 15 Dart guards and diff check passed.
+
 ## Remove redundant side status
 
 Removed the thinking/replying badge beside Motchi's name from both the

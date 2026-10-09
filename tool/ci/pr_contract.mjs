@@ -31,7 +31,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH || process.argv[2], 'utf8'));
     if (event.pull_request) {
       const pr = event.pull_request;
-      const paths = execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', pr.base.sha, 'HEAD'], {encoding:'utf8'}).split('\0').filter(Boolean);
+      // Checkout tests a PR merge; its first parent is the actual base, even if the event is stale.
+      const paths = execFileSync('git', ['diff', '--name-only', '--no-renames', '-z', 'HEAD^1', 'HEAD'], {encoding:'utf8'}).split('\0').filter(Boolean);
       const errors = checkPrContract({...pr, paths}, (path, sha) => {
         try {execFileSync('git', ['cat-file', '-e', `${sha}:${path}`], {stdio:'pipe'}); return true;}
         catch {

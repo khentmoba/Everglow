@@ -316,10 +316,17 @@ void main() {
         findsOneWidget,
       );
       expect(find.byTooltip('Dictate message'), findsOneWidget);
+      // The notice timer starts after its entrance animation completes.
+      await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(seconds: 5));
       await tester.pump(const Duration(milliseconds: 500));
+      expect(
+        find.textContaining('Allow microphone and speech access'),
+        findsNothing,
+      );
       await tester.tap(find.byTooltip('Dictate message'));
       await tester.pump();
+      expect(find.byTooltip('Stop voice input'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(js.context['__voiceAborted'], isTrue);
       expect(tester.takeException(), isNull);
