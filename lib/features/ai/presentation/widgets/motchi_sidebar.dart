@@ -211,6 +211,19 @@ class _MotchiSidebarState extends State<MotchiSidebar>
     }
   }
 
+  void _handleNewChat() {
+    if (widget.navigationBusy ||
+        _switchingId != null ||
+        _ai?.isLoading == true ||
+        _ai?.isNavigating == true) {
+      return;
+    }
+    setState(() => _activeSessionId = null);
+    final isDesktop = MediaQuery.sizeOf(context).width >= 1024;
+    if (!isDesktop) widget.onClose();
+    widget.onNewChat();
+  }
+
   Future<void> _switchSession(AISession session) async {
     if (widget.navigationBusy ||
         _switchingId != null ||
@@ -439,7 +452,7 @@ class _MotchiSidebarState extends State<MotchiSidebar>
             _ai?.isNavigating == true,
         grouped: _groupByDate(_filtered),
         activeId: _activeSessionId,
-        onNewChat: widget.onNewChat,
+        onNewChat: _handleNewChat,
         onClose: widget.onClose,
         onSwitch: _switchSession,
         onDelete: _deleteSession,
@@ -523,7 +536,7 @@ class _MotchiSidebarState extends State<MotchiSidebar>
                             _ai?.isNavigating == true,
                         grouped: _groupByDate(_filtered),
                         activeId: _activeSessionId,
-                        onNewChat: widget.onNewChat,
+                        onNewChat: _handleNewChat,
                         onClose: widget.onClose,
                         onSwitch: _switchSession,
                         onDelete: _deleteSession,
