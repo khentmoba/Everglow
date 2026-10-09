@@ -336,7 +336,14 @@ void main() {
         await tester.tap(find.byTooltip('Close sidebar'));
         await tester.pump(const Duration(milliseconds: 400));
       }
-      final field = tester.widget<TextField>(find.byType(TextField).first);
+      // The desktop sidebar keeps its own search field, so match the
+      // composer by its hint rather than by tree order.
+      final composer = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.hintText == 'Message Motchi…',
+      );
+      final field = tester.widget<TextField>(composer);
       expect(field.enabled, isFalse);
       field.controller!.text = 'Keep this draft';
       await tester.pump();
@@ -361,10 +368,7 @@ void main() {
         find.widgetWithText(SelectableText, 'Archived question'),
         findsOneWidget,
       );
-      expect(
-        tester.widget<TextField>(find.byType(TextField).first).enabled,
-        isTrue,
-      );
+      expect(tester.widget<TextField>(composer).enabled, isTrue);
       expect(field.controller!.text, 'Keep this draft');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
