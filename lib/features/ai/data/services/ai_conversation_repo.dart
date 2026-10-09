@@ -455,9 +455,7 @@ class AIConversationRepository implements IAIConversationRepository {
       .orderBy('createdAt', descending: true)
       .limit(limit);
 
-  AISession _sessionFromDoc(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  AISession _sessionFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
     final messages = data['messages'] as List? ?? [];
     final hasSummary = data['hasSummary'] as bool? ?? true;
@@ -498,9 +496,9 @@ class AIConversationRepository implements IAIConversationRepository {
     try {
       final snapshot = await _sessionsQuery(limit: limit).get();
       return snapshot.docs.map(_sessionFromDoc).toList();
-    } catch (e) {
-      if (kDebugMode) debugPrint('Failed to list sessions: $e');
-      return [];
+    } catch (e, st) {
+      Logger.e('Failed to list sessions', error: e, stackTrace: st);
+      rethrow;
     }
   }
 
@@ -511,12 +509,12 @@ class AIConversationRepository implements IAIConversationRepository {
   @override
   Stream<List<AISession>> watchSessions({int limit = 50}) {
     try {
-      return _sessionsQuery(
-        limit: limit,
-      ).snapshots().map((snapshot) => snapshot.docs.map(_sessionFromDoc).toList());
-    } catch (e) {
-      if (kDebugMode) debugPrint('Failed to watch sessions: $e');
-      return Stream.value(const []);
+      return _sessionsQuery(limit: limit).snapshots().map(
+        (snapshot) => snapshot.docs.map(_sessionFromDoc).toList(),
+      );
+    } catch (e, st) {
+      Logger.e('Failed to watch sessions', error: e, stackTrace: st);
+      return Stream.error(e, st);
     }
   }
 
@@ -533,27 +531,34 @@ class AIConversationRepository implements IAIConversationRepository {
           .doc(sessionId)
           .get();
 
-      if (!doc.exists || doc.data() == null) return;
+      if (!doc.exists || doc.data() == null) {
+        throw StateError('Requested AI session does not exist');
+      }
 
       final data = doc.data()!;
       final messages = data['messages'] as List? ?? [];
       final summary = data['summary'] as String?;
-      final conv = _assistantConversation ?? await getOrCreate('assistant');
-
-      conv.messages.clear();
-      if (messages.isNotEmpty) {
-        for (final msg in messages) {
-          conv.messages.add(AIMessage.fromJson(msg as Map<String, dynamic>));
-        }
-      } else if (summary != null && summary.isNotEmpty) {
-        conv.messages.add(
+      final parsedMessages = messages
+          .map((msg) => AIMessage.fromJson(msg as Map<String, dynamic>))
+          .toList();
+      if (parsedMessages.isEmpty && summary != null && summary.isNotEmpty) {
+        parsedMessages.add(
           AIMessage(role: 'assistant', content: 'Summary: $summary'),
         );
       }
 
-      _assistantConversation = conv;
-    } catch (e) {
-      if (kDebugMode) debugPrint('Failed to load session: $e');
+      final previous = _assistantConversation;
+      // A finished reply may still be saving/archiving the previous object.
+      _assistantConversation = AIConversation(
+        id: previous?.id ?? 'assistant',
+        feature: 'assistant',
+        messages: parsedMessages,
+        createdAt: previous?.createdAt,
+        updatedAt: previous?.updatedAt,
+      );
+    } catch (e, st) {
+      Logger.e('Failed to load session', error: e, stackTrace: st);
+      rethrow;
     }
   }
 

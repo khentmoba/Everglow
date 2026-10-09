@@ -10,6 +10,11 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeConversationRepo implements IAIConversationRepository {
   AIConversation? assistantConv;
   List<AISession> archived = [];
+  Completer<void>? sessionGate;
+  Completer<void>? clearGate;
+  Object? sessionError;
+  AIConversation? loadedConversation;
+  int getOrCreateCalls = 0;
 
   @override
   AIConversation? get assistant => assistantConv;
@@ -23,8 +28,10 @@ class _FakeConversationRepo implements IAIConversationRepository {
   }
 
   @override
-  Future<AIConversation> getOrCreate(String feature) async =>
-      assistantConv ??= AIConversation(id: feature, feature: feature);
+  Future<AIConversation> getOrCreate(String feature) async {
+    getOrCreateCalls++;
+    return assistantConv ??= AIConversation(id: feature, feature: feature);
+  }
 
   @override
   Future<void> save(AIConversation conversation) async {}
@@ -37,6 +44,7 @@ class _FakeConversationRepo implements IAIConversationRepository {
 
   @override
   Future<void> clear(String feature, {bool archive = true}) async {
+    await clearGate?.future;
     if (feature == 'assistant') {
       assistantConv = AIConversation(id: feature, feature: feature);
     }
@@ -60,7 +68,11 @@ class _FakeConversationRepo implements IAIConversationRepository {
       const Stream.empty();
 
   @override
-  Future<void> loadSession(String sessionId) async {}
+  Future<void> loadSession(String sessionId) async {
+    await sessionGate?.future;
+    if (sessionError != null) throw sessionError!;
+    if (loadedConversation != null) assistantConv = loadedConversation;
+  }
 
   @override
   Future<void> deleteSession(String sessionId) async {
@@ -111,6 +123,112 @@ class _FakeMemoryRepo implements IAIMemoryRepository {
 }
 
 void main() {
+  test(
+    'opening history blocks sends and other navigation until it finishes',
+    () async {
+      final oldConversation = AIConversation(
+        id: 'assistant',
+        feature: 'assistant',
+        messages: [AIMessage(role: 'user', content: 'Old conversation')],
+      );
+      final loaded = AIConversation(
+        id: 'assistant',
+        feature: 'assistant',
+        messages: [AIMessage(role: 'user', content: 'Archived conversation')],
+      );
+      final repo = _FakeConversationRepo()
+        ..assistantConv = oldConversation
+        ..loadedConversation = loaded
+        ..sessionGate = Completer<void>();
+      final ai = AIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: repo,
+      );
+      final originalId = ai.currentSessionId;
+      final busyChanges = <bool>[];
+      ai.addListener(() => busyChanges.add(ai.isNavigating));
+      final opening = ai.switchSession('archived');
+      expect(ai.isNavigating, isTrue);
+      expect(ai.isLoading, isFalse);
+      expect(ai.currentSessionId, originalId);
+      await expectLater(
+        ai.sendMessage(
+          feature: 'assistant',
+          message: 'Do not send',
+          callerName: 'clairjassen',
+        ),
+        throwsStateError,
+      );
+      await expectLater(ai.clearConversation('assistant'), throwsStateError);
+      await expectLater(ai.switchSession('other'), throwsStateError);
+      expect(repo.getOrCreateCalls, 0);
+      expect(oldConversation.messages.single.content, 'Old conversation');
+      repo.sessionGate!.complete();
+      await opening;
+      expect(ai.isNavigating, isFalse);
+      expect(ai.currentSessionId, 'archived');
+      expect(ai.assistantConversation, same(loaded));
+      expect(busyChanges, [true, false]);
+      ai.dispose();
+    },
+  );
+
+  test(
+    'failed history opening keeps the session id and unlocks navigation',
+    () async {
+      final repo = _FakeConversationRepo()
+        ..sessionError = StateError('offline');
+      final ai = AIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: repo,
+      );
+      final originalId = ai.currentSessionId;
+      await expectLater(ai.switchSession('missing'), throwsStateError);
+      expect(ai.currentSessionId, originalId);
+      expect(ai.isNavigating, isFalse);
+      repo.sessionError = null;
+      await ai.switchSession('available');
+      expect(ai.currentSessionId, 'available');
+      ai.dispose();
+    },
+  );
+
+  test('new chat blocks a reply and session load while clearing', () async {
+    final repo = _FakeConversationRepo()..clearGate = Completer<void>();
+    final ai = AIService(memoryRepo: _FakeMemoryRepo(), conversationRepo: repo);
+    final originalId = ai.currentSessionId;
+    final clearing = ai.clearConversation('assistant');
+    expect(ai.isNavigating, isTrue);
+    expect(ai.currentSessionId, originalId);
+    await expectLater(
+      ai.sendMessage(
+        feature: 'assistant',
+        message: 'Do not send',
+        callerName: 'clairjassen',
+      ),
+      throwsStateError,
+    );
+    await expectLater(ai.switchSession('archived'), throwsStateError);
+    repo.clearGate!.complete();
+    await clearing;
+    expect(ai.isNavigating, isFalse);
+    expect(ai.currentSessionId, isNot(originalId));
+    ai.dispose();
+  });
+
+  test('failed new chat keeps its session id and unlocks navigation', () async {
+    final repo = _FakeConversationRepo()..clearGate = Completer<void>();
+    final ai = AIService(memoryRepo: _FakeMemoryRepo(), conversationRepo: repo);
+    final originalId = ai.currentSessionId;
+    final clearing = ai.clearConversation('assistant');
+    final failure = expectLater(clearing, throwsStateError);
+    repo.clearGate!.completeError(StateError('offline'));
+    await failure;
+    expect(ai.currentSessionId, originalId);
+    expect(ai.isNavigating, isFalse);
+    ai.dispose();
+  });
+
   test('opening chat does not load the Memory Book', () async {
     final memories = _FakeMemoryRepo();
     final ai = AIService(

@@ -17,6 +17,17 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('an orphan empty fence does not create a blank code card', (
+    tester,
+  ) async {
+    await pumpMarkdown(tester, 'Game complete.\n```');
+    expect(find.byIcon(Icons.copy_rounded), findsNothing);
+    expect(
+      find.textContaining('Game complete.', findRichText: true),
+      findsWidgets,
+    );
+  });
+
   testWidgets('headings render without raw hashes (even without space)', (
     tester,
   ) async {

@@ -49,7 +49,9 @@ class _ThreeDotsState extends State<_ThreeDots>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
@@ -80,6 +82,7 @@ class _ThreeDotsState extends State<_ThreeDots>
                 child: Transform.scale(
                   scale: scale,
                   child: Container(
+                    key: ValueKey('motchi-thinking-dot-$i'),
                     width: 6,
                     height: 6,
                     decoration: const BoxDecoration(
@@ -128,7 +131,9 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat(reverse: true);
@@ -224,126 +229,6 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
   }
 }
 
-/// Animated badge beside Motchi's name showing she is replying / thinking.
-class _ReplyingBadge extends StatefulWidget {
-  final bool isThinking;
-  const _ReplyingBadge({this.isThinking = false});
-
-  @override
-  State<_ReplyingBadge> createState() => _ReplyingBadgeState();
-}
-
-class _ReplyingBadgeState extends State<_ReplyingBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
-      _c.stop();
-    } else if (!_c.isAnimating) {
-      _c.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) {
-        final t = _c.value;
-        final pulse = math.sin(t * math.pi).clamp(0.0, 1.0);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.auroraRose.withValues(
-              alpha: AppMotion.reduced ? 0.12 : (0.08 + 0.08 * pulse),
-            ),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.auroraRose.withValues(
-                alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.18 * pulse),
-              ),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Opacity(
-                opacity: AppMotion.reduced ? 0.9 : (0.4 + 0.6 * pulse),
-                child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    color: AppColors.roseQuartz,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                widget.isThinking ? 'thinking' : 'replying',
-                style: AppTypography.labelSmall().copyWith(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.roseQuartz,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(width: 4),
-              for (var i = 0; i < 3; i++) ...[
-                if (i > 0) const SizedBox(width: 2),
-                Builder(
-                  builder: (_) {
-                    final phase = (t - i * 0.2) % 1.0;
-                    final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
-                    final y = AppMotion.reduced ? 0.0 : -1.8 * wave;
-                    final alpha = AppMotion.reduced
-                        ? 0.7
-                        : (0.35 + 0.65 * wave);
-                    return Transform.translate(
-                      offset: Offset(0, y),
-                      child: Opacity(
-                        opacity: alpha,
-                        child: Container(
-                          width: 2.5,
-                          height: 2.5,
-                          decoration: const BoxDecoration(
-                            color: AppColors.roseQuartz,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 /// Blinking caret shown at the end of a live-streaming reply.
 class _StreamingCaret extends StatefulWidget {
   const _StreamingCaret();
@@ -368,7 +253,9 @@ class _StreamingCaretState extends State<_StreamingCaret>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat(reverse: true);
@@ -388,6 +275,7 @@ class _StreamingCaretState extends State<_StreamingCaret>
       builder: (_, _) => Opacity(
         opacity: AppMotion.reduced ? 0.8 : (0.25 + 0.75 * _c.value),
         child: Container(
+          key: const ValueKey('motchi-streaming-caret'),
           width: 3,
           height: 14,
           decoration: BoxDecoration(
@@ -446,7 +334,9 @@ class _StreamingDotsWaveState extends State<_StreamingDotsWave>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduced ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _c.stop();
     } else if (!_c.isAnimating) {
       _c.repeat();
@@ -516,10 +406,12 @@ class _ThinkingIndicator extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const _AnsweringAvatar(size: 20),
-              const SizedBox(width: 8),
               Text(
                 'Motchi',
                 style: AppTypography.bodySmall().copyWith(
@@ -527,8 +419,6 @@ class _ThinkingIndicator extends StatelessWidget {
                   color: AppColors.textMedium,
                 ),
               ),
-              const SizedBox(width: 8),
-              const _ReplyingBadge(isThinking: true),
             ],
           ),
           const SizedBox(height: 12),
@@ -583,25 +473,13 @@ class _ErrorBanner extends StatelessWidget {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: onRetry,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.deepRose.withValues(alpha: 0.2),
-                    borderRadius: AppRadius.radiusSm,
-                  ),
-                  child: Text(
-                    'Retry',
-                    style: AppTypography.bodySmall().copyWith(
-                      color: AppColors.petalWhite,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+              TextButton(
+                onPressed: ai.isLoading ? null : onRetry,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.petalWhite,
+                  minimumSize: const Size(64, 48),
                 ),
+                child: const Text('Retry'),
               ),
             ],
           ),
@@ -614,6 +492,7 @@ class _ErrorBanner extends StatelessWidget {
 // ─── Composer input ─────────────────────────────────────────────
 
 class _ComposerInput extends StatefulWidget {
+  final bool enabled;
   final GlobalKey inputKey;
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -624,13 +503,14 @@ class _ComposerInput extends StatefulWidget {
   final void Function(int) onRemoveImage;
   final bool centered;
   final DeepThinkMode deepThinkMode;
-  final VoidCallback onToggleDeepThink;
+  final ValueChanged<DeepThinkMode> onSelectDeepThink;
   // Canvas toggle — ON shows the interactive quiz / flashcards buttons,
   // OFF keeps Motchi as plain chat. Defaults OFF.
   final bool canvasEnabled;
   final VoidCallback? onToggleCanvas;
 
   const _ComposerInput({
+    this.enabled = true,
     required this.inputKey,
     required this.controller,
     required this.focusNode,
@@ -641,7 +521,7 @@ class _ComposerInput extends StatefulWidget {
     required this.onRemoveImage,
     this.centered = false,
     required this.deepThinkMode,
-    required this.onToggleDeepThink,
+    required this.onSelectDeepThink,
     this.canvasEnabled = false,
     this.onToggleCanvas,
   });
@@ -666,27 +546,57 @@ class _ComposerInputState extends State<_ComposerInput> {
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
+    _bridge.cancelRecognition();
     super.dispose();
   }
 
   Future<void> _startVoice() async {
-    if (!_bridge.isSpeechSupported || _isListening) return;
+    if (_isListening) {
+      _bridge.stopRecognition();
+      return;
+    }
+    if (!_bridge.isSpeechSupported) {
+      widget.focusNode.requestFocus();
+      _voiceNotice('Use the microphone on your keyboard to dictate.');
+      return;
+    }
     setState(() => _isListening = true);
     try {
       final result = await _bridge.recognizeOnce(lang: 'en-US');
-      if (result != null && result.trim().isNotEmpty && mounted) {
+      if (!mounted) return;
+      if (result != null && result.trim().isNotEmpty) {
         final current = widget.controller.text;
         final next = current.isEmpty
             ? result.trim()
             : '$current ${result.trim()}';
-        widget.controller.text = next;
-        widget.controller.selection = TextSelection.fromPosition(
-          TextPosition(offset: next.length),
+        widget.controller.value = TextEditingValue(
+          text: next,
+          selection: TextSelection.collapsed(offset: next.length),
         );
+      } else {
+        _voiceNotice('No speech caught. Try again or use keyboard dictation.');
       }
+    } catch (error) {
+      Logger.e('Motchi voice input failed', error: error);
+      if (!mounted) return;
+      final denied =
+          error is StateError &&
+          (error.message == 'not-allowed' ||
+              error.message == 'service-not-allowed');
+      _voiceNotice(
+        denied
+            ? 'Allow microphone and speech access, then try again. Keyboard dictation works too.'
+            : 'Speech input is unavailable here. Try Safari with Siri enabled, or use keyboard dictation.',
+      );
     } finally {
       if (mounted) setState(() => _isListening = false);
     }
+  }
+
+  void _voiceNotice(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _onTextChanged() {
@@ -701,7 +611,10 @@ class _ComposerInputState extends State<_ComposerInput> {
     return Selector<AIService, bool>(
       selector: (_, ai) => ai.isLoading,
       builder: (context, isLoading, _) {
-        final canSend = _hasText || widget.attachedImages.isNotEmpty;
+        final canSend =
+            widget.enabled &&
+            !_isListening &&
+            (_hasText || widget.attachedImages.isNotEmpty);
         return Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 752),
@@ -751,7 +664,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                   AnimatedContainer(
                     duration: AppMotion.fast,
                     decoration: BoxDecoration(
-                      color: AppColors.silk.withValues(alpha: 0.55),
+                      color: AppColors.silk,
                       borderRadius: AppRadius.radiusLg,
                       border: Border.all(
                         color: _focused
@@ -763,9 +676,12 @@ class _ComposerInputState extends State<_ComposerInput> {
                       onFocusChange: (v) => setState(() => _focused = v),
                       onKeyEvent: (_, event) {
                         if (event is KeyDownEvent &&
+                            widget.focusNode.hasFocus &&
                             event.logicalKey == LogicalKeyboardKey.enter &&
                             !HardwareKeyboard.instance.isShiftPressed &&
+                            !widget.controller.value.isComposingRangeValid &&
                             !isLoading &&
+                            !_isListening &&
                             canSend) {
                           widget.onSend();
                           return KeyEventResult.handled;
@@ -776,6 +692,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           TextField(
+                            enabled: widget.enabled,
                             controller: widget.controller,
                             focusNode: widget.focusNode,
                             style: AppTypography.bodyLarge().copyWith(
@@ -787,6 +704,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                             minLines: 1,
                             maxLines: 6,
                             textInputAction: TextInputAction.newline,
+                            cursorColor: AppColors.roseQuartz,
                             decoration: InputDecoration(
                               hintText: 'Message Motchi…',
                               hintStyle: AppTypography.bodyLarge().copyWith(
@@ -806,122 +724,156 @@ class _ComposerInputState extends State<_ComposerInput> {
                               ),
                             ),
                           ),
+                          if (_isListening)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              child: Semantics(
+                                liveRegion: true,
+                                child: Text(
+                                  'Listening. Tap Stop when you are done.',
+                                  style: AppTypography.bodySmall(),
+                                ),
+                              ),
+                            ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(6, 2, 8, 8),
                             child: Row(
                               children: [
-                                PopupMenuButton<String>(
-                                  tooltip: 'Add to message',
-                                  icon: _isListening
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: AppColors.roseQuartz,
-                                            semanticsLabel: 'Listening',
-                                          ),
-                                        )
-                                      : Icon(
+                                Expanded(
+                                  child: Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      PopupMenuButton<String>(
+                                        enabled: widget.enabled,
+                                        style: IconButton.styleFrom(
+                                          minimumSize: const Size(48, 48),
+                                          visualDensity: VisualDensity.standard,
+                                        ),
+                                        tooltip: 'Add to message',
+                                        icon: Icon(
                                           Icons.add_rounded,
                                           color: AppColors.textMuted,
                                           size: 22,
                                         ),
-                                  color: AppColors.silk,
-                                  surfaceTintColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.radiusLg,
-                                  ),
-                                  onSelected: (action) {
-                                    switch (action) {
-                                      case 'images':
-                                        widget.onPickImages();
-                                      case 'voice':
-                                        _startVoice();
-                                      case 'canvas':
-                                        widget.onToggleCanvas?.call();
-                                    }
-                                  },
-                                  itemBuilder: (_) => [
-                                    PopupMenuItem(
-                                      value: 'images',
-                                      child: Text(
-                                        'Attach images',
-                                        style: AppTypography.bodyMedium(),
-                                      ),
-                                    ),
-                                    if (_bridge.isSpeechSupported)
-                                      PopupMenuItem(
-                                        value: 'voice',
-                                        enabled: !_isListening,
-                                        child: Text(
-                                          _isListening
-                                              ? 'Listening…'
-                                              : 'Voice input',
-                                          style: AppTypography.bodyMedium(),
+                                        color: AppColors.silk,
+                                        surfaceTintColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: AppRadius.radiusLg,
                                         ),
-                                      ),
-                                    PopupMenuItem(
-                                      value: 'canvas',
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.dashboard_customize_outlined,
-                                            size: 18,
-                                            color: widget.canvasEnabled
-                                                ? AppColors.roseQuartz
-                                                : AppColors.textMuted,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
+                                        onSelected: (action) {
+                                          switch (action) {
+                                            case 'images':
+                                              widget.onPickImages();
+                                            case 'canvas':
+                                              widget.onToggleCanvas?.call();
+                                          }
+                                        },
+                                        itemBuilder: (_) => [
+                                          PopupMenuItem(
+                                            value: 'images',
                                             child: Text(
-                                              'Canvas',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              'Attach images',
                                               style: AppTypography.bodyMedium(),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            widget.canvasEnabled ? 'On' : 'Off',
-                                            style: AppTypography.labelSmall()
-                                                .copyWith(
+                                          PopupMenuItem(
+                                            value: 'canvas',
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons
+                                                      .dashboard_customize_outlined,
+                                                  size: 18,
                                                   color: widget.canvasEnabled
                                                       ? AppColors.roseQuartz
                                                       : AppColors.textMuted,
                                                 ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            widget.canvasEnabled
-                                                ? Icons.toggle_on_rounded
-                                                : Icons.toggle_off_rounded,
-                                            size: 24,
-                                            color: widget.canvasEnabled
-                                                ? AppColors.roseQuartz
-                                                : AppColors.textMuted,
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                  child: Text(
+                                                    'Canvas',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style:
+                                                        AppTypography.bodyMedium(),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  widget.canvasEnabled
+                                                      ? 'On'
+                                                      : 'Off',
+                                                  style: AppTypography.labelSmall()
+                                                      .copyWith(
+                                                        color:
+                                                            widget.canvasEnabled
+                                                            ? AppColors
+                                                                  .roseQuartz
+                                                            : AppColors
+                                                                  .textMuted,
+                                                      ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  widget.canvasEnabled
+                                                      ? Icons.toggle_on_rounded
+                                                      : Icons
+                                                            .toggle_off_rounded,
+                                                  size: 24,
+                                                  color: widget.canvasEnabled
+                                                      ? AppColors.roseQuartz
+                                                      : AppColors.textMuted,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ],
+                                      _DeepThinkPill(
+                                        mode: widget.deepThinkMode,
+                                        onSelected: widget.onSelectDeepThink,
+                                      ),
+                                      if (widget.canvasEnabled)
+                                        IconButton(
+                                          tooltip:
+                                              'Canvas: on — tap to turn off',
+                                          onPressed: widget.onToggleCanvas,
+                                          color: AppColors.roseQuartz,
+                                          icon: const Icon(
+                                            Icons.dashboard_customize_outlined,
+                                            size: 19,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                                _DeepThinkPill(
-                                  mode: widget.deepThinkMode,
-                                  onTap: widget.onToggleDeepThink,
-                                ),
-                                if (widget.canvasEnabled)
+                                if (!isLoading)
                                   IconButton(
-                                    tooltip: 'Canvas: on — tap to turn off',
-                                    onPressed: widget.onToggleCanvas,
-                                    color: AppColors.roseQuartz,
-                                    icon: const Icon(
-                                      Icons.dashboard_customize_outlined,
-                                      size: 19,
+                                    tooltip: _isListening
+                                        ? 'Stop voice input'
+                                        : 'Dictate message',
+                                    onPressed: widget.enabled
+                                        ? _startVoice
+                                        : null,
+                                    style: IconButton.styleFrom(
+                                      minimumSize: const Size(48, 48),
+                                      visualDensity: VisualDensity.standard,
+                                      foregroundColor: _isListening
+                                          ? AppColors.roseQuartz
+                                          : AppColors.textMuted,
+                                    ),
+                                    icon: Icon(
+                                      _isListening
+                                          ? Icons.stop_circle_outlined
+                                          : Icons.mic_none_rounded,
                                     ),
                                   ),
-                                const Spacer(),
                                 IconButton(
                                   onPressed: isLoading
                                       ? widget.onStop
@@ -959,7 +911,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                     Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: Text(
-                        'Just for you two · Motchi can make mistakes',
+                        'Enter to send · Shift + Enter for a new line',
                         style: AppTypography.bodySmall().copyWith(
                           color: AppColors.textDisabled,
                         ),

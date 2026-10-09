@@ -44,14 +44,36 @@ class EpisodeDrawer extends StatefulWidget {
   /// keep the classic layout by leaving this false.
   final bool cinemaVariant;
 
+  /// Position in the cinema screen's Top 10 list (1-based), shown as a
+  /// "#N in the Philippines Today" badge. Null when the item is not in
+  /// the visible Top 10.
+  final int? topTenRank;
+
+  /// The same Top 10 list the badge rank comes from, so a drawer opened
+  /// from this drawer ("similar titles") can resolve its own rank.
+  final List<MediaItem>? topTenItems;
+
   const EpisodeDrawer({
     super.key,
     required this.item,
     this.cinemaVariant = false,
+    this.topTenRank,
+    this.topTenItems,
   });
 
   @override
   State<EpisodeDrawer> createState() => _EpisodeDrawerState();
+}
+
+/// Rank of [item] inside [topTen] (1-based), or null when it sits outside
+/// the first ten. The list follows the Top 10 row's order, so position and
+/// rank are the same number.
+int? topTenRankFor(List<MediaItem> topTen, MediaItem item) {
+  final index = topTen.indexWhere(
+    (ranked) =>
+        ranked.tmdbId == item.tmdbId && ranked.mediaType == item.mediaType,
+  );
+  return index >= 0 && index < 10 ? index + 1 : null;
 }
 
 class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
@@ -899,7 +921,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             ),
           ],
         ),
-        if (_topTenRank != null) ...[
+        if (widget.topTenRank != null) ...[
           const SizedBox(height: 12),
           Row(
             children: [
@@ -922,7 +944,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
               ),
               const SizedBox(width: 8),
               Text(
-                '#$_topTenRank in ${_isFilm ? 'Movies' : 'TV Shows'} Today',
+                '#${widget.topTenRank} in $topTenCountryLabel Today',
                 style: AppTypography.outfitBold.copyWith(
                   fontSize: 14,
                   color: Colors.white,

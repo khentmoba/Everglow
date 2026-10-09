@@ -12,6 +12,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_motion.dart';
+import '../../../../core/utils/logger.dart';
 
 part 'motchi_sidebar_panel.dart';
 part 'motchi_sidebar_tiles.dart';
@@ -24,6 +25,8 @@ class MotchiSidebar extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onNewChat;
   final VoidCallback? onSearchPlaceholder;
+  final bool navigationBusy;
+  final VoidCallback? onSessionOpened;
 
   const MotchiSidebar({
     super.key,
@@ -31,6 +34,8 @@ class MotchiSidebar extends StatefulWidget {
     required this.onClose,
     required this.onNewChat,
     this.onSearchPlaceholder,
+    this.navigationBusy = false,
+    this.onSessionOpened,
   });
 
   @override
@@ -41,6 +46,8 @@ class _MotchiSidebarState extends State<MotchiSidebar>
     with SingleTickerProviderStateMixin {
   List<AISession> _archived = [];
   bool _isLoading = true;
+  bool _historyFailed = false;
+  String? _switchingId;
   String? _activeSessionId;
   String _query = '';
   final TextEditingController _searchCtl = TextEditingController();
@@ -116,12 +123,19 @@ class _MotchiSidebarState extends State<MotchiSidebar>
     setState(() {
       _archived = sessions;
       _isLoading = false;
+      _historyFailed = false;
       _reconcileActiveId(_liveSession != null);
     });
   }
 
-  void _onSessionsError(Object _) {
-    if (mounted) setState(() => _isLoading = false);
+  void _onSessionsError(Object error) {
+    Logger.e('Motchi history failed to load', error: error);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _historyFailed = true;
+      });
+    }
   }
 
   /// The in-memory conversation isn't archived yet — AIService only calls
@@ -188,29 +202,58 @@ class _MotchiSidebarState extends State<MotchiSidebar>
         setState(() {
           _archived = sessions;
           _isLoading = false;
+          _historyFailed = false;
           _reconcileActiveId(_liveSession != null);
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      _onSessionsError(e);
     }
   }
 
   Future<void> _switchSession(AISession session) async {
+    if (widget.navigationBusy ||
+        _switchingId != null ||
+        _ai?.isLoading == true ||
+        _ai?.isNavigating == true) {
+      return;
+    }
     if (session.id == '__live__') {
       if (!mounted) return;
       setState(() => _activeSessionId = session.id);
+      widget.onSessionOpened?.call();
       widget.onClose();
       return;
     }
     final ai = context.read<AIService>();
-    await ai.switchSession(session.id);
-    if (!mounted) return;
-    setState(() => _activeSessionId = session.id);
-    widget.onClose();
+    setState(() => _switchingId = session.id);
+    try {
+      await ai.switchSession(session.id);
+      if (!mounted) return;
+      setState(() => _activeSessionId = session.id);
+      widget.onSessionOpened?.call();
+      widget.onClose();
+    } catch (error) {
+      Logger.e('Motchi conversation failed to open', error: error);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Couldn’t open this conversation. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _switchingId = null);
+    }
   }
 
   Future<void> _deleteSession(AISession session) async {
+    if (widget.navigationBusy ||
+        _switchingId != null ||
+        _ai?.isLoading == true ||
+        _ai?.isNavigating == true) {
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -387,6 +430,13 @@ class _MotchiSidebarState extends State<MotchiSidebar>
         onQueryChanged: (v) => setState(() => _query = v),
         sessions: _filtered,
         isLoading: _isLoading,
+        historyFailed: _historyFailed,
+        switchingId: _switchingId,
+        busy:
+            widget.navigationBusy ||
+            _switchingId != null ||
+            _ai?.isLoading == true ||
+            _ai?.isNavigating == true,
         grouped: _groupByDate(_filtered),
         activeId: _activeSessionId,
         onNewChat: widget.onNewChat,
@@ -464,6 +514,13 @@ class _MotchiSidebarState extends State<MotchiSidebar>
                         onQueryChanged: (v) => setState(() => _query = v),
                         sessions: _filtered,
                         isLoading: _isLoading,
+                        historyFailed: _historyFailed,
+                        switchingId: _switchingId,
+                        busy:
+                            widget.navigationBusy ||
+                            _switchingId != null ||
+                            _ai?.isLoading == true ||
+                            _ai?.isNavigating == true,
                         grouped: _groupByDate(_filtered),
                         activeId: _activeSessionId,
                         onNewChat: widget.onNewChat,

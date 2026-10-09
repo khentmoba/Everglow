@@ -37,3 +37,8 @@ abstract final class NetflixColors {
   /// Bottom nav / sheet hairline.
   static const Color hairline = Color(0x23FFFFFF);
 }
+
+/// Country label for the Top 10 rail, shared by the rail header
+/// ("Top 10 in the Philippines") and the drawer badge
+/// ("#N in the Philippines Today").
+const String topTenCountryLabel = 'the Philippines';

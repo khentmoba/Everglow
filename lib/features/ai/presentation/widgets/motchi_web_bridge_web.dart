@@ -5,6 +5,8 @@ import 'dart:js' as js;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/utils/logger.dart';
+
 /// Web-specific helpers used by the Motchi screen.
 ///
 /// Clipboard paste and canvas-based image resizing only exist in the
@@ -12,6 +14,49 @@ import 'package:flutter/foundation.dart';
 /// codec-based resizing.
 class MotchiWebBridge {
   html.EventListener? _pasteListener;
+  js.JsObject? _recognition;
+  Completer<String?>? _speech;
+  Timer? _speechTimeout;
+
+  void cancelRecognition() {
+    final rec = _recognition;
+    _finishSpeech(null);
+    if (rec != null) {
+      try {
+        rec.callMethod('abort');
+      } catch (error) {
+        Logger.e('Motchi microphone could not close', error: error);
+      }
+    }
+  }
+
+  void stopRecognition() {
+    try {
+      _recognition?.callMethod('stop');
+    } catch (error) {
+      _finishSpeech(null, error: error);
+    }
+  }
+
+  void _finishSpeech(String? transcript, {Object? error}) {
+    final pending = _speech;
+    _speech = null;
+    _speechTimeout?.cancel();
+    _speechTimeout = null;
+    final rec = _recognition;
+    _recognition = null;
+    if (rec != null) {
+      rec['onresult'] = null;
+      rec['onerror'] = null;
+      rec['onend'] = null;
+    }
+    if (pending == null || pending.isCompleted) return;
+    if (error != null) {
+      pending.completeError(error);
+    } else {
+      pending.complete(transcript);
+    }
+  }
 
   void installPasteListener(ValueChanged<String> onPasteDataUri) {
     uninstallPasteListener();
@@ -55,47 +100,49 @@ class MotchiWebBridge {
     return false;
   }
 
-  Future<String?> recognizeOnce({String lang = 'en-US'}) async {
+  Future<String?> recognizeOnce({String lang = 'en-US'}) {
+    cancelRecognition();
     final ctor =
         js.context['webkitSpeechRecognition'] ??
         js.context['SpeechRecognition'];
-    if (ctor == null) return null;
-    final completer = Completer<String?>();
+    if (ctor == null) return Future.value(null);
+    final pending = Completer<String?>();
+    _speech = pending;
     final rec = js.JsObject(ctor);
+    _recognition = rec;
     rec['lang'] = lang;
     rec['interimResults'] = false;
     rec['maxAlternatives'] = 1;
     rec['continuous'] = false;
-    // ignore: avoid_dynamic_calls
     rec['onresult'] = (dynamic event) {
+      if (!identical(_recognition, rec)) return;
       try {
+        // ignore: avoid_dynamic_calls
         final transcript = event['results'][0][0]['transcript'];
-        if (!completer.isCompleted) completer.complete(transcript?.toString());
-      } catch (_) {
-        if (!completer.isCompleted) completer.complete(null);
+        _finishSpeech(transcript?.toString());
+      } catch (error) {
+        _finishSpeech(null, error: error);
       }
     };
-    rec['onerror'] = (dynamic _) {
-      if (!completer.isCompleted) completer.complete(null);
+    rec['onerror'] = (dynamic event) {
+      if (!identical(_recognition, rec)) return;
+      // ignore: avoid_dynamic_calls
+      final code = event['error']?.toString() ?? 'unknown';
+      _finishSpeech(null, error: StateError(code));
     };
     rec['onend'] = (dynamic _) {
-      if (!completer.isCompleted) completer.complete(null);
+      if (identical(_recognition, rec)) _finishSpeech(null);
     };
+    // Start directly in the mic tap so Safari retains user activation.
     try {
       rec.callMethod('start');
-    } catch (_) {
-      return null;
-    }
-    // Timeout after 10s
-    Future.delayed(const Duration(seconds: 10), () {
-      if (!completer.isCompleted) {
-        try {
-          rec.callMethod('stop');
-        } catch (_) {}
-        completer.complete(null);
+      if (_speech != null) {
+        _speechTimeout = Timer(const Duration(seconds: 45), cancelRecognition);
       }
-    });
-    return completer.future;
+    } catch (error) {
+      _finishSpeech(null, error: error);
+    }
+    return pending.future;
   }
 
   /// Draws image bytes onto a canvas and returns a compact data URI.

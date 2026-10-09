@@ -399,3 +399,19 @@ error, and denied fake XP/presence calls remain; no clean-console claim.
 
 PR502 stays draft. CI deployment and the physical app/control/app comparison
 are still pending; no both-edge or real-iPhone correction is claimed.
+
+## Main sync after the CI-script conflict
+
+Main now compares PR changes against the tested merge checkout's first parent,
+not a potentially stale event base. Its implementation and regression supersede
+this branch's earlier event-base fetch workaround, which was removed during the
+merge. The regression retains an isolated GITHUB_EVENT_PATH and demonstrates
+that an unavailable event base does not require fetching it. Both resolved
+contract files match main; the screen diagnostic is unchanged.
+
+Windows re-verification: analysis zero issues; all 1,567 VM/widget tests, all
+15 listed Dart guards, and 38 Node contract/selection/worktree/bootstrap tests
+passed, zero skipped. Release build without the Agent Mode flag passed. This
+CI-only conflict resolution has no new visual proof; the inspected plain-page
+proof above is unchanged. Hosted checks/deployment and physical iPhone outcome
+remain pending; no device correction is claimed.

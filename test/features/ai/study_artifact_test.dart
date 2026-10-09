@@ -153,8 +153,10 @@ B. 4
       expect(userAskedForVisibleQuiz('What is photosynthesis?'), isFalse);
     });
 
-    test('collapses the visible Front/Back list when cards-json is present', () {
-      const text = '''
+    test(
+      'collapses the visible Front/Back list when cards-json is present',
+      () {
+        const text = '''
 Made you some cards 🃏
 
 Front: Mitochondria
@@ -165,11 +167,12 @@ Back: Holds DNA
 ```flashcards-json
 [{"front":"Mitochondria","back":"Powerhouse of the cell"},{"front":"Nucleus","back":"Holds DNA"}]
 ```''';
-      final stripped = stripArtifactBlocks(text);
-      expect(stripped, contains('Made you some cards'));
-      expect(stripped, isNot(contains('Mitochondria')));
-      expect(parseStudyArtifacts(text).flashcards, hasLength(2));
-    });
+        final stripped = stripArtifactBlocks(text);
+        expect(stripped, contains('Made you some cards'));
+        expect(stripped, isNot(contains('Mitochondria')));
+        expect(parseStudyArtifacts(text).flashcards, hasLength(2));
+      },
+    );
   });
 
   group('plain-markdown fallback (older sessions)', () {
@@ -213,6 +216,105 @@ Q: Only one lonely question?
 A: Yes.
 ''';
       expect(parseStudyArtifacts(text).hasFlashcards, isFalse);
+    });
+  });
+
+  group('standalone HTML game replies', () {
+    const page =
+        '<!DOCTYPE html>\n<html><head><title>Memory Match</title></head>'
+        '<body><button id="restart">Restart</button><script>'
+        'let moves = 0; function update() { moves++; }'
+        '</script></body></html>';
+
+    test('recovers an unfenced page and removes its orphan closing fence', () {
+      final reply = 'Your game is ready!\n$page\n```';
+      final artifacts = parseStudyArtifacts(reply);
+      expect(artifacts.html, hasLength(1));
+      expect(artifacts.html.single.title, 'Memory Match');
+      expect(artifacts.html.single.html, contains('function update()'));
+      expect(stripArtifactBlocks(reply), 'Your game is ready!');
+    });
+
+    test(
+      'recovers an unlabeled HTML fence and preserves surrounding prose',
+      () {
+        final reply = 'Try this game.\n```\n$page\n```\nHave fun!';
+        expect(parseStudyArtifacts(reply).html, hasLength(1));
+        final visible = stripArtifactBlocks(reply);
+        expect(visible, contains('Try this game.'));
+        expect(visible, contains('Have fun!'));
+        expect(visible, isNot(contains('```')));
+        expect(visible, isNot(contains('<html')));
+      },
+    );
+
+    const doctypePage =
+        '<!DOCTYPE html><head><title>Game</title></head>'
+        '<body><button>Play</button></body>';
+
+    test('recovers a doctype page with omitted outer HTML tags', () {
+      final reply = 'Your game is ready!\n$doctypePage';
+      final artifacts = parseStudyArtifacts(reply);
+      expect(artifacts.html, hasLength(1));
+      expect(artifacts.html.single.title, 'Game');
+      expect(artifacts.html.single.html, doctypePage);
+      expect(stripArtifactBlocks(reply), 'Your game is ready!');
+      expect(stripStreamingArtifacts(reply), 'Your game is ready!');
+    });
+
+    test('consumes optional HTML end tags and unlabeled fences', () {
+      for (final html in [
+        '$doctypePage</html>',
+        doctypePage.replaceFirst('<head>', '<html><head>'),
+        doctypePage.replaceFirst('</body>', '</BODY >'),
+      ]) {
+        final reply = 'Ready!\n```\n$html\n```\nHave fun!';
+        expect(parseStudyArtifacts(reply).html.single.html, html);
+        expect(stripArtifactBlocks(reply), 'Ready!\nHave fun!');
+      }
+    });
+
+    test('does not recover a doctype page until its body closes', () {
+      for (final html in [
+        '<!DOCTYPE html><head><title>Game</title></head>',
+        doctypePage.replaceFirst('</body>', ''),
+        doctypePage.replaceFirst('</body>', '</body'),
+        doctypePage.replaceFirst('</body>', '</bodyguard>'),
+      ]) {
+        final draft = 'Making your game.\n$html';
+        expect(parseStudyArtifacts(draft).html, isEmpty);
+        expect(stripStreamingArtifacts(draft), 'Making your game.');
+        expect(stripArtifactBlocks(draft), 'Making your game.');
+      }
+    });
+
+    test('keeps doctype pages in explicit non-artifact code fences', () {
+      final example = 'Source example:\n```text\n$doctypePage\n```';
+      expect(parseStudyArtifacts(example).html, isEmpty);
+      expect(stripArtifactBlocks(example), example);
+      expect(stripStreamingArtifacts(example), example);
+    });
+
+    test('still caps recovered doctype pages', () {
+      final oversized = doctypePage.replaceFirst('Play', 'x' * kMaxHtmlChars);
+      final reply = 'Ready!\n$oversized';
+      expect(parseStudyArtifacts(reply).html, isEmpty);
+      expect(stripArtifactBlocks(reply), 'Ready!');
+    });
+
+    test('hides unfinished unfenced pages during streaming', () {
+      expect(
+        stripStreamingArtifacts(
+          'Making your game.\n<!DOCTYPE html>\n<html><body><script>',
+        ),
+        'Making your game.',
+      );
+    });
+
+    test('keeps explicitly labeled non-artifact code examples', () {
+      final example = 'Source example:\n```text\n$page\n```';
+      expect(parseStudyArtifacts(example).html, isEmpty);
+      expect(stripArtifactBlocks(example), example);
     });
   });
 
@@ -313,7 +415,8 @@ Hope it helps!
     });
 
     test('accepts alias fence names and same-line bodies', () {
-      const text = '```quiz_json [{"q":"Q?","options":["a","b"],"answer":0}]```';
+      const text =
+          '```quiz_json [{"q":"Q?","options":["a","b"],"answer":0}]```';
       expect(parseStudyArtifacts(text).hasQuiz, isTrue);
       const cards = '```flashcards [{"front":"f","back":"b"}]```';
       expect(parseStudyArtifacts(cards).hasFlashcards, isTrue);
@@ -333,7 +436,8 @@ Hope it helps!
     });
 
     test('accepts plain html fence name', () {
-      const text = '```html\n<div>hello game world, play me now please</div>\n```';
+      const text =
+          '```html\n<div>hello game world, play me now please</div>\n```';
       final artifacts = parseStudyArtifacts(text);
       expect(artifacts.hasHtml, isTrue);
       expect(artifacts.html.first.html, contains('<!DOCTYPE html>'));
@@ -401,7 +505,11 @@ What movie vibe are you in the mood for tonight? 🎬
       expect(artifacts.hasChoices, isTrue);
       expect(artifacts.choices, hasLength(1));
       expect(artifacts.choices.first.prompt, 'Pick a vibe');
-      expect(artifacts.choices.first.choices, ['Cozy Anime', 'Mind-bending Sci-Fi', 'Comedy']);
+      expect(artifacts.choices.first.choices, [
+        'Cozy Anime',
+        'Mind-bending Sci-Fi',
+        'Comedy',
+      ]);
     });
 
     test('strips choices-json from visible chat text', () {

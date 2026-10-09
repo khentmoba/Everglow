@@ -194,11 +194,15 @@ class _ClarificationChoicePills extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: AppRadius.radiusFull,
                   ),
-                  onPressed: () {
+                  onPressed: () async {
                     HapticFeedback.lightImpact();
                     try {
                       final ai = Provider.of<AIService>(context, listen: false);
-                      ai.sendMessage(feature: 'assistant', message: choice, stream: true);
+                      await ai.sendMessage(
+                        feature: 'assistant',
+                        message: choice,
+                        stream: true,
+                      );
                     } catch (e, st) {
                       Logger.e('Failed to send clarification choice', error: e, stackTrace: st);
                     }

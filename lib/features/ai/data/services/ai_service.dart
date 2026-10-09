@@ -50,6 +50,7 @@ class AIService extends ChangeNotifier {
   }
 
   bool _isLoading = false;
+  bool _isNavigating = false;
   int _activeRequest = 0;
   String? _lastError;
   String _draftResponse = '';
@@ -75,6 +76,7 @@ class AIService extends ChangeNotifier {
   List<String> get activeTools => List.unmodifiable(_activeTools);
 
   bool get isLoading => _isLoading;
+  bool get isNavigating => _isNavigating;
   String? get lastError => _lastError;
   String get draftResponse => _draftResponse;
   String get draftReasoning => _draftReasoning;
@@ -270,6 +272,9 @@ class AIService extends ChangeNotifier {
     // create any interactive artifacts — plain text only, even for quizzes.
     bool canvasEnabled = true,
   }) async {
+    if (_isNavigating) {
+      throw StateError('Wait for the conversation to finish opening.');
+    }
     _isLoading = true;
     _activeRequest++;
     final myRequest = _activeRequest;
@@ -1097,9 +1102,18 @@ class AIService extends ChangeNotifier {
       _conversationRepo.setConversation(feature, conv);
 
   Future<void> clearConversation(String feature, {bool archive = true}) async {
-    _currentSessionId = null;
-    await _conversationRepo.clear(feature, archive: archive);
+    if (_isLoading || _isNavigating) {
+      throw StateError('Wait for the current chat action to finish.');
+    }
+    _isNavigating = true;
     notifyListeners();
+    try {
+      await _conversationRepo.clear(feature, archive: archive);
+      _currentSessionId = null;
+    } finally {
+      _isNavigating = false;
+      notifyListeners();
+    }
   }
 
   /// Opening chat needs only the conversation, not the Memory Book.
@@ -1132,14 +1146,23 @@ class AIService extends ChangeNotifier {
 
   /// Switch to a specific archived session, loading its messages.
   Future<void> switchSession(String sessionId) async {
-    _currentSessionId = sessionId;
-    await _conversationRepo.loadSession(sessionId);
-    // Also save it as the current assistant conversation
-    final conv = _conversationRepo.assistant;
-    if (conv != null) {
-      await _conversationRepo.save(conv);
+    if (_isLoading || _isNavigating) {
+      throw StateError('Wait for the current chat action to finish.');
     }
+    _isNavigating = true;
     notifyListeners();
+    try {
+      await _conversationRepo.loadSession(sessionId);
+      _currentSessionId = sessionId;
+      // Also save it as the current assistant conversation.
+      final conv = _conversationRepo.assistant;
+      if (conv != null) {
+        await _conversationRepo.save(conv);
+      }
+    } finally {
+      _isNavigating = false;
+      notifyListeners();
+    }
   }
 
   /// Delete a specific archived session.

@@ -101,7 +101,8 @@ class EverglowMarkdown extends StatelessWidget {
           i++;
         }
         if (i < lines.length) i++;
-        blocks.add(_CodeBlock(code: buf.join('\n')));
+        final code = buf.join('\n');
+        if (code.trim().isNotEmpty) blocks.add(_CodeBlock(code: code));
         continue;
       }
 

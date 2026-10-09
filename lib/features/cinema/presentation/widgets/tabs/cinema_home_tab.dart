@@ -166,7 +166,7 @@ class CinemaHomeTab extends StatelessWidget {
             if (trendingGlobal.isNotEmpty) _row('Trending Now', trendingGlobal),
             if (topTenToday.isNotEmpty)
               _row(
-                'Top 10 in the Philippines',
+                'Top 10 in $topTenCountryLabel',
                 topTenToday.take(10).toList(),
                 ranked: true,
               ),
