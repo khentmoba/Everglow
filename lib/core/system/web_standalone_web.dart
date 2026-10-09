@@ -27,6 +27,18 @@ external JSNumber? _egSafeAreaTopBridge();
 class WebStandalone {
   WebStandalone._();
 
+  /// Temporary demo-only compositor test; closing the report restores painting.
+  static void setPaintProbe(bool enabled) {
+    if (enabled && !isStandalone()) return;
+    final host = web.document.getElementById('eg-app') as web.HTMLElement?;
+    if (host == null) return;
+    if (enabled) {
+      host.style.opacity = '0.99';
+    } else {
+      host.style.removeProperty('opacity');
+    }
+  }
+
   /// Local-only measurements for the demo HUD; never sends device data.
   static String viewportReport() {
     String bounds(String selector) {
@@ -38,18 +50,40 @@ class WebStandalone {
     }
 
     final viewport = web.window.visualViewport;
+    final host = web.document.getElementById('eg-app') as web.HTMLElement?;
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    final engine = views.isEmpty ? null : views.first;
+    final logicalSize = engine == null
+        ? null
+        : engine.physicalSize / engine.devicePixelRatio;
+    final canvas =
+        web.document
+                .querySelector('flutter-view')
+                ?.querySelector('flt-glass-pane')
+                ?.shadowRoot
+                ?.querySelector('canvas')
+            as web.HTMLCanvasElement?;
+    final canvasRect = canvas?.getBoundingClientRect();
     final insets = safeAreaPadding();
     final meta = web.document.querySelector('meta[name="viewport"]');
     final status = web.document.querySelector(
       'meta[name="apple-mobile-web-app-status-bar-style"]',
     );
     return [
-      'Screen measurement 1 (CSS pixels)',
+      'Screen measurement 2 (CSS pixels)',
       'Installed: ${isStandalone()}',
       'Screen: ${web.window.screen.width} x ${web.window.screen.height}',
       'Window: ${web.window.innerWidth} x ${web.window.innerHeight}',
       'Visual: ${viewport?.height.toStringAsFixed(0)} '
           'offset=${viewport?.offsetTop.toStringAsFixed(0)} scale=${viewport?.scale}',
+      'Flutter drawing: ${logicalSize?.width.toStringAsFixed(0)} x '
+          '${logicalSize?.height.toStringAsFixed(0)}',
+      'Host client: ${host?.clientWidth} x ${host?.clientHeight}; '
+          '${host?.getAttribute('flt-embedding')}',
+      'Canvas CSS: ${canvasRect?.width.toStringAsFixed(0)} x '
+          '${canvasRect?.height.toStringAsFixed(0)}; '
+          'backing: ${canvas?.width} x ${canvas?.height}',
+      'Paint probe: ${host?.style.opacity == '0.99' ? 'on' : 'off'}',
       bounds('html'),
       bounds('body'),
       bounds('#eg-app'),

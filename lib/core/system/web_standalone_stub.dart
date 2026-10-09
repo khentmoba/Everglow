@@ -7,6 +7,8 @@ class WebStandalone {
 
   static bool isStandalone() => false;
 
+  static void setPaintProbe(bool enabled) {}
+
   static String viewportReport() => 'Screen measurement is available on web.';
 
   static double safeAreaTop() => 0;

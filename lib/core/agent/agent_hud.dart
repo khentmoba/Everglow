@@ -65,6 +65,14 @@ class AgentHud extends StatefulWidget {
 
 class _AgentHudState extends State<AgentHud> {
   String? _viewportReport;
+  bool _paintProbe = false;
+
+  @override
+  void dispose() {
+    if (_paintProbe) WebStandalone.setPaintProbe(false);
+    super.dispose();
+  }
+
   static const List<({String label, String route, IconData icon})> _routes = [
     (label: 'Dashboard', route: '/dashboard', icon: Icons.home_rounded),
     (label: 'Cinema', route: '/cinema', icon: Icons.movie_rounded),
@@ -269,9 +277,13 @@ class _AgentHudState extends State<AgentHud> {
                 const SizedBox(height: 6),
                 TextButton(
                   onPressed: () => setState(() {
-                    _viewportReport = _viewportReport == null
-                        ? WebStandalone.viewportReport()
-                        : null;
+                    if (_viewportReport == null) {
+                      _viewportReport = WebStandalone.viewportReport();
+                    } else {
+                      WebStandalone.setPaintProbe(false);
+                      _paintProbe = false;
+                      _viewportReport = null;
+                    }
                   }),
                   child: Text(
                     _viewportReport == null
@@ -280,6 +292,20 @@ class _AgentHudState extends State<AgentHud> {
                     style: const TextStyle(color: AppColors.auroraGold),
                   ),
                 ),
+                if (_viewportReport != null && WebStandalone.isStandalone())
+                  TextButton(
+                    onPressed: () => setState(() {
+                      _paintProbe = !_paintProbe;
+                      WebStandalone.setPaintProbe(_paintProbe);
+                      _viewportReport = WebStandalone.viewportReport();
+                    }),
+                    child: Text(
+                      _paintProbe
+                          ? 'Restore normal paint'
+                          : 'Try paint workaround',
+                      style: const TextStyle(color: AppColors.auroraGold),
+                    ),
+                  ),
                 if (_viewportReport != null)
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxHeight: 280),

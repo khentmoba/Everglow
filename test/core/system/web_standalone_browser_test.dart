@@ -55,6 +55,31 @@ void main() {
     ''');
   });
 
+  test(
+    'paint probe is reversible, installed-only, and does not resize the host',
+    () {
+      final before = WebStandalone.viewportReport();
+      WebStandalone.setPaintProbe(true);
+      final during = WebStandalone.viewportReport();
+      expect(during, contains('Paint probe: on'));
+      expect(
+        during
+            .split('\n')
+            .firstWhere((line) => line.startsWith('Host client:')),
+        before
+            .split('\n')
+            .firstWhere((line) => line.startsWith('Host client:')),
+      );
+      WebStandalone.setPaintProbe(false);
+      expect(WebStandalone.viewportReport(), contains('Paint probe: off'));
+      js(
+        "Object.defineProperty(navigator, 'standalone', {value: false, configurable: true});",
+      );
+      WebStandalone.setPaintProbe(true);
+      expect(WebStandalone.viewportReport(), contains('Paint probe: off'));
+    },
+  );
+
   test('screen report distinguishes a shortened host from its viewport', () {
     js("window.egHost.style.cssText = 'position:fixed;top:10px;height:500px';");
     final report = WebStandalone.viewportReport();

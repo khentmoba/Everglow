@@ -257,3 +257,50 @@ launch for both iOS navigator detection and display-mode detection. These are
 Chromium and synthetic checks, not a physical iPhone installation. The
 mechanical HTML design check reported no findings. The bottom strip remains
 unresolved and the PR stays draft until device measurements establish a fix.
+
+## Physical result and reversible painting experiment
+
+The installed screen-test launch now works on the reported iOS 26.6.1 device.
+The private measurement screenshot reports screen 430x932, window and visual
+viewport 430x873 (offset 0, scale 1), and all four HTML/body/host/Flutter-view
+rectangles y=0..932. Safe insets are 59/34; installed CSS, black-translucent,
+and cover fitting are active. The artwork reaches behind the clock while the
+bottom strip remains. After landscape-to-portrait rotation and reopening the
+report, all these values and the strip are unchanged. Device screenshots are
+not published. These results disprove the shortened-layout-box explanation;
+the synthetic before/after above is not a reproduction of this device failure.
+
+Independent source review found that Flutter's custom host uses client size,
+and its rasterizer/canvas use FlutterView physical size. CSS rectangles alone
+cannot prove either canvas dimensions or compositor coverage. WebKit 301994
+reports similar gaps but does not establish system ownership for this device.
+A published Safari 26 fixed-layer painting example describes a slight-opacity
+workaround: https://www.edoardolunardi.dev/blog/safari-26-and-the-strange-case-of-fixed-overlays.
+It is not verified for installed iOS 26.6.1.
+
+Screen measurement 2 adds engine logical size, host client size/embedding, and
+the first canvas's CSS/backing size through Flutter's shadow root. It samples
+the first Flutter view and canvas; full dimensions do not rule out other clipped
+layers. Only installed demo sessions get Try paint workaround / Restore normal
+paint while the report is open. This temporarily sets host opacity to 0.99;
+restoring, closing the report, or removing the HUD clears it. Collapsing the HUD
+keeps the selected probe so the screen can be observed. Nothing changes by
+default, in ordinary tabs, or in normal accounts. This is an experiment, not
+another claimed layout fix.
+
+Windows: analysis zero issues, 1,533 app tests passed, all 15 Dart guards passed,
+and release build passed without the Agent Mode flag. The dedicated Chrome
+Flutter suite stalled at loading and timed out after 120 seconds with zero tests
+completed; browser CI must verify the new reversible/installed-only regression.
+
+Actual release app in T3 Chromium at 430x932 with untracked standalone/safe-area
+and 873px window/visual-viewport simulation: engine and host client 430x932,
+embedding custom-element, first canvas CSS 430x932 and backing 860x1864. Clicked
+Screen edges and Try paint workaround; computed host opacity became 0.99 while
+all sizes stayed unchanged. Restore normal paint returned opacity to 1. Enabled
+again and closed the report; opacity returned to 1 and report disappeared.
+Inspected `paint-probe.png`, fake-data phone proof of the toggle and measurements.
+This simulation proves the new control and measurements, not Safari painting
+or removal of the reported strip. A second read-only independent review found
+no must-fix code defects, retaining browser-CI and physical-device requirements.
+PR502 remains draft pending the actual before/on/restored device comparison.
