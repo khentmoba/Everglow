@@ -7,11 +7,12 @@ const source = readFileSync(new URL('../web/flutter_bootstrap.js', import.meta.u
   .replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');
 const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 
-test('screen-test installation keeps demo activation in its launch URL', () => {
+test('screen-test installation saves a dedicated query-free launch page', () => {
   const manifest = JSON.parse(readFileSync(new URL('../web/manifest_screen.json', import.meta.url), 'utf8'));
   const launch = new URL(manifest.start_url, 'https://preview.example/');
-  assert.equal(launch.searchParams.get('agent'), 'dashboard');
-  assert.equal(launch.searchParams.get('screencheck'), '1');
+  assert.equal(launch.pathname, '/screen_test.html');
+  assert.equal(launch.search, '');
+  assert.equal(new URL(manifest.id, launch).pathname, launch.pathname);
   assert.equal(manifest.display, 'standalone');
   const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .find(match => match[1].includes("href = 'manifest_screen.json'"))[1];
@@ -24,6 +25,28 @@ test('screen-test installation keeps demo activation in its launch URL', () => {
     });
     assert.equal(link.href, expected);
     assert.equal(title.content, expected === 'manifest.json' ? 'Everglow' : 'Everglow screen test');
+  }
+});
+
+test('install page stays put in Safari and activates demo on a fresh installed launch', () => {
+  const page = readFileSync(new URL('../web/screen_test.html', import.meta.url), 'utf8');
+  const script = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  const href = page.match(/<a href="([^"]+)"/)[1].replaceAll('&amp;', '&');
+  const demo = new URL(href, 'https://preview.example/screen_test.html');
+  assert.equal(demo.searchParams.get('agent'), 'dashboard');
+  assert.equal(demo.searchParams.get('screencheck'), '1');
+  assert.match(page, /rel="manifest" href="manifest_screen.json"/);
+  for (const [ios, displayMode, expected] of [[false, false, null], [true, false, href], [false, true, href]]) {
+    let destination = null;
+    // No preferences or login state exist in this simulated new install.
+    vm.runInNewContext(script, {
+      navigator: {standalone: ios},
+      window: {
+        matchMedia: () => ({matches: displayMode}),
+        location: {replace: value => { destination = value; }},
+      },
+    });
+    assert.equal(destination, expected);
   }
 });
 

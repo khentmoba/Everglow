@@ -217,3 +217,43 @@ inherited event referencing a commit absent from the fixture: one contract
 test failed before, all 26 contract/selection/worktree tests passed after.
 Analysis zero issues, all 1,533 app tests and all 15 guards passed again.
 The hosted result is still pending; no CI-success claim.
+
+## Query-free installation page
+
+Khent confirms a new Home Screen launch starts at the password gate even
+though the Safari link opens demo Dashboard. The earlier query/manifest
+changes did not satisfy the physical-device outcome. This update no longer
+relies on Safari state, query retention during installation, or the manifest's
+query launch URL.
+
+`/screen_test.html` is a separate static installation page. Safari stays on
+that exact query-free address while adding the icon; Flutter does not start
+there. Both the manifest ID and start URL point to that file. On a standalone
+launch, the page explicitly replaces its location with the demo Dashboard
+launch query. If standalone detection is unavailable, its visible Open demo
+link activates the same test without a password. The normal manifest/login
+and normal icon are untouched. This is a new screen-test install identity.
+
+The install page and manifest revalidate hosting responses; the worker never
+caches the install page or falls back to the normal app for that file. This
+online-only diagnostic installer does not claim offline installation support.
+
+Windows verification: analysis zero issues, all 1,533 app tests passed, all 15
+Dart guards passed, ten bootstrap tests passed, and all 14 worker tests passed
+with zero skipped, including disposable Chrome offline boot. The initial
+worker run used a temp folder inside the repository, invalidating its isolated
+build-stamp fixture; rerunning with the normal outside-repository temp folder
+passed. The hosting guard rejected replacing the explicit index header with a
+glob; index's existing rule was restored and the install page got its own rule.
+The release build without the Agent Mode compile flag passed.
+
+Local release browser: installation page stayed at its file URL with no
+Flutter boot, correct query-free manifest, and no horizontal overflow at
+430x932 or 820x1180. Inspected both captures; `screen-test-install.png` is
+compressed phone proof. Cleared only local isolated demo browser storage,
+clicked the actual Open demo link, then Screen edges: the full measurement
+panel appeared without a password. Bootstrap tests replay a fresh standalone
+launch for both iOS navigator detection and display-mode detection. These are
+Chromium and synthetic checks, not a physical iPhone installation. The
+mechanical HTML design check reported no findings. The bottom strip remains
+unresolved and the PR stays draft until device measurements establish a fix.

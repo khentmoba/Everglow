@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Everglow screen test">
+  <title>Everglow screen test</title>
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="manifest" href="manifest_screen.json">
+  <style>
+    body { font: 1.125rem/1.6 system-ui, sans-serif; margin: 0; }
+    main { max-width: 32rem; margin: auto; padding: max(2rem, env(safe-area-inset-top)) 1.5rem max(2rem, env(safe-area-inset-bottom)); }
+    h1 { font-size: 1.75rem; line-height: 1.2; }
+    li { margin-block: 1rem; }
+    a { display: inline-block; padding-block: .75rem; text-underline-offset: .2em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Everglow screen test</h1>
+    <p>This test uses fake data. No password is needed.</p>
+    <ol>
+      <li>Stay on this page. In Safari, tap Share, then Add to Home Screen. Keep Open as Web App on if shown.</li>
+      <li>Open the new <strong>Everglow screen test</strong> icon.</li>
+      <li>Tap <strong>Screen edges</strong> in the demo toolbar and take a screenshot showing the panel and both screen edges.</li>
+    </ol>
+    <p>Leave your normal Everglow icon untouched.</p>
+    <p>If this page appears inside the new icon, tap the link below.</p>
+    <a href="./?agent=dashboard&amp;screencheck=1">Open demo and screen measurements</a>
+  </main>
+  <script>
+    // The saved install address itself activates demo mode, even with fresh storage.
+    if (navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches) {
+      window.location.replace('./?agent=dashboard&screencheck=1');
+    }
+  </script>
+</body>
+</html>

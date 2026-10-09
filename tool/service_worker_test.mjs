@@ -199,7 +199,7 @@ test('two complete builds survive rotation, but an incomplete newest bootstrap i
 
 test('API/auth, manifest and push/worker scripts never cache or use cached fallback', async () => {
   const w = worker();
-  for (const path of ['/api/checkLoginCode', '/api/proxyCatalog', '/manifest.json', '/manifest_screen.json', '/sw.js',
+  for (const path of ['/api/checkLoginCode', '/api/proxyCatalog', '/manifest.json', '/manifest_screen.json', '/screen_test.html', '/sw.js',
     '/firebase-messaging-sw.js', '/flutter_service_worker.js']) {
     w.network(async () => new Response('fresh'));
     assert.equal(await (await w.request(path)).text(), 'fresh');

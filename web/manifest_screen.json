@@ -1,8 +1,8 @@
 {
-  "id": "./?screencheck=1",
+  "id": "./screen_test.html",
   "name": "Everglow screen test",
   "short_name": "Screen test",
-  "start_url": "./?agent=dashboard&screencheck=1",
+  "start_url": "./screen_test.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#1a0f1e",
