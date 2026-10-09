@@ -1,4 +1,10 @@
-﻿# Unresolved installed-app edges
+﻿# Installed-app edges: bottom verified, top scrolling still pending
+
+**Current status:** the normal-flow candidate removed the bottom strip on
+Khent's installed iPhone and restored window/visual height to 932px. That does
+not prove content scrolls behind the clock. The latest Dashboard-only change
+addresses that separate top requirement; physical confirmation remains pending.
+The sections below record the investigation, including failed candidates.
 
 This replaces the opaque-status-bar fallback originally proposed in #502.
 The goal is artwork behind the status bar AND no separate bottom strip.
@@ -515,3 +521,52 @@ Analysis zero issues, all1,567 VM/widget tests, all15 listed Dart guards
 (including6.2.0 release sync), and39 Node tests passed again. No new visual proof
 is needed for this test-only merge resolution. New-head CI/deployment and the
 physical normal-flow result remain pending.
+
+## Bottom confirmed; Dashboard content under the clock
+
+All six checks passed on fee7fdd and its preview deployed. Khent's next private
+installed-iPhone screenshot reported window/visual height932 and no bottom
+strip. The earlier claim that both edges worked was too broad: Khent clarified
+that the top requirement is CONTENT SCROLLING BEHIND THE CLOCK, not merely a
+background behind the icons. Private screenshots are not published.
+
+The new change is limited to Dashboard. Its scroll viewport starts at the top;
+the existing top inset moves into finite, unpinned sliver padding. The fixed
+buttons retain their safe top padding, and the initial header, bottom/side
+protection and maximum scroll extent are preserved. Zone jumps compensate for
+the larger viewport so they retain their previous landing positions. No root
+CSS, system metadata, global safe-area policy or other screen is changed.
+
+Controlled release-app proof: T3 Chromium, fake Agent Mode data, temporary
+untracked entry pages selecting installed mode and simulating top59/bottom34.
+Before is the existing fee7fdd build; after is the new Dashboard source, both
+built without the Agent Mode compile flag. The dashed line/label is a local
+proof annotation, not production UI or native status icons.
+
+- `top-content-before.png`, phone430x932: scrolling foreground clips at y59.
+- `top-content-after.png`, same phone and scroll input: the welcome/header
+  foreground continues above y59. The fixed buttons stay in the same position.
+- `top-content-tablet.png`, tablet820x1180: foreground also continues above the
+  simulated top boundary; fixed buttons and bottom protection remain intact.
+- Clicked the actual **Jump to Today** button in BOTH compiled phone builds.
+  The real TODAY heading landed at y134.95 in both, verifying the production
+  callback, not only the mirrored widget-test formula.
+- All phone document scroll extents remain932; no extra HTML scrolling was
+  introduced. These are Chromium/synthetic-inset results, not an iPhone test.
+
+Windows, Flutter3.44.4/Dart3.12.2/Node24.21.0: analysis zero issues, all1,569
+VM/widget tests (including all seven focused layout tests), all15 listed Dart
+guards, all39 Node contract/selection/worktree/bootstrap tests and the release
+build passed. The first new anchor test used an onstage-only finder for an
+unpainted zero-height anchor; it now includes offstage nodes, matching the
+production GlobalKey lookup. All landing-position assertions are retained.
+
+Read-only review round7 found no remaining source must-fix after preserving
+zone-jump alignment. Physical foreground underlap and clock/icon readability,
+keyboard opening/dismissal and rotation remain unverified. Existing local demo
+env/focus/fake-request diagnostics are not claimed fixed. No worker or browser
+workflow changed in this ordinary app edit; earlier tooling evidence stands.
+
+PR502 stays draft pending refreshed CI/deployment and physical top-scrolling,
+keyboard and rotation checks. The bottom result must not be used as proof of
+the new top behavior.

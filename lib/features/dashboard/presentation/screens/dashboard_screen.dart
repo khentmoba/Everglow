@@ -96,11 +96,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _jumpTo(String id) {
     final ctx = _sectionKeys[id]?.currentContext;
     if (ctx != null) {
+      final viewport = Scrollable.of(ctx).position.viewportDimension;
+      final topInset = MediaQuery.paddingOf(context).top;
+      // Keep zone jumps at their previous landing position below the controls.
+      final alignment = viewport > 0
+          ? (0.05 + 0.95 * topInset / viewport).clamp(0.05, 1.0).toDouble()
+          : 0.05;
       Scrollable.ensureVisible(
         ctx,
         duration: AppMotion.orZero(const Duration(milliseconds: 420)),
         curve: AppMotion.easeOutStrong,
-        alignment: 0.05,
+        alignment: alignment,
       );
     }
   }
@@ -478,10 +484,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           Positioned.fill(
             child: DashboardAmbience(scrollController: _scrollController),
           ),
-          // Home Screen status-bar inset arrives via MediaQuery (see
-          // WebStandaloneInsets at the app root), so this SafeArea
-          // clears it with no per-screen work.
+          // Content can scroll behind the clock; fixed controls stay safe.
+          // Keep bottom and side protection unchanged.
           SafeArea(
+            top: false,
             child: Stack(
             children: [
               Center(
@@ -494,6 +500,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       AppBreakpoint.isMobile(context) ? 500 : 250,
                     ),
                     slivers: [
+                      SliverPadding(
+                        padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+                        sliver: SliverMainAxisGroup(
+                          slivers: [
                       // Offline remember-me: saved copy with a quiet banner.
                       const _OfflineBannerSliver(),
                       // Header. The top padding reserves the pinned
@@ -793,6 +803,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                           deferMs: 700,
                         ),
                       const SliverToBoxAdapter(child: SizedBox(height: 110)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -801,8 +814,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               // Soft ember trail that follows the mouse.
               const Positioned.fill(child: DashboardCursorGlow()),
 
-              // Floating overlays
-              const DashboardOverlays(),
+              // Floating overlays remain below the system icons.
+              Padding(
+                padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+                child: const DashboardOverlays(),
+              ),
               ],
             ),
           ),
