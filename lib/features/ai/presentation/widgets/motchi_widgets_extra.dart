@@ -171,11 +171,6 @@ class _MessageBubbleState extends State<_MessageBubble> {
                               color: AppColors.textMedium,
                             ),
                           ),
-                          if (widget.isStreaming) ...[
-                            _ReplyingBadge(
-                              isThinking: cleanBubbleText.trim().isEmpty,
-                            ),
-                          ],
                         ],
                       ),
                       const SizedBox(height: 10),

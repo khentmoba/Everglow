@@ -229,128 +229,6 @@ class _AnsweringAvatarState extends State<_AnsweringAvatar>
   }
 }
 
-/// Animated badge beside Motchi's name showing she is replying / thinking.
-class _ReplyingBadge extends StatefulWidget {
-  final bool isThinking;
-  const _ReplyingBadge({this.isThinking = false});
-
-  @override
-  State<_ReplyingBadge> createState() => _ReplyingBadgeState();
-}
-
-class _ReplyingBadgeState extends State<_ReplyingBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (AppMotion.reduced ||
-        MediaQuery.disableAnimationsOf(context) ||
-        !TickerMode.valuesOf(context).enabled) {
-      _c.stop();
-    } else if (!_c.isAnimating) {
-      _c.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) {
-        final t = _c.value;
-        final pulse = math.sin(t * math.pi).clamp(0.0, 1.0);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.auroraRose.withValues(
-              alpha: AppMotion.reduced ? 0.12 : (0.08 + 0.08 * pulse),
-            ),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: AppColors.auroraRose.withValues(
-                alpha: AppMotion.reduced ? 0.25 : (0.20 + 0.18 * pulse),
-              ),
-              width: 0.8,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Opacity(
-                opacity: AppMotion.reduced ? 0.9 : (0.4 + 0.6 * pulse),
-                child: Container(
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    color: AppColors.roseQuartz,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                widget.isThinking ? 'thinking' : 'replying',
-                style: AppTypography.labelSmall().copyWith(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.roseQuartz,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              const SizedBox(width: 4),
-              for (var i = 0; i < 3; i++) ...[
-                if (i > 0) const SizedBox(width: 2),
-                Builder(
-                  builder: (_) {
-                    final phase = (t - i * 0.2) % 1.0;
-                    final wave = math.sin(phase * math.pi).clamp(0.0, 1.0);
-                    final y = AppMotion.reduced ? 0.0 : -1.8 * wave;
-                    final alpha = AppMotion.reduced
-                        ? 0.7
-                        : (0.35 + 0.65 * wave);
-                    return Transform.translate(
-                      offset: Offset(0, y),
-                      child: Opacity(
-                        opacity: alpha,
-                        child: Container(
-                          width: 2.5,
-                          height: 2.5,
-                          decoration: const BoxDecoration(
-                            color: AppColors.roseQuartz,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 /// Blinking caret shown at the end of a live-streaming reply.
 class _StreamingCaret extends StatefulWidget {
   const _StreamingCaret();
@@ -541,7 +419,6 @@ class _ThinkingIndicator extends StatelessWidget {
                   color: AppColors.textMedium,
                 ),
               ),
-              const _ReplyingBadge(isThinking: true),
             ],
           ),
           const SizedBox(height: 12),

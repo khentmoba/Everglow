@@ -1,5 +1,21 @@
 # Motchi Chat UI and UX proof
 
+## Remove redundant side status
+
+Removed the thinking/replying badge beside Motchi's name from both the
+initial thinking header and the streaming reply header, including its
+unused animation widget. Avatar feedback, thinking dots, streaming caret,
+and tool progress remain. Browser regressions now require both side labels
+to be absent while preserving the existing progress-animation checks.
+
+Local `flutter analyze`, all 1,539 regular tests, all 15 Dart guards and
+`git diff --check` passed. A synthetic release fixture in disposable Chrome
+was inspected at 430x900 and 810x1080; `reply-no-side-badge-phone.png` and
+`reply-no-side-badge-tablet.png` show the live reply without the side badge.
+No real data or AI calls; temporary fixture removed. Browser assertions
+still require Linux CI; the previously documented Windows runner blocker
+remains. This is a UI-only removal, not a change to Motchi's thinking mode.
+
 ## Composer overflow correction
 
 Quality run 37865682012 failed the 320px / 1.6x text welcome test with
