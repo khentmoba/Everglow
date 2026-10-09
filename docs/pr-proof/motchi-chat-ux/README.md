@@ -1,5 +1,27 @@
 # Motchi Chat UI and UX proof
 
+## Composer overflow correction
+
+Quality run 37865682012 failed the 320px / 1.6x text welcome test with
+Canvas enabled: the composer Row overflowed by 41px. Secondary controls
+now wrap in the available space; Dictate and Send remain on the right.
+The regression also selects Deep, Fast, and Auto with Canvas active.
+
+Local Windows Flutter 3.44.4: `flutter analyze` passed; all 1,539 regular
+tests passed; all 15 listed Dart guards and `git diff --check` passed.
+The browser suite could not start: local CanvasKit requests returned 404,
+and the Windows test selector reported the test path without separators.
+No browser-test pass is claimed; Linux CI must confirm the regression.
+
+`composer-small-large-text.png` (320x1000) and
+`composer-tablet-large-text.png` (810x1080) were captured and inspected
+from a synthetic release fixture with 1.6x text. In disposable headless
+Chrome, Add to message -> Canvas enabled its visible control. Both
+screens retain Dictate and Send without clipping. This verifies release
+layout, not Safari speech or the browser-test assertions. The temporary
+fixture was removed; no Firebase, AI, or real couple data was used.
+
+
 Release web previews in the isolated agent session (`/motchi?agent=clair`).
 Only synthetic starter text is shown. No real conversation or private photo
 is included. The collapsed lightning pill is the existing agent HUD.

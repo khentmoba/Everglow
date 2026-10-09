@@ -656,6 +656,18 @@ void main() {
             findsOneWidget,
           );
           expect(tester.takeException(), isNull);
+          for (final (previous, mode) in [
+            ('Auto', 'Deep'),
+            ('Deep', 'Fast'),
+            ('Fast', 'Auto'),
+          ]) {
+            await tester.tap(find.byTooltip('Reply mode: $previous'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(mode).last);
+            await tester.pumpAndSettle();
+            expect(find.byTooltip('Reply mode: $mode'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          }
         }
         tester.view.viewInsets = const FakeViewPadding(bottom: 280);
         await tester.pump();

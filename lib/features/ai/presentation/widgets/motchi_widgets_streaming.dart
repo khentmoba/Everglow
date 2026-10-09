@@ -865,100 +865,117 @@ class _ComposerInputState extends State<_ComposerInput> {
                             padding: const EdgeInsets.fromLTRB(6, 2, 8, 8),
                             child: Row(
                               children: [
-                                PopupMenuButton<String>(
-                                  enabled: widget.enabled,
-                                  style: IconButton.styleFrom(
-                                    minimumSize: const Size(48, 48),
-                                    visualDensity: VisualDensity.standard,
-                                  ),
-                                  tooltip: 'Add to message',
-                                  icon: Icon(
-                                    Icons.add_rounded,
-                                    color: AppColors.textMuted,
-                                    size: 22,
-                                  ),
-                                  color: AppColors.silk,
-                                  surfaceTintColor: Colors.transparent,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.radiusLg,
-                                  ),
-                                  onSelected: (action) {
-                                    switch (action) {
-                                      case 'images':
-                                        widget.onPickImages();
-                                      case 'canvas':
-                                        widget.onToggleCanvas?.call();
-                                    }
-                                  },
-                                  itemBuilder: (_) => [
-                                    PopupMenuItem(
-                                      value: 'images',
-                                      child: Text(
-                                        'Attach images',
-                                        style: AppTypography.bodyMedium(),
-                                      ),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'canvas',
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.dashboard_customize_outlined,
-                                            size: 18,
-                                            color: widget.canvasEnabled
-                                                ? AppColors.roseQuartz
-                                                : AppColors.textMuted,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
+                                Expanded(
+                                  child: Wrap(
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      PopupMenuButton<String>(
+                                        enabled: widget.enabled,
+                                        style: IconButton.styleFrom(
+                                          minimumSize: const Size(48, 48),
+                                          visualDensity: VisualDensity.standard,
+                                        ),
+                                        tooltip: 'Add to message',
+                                        icon: Icon(
+                                          Icons.add_rounded,
+                                          color: AppColors.textMuted,
+                                          size: 22,
+                                        ),
+                                        color: AppColors.silk,
+                                        surfaceTintColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: AppRadius.radiusLg,
+                                        ),
+                                        onSelected: (action) {
+                                          switch (action) {
+                                            case 'images':
+                                              widget.onPickImages();
+                                            case 'canvas':
+                                              widget.onToggleCanvas?.call();
+                                          }
+                                        },
+                                        itemBuilder: (_) => [
+                                          PopupMenuItem(
+                                            value: 'images',
                                             child: Text(
-                                              'Canvas',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                              'Attach images',
                                               style: AppTypography.bodyMedium(),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            widget.canvasEnabled ? 'On' : 'Off',
-                                            style: AppTypography.labelSmall()
-                                                .copyWith(
+                                          PopupMenuItem(
+                                            value: 'canvas',
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons
+                                                      .dashboard_customize_outlined,
+                                                  size: 18,
                                                   color: widget.canvasEnabled
                                                       ? AppColors.roseQuartz
                                                       : AppColors.textMuted,
                                                 ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            widget.canvasEnabled
-                                                ? Icons.toggle_on_rounded
-                                                : Icons.toggle_off_rounded,
-                                            size: 24,
-                                            color: widget.canvasEnabled
-                                                ? AppColors.roseQuartz
-                                                : AppColors.textMuted,
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                  child: Text(
+                                                    'Canvas',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style:
+                                                        AppTypography.bodyMedium(),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  widget.canvasEnabled
+                                                      ? 'On'
+                                                      : 'Off',
+                                                  style: AppTypography.labelSmall()
+                                                      .copyWith(
+                                                        color:
+                                                            widget.canvasEnabled
+                                                            ? AppColors
+                                                                  .roseQuartz
+                                                            : AppColors
+                                                                  .textMuted,
+                                                      ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  widget.canvasEnabled
+                                                      ? Icons.toggle_on_rounded
+                                                      : Icons
+                                                            .toggle_off_rounded,
+                                                  size: 24,
+                                                  color: widget.canvasEnabled
+                                                      ? AppColors.roseQuartz
+                                                      : AppColors.textMuted,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                _DeepThinkPill(
-                                  mode: widget.deepThinkMode,
-                                  onSelected: widget.onSelectDeepThink,
-                                ),
-                                if (widget.canvasEnabled)
-                                  IconButton(
-                                    tooltip: 'Canvas: on — tap to turn off',
-                                    onPressed: widget.onToggleCanvas,
-                                    color: AppColors.roseQuartz,
-                                    icon: const Icon(
-                                      Icons.dashboard_customize_outlined,
-                                      size: 19,
-                                    ),
+                                      _DeepThinkPill(
+                                        mode: widget.deepThinkMode,
+                                        onSelected: widget.onSelectDeepThink,
+                                      ),
+                                      if (widget.canvasEnabled)
+                                        IconButton(
+                                          tooltip:
+                                              'Canvas: on — tap to turn off',
+                                          onPressed: widget.onToggleCanvas,
+                                          color: AppColors.roseQuartz,
+                                          icon: const Icon(
+                                            Icons.dashboard_customize_outlined,
+                                            size: 19,
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                const Spacer(),
+                                ),
                                 if (!isLoading)
                                   IconButton(
                                     tooltip: _isListening
