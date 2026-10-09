@@ -229,10 +229,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _showMediaDetails(MediaItem item) {
-    final topTenIndex = _topTenToday.indexWhere(
-      (ranked) =>
-          ranked.tmdbId == item.tmdbId && ranked.mediaType == item.mediaType,
-    );
     var drawerItem = item;
     for (final saved in _watchlist) {
       if (saved.tmdbId == item.tmdbId &&
@@ -259,7 +255,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
       pageBuilder: (context, _, _) => EpisodeDrawer(
         item: drawerItem,
         cinemaVariant: true,
-        topTenRank: topTenIndex >= 0 && topTenIndex < 10 ? topTenIndex + 1 : null,
+        topTenRank: topTenRankFor(_topTenToday, item),
+        topTenItems: _topTenToday,
       ),
       transitionBuilder: (context, animation, _, child) {
         final offset =

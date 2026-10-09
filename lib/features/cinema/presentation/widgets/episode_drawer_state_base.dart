@@ -217,8 +217,6 @@ abstract class _EpisodeDrawerStateBase extends State<EpisodeDrawer>
     return tags.toSet().take(3).join(', ');
   }
 
-  int? get _topTenRank => widget.topTenRank;
-
   bool _isMobile = false;
 
   /// Controller for the horizontal status chip scroll area. On web,

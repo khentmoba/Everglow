@@ -1,3 +1,6 @@
+@Tags(['network'])
+library;
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -23,6 +26,10 @@ class _DemoAuth extends ChangeNotifier implements AuthService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// Captures a proof screenshot from live TMDB data, so the whole library is
+/// tagged `network` (see the directive above) and excluded from the standard
+/// suite; run on demand for PR proof. The hermetic badge-render coverage
+/// lives in cinema_top_ten_rank_test.dart.
 void main() {
   testWidgets('agent drawer fits at phone width and captures without hanging', (
     tester,
