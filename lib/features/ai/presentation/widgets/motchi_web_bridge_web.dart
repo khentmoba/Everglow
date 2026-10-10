@@ -49,6 +49,13 @@ class MotchiWebBridge {
       rec['onresult'] = null;
       rec['onerror'] = null;
       rec['onend'] = null;
+      if (error != null) {
+        try {
+          rec.callMethod('abort');
+        } catch (abortError) {
+          Logger.e('Motchi microphone could not close', error: abortError);
+        }
+      }
     }
     if (pending == null || pending.isCompleted) return;
     if (error != null) {
@@ -120,8 +127,11 @@ class MotchiWebBridge {
       try {
         // Keep the latest full result list: interim words can be revised, and
         // mobile browsers may end listening without sending a final result.
-        // ignore: avoid_dynamic_calls
-        final results = event['results'] as js.JsObject;
+        // DOM events arrive as dart:html Events, not indexable JsObjects.
+        final browserEvent = event is js.JsObject
+            ? event
+            : js.JsObject.fromBrowserObject(event);
+        final results = browserEvent['results'] as js.JsObject;
         final words = <String>[];
         final length = results['length'] as int;
         for (var i = 0; i < length; i++) {
@@ -137,8 +147,10 @@ class MotchiWebBridge {
     };
     rec['onerror'] = (dynamic event) {
       if (!identical(_recognition, rec)) return;
-      // ignore: avoid_dynamic_calls
-      final code = event['error']?.toString() ?? 'unknown';
+      final browserEvent = event is js.JsObject
+          ? event
+          : js.JsObject.fromBrowserObject(event);
+      final code = browserEvent['error']?.toString() ?? 'unknown';
       _finishSpeech(null, error: StateError(code));
     };
     rec['onend'] = (dynamic _) {
