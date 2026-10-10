@@ -93,6 +93,29 @@ void main() {
     expect(await pending, isNull);
   });
 
+  test('reads transcripts from real browser events', () async {
+    final pending = bridge.recognizeOnce();
+    js.context.callMethod('eval', [
+      '''var event = new Event('result');
+      event.results = [[{transcript: 'hello from Safari'}]];
+      window.motchiTestRecognition.onresult(event);
+      window.motchiTestRecognition.onend(new Event('end'));''',
+    ]);
+    expect(await pending, 'hello from Safari');
+  });
+
+  test('browser error events release the microphone', () async {
+    final pending = bridge.recognizeOnce();
+    final assertion = expectLater(pending, throwsStateError);
+    js.context.callMethod('eval', [
+      '''var event = new Event('error');
+      event.error = 'not-allowed';
+      window.motchiTestRecognition.onerror(event);''',
+    ]);
+    await assertion;
+    expect(recognition()['aborted'], isTrue);
+  });
+
   test('permission errors are not mistaken for empty speech', () async {
     final pending = bridge.recognizeOnce();
     final assertion = expectLater(pending, throwsStateError);
