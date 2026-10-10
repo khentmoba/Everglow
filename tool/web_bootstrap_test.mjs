@@ -7,6 +7,98 @@ const source = readFileSync(new URL('../web/flutter_bootstrap.js', import.meta.u
   .replace('{{flutter_js}}', '').replace('{{flutter_build_config}}', '');
 const html = readFileSync(new URL('../web/index.html', import.meta.url), 'utf8');
 
+test('screen-test installation saves a dedicated query-free launch page', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../web/manifest_screen.json', import.meta.url), 'utf8'));
+  const launch = new URL(manifest.start_url, 'https://preview.example/');
+  assert.equal(launch.pathname, '/screen_test.html');
+  assert.equal(launch.search, '');
+  assert.equal(new URL(manifest.id, launch).pathname, launch.pathname);
+  assert.equal(manifest.display, 'standalone');
+  const script = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .find(match => match[1].includes("href = 'manifest_screen.json'"))[1];
+  for (const [search, expected] of [['', 'manifest.json'], ['?agent=dashboard', 'manifest.json'], ['?agent=dashboard&screencheck=1', 'manifest_screen.json']]) {
+    const link = {href: 'manifest.json'};
+    const title = {content: 'Everglow'};
+    vm.runInNewContext(script, {
+      URLSearchParams, window: {location: {search}},
+      document: {querySelector: selector => selector.startsWith('link') ? link : title},
+    });
+    assert.equal(link.href, expected);
+    assert.equal(title.content, expected === 'manifest.json' ? 'Everglow' : 'Everglow screen test');
+  }
+});
+
+test('install page stays put in Safari and activates demo on a fresh installed launch', () => {
+  const page = readFileSync(new URL('../web/screen_test.html', import.meta.url), 'utf8');
+  const script = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  const href = page.match(/<a href="([^"]+)"/)[1].replaceAll('&amp;', '&');
+  const demo = new URL(href, 'https://preview.example/screen_test.html');
+  assert.equal(demo.searchParams.get('agent'), 'dashboard');
+  assert.equal(demo.searchParams.get('screencheck'), '1');
+  assert.match(page, /rel="manifest" href="manifest_screen.json"/);
+  for (const [ios, displayMode, expected] of [[false, false, null], [true, false, href], [false, true, href]]) {
+    let destination = null;
+    // No preferences or login state exist in this simulated new install.
+    vm.runInNewContext(script, {
+      URLSearchParams,
+      navigator: {standalone: ios},
+      window: {
+        matchMedia: () => ({matches: displayMode}),
+        location: {search: '', replace: value => { destination = value; }},
+      },
+    });
+    assert.equal(destination, expected);
+  }
+});
+
+test('plain paint control matches installed metadata and has no app rendering scripts', () => {
+  const page = readFileSync(new URL('../web/screen_test.html', import.meta.url), 'utf8');
+  for (const name of ['viewport', 'apple-mobile-web-app-status-bar-style', 'theme-color', 'color-scheme']) {
+    const content = source => source.match(new RegExp(`<meta name="${name}" content="([^"]+)"`))[1];
+    assert.equal(content(page), content(html));
+  }
+  assert.match(page, /height: 100vh/);
+  assert.match(page, /repeating-linear-gradient/);
+  assert.doesNotMatch(page, /position:\s*fixed|overflow:\s*hidden|<script[^>]*src=/);
+  assert.match(page, /Plain paint control 1/);
+  assert.match(page, /href="\.\/\?agent=dashboard&amp;screencheck=1">Return to demo app/);
+});
+
+test('paint query prevents installed redirect and refreshes independent DOM measurements', () => {
+  const page = readFileSync(new URL('../web/screen_test.html', import.meta.url), 'utf8');
+  const script = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  for (const installed of [true, false]) {
+    let destination = null;
+    const classes = [];
+    const report = {textContent: ''};
+    const listeners = {};
+    const rect = {width: 430, height: 932, top: 0, bottom: 932};
+    const window = {
+      screen: {width: 430, height: 932}, innerWidth: 430, innerHeight: 873,
+      visualViewport: {height: 873, offsetTop: 0, scale: 1, addEventListener() {}},
+      matchMedia: () => ({matches: false}),
+      location: {search: '?paint=1', replace: value => { destination = value; }},
+      addEventListener: (name, callback) => { listeners[name] = callback; },
+    };
+    vm.runInNewContext(script, {
+      URLSearchParams, navigator: {standalone: installed}, window,
+      document: {
+        documentElement: {classList: {add: value => { classes.push(value); }}},
+        getElementById: id => id === 'paint-test' ? {getBoundingClientRect: () => rect} : report,
+      },
+    });
+    assert.equal(destination, null);
+    assert.deepEqual(classes, ['paint']);
+    assert.match(report.textContent, new RegExp(`Installed: ${installed}`));
+    assert.match(report.textContent, /Window: 430 x 873/);
+    assert.match(report.textContent, /Visual: 873 offset=0 scale=1/);
+    assert.match(report.textContent, /Pattern: 430 x 932 y=0\.\.932/);
+    Object.assign(rect, {width: 932, height: 430, bottom: 430});
+    listeners.resize();
+    assert.match(report.textContent, /Pattern: 932 x 430 y=0\.\.430/);
+  }
+});
+
 function boot(standalone, hasHost = true) {
   const listeners = {};
   const host = {style: {}};
@@ -51,7 +143,26 @@ test('browser tabs and cached shells without a host use full-page Flutter', () =
 
 test('iPhone launch metadata lets artwork paint behind the status bar', () => {
   assert.match(html, /name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
-  assert.match(html, /name="viewport" content="[^"]*viewport-fit=contain"/);
+  assert.match(html, /name="viewport" content="[^"]*viewport-fit=cover"/);
+});
+
+test('installed document and Flutter host share the full viewport height', () => {
+  const rule = html.match(/html\.eg-standalone\s*,\s*html\.eg-standalone body\s*,\s*html\.eg-standalone #eg-app\s*\{([^}]+)\}/);
+  assert.ok(rule, 'sizing only the document leaves the installed host on shortened fixed bounds');
+  assert.match(rule[1], /height:\s*100vh\s*;/);
+  assert.match(rule[1], /bottom:\s*auto\s*;/);
+});
+
+test('installed roots stay in document flow while the Flutter host contains its layers', () => {
+  const roots = html.match(/html\.eg-standalone\s*,\s*html\.eg-standalone body\s*\{([^}]+)\}/);
+  assert.ok(roots, 'installed document roots must have their own normal-flow rule');
+  assert.match(roots[1], /position:\s*static\s*;/);
+  assert.match(roots[1], /overflow:\s*visible\s*;/);
+  const host = html.match(/^\s*html\.eg-standalone #eg-app\s*\{([^}]+)\}/m);
+  assert.ok(host, 'installed host must participate in the page layout');
+  assert.match(host[1], /position:\s*relative\s*;/);
+  assert.match(html, /#eg-app\s*\{[^}]*overflow:\s*hidden\s*;/);
+  assert.match(html, /html, body\s*\{[^}]*position:\s*fixed\s*;/);
 });
 
 for (const [mode, standalone] of [
@@ -66,13 +177,20 @@ for (const [mode, standalone] of [
       getAttribute() { return this.content; },
       setAttribute(_, value) { this.content = value; },
     });
-    let metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0')];
+    const initialViewport = html.match(/<meta name="viewport" content="([^"]+)"/)[1];
+    assert.match(initialViewport, /viewport-fit=cover$/, 'installed launch must not begin contained');
+    let metas = [meta(initialViewport)];
     const head = {appendChild: (node) => metas.push(node)};
     let mutation;
     let resizes = 0;
+    let installedClass;
     vm.runInNewContext(script, {
       document: {
         head,
+        documentElement: {classList: {toggle: (name, value) => {
+          assert.equal(name, 'eg-standalone');
+          installedClass = value;
+        }}},
         querySelectorAll: () => metas,
         createElement: () => meta(''),
         addEventListener() {},
@@ -92,8 +210,9 @@ for (const [mode, standalone] of [
     });
     const expected = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=' +
       (standalone ? 'cover' : 'contain');
+    assert.equal(installedClass, standalone, 'host sizing must be selected before Flutter starts');
     assert.equal(metas[0].content, expected);
-    metas = [meta('width=device-width, viewport-fit=cover'), meta('initial-scale=1.0')];
+    metas = [meta('width=device-width, initial-scale=1.0, maximum-scale=5.0'), meta('initial-scale=1.0')];
     mutation();
     assert.ok(metas.every((node) => node.content === expected));
     const resizeCount = resizes;

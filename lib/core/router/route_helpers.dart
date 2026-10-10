@@ -15,6 +15,20 @@ AppErrorPage missingExtraPage(GoRouterState state) {
   return AppErrorPage(uri: state.uri);
 }
 
+// Keep the screen-test URL installable after the gateway redirects.
+String agentJumpLocation(Uri launch, String target) {
+  if (launch.queryParameters['screencheck'] != '1') return target;
+  final destination = Uri.parse(target);
+  return destination
+      .replace(
+        queryParameters: {
+          ...destination.queryParameters,
+          ...launch.queryParameters,
+        },
+      )
+      .toString();
+}
+
 /// Where to send the user after the gateway login.
 ///
 /// The router bounces logged-out deep links to `/?from=<intended page>`

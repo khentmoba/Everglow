@@ -27,6 +27,7 @@ import '../agent/agent_mode.dart';
 import '../perf/perf_bench_route.dart';
 import 'app_error_page.dart';
 import 'route_memory.dart';
+import 'route_helpers.dart';
 import '../di/app_providers.dart' as di;
 
 /// App-wide router configuration.
@@ -79,7 +80,7 @@ GoRouter createAppRouter() {
 
       // If opening doorway with an agent destination target, navigate directly
       if (loc == '/' && targetRoute != null && targetRoute != '/') {
-        return targetRoute;
+        return agentJumpLocation(uri, targetRoute);
       }
 
       // The perf bench is reachable logged out (it carries its own fake data),

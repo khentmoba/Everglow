@@ -27,6 +27,68 @@ external JSNumber? _egSafeAreaTopBridge();
 class WebStandalone {
   WebStandalone._();
 
+  /// Keep the paint control inside the existing installed screen-test window.
+  static void openPaintControl() {
+    web.window.location.href = Uri.base
+        .resolve('/screen_test.html?paint=1')
+        .toString();
+  }
+
+  /// Local-only measurements for the demo HUD; never sends device data.
+  static String viewportReport() {
+    String bounds(String selector) {
+      final element = web.document.querySelector(selector);
+      if (element == null) return '$selector: absent';
+      final rect = element.getBoundingClientRect();
+      return '$selector: y=${rect.top.toStringAsFixed(0)}..'
+          '${rect.bottom.toStringAsFixed(0)}, h=${rect.height.toStringAsFixed(0)}';
+    }
+
+    final viewport = web.window.visualViewport;
+    final host = web.document.getElementById('eg-app') as web.HTMLElement?;
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    final engine = views.isEmpty ? null : views.first;
+    final logicalSize = engine == null
+        ? null
+        : engine.physicalSize / engine.devicePixelRatio;
+    final canvas =
+        web.document
+                .querySelector('flutter-view')
+                ?.querySelector('flt-glass-pane')
+                ?.shadowRoot
+                ?.querySelector('canvas')
+            as web.HTMLCanvasElement?;
+    final canvasRect = canvas?.getBoundingClientRect();
+    final insets = safeAreaPadding();
+    final meta = web.document.querySelector('meta[name="viewport"]');
+    final status = web.document.querySelector(
+      'meta[name="apple-mobile-web-app-status-bar-style"]',
+    );
+    return [
+      'Screen measurement 2 (CSS pixels)',
+      'Installed: ${isStandalone()}',
+      'Screen: ${web.window.screen.width} x ${web.window.screen.height}',
+      'Window: ${web.window.innerWidth} x ${web.window.innerHeight}',
+      'Visual: ${viewport?.height.toStringAsFixed(0)} '
+          'offset=${viewport?.offsetTop.toStringAsFixed(0)} scale=${viewport?.scale}',
+      'Flutter drawing: ${logicalSize?.width.toStringAsFixed(0)} x '
+          '${logicalSize?.height.toStringAsFixed(0)}',
+      'Host client: ${host?.clientWidth} x ${host?.clientHeight}; '
+          '${host?.getAttribute('flt-embedding')}',
+      'Canvas CSS: ${canvasRect?.width.toStringAsFixed(0)} x '
+          '${canvasRect?.height.toStringAsFixed(0)}; '
+          'backing: ${canvas?.width} x ${canvas?.height}',
+      bounds('html'),
+      bounds('body'),
+      bounds('#eg-app'),
+      bounds('flutter-view'),
+      'Safe top/bottom: ${insets.top} / ${insets.bottom}',
+      'Installed CSS: ${web.document.documentElement?.classList.contains('eg-standalone')}',
+      'Status: ${status?.getAttribute('content')}',
+      'Viewport: ${meta?.getAttribute('content')}',
+    ].join('\n');
+  }
+
   /// True only when running as an installed web app.
   ///
   /// Covers iOS Home Screen apps (`navigator.standalone`, including older

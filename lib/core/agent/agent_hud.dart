@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../system/web_standalone.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'agent_mode.dart';
@@ -23,7 +25,7 @@ class AgentHudOverlay extends StatelessWidget {
     return ValueListenableBuilder<bool>(
       valueListenable: AgentMode.isActive,
       builder: (context, active, _) {
-        if (!active || !(AgentMode.isLocalDev || AgentMode.isCompiledIn)) {
+        if (!active) {
           return child;
         }
         return ValueListenableBuilder<bool>(
@@ -40,7 +42,10 @@ class AgentHudOverlay extends StatelessWidget {
                     bottom: 16,
                     left: 16,
                     right: 16,
-                    child: Material(color: Colors.transparent, child: AgentHud()),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: AgentHud(),
+                    ),
                   ),
                 ],
               ),
@@ -60,6 +65,7 @@ class AgentHud extends StatefulWidget {
 }
 
 class _AgentHudState extends State<AgentHud> {
+  String? _viewportReport;
   static const List<({String label, String route, IconData icon})> _routes = [
     (label: 'Dashboard', route: '/dashboard', icon: Icons.home_rounded),
     (label: 'Cinema', route: '/cinema', icon: Icons.movie_rounded),
@@ -70,15 +76,27 @@ class _AgentHudState extends State<AgentHud> {
     (label: 'Gallery', route: '/gallery', icon: Icons.photo_library_rounded),
     (label: 'Journal', route: '/journal', icon: Icons.book_rounded),
     (label: 'Tonight', route: '/tonight', icon: Icons.nightlife_rounded),
-    (label: 'Play Zone', route: '/play-zone', icon: Icons.sports_esports_rounded),
+    (
+      label: 'Play Zone',
+      route: '/play-zone',
+      icon: Icons.sports_esports_rounded,
+    ),
     (label: 'Academy', route: '/academy', icon: Icons.school_rounded),
     (label: 'Garden', route: '/garden', icon: Icons.local_florist_rounded),
     (label: 'Starlight', route: '/starlight', icon: Icons.star_rounded),
     (label: 'Calendar', route: '/calendar', icon: Icons.calendar_month_rounded),
     (label: 'Trip Kit', route: '/trips', icon: Icons.flight_takeoff_rounded),
     (label: 'Canvas', route: '/canvas', icon: Icons.palette_rounded),
-    (label: 'Bucket List', route: '/bucket-list', icon: Icons.checklist_rounded),
-    (label: 'Money', route: '/money', icon: Icons.account_balance_wallet_rounded),
+    (
+      label: 'Bucket List',
+      route: '/bucket-list',
+      icon: Icons.checklist_rounded,
+    ),
+    (
+      label: 'Money',
+      route: '/money',
+      icon: Icons.account_balance_wallet_rounded,
+    ),
     (label: 'Jukebox', route: '/jukebox', icon: Icons.music_note_rounded),
     (label: 'Doorway', route: '/', icon: Icons.meeting_room_rounded),
   ];
@@ -250,6 +268,43 @@ class _AgentHudState extends State<AgentHud> {
                   ],
                 ),
                 const SizedBox(height: 6),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _viewportReport = _viewportReport == null
+                        ? WebStandalone.viewportReport()
+                        : null;
+                  }),
+                  child: Text(
+                    _viewportReport == null
+                        ? 'Screen edges'
+                        : 'Close measurement',
+                    style: const TextStyle(color: AppColors.auroraGold),
+                  ),
+                ),
+                if (_viewportReport != null &&
+                    kIsWeb &&
+                    Uri.base.queryParameters['screencheck'] == '1')
+                  const TextButton(
+                    onPressed: WebStandalone.openPaintControl,
+                    child: Text(
+                      'Open plain paint control',
+                      style: TextStyle(color: AppColors.auroraGold),
+                    ),
+                  ),
+                if (_viewportReport != null)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 280),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        _viewportReport!,
+                        style: const TextStyle(
+                          color: AppColors.petalWhite,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(

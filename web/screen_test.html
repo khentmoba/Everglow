@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1a0f1e">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Everglow screen test">
+  <title>Everglow screen test</title>
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="manifest" href="manifest_screen.json">
+  <style>
+    body { font: 1.125rem/1.6 system-ui, sans-serif; margin: 0; }
+    main { max-width: 32rem; margin: auto; padding: max(2rem, env(safe-area-inset-top)) 1.5rem max(2rem, env(safe-area-inset-bottom)); }
+    h1 { font-size: 1.75rem; line-height: 1.2; }
+    li { margin-block: 1rem; }
+    a { display: inline-block; padding-block: .75rem; text-underline-offset: .2em; }
+    #paint-test { display: none; }
+    html.paint, html.paint body { background: #1a0f1e; }
+    .paint main { display: none; }
+    /* No fixed roots or overflow clipping: test patterned content, not a system tint. */
+    .paint #paint-test {
+      display: grid; grid-template-rows: 59px 1fr 59px; height: 100vh;
+      background: repeating-linear-gradient(0deg, #101825 0 12px, #4a2947 12px 24px);
+      color: #fff;
+    }
+    #paint-test header, #paint-test footer { align-self: center; text-align: center; font-size: .875rem; }
+    #paint-test section { align-self: center; margin: 0 1rem; padding: 1rem; background: #1a0f1e; }
+    #paint-test h1 { margin-top: 0; }
+    #paint-report { white-space: pre-wrap; font: .875rem/1.5 system-ui, sans-serif; }
+    #paint-test a { color: inherit; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Everglow screen test</h1>
+    <p>This test uses fake data. No password is needed.</p>
+    <ol>
+      <li>Stay on this page. In Safari, tap Share, then Add to Home Screen. Keep Open as Web App on if shown.</li>
+      <li>Open the new <strong>Everglow screen test</strong> icon.</li>
+      <li>Tap <strong>Screen edges</strong> in the demo toolbar and take a screenshot showing the panel and both screen edges.</li>
+    </ol>
+    <p>Leave your normal Everglow icon untouched.</p>
+    <p>If this page appears inside the new icon, tap the link below.</p>
+    <a href="./?agent=dashboard&amp;screencheck=1">Open demo and screen measurements</a>
+  </main>
+  <div id="paint-test">
+    <header>TOP 59 CSS pixels of the pattern</header>
+    <section>
+      <h1>Plain paint control 1</h1>
+      <p>No Flutter is running. Check whether the stripes reach both screen edges.</p>
+      <pre id="paint-report"></pre>
+      <p>Take a screenshot without scrolling, then return and check whether the app strip returns.</p>
+      <a href="./?agent=dashboard&amp;screencheck=1">Return to demo app</a>
+    </section>
+    <footer>BOTTOM 59 CSS pixels of the pattern</footer>
+  </div>
+  <script>
+    const installed = navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches;
+    if (new URLSearchParams(window.location.search).get('paint') === '1') {
+      document.documentElement.classList.add('paint');
+      function measure() {
+        const rect = document.getElementById('paint-test').getBoundingClientRect();
+        const visual = window.visualViewport;
+        document.getElementById('paint-report').textContent =
+          'Installed: ' + installed + '\nScreen: ' + window.screen.width + ' x ' + window.screen.height +
+          '\nWindow: ' + window.innerWidth + ' x ' + window.innerHeight +
+          '\nVisual: ' + (visual ? visual.height + ' offset=' + visual.offsetTop + ' scale=' + visual.scale : 'absent') +
+          '\nPattern: ' + rect.width.toFixed(0) + ' x ' + rect.height.toFixed(0) +
+          ' y=' + rect.top.toFixed(0) + '..' + rect.bottom.toFixed(0);
+      }
+      measure();
+      window.addEventListener('resize', measure);
+      window.visualViewport?.addEventListener('resize', measure);
+    } else if (installed) {
+      // The saved install address itself activates demo mode, even with fresh storage.
+      window.location.replace('./?agent=dashboard&screencheck=1');
+    }
+  </script>
+</body>
+</html>

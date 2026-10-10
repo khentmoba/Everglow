@@ -156,6 +156,15 @@
             "value": "no-cache"
           }
         ],
+        "source": "/screen_test.html"
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
         "source": "/flutter_bootstrap.js"
       },
       {
@@ -228,7 +237,7 @@
             "value": "no-cache"
           }
         ],
-        "source": "/manifest.json"
+        "source": "/manifest{,_screen}.json"
       }
     ],
     "rewrites": [

@@ -4,6 +4,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('ordinary sessions never show demo controls', (tester) async {
+    AgentMode.isActive.value = false;
+    AgentMode.showHud.value = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: const Scaffold(),
+        builder: (context, child) => AgentHudOverlay(child: child!),
+      ),
+    );
+    expect(find.byType(AgentHud), findsNothing);
+    expect(find.text('Screen edges'), findsNothing);
+  });
+
   testWidgets('HUD above the Navigator collapses without a tooltip overlay', (
     tester,
   ) async {
@@ -32,6 +45,15 @@ void main() {
     await tester.tap(find.byIcon(Icons.bolt_rounded));
     await tester.pumpAndSettle();
     expect(find.text('AGENT SANDBOX'), findsOneWidget);
+    await tester.tap(find.text('Screen edges'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Screen measurement is available on web.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Close measurement'));
+    await tester.pumpAndSettle();
+    expect(find.text('Screen measurement is available on web.'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

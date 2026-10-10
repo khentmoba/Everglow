@@ -55,6 +55,19 @@ void main() {
     ''');
   });
 
+  test('screen report distinguishes a shortened host from its viewport', () {
+    js("window.egHost.style.cssText = 'position:fixed;top:10px;height:500px';");
+    final report = WebStandalone.viewportReport();
+    expect(report, contains('Installed: true'));
+    expect(report, contains('#eg-app: y=10..510, h=500'));
+    expect(report, contains('Safe top/bottom: 59 / 34'));
+    js('window.egHost.style.height = "600px";');
+    expect(
+      WebStandalone.viewportReport(),
+      contains('#eg-app: y=10..610, h=600'),
+    );
+  });
+
   testWidgets('system insets protect controls without shrinking backgrounds', (
     tester,
   ) async {
