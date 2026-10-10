@@ -147,10 +147,13 @@ class _MotchiScreenState extends State<MotchiScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollingToBottom) {
-      _userScrolledUp =
-          _scroll.hasClients &&
-          _scroll.position.maxScrollExtent - _scroll.position.pixels > 120;
+    if (!_scrollingToBottom && _scroll.hasClients) {
+      final dist = _scroll.position.maxScrollExtent - _scroll.position.pixels;
+      if (dist <= 16) {
+        _userScrolledUp = false;
+      } else if (dist > 32) {
+        _userScrolledUp = true;
+      }
     }
     final show =
         _scroll.hasClients &&
@@ -310,6 +313,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
       });
     }
     _focusNode.requestFocus();
+    _userScrolledUp = false;
     _scrollToBottom();
 
     try {
@@ -835,13 +839,17 @@ class _MotchiScreenState extends State<MotchiScreen> {
                 if (notification is UserScrollNotification &&
                     notification.direction != ScrollDirection.idle) {
                   _scrollingToBottom = false;
+                  if (notification.direction == ScrollDirection.forward) {
+                    _userScrolledUp = true;
+                  }
                   _onScroll();
                 }
                 return false;
               },
               child: NotificationListener<ScrollMetricsNotification>(
                 onNotification: (notification) {
-                  if (!_userScrolledUp &&
+                  if (loading &&
+                      !_userScrolledUp &&
                       !_scrollingToBottom &&
                       (notification.metrics.maxScrollExtent -
                                   notification.metrics.pixels)
