@@ -111,15 +111,26 @@ class MotchiWebBridge {
     final rec = js.JsObject(ctor);
     _recognition = rec;
     rec['lang'] = lang;
-    rec['interimResults'] = false;
+    rec['interimResults'] = true;
     rec['maxAlternatives'] = 1;
     rec['continuous'] = false;
+    String? transcript;
     rec['onresult'] = (dynamic event) {
       if (!identical(_recognition, rec)) return;
       try {
+        // Keep the latest full result list: interim words can be revised, and
+        // mobile browsers may end listening without sending a final result.
         // ignore: avoid_dynamic_calls
-        final transcript = event['results'][0][0]['transcript'];
-        _finishSpeech(transcript?.toString());
+        final results = event['results'] as js.JsObject;
+        final words = <String>[];
+        final length = results['length'] as int;
+        for (var i = 0; i < length; i++) {
+          final result = results[i] as js.JsObject;
+          final alternative = result[0] as js.JsObject;
+          final text = alternative['transcript']?.toString().trim();
+          if (text != null && text.isNotEmpty) words.add(text);
+        }
+        transcript = words.isEmpty ? null : words.join(' ');
       } catch (error) {
         _finishSpeech(null, error: error);
       }
@@ -131,7 +142,7 @@ class MotchiWebBridge {
       _finishSpeech(null, error: StateError(code));
     };
     rec['onend'] = (dynamic _) {
-      if (identical(_recognition, rec)) _finishSpeech(null);
+      if (identical(_recognition, rec)) _finishSpeech(transcript);
     };
     // Start directly in the mic tap so Safari retains user activation.
     try {
