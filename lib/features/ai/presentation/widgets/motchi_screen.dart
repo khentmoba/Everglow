@@ -843,12 +843,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
                     _userScrolledUp = true;
                   }
                   _onScroll();
-                } else if (notification is ScrollUpdateNotification) {
-                  if (notification.scrollDelta != null &&
-                      notification.scrollDelta! < 0) {
-                    _scrollingToBottom = false;
-                    _userScrolledUp = true;
-                  }
                 }
                 return false;
               },

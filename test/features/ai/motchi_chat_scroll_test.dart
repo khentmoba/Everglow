@@ -113,7 +113,7 @@ class _StreamingAIService extends AIService {
   });
 
   String streamedText = '';
-  bool _loading = false;
+  bool _loading = true;
 
   @override
   bool get isLoading => _loading;
@@ -317,7 +317,8 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
 
       final listFinder = find.byWidgetPredicate(
         (widget) =>
@@ -375,4 +376,100 @@ void main() {
       );
     },
   );
+
+  for (final width in [430.0, 810.0, 1280.0]) {
+    testWidgets('keeps the latest streamed reply in view at ${width.toInt()}px', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final oldReply = List.filled(
+        12,
+        'An earlier reply with enough text to make the conversation scroll.',
+      ).join('\n');
+      final conversation = AIConversation(
+        id: 'assistant',
+        feature: 'assistant',
+        messages: [
+          AIMessage(role: 'user', content: 'Tell me a long story.'),
+          for (var i = 0; i < 5; i++)
+            AIMessage(role: 'assistant', content: oldReply),
+        ],
+      );
+      final repo = _FakeConversationRepo(conversation);
+      final ai = _StreamingAIService(
+        memoryRepo: _FakeMemoryRepo(),
+        conversationRepo: repo,
+      );
+      addTearDown(ai.dispose);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<AIService>.value(value: ai),
+            ChangeNotifierProvider<AuthService>.value(
+              value: _FakeAuthService(),
+            ),
+          ],
+          child: const MaterialApp(home: MotchiScreen()),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final listFinder = find.byWidgetPredicate(
+        (widget) =>
+            widget is ListView &&
+            widget.controller != null &&
+            widget.scrollDirection == Axis.vertical,
+      );
+      final list = tester.widget<ListView>(listFinder);
+      final controller = list.controller!;
+      expect(controller.position.maxScrollExtent, greaterThan(0));
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pump();
+
+      ai.stream(
+        List.filled(30, 'A newly streamed line of Motchi text.').join('\n'),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+      controller.jumpTo(0);
+      await tester.pump();
+      ai.stream(List.filled(32, 'Another streamed line.').join('\n'));
+      await tester.pump();
+      expect(controller.position.pixels, 0);
+      final latest = find.widgetWithText(FilledButton, 'Latest message');
+      expect(tester.getSize(latest).height, greaterThanOrEqualTo(48));
+      await tester.tap(latest);
+      // The post-frame callback schedules the animation; its first tick starts it.
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      // Lazy rows can revise the extent after arriving at the estimated bottom.
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump();
+      }
+      expect(
+        controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+      expect(find.text('Latest message'), findsNothing);
+      ai.stream(List.filled(36, 'The next streamed line.').join('\n'));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        controller.position.pixels,
+        closeTo(controller.position.maxScrollExtent, 1),
+      );
+    });
+  }
 }
