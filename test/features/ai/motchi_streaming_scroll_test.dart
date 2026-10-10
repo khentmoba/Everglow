@@ -23,6 +23,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../motchi_voice_web_bridge_test.dart' as voice_bridge_tests;
+
 class _FakeConversationRepo implements IAIConversationRepository {
   _FakeConversationRepo(this.conversation);
 
@@ -232,6 +234,8 @@ class _InteractionAIService extends AIService {
 }
 
 void main() {
+  group('browser speech bridge', voice_bridge_tests.main);
+
   Future<void> pumpVoice(WidgetTester tester) async {
     final oldWebkit = js.context['webkitSpeechRecognition'];
     final oldStandard = js.context['SpeechRecognition'];
@@ -245,7 +249,12 @@ void main() {
       window.webkitSpeechRecognition = function() {
         window.__voice = this;
         this.start = function(){ window.__voiceStarted = true; };
-        this.stop = function(){ this.onresult({results:[[{transcript:'a cosy movie night'}]]}); };
+        this.stop = function() {
+          var event = new Event('result');
+          event.results = [[{transcript:'a cosy movie night'}]];
+          this.onresult(event);
+          this.onend(new Event('end'));
+        };
         this.abort = function(){ window.__voiceAborted = true; };
       };
     """,
