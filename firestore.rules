@@ -349,11 +349,20 @@ service cloud.firestore {
         request.resource.data.hostUid == request.auth.uid &&
         request.resource.data.status == 'waiting';
       allow update: if isAppUser() &&
-        (request.auth.uid == resource.data.hostUid ||
-         request.auth.uid == resource.data.guestUid) &&
         request.resource.data.status in ['waiting', 'playing', 'finished'] &&
         request.resource.data.hostUid == resource.data.hostUid &&
-        request.resource.data.category == resource.data.category;
+        (
+          // Claim the empty seat once; existing players cannot replace it.
+          (resource.data.status == 'waiting' && resource.data.guestUid == null &&
+           request.auth.uid != resource.data.hostUid &&
+           request.resource.data.guestUid == request.auth.uid &&
+           request.resource.data.status == 'playing' &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['guestUid', 'status', 'lastTick', 'updatedAt'])) ||
+          ((request.auth.uid == resource.data.hostUid ||
+            request.auth.uid == resource.data.guestUid) &&
+           request.resource.data.guestUid == resource.data.guestUid)
+        );
       allow delete: if isAppUser() &&
         request.auth.uid == resource.data.hostUid;
     }

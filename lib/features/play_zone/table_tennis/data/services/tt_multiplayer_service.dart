@@ -57,27 +57,33 @@ class TTMultiplayerService {
     required String guestUid,
   }) async {
     final ref = _doc(roomId);
-    final result = await withGetTimeout(
-      ref.get(),
-      label: 'table tennis join room',
-    );
-    if (!result.exists) throw StateError('Room not found');
-    final current = TTRoom.fromDoc(result.id, result.data());
-    if (current.guestUid != null) throw StateError('Room already has a guest');
-    if (current.status != TTRoomStatus.waiting) {
-      throw StateError('Match already in progress');
-    }
-    if (current.hostUid == guestUid) {
-      throw StateError('You cannot join your own room');
-    }
-    final updated = current.copyWith(
-      guestUid: guestUid,
-      status: TTRoomStatus.playing,
-      lastTick: current.lastTick + 1,
-      updatedAt: Timestamp.now(),
-    );
-    await ref.set(updated.toMap(), SetOptions(merge: true));
-    return updated;
+    return _fs.runTransaction((txn) async {
+      final result = await txn.get(ref);
+      if (!result.exists) throw StateError('Room not found');
+      final current = TTRoom.fromDoc(result.id, result.data());
+      if (current.guestUid != null) {
+        throw StateError('Room already has a guest');
+      }
+      if (current.status != TTRoomStatus.waiting) {
+        throw StateError('Match already in progress');
+      }
+      if (current.hostUid == guestUid) {
+        throw StateError('You cannot join your own room');
+      }
+      final updated = current.copyWith(
+        guestUid: guestUid,
+        status: TTRoomStatus.playing,
+        lastTick: current.lastTick + 1,
+        updatedAt: Timestamp.now(),
+      );
+      txn.update(ref, {
+        'guestUid': guestUid,
+        'status': TTRoomStatus.playing.name,
+        'lastTick': updated.lastTick,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return updated;
+    });
   }
 
   Stream<TTRoom> watchRoom(String roomId) {
