@@ -13,11 +13,17 @@ class MotchiWebBridge {
 
   bool get isSpeechSupported => false;
 
+  String get speechLanguage => 'en-US';
+
   void cancelRecognition() {}
 
   void stopRecognition() {}
 
-  Future<String?> recognizeOnce({String lang = 'en-US'}) async => null;
+  Future<String?> recognizeOnce({
+    String? lang,
+    ValueChanged<String>? onTranscript,
+    ValueChanged<double>? onAudioLevel,
+  }) async => null;
 
   Future<String> resizeImageToDataUri(
     Uint8List bytes, {

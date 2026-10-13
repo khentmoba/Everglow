@@ -14,9 +14,106 @@ import '../../../../core/utils/logger.dart';
 /// codec-based resizing.
 class MotchiWebBridge {
   html.EventListener? _pasteListener;
+  html.EventListener? _voiceVisibilityListener;
   js.JsObject? _recognition;
   Completer<String?>? _speech;
   Timer? _speechTimeout;
+  String? _speechTranscript;
+  js.JsObject? _audioContext;
+  js.JsObject? _audioSource;
+  html.MediaStream? _meterStream;
+  Timer? _meterTimer;
+
+  String get speechLanguage =>
+      (html.window.navigator.languages ?? const <String>[]).firstWhere(
+        (language) =>
+            language.toLowerCase().startsWith('en-') || language == 'en',
+        orElse: () => 'en-US',
+      );
+
+  Future<void> _startAudioMeter(
+    js.JsObject recognition,
+    ValueChanged<double> onLevel,
+  ) async {
+    try {
+      final devices = html.window.navigator.mediaDevices;
+      if (devices == null) return;
+      final ctor =
+          js.context['AudioContext'] ?? js.context['webkitAudioContext'];
+      if (ctor == null) return;
+      final context = js.JsObject(ctor);
+      _audioContext = context;
+      // Resume in the tap, before awaiting microphone permission on Safari.
+      _audioAction(context, 'resume');
+      final stream = await devices.getUserMedia({
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
+        'video': false,
+      });
+      if (!identical(_recognition, recognition) ||
+          !identical(_audioContext, context)) {
+        for (final track in stream.getTracks()) {
+          track.stop();
+        }
+        return;
+      }
+      _meterStream = stream;
+      final source =
+          context.callMethod('createMediaStreamSource', [stream])
+              as js.JsObject;
+      _audioSource = source;
+      final analyser = context.callMethod('createAnalyser') as js.JsObject;
+      analyser['fftSize'] = 256;
+      source.callMethod('connect', [analyser]);
+      final samples = Uint8List(256);
+      // Only measure locally; never record, upload, or connect to speakers.
+      _meterTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
+        analyser.callMethod('getByteTimeDomainData', [samples]);
+        var energy = 0.0;
+        for (final sample in samples) {
+          final amplitude = (sample - 128) / 128;
+          energy += amplitude * amplitude;
+        }
+        onLevel((math.sqrt(energy / samples.length) * 4).clamp(0.0, 1.0));
+      });
+    } catch (error) {
+      Logger.e('Motchi voice meter unavailable', error: error);
+      if (identical(_recognition, recognition)) _stopAudioMeter();
+    }
+  }
+
+  void _audioAction(js.JsObject context, String method) {
+    try {
+      final pending = context.callMethod(method) as js.JsObject;
+      pending.callMethod('catch', [
+        (dynamic error) {
+          Logger.e('Motchi audio $method failed', error: error);
+        },
+      ]);
+    } catch (error) {
+      Logger.e('Motchi audio $method failed', error: error);
+    }
+  }
+
+  void _stopAudioMeter() {
+    _meterTimer?.cancel();
+    _meterTimer = null;
+    _audioSource?.callMethod('disconnect');
+    _audioSource = null;
+    for (final track
+        in _meterStream?.getTracks() ?? <html.MediaStreamTrack>[]) {
+      track.stop();
+    }
+    _meterStream = null;
+    final context = _audioContext;
+    _audioContext = null;
+    if (context != null) {
+      _audioAction(context, 'close');
+    }
+  }
 
   void cancelRecognition() {
     final rec = _recognition;
@@ -31,25 +128,41 @@ class MotchiWebBridge {
   }
 
   void stopRecognition() {
+    _stopAudioMeter();
     try {
       _recognition?.callMethod('stop');
+      if (_speech != null) {
+        _speechTimeout?.cancel();
+        _speechTimeout = Timer(const Duration(seconds: 3), () {
+          _finishSpeech(_speechTranscript, abort: true);
+        });
+      }
     } catch (error) {
       _finishSpeech(null, error: error);
     }
   }
 
-  void _finishSpeech(String? transcript, {Object? error}) {
+  void _finishSpeech(String? transcript, {Object? error, bool abort = false}) {
     final pending = _speech;
     _speech = null;
     _speechTimeout?.cancel();
     _speechTimeout = null;
+    _speechTranscript = null;
     final rec = _recognition;
     _recognition = null;
+    _stopAudioMeter();
+    if (_voiceVisibilityListener != null) {
+      html.document.removeEventListener(
+        'visibilitychange',
+        _voiceVisibilityListener,
+      );
+      _voiceVisibilityListener = null;
+    }
     if (rec != null) {
       rec['onresult'] = null;
       rec['onerror'] = null;
       rec['onend'] = null;
-      if (error != null) {
+      if (error != null || abort) {
         try {
           rec.callMethod('abort');
         } catch (abortError) {
@@ -107,7 +220,11 @@ class MotchiWebBridge {
     return false;
   }
 
-  Future<String?> recognizeOnce({String lang = 'en-US'}) {
+  Future<String?> recognizeOnce({
+    String? lang,
+    ValueChanged<String>? onTranscript,
+    ValueChanged<double>? onAudioLevel,
+  }) {
     cancelRecognition();
     final ctor =
         js.context['webkitSpeechRecognition'] ??
@@ -117,11 +234,19 @@ class MotchiWebBridge {
     _speech = pending;
     final rec = js.JsObject(ctor);
     _recognition = rec;
-    rec['lang'] = lang;
+    _voiceVisibilityListener = (_) {
+      if (html.document.hidden == true) {
+        _finishSpeech(_speechTranscript, abort: true);
+      }
+    };
+    html.document.addEventListener(
+      'visibilitychange',
+      _voiceVisibilityListener,
+    );
+    rec['lang'] = lang ?? speechLanguage;
     rec['interimResults'] = true;
     rec['maxAlternatives'] = 1;
-    rec['continuous'] = false;
-    String? transcript;
+    rec['continuous'] = true;
     rec['onresult'] = (dynamic event) {
       if (!identical(_recognition, rec)) return;
       try {
@@ -140,7 +265,8 @@ class MotchiWebBridge {
           final text = alternative['transcript']?.toString().trim();
           if (text != null && text.isNotEmpty) words.add(text);
         }
-        transcript = words.isEmpty ? null : words.join(' ');
+        _speechTranscript = words.isEmpty ? null : words.join(' ');
+        onTranscript?.call(_speechTranscript ?? '');
       } catch (error) {
         _finishSpeech(null, error: error);
       }
@@ -151,16 +277,23 @@ class MotchiWebBridge {
           ? event
           : js.JsObject.fromBrowserObject(event);
       final code = browserEvent['error']?.toString() ?? 'unknown';
-      _finishSpeech(null, error: StateError(code));
+      if (code == 'no-speech') {
+        _finishSpeech(_speechTranscript, abort: true);
+      } else {
+        _finishSpeech(null, error: StateError(code));
+      }
     };
     rec['onend'] = (dynamic _) {
-      if (identical(_recognition, rec)) _finishSpeech(transcript);
+      if (identical(_recognition, rec)) _finishSpeech(_speechTranscript);
     };
     // Start directly in the mic tap so Safari retains user activation.
     try {
       rec.callMethod('start');
       if (_speech != null) {
-        _speechTimeout = Timer(const Duration(seconds: 45), cancelRecognition);
+        _speechTimeout = Timer(const Duration(minutes: 2), stopRecognition);
+        if (onAudioLevel != null) {
+          unawaited(_startAudioMeter(rec, onAudioLevel));
+        }
       }
     } catch (error) {
       _finishSpeech(null, error: error);

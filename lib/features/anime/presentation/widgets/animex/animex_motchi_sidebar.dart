@@ -328,7 +328,7 @@ class AnimeXMotchiSidebarState extends State<AnimeXMotchiSidebar>
     if (!_webBridge.isSpeechSupported || _isListening) return;
     setState(() => _isListening = true);
     try {
-      final result = await _webBridge.recognizeOnce(lang: 'en-US');
+      final result = await _webBridge.recognizeOnce();
       if (result != null && result.trim().isNotEmpty && mounted) {
         final current = _input.text;
         final next = current.isEmpty
