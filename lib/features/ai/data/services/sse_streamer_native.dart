@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'sse_cancellation.dart';
 
 /// Parses SSE lines from a streaming HTTP response.
 ///
@@ -17,6 +18,7 @@ Future<String> streamSseResponse({
   void Function(Map<String, dynamic> result)? onToolResult,
   void Function(String error)? onError,
   Duration timeout = const Duration(seconds: 120),
+  SseCancellation? cancellation,
 }) async {
   final fullResponse = StringBuffer();
 
@@ -25,6 +27,8 @@ Future<String> streamSseResponse({
     ..body = body;
 
   final client = http.Client();
+  cancellation?.attach(client.close);
+  final timer = Timer(timeout, client.close);
   try {
     final response = await client.send(request).timeout(timeout);
 
@@ -84,6 +88,8 @@ Future<String> streamSseResponse({
     }
     throw Exception(errorMsg);
   } finally {
+    timer.cancel();
+    cancellation?.attach(null);
     client.close();
   }
 }

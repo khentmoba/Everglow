@@ -3,12 +3,21 @@
 const functions = require('firebase-functions/v1');
 
 const { getAdmin, getDb } = require('./common.js');
+const { allowsPush, pushReservation } = require('./motchi_agent.js');
 
 // ── FCM Helper ───────────────────────────────────────────────────
 async function sendFCMToUser(uid, payload) {
   try {
     const db = getDb();
-    const tokenDoc = await db.collection('fcm_tokens').doc(uid).get();
+    const ref = db.collection('fcm_tokens').doc(uid);
+    const type = payload.data?.type || 'nudge';
+    const tokenDoc = payload.motchi && !type.startsWith('reminder') ? await db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      if (!doc.exists || !doc.data()?.token || !allowsPush(doc.data()?.motchi, type)) return null;
+      tx.set(ref, { motchi: pushReservation(type) }, { merge: true });
+      return doc;
+    }) : await ref.get();
+    if (!tokenDoc) return;
     if (!tokenDoc.exists) return;
     const token = tokenDoc.data()?.token;
     if (!token) return;

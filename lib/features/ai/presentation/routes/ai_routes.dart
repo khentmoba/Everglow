@@ -5,14 +5,27 @@ import '../screens/memory_book_screen.dart';
 import '../screens/memory_trivia_screen.dart';
 import '../screens/motchi_minis_screen.dart';
 import '../screens/motchi_today_screen.dart';
+import '../screens/motchi_preferences_screen.dart';
 import '../screens/study_screen.dart' deferred as study_lib;
 import '../widgets/motchi_screen.dart';
 
 /// Routes owned by the AI / Motchi feature.
 final List<GoRoute> aiRoutes = [
-  GoRoute(path: '/motchi', builder: (_, _) => const MotchiScreen()),
+  GoRoute(
+    path: '/motchi',
+    builder: (_, state) => MotchiScreen(
+      initialPrompt: state.extra is String ? state.extra as String : null,
+    ),
+  ),
+  GoRoute(
+    path: '/motchi-preferences',
+    builder: (_, _) => const MotchiPreferencesScreen(),
+  ),
   GoRoute(path: '/motchi-memory', builder: (_, _) => const MemoryBookScreen()),
-  GoRoute(path: '/motchi-trivia', builder: (_, _) => const MemoryTriviaScreen()),
+  GoRoute(
+    path: '/motchi-trivia',
+    builder: (_, _) => const MemoryTriviaScreen(),
+  ),
   GoRoute(path: '/motchi-today', builder: (_, _) => const MotchiTodayScreen()),
   GoRoute(path: '/motchi-minis', builder: (_, _) => const MotchiMinisScreen()),
   // Study screen pulls syncfusion PDF (~10MB) via StudyDocService — split

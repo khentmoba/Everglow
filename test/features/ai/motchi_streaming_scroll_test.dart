@@ -198,6 +198,7 @@ class _InteractionAIService extends AIService {
 
   @override
   Future<String> sendMessage({
+    String? actionScopeId,
     required String feature,
     required String message,
     String? contextOverride,

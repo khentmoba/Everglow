@@ -10,6 +10,7 @@ class AIMessage {
   /// read_web_page). Each entry: {title, url, site}. Empty otherwise.
   final List<Map<String, String>> sources;
   final MotchiReplyDetails details;
+  final String? actionScopeId;
 
   AIMessage({
     required this.role,
@@ -18,6 +19,7 @@ class AIMessage {
     this.imageUrls = const [],
     this.sources = const [],
     this.details = const MotchiReplyDetails(),
+    this.actionScopeId,
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -27,11 +29,13 @@ class AIMessage {
     if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
     if (sources.isNotEmpty) 'sources': sources,
     if (!details.isEmpty) 'details': details.toJson(),
+    if (actionScopeId != null) 'actionScopeId': actionScopeId,
   };
 
   factory AIMessage.fromJson(Map<String, dynamic> json) => AIMessage(
     role: json['role'] ?? 'user',
     content: json['content'] ?? '',
+    actionScopeId: json['actionScopeId'] as String?,
     timestamp: json['timestamp'] != null
         ? DateTime.parse(json['timestamp'])
         : DateTime.now(),
@@ -57,7 +61,7 @@ class AIMessage {
   Map<String, dynamic> toApiPayload() {
     if (imageUrls.isEmpty) {
       final receipts = role == 'assistant' && details.steps.isNotEmpty
-          ? '\n[Verified previous action results: ${details.steps.map((s) => '${s['tool']}: ${s['status']} ${s['title'] ?? ''}').join('; ')}. Do not repeat completed actions.]'
+          ? '\n[Previous action results: ${details.steps.map((s) => '${s['tool']}: ${s['status']} ${s['title'] ?? ''} (target: ${s['target'] ?? ''})').join('; ')}. Do not repeat completed actions. Check uncertain actions before resuming.]'
           : '';
       return {'role': role, 'content': '$content$receipts'};
     }

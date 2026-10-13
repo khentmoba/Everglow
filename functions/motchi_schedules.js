@@ -10,7 +10,9 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 
 const { getAdmin, getDb } = require('./common.js');
 const { composeTodayRecap, simpleEmbedding, needsEmbeddingBackfill, findDuplicateGroups, phtDateString, phtDayBounds } = require('./motchi_core.js');
-const { sendFCMToUser, sendFCMToBoth } = require('./triggers.js');
+const { sendFCMToUser: sendPushToUser, sendFCMToBoth: sendPushToBoth } = require('./triggers.js');
+const sendFCMToUser = (uid, payload) => sendPushToUser(uid, { ...payload, motchi: true });
+const sendFCMToBoth = (payload) => sendPushToBoth({ ...payload, motchi: true });
 const { subNextRenewal } = require('./motchi_exec_planning.js');
 
 /**

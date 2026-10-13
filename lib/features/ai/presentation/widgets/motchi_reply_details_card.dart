@@ -12,6 +12,7 @@ class MotchiReplyDetailsCard extends StatelessWidget {
   final ValueChanged<String>? onCorrectMemory;
   final VoidCallback? onOpenMemoryBook;
   final VoidCallback? onContinue;
+  final ValueChanged<Map<String, dynamic>>? onRecommendationFeedback;
 
   const MotchiReplyDetailsCard({
     super.key,
@@ -19,6 +20,7 @@ class MotchiReplyDetailsCard extends StatelessWidget {
     this.onCorrectMemory,
     this.onOpenMemoryBook,
     this.onContinue,
+    this.onRecommendationFeedback,
   });
 
   Future<void> _inspectMemory(
@@ -42,6 +44,19 @@ class MotchiReplyDetailsCard extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text('${memory['fact'] ?? ''}', style: AppTypography.bodySmall()),
+              if (memory['provenance'] != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(switch (memory['provenance']) {
+                  'self_report' => 'Saved from their own words.',
+                  'partner_report' => 'Reported by their partner.',
+                  _ => 'Explicitly saved or corrected.',
+                }),
+                if ('${memory['sourceText'] ?? ''}'.isNotEmpty)
+                  Text(
+                    '“${memory['sourceText']}”',
+                    style: AppTypography.bodySmall(),
+                  ),
+              ],
               const SizedBox(height: AppSpacing.md),
               const Text(
                 'This is the saved fact Motchi cited for this reply. If it has changed, tell her the correct version.',
@@ -100,6 +115,51 @@ class MotchiReplyDetailsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (details.recommendations.isNotEmpty) ...[
+            Text(
+              'Help Motchi choose better next time',
+              style: AppTypography.bodyMedium(),
+            ),
+            for (final movie in details.recommendations)
+              PopupMenuButton<String>(
+                enabled: onRecommendationFeedback != null,
+                tooltip: 'Feedback for ${movie['title']}',
+                onSelected: (reason) => onRecommendationFeedback?.call({
+                  'title': movie['title'],
+                  'reason': reason,
+                }),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'seen', child: Text('I’ve seen it')),
+                  PopupMenuItem(
+                    value: 'not_tonight',
+                    child: Text('Not my mood tonight'),
+                  ),
+                  PopupMenuItem(
+                    value: 'too_long',
+                    child: Text('Too long for me'),
+                  ),
+                  PopupMenuItem(
+                    value: 'more_like_this',
+                    child: Text('More like this'),
+                  ),
+                ],
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${movie['title']}',
+                          style: AppTypography.bodySmall(),
+                        ),
+                      ),
+                      const Icon(Icons.tune_rounded, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           if (details.steps.isNotEmpty || details.interrupted) ...[
             Row(
               children: [

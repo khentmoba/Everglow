@@ -12,6 +12,7 @@ import 'dart:html' as html;
 import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
+import 'sse_cancellation.dart';
 
 /// Parses SSE lines from a streaming HTTP response.
 ///
@@ -28,6 +29,7 @@ Future<String> streamSseResponse({
   void Function(Map<String, dynamic> result)? onToolResult,
   void Function(String error)? onError,
   Duration timeout = const Duration(seconds: 120),
+  SseCancellation? cancellation,
 }) async {
   final fullResponse = StringBuffer();
   final completer = Completer<String>();
@@ -189,6 +191,14 @@ Future<String> streamSseResponse({
   });
   try {
     final ac = web.AbortController();
+    cancellation?.attach(() {
+      ac.abort();
+      pending.clear();
+      if (!completer.isCompleted) {
+        completer.completeError(StateError('Reply stopped'));
+      }
+    });
+    armTimeout(ac, null);
     final requestHeaders = web.Headers();
     headers.forEach((key, value) => requestHeaders.append(key, value));
 
@@ -204,7 +214,6 @@ Future<String> streamSseResponse({
         )
         .toDart
         .timeout(timeout);
-    armTimeout(ac, null);
 
     if (!response.ok) {
       final errText = (await response.text().toDart).toDart;
@@ -229,6 +238,7 @@ Future<String> streamSseResponse({
         processText,
         finish,
         completer,
+        cancellation,
       );
       responseFuture = completer.future;
     } else {
@@ -270,7 +280,13 @@ Future<String> streamSseResponse({
       completer.completeError(e);
     }
   }
-  return responseFuture;
+  try {
+    return await responseFuture;
+  } finally {
+    timeoutTimer?.cancel();
+    visSub.cancel();
+    cancellation?.attach(null);
+  }
 }
 
 /// XHR polling fallback: reads `responseText` on a timer so chunks surface
@@ -283,6 +299,7 @@ void _streamViaXhr(
   void Function(String text) processText,
   void Function() finish,
   Completer<String> completer,
+  SseCancellation? cancellation,
 ) {
   final xhr = html.HttpRequest();
   xhr.open('POST', url);
@@ -317,6 +334,15 @@ void _streamViaXhr(
     }
     if (!completer.isCompleted) {
       completer.completeError(Exception(errorMsg));
+    }
+  });
+
+  cancellation?.attach(() {
+    finished = true;
+    poll.cancel();
+    xhr.abort();
+    if (!completer.isCompleted) {
+      completer.completeError(StateError('Reply stopped'));
     }
   });
 
@@ -367,7 +393,7 @@ void _processSseData(
       fullResponse.write(content);
       onChunk(content);
     }
-        final toolStatus = parsed['tool_status'] as String? ?? '';
+    final toolStatus = parsed['tool_status'] as String? ?? '';
     if (toolStatus.isNotEmpty && onToolStatus != null) {
       onToolStatus(toolStatus);
     }

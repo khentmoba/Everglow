@@ -20,6 +20,7 @@ const {
   shouldExtractMemory,
 } = require('./motchi_core.js');
 const { getTmdbKey } = require('./motchi_context.js');
+const { memoryEvidence } = require('./motchi_agent.js');
 
 // Memory vectors are local 64-dim hash embeddings (motchi_core.js).
 // Nothing on the chat path — or the nightly sweep — spends an
@@ -62,8 +63,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     if (!shouldExtractMemory(userMessage, motchiReply)) return;
     if (!claimMemoryExtractSlot(callerUsername)) return;
     const trimmedUser = String(userMessage).slice(0, 800).trim();
-    const trimmedReply = String(motchiReply).slice(0, 1200).trim();
-    if (trimmedUser.length < 10 && trimmedReply.length < 20) return;
+    if (trimmedUser.length < 10) return;
     const apiKey = process.env.AGNES_API_KEY;
     if (!apiKey) return;
     const resp = await fetch('https://apihub.agnes-ai.com/v1/chat/completions', {
@@ -77,11 +77,11 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         messages: [
           {
             role: 'system',
-            content: 'Extract up to 3 personal facts about Khent or Clair from this exchange. Reply with each fact on its own line in format: CATEGORY|FACT (e.g., "preference|Khent prefers black coffee"). Categories: fact, preference, dislike, goal, date, habit. If nothing worth remembering, reply with exactly: NONE. Prioritize new, specific, durable facts over generic chatter.',
+            content: `Extract up to 3 durable personal facts from ONLY the user's words. The speaker is ${callerUsername === 'clairjassen' ? 'Clair' : 'Khent'}. Return a JSON array of {fact, category, quote}; quote must be an exact excerpt supporting the fact. Start fact with its owner (Khent or Clair). Distinguish a report about the partner from the speaker's own preference. Do not extract suggestions, questions, guesses, hypothetical plans or temporary moods. Categories: fact, preference, dislike, goal, date, habit. Return [] if nothing qualifies.`,
           },
-          { role: 'user', content: `User: ${trimmedUser}\nAssistant: ${trimmedReply}` },
+          { role: 'user', content: trimmedUser },
         ],
-        max_tokens: 250,
+        max_tokens: 500,
         temperature: 0.2,
         stream: false,
         chat_template_kwargs: { enable_thinking: false },
@@ -91,28 +91,27 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
     if (!resp.ok) return;
     const data = await resp.json();
     const raw = (data.choices?.[0]?.message?.content || '').trim();
-    if (!raw || raw === 'NONE') return;
-    const lines = raw.split('\n').map(s=>s.trim()).filter(s=>s && s !== 'NONE').slice(0,3);
-    if (lines.length === 0) return;
+    if (!raw) return;
+    let candidates;
+    try { candidates = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, '')); } catch (_) { return; }
+    if (!Array.isArray(candidates)) return;
+    const evidence = candidates.slice(0, 3).map((c) => memoryEvidence(c, trimmedUser, callerUsername)).filter(Boolean);
+    if (!evidence.length) return;
     const db = getDb();
     // Fetch recent facts for semantic dedupe (last 30 — extraction only
     // needs the fresh window; older dupes are harmless).
     let recentDocs = [];
     try {
-      const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt','desc').limit(30).get();
-      recentDocs = snap.docs.map(d => ({ id: d.id, fact: d.data().fact || '' })).filter(x => x.fact);
-    } catch (_) {}
-    for (const line of lines) {
-      let fact = line.trim();
-      if (!fact || fact.length > 280) continue;
-      let category = 'fact';
-      if (fact.includes('|')) {
-        const parts = fact.split('|');
-        category = parts[0].trim().toLowerCase();
-        fact = parts.slice(1).join('|').trim();
-        if (!['fact','preference','dislike','goal','date','habit'].includes(category)) category = 'fact';
+      if (_factsCache.db === db && _factsCache.facts && Date.now() - _factsCache.at < FACTS_CACHE_TTL_MS) {
+        recentDocs = _factsCache.facts;
       }
-      if (!fact) continue;
+      else {
+        const snap = await db.collection('ai_memories').doc('shared').collection('facts').orderBy('createdAt', 'desc').limit(30).get();
+        recentDocs = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+      }
+    } catch (e) { console.warn('[memoryExtract] dedupe unavailable:', e.message); return; }
+    for (const item of evidence) {
+      const { fact, category } = item;
       // Semantic dedupe
       let isDup = false;
       for (const existing of recentDocs) {
@@ -126,13 +125,16 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
       // Contradiction: same subject + relation, different object —
       // update the stale fact instead of adding a twin.
       const hit = findContradiction(parsed, fact, recentDocs);
+      // An automatic report must not silently overwrite an explicit correction.
+      if (hit && hit.id && hit.provenance === 'explicit') continue;
       if (hit && hit.id) {
         try {
           await db.collection('ai_memories').doc('shared').collection('facts').doc(hit.id).update({
             fact,
             category,
             object: parsed.object || null,
-            confidence: 1.0,
+            ...item,
+            embedding: simpleEmbedding(fact),
             updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
           });
           invalidateMemoryCache();
@@ -151,7 +153,7 @@ async function serverExtractAndSaveMemory(userMessage, motchiReply, callerUserna
         object: parsed.object || null,
         addedBy: callerUsername || 'motchi',
         createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-        confidence: 1.0,
+        ...item,
         accessCount: 0,
         lastAccessed: null,
         pinned: false,

@@ -77,6 +77,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 hue: AppColors.auroraTeal,
                 actions: [
                   _HeaderIcon(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Ask Motchi about this trip',
+                    onTap: () => context.push(
+                      '/motchi',
+                      extra:
+                          'Help me with our trip "${trip.title}" to ${trip.destination}. The trip id is ${trip.id}. What should we plan next?',
+                    ),
+                  ),
+                  _HeaderIcon(
                     icon: Icons.edit_rounded,
                     label: 'Edit trip details',
                     onTap: () => showTripEditSheet(context, trip),

@@ -289,5 +289,17 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "motchi_actions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "motchi_actions",
+      "fieldPath": "result",
+      "indexes": []
+    }
+  ]
 }

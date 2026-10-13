@@ -4,14 +4,20 @@ class MotchiReplyDetails {
   final List<Map<String, dynamic>> memories;
   final List<Map<String, dynamic>> steps;
   final bool interrupted;
+  final List<Map<String, dynamic>> recommendations;
 
   const MotchiReplyDetails({
     this.memories = const [],
     this.steps = const [],
     this.interrupted = false,
+    this.recommendations = const [],
   });
 
-  bool get isEmpty => memories.isEmpty && steps.isEmpty && !interrupted;
+  bool get isEmpty =>
+      memories.isEmpty &&
+      steps.isEmpty &&
+      recommendations.isEmpty &&
+      !interrupted;
 
   /// Only a step that can leave something half-saved demands action. Reads
   /// (web_search, read_web_page, browse_web) are informational: a page
@@ -56,6 +62,7 @@ class MotchiReplyDetails {
     'memories': memories,
     'steps': steps,
     'interrupted': interrupted,
+    if (recommendations.isNotEmpty) 'recommendations': recommendations,
   };
 
   factory MotchiReplyDetails.fromJson(Map<String, dynamic> json) {
@@ -69,6 +76,7 @@ class MotchiReplyDetails {
       memories: records(json['memories']),
       steps: records(json['steps']),
       interrupted: json['interrupted'] == true,
+      recommendations: records(json['recommendations']),
     );
   }
 
@@ -110,6 +118,7 @@ class MotchiReplyDetails {
       memories: details.memories,
       steps: steps,
       interrupted: interrupted || details.interrupted,
+      recommendations: details.recommendations,
     );
   }
 

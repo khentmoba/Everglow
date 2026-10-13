@@ -85,7 +85,7 @@ async function journey(stream, { interrupt = false, recall = false, enableThinki
     require: (name) => modules[name] || realRequire(name),
     module: { exports: {} }, console: { log() {}, warn() {}, error() {} },
     process: { env: { AGNES_API_KEY: 'fake-test-only' } },
-    fetch: mockFetch, TextDecoder, AbortSignal,
+    fetch: mockFetch, TextDecoder, AbortSignal, AbortController,
     setTimeout: (fn) => setTimeout(fn, 0), clearTimeout,
     setInterval, clearInterval,
   };
