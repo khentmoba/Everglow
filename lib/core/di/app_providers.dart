@@ -18,7 +18,6 @@ import '../../features/jukebox/presentation/providers/jukebox_provider.dart';
 import '../../features/jukebox/presentation/providers/music_stats_provider.dart';
 import '../services/auth_service.dart';
 import '../services/presence_service.dart';
-import '../services/storage_service.dart';
 
 /// Eager: the router (`app_router.dart`) uses this synchronously as its
 /// `refreshListenable` at import time, so it must exist before `runApp`.
@@ -40,10 +39,6 @@ final AuthService authService = AuthService();
 ///   their own `create`, so each service is listed BEFORE its controller.
 final List<SingleChildWidget> appProviders = [
   ChangeNotifierProvider.value(value: authService),
-  Provider(
-    create: (_) => StorageService(),
-    lazy: true,
-  ), // plain service, no notify
   Provider(create: (_) => PresenceService(), lazy: true),
   Provider(create: (_) => DateIdeaService(), lazy: true),
   Provider(create: (_) => OurBooksService(), lazy: true),
