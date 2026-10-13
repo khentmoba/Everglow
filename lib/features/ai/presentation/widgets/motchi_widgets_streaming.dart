@@ -535,6 +535,9 @@ class _ComposerInputState extends State<_ComposerInput> {
   bool _isListening = false;
   bool _focused = false;
   final MotchiWebBridge _bridge = MotchiWebBridge();
+  final ValueNotifier<List<double>> _voiceLevels = ValueNotifier(
+    List.filled(25, 0),
+  );
 
   @override
   void initState() {
@@ -547,6 +550,7 @@ class _ComposerInputState extends State<_ComposerInput> {
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
     _bridge.cancelRecognition();
+    _voiceLevels.dispose();
     super.dispose();
   }
 
@@ -560,25 +564,43 @@ class _ComposerInputState extends State<_ComposerInput> {
       _voiceNotice('Use the microphone on your keyboard to dictate.');
       return;
     }
+    final original = widget.controller.value;
+    void updateDraft(String words) {
+      if (!mounted) return;
+      final prefix = original.text;
+      final next = words.isEmpty
+          ? prefix
+          : prefix.isEmpty
+          ? words
+          : '$prefix $words';
+      widget.controller.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
+    }
+
+    widget.focusNode.unfocus();
+    _voiceLevels.value = List.filled(25, 0);
     setState(() => _isListening = true);
     try {
-      final result = await _bridge.recognizeOnce(lang: 'en-US');
+      final result = await _bridge.recognizeOnce(
+        onTranscript: updateDraft,
+        onAudioLevel: (level) {
+          if (!mounted || !_isListening) return;
+          _voiceLevels.value = [..._voiceLevels.value.skip(1), level];
+        },
+      );
       if (!mounted) return;
       if (result != null && result.trim().isNotEmpty) {
-        final current = widget.controller.text;
-        final next = current.isEmpty
-            ? result.trim()
-            : '$current ${result.trim()}';
-        widget.controller.value = TextEditingValue(
-          text: next,
-          selection: TextSelection.collapsed(offset: next.length),
-        );
+        updateDraft(result.trim());
       } else {
+        widget.controller.value = original;
         _voiceNotice('No speech caught. Try again or use keyboard dictation.');
       }
     } catch (error) {
       Logger.e('Motchi voice input failed', error: error);
       if (!mounted) return;
+      widget.controller.value = original;
       final denied =
           error is StateError &&
           (error.message == 'not-allowed' ||
@@ -693,6 +715,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                         children: [
                           TextField(
                             enabled: widget.enabled,
+                            readOnly: _isListening,
                             controller: widget.controller,
                             focusNode: widget.focusNode,
                             style: AppTypography.bodyLarge().copyWith(
@@ -725,19 +748,7 @@ class _ComposerInputState extends State<_ComposerInput> {
                             ),
                           ),
                           if (_isListening)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 4,
-                              ),
-                              child: Semantics(
-                                liveRegion: true,
-                                child: Text(
-                                  'Listening. Tap Stop when you are done.',
-                                  style: AppTypography.bodySmall(),
-                                ),
-                              ),
-                            ),
+                            MotchiVoiceWaveform(levels: _voiceLevels),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(6, 2, 8, 8),
                             child: Row(

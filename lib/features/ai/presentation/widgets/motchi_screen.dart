@@ -31,6 +31,7 @@ import '../../domain/motchi_reply_details.dart';
 import 'motchi_reply_details_card.dart';
 import '../../../books/data/services/web_tts_service.dart';
 import 'motchi_web_bridge.dart';
+import 'motchi_voice_waveform.dart';
 import 'motchi_sidebar.dart';
 import 'study_artifact_sheet.dart';
 import 'package:everglow/core/perf/perf_settings.dart';

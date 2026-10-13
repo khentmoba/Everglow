@@ -23,6 +23,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../motchi_voice_web_bridge_test.dart' as voice_bridge_tests;
+
 class _FakeConversationRepo implements IAIConversationRepository {
   _FakeConversationRepo(this.conversation);
 
@@ -232,7 +234,10 @@ class _InteractionAIService extends AIService {
 }
 
 void main() {
+  group('browser speech bridge', voice_bridge_tests.main);
+
   Future<void> pumpVoice(WidgetTester tester) async {
+    voice_bridge_tests.fakeVoiceMeter();
     final oldWebkit = js.context['webkitSpeechRecognition'];
     final oldStandard = js.context['SpeechRecognition'];
     addTearDown(() {
@@ -245,7 +250,12 @@ void main() {
       window.webkitSpeechRecognition = function() {
         window.__voice = this;
         this.start = function(){ window.__voiceStarted = true; };
-        this.stop = function(){ this.onresult({results:[[{transcript:'a cosy movie night'}]]}); };
+        this.stop = function() {
+          var event = new Event('result');
+          event.results = [[{transcript:'a cosy movie night'}]];
+          this.onresult(event);
+          this.onend(new Event('end'));
+        };
         this.abort = function(){ window.__voiceAborted = true; };
       };
     """,
@@ -452,6 +462,19 @@ void main() {
       await tester.pump();
       expect(js.context['__voiceStarted'], isTrue);
       expect(find.byTooltip('Stop voice input'), findsOneWidget);
+      expect(find.text('Listening · English'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).readOnly,
+        isTrue,
+      );
+      js.context.callMethod('eval', [
+        "window.__voice.onresult({results:[[{transcript:'a cartoon'}]]})",
+      ]);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        'Plan a cartoon',
+      );
       expect(
         tester
             .widget<IconButton>(
@@ -469,6 +492,11 @@ void main() {
         'Plan a cosy movie night',
       );
       expect(find.byTooltip('Dictate message'), findsOneWidget);
+      expect(find.text('Listening · English'), findsNothing);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).readOnly,
+        isFalse,
+      );
       expect(
         tester
             .widget<IconButton>(
