@@ -21,27 +21,34 @@ Future<void> main() async {
   final failures = <String>[];
 
   final pubspec = await _read('pubspec.yaml', failures);
-  final appVersion =
-      await _read('lib/core/system/app_version.dart', failures);
+  final appVersion = await _read('lib/core/system/app_version.dart', failures);
+  final serverVersion = await _read('functions/common.js', failures);
   final changelog = await _read('CHANGELOG.md', failures);
   final readme = await _read('README.md', failures);
   if (failures.isNotEmpty) {
     _fail(failures);
   }
 
-  final pubMatch =
-      RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(pubspec!);
+  final pubMatch = RegExp(
+    r'^version:\s*(\S+)',
+    multiLine: true,
+  ).firstMatch(pubspec!);
   if (pubMatch == null) {
     _fail(['pubspec.yaml has no `version:` line.']);
   }
   final full = pubMatch.group(1)!;
   final semver = full.split('+').first;
+  final serverMatch = RegExp(
+    r"APP_VERSION\s*=\s*'([^']+)'",
+  ).firstMatch(serverVersion!);
+  if (serverMatch?.group(1) != full) {
+    failures.add('functions/common.js APP_VERSION must match $full.');
+  }
   if (!RegExp(r'^\d+\.\d+\.\d+$').hasMatch(semver)) {
     _fail(['pubspec version "$full" is not X.Y.Z(+N).']);
   }
 
-  final appMatch =
-      RegExp(r"current\s*=\s*'([^']+)'").firstMatch(appVersion!);
+  final appMatch = RegExp(r"current\s*=\s*'([^']+)'").firstMatch(appVersion!);
   if (appMatch == null || appMatch.group(1) != full) {
     failures.add(
       'AppVersion.current is "${appMatch?.group(1)}", expected "$full". '
@@ -49,9 +56,10 @@ Future<void> main() async {
     );
   }
 
-  if (!RegExp('^## \\[${RegExp.escape(semver)}\\]',
-          multiLine: true)
-      .hasMatch(changelog!)) {
+  if (!RegExp(
+    '^## \\[${RegExp.escape(semver)}\\]',
+    multiLine: true,
+  ).hasMatch(changelog!)) {
     failures.add(
       'CHANGELOG.md has no `## [$semver]` entry. '
       'Add release notes on top for every version bump.',
@@ -76,8 +84,10 @@ Future<void> main() async {
   }
 
   if (failures.isEmpty) {
-    stdout.writeln('[release] OK: v$semver in sync '
-        '(pubspec, AppVersion, CHANGELOG, README).');
+    stdout.writeln(
+      '[release] OK: v$semver in sync '
+      '(pubspec, AppVersion, CHANGELOG, README).',
+    );
     return;
   }
   _fail(failures);
