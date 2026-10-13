@@ -1,4 +1,8 @@
 import '../../features/bucket_list/data/models/bucket_item.dart';
+import '../../features/books/data/models/our_books_item.dart';
+import '../../features/money/data/models/money_entry.dart';
+import '../../features/subs/data/models/subscription.dart';
+import '../../features/trip_kit/data/models/trip.dart';
 import '../../features/calendar/domain/models/calendar_event.dart';
 import '../../features/chat/domain/models/chat_message.dart';
 import '../../features/daily_bloom/data/models/garden_stats.dart';
@@ -22,12 +26,62 @@ import '../../features/tonight/data/models/tonight_option.dart';
 class AgentFixtures {
   AgentFixtures._();
 
+  static final demoBooks = [
+    OurBooksItem(
+      id: 'demo_book',
+      workKey: '/works/demo',
+      title: 'A fictional reading adventure',
+      coverUrl: 'assets/images/demo/poster-1.jpg',
+      addedBy: 'khentsgdz',
+      addedAt: DateTime(2026, 2, 14),
+    ),
+  ];
+  static List<MoneyEntry> demoMoney(DateTime month) => [
+    MoneyEntry(
+      id: 'demo_income',
+      type: MoneyType.income,
+      amount: 2000,
+      category: 'Allowance',
+      author: 'khentsgdz',
+      createdAt: DateTime(month.year, month.month, 1),
+    ),
+    MoneyEntry(
+      id: 'demo_expense',
+      type: MoneyType.expense,
+      amount: 250,
+      category: 'Dates',
+      note: 'Fictional coffee date',
+      author: 'clairjassen',
+      createdAt: DateTime(month.year, month.month, 2),
+    ),
+  ];
+  static const demoBudgets = [BudgetLimit(category: 'Dates', amount: 1000)];
+  static final demoSubscriptions = [
+    Subscription(
+      id: 'demo_sub',
+      name: 'Demo movie nights',
+      price: 300,
+      renewalDate: DateTime.now().add(const Duration(days: 7)),
+      createdBy: 'khentsgdz',
+      createdAt: DateTime(2026, 2, 14),
+    ),
+  ];
+  static final demoTrips = [
+    Trip(
+      id: 'demo_trip',
+      title: 'Fictional seaside weekend',
+      destination: 'Demo beach',
+      budgetTotal: 3000,
+      createdBy: 'khentsgdz',
+      createdAt: DateTime(2026, 2, 14),
+    ),
+  ];
+
   static final List<Milestone> demoMilestones = [
     Milestone(
       id: 'demo_milestone_1',
       title: 'Demo coffee date',
-      description:
-          'A fictional afternoon sharing coffee and favorite songs.',
+      description: 'A fictional afternoon sharing coffee and favorite songs.',
       date: DateTime(2026, 2, 14),
       author: 'Khent',
       category: MilestoneCategory.firstDate,
@@ -40,8 +94,7 @@ class AgentFixtures {
     Milestone(
       id: 'demo_milestone_2',
       title: 'Demo rainy evening',
-      description:
-          'A fictional rainy evening with warm drinks and a movie.',
+      description: 'A fictional rainy evening with warm drinks and a movie.',
       date: DateTime(2026, 2, 17),
       author: 'Khent',
       category: MilestoneCategory.memory,
@@ -54,8 +107,7 @@ class AgentFixtures {
     Milestone(
       id: 'demo_milestone_3',
       title: 'Demo road trip',
-      description:
-          'An imaginary road trip past green hills and a picnic stop.',
+      description: 'An imaginary road trip past green hills and a picnic stop.',
       date: DateTime(2026, 3, 14),
       author: 'Khent',
       category: MilestoneCategory.trip,
@@ -68,8 +120,7 @@ class AgentFixtures {
     Milestone(
       id: 'demo_milestone_4',
       title: 'Demo birthday picnic',
-      description:
-          'An imaginary birthday picnic with snacks and board games.',
+      description: 'An imaginary birthday picnic with snacks and board games.',
       date: DateTime(2026, 2, 20),
       author: 'Khent',
       category: MilestoneCategory.anniversary,

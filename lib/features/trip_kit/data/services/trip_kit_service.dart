@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -12,14 +14,17 @@ import '../models/trip.dart';
 /// packing checklist shared by two.
 class TripKitService {
   static final TripKitService _instance = TripKitService._internal();
-  factory TripKitService() => _instance;
-  TripKitService._internal();
+  factory TripKitService({FirebaseFirestore? db}) =>
+      db == null ? _instance : TripKitService._internal(db);
+  TripKitService._internal([this._customDb]);
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore? _customDb;
+  FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'travel_trips';
 
   /// All trips, newest first.
   Stream<List<Trip>> watchAll() {
+    if (AgentMode.isActive.value) return Stream.value(AgentFixtures.demoTrips);
     Stream<List<Trip>> subscribe() {
       return _db
           .collection(_collection)
@@ -52,6 +57,11 @@ class TripKitService {
 
   /// One trip page.
   Stream<Trip?> watchOne(String id) {
+    if (AgentMode.isActive.value) {
+      return Stream.value(
+        AgentFixtures.demoTrips.where((t) => t.id == id).firstOrNull,
+      );
+    }
     return withFirestoreTimeout(
       _db.collection(_collection).doc(id).snapshots().map((doc) {
         if (!doc.exists) return null;
@@ -68,6 +78,7 @@ class TripKitService {
 
   /// Create a trip; returns the new doc id for navigation.
   Future<String?> create(Trip trip) async {
+    if (AgentMode.isActive.value) return AgentFixtures.demoTrips.first.id;
     try {
       final ref = await _db.collection(_collection).add(trip.toFirestore());
       Logger.i('TripKit: created trip ${ref.id}');
@@ -80,6 +91,7 @@ class TripKitService {
 
   /// Title / destination / dates / notes / budget total.
   Future<void> updateDetails(Trip trip) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(trip.id).update({
         'title': trip.title,
@@ -100,6 +112,7 @@ class TripKitService {
   }
 
   Future<void> updatePacking(String id, List<TripPackItem> packing) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).update({
         'packing': packing.map((e) => e.toMap()).toList(),
@@ -110,6 +123,7 @@ class TripKitService {
   }
 
   Future<void> updateExpenses(String id, List<TripExpense> expenses) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).update({
         'expenses': expenses.map((e) => e.toMap()).toList(),
@@ -120,6 +134,7 @@ class TripKitService {
   }
 
   Future<void> updatePlaces(String id, List<TripPlace> places) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).update({
         'places': places.map((e) => e.toMap()).toList(),
@@ -130,6 +145,7 @@ class TripKitService {
   }
 
   Future<void> delete(String id) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).delete();
       Logger.i('TripKit: deleted trip $id');
