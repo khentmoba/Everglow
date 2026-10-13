@@ -85,40 +85,64 @@ class _AddSubSheetState extends State<AddSubSheet> {
 
     final service = SubsService();
     final existing = widget.existing;
-    if (existing != null) {
-      await service.update(
-        existing.copyWith(
-          name: name,
-          price: price,
-          renewalDate: renewal,
-          cycle: _cycle,
-          payer: _payer,
-        ),
-      );
-    } else {
-      await service.add(
-        Subscription(
-          id: '', // Firestore generates the id.
-          name: name,
-          price: price,
-          renewalDate: renewal,
-          cycle: _cycle,
-          payer: _payer,
-          createdBy: widget.createdBy,
-          createdAt: DateTime.now(),
-        ),
-      );
-    }
+    try {
+      if (existing != null) {
+        await service.update(
+          existing.copyWith(
+            name: name,
+            price: price,
+            renewalDate: renewal,
+            cycle: _cycle,
+            payer: _payer,
+          ),
+        );
+      } else {
+        await service.add(
+          Subscription(
+            id: '', // Firestore generates the id.
+            name: name,
+            price: price,
+            renewalDate: renewal,
+            cycle: _cycle,
+            payer: _payer,
+            createdBy: widget.createdBy,
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
 
-    if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not save. Your details are still here — try again.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _delete() async {
     final existing = widget.existing;
     if (existing == null || _saving) return;
     setState(() => _saving = true);
-    await SubsService().delete(existing.id);
-    if (mounted) Navigator.pop(context);
+    try {
+      await SubsService().delete(existing.id);
+      if (mounted) Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not remove this subscription. Try again.'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _pickRenewalDate() async {
@@ -191,7 +215,9 @@ class _AddSubSheetState extends State<AddSubSheet> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _editing ? 'Edit subscription 💳' : 'New subscription 💳',
+                            _editing
+                                ? 'Edit subscription 💳'
+                                : 'New subscription 💳',
                             style: AppTypography.cormorantBold.copyWith(
                               fontSize: 26,
                               height: 1.0,
@@ -237,9 +263,7 @@ class _AddSubSheetState extends State<AddSubSheet> {
                           decimal: true,
                         ),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9.,]'),
-                          ),
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                         ],
                         decoration: _fieldDecoration('Price — 549').copyWith(
                           prefixText: '₱ ',
@@ -571,9 +595,7 @@ class _DeleteButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.error.withValues(alpha: 0.08),
             borderRadius: AppRadius.radiusLg,
-            border: Border.all(
-              color: AppColors.error.withValues(alpha: 0.3),
-            ),
+            border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
           ),
           child: Center(
             child: Text(

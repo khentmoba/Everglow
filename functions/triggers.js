@@ -121,7 +121,7 @@ const onNewMood = functions.firestore
     await sendFCMToUser(partnerUid, {
       title: `💕 ${userName} shared their mood`,
       body: `Feeling ${emoji} today`,
-      data: { type: 'mood' },
+      data: { type: 'mood_update' },
     });
   });
 
@@ -129,16 +129,16 @@ const onNewMood = functions.firestore
  * Starlight jar note → notify the partner.
  */
 const onNewStarDrop = functions.firestore
-  .document('starlight_notes/{noteId}')
+  .document('starlight_jar/{noteId}')
   .onCreate(async (snap) => {
     const data = snap.data();
-    const uid = data.uid || data.username;
+    const uid = (data.author || '').toLowerCase();
     if (!uid || !PARTNER_UID[uid]) return;
 
     await sendFCMToUser(PARTNER_UID[uid], {
       title: `⭐ ${USER_DISPLAY[uid] || 'Someone'} left a starlight note`,
       body: 'Open Everglow to read it',
-      data: { type: 'starlight' },
+      data: { type: 'starlight_drop' },
     });
   });
 
@@ -146,16 +146,16 @@ const onNewStarDrop = functions.firestore
  * Watchlist item → notify the partner so you can watch together.
  */
 const onNewWatchlistItem = functions.firestore
-  .document('watchlist/{itemId}')
+  .document('watch_list/{itemId}')
   .onCreate(async (snap) => {
     const data = snap.data();
-    const uid = data.uid || data.username;
+    const uid = (data.userName || '').toLowerCase();
     if (!uid || !PARTNER_UID[uid]) return;
 
     await sendFCMToUser(PARTNER_UID[uid], {
       title: '🍿 New watchlist item',
       body: data.title || 'Something new to watch together',
-      data: { type: 'watchlist' },
+      data: { type: 'watchlist_update' },
     });
   });
 
@@ -166,13 +166,13 @@ const onNewGalleryPhoto = functions.firestore
   .document('gallery/{photoId}')
   .onCreate(async (snap) => {
     const data = snap.data();
-    const uid = data.uid || data.username;
+    const uid = (data.uploadedBy || '').toLowerCase();
     if (!uid || !PARTNER_UID[uid]) return;
 
     await sendFCMToUser(PARTNER_UID[uid], {
       title: `📸 ${USER_DISPLAY[uid] || 'Someone'} added a photo`,
       body: data.caption || 'A new memory was added to the gallery',
-      data: { type: 'gallery' },
+      data: { type: 'gallery_photo' },
     });
   });
 
@@ -186,10 +186,10 @@ const onWatchPartyInvite = functions.firestore
     const to = (data.to || '').toLowerCase();
     if (!to || !PARTNER_UID[to]) return;
 
-    await sendFCMToUser(PARTNER_UID[to], {
+    await sendFCMToUser(to, {
       title: '🎬 Watch party invite',
       body: data.message || 'You have been invited to a watch party',
-      data: { type: 'watch_party' },
+      data: { type: 'watch_party_invite' },
     });
   });
 

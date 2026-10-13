@@ -95,6 +95,12 @@ class TestBatch implements WriteBatch {
 
 class TestDocument implements DocumentReference<Map<String, dynamic>> {
   @override
+  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async =>
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'permission-denied',
+      );
+  @override
   Future<void> update(Map<Object, Object?> data) async =>
       throw FirebaseException(
         plugin: 'cloud_firestore',

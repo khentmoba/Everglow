@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -12,7 +14,9 @@ import '../../../../core/utils/logger.dart';
 /// Persists and syncs the shared "Our Books" list between Khent and
 /// Clair. Mirrors `OurCinemaService` for the cinema feature.
 class OurBooksService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  OurBooksService({FirebaseFirestore? firestore}) : _customDb = firestore;
+  final FirebaseFirestore? _customDb;
+  FirebaseFirestore get _firestore => _customDb ?? FirebaseFirestore.instance;
 
   static const String _collection = 'our_books';
   static const String _cacheKey = 'cached_our_books';
@@ -20,17 +24,23 @@ class OurBooksService {
   static const Set<String> coupleUsernames = {'khentsgdz', 'clairjassen'};
 
   Stream<List<OurBooksItem>> getOurBooksStream({int limit = 300}) {
+    if (AgentMode.isActive.value) {
+      return Stream.value(AgentFixtures.demoBooks.take(limit).toList());
+    }
     return withFirestoreTimeout(
-      _firestore.collection(_collection).limit(limit).snapshots().map((
-        snapshot,
-      ) {
-        final items = snapshot.docs
-            .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
-            .toList();
-        items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
-        _writeCache(items);
-        return items;
-      }),
+      _firestore
+          .collection(_collection)
+          .orderBy('addedAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((snapshot) {
+            final items = snapshot.docs
+                .map((doc) => OurBooksItem.fromFirestore(doc.data(), doc.id))
+                .toList();
+            items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
+            _writeCache(items);
+            return items;
+          }),
       label: 'our-books',
     );
   }
@@ -55,10 +65,19 @@ class OurBooksService {
     int limit = 24,
   }) {
     if (adder.isEmpty) return Stream.value(const <OurBooksItem>[]);
+    if (AgentMode.isActive.value) {
+      return Stream.value(
+        AgentFixtures.demoBooks
+            .where((b) => b.addedBy == adder)
+            .take(limit)
+            .toList(),
+      );
+    }
     return withFirestoreTimeout(
       _firestore
           .collection(_collection)
           .where('addedBy', isEqualTo: adder)
+          .orderBy('addedAt', descending: true)
           .limit(limit)
           .snapshots()
           .map((snapshot) {
@@ -73,6 +92,7 @@ class OurBooksService {
   }
 
   Future<List<OurBooksItem>> getCachedOurBooks() async {
+    if (AgentMode.isActive.value) return AgentFixtures.demoBooks;
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_cacheKey);
@@ -109,6 +129,7 @@ class OurBooksService {
   }
 
   Future<void> _writeCache(List<OurBooksItem> items) async {
+    if (AgentMode.isActive.value) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final payload = json.encode(
@@ -146,6 +167,7 @@ class OurBooksService {
   }
 
   Future<OurBooksItem?> addToOurBooks(BookItem item, String addedBy) async {
+    if (AgentMode.isActive.value) return AgentFixtures.demoBooks.first;
     if (!coupleUsernames.contains(addedBy)) {
       Logger.w('addToOurBooks refused: $addedBy is not a couple user');
       return null;
@@ -188,6 +210,7 @@ class OurBooksService {
     required String userName,
     required bool read,
   }) async {
+    if (AgentMode.isActive.value) return;
     if (!coupleUsernames.contains(userName)) {
       Logger.w('setReadFlag refused: $userName is not a couple user');
       return;
@@ -209,6 +232,7 @@ class OurBooksService {
   }
 
   Future<void> removeFromOurBooks(String workKey) async {
+    if (AgentMode.isActive.value) return;
     try {
       final collection = _firestore.collection(_collection);
       final existing = await withGetTimeout(

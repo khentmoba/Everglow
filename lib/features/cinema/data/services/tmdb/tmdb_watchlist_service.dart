@@ -45,7 +45,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       query = query.where('isAnime', isEqualTo: isAnime);
     }
     final snapshot = await withGetTimeout(
-      query.limit(limit).get(),
+      query.orderBy('addedAt', descending: true).limit(limit).get(),
       label: 'watchlist preview',
     );
     final items =
@@ -171,8 +171,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         // Rewatch: tapping Watching on a completed season (EP 12/12)
         // restarts it at EP 1 — without the reset the completion rule
         // above would keep it in Finished and the chip would lie.
-        if (effectiveStatus.startsWith('watching') &&
-            item.isSeriesCompleted) {
+        if (effectiveStatus.startsWith('watching') && item.isSeriesCompleted) {
           updateData['currentEpisode'] = 1;
           updateData['currentTimestamp'] = null;
           updateData['durationSeconds'] = null;
@@ -398,8 +397,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         isMovie: item.isMovie,
       );
       if (hitsFinale &&
-          (effectiveStatus == null ||
-              effectiveStatus.startsWith('watching'))) {
+          (effectiveStatus == null || effectiveStatus.startsWith('watching'))) {
         effectiveStatus = 'watched-self';
       }
       if (effectiveStatus != null) data['status'] = effectiveStatus;

@@ -11,10 +11,13 @@ import '../../../../core/agent/agent_fixtures.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
+import '../../../../shared/utils/firestore_pagination.dart';
 
 class GalleryService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
+  GalleryService({FirebaseFirestore? db}) : _customDb = db;
+  final FirebaseFirestore? _customDb;
+  FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
+  FirebaseStorage get _storage => FirebaseStorage.instance;
   final String _collection = 'gallery';
 
   @visibleForTesting
@@ -200,15 +203,15 @@ class GalleryService {
   }
 
   /// Stream of all photos, newest first.
-  Stream<List<MemoryPhoto>> getPhotosStream() {
+  Stream<List<MemoryPhoto>> getPhotosStream({int limit = 40}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      return Stream.value(AgentFixtures.demoPhotos);
+      return Stream.value(AgentFixtures.demoPhotos.take(limit).toList());
     }
 
     return _db
         .collection(_collection)
         .orderBy('uploadedAt', descending: true)
-        .limit(40)
+        .limit(limit)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
@@ -327,23 +330,28 @@ class GalleryService {
           .toList();
     }
 
-    final lowerQuery = query.toLowerCase();
-    final snapshot = await withGetTimeout(
-      _db
-          .collection(_collection)
-          .orderBy('uploadedAt', descending: true)
-          .limit(50)
-          .get(),
-      label: 'gallery search',
-    );
-    return snapshot.docs
-        .map((doc) => MemoryPhoto.fromFirestore(doc))
-        .where(
+    final lowerQuery = query.toLowerCase().trim();
+    if (lowerQuery.isEmpty) return [];
+    final matches = <MemoryPhoto>[];
+    DocumentSnapshot? cursor;
+    do {
+      final page = await fetchFirestorePage<MemoryPhoto>(
+        collection: _db.collection(_collection),
+        orderBy: 'uploadedAt',
+        cursor: cursor,
+        limit: 40,
+        fromDoc: MemoryPhoto.fromFirestore,
+      );
+      matches.addAll(
+        page.items.where(
           (photo) =>
               photo.caption.toLowerCase().contains(lowerQuery) ||
               photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-        )
-        .toList();
+        ),
+      );
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return matches;
   }
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.

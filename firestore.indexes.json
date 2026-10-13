@@ -1,6 +1,28 @@
 {
   "indexes": [
     {
+      "collectionGroup": "our_books", "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "addedBy", "order": "ASCENDING"},
+        {"fieldPath": "addedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "watch_list", "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "userName", "order": "ASCENDING"},
+        {"fieldPath": "addedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "watch_list", "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "userName", "order": "ASCENDING"},
+        {"fieldPath": "isAnime", "order": "ASCENDING"},
+        {"fieldPath": "addedAt", "order": "DESCENDING"}
+      ]
+    },
+    {
       "collectionGroup": "calendar_events",
       "queryScope": "COLLECTION",
       "fields": [

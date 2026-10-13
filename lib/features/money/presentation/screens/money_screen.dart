@@ -20,18 +20,19 @@ class MoneyScreen extends StatelessWidget {
   const MoneyScreen({super.key});
 
   Future<void> _quickAdd(BuildContext context) async {
-    final result = await showAddMoneyDialog(context);
-    if (result == null || !context.mounted) return;
     final author = context.read<AuthService>().currentUser ?? '';
-    await MoneyService().add(
-      MoneyEntry(
-        id: '',
-        type: result.type,
-        amount: result.amount,
-        category: result.category,
-        note: result.note,
-        author: author,
-        createdAt: DateTime.now(),
+    await showAddMoneyDialog(
+      context,
+      onSave: (result) => MoneyService().add(
+        MoneyEntry(
+          id: '',
+          type: result.type,
+          amount: result.amount,
+          category: result.category,
+          note: result.note,
+          author: author,
+          createdAt: DateTime.now(),
+        ),
       ),
     );
   }
@@ -80,7 +81,7 @@ class MoneyScreen extends StatelessWidget {
           ),
           Expanded(
             child: EverglowStreamView<List<MoneyEntry>>(
-              stream: MoneyService().watchRecent(),
+              stream: MoneyService().watchMonth(DateTime.now()),
               streamLabel: 'money-recent',
               errorMessage: 'Could not load our money',
               isEmpty: (_) => false, // empty handled inside (summary shows ₱0)
@@ -94,11 +95,20 @@ class MoneyScreen extends StatelessWidget {
   }
 }
 
-class _MoneyBody extends StatelessWidget {
+class _MoneyBody extends StatefulWidget {
   final List<MoneyEntry> entries;
   final VoidCallback onAdd;
 
   const _MoneyBody({required this.entries, required this.onAdd});
+
+  @override
+  State<_MoneyBody> createState() => _MoneyBodyState();
+}
+
+class _MoneyBodyState extends State<_MoneyBody> {
+  int _visible = 50;
+  List<MoneyEntry> get entries => widget.entries;
+  VoidCallback get onAdd => widget.onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +116,9 @@ class _MoneyBody extends StatelessWidget {
     final total = summarizeMonth(entries, now);
     final spent = spentByCategory(entries, now);
     final monthEntries = entries
-        .where((e) => e.createdAt.year == now.year && e.createdAt.month == now.month)
+        .where(
+          (e) => e.createdAt.year == now.year && e.createdAt.month == now.month,
+        )
         .toList();
 
     return ListView(
@@ -136,7 +148,8 @@ class _MoneyBody extends StatelessWidget {
                 ),
               _AddBudgetTile(
                 existing: limits.map((l) => l.category).toSet(),
-                onPick: (c) => _editBudget(context, BudgetLimit(category: c, amount: 0)),
+                onPick: (c) =>
+                    _editBudget(context, BudgetLimit(category: c, amount: 0)),
               ),
             ],
           ),
@@ -157,23 +170,25 @@ class _MoneyBody extends StatelessWidget {
             onCta: onAdd,
           )
         else
-          for (final e in monthEntries) _MoneyRow(entry: e),
+          for (final e in monthEntries.take(_visible)) _MoneyRow(entry: e),
+        if (monthEntries.length > _visible)
+          TextButton(
+            onPressed: () => setState(() => _visible += 50),
+            child: const Text('Load older entries'),
+          ),
       ],
     );
   }
 
   Future<void> _editBudget(BuildContext context, BudgetLimit l) async {
-    final amount = await showSetBudgetDialog(
+    await showSetBudgetDialog(
       context,
       l.category,
       current: l.amount,
+      onSave: (amount) => amount <= 0
+          ? MoneyService().removeLimit(l.category)
+          : MoneyService().setLimit(l.category, amount),
     );
-    if (amount == null) return;
-    if (amount <= 0) {
-      await MoneyService().removeLimit(l.category);
-    } else {
-      await MoneyService().setLimit(l.category, amount);
-    }
   }
 }
 
@@ -188,9 +203,7 @@ class _SummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.panelGlass,
         borderRadius: AppRadius.radiusXl,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.11),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.11)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,9 +221,7 @@ class _SummaryCard extends StatelessWidget {
             style: AppTypography.cormorantBlack.copyWith(
               fontSize: 40,
               height: 1.0,
-              color: total.balance < 0
-                  ? AppColors.error
-                  : AppColors.blushGold,
+              color: total.balance < 0 ? AppColors.error : AppColors.blushGold,
             ),
           ),
           const SizedBox(height: 12),
@@ -224,11 +235,7 @@ class _SummaryCard extends StatelessWidget {
                   icon: Icons.arrow_downward_rounded,
                 ),
               ),
-              Container(
-                width: 1,
-                height: 36,
-                color: AppColors.divider,
-              ),
+              Container(width: 1, height: 36, color: AppColors.divider),
               Expanded(
                 child: _MiniStat(
                   label: 'Spent',
@@ -302,7 +309,9 @@ class _BudgetBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = limit.amount <= 0 ? 0.0 : (spent / limit.amount).clamp(0.0, 1.0);
+    final pct = limit.amount <= 0
+        ? 0.0
+        : (spent / limit.amount).clamp(0.0, 1.0);
     final over = limit.amount > 0 && spent > limit.amount;
     final color = over ? AppColors.error : AppColors.auroraTeal;
     return GestureDetector(
@@ -433,9 +442,13 @@ class _SetBudgetHint extends StatelessWidget {
       ),
     );
     if (picked == null || !context.mounted) return;
-    final amount = await showSetBudgetDialog(context, picked);
-    if (amount == null || amount <= 0) return;
-    await MoneyService().setLimit(picked, amount);
+    await showSetBudgetDialog(
+      context,
+      picked,
+      onSave: (amount) => amount <= 0
+          ? MoneyService().removeLimit(picked)
+          : MoneyService().setLimit(picked, amount),
+    );
   }
 }
 
@@ -446,8 +459,9 @@ class _AddBudgetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final remaining =
-        MoneyCategories.expense.where((c) => !existing.contains(c)).toList();
+    final remaining = MoneyCategories.expense
+        .where((c) => !existing.contains(c))
+        .toList();
     if (remaining.isEmpty) return const SizedBox.shrink();
     return Align(
       alignment: Alignment.centerLeft,
@@ -541,7 +555,19 @@ class _MoneyRow extends StatelessWidget {
             ],
           ),
         );
-        if (yes == true) await MoneyService().delete(entry.id);
+        if (yes == true) {
+          try {
+            await MoneyService().delete(entry.id);
+          } catch (_) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Could not remove this entry. Try again.'),
+                ),
+              );
+            }
+          }
+        }
         return false; // stream rebuilds the list; no local removal needed
       },
       child: Container(

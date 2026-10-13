@@ -22,19 +22,22 @@ import '../widgets/this_week_view.dart';
 import 'photo_viewer_screen.dart';
 
 class GalleryScreen extends StatefulWidget {
-  const GalleryScreen({super.key});
+  const GalleryScreen({super.key, this.service});
+  final GalleryService? service;
 
   @override
   State<GalleryScreen> createState() => _GalleryScreenState();
 }
 
 class _GalleryScreenState extends State<GalleryScreen> {
-  final GalleryService _galleryService = GalleryService();
+  late final GalleryService _galleryService =
+      widget.service ?? GalleryService();
   final _gallerySearchCtrl = TextEditingController();
   String _searchQuery = '';
   Timer? _searchDebounce;
   Future<List<MemoryPhoto>>? _searchFuture;
   int _tabIndex = 0; // 0 grid, 1 map, 2 week
+  int _photoLimit = 40;
 
   @override
   void dispose() {
@@ -59,91 +62,105 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
-        return EverglowScaffold(
+    return EverglowScaffold(
       backgroundColor: AppColors.inkDeep,
-      glows: [const RadialGlow(color: AppColors.deepRose, alignment: Alignment(-0.7, -0.9), size: 0.9, opacity: 0.16), const RadialGlow(color: AppColors.auroraLilac, alignment: Alignment(0.9, 0.7), size: 0.7, opacity: 0.10)],
+      glows: [
+        const RadialGlow(
+          color: AppColors.deepRose,
+          alignment: Alignment(-0.7, -0.9),
+          size: 0.9,
+          opacity: 0.16,
+        ),
+        const RadialGlow(
+          color: AppColors.auroraLilac,
+          alignment: Alignment(0.9, 0.7),
+          size: 0.7,
+          opacity: 0.10,
+        ),
+      ],
       body: Column(
-              children: [
-                const EverglowFeatureHeader(
-                  title: 'Memory Gallery',
-                  subtitle: 'our shared album',
-                  icon: Icons.photo_library_rounded,
-                  hue: AppColors.roseQuartz,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: EverglowSegmentedControl(
-                    selectedIndex: _tabIndex,
-                    onChanged: (i) => setState(() => _tabIndex = i),
-                    activeColor: AppColors.roseQuartz,
-                    items: const [
-                      SegmentItem('Grid', Icons.grid_view_rounded),
-                      SegmentItem('Map', Icons.map_rounded),
-                      SegmentItem('Week', Icons.history_rounded),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_tabIndex == 0) _buildSearchBar(),
-                if (_tabIndex == 0) const SizedBox(height: 4),
-                Expanded(
-                  child: _tabIndex == 1
-                    ? FutureBuilder<List<MemoryPhoto>>(
-                        future:
-                            _galleryService.getPhotosWithLocationStream(),
-                        builder: (context, snap) {
-                          if (snap.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: EverglowSkeleton(
-                                width: double.infinity,
-                                height: 200,
-                                radius: 16,
-                              ),
-                            );
-                          }
-                          if (snap.hasError) {
-                            return EverglowEmptyState(
-                              icon: Icons.map_rounded,
-                              title: 'Could not load map photos',
-                              subtitle: 'Try again',
-                              ctaLabel: 'Retry',
-                              onCta: () => setState(() {}),
-                            );
-                          }
-                          return GalleryMapView(
-                            photos: snap.data ?? const <MemoryPhoto>[],
-                          );
-                        },
-                      )
-                      : _tabIndex == 2
-                      ? const ThisWeekView()
-                      : _searchQuery.isNotEmpty
-                      ? _buildSearchResults()
-                      : EverglowStreamView<List<MemoryPhoto>>(
-                          stream: _galleryService.getPhotosStream(),
-                          streamLabel: 'gallery-grid',
-                          errorMessage: 'Could not load photos',
-                          errorIcon: Icons.photo_library_outlined,
-                          onRetry: () => setState(() {}),
-                          loadingView: EverglowSkeletonGrid(
-                            count: 6,
-                            crossAxisCount: _galleryColumns(context),
-                            spacing: 10,
-                            childAspectRatio: 0.82,
+        children: [
+          const EverglowFeatureHeader(
+            title: 'Memory Gallery',
+            subtitle: 'our shared album',
+            icon: Icons.photo_library_rounded,
+            hue: AppColors.roseQuartz,
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: EverglowSegmentedControl(
+              selectedIndex: _tabIndex,
+              onChanged: (i) => setState(() => _tabIndex = i),
+              activeColor: AppColors.roseQuartz,
+              items: const [
+                SegmentItem('Grid', Icons.grid_view_rounded),
+                SegmentItem('Map', Icons.map_rounded),
+                SegmentItem('Week', Icons.history_rounded),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (_tabIndex == 0) _buildSearchBar(),
+          if (_tabIndex == 0) const SizedBox(height: 4),
+          Expanded(
+            child: _tabIndex == 1
+                ? FutureBuilder<List<MemoryPhoto>>(
+                    future: _galleryService.getPhotosWithLocationStream(),
+                    builder: (context, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: EverglowSkeleton(
+                            width: double.infinity,
+                            height: 200,
+                            radius: 16,
                           ),
-                          isEmpty: (photos) => photos.isEmpty,
-                          emptyView: EverglowEmptyState(
-                            icon: Icons.photo_library_outlined,
-                            title: 'No memories yet',
-                            subtitle: 'Tap + to add your first photo',
-                            ctaLabel: 'Add Photo',
-                            onCta: _openAddPhoto,
-                          ),
-                          builder: (context, photos) {
-                            return GridView.builder(
+                        );
+                      }
+                      if (snap.hasError) {
+                        return EverglowEmptyState(
+                          icon: Icons.map_rounded,
+                          title: 'Could not load map photos',
+                          subtitle: 'Try again',
+                          ctaLabel: 'Retry',
+                          onCta: () => setState(() {}),
+                        );
+                      }
+                      return GalleryMapView(
+                        photos: snap.data ?? const <MemoryPhoto>[],
+                      );
+                    },
+                  )
+                : _tabIndex == 2
+                ? const ThisWeekView()
+                : _searchQuery.isNotEmpty
+                ? _buildSearchResults()
+                : EverglowStreamView<List<MemoryPhoto>>(
+                    stream: _galleryService.getPhotosStream(limit: _photoLimit),
+                    streamLabel: 'gallery-grid',
+                    errorMessage: 'Could not load photos',
+                    errorIcon: Icons.photo_library_outlined,
+                    onRetry: () => setState(() {}),
+                    loadingView: EverglowSkeletonGrid(
+                      count: 6,
+                      crossAxisCount: _galleryColumns(context),
+                      spacing: 10,
+                      childAspectRatio: 0.82,
+                    ),
+                    isEmpty: (photos) => photos.isEmpty,
+                    emptyView: EverglowEmptyState(
+                      icon: Icons.photo_library_outlined,
+                      title: 'No memories yet',
+                      subtitle: 'Tap + to add your first photo',
+                      ctaLabel: 'Add Photo',
+                      onCta: _openAddPhoto,
+                    ),
+                    builder: (context, photos) {
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: GridView.builder(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 6,
@@ -173,12 +190,21 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                   },
                                 );
                               },
-                            );
-                          },
-                        ),
-                ),
-              ],
-            ),
+                            ),
+                          ),
+                          if (photos.length == _photoLimit)
+                            TextButton(
+                              onPressed: () =>
+                                  setState(() => _photoLimit += 40),
+                              child: const Text('Load older photos'),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
       floatingActionButton: _FloatingAddButton(onPressed: _openAddPhoto),
     );
   }
@@ -233,10 +259,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => PhotoViewerScreen(
-                      photos: photos,
-                      initialIndex: index,
-                    ),
+                    builder: (_) =>
+                        PhotoViewerScreen(photos: photos, initialIndex: index),
                   ),
                 );
               },
@@ -498,7 +522,9 @@ class _PhotoCardState extends State<_PhotoCard> {
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTypography.outfitBold.copyWith(
                                   fontSize: 9,
-                                  color: AppColors.petalWhite.withValues(alpha: 0.42),
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.42,
+                                  ),
                                 ),
                               ),
                             ),

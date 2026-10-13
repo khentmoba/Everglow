@@ -9,17 +9,28 @@ import '../../data/models/money_entry.dart';
 
 /// Quick-add: amount + category + note, done in seconds.
 /// Returns the filled entry (minus id/author/timestamp) or null.
+typedef MoneyDraft = ({
+  MoneyType type,
+  double amount,
+  String category,
+  String note,
+});
 Future<({MoneyType type, double amount, String category, String note})?>
-showAddMoneyDialog(BuildContext context) {
+showAddMoneyDialog(
+  BuildContext context, {
+  Future<void> Function(MoneyDraft)? onSave,
+}) {
   return showDialog<
-      ({MoneyType type, double amount, String category, String note})>(
+    ({MoneyType type, double amount, String category, String note})
+  >(
     context: context,
-    builder: (_) => const _AddMoneyDialog(),
+    builder: (_) => _AddMoneyDialog(onSave: onSave),
   );
 }
 
 class _AddMoneyDialog extends StatefulWidget {
-  const _AddMoneyDialog();
+  const _AddMoneyDialog({this.onSave});
+  final Future<void> Function(MoneyDraft)? onSave;
 
   @override
   State<_AddMoneyDialog> createState() => _AddMoneyDialogState();
@@ -30,9 +41,12 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
   final _amount = TextEditingController();
   final _note = TextEditingController();
   String _category = 'Food';
+  bool _saving = false;
+  String? _error;
 
-  List<String> get _categories =>
-      _type == MoneyType.expense ? MoneyCategories.expense : MoneyCategories.income;
+  List<String> get _categories => _type == MoneyType.expense
+      ? MoneyCategories.expense
+      : MoneyCategories.income;
 
   @override
   void dispose() {
@@ -41,15 +55,31 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
+    if (_saving) return;
     final amount = double.tryParse(_amount.text.replaceAll(',', '')) ?? 0;
     if (amount <= 0) return;
-    Navigator.of(context).pop((
+    final draft = (
       type: _type,
       amount: amount,
       category: _category,
       note: _note.text.trim(),
-    ));
+    );
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.onSave?.call(draft);
+      if (mounted) Navigator.of(context).pop(draft);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Could not save. Your entry is still here — try again.';
+        });
+      }
+    }
   }
 
   @override
@@ -92,7 +122,9 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
             const SizedBox(height: 16),
             TextField(
               controller: _amount,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               ],
@@ -137,8 +169,9 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
                     selected: _category == c,
                     onSelected: (_) => setState(() => _category = c),
                     selectedColor: AppColors.deepRose.withValues(alpha: 0.35),
-                    backgroundColor:
-                        AppColors.moonlight.withValues(alpha: 0.08),
+                    backgroundColor: AppColors.moonlight.withValues(
+                      alpha: 0.08,
+                    ),
                     labelStyle: AppTypography.bodySmall().copyWith(
                       color: _category == c
                           ? AppColors.petalWhite
@@ -180,10 +213,11 @@ class _AddMoneyDialogState extends State<_AddMoneyDialog> {
               ),
             ),
             const SizedBox(height: 18),
+            if (_error != null)
+              Text(_error!, style: const TextStyle(color: AppColors.error)),
             EverglowButton(
-              label: _type == MoneyType.expense
-                  ? 'Log spending'
-                  : 'Log income',
+              enabled: !_saving,
+              label: _type == MoneyType.expense ? 'Log spending' : 'Log income',
               icon: Icons.check_rounded,
               onPressed: _save,
             ),
@@ -199,13 +233,61 @@ Future<double?> showSetBudgetDialog(
   BuildContext context,
   String category, {
   double current = 0,
-}) {
-  final controller = TextEditingController(
-    text: current > 0 ? current.toStringAsFixed(0) : '',
+  Future<void> Function(double)? onSave,
+}) => showDialog<double>(
+  context: context,
+  builder: (_) =>
+      _SetBudgetDialog(category: category, current: current, onSave: onSave),
+);
+
+class _SetBudgetDialog extends StatefulWidget {
+  const _SetBudgetDialog({
+    required this.category,
+    required this.current,
+    this.onSave,
+  });
+  final String category;
+  final double current;
+  final Future<void> Function(double)? onSave;
+  @override
+  State<_SetBudgetDialog> createState() => _SetBudgetDialogState();
+}
+
+class _SetBudgetDialogState extends State<_SetBudgetDialog> {
+  late final controller = TextEditingController(
+    text: widget.current > 0 ? widget.current.toStringAsFixed(0) : '',
   );
-  return showDialog<double>(
-    context: context,
-    builder: (ctx) => Dialog(
+  bool saving = false;
+  String? error;
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    if (saving) return;
+    final amount = double.tryParse(controller.text.replaceAll(',', '')) ?? 0;
+    setState(() {
+      saving = true;
+      error = null;
+    });
+    try {
+      await widget.onSave?.call(amount);
+      if (mounted) Navigator.of(context).pop(amount);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          saving = false;
+          error = 'Could not save this budget. Try again.';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
       backgroundColor: AppColors.velvet,
       shape: RoundedRectangleBorder(borderRadius: AppRadius.radiusXl),
       child: Padding(
@@ -215,7 +297,7 @@ Future<double?> showSetBudgetDialog(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${MoneyCategories.iconFor(category)} $category budget',
+              '${MoneyCategories.iconFor(widget.category)} ${widget.category} budget',
               style: AppTypography.cormorantBold.copyWith(
                 fontSize: 22,
                 color: AppColors.petalWhite,
@@ -231,15 +313,14 @@ Future<double?> showSetBudgetDialog(
             const SizedBox(height: 14),
             TextField(
               controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
               ],
               autofocus: true,
-              onSubmitted: (_) => Navigator.of(ctx).pop(
-                double.tryParse(controller.text.replaceAll(',', '')) ?? 0,
-              ),
+              onSubmitted: (_) => save(),
               style: AppTypography.outfitWhite.copyWith(fontSize: 24),
               decoration: InputDecoration(
                 prefixText: '₱ ',
@@ -265,16 +346,17 @@ Future<double?> showSetBudgetDialog(
               ),
             ),
             const SizedBox(height: 16),
+            if (error != null)
+              Text(error!, style: const TextStyle(color: AppColors.error)),
             EverglowButton(
+              enabled: !saving,
               label: 'Save budget',
               icon: Icons.savings_rounded,
-              onPressed: () => Navigator.of(ctx).pop(
-                double.tryParse(controller.text.replaceAll(',', '')) ?? 0,
-              ),
+              onPressed: save,
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }

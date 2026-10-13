@@ -34,11 +34,11 @@ class XPService {
   static final XPService _instance = XPService._internal();
   factory XPService() => _instance;
   XPService._internal([FirebaseFirestore? firestore])
-      : _customFirestore = firestore;
+    : _customFirestore = firestore;
 
   @visibleForTesting
   XPService.withFirestore(FirebaseFirestore firestore)
-      : _customFirestore = firestore;
+    : _customFirestore = firestore;
 
   static const XpAward moodAward = XpAward(20, 1);
   static const XpAward journalAward = XpAward(30, 2);
@@ -116,30 +116,32 @@ class XPService {
         // Sounds stay OUTSIDE: the body may run more than once.
         final leveledUp = await _firestore
             .runTransaction<bool?>((txn) async {
-          final snapshot = await txn.get(docRef);
-          if (!snapshot.exists) {
-            txn.set(docRef, {
-              'xpTotal': amount,
-              'level': UserProgress.levelForXp(amount),
-              'streak': 1,
-              'lastActivity': FieldValue.serverTimestamp(),
-            });
-            return null; // Fresh doc: silent, as before.
-          }
-          final data = snapshot.data() ?? <String, dynamic>{};
-          final rawXp = data['xpTotal'];
-          final currentXp =
-              rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
-          final newXp = currentXp + amount;
-          final newLevel = UserProgress.levelForXp(newXp);
-          txn.update(docRef, {
-            'xpTotal': newXp,
-            'level': newLevel,
-            'lastActivity': FieldValue.serverTimestamp(),
-          });
-          final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
-          return newLevel > storedLevel;
-        }).timeout(const Duration(seconds: 8));
+              final snapshot = await txn.get(docRef);
+              if (!snapshot.exists) {
+                txn.set(docRef, {
+                  'xpTotal': amount,
+                  'level': UserProgress.levelForXp(amount),
+                  'streak': 1,
+                  'lastActivity': FieldValue.serverTimestamp(),
+                });
+                return null; // Fresh doc: silent, as before.
+              }
+              final data = snapshot.data() ?? <String, dynamic>{};
+              final rawXp = data['xpTotal'];
+              final currentXp = rawXp is int
+                  ? rawXp
+                  : (rawXp as num?)?.toInt() ?? 0;
+              final newXp = currentXp + amount;
+              final newLevel = UserProgress.levelForXp(newXp);
+              txn.update(docRef, {
+                'xpTotal': newXp,
+                'level': newLevel,
+                'lastActivity': FieldValue.serverTimestamp(),
+              });
+              final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
+              return newLevel > storedLevel;
+            })
+            .timeout(const Duration(seconds: 8));
         if (leveledUp == null) return;
         AudioService().playSfx(
           leveledUp ? AudioService.levelUp : AudioService.sparkle,
@@ -177,8 +179,7 @@ class XPService {
     counters[today] = todayCounts;
 
     final rawXp = data['xpTotal'];
-    final currentXp =
-        rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
+    final currentXp = rawXp is int ? rawXp : (rawXp as num?)?.toInt() ?? 0;
     final newXp = currentXp + award.amount;
     final newLevel = UserProgress.levelForXp(newXp);
     final storedLevel = (data['level'] as num?)?.toInt() ?? 1;
@@ -206,35 +207,36 @@ class XPService {
         // spent cap. Sounds stay OUTSIDE (the body may retry).
         final outcome = await _firestore
             .runTransaction<DailyAwardOutcome?>((txn) async {
-          final snapshot = await txn.get(docRef);
-          final data = snapshot.exists
-              ? (snapshot.data() ?? <String, dynamic>{})
-              : <String, dynamic>{};
-          final computed = computeDailyAward(
-            data: data,
-            action: action,
-            award: award,
-            today: today,
-          );
-          if (computed == null) return null;
-          if (snapshot.exists) {
-            txn.update(docRef, {
-              'xpTotal': computed.newXp,
-              'level': computed.newLevel,
-              'dailyXp': computed.counters,
-              'lastActivity': FieldValue.serverTimestamp(),
-            });
-          } else {
-            txn.set(docRef, {
-              'xpTotal': computed.newXp,
-              'level': computed.newLevel,
-              'streak': 1,
-              'dailyXp': computed.counters,
-              'lastActivity': FieldValue.serverTimestamp(),
-            });
-          }
-          return computed;
-        }).timeout(const Duration(seconds: 8));
+              final snapshot = await txn.get(docRef);
+              final data = snapshot.exists
+                  ? (snapshot.data() ?? <String, dynamic>{})
+                  : <String, dynamic>{};
+              final computed = computeDailyAward(
+                data: data,
+                action: action,
+                award: award,
+                today: today,
+              );
+              if (computed == null) return null;
+              if (snapshot.exists) {
+                txn.update(docRef, {
+                  'xpTotal': computed.newXp,
+                  'level': computed.newLevel,
+                  'dailyXp': computed.counters,
+                  'lastActivity': FieldValue.serverTimestamp(),
+                });
+              } else {
+                txn.set(docRef, {
+                  'xpTotal': computed.newXp,
+                  'level': computed.newLevel,
+                  'streak': 1,
+                  'dailyXp': computed.counters,
+                  'lastActivity': FieldValue.serverTimestamp(),
+                });
+              }
+              return computed;
+            })
+            .timeout(const Duration(seconds: 8));
         if (outcome == null) return false;
         AudioService().playSfx(
           outcome.leveledUp ? AudioService.levelUp : AudioService.sparkle,
@@ -279,17 +281,19 @@ class XPService {
         .doc('main');
 
     try {
-      final snapshot = await docRef.get().timeout(
-            const Duration(seconds: 6),
-          );
-      if (!snapshot.exists) {
-        await docRef.set({
-          'xpTotal': 0,
-          'level': 1,
-          'streak': 0,
-          'lastActivity': FieldValue.serverTimestamp(),
-        }).timeout(const Duration(seconds: 6));
-      }
+      await _firestore
+          .runTransaction((txn) async {
+            final snapshot = await txn.get(docRef);
+            if (!snapshot.exists) {
+              txn.set(docRef, {
+                'xpTotal': 0,
+                'level': 1,
+                'streak': 0,
+                'lastActivity': FieldValue.serverTimestamp(),
+              });
+            }
+          })
+          .timeout(const Duration(seconds: 6));
     } on TimeoutException {
       // WebChannel contended or offline — the UI already paints an
       // optimistic zero-state bar, so just let the next watchProgress

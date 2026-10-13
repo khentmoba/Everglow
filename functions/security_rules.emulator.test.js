@@ -74,3 +74,33 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
   }
   assert.equal((await image('gallery/audit-cinema/demo.png', cinema, 'POST')).status, 403);
 });
+
+test('table tennis permits one guest claim and play without a category field', { skip: !host }, async () => {
+  assert.ok(project.startsWith('demo-'));
+  const players = ['tt-host', 'tt-guest', 'tt-other'];
+  const tokens = players.map((uid) => token(uid, 'password'));
+  for (let i = 0; i < players.length; i++) {
+    assert.equal((await request(`users/${players[i]}`, tokens[i], 'PATCH', 'breyan')).status, 200);
+  }
+  const room = { hostUid: 'tt-host', guestUid: null, status: 'waiting', lastTick: 0 };
+  const encode = (value) => value === null ? { nullValue: null } :
+    typeof value === 'number' ? { integerValue: String(value) } : { stringValue: value };
+  async function write(bearer, data) {
+    return fetch(`http://${host}/v1/projects/${project}/databases/(default)/documents/tt_rooms/audit-room`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${bearer}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, encode(value)]),
+      ) }),
+    });
+  }
+  assert.equal((await write(tokens[0], room)).status, 200);
+  const joined = { ...room, guestUid: 'tt-guest', status: 'playing', lastTick: 1 };
+  assert.equal((await write(tokens[1], { ...joined, hostScore: 99 })).status, 403);
+  assert.equal((await write(tokens[1], joined)).status, 200);
+  assert.equal((await write(tokens[2], { ...joined, guestUid: 'tt-other' })).status, 403);
+  const playing = { ...joined, lastTick: 2, hostScore: 1 };
+  assert.equal((await write(tokens[0], playing)).status, 200);
+  assert.equal((await write(tokens[1], { ...playing, guestPaddleY: 1 })).status, 200);
+  assert.equal((await write(tokens[2], { ...playing, hostScore: 100 })).status, 403);
+  assert.equal((await request('tt_rooms/audit-room', tokens[0], 'DELETE')).status, 200);
+});

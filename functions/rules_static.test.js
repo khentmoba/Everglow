@@ -103,7 +103,7 @@ test('watch_list cinema updates cannot reassign ownership', () => {
   );
 });
 
-test('tt_rooms updates pin status + immutable host/category', () => {
+test('tt_rooms updates restrict the match status', () => {
   assert.match(
     rules,
     /match \/tt_rooms\/\{roomId\} \{[\s\S]*?request\.resource\.data\.status in \['waiting', 'playing', 'finished'\]/,
