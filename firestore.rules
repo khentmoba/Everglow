@@ -393,6 +393,7 @@ service cloud.firestore {
     match /playzone_scores/{docId} { allow read, write: if false; }
     match /relationship_stats/{docId} { allow read, write: if false; }
     match /motchi_notes/{docId} { allow read, write: if false; }
+    match /motchi_actions/{docId} { allow read, write: if false; }
     match /motchi_stats/{docId} { allow read, write: if false; }
     match /motchi_stats/{docId}/{subcol}/{subId} { allow read, write: if false; }
     match /motchi_sessions/{docId} { allow read: if isCouple(); allow write: if false; }

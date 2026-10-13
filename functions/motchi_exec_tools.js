@@ -20,6 +20,7 @@
 
 const functions = require('firebase-functions/v1');
 const { isWriteTool } = require('./motchi_reply_details.js');
+const { actionKey } = require('./motchi_agent.js');
 
 const {
   getAdmin,
@@ -331,6 +332,37 @@ async function executeToolCall(ctx, toolName, args, opts = {}) {
   }
   const fn = TOOL_EXECUTORS[toolName];
   if (!fn) return JSON.stringify({ error: `Unknown tool: ${toolName}` });
+  if (ctx.signal?.aborted) return JSON.stringify({ error: 'Request stopped before this action started.' });
+  const confirmationOnly = /^(delete_|remove_|cancel_)/.test(toolName) || toolName === 'save_profile_note';
+  if (ctx.actionScopeId && ctx.db.runTransaction && isWriteTool(toolName) && toolName !== 'add_xp' &&
+      !(confirmationOnly && normalized.confirm !== true) && !opts.reserved) {
+    const ref = ctx.db.collection('motchi_actions').doc(actionKey(ctx.caller, ctx.actionScopeId, toolName, normalized));
+    try {
+      const prior = await ctx.db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const old = snap.exists ? snap.data() : null;
+        if (old && !['failed', 'waiting'].includes(old.status)) return old;
+        tx.set(ref, { caller: ctx.caller, tool: toolName, status: 'pending', createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 86400000) });
+        return null;
+      });
+      if (prior?.status === 'done') return prior.result;
+      if (prior) return JSON.stringify({ error: 'This action is already running or its result is unknown. Check the saved record before starting another action.', outcome_unknown: true });
+      const result = await executeToolCall(ctx, toolName, normalized, { ...opts, reserved: true, idempotent: false });
+      let parsed;
+      try { parsed = JSON.parse(result); } catch (_) { parsed = { outcome_unknown: true }; }
+      const status = parsed.outcome_unknown ? 'unknown' : parsed.needs_confirmation ? 'waiting'
+        : parsed.error || parsed.success === false ? 'failed' : 'done';
+      const receipt = JSON.stringify(Object.fromEntries(Object.entries(parsed).filter(([key]) =>
+        ['success', 'id', 'memory_id', 'title', 'fact', 'scheduled', 'error', 'outcome_unknown',
+          'needs_confirmation', 'message', 'count', 'updated'].includes(key))));
+      await ref.set({ status, result: receipt }, { merge: true });
+      return result;
+    } catch (e) {
+      console.warn('[motchi action] receipt unavailable:', e.message);
+      return JSON.stringify({ error: 'Could not confirm this action. Check the saved record before trying again.', outcome_unknown: true });
+    }
+  }
   if (ctx.uncertainWrites?.has(toolName)) {
     return JSON.stringify({ error: 'A previous write could not be confirmed. Check the saved record before trying again in a new request.', outcome_unknown: true });
   }

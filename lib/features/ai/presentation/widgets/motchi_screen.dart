@@ -44,7 +44,8 @@ part 'motchi_widgets_tools.dart';
 enum DeepThinkMode { auto, on, off }
 
 class MotchiScreen extends StatefulWidget {
-  const MotchiScreen({super.key});
+  final String? initialPrompt;
+  const MotchiScreen({super.key, this.initialPrompt});
 
   @override
   State<MotchiScreen> createState() => _MotchiScreenState();
@@ -57,6 +58,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
   final GlobalKey _inputKey = GlobalKey();
   bool _showScrollButton = false;
   bool _isSending = false;
+  bool _savingFeedback = false;
   bool _conversationLoading = true;
   bool _conversationFailed = false;
   bool _startingChat = false;
@@ -90,6 +92,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
       ai.draftResponseNotifier.addListener(_onDraft);
       ai.toolResultsNotifier.addListener(_onToolResults);
       await _loadConversation();
+      if (mounted && widget.initialPrompt != null) {
+        _preparePrompt(widget.initialPrompt!);
+      }
     });
   }
 
@@ -281,7 +286,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
     });
   }
 
-  Future<void> _send({bool retry = false}) async {
+  Future<void> _send({bool retry = false, String? actionScopeId}) async {
     if (_isSending ||
         _conversationLoading ||
         _conversationFailed ||
@@ -345,6 +350,11 @@ class _MotchiScreenState extends State<MotchiScreen> {
         canvasEnabled: _canvasEnabled,
         enableThinking: enableThinking,
         imageUrls: imagesToSend,
+        actionScopeId:
+            actionScopeId ??
+            (retry
+                ? lastReply?.actionScopeId ?? aiService.currentActionScopeId
+                : null),
       );
       if (mounted) {
         setState(() {
@@ -374,15 +384,48 @@ class _MotchiScreenState extends State<MotchiScreen> {
     _focusNode.requestFocus();
   }
 
-  void _sendQuick(String text) {
+  void _sendQuick(String text, {String? actionScopeId}) {
     if (_startingChat || context.read<AIService>().isNavigating) return;
     _input.text = text;
-    _send();
+    _send(actionScopeId: actionScopeId);
   }
 
   void _stop() {
     context.read<AIService>().cancelCurrentReply();
     if (mounted) setState(() => _isSending = false);
+  }
+
+  Future<void> _saveRecommendationFeedback(
+    Map<String, dynamic> feedback,
+  ) async {
+    if (_savingFeedback) return;
+    setState(() => _savingFeedback = true);
+    try {
+      await context.read<AIService>().companionOperation(
+        'feedback',
+        value: feedback,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Motchi saved your feedback for ${feedback['title']}.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      Logger.e('Motchi recommendation feedback failed', error: e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save your feedback. Try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingFeedback = false);
+    }
   }
 
   Future<void> _pickImages() async {
@@ -487,7 +530,6 @@ class _MotchiScreenState extends State<MotchiScreen> {
     });
     _scrollToBottom(animated: false);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -796,6 +838,9 @@ class _MotchiScreenState extends State<MotchiScreen> {
                         padding: const EdgeInsets.only(top: 6),
                         child: MotchiReplyDetailsCard(
                           details: msg.details,
+                          onRecommendationFeedback: busy || _savingFeedback
+                              ? null
+                              : _saveRecommendationFeedback,
                           onOpenMemoryBook: () =>
                               context.push('/motchi-memory'),
                           onCorrectMemory: busy ? null : _sendQuick,
@@ -803,6 +848,7 @@ class _MotchiScreenState extends State<MotchiScreen> {
                               ? null
                               : () => _sendQuick(
                                   'Help finish only the unfinished steps from this request: ${_prevUserText(allMsgs, i)}. Check existing records for any unconfirmed action first; do not repeat completed saves or sends.',
+                                  actionScopeId: msg.actionScopeId,
                                 ),
                         ),
                       ),

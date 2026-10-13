@@ -29,6 +29,41 @@ const demo = MotchiReplyDetails(
 );
 
 void main() {
+  testWidgets('recommendation feedback keeps a specific title and reason', (
+    tester,
+  ) async {
+    Map<String, dynamic>? feedback;
+    const details = MotchiReplyDetails(
+      recommendations: [
+        {'id': 7, 'title': 'Demo Moon Movie', 'mediaType': 'movie'},
+      ],
+    );
+    final message = AIMessage(
+      role: 'assistant',
+      content: 'Try Demo Moon Movie',
+      details: details,
+      actionScopeId: 'demo-task',
+    );
+    final restored = AIMessage.fromJson(message.toJson());
+    expect(restored.actionScopeId, 'demo-task');
+    expect(restored.details.recommendations.single['id'], 7);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MotchiReplyDetailsCard(
+            details: restored.details,
+            onRecommendationFeedback: (value) => feedback = value,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Demo Moon Movie'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Not my mood tonight'));
+    await tester.pumpAndSettle();
+    expect(feedback, {'title': 'Demo Moon Movie', 'reason': 'not_tonight'});
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('long action receipts fit a small phone with larger text', (
     tester,
   ) async {

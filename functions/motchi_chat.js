@@ -39,6 +39,7 @@ const {
 const { createToolCtx, executeToolCall, visionMessageForResults } = require('./motchi_exec_tools.js');
 const { recordMotchiTurn } = require('./motchi_sessions.js');
 const { REPLY_DETAILS_PROMPT, memoryReference, citedMemories, stripMemoryCitations, toolReceipt } = require('./motchi_reply_details.js');
+const { loadCompanion, updateCompanion, companionPrompt, requestBudget } = require('./motchi_agent.js');
 
 const TOOL_INVALIDATIONS = {
   add_to_watchlist: 'watchlist',
@@ -220,6 +221,7 @@ async function handleProxyAI(req, res) {
   const turnTools = [];
   const steps = [];
   const availableMemories = [];
+  const movieCandidates = new Map();
   function captureResult(tool, args, raw) {
     if (tool === 'request_tools') return null;
     const step = toolReceipt(tool, args, raw);
@@ -228,6 +230,13 @@ async function handleProxyAI(req, res) {
     else steps.push(step);
     try {
       const result = JSON.parse(raw);
+      if (tool === 'search_movies' && Array.isArray(result.results)) {
+        for (const movie of result.results.slice(0, 8)) {
+          if (movie.id && movie.title && movieCandidates.size < 24) movieCandidates.set(`${movie.mediaType}:${movie.id}`, {
+            title: String(movie.title).slice(0, 120), id: movie.id, mediaType: movie.mediaType,
+          });
+        }
+      }
       if (tool === 'read_memories' && Array.isArray(result.memories)) availableMemories.push(...result.memories);
     } catch (err) {
       console.warn('[proxyAI] receipt result could not be parsed:', err.message);
@@ -235,7 +244,14 @@ async function handleProxyAI(req, res) {
     return step;
   }
   function replyDetails(reply, interrupted = false) {
-    return { memories: citedMemories(reply, availableMemories), steps, interrupted };
+    const recommendations = [...movieCandidates.values()]
+      .filter((m) => String(reply).toLowerCase().includes(m.title.toLowerCase())).slice(0, 3);
+    const writes = steps.filter((s) => s.write);
+    requestTrace.completedWrites = writes.filter((s) => s.status === 'done').length;
+    requestTrace.unfinishedWrites = writes.filter((s) => s.status !== 'done').length;
+    requestTrace.unknownWrites = writes.filter((s) => s.status === 'unknown').length;
+    requestTrace.interrupted = interrupted ? 1 : 0;
+    return { memories: citedMemories(reply, availableMemories), steps, interrupted, recommendations };
   }
   const requestTrace = { modelCalls: 0, retries: 0, toolRounds: 0, repairs: 0, firstTokenMs: null };
   // Canvas toggle from the chat bar. When OFF, Motchi keeps plain chat and
@@ -248,7 +264,7 @@ async function handleProxyAI(req, res) {
   // Pass enableThinking: true from the client for complex queries that need reasoning.
   const enableThinkingFlag = enableThinking === true;
 
-  if (!Array.isArray(messages) || messages.length === 0) {
+  if (!req.body.companionOperation && (!Array.isArray(messages) || messages.length === 0)) {
     res.status(400).json({ error: 'Provide a non-empty messages array' });
     return;
   }
@@ -263,8 +279,23 @@ async function handleProxyAI(req, res) {
     return;
   }
   const caller = verifiedUsername;
+  if (req.body.companionOperation) {
+    const op = req.body.companionOperation;
+    try {
+      const db = getAdmin().firestore();
+      if (op !== 'load') await updateCompanion(db, caller, op, req.body.value);
+      res.json(op === 'load' ? await loadCompanion(db, caller) : { success: true });
+    } catch (e) {
+      console.warn('[motchi companion]', e.message);
+      res.status(400).json({ error: 'Could not save your Motchi preferences. Try again.' });
+    }
+    return;
+  }
   // Shared services for tool executors (built once per request).
   const toolCtx = createToolCtx({ callerUid: caller, caller });
+  toolCtx.sessionId = typeof sessionId === 'string' ? sessionId.slice(0, 160) : '';
+  const actionScopeId = req.body.actionScopeId;
+  toolCtx.actionScopeId = typeof actionScopeId === 'string' && /^[a-zA-Z0-9_-]{8,160}$/.test(actionScopeId) ? actionScopeId : '';
   if (verifiedUsername && normalizedClientCaller && verifiedUsername !== normalizedClientCaller) {
     console.warn(`[auth] caller mismatch: token=${verifiedUsername} client=${normalizedClientCaller} — using token`);
   }
@@ -376,12 +407,17 @@ async function handleProxyAI(req, res) {
   const lightChat = (feature === 'assistant' && !enableThinkingFlag && !wantsArtifact && !fastPath)
     ? (isLightChat(lastUserMessage) && !(hasOffer(prevAssistantText) && isBareYes(lastUserMessage || '')))
     : false;
+  const budget = requestBudget({ artifact: wantsArtifact, thinking: enableThinkingFlag, lightChat });
+  const disconnect = new AbortController();
+  const workSignal = AbortSignal.any([disconnect.signal, AbortSignal.timeout(budget.durationMs)]);
+  toolCtx.signal = workSignal;
+  res.once?.('close', () => { if (!res.writableFinished) disconnect.abort(); });
   // Server context, persona, and memories are independent reads — start
   // all three together and await once, so a cold turn pays one round-trip
   // instead of three in a row. Each fails soft: a hiccup just means Motchi
   // answers with less context, never a failed chat for Clair.
   const _tCtx0 = Date.now();
-  const retrievalQuery = (isBareYes(lastUserMessage) || /\b(it|that|this|those|these)\b/i.test(lastUserMessage)) && prevUserText
+  const retrievalQuery = (isBareYes(lastUserMessage) || /\b(it|that|this|those|these|first|second|third|last one)\b/i.test(lastUserMessage)) && prevUserText
     ? `${prevUserText}\n${lastUserMessage}` : lastUserMessage;
   const _contextPromise = (feature && !context && !fastPath && !lightChat)
     ? buildContextForFeature(feature, caller, retrievalQuery).catch((e) => {
@@ -435,6 +471,16 @@ async function handleProxyAI(req, res) {
   ]);
   const _tCtxMs = Date.now() - _tCtx0;
   const resolvedContext = context || serverContext || '';
+  const recommendationAsk = feature === 'recommendations' ||
+    /\brecommend|\b(?:what|which|pick|suggest|choose)\b.{0,40}\b(?:watch|movie|series|film)\b|\bwould\b.{0,30}\blike\b/i.test(retrievalQuery);
+  let recommendationContext = '';
+  if (recommendationAsk && !lightChat) {
+    const profiles = await Promise.all([caller, partnerUsername].map(async (owner) => {
+      try { return [owner, await loadCompanion(toolCtx.db, owner)]; }
+      catch (e) { console.warn('[motchi feedback] read failed:', e.message); return [owner, { feedback: [] }]; }
+    }));
+    recommendationContext = companionPrompt(Object.fromEntries(profiles));
+  }
   availableMemories.push(...relevantMemories, ...coreProfileNotes);
 
   // Light chat answers from the slim prompt (no context, memories, or
@@ -519,6 +565,8 @@ Example trace: "plan a cozy date night in Cabadbaran" → plan_date_night(locati
 
   if (!lightChat) {
     systemPrompt += REPLY_DETAILS_PROMPT;
+    systemPrompt += recommendationContext;
+    systemPrompt += '\nFor follow-ups, keep the selected title/id and agreed details from conversation history. Use previous action receipts to distinguish finished, waiting and uncertain steps. Ask one short question when a reference has multiple possible targets. Latest user corrections replace earlier constraints. Keep simple replies brief; expand when planning needs it. Automatic memories are user reports, not verified facts; do not treat partner reports as the partner personally confirming them.';
     if (feature !== 'assistant') systemPrompt += '\nMemory citation markers are only supported in assistant chat. Do not emit them in this feature.';
   }
 
@@ -986,7 +1034,7 @@ ${HTML_GAME_GUIDE}
       // Caps the worst case at 8 successes + 4 retries per message
       // (was: 8 rounds x 3 attempts = 24 paid calls).
       let llmCalls = 0;
-      const MAX_LLM_CALLS_PER_MESSAGE = 14;
+      const MAX_LLM_CALLS_PER_MESSAGE = budget.calls;
       let _rememberSaved = false; // skip auto-extract when remember_fact already saved
       let didArtifactRepair = false; // missing-block nudge: at most once
       let didDanglingRepair = false; // dangling-colon nudge: at most once
@@ -1002,6 +1050,7 @@ ${HTML_GAME_GUIDE}
       const seenToolCalls = new Set();
 
       while (toolRound < MAX_TOOL_ROUNDS || forceTextNextRound) {
+        workSignal.throwIfAborted();
         toolRound++;
         const _round0 = Date.now(); // TTFT clock for this round's LLM call
         // A repair nudge demands visible text only — tools stay
@@ -1046,7 +1095,7 @@ ${HTML_GAME_GUIDE}
               // chat — 280s sits inside the 300s function budget so a slow
               // generation still lands its closing fence (no fence = no
               // Preview button). Everyday chat keeps the 120s cap.
-              signal: AbortSignal.timeout(wantsArtifact ? 280000 : 120000),
+              signal: workSignal,
             });
 
             if (streamResp.ok) break; // success
@@ -1407,7 +1456,7 @@ ${HTML_GAME_GUIDE}
               stream: false,
               chat_template_kwargs: { enable_thinking: false },
             }),
-            signal: AbortSignal.timeout(60000),
+            signal: workSignal,
           });
           if (repairResp && repairResp.ok) {
             const repairData = await repairResp.json();
@@ -1436,10 +1485,11 @@ ${HTML_GAME_GUIDE}
       try {
         if (_streamedFinalReply.trim()) {
           const checkText = stripArtifactsForChecks(_streamedFinalReply);
-          if (checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
+          const canSaveMemories = !temporary && !workSignal.aborted;
+          if (canSaveMemories && checkText && !_rememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
             serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
           }
-          if (checkText) checkHallucinations(checkText).catch(() => {});
+          if (!temporary && !workSignal.aborted && checkText) checkHallucinations(checkText).catch(() => {});
         }
       } catch (postErr) {
         console.warn('proxyAI post-reply tasks error:', postErr.message);
@@ -1492,6 +1542,8 @@ ${HTML_GAME_GUIDE}
   }
 
   async function callLlmOnce(msgs, withoutTools = false) {
+    workSignal.throwIfAborted();
+    if (requestTrace.modelCalls >= budget.calls) throw new Error('Motchi reached this request\'s work limit.');
     requestTrace.modelCalls++;
     const resp = await fetch(
       'https://apihub.agnes-ai.com/v1/chat/completions',
@@ -1512,7 +1564,7 @@ ${HTML_GAME_GUIDE}
           chat_template_kwargs: { enable_thinking: enableThinkingFlag === true },
         }),
         // Same artifact headroom as the streaming path (280s < 300s budget).
-        signal: AbortSignal.timeout(wantsArtifact ? 280000 : 60000),
+        signal: workSignal,
       },
     );
     return resp;
@@ -1547,6 +1599,7 @@ ${HTML_GAME_GUIDE}
   let nsModel = model;
   let nsInterrupted = true;
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    if (workSignal.aborted) break;
     let response;
     try {
       response = await callLlmOnce(nsMessages);
@@ -1732,10 +1785,11 @@ ${HTML_GAME_GUIDE}
   // W1-C10 + W2-A4: fire-and-forget memory extraction (with heuristic gate) & hallucination check
   if (reply) {
     const checkText = stripArtifactsForChecks(reply);
-    if (checkText && !_nsRememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
+    const canSaveMemories = !temporary && !workSignal.aborted;
+    if (canSaveMemories && checkText && !_nsRememberSaved && shouldExtractMemory(lastUserMessage, checkText)) {
       serverExtractAndSaveMemory(lastUserMessage, checkText, caller).catch(() => {});
     }
-    if (checkText) checkHallucinations(checkText).catch(() => {});
+    if (canSaveMemories && checkText) checkHallucinations(checkText).catch(() => {});
   }
 }
 

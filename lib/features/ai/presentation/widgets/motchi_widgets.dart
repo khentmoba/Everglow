@@ -96,6 +96,10 @@ class _MotchiHeader extends StatelessWidget {
             onSelected: (route) => context.push(route),
             itemBuilder: (_) => [
               PopupMenuItem(
+                value: '/motchi-preferences',
+                child: Text('Preferences', style: AppTypography.bodyMedium()),
+              ),
+              PopupMenuItem(
                 value: '/motchi-memory',
                 child: Text('Memory Book', style: AppTypography.bodyMedium()),
               ),

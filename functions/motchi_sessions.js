@@ -100,7 +100,7 @@ async function recordMotchiTurn({
       imageCount: Number(imageCount) || 0,
       // Numeric-only diagnostics: no prompts, memory text, or credentials.
       requestTrace: requestTrace ? Object.fromEntries(
-        ['modelCalls', 'retries', 'toolRounds', 'repairs', 'firstTokenMs', 'preparedMs', 'contextChars', 'memoryCount', 'memoryChars', 'promptChars', 'attachedTools']
+        ['modelCalls', 'retries', 'toolRounds', 'repairs', 'firstTokenMs', 'preparedMs', 'contextChars', 'memoryCount', 'memoryChars', 'promptChars', 'attachedTools', 'completedWrites', 'unfinishedWrites', 'unknownWrites', 'interrupted']
           .map((key) => [key, Number.isFinite(requestTrace[key]) ? requestTrace[key] : null]),
       ) : null,
     };

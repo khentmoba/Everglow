@@ -11,11 +11,13 @@ import 'package:flutter/foundation.dart';
 import '../../domain/models/ai_conversation.dart';
 import '../../domain/motchi_quality.dart';
 import '../../domain/motchi_reply_details.dart';
+import '../../../../core/agent/agent_mode.dart';
 import 'ai_memory_repo.dart';
 import 'ai_conversation_repo.dart';
 import '../../domain/repositories/ai_memory_repo_interface.dart';
 import '../../domain/repositories/ai_conversation_repo_interface.dart';
 import 'sse_streamer.dart';
+import 'sse_cancellation.dart';
 import 'study_artifact.dart';
 
 /// Core service for all AI interactions in Everglow.
@@ -52,6 +54,9 @@ class AIService extends ChangeNotifier {
   bool _isLoading = false;
   bool _isNavigating = false;
   int _activeRequest = 0;
+  String? _actionScopeId;
+  String? get currentActionScopeId => _actionScopeId;
+  SseCancellation? _streamCancellation;
   String? _lastError;
   String _draftResponse = '';
   String _draftReasoning = '';
@@ -248,6 +253,7 @@ class AIService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _streamCancellation?.cancel();
     draftRevisionNotifier.dispose();
     draftResponseNotifier.dispose();
     draftReasoningNotifier.dispose();
@@ -271,12 +277,23 @@ class AIService extends ChangeNotifier {
     // Canvas toggle from the chat bar. When false the server must not
     // create any interactive artifacts — plain text only, even for quizzes.
     bool canvasEnabled = true,
+    String? actionScopeId,
   }) async {
     if (_isNavigating) {
       throw StateError('Wait for the conversation to finish opening.');
     }
     _isLoading = true;
     _activeRequest++;
+    final previous = _conversationRepo.assistant?.messages.lastOrNull;
+    _actionScopeId =
+        actionScopeId ??
+        (RegExp(
+              r'^(yes|yep|okay|ok|sure|continue|finish|retry|try again)[.!?\s]*$',
+              caseSensitive: false,
+            ).hasMatch(message.trim())
+            ? previous?.actionScopeId
+            : null) ??
+        _generateSessionId();
     final myRequest = _activeRequest;
     _lastError = null;
     _resetDraftState();
@@ -291,7 +308,12 @@ class AIService extends ChangeNotifier {
 
       // Add user message BEFORE notifying so the UI shows it immediately
       conversation.messages.add(
-        AIMessage(role: 'user', content: message, imageUrls: imageUrls),
+        AIMessage(
+          role: 'user',
+          content: message,
+          imageUrls: imageUrls,
+          actionScopeId: _actionScopeId,
+        ),
       );
       _setConversation(feature, conversation);
       notifyListeners();
@@ -415,6 +437,7 @@ class AIService extends ChangeNotifier {
           content: cleaned,
           sources: webSources,
           details: details,
+          actionScopeId: _actionScopeId,
         ),
       );
 
@@ -468,6 +491,7 @@ class AIService extends ChangeNotifier {
                 ? details.summary
                 : MotchiReplyDetails.visibleText(_draftResponse),
             details: details,
+            actionScopeId: _actionScopeId,
           ),
         );
         _setConversation(feature, conversation);
@@ -497,6 +521,7 @@ class AIService extends ChangeNotifier {
   bool cancelCurrentReply() {
     if (!_isLoading || _activeRequest == 0) return false;
     _activeRequest++;
+    _streamCancellation?.cancel();
     final conv = _conversationRepo.assistant;
     final partial = MotchiReplyDetails.visibleText(_draftResponse).trimLeft();
     final details = MotchiReplyDetails.fromResults(
@@ -510,6 +535,7 @@ class AIService extends ChangeNotifier {
           role: 'assistant',
           content: partial.isEmpty ? details.summary : partial,
           details: details,
+          actionScopeId: _actionScopeId,
         ),
       );
       if (conv.messages.length > 50) {
@@ -941,6 +967,7 @@ class AIService extends ChangeNotifier {
             if (feature.isNotEmpty) 'feature': feature,
             if (caller.isNotEmpty) 'caller': caller,
             'sessionId': currentSessionId,
+            if (_actionScopeId != null) 'actionScopeId': _actionScopeId,
             'enableThinking': enableThinking,
             'canvas': canvasEnabled,
           }),
@@ -1063,12 +1090,15 @@ class AIService extends ChangeNotifier {
       'feature': feature,
       'caller': caller,
       'sessionId': sessionIdOverride ?? currentSessionId,
+      if (!temporary && _actionScopeId != null) 'actionScopeId': _actionScopeId,
       if (temporary) 'temporary': true,
       'stream': true, // enables real SSE streaming from the backend
       'enableThinking': enableThinking,
       'canvas': canvasEnabled,
     });
 
+    final cancellation = SseCancellation();
+    _streamCancellation = cancellation;
     return streamSseResponse(
       url: _cloudFunctionUrl,
       headers: {
@@ -1081,16 +1111,62 @@ class AIService extends ChangeNotifier {
       onToolStatus: onToolStatus,
       onToolResult: onToolResult,
       onError: onError,
+      cancellation: cancellation,
       // Artifact builds and thinking requests get 280s (inside the server's
       // 300s function budget) so slow generations or multi-turn tool loops
       // land cleanly. Everyday chat keeps 180s.
-      timeout: (artifactExpected || enableThinking)
-          ? const Duration(seconds: 280)
-          : const Duration(seconds: 180),
+      timeout: artifactExpected
+          ? const Duration(seconds: 285)
+          : enableThinking
+          ? const Duration(seconds: 185)
+          : const Duration(seconds: 95),
     );
   }
 
   // Firestore Persistence
+  final Map<String, Map<String, dynamic>> _demoCompanions = {};
+
+  Future<Map<String, dynamic>> companionOperation(
+    String operation, {
+    Map<String, dynamic>? value,
+  }) async {
+    if (AgentMode.isActive.value) {
+      final demo = _demoCompanions.putIfAbsent(
+        AgentMode.activeProfile.value,
+        () => {
+          'preferences': {
+            'nudges': 'daily',
+            'digests': true,
+            'quietStart': 22,
+            'quietEnd': 8,
+          },
+          'feedback': <Map<String, dynamic>>[],
+        },
+      );
+      if (operation == 'preferences') demo['preferences'] = value;
+      if (operation == 'feedback') {
+        final feedback = demo['feedback'] as List<Map<String, dynamic>>;
+        feedback.add({...?value});
+        if (feedback.length > 20) feedback.removeAt(0);
+      }
+      return demo;
+    }
+    final token = await _auth.currentUser?.getIdToken() ?? '';
+    final response = await http
+        .post(
+          Uri.parse(_cloudFunctionUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({'companionOperation': operation, 'value': ?value}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      throw StateError('Could not save your Motchi preferences. Try again.');
+    }
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
 
   Future<AIConversation> _getOrCreateConversation(String feature) =>
       _conversationRepo.getOrCreate(feature);

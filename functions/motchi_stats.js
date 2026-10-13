@@ -4,6 +4,7 @@
 // 7-day observability rollup for Khent's Creator tab.
 
 const { getAdmin, getDb, requireAuth, enforceRateLimit, cappedHttps, getVerifiedUsername } = require('./common.js');
+const { journeyMetrics } = require('./motchi_agent.js');
 
 /**
  * W5-F21: Eval harness — aggregate Motchi observability.
@@ -56,7 +57,10 @@ const motchiStats = cappedHttps(5, async (req, res) => {
       const data = d.data();
       return { titles: data.titles || [], at: data.createdAt?.toDate?.()?.toISOString() || null };
     });
-    const reminders = { total: (remSnap.docs || []).length, fired: (remSnap.docs || []).filter(d => d.data().fired === true).length };
+    const reminders = {
+      total: (remSnap.docs || []).length,
+      fired: (remSnap.docs || []).filter(d => d.data().fired === true).length,
+    };
     // Today's per-user API counters + recent anomaly alerts, so Khent's
     // Creator tab can show usage without opening the Firestore console.
     // Best-effort: never fail the whole stats call over this section.
@@ -75,7 +79,14 @@ const motchiStats = cappedHttps(5, async (req, res) => {
       const alertSnap = await db.collection('api_usage').doc('_alerts').collection('keys').orderBy('lastAlertAt', 'desc').limit(10).get().catch(() => ({ docs: [] }));
       recentAlerts = (alertSnap.docs || []).map((a) => ({ message: a.data()?.message || '', at: a.data()?.lastAlertAt?.toDate?.()?.toISOString() || null }));
     } catch (_) {}
+    let journeys;
+    // Opt-in, bounded diagnostic read; ordinary stats and chat pay nothing extra.
+    if (req.query?.journeys === '1') {
+      const sessions = await db.collection('motchi_sessions').orderBy('updatedAt', 'desc').limit(25).get();
+      journeys = journeyMetrics(sessions.docs.flatMap((s) => (s.data().turns || []).slice(-50)));
+    }
     res.json({
+      ...(journeys ? { journeys, journeySample: 'Latest 25 sessions; measured turns only, not a full 7-day census.' } : {}),
       window: '7d',
       generatedAt: new Date().toISOString(),
       usage,

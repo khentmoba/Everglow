@@ -17,7 +17,8 @@ const REPLY_DETAILS_PROMPT = `
 function memoryReference(m) {
   const fact = String(m.fact || '').slice(0, 500);
   const subject = m.subject || fact.match(/^(Khent and Clair|Clair and Khent|Clair|Khent)\b/i)?.[1] || '';
-  return { id: String(m.id || ''), fact, subject: String(subject) };
+  return { id: String(m.id || ''), fact, subject: String(subject),
+    ...(m.provenance ? { provenance: m.provenance, source: m.source || '', sourceText: m.sourceText || '' } : {}) };
 }
 
 function citedMemories(reply, available) {

@@ -24,6 +24,18 @@ const storage = fs.readFileSync(
   'utf8',
 );
 
+test('Motchi action reservations cannot be forged or read by clients', () => {
+  assert.match(rules, /match \/motchi_actions\/\{docId\} \{ allow read, write: if false; \}/);
+});
+
+test('Motchi receipts expire without a cleanup query and do not index result bodies', () => {
+  const indexes = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'firestore.indexes.json'), 'utf8'));
+  const overrides = indexes.fieldOverrides.filter((o) => o.collectionGroup === 'motchi_actions');
+  assert.equal(overrides.find((o) => o.fieldPath === 'expiresAt').ttl, true);
+  assert.deepEqual(overrides.find((o) => o.fieldPath === 'expiresAt').indexes, []);
+  assert.deepEqual(overrides.find((o) => o.fieldPath === 'result').indexes, []);
+});
+
 test('shape validators live inside the match helpers scope', () => {
   for (const name of [
     'isValidRoomShape',

@@ -31,6 +31,9 @@ async function exec_remember_fact(ctx, args) {
             category: args.category || hit.category || 'fact',
             object: parsed.object || null,
             confidence: 1.0,
+            provenance: 'explicit',
+            source: ctx.caller,
+            sourceText: (ctx.userMessage || '').slice(0, 800),
             updatedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
             embedding: simpleEmbedding(fact),
           });
@@ -51,6 +54,8 @@ async function exec_remember_fact(ctx, args) {
       addedBy: ctx.callerUid || 'motchi',
       createdAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
       confidence: 1.0,
+      provenance: 'explicit',
+      sourceText: (ctx.userMessage || '').slice(0, 800),
       accessCount: 0,
       lastAccessed: null,
       pinned: false,
@@ -78,6 +83,9 @@ async function exec_read_memories(ctx, args) {
       object: data.object || null,
       occurredAt: data.occurredAt?.toISOString() || null,
       pinned: data.pinned === true,
+      provenance: data.provenance || null,
+      source: data.source || null,
+      sourceText: data.sourceText || null,
     }));
     if (args.category) {
       facts = facts.filter(f => f.category === args.category);
@@ -232,6 +240,10 @@ async function exec_edit_memory(ctx, args) {
     const parsed = parseFactStructure(fact);
     const update = {
       fact,
+      provenance: 'explicit',
+      source: ctx.caller,
+      sourceText: (ctx.userMessage || '').slice(0, 800),
+      confidence: 1.0,
       // A wording correction must not silently erase the fact's owner.
       subject: parsed.subject || snap.data()?.subject || parseFactStructure(snap.data()?.fact || '').subject || null,
       relation: parsed.relation || null,

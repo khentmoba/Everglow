@@ -645,6 +645,25 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             ),
           ),
         ),
+        if (isCouple)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: TextButton.icon(
+                icon: const Icon(Icons.auto_awesome_rounded),
+                label: const Text('Would we like this? Ask Motchi'),
+                onPressed: () {
+                  final router = GoRouter.of(context);
+                  Navigator.pop(context);
+                  router.push(
+                    '/motchi',
+                    extra:
+                        'Would we both like "${widget.item.title}"? This is the ${widget.item.mediaType} with TMDB id ${widget.item.tmdbId}. Use our individual preferences and avoid spoilers.',
+                  );
+                },
+              ),
+            ),
+          ),
         if (!_isFilm) ...[
           SliverToBoxAdapter(child: _buildEpisodeList(netflixStyle: true)),
         ],
