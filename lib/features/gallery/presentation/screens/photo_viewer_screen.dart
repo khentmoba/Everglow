@@ -41,17 +41,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
     _photos = List<MemoryPhoto>.of(widget.photos);
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _precacheNeighbors());
-  }
-
-  /// Warm the browser/HTTP cache for the adjacent full-res photos so
-  /// swiping left/right paints instantly instead of streaming on demand.
-  void _precacheNeighbors() {
-    if (!mounted) return;
-    for (final i in [_currentIndex - 1, _currentIndex + 1]) {
-      if (i < 0 || i >= _photos.length) continue;
-      precacheImage(_photoImage(_photos[i].imageUrl), context).ignore();
-    }
   }
 
   @override
@@ -197,7 +186,6 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               itemCount: _photos.length,
               onPageChanged: (i) {
                 setState(() => _currentIndex = i);
-                _precacheNeighbors();
               },
               itemBuilder: (context, index) {
                 final photo = _photos[index];

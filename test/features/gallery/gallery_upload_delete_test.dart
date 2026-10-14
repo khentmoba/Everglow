@@ -21,11 +21,15 @@ class _TestHttpOverrides extends HttpOverrides {
 }
 
 class _FakeHttpClient implements HttpClient {
+  static final requests = <Uri>[];
   @override
   bool autoUncompress = true;
 
   @override
-  Future<HttpClientRequest> getUrl(Uri url) async => _FakeHttpClientRequest();
+  Future<HttpClientRequest> getUrl(Uri url) async {
+    requests.add(url);
+    return _FakeHttpClientRequest();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
@@ -127,6 +131,38 @@ MemoryPhoto _photo({
     );
 
 void main() {
+  testWidgets('viewer requests only the selected full photo until a swipe', (
+    tester,
+  ) async {
+    HttpOverrides.global = _TestHttpOverrides();
+    PaintingBinding.instance.imageCache.clear();
+    _FakeHttpClient.requests.clear();
+    final auth = _FakeAuthService();
+    addTearDown(auth.dispose);
+    final photos = [
+      for (var i = 0; i < 3; i++) _photo(id: 'priority-$i', uploader: 'demo'),
+    ];
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthService>.value(
+        value: auth,
+        child: MaterialApp(
+          home: PhotoViewerScreen(photos: photos, initialIndex: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_FakeHttpClient.requests.map((url) => url.toString()), [
+      photos[1].imageUrl,
+    ]);
+    await tester.drag(find.byType(PageView), const Offset(-700, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('3 / 3'), findsOneWidget);
+    expect(
+      _FakeHttpClient.requests.map((url) => url.toString()),
+      contains(photos[2].imageUrl),
+    );
+    expect(tester.takeException(), isNull);
+  });
   setUpAll(() {
     HttpOverrides.global = _TestHttpOverrides();
   });
@@ -187,10 +223,7 @@ void main() {
 
   group('Gallery Storage Paths & File Sanitization', () {
     test('sanitizes unsafe characters, paths and spaces in file names', () {
-      expect(
-        GalleryService.sanitizeFileName('photo 1.jpg'),
-        'photo_1.jpg',
-      );
+      expect(GalleryService.sanitizeFileName('photo 1.jpg'), 'photo_1.jpg');
       expect(
         GalleryService.sanitizeFileName('../../secret/pic.png'),
         '.._.._secret_pic.png',
@@ -309,10 +342,7 @@ void main() {
       return ChangeNotifierProvider<AuthService>.value(
         value: authService,
         child: MaterialApp(
-          home: PhotoViewerScreen(
-            photos: photos,
-            onDelete: onDelete,
-          ),
+          home: PhotoViewerScreen(photos: photos, onDelete: onDelete),
         ),
       );
     }
@@ -321,9 +351,7 @@ void main() {
       tester,
     ) async {
       final auth = _FakeAuthService(testUid: 'u1', testUser: 'khentsgdz');
-      final photos = [
-        _photo(id: 'p1', uploader: 'khentsgdz'),
-      ];
+      final photos = [_photo(id: 'p1', uploader: 'khentsgdz')];
 
       await tester.pumpWidget(
         createViewerApp(photos: photos, authService: auth),
@@ -347,13 +375,9 @@ void main() {
       expect(find.text('1 / 1'), findsOneWidget);
     });
 
-    testWidgets('hides delete icon when viewing partner photo', (
-      tester,
-    ) async {
+    testWidgets('hides delete icon when viewing partner photo', (tester) async {
       final auth = _FakeAuthService(testUid: 'u1', testUser: 'khentsgdz');
-      final photos = [
-        _photo(id: 'p_partner', uploader: 'clairjassen'),
-      ];
+      final photos = [_photo(id: 'p_partner', uploader: 'clairjassen')];
 
       await tester.pumpWidget(
         createViewerApp(photos: photos, authService: auth),
@@ -434,9 +458,7 @@ void main() {
       tester,
     ) async {
       final auth = _FakeAuthService(testUid: 'u1', testUser: 'khentsgdz');
-      final photos = [
-        _photo(id: 'only_photo', uploader: 'khentsgdz'),
-      ];
+      final photos = [_photo(id: 'only_photo', uploader: 'khentsgdz')];
 
       var deleted = false;
       await tester.pumpWidget(
