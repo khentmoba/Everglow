@@ -99,11 +99,19 @@ class EverglowSkeleton extends StatefulWidget {
   final double height;
   final double radius;
 
+  /// Opt in for brief loading feedback on phones, rather than ambient motion.
+  final bool animateOnPhone;
+  final Color baseColor;
+  final Color highlightColor;
+
   const EverglowSkeleton({
     super.key,
     this.width = double.infinity,
     this.height = 16,
     this.radius = 12,
+    this.animateOnPhone = false,
+    this.baseColor = AppColors.shimmerBase,
+    this.highlightColor = AppColors.shimmerHighlight,
   });
 
   @override
@@ -116,9 +124,21 @@ class _EverglowSkeletonState extends State<EverglowSkeleton> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _syncShimmer();
+  }
+
+  @override
+  void didUpdateWidget(covariant EverglowSkeleton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncShimmer();
+  }
+
+  void _syncShimmer() {
     final animate =
         TickerMode.valuesOf(context).enabled &&
-        !AppMotion.reduceAmbientMotion(context);
+        !AppMotion.reduced &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        (widget.animateOnPhone || !AppMotion.reduceAmbientMotion(context));
     if (animate && _shimmer == null) {
       _shimmer = EverglowShimmerScope.attach();
     } else if (!animate && _shimmer != null) {
@@ -142,7 +162,7 @@ class _EverglowSkeletonState extends State<EverglowSkeleton> {
         width: widget.width,
         height: widget.height,
         decoration: BoxDecoration(
-          color: AppColors.shimmerBase,
+          color: widget.baseColor,
           borderRadius: BorderRadius.circular(widget.radius),
         ),
       );
@@ -156,8 +176,8 @@ class _EverglowSkeletonState extends State<EverglowSkeleton> {
           painter: _EverglowSkeletonPainter(
             shimmer: _shimmer!,
             radius: widget.radius,
-            baseColor: AppColors.shimmerBase,
-            highlightColor: AppColors.shimmerHighlight,
+            baseColor: widget.baseColor,
+            highlightColor: widget.highlightColor,
           ),
         ),
       ),

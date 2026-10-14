@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
 import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_row.dart';
+import 'package:everglow/features/cinema/presentation/widgets/netflix/netflix_loading.dart';
+import 'package:everglow/shared/widgets/everglow/everglow_skeleton.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_home_tab.dart';
 
 MediaItem demo() => MediaItem(
@@ -21,6 +23,7 @@ MediaItem demo() => MediaItem(
 Widget home({
   bool loading = true,
   List<MediaItem> watching = const [],
+  List<MediaItem> trending = const [],
   void Function(MediaItem)? restart,
   Future<void> Function()? refresh,
 }) => CinemaHomeTab(
@@ -29,7 +32,7 @@ Widget home({
   popularTVShows: [],
   newlyReleased: [],
   watchingList: watching,
-  trendingGlobal: [],
+  trendingGlobal: trending,
   topTenToday: [],
   onRefresh: refresh ?? () async {},
   onMediaTap: (_) {},
@@ -39,6 +42,63 @@ Widget home({
 );
 
 void main() {
+  testWidgets('phone loading animates and stops when hidden or reduced', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    Future<void> show({bool active = true, bool reduced = false}) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: const Size(390, 844),
+                disableAnimations: reduced,
+              ),
+              child: TickerMode(
+                enabled: active,
+                child: Scaffold(body: home()),
+              ),
+            ),
+          ),
+        );
+    await show();
+    expect(find.byType(NetflixLoadingBillboard), findsOneWidget);
+    expect(EverglowShimmerScope.controller?.isAnimating, isTrue);
+    final before = EverglowShimmerScope.value;
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(EverglowShimmerScope.value, isNot(before));
+    await show(active: false);
+    expect(EverglowShimmerScope.activeCount, 0);
+    await show(reduced: true);
+    expect(EverglowShimmerScope.activeCount, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('ready feed appears while other catalogue feeds still load', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: home(trending: [demo()])),
+      ),
+    );
+    final rows = tester.widgetList<NetflixRow>(find.byType(NetflixRow));
+    expect(rows.single.title, 'Trending Now');
+    expect(rows.single.items.single.title, 'Demo series');
+    expect(find.byType(NetflixLoadingBillboard), findsOneWidget);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
+    await tester.pump();
+    expect(find.byType(NetflixLoadingRow), findsWidgets);
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: home(loading: false))),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(NetflixLoadingBillboard), findsNothing);
+    expect(EverglowShimmerScope.activeCount, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   for (final width in [360.0, 390.0, 430.0, 810.0]) {
     testWidgets('actual home loading fits ${width}px', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 1080));
