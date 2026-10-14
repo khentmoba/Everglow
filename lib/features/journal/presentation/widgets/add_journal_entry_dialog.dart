@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -15,12 +17,14 @@ class AddJournalEntryDialog extends StatefulWidget {
   final String author;
   final JournalEntry? existing;
   final JournalService? service;
+  final XPService? xpService;
 
   const AddJournalEntryDialog({
     super.key,
     required this.author,
     this.existing,
     this.service,
+    this.xpService,
   });
 
   @override
@@ -166,11 +170,7 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
         await (widget.service ?? JournalService()).add(entry);
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null && uid.isNotEmpty) {
-          try {
-            await XPService().awardJournal(uid);
-          } catch (e) {
-            Logger.e('Journal: XP award failed', error: e);
-          }
+          unawaited(_awardJournalXp(uid));
         }
       }
       if (widget.existing == null) {
@@ -196,6 +196,14 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _awardJournalXp(String uid) async {
+    try {
+      await (widget.xpService ?? XPService()).awardJournal(uid);
+    } catch (e) {
+      Logger.e('Journal: XP award failed', error: e);
     }
   }
 
