@@ -48,6 +48,15 @@ real-device and authenticated feature behavior still need matching evidence.
   22× fewer pixels; this is arithmetic, not measured whole-app RAM/GPU savings.
 - Carousel hold is 20 seconds, a pacing choice rather than a measured speed win.
 
+### Listening timeline requests (candidate)
+
+Artist history now requests 200 plays per page instead of 50 and overlaps
+recent-play fetching with the five-song history batches. Mocked HTTP tests
+reproduced 8 requests for a synthetic 364-play song before the change and 2
+afterwards, with all plays preserved; a held response verifies request overlap.
+This is request-count evidence, not measured phone/Safari or authenticated
+Last.fm load time. Details: `docs/pr-proof/listening-timeline/README.md`.
+
 ### Fast dashboard fling follow-up (candidate)
 
 `DeferredSection` now honors Flutter's deferred-loading velocity heuristic
