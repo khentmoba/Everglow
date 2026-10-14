@@ -159,6 +159,8 @@ extension _DashboardScreenSections on _DashboardScreenState {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          const DesktopAppAction(),
           const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

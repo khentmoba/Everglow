@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../../../../shared/widgets/everglow/desktop_app_action.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -489,6 +490,16 @@ class _GatewayPageState extends State<GatewayPage> {
                   ),
                 ),
               ),
+              if (!isRevealing)
+                Positioned(
+                  bottom: _isLocalDev ? 190 : 16,
+                  left: 16,
+                  right: 16,
+                  child: const SafeArea(
+                    top: false,
+                    child: DesktopAppAction(),
+                  ),
+                ),
               if (_isLocalDev &&
                   (state == GatewayState.initialLoad ||
                       state == GatewayState.awaitingInput ||
