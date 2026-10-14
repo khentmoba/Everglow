@@ -23,9 +23,7 @@ void main() {
         deepLinkTarget(
           Uri(
             path: '/',
-            queryParameters: {
-              'from': '/cinema/video/123?title=Foo&type=movie',
-            },
+            queryParameters: {'from': '/cinema/video/123?title=Foo&type=movie'},
           ),
           cinemaOnly: false,
         ),
@@ -34,10 +32,7 @@ void main() {
     });
 
     test('returns null when there is no from param', () {
-      expect(
-        deepLinkTarget(Uri(path: '/'), cinemaOnly: false),
-        isNull,
-      );
+      expect(deepLinkTarget(Uri(path: '/'), cinemaOnly: false), isNull);
     });
 
     test('returns null when from points at the gateway itself', () {
@@ -83,7 +78,7 @@ void main() {
       );
     });
 
-    test('keeps cinema-only users inside /cinema', () {
+    test('keeps cinema-only users inside media sections', () {
       expect(
         deepLinkTarget(
           Uri(path: '/', queryParameters: {'from': '/dashboard'}),
@@ -98,6 +93,24 @@ void main() {
         ),
         '/cinema',
       );
+      for (final path in ['/anime', '/manga', '/books', '/books/categories']) {
+        expect(
+          deepLinkTarget(
+            Uri(path: '/', queryParameters: {'from': path}),
+            cinemaOnly: true,
+          ),
+          path,
+        );
+      }
+      for (final path in ['/our-books', '/booksmith', '/mangaprivate']) {
+        expect(
+          deepLinkTarget(
+            Uri(path: '/', queryParameters: {'from': path}),
+            cinemaOnly: true,
+          ),
+          isNull,
+        );
+      }
     });
   });
 }

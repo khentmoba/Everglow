@@ -51,7 +51,9 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final userName = context.read<AuthService>().currentUser ?? '';
+      final auth = context.read<AuthService>();
+      if (!auth.isCoupleUser) return;
+      final userName = auth.currentUser ?? '';
       if (userName.isEmpty) return;
       _loadCachedReadList(userName);
       _subscribeToReadList(userName);

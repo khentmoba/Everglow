@@ -21,6 +21,7 @@ import '../widgets/tabs/cinema_browse_tab.dart' show CinemaBrowseTab;
 import '../widgets/tabs/cinema_library_tab.dart' show CinemaLibraryTab;
 import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
+import '../../../../shared/widgets/shelf/media_section_menu.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Cinema Color Tokens
@@ -679,6 +680,21 @@ class _CinemaScreenState extends State<CinemaScreen> {
             // the dashboard; cinema-only profiles have no dashboard, so
             // they get a logout action instead (their only mobile exit,
             // mirroring the desktop profile menu).
+            if (!isDesktop && isCinemaOnlyUser)
+              const Positioned(
+                top: 0,
+                right: 12,
+                child: SafeArea(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 10),
+                    child: Material(
+                      color: NetflixColors.surface,
+                      shape: CircleBorder(),
+                      child: MediaSectionMenu(currentRoute: '/cinema'),
+                    ),
+                  ),
+                ),
+              ),
             if (!isDesktop)
               Positioned(
                 top: 0,

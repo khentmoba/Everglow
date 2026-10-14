@@ -10,6 +10,7 @@ import '../../data/services/katana_service.dart';
 import './katana_nav.dart';
 import './katana_theme.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../shared/widgets/shelf/media_section_menu.dart';
 
 enum KatanaNav { home, latest, directory, newManga, genres, reading }
 
@@ -135,10 +136,10 @@ class _KatanaHeaderState extends State<KatanaHeader> {
 
   @override
   Widget build(BuildContext context) {
-    final user =
-        context.select<AuthService, String>((a) => a.currentUser ?? '');
-    final showBack =
-        context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final user = context.select<AuthService, String>(
+      (a) => a.currentUser ?? '',
+    );
+    final showBack = context.select<AuthService, bool>((a) => a.isCoupleUser);
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 900;
 
@@ -186,6 +187,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                       const SizedBox(width: 4),
                     ],
                     _buildLogo(),
+                    const MediaSectionMenu(currentRoute: '/manga'),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Center(
@@ -201,7 +203,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          _buildBookmarksButton(),
+                          if (showBack) _buildBookmarksButton(),
                           const SizedBox(width: 8),
                           _buildUserChip(user),
                         ],
@@ -234,7 +236,8 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                         ],
                         Flexible(child: _buildLogo()),
                         const Spacer(),
-                        _buildBookmarksButton(),
+                        const MediaSectionMenu(currentRoute: '/manga'),
+                        if (showBack) _buildBookmarksButton(),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -276,12 +279,13 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                       () => pushDirectory(context, mode: 'new'),
                     ),
                     _buildGenresNav(),
-                    _navItem(
-                      KatanaNav.reading,
-                      'Currently Reading',
-                      () => pushCurrentlyReading(context),
-                    ),
-                    if (!desktop) ...[
+                    if (showBack)
+                      _navItem(
+                        KatanaNav.reading,
+                        'Currently Reading',
+                        () => pushCurrentlyReading(context),
+                      ),
+                    if (!desktop && showBack) ...[
                       const SizedBox(width: 8),
                       _navItem(null, 'Bookmarks', () => pushBookmarks(context)),
                     ],
@@ -655,10 +659,7 @@ class _KatanaHeaderState extends State<KatanaHeader> {
               left: 0,
               right: 0,
               bottom: 0,
-              child: _GlideUnderline(
-                active: active,
-                fromLeft: _wipeFromLeft,
-              ),
+              child: _GlideUnderline(active: active, fromLeft: _wipeFromLeft),
             ),
           ],
         ),

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../data/services/animex_stores.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../shared/widgets/shelf/media_section_menu.dart';
 
 import 'animex_buttons.dart';
 import 'animex_controller.dart';
@@ -102,19 +103,9 @@ class AnimeXTopHeader extends StatelessWidget {
                   ],
                 ],
                 const Spacer(),
-                // Mobile (incl. the iPhone PWA at 430px) only keeps search
-                // + profile here. Cinema is redundant with the back arrow
-                // and My List lives in the bottom nav — showing all three
-                // text buttons overflowed the row and clipped the profile.
-                if (isDesktop && isCinemaOnlyUser) ...[
-                  AnimeXGhostButton(
-                    label: 'Cinema',
-                    icon: Icons.movie_outlined,
-                    color: AnimeXTokens.textPrimary,
-                    onTap: () => context.go('/cinema'),
-                  ),
-                  const SizedBox(width: 4),
-                ],
+                // Keep section switching compact so phone headers still fit
+                // the search and profile controls.
+                const MediaSectionMenu(currentRoute: '/anime'),
                 AnimeXIconButton(
                   icon: Icons.search_rounded,
                   tooltip: 'Search',

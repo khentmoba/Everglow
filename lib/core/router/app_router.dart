@@ -115,7 +115,7 @@ GoRouter createAppRouter() {
           queryParameters: {'from': state.uri.toString()},
         ).toString();
       }
-      // Cinema-only users stay inside /cinema and /anime (see
+      // Cinema-only users stay inside the four media sections (see
       // [AppErrorPage.cinemaOnlyRedirect]): couple pages would only
       // render empty for them (Firestore rules deny every read), so
       // anything else — deep links and restored pages included —

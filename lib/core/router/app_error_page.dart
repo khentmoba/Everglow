@@ -25,15 +25,13 @@ class AppErrorPage extends StatelessWidget {
   }
 
   /// Where a cinema-only profile (Breyan / Octagram) may go. Returns the
-  /// bounce target (`/cinema`) for couple-only pages, else null. Anime
-  /// stays allowed: the cinema shell gives these profiles an Anime button
-  /// (their only ride to `/anime` on mobile) and the anime header links
-  /// back to `/cinema`. Pure so it unit-tests without Firebase.
+  /// bounce target (`/cinema`) for couple-only pages, else null. All four
+  /// media sections and their child routes are allowed.
   static String? cinemaOnlyRedirect(String loc) {
-    if (loc == '/' ||
-        loc.startsWith('/cinema') ||
-        loc.startsWith('/anime')) {
-      return null;
+    final path = Uri.parse(loc).path;
+    if (path == '/') return null;
+    for (final section in const ['/cinema', '/anime', '/manga', '/books']) {
+      if (path == section || path.startsWith('$section/')) return null;
     }
     return '/cinema';
   }
@@ -75,8 +73,8 @@ class AppErrorPage extends StatelessWidget {
                   final auth = context.read<AuthService>();
                   // Same "authed" definition as the router redirect:
                   // a real Firebase session or a persisted offline name.
-                  final authed = auth.isAuthenticated ||
-                      auth.currentUser != null;
+                  final authed =
+                      auth.isAuthenticated || auth.currentUser != null;
                   home = homeRouteFor(
                     isAuthenticated: authed,
                     isCinemaOnlyUser: auth.isCinemaOnlyUser,

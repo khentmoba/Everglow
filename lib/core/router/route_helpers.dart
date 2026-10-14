@@ -39,7 +39,7 @@ String agentJumpLocation(Uri launch, String target) {
 ///
 /// Safety: the `from` value comes from the URL bar, so only internal
 /// paths are accepted (no scheme, host, `..`, or protocol-relative `//`).
-/// Cinema-only users are kept inside `/cinema`.
+/// Cinema-only users are kept inside the four media sections.
 String? deepLinkTarget(Uri gatewayUri, {required bool cinemaOnly}) {
   final from = gatewayUri.queryParameters['from'];
   if (from == null || from.isEmpty) return null;
@@ -53,6 +53,6 @@ String? deepLinkTarget(Uri gatewayUri, {required bool cinemaOnly}) {
   if (!path.startsWith('/') || path.startsWith('//')) return null;
   if (path.contains('..')) return null;
   if (path == '/') return null;
-  if (cinemaOnly && !path.startsWith('/cinema')) return null;
+  if (cinemaOnly && AppErrorPage.cinemaOnlyRedirect(path) != null) return null;
   return target.toString();
 }
