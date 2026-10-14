@@ -19,6 +19,9 @@ class BrowseCategoryOption {
   /// TMDB genre id filter (for genre-type options).
   final int? genreId;
 
+  /// TMDB genre ids to exclude from discovery.
+  final List<int>? withoutGenres;
+
   /// Year range filter.
   final int? yearGte;
   final int? yearLte;
@@ -43,6 +46,7 @@ class BrowseCategoryOption {
     required this.group,
     this.mediaType = 'movie',
     this.genreId,
+    this.withoutGenres,
     this.yearGte,
     this.yearLte,
     this.voteAverageGte,
@@ -83,7 +87,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     sortBy: 'popularity.desc',
   ),
 
-  // ── Genre options (movies + TV) ─────────────────────────────
+  // ── Genre options (movies + TV) ────────────────────────────
   ..._movieGenreOptions,
   ..._tvGenreOptions,
 
@@ -144,7 +148,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     voteAverageGte: 7.0,
   ),
 
-  // ── Language options ────────────────────────────────────────
+  // ── Language options ──────────────────────────────────────────────
   const BrowseCategoryOption(
     id: 'lang-ko',
     label: 'Korean',
@@ -163,6 +167,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
     group: BrowseCategoryGroup.language,
     mediaType: 'tv',
     withOriginalLanguage: 'ja',
+    withoutGenres: [16],
     voteAverageGte: 7.0,
   ),
   const BrowseCategoryOption(
