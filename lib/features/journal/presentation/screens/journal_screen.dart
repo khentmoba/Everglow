@@ -39,6 +39,17 @@ class _JournalScreenState extends State<JournalScreen> {
   String? _authorFilter;
   bool _pinnedOnly = false;
   bool _lockedOnly = false;
+  late Stream<List<JournalEntry>> _entries = _watchEntries();
+
+  Stream<List<JournalEntry>> _watchEntries() => widget.demoEntries != null
+      ? Stream.value(widget.demoEntries!)
+      : JournalService().watchAll();
+
+  @override
+  void didUpdateWidget(covariant JournalScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.demoEntries != widget.demoEntries) _entries = _watchEntries();
+  }
 
   List<JournalEntry> _visibleEntries(List<JournalEntry> all) {
     var entries = List<JournalEntry>.of(all);
@@ -139,11 +150,12 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
           Expanded(
             child: EverglowStreamView<List<JournalEntry>>(
-              stream: widget.demoEntries != null ? Stream.value(widget.demoEntries!) : service.watchAll(),
+              stream: _entries,
+              guardFirstEvent: false,
               streamLabel: 'journal-entries',
               errorMessage: 'Could not load journal',
               errorIcon: Icons.menu_book_outlined,
-              onRetry: () => setState(() {}),
+              onRetry: () => setState(() => _entries = _watchEntries()),
               loadingView: const Padding(
                 padding: EdgeInsets.fromLTRB(16, 4, 16, 20),
                 child: Column(
@@ -520,11 +532,7 @@ class _Stat extends StatelessWidget {
   final String label;
   final IconData icon;
 
-  const _Stat({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
+  const _Stat({required this.value, required this.label, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -533,9 +541,7 @@ class _Stat extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.inkDeep.withValues(alpha: 0.40),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.08),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,

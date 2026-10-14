@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/utils/firestore_stream_utils.dart';
+import '../../../core/utils/logger.dart';
 import 'everglow_error_state.dart';
 import 'everglow_skeleton.dart';
 
@@ -20,9 +24,12 @@ import 'everglow_skeleton.dart';
 ///   builder: (context, trips) => ListView(...),
 /// )
 /// ```
-class EverglowStreamView<T> extends StatelessWidget {
-  /// Live Firestore stream (already wrapped with a first-event timeout).
+class EverglowStreamView<T> extends StatefulWidget {
+  /// Keep this source stable between rebuilds; replace it for queries or retry.
   final Stream<T> stream;
+
+  /// Disable when the service already guards the first event and owns retries.
+  final bool guardFirstEvent;
 
   /// Label used in debug logs when the first snapshot hangs.
   final String? streamLabel;
@@ -57,6 +64,7 @@ class EverglowStreamView<T> extends StatelessWidget {
     super.key,
     required this.stream,
     required this.builder,
+    this.guardFirstEvent = true,
     this.streamLabel,
     this.isEmpty,
     this.emptyView,
@@ -68,26 +76,112 @@ class EverglowStreamView<T> extends StatelessWidget {
   });
 
   @override
+  State<EverglowStreamView<T>> createState() => _EverglowStreamViewState<T>();
+}
+
+class _EverglowStreamViewState<T> extends State<EverglowStreamView<T>> {
+  late Stream<T> _stream;
+  T? _lastData;
+  Object? _loggedError;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateStream();
+  }
+
+  @override
+  void didUpdateWidget(covariant EverglowStreamView<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.stream != widget.stream ||
+        oldWidget.guardFirstEvent != widget.guardFirstEvent) {
+      _lastData = null;
+      _loggedError = null;
+      _updateStream();
+    }
+  }
+
+  void _updateStream() {
+    _stream = widget.guardFirstEvent
+        ? withFirestoreTimeout(
+            widget.stream,
+            label: widget.streamLabel ?? 'stream',
+          )
+        : widget.stream;
+  }
+
+  bool _isTransient(Object? error) =>
+      error is TimeoutException ||
+      (error is FirebaseException &&
+          const {
+            'unavailable',
+            'deadline-exceeded',
+            'aborted',
+            'cancelled',
+            'resource-exhausted',
+          }.contains(error.code));
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<T>(
-      stream: withFirestoreTimeout(stream, label: streamLabel ?? 'stream'),
+      // A new source must not inherit the previous query/profile's snapshot.
+      key: ObjectKey(_stream),
+      stream: _stream,
       builder: (context, snap) {
+        if (!snap.hasError &&
+            (snap.connectionState == ConnectionState.active ||
+                snap.connectionState == ConnectionState.done)) {
+          _lastData = snap.data;
+          _loggedError = null;
+        }
         if (snap.hasError) {
-          return EverglowErrorState(
-            message: errorMessage,
-            onRetry: onRetry,
-            icon: errorIcon,
-          );
+          if (_loggedError != snap.error) {
+            _loggedError = snap.error;
+            Logger.e(widget.streamLabel ?? 'stream', error: snap.error);
+          }
+          if (!_isTransient(snap.error) || _lastData == null) {
+            _lastData = null;
+            return EverglowErrorState(
+              message: widget.errorMessage,
+              onRetry: widget.onRetry,
+              icon: widget.errorIcon,
+            );
+          }
         }
-        if (!snap.hasData) {
-          return loadingView ??
-              EverglowLoadingState(message: loadingMessage);
+        final data = _lastData;
+        if (data == null) {
+          return widget.loadingView ??
+              EverglowLoadingState(message: widget.loadingMessage);
         }
-        final data = snap.data as T;
-        if (isEmpty?.call(data) == true) {
-          return emptyView ?? const SizedBox.shrink();
-        }
-        return builder(context, data);
+        final content = widget.isEmpty?.call(data) == true
+            ? widget.emptyView ?? const SizedBox.shrink()
+            : widget.builder(context, data);
+        return Stack(
+          children: [
+            content,
+            if (snap.hasError)
+              PositionedDirectional(
+                top: 8,
+                end: 8,
+                child: Material(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  child: TextButton.icon(
+                    onPressed: widget.onRetry,
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    ),
+                    icon: const Icon(Icons.cloud_off_outlined, size: 16),
+                    label: Text(
+                      widget.onRetry == null
+                          ? 'Could not refresh'
+                          : 'Could not refresh · Retry',
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
       },
     );
   }
