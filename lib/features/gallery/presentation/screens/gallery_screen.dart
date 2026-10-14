@@ -38,6 +38,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Future<List<MemoryPhoto>>? _searchFuture;
   int _tabIndex = 0; // 0 grid, 1 map, 2 week
   int _photoLimit = 40;
+  late Stream<List<MemoryPhoto>> _photos = _galleryService.getPhotosStream(
+    limit: _photoLimit,
+  );
+  Future<List<MemoryPhoto>>? _mapPhotos;
 
   @override
   void dispose() {
@@ -91,7 +95,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: EverglowSegmentedControl(
               selectedIndex: _tabIndex,
-              onChanged: (i) => setState(() => _tabIndex = i),
+              onChanged: (i) => setState(() {
+                _tabIndex = i;
+                if (i == 1) {
+                  _mapPhotos ??= _galleryService.getPhotosWithLocationStream();
+                }
+              }),
               activeColor: AppColors.roseQuartz,
               items: const [
                 SegmentItem('Grid', Icons.grid_view_rounded),
@@ -106,7 +115,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
           Expanded(
             child: _tabIndex == 1
                 ? FutureBuilder<List<MemoryPhoto>>(
-                    future: _galleryService.getPhotosWithLocationStream(),
+                    future: _mapPhotos,
                     builder: (context, snap) {
                       if (snap.connectionState == ConnectionState.waiting) {
                         return const Padding(
@@ -124,7 +133,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           title: 'Could not load map photos',
                           subtitle: 'Try again',
                           ctaLabel: 'Retry',
-                          onCta: () => setState(() {}),
+                          onCta: () => setState(() {
+                            _mapPhotos = _galleryService
+                                .getPhotosWithLocationStream();
+                          }),
                         );
                       }
                       return GalleryMapView(
@@ -133,15 +145,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     },
                   )
                 : _tabIndex == 2
-                ? const ThisWeekView()
+                ? ThisWeekView(service: _galleryService)
                 : _searchQuery.isNotEmpty
                 ? _buildSearchResults()
                 : EverglowStreamView<List<MemoryPhoto>>(
-                    stream: _galleryService.getPhotosStream(limit: _photoLimit),
+                    stream: _photos,
                     streamLabel: 'gallery-grid',
                     errorMessage: 'Could not load photos',
                     errorIcon: Icons.photo_library_outlined,
-                    onRetry: () => setState(() {}),
+                    onRetry: () => setState(() {
+                      _photos = _galleryService.getPhotosStream(
+                        limit: _photoLimit,
+                      );
+                    }),
                     loadingView: EverglowSkeletonGrid(
                       count: 6,
                       crossAxisCount: _galleryColumns(context),
@@ -194,8 +210,12 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           ),
                           if (photos.length == _photoLimit)
                             TextButton(
-                              onPressed: () =>
-                                  setState(() => _photoLimit += 40),
+                              onPressed: () => setState(() {
+                                _photoLimit += 40;
+                                _photos = _galleryService.getPhotosStream(
+                                  limit: _photoLimit,
+                                );
+                              }),
                               child: const Text('Load older photos'),
                             ),
                         ],
@@ -455,9 +475,7 @@ class _PhotoCardState extends State<_PhotoCard> {
               children: [
                 AppNetworkImage(
                   imageUrl: GalleryService.displayUrl(
-                    photo.thumbUrl?.isNotEmpty == true
-                        ? photo.thumbUrl!
-                        : photo.imageUrl,
+                    photo.previewUrl,
                     thumb: photo.thumbUrl?.isNotEmpty != true,
                   ),
                   fit: BoxFit.cover,

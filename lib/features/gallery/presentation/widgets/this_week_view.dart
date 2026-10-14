@@ -6,14 +6,22 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../gallery/data/services/gallery_service.dart';
 import '../../../gallery/domain/models/memory_photo.dart';
 
-class ThisWeekView extends StatelessWidget {
-  const ThisWeekView({super.key});
+class ThisWeekView extends StatefulWidget {
+  const ThisWeekView({super.key, this.service});
+  final GalleryService? service;
+
+  @override
+  State<ThisWeekView> createState() => _ThisWeekViewState();
+}
+
+class _ThisWeekViewState extends State<ThisWeekView> {
+  late final Future<List<MemoryPhoto>> _photos =
+      (widget.service ?? GalleryService()).getPhotosFromThisWeek();
 
   @override
   Widget build(BuildContext context) {
-    final gallery = GalleryService();
     return FutureBuilder<List<MemoryPhoto>>(
-      future: gallery.getPhotosFromThisWeek(),
+      future: _photos,
       builder: (context, snap) {
         final photos = snap.data ?? [];
         if (snap.connectionState == ConnectionState.waiting) {
@@ -103,7 +111,10 @@ class ThisWeekView extends StatelessWidget {
                       left: Radius.circular(14),
                     ),
                     child: AppNetworkImage(
-                      imageUrl: GalleryService.displayUrl(p.imageUrl, thumb: true),
+                      imageUrl: GalleryService.displayUrl(
+                        p.previewUrl,
+                        thumb: true,
+                      ),
                       width: 90,
                       height: 90,
                       fit: BoxFit.cover,

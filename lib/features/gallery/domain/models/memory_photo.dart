@@ -30,6 +30,7 @@ class MemoryPhoto {
   });
 
   bool get hasLocation => latitude != null && longitude != null;
+  String get previewUrl => thumbUrl?.isNotEmpty == true ? thumbUrl! : imageUrl;
 
   factory MemoryPhoto.fromFirestore(DocumentSnapshot doc) {
     return MemoryPhoto.fromMap(

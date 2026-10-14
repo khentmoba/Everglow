@@ -182,7 +182,10 @@ class GalleryMapView extends StatelessWidget {
                             top: Radius.circular(12),
                           ),
                           child: AppNetworkImage(
-                            imageUrl: GalleryService.displayUrl(p.imageUrl, thumb: true),
+                            imageUrl: GalleryService.displayUrl(
+                              p.previewUrl,
+                              thumb: true,
+                            ),
                             width: 140,
                             fit: BoxFit.cover,
                             cacheWidth: 300,
@@ -245,7 +248,10 @@ class GalleryMapView extends StatelessWidget {
                   top: Radius.circular(16),
                 ),
                 child: AppNetworkImage(
-                  imageUrl: GalleryService.displayUrl(p.imageUrl, thumb: true),
+                  imageUrl: GalleryService.displayUrl(
+                    p.previewUrl,
+                    thumb: true,
+                  ),
                   fit: BoxFit.cover,
                   cacheWidth: 600,
                   errorWidget: Container(
@@ -391,7 +397,10 @@ class _MapPinState extends State<_MapPin> {
               ),
               child: ClipOval(
                 child: AppNetworkImage(
-                  imageUrl: GalleryService.displayUrl(widget.photo.imageUrl, thumb: true),
+                  imageUrl: GalleryService.displayUrl(
+                    widget.photo.previewUrl,
+                    thumb: true,
+                  ),
                   width: _hovered ? 38 : 32,
                   height: _hovered ? 38 : 32,
                   fit: BoxFit.cover,
