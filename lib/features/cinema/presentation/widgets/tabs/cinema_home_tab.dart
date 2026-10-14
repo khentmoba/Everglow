@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_breakpoints.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../../../../core/theme/app_motion.dart';
 import '../../../data/models/media_item.dart';
 import '../netflix/netflix_billboard.dart';
 import '../netflix/netflix_colors.dart';
 import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_row.dart';
-import '../../../../../shared/widgets/everglow/everglow_skeleton.dart';
+import '../netflix/netflix_loading.dart';
 
 /// A small personal home. The rest of the catalogue lives in Browse.
 class CinemaHomeTab extends StatelessWidget {
@@ -74,6 +75,9 @@ class CinemaHomeTab extends StatelessWidget {
   }
 
   Widget _row(String title, List<MediaItem> items, {bool ranked = false}) {
+    if (items.isEmpty && isLoadingHome) {
+      return SliverToBoxAdapter(child: NetflixLoadingRow(title: title));
+    }
     return SliverToBoxAdapter(
       child: NetflixRow(
         title: title,
@@ -107,10 +111,19 @@ class CinemaHomeTab extends StatelessWidget {
       ),
     );
     final hero = SliverToBoxAdapter(
-      child: NetflixBillboard(
-        items: trendingCarousel.take(5).toList(),
-        onPlay: onPlay,
-        onInfo: onMediaTap,
+      child: AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : AppMotion.orZero(AppMotion.page),
+        switchInCurve: AppMotion.easeOutExpo,
+        child: trendingCarousel.isEmpty && isLoadingHome
+            ? const NetflixLoadingBillboard(key: ValueKey('loading'))
+            : NetflixBillboard(
+                key: const ValueKey('featured'),
+                items: trendingCarousel.take(5).toList(),
+                onPlay: onPlay,
+                onInfo: onMediaTap,
+              ),
       ),
     );
     final emptyCatalogue =
@@ -135,13 +148,11 @@ class CinemaHomeTab extends StatelessWidget {
               ),
               sliver: continueRow,
             ),
-          if (!isLoadingHome) hero,
+          hero,
           if (desktop && watchingList.isNotEmpty) continueRow,
           if (savedList.isNotEmpty)
             _row('Your picks', savedList.take(10).toList()),
-          if (isLoadingHome)
-            ..._loadingSlivers(context)
-          else ...[
+          ...[
             if (emptyCatalogue)
               SliverToBoxAdapter(
                 child: Padding(
@@ -163,15 +174,17 @@ class CinemaHomeTab extends StatelessWidget {
                   ),
                 ),
               ),
-            if (trendingGlobal.isNotEmpty) _row('Trending Now', trendingGlobal),
-            if (topTenToday.isNotEmpty)
+            if (isLoadingHome || trendingGlobal.isNotEmpty)
+              _row('Trending Now', trendingGlobal),
+            if (isLoadingHome || topTenToday.isNotEmpty)
               _row(
                 'Top 10 in $topTenCountryLabel',
                 topTenToday.take(10).toList(),
                 ranked: true,
               ),
-            if (newlyReleased.isNotEmpty) _row('Coming Soon', newlyReleased),
-            if (popularTVShows.isNotEmpty)
+            if (isLoadingHome || newlyReleased.isNotEmpty)
+              _row('Coming Soon', newlyReleased),
+            if (isLoadingHome || popularTVShows.isNotEmpty)
               _row('Popular Series', popularTVShows),
             SliverToBoxAdapter(
               child: Padding(
@@ -193,41 +206,4 @@ class CinemaHomeTab extends StatelessWidget {
       ),
     );
   }
-}
-
-List<Widget> _loadingSlivers(BuildContext context) {
-  final desktop = AppBreakpoint.isDesktop(context);
-  final pad = desktop ? 48.0 : 16.0;
-  return [
-    const SliverToBoxAdapter(child: EverglowSkeleton(height: 300, radius: 0)),
-    SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(pad, 24, pad, 14),
-        child: const EverglowSkeleton(height: 22, width: 180, radius: 4),
-      ),
-    ),
-    SliverToBoxAdapter(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: pad),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final count = desktop ? 6 : 3;
-            final width = (constraints.maxWidth - (count - 1) * 10) / count;
-            return Row(
-              children: [
-                for (var i = 0; i < count; i++) ...[
-                  if (i > 0) const SizedBox(width: 10),
-                  EverglowSkeleton(
-                    height: width * 1.5,
-                    width: width,
-                    radius: 6,
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-    ),
-  ];
 }
