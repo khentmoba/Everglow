@@ -1546,7 +1546,7 @@ class MusicSyncService {
     required String artist,
     List<String> knownTracks = const [],
     int maxTracks = 12,
-    int scrobblesPerTrack = 50,
+    int scrobblesPerTrack = 200,
     bool includeRecent = true,
   }) async {
     final trimmedArtist = artist.trim();
@@ -1571,6 +1571,28 @@ class MusicSyncService {
       }
     }
 
+    // Overlap recent plays with the full-history reads instead of adding
+    // another network round trip after the final song batch.
+    final recentFuture = () async {
+      if (!includeRecent) return const <MusicStatus>[];
+      try {
+        final recent = await fetchRecentTracks(username, limit: 200);
+        return recent
+            .where(
+              (t) =>
+                  t.artistName.trim().toLowerCase() == wantedArtist &&
+                  t.timestamp != null,
+            )
+            .toList();
+      } catch (e) {
+        Logger.w(
+          'Jukebox Service: Error fetching recent tracks for artist $trimmedArtist',
+          error: e,
+        );
+        return const <MusicStatus>[];
+      }
+    }();
+
     // Walk each track's full scrobble list in small batches so a 20-song
     // artist does not fire 20 parallel requests at Last.fm at once.
     const batchSize = 5;
@@ -1592,30 +1614,7 @@ class MusicSyncService {
       }
     }
 
-    // Also fetch recent scrobbles as immediate fallback / supplement
-    Future<List<MusicStatus>> recentFuture =
-        Future.value(const <MusicStatus>[]);
-    if (includeRecent) {
-      recentFuture = fetchRecentTracks(username, limit: 200).then(
-        (recent) => recent
-            .where(
-              (t) =>
-                  t.artistName.trim().toLowerCase() == wantedArtist &&
-                  t.timestamp != null,
-            )
-            .toList(),
-      );
-    }
-
-    try {
-      final recentMatches = await recentFuture;
-      allScrobbles.addAll(recentMatches);
-    } catch (e) {
-      Logger.w(
-        'Jukebox Service: Error fetching recent tracks for artist $trimmedArtist',
-        error: e,
-      );
-    }
+    allScrobbles.addAll(await recentFuture);
 
     // Deduplicate scrobbles: trackName (lowercase) + timestamp (ms)
     final deduplicated = <MusicStatus>[];

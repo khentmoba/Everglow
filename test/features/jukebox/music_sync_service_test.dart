@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -1222,6 +1223,77 @@ void main() {
         expect(requestedPages, ['1', '2', '3']);
       },
     );
+
+    test('artist history uses two requests for 364 plays', () async {
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        final limit = int.parse(request.url.queryParameters['limit']!);
+        final page = int.parse(request.url.queryParameters['page']!);
+        final start = (page - 1) * limit;
+        final count = (364 - start).clamp(0, limit);
+        return _jsonResponse({
+          'trackscrobbles': {
+            '@attr': {'totalPages': '${(364 / limit).ceil()}'},
+            'track': List.generate(
+              count,
+              (i) => {
+                'name': 'Demo Song',
+                'artist': {'#text': 'Demo Artist'},
+                'date': {'uts': '${1690000000 + start + i}'},
+              },
+            ),
+          },
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+      final history = await service.fetchArtistHistory(
+        'demo-user',
+        artist: 'Demo Artist',
+        knownTracks: ['Demo Song'],
+        includeRecent: false,
+      );
+      expect(history, hasLength(364));
+      expect(history.first.timestamp!.isAfter(history.last.timestamp!), isTrue);
+      expect(requests, 2);
+    });
+
+    test('recent history starts while song history is still pending', () async {
+      final releaseTrack = Completer<void>();
+      final trackStarted = Completer<void>();
+      var recentStarted = false;
+      final client = MockClient((request) async {
+        if (request.url.queryParameters['method'] == 'user.gettrackscrobbles') {
+          trackStarted.complete();
+          await releaseTrack.future;
+          return _jsonResponse({
+            'trackscrobbles': {'track': []},
+          });
+        }
+        recentStarted = true;
+        return _jsonResponse({
+          'recenttracks': {'track': []},
+        });
+      });
+      final service = MusicSyncService(
+        client: client,
+        signUrl: (url) async => url,
+      );
+      final history = service.fetchArtistHistory(
+        'demo-user',
+        artist: 'Demo Artist',
+        knownTracks: ['Demo Song'],
+      );
+      await trackStarted.future;
+      await Future<void>.delayed(Duration.zero);
+      final overlapped = recentStarted;
+      releaseTrack.complete();
+      await history;
+      expect(overlapped, isTrue);
+    });
 
     test('fetchTrackScrobblesAll walks every page up to totalPages', () async {
       final requestedPages = <String>[];
