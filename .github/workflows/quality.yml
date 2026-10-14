@@ -78,6 +78,7 @@ jobs:
           test/embedded_media_web_memory_test.dart
           test/features/ai/motchi_streaming_scroll_test.dart
           test/core/system/web_standalone_browser_test.dart
+          test/desktop_app_browser_test.dart
 
   web_build:
     needs: changes

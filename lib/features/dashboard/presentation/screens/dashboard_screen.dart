@@ -52,6 +52,7 @@ import '../widgets/xp_progress_section.dart';
 import '../widgets/quick_action_tile.dart';
 import '../widgets/dashboard_jump_bar.dart';
 import '../widgets/dashboard_zone_header.dart';
+import '../../../../shared/widgets/everglow/desktop_app_action.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
