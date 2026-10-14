@@ -18,6 +18,14 @@ MemoryPhoto _photo() => MemoryPhoto(
 
 void main() {
   group('MemoryPhoto', () {
+    test('previews use thumbnails and fall back for legacy photos', () {
+      expect(_photo().previewUrl, _photo().imageUrl);
+      expect(_photo().copyWith(thumbUrl: '').previewUrl, _photo().imageUrl);
+      expect(
+        _photo().copyWith(thumbUrl: 'https://example.com/thumb.jpg').previewUrl,
+        'https://example.com/thumb.jpg',
+      );
+    });
     test('hasLocation needs both coordinates', () {
       expect(_photo().hasLocation, isTrue);
       expect(_photo().copyWith(clearLocation: true).hasLocation, isFalse);
@@ -79,9 +87,7 @@ void main() {
           'tags': ['beach'],
           'latitude': 14.5,
           'longitude': 120.9,
-        },
-        id: 'p9',
-      );
+      }, id: 'p9');
 
       expect(photo.id, 'p9');
       expect(photo.caption, 'c');

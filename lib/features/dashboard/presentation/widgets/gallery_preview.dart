@@ -139,9 +139,7 @@ class _GalleryPreviewState extends State<GalleryPreview> {
                             child: ShelfCard(
                               accent: ShelfAccent.gallery,
                               imageUrl: GalleryService.displayUrl(
-                                photo.thumbUrl?.isNotEmpty == true
-                                    ? photo.thumbUrl!
-                                    : photo.imageUrl,
+                              photo.previewUrl,
                                 thumb: photo.thumbUrl?.isNotEmpty != true,
                               ),
                               title: '',
