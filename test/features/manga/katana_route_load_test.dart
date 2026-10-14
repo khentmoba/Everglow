@@ -131,6 +131,9 @@ class _FakeAuthService extends ChangeNotifier implements AuthService {
   bool get isCoupleUser => false;
 
   @override
+  bool get isCinemaOnlyUser => false;
+
+  @override
   String? get partnerUsername => null;
 
   @override

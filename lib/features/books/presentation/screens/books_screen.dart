@@ -20,6 +20,7 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/shelf/filter_chip.dart';
 import '../../../../shared/widgets/shelf/scroll_edge_fade.dart';
 import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
+import '../../../../shared/widgets/shelf/media_section_menu.dart';
 import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
@@ -158,11 +159,16 @@ class _BooksScreenState extends _BooksScreenStateBase {
     final top = MediaQuery.paddingOf(context).top;
     final canPop = Navigator.canPop(context);
     final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
+    final isCinemaOnly = context.select<AuthService, bool>(
+      (a) => a.isCinemaOnlyUser,
+    );
     return Container(
       padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
       child: Row(
         children: [
-          if (canPop)
+          if (isCinemaOnly)
+            const MediaSectionMenu(currentRoute: '/books')
+          else if (canPop)
             ShelfIconButton(
               icon: Icons.arrow_back_ios_new_rounded,
               semanticLabel: 'Back',

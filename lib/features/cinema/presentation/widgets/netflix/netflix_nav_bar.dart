@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/theme/app_typography.dart';
+import '../../../../../shared/widgets/shelf/media_section_menu.dart';
 import 'netflix_colors.dart';
 
 /// Height of the floating desktop/tablet top navbar, excluding the system
@@ -315,6 +316,7 @@ class NetflixCinemaTopBar extends StatelessWidget {
                   ],
                 ),
               ),
+              const MediaSectionMenu(currentRoute: '/cinema'),
               _ProfileButton(
                 userName: userName,
                 onLogout: onLogout,

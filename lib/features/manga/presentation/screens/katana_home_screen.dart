@@ -146,22 +146,29 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     final data = _data ?? const KatanaHomeData();
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 960;
-    final user =
-        context.select<AuthService, String>((a) => a.currentUser ?? '');
-    final partner =
-        context.select<AuthService, String?>((a) => a.partnerUsername);
+    final user = context.select<AuthService, String>(
+      (a) => a.currentUser ?? '',
+    );
+    final partner = context.select<AuthService, String?>(
+      (a) => a.partnerUsername,
+    );
+    final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
 
     final content = ListView(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 60),
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1240),
-            child: CurrentlyReadingShelf(userName: user, partnerName: partner),
+        if (isCouple)
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1240),
+              child: CurrentlyReadingShelf(
+                userName: user,
+                partnerName: partner,
+              ),
+            ),
           ),
-        ),
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
