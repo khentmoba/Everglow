@@ -159,8 +159,6 @@ extension _DashboardScreenSections on _DashboardScreenState {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const DesktopAppAction(),
           const SizedBox(height: 18),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -222,7 +220,6 @@ extension _DashboardScreenSections on _DashboardScreenState {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    // 9 keepsakes in a balanced 3x3 grid — quick to scan for Clair.
     final primary = <QuickAction>[
       const QuickAction(
         label: 'Gallery',
@@ -317,6 +314,13 @@ extension _DashboardScreenSections on _DashboardScreenState {
         hue: AppColors.warmAmber,
         caption: 'Tracker',
       ),
+      const QuickAction(
+        label: 'Desktop App',
+        icon: Icons.desktop_windows_rounded,
+        route: '/desktop-app',
+        hue: AppColors.blushGold,
+        caption: 'Updates',
+      ),
     ];
 
     final visible = [...primary, ...more];
@@ -332,14 +336,14 @@ extension _DashboardScreenSections on _DashboardScreenState {
         const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
-            // 3x3 on phone, denser on tablet (5) + desktop (6) so the 9
-            // tiles don't balloon into giant cards on Clair's tablet.
+            // Keep tiles compact on phone, tablet, and desktop.
             final columns = switch (AppBreakpoint.of(context)) {
               BreakpointSize.mobile => 3,
               BreakpointSize.tablet => 5,
               BreakpointSize.desktop => 6,
             };
-            final tileWidth = (constraints.maxWidth - ((columns - 1) * 12)) / columns;
+            final tileWidth =
+                (constraints.maxWidth - ((columns - 1) * 12)) / columns;
             return Wrap(
               spacing: 12,
               runSpacing: 12,

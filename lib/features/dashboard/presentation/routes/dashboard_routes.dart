@@ -3,9 +3,18 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/deferred_route.dart';
 import '../screens/dashboard_screen.dart' deferred as dashboard_lib;
 import '../screens/letterbox_archive_screen.dart' deferred as letterbox_lib;
+import '../screens/desktop_app_screen.dart' deferred as desktop_lib;
 
 /// Routes owned by the dashboard feature.
 final List<GoRoute> dashboardRoutes = [
+  GoRoute(
+    path: '/desktop-app',
+    builder: (_, _) => DeferredRouteLoader(
+      label: 'Desktop App',
+      loadLibrary: desktop_lib.loadLibrary,
+      builder: () => desktop_lib.DesktopAppScreen(),
+    ),
+  ),
   GoRoute(
     path: '/dashboard',
     builder: (_, state) => DeferredRouteLoader(
