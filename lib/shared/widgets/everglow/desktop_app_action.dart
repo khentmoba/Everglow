@@ -6,7 +6,7 @@ import '../../../core/system/desktop_app.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/logger.dart';
 
-/// Shared entry point before login and on the couple Dashboard.
+/// Desktop download and update controls on the Dashboard's Desktop App page.
 class DesktopAppAction extends StatefulWidget {
   const DesktopAppAction({super.key});
 
