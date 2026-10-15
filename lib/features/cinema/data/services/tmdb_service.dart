@@ -15,7 +15,7 @@ import './tmdb/tmdb_watchlist_service.dart';
 /// Sub-services are also exposed as getters for callers that need direct
 /// access (e.g. stream subscriptions).
 class TMDBService with ConnectivityAware {
-  // ─── Sub-services ──────────────────────────────────────────────────────
+  // ─── Sub-services ──────────────────────────────────────────────────────────
 
   late final TMDBDiscoveryService _discovery;
   late final TMDBSearchService _search;
@@ -25,7 +25,7 @@ class TMDBService with ConnectivityAware {
   late final TMDBCacheService _cache;
   late final TMDBTrailerService _trailer;
 
-  // ─── Sub-service getters ───────────────────────────────────────────────
+  // ─── Sub-service getters ───────────────────────────────────────────────────
 
   TMDBDiscoveryService get discovery => _discovery;
   TMDBSearchService get search => _search;
@@ -35,7 +35,7 @@ class TMDBService with ConnectivityAware {
   TMDBCacheService get cache => _cache;
   TMDBTrailerService get trailer => _trailer;
 
-  // ─── Singleton ─────────────────────────────────────────────────────────
+  // ─── Singleton ─────────────────────────────────────────────────────────────
 
   static final TMDBService _instance = TMDBService._internal();
   factory TMDBService() => _instance;
@@ -49,7 +49,7 @@ class TMDBService with ConnectivityAware {
     _trailer = TMDBTrailerService();
   }
 
-  // ─── Discovery ─────────────────────────────────────────────────────────
+  // ─── Discovery ─────────────────────────────────────────────────────────────
 
   Future<List<MediaItem>> fetchTrendingAnime() =>
       _discovery.fetchTrendingAnime();
@@ -146,6 +146,7 @@ class TMDBService with ConnectivityAware {
     required String mediaType,
     String? sortBy,
     List<int>? withGenres,
+    List<int>? withoutGenres,
     int? yearGte,
     int? yearLte,
     double? voteAverageGte,
@@ -157,6 +158,7 @@ class TMDBService with ConnectivityAware {
     mediaType: mediaType,
     sortBy: sortBy,
     withGenres: withGenres,
+    withoutGenres: withoutGenres,
     yearGte: yearGte,
     yearLte: yearLte,
     voteAverageGte: voteAverageGte,
@@ -166,7 +168,7 @@ class TMDBService with ConnectivityAware {
     failOnError: failOnError,
   );
 
-  // ─── Search ────────────────────────────────────────────────────────────
+  // ─── Search ────────────────────────────────────────────────────────────────
 
   Future<List<MediaItem>> searchMedia(
     String query, {
@@ -177,7 +179,7 @@ class TMDBService with ConnectivityAware {
   Future<int?> searchTvShow(String title, {String? firstAirDateYear}) =>
       _search.searchTvShow(title, firstAirDateYear: firstAirDateYear);
 
-  // ─── Details ───────────────────────────────────────────────────────────
+  // ─── Details ───────────────────────────────────────────────────────────────
 
   Future<List<Map<String, dynamic>>> fetchCredits(int id, String mediaType) =>
       _details.fetchCredits(id, mediaType);
@@ -200,7 +202,7 @@ class TMDBService with ConnectivityAware {
   Future<bool> isAnimeByTmdbId(int tmdbId, String mediaType) =>
       _details.isAnimeByTmdbId(tmdbId, mediaType);
 
-  // ─── Poster ────────────────────────────────────────────────────────────
+  // ─── Poster ────────────────────────────────────────────────────────────────
 
   Future<String> fetchPosterUrl(int tmdbId, String mediaType) =>
       _poster.fetchPosterUrl(tmdbId, mediaType);
@@ -215,7 +217,7 @@ class TMDBService with ConnectivityAware {
   Future<List<MediaItem>> refreshAnimePosters(List<MediaItem> items) =>
       _poster.refreshAnimePosters(items);
 
-  // ─── Watchlist CRUD ────────────────────────────────────────────────────
+  // ─── Watchlist CRUD ────────────────────────────────────────────────────────
 
   Future<void> saveToWatchList(
     MediaItem item,
@@ -303,7 +305,7 @@ class TMDBService with ConnectivityAware {
   Future<bool> isReminderSet(int tmdbId, String userName) =>
       _watchlist.isReminderSet(tmdbId, userName);
 
-  // ─── Watchlist Streams ─────────────────────────────────────────────────
+  // ─── Watchlist Streams ─────────────────────────────────────────────────────
 
   Future<List<MediaItem>> getPreviewItems(
     String userName, {
@@ -352,7 +354,7 @@ class TMDBService with ConnectivityAware {
     userB: userB,
   );
 
-  // ─── Progress / Heartbeat ──────────────────────────────────────────────
+  // ─── Progress / Heartbeat ──────────────────────────────────────────────────
 
   Future<void> heartbeatProgress(
     int tmdbId,
@@ -370,7 +372,7 @@ class TMDBService with ConnectivityAware {
     durationSeconds: durationSeconds,
   );
 
-  // ─── Cache ─────────────────────────────────────────────────────────────
+  // ─── Cache ─────────────────────────────────────────────────────────────────
 
   Future<void> cacheWatchList(List<MediaItem> items, String userName) =>
       _cache.cacheWatchList(items, userName);
@@ -378,12 +380,12 @@ class TMDBService with ConnectivityAware {
   Future<List<MediaItem>> getCachedWatchList(String userName) =>
       _cache.getCachedWatchList(userName);
 
-  // ─── Migration ─────────────────────────────────────────────────────────
+  // ─── Migration ─────────────────────────────────────────────────────────────
 
   Future<int> migrateWatchListOwnership() =>
       _watchlist.migrateWatchListOwnership();
 
-  // ─── Trailer ───────────────────────────────────────────────────────────
+  // ─── Trailer ───────────────────────────────────────────────────────────────
 
   Future<String?> fetchTrailerKey(int id, String mediaType) =>
       _trailer.fetchTrailerKey(id, mediaType);

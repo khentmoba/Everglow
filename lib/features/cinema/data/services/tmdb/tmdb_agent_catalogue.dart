@@ -93,11 +93,25 @@ Map<String, dynamic>? agentTmdbResponse(Uri url) {
       : null;
   final query = (url.queryParameters['query'] ?? '').toLowerCase();
   final page = int.tryParse(url.queryParameters['page'] ?? '1') ?? 1;
+  final withoutGenres = (url.queryParameters['without_genres'] ?? '')
+      .split(',')
+      .map(int.tryParse)
+      .whereType<int>()
+      .toSet();
   final records = _records
       .where(
-        (r) =>
-            (type == null || r['media_type'] == type) &&
-            (r['title'] as String).toLowerCase().contains(query),
+        (r) {
+          if (type != null && r['media_type'] != type) return false;
+          if (query.isNotEmpty &&
+              !(r['title'] as String).toLowerCase().contains(query)) {
+            return false;
+          }
+          if (withoutGenres.isNotEmpty) {
+            final genreIds = (r['genre_ids'] as List?)?.cast<int>() ?? [];
+            if (genreIds.any(withoutGenres.contains)) return false;
+          }
+          return true;
+        },
       )
       .toList();
   return {

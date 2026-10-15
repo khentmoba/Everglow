@@ -101,4 +101,20 @@ void main() {
     expect(discovery.requested!.queryParameters['with_genres'], '28');
     expect(discovery.requested!.queryParameters['page'], '2');
   });
+
+  test('discover forwards without_genres', () async {
+    final discovery = _Discovery(http.Response('{"results":[]}', 200));
+    expect(
+      await discovery.discoverMedia(
+        mediaType: 'tv',
+        withoutGenres: [16],
+        withOriginalLanguage: 'ja',
+        failOnError: true,
+      ),
+      isEmpty,
+    );
+    expect(discovery.requested!.path, endsWith('/discover/tv'));
+    expect(discovery.requested!.queryParameters['without_genres'], '16');
+    expect(discovery.requested!.queryParameters['with_original_language'], 'ja');
+  });
 }

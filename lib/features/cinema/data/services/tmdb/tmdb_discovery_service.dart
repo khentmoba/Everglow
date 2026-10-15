@@ -449,6 +449,7 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     required String mediaType, // 'movie' or 'tv'
     String? sortBy,
     List<int>? withGenres,
+    List<int>? withoutGenres,
     int? yearGte,
     int? yearLte,
     double? voteAverageGte,
@@ -461,6 +462,9 @@ class TMDBDiscoveryService with TMDBBase, ConnectivityAware {
     if (sortBy != null) params['sort_by'] = sortBy;
     if (withGenres != null && withGenres.isNotEmpty) {
       params['with_genres'] = withGenres.join(',');
+    }
+    if (withoutGenres != null && withoutGenres.isNotEmpty) {
+      params['without_genres'] = withoutGenres.join(',');
     }
     if (voteAverageGte != null) {
       params['vote_average.gte'] = voteAverageGte.toString();

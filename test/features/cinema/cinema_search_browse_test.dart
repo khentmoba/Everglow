@@ -12,8 +12,9 @@ class _Request {
   final String query;
   final int page;
   final List<int>? genres;
+  final List<int>? withoutGenres;
   final Completer<List<MediaItem>> result = Completer();
-  _Request(this.query, this.page, [this.genres]);
+  _Request(this.query, this.page, [this.genres, this.withoutGenres]);
 }
 
 class _TMDB implements TMDBService {
@@ -36,6 +37,7 @@ class _TMDB implements TMDBService {
     required String mediaType,
     String? sortBy,
     List<int>? withGenres,
+    List<int>? withoutGenres,
     int? yearGte,
     int? yearLte,
     double? voteAverageGte,
@@ -44,7 +46,7 @@ class _TMDB implements TMDBService {
     int page = 1,
     bool failOnError = false,
   }) {
-    final request = _Request(mediaType, page, withGenres);
+    final request = _Request(mediaType, page, withGenres, withoutGenres);
     discoveries.add(request);
     return request.result.future;
   }
@@ -398,6 +400,53 @@ void main() {
     await tester.pump();
     expect(find.text('No titles found for this filter.'), findsOneWidget);
   });
+
+  testWidgets(
+    'Japanese browse option requests without_genres=[16] and filters anime',
+    (tester) async {
+      final service = _TMDB();
+      await _pump(
+        tester,
+        CinemaBrowseTab(
+          service: service,
+          initialOptionId: 'lang-ja',
+          onMediaTap: (_) {},
+        ),
+      );
+      expect(service.discoveries.single.withoutGenres, [16]);
+      final liveAction = MediaItem(
+        id: '',
+        tmdbId: 101,
+        title: 'Aibou: Tokyo Detective Duo',
+        mediaType: 'tv',
+        posterPath: '',
+        year: '2020',
+        status: '',
+        isAnime: false,
+        addedAt: DateTime(2026),
+      );
+      final anime = MediaItem(
+        id: '',
+        tmdbId: 102,
+        title: 'Naruto',
+        mediaType: 'tv',
+        posterPath: '',
+        year: '2002',
+        status: '',
+        isAnime: true,
+        addedAt: DateTime(2026),
+      );
+      service.discoveries.single.result.complete([liveAction, anime]);
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.text('Aibou: Tokyo Detective Duo'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Aibou: Tokyo Detective Duo'), findsOneWidget);
+      expect(find.text('Naruto'), findsNothing);
+    },
+  );
 
   for (final size in [const Size(360, 800), const Size(810, 1080)]) {
     testWidgets('real search and browse grids fit ${size.width}px', (

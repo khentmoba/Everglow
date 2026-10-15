@@ -306,6 +306,7 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
         mediaType: option.mediaType,
         sortBy: option.sortBy,
         withGenres: option.genreId == null ? null : [option.genreId!],
+        withoutGenres: option.withoutGenres,
         yearGte: option.yearGte,
         yearLte: option.yearLte,
         voteAverageGte: option.voteAverageGte,
@@ -319,9 +320,14 @@ class _CinemaBrowseTabState extends State<CinemaBrowseTab> {
         final seen = _browseResults
             .map((m) => '${m.mediaType}:${m.tmdbId}')
             .toSet();
-        _browseResults.addAll(
-          results.where((m) => seen.add('${m.mediaType}:${m.tmdbId}')),
-        );
+        final shouldFilterAnime =
+            option.id == 'lang-ja' ||
+            (option.withoutGenres != null && option.withoutGenres!.contains(16));
+        final filtered = results.where((m) {
+          if (shouldFilterAnime && m.isAnime) return false;
+          return seen.add('${m.mediaType}:${m.tmdbId}');
+        });
+        _browseResults.addAll(filtered);
         _browseCurrentPage = page;
         _browseHasMore = results.length >= 20 && page < 500;
         _isLoadingBrowse = false;
