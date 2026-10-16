@@ -7,6 +7,9 @@ import 'tmdb_base.dart';
 /// TMDB detail endpoints: credits, reviews, similar titles, TV show
 /// season/episode data, and generic media details.
 class TMDBDetailsService with TMDBBase, ConnectivityAware {
+  final _detailsCache = <String, Map<String, dynamic>>{};
+  final _pendingDetails = <String, Future<Map<String, dynamic>?>>{};
+
   /// IDs that 404'd on BOTH movie and tv lookups (stale/dead TMDB ids).
   /// Process-wide so the billboard, hover cards, and episode drawer share
   /// one memory of dead ids instead of re-404ing on every rotation.
@@ -137,6 +140,34 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
 
   /// Fetch Media Item details (for Hero Banner metadata)
   Future<Map<String, dynamic>?> fetchMediaDetails(
+    int id,
+    String mediaType,
+  ) async {
+    final key = '$mediaType:$id';
+    final cached = _detailsCache[key];
+    if (cached != null) return cached;
+    final pending = _pendingDetails.putIfAbsent(
+      key,
+      () => _fetchMediaDetails(id, mediaType),
+    );
+    try {
+      final details = await pending;
+      if (details != null) {
+        // Keep metadata memory bounded during long browsing sessions.
+        if (_detailsCache.length >= 80 && !_detailsCache.containsKey(key)) {
+          _detailsCache.remove(_detailsCache.keys.first);
+        }
+        _detailsCache[key] = details;
+      }
+      return details;
+    } finally {
+      if (identical(_pendingDetails[key], pending)) {
+        _pendingDetails.remove(key);
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchMediaDetails(
     int id,
     String mediaType,
   ) async {

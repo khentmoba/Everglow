@@ -28,6 +28,7 @@ import '../../../../shared/widgets/shelf/media_section_menu.dart';
 // ─────────────────────────────────────────────────────────────────────
 
 class CinemaScreen extends StatefulWidget {
+  final TMDBService? service;
   final int initialTab;
   final String? initialBrowseOption;
 
@@ -35,6 +36,7 @@ class CinemaScreen extends StatefulWidget {
     super.key,
     this.initialTab = 0,
     this.initialBrowseOption,
+    this.service,
   });
 
   @override
@@ -42,7 +44,7 @@ class CinemaScreen extends StatefulWidget {
 }
 
 class _CinemaScreenState extends State<CinemaScreen> {
-  final TMDBService _tmdbService = TMDBService();
+  late final TMDBService _tmdbService = widget.service ?? TMDBService();
   int _currentIndex = 0;
 
   /// Bumped every time a nav link targets the Browse tab so it rebuilds
@@ -82,7 +84,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
     } else {
       _currentIndex = widget.initialTab.clamp(0, 4);
     }
-    _fetchHomeData();
+    if (_currentIndex == 0) _fetchHomeData();
     _auth = context.read<AuthService>();
     _auth.addListener(_syncProfile);
     _syncProfile();
@@ -274,6 +276,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
 
   void _switchTab(int index) {
     HapticFeedback.selectionClick();
+    if (index == 0 && _homeRequest == 0) _fetchHomeData();
     setState(() {
       _currentIndex = index;
     });

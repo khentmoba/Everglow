@@ -9,6 +9,8 @@ class TMDBTrailerService with TMDBBase, ConnectivityAware {
   /// Cache for trailer keys: 'mediaType_tmdbId' -> Trailer Key
   final Map<String, String?> _trailerCache = {};
 
+  final _pendingTrailers = <String, Future<String?>>{};
+
   /// Fetch YouTube trailer key for a movie or TV show, with caching.
   Future<String?> fetchTrailerKey(int id, String mediaType) async {
     final cacheKey = '${mediaType}_$id';
@@ -16,6 +18,24 @@ class TMDBTrailerService with TMDBBase, ConnectivityAware {
       return _trailerCache[cacheKey];
     }
 
+    final pending = _pendingTrailers.putIfAbsent(
+      cacheKey,
+      () => _fetchTrailerKey(id, mediaType, cacheKey),
+    );
+    try {
+      return await pending;
+    } finally {
+      if (identical(_pendingTrailers[cacheKey], pending)) {
+        _pendingTrailers.remove(cacheKey);
+      }
+    }
+  }
+
+  Future<String?> _fetchTrailerKey(
+    int id,
+    String mediaType,
+    String cacheKey,
+  ) async {
     final url = Uri.parse('$tmdbBaseUrl/$mediaType/$id/videos');
     try {
       final response = await tmdbGet(url);
@@ -43,13 +63,16 @@ class TMDBTrailerService with TMDBBase, ConnectivityAware {
         );
 
         final key = trailer != null ? trailer['key'] as String? : null;
+        if (_trailerCache.length >= 80 &&
+            !_trailerCache.containsKey(cacheKey)) {
+          _trailerCache.remove(_trailerCache.keys.first);
+        }
         _trailerCache[cacheKey] = key;
         return key;
       }
     } catch (e) {
       Logger.e('TMDB fetchTrailerKey Error', error: e);
     }
-    _trailerCache[cacheKey] = null;
     return null;
   }
 }

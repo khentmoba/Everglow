@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -16,6 +17,39 @@ class _TestTMDBDetailsService extends TMDBDetailsService {
 void main() {
   group('TMDBDetailsService.fetchMediaDetails', () {
     setUp(TMDBDetailsService.resetDetailsCacheForTests);
+
+    test('concurrent and repeat callers share successful details', () async {
+      var calls = 0;
+      final response = Completer<http.Response>();
+      final service = _TestTMDBDetailsService((url) {
+        calls++;
+        return response.future;
+      });
+      final first = service.fetchMediaDetails(123, 'movie');
+      final second = service.fetchMediaDetails(123, 'movie');
+      response.complete(http.Response('{"id":123}', 200));
+      expect(await first, await second);
+      expect((await service.fetchMediaDetails(123, 'movie'))?['id'], 123);
+      expect(calls, 1);
+    });
+
+    test(
+      'successful details cache evicts old titles after 80 entries',
+      () async {
+        var calls = 0;
+        final service = _TestTMDBDetailsService((url) async {
+          calls++;
+          return http.Response('{"id":123}', 200);
+        });
+        for (var id = 0; id < 81; id++) {
+          await service.fetchMediaDetails(id, 'movie');
+        }
+        await service.fetchMediaDetails(80, 'movie');
+        expect(calls, 81);
+        await service.fetchMediaDetails(0, 'movie');
+        expect(calls, 82);
+      },
+    );
 
     test('returns details directly when primary mediaType succeeds', () async {
       final requestedUrls = <Uri>[];
@@ -115,8 +149,7 @@ void main() {
         requestedUrls.clear();
         final second = await service.fetchMediaDetails(1714066, 'tv');
         expect(second?['title'], 'Yellow Jacket Televison');
-        expect(requestedUrls, hasLength(1));
-        expect(requestedUrls.first.path, contains('/movie/1714066'));
+        expect(requestedUrls, isEmpty);
       },
     );
 

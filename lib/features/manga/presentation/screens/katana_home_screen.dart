@@ -154,6 +154,80 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     );
     final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
 
+    if (!desktop) {
+      final items = _type == 'all' ? data.latest : _typeItems;
+      final showItems = _type == 'all' || _typeError == null;
+      return CustomScrollView(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isCouple)
+                    CurrentlyReadingShelf(userName: user, partnerName: partner),
+                  _buildTypeChips(),
+                  const SizedBox(height: 14),
+                  if (_type == 'all') ...[
+                    const KatanaSectionHeader(title: 'Latest Updates'),
+                    const SizedBox(height: 12),
+                    if (items.isEmpty)
+                      KatanaCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Text(
+                          'Nothing updated yet.',
+                          style: KatanaType.small,
+                        ),
+                      ),
+                  ] else
+                    _buildTypeList(includeItems: false),
+                ],
+              ),
+            ),
+          ),
+          if (showItems)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverList.builder(
+                itemCount: items.length,
+                itemBuilder: (_, index) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: KatanaItemCard(manga: items[index]),
+                ),
+              ),
+            ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 60),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_type != 'all' && showItems && items.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    KatanaPagination(
+                      page: _typePage,
+                      hasPrev: _typePage > 1,
+                      hasNext: _typeHasNext,
+                      onPageChanged: _changeTypePage,
+                    ),
+                  ],
+                  if (_type == 'all') ...[
+                    const SizedBox(height: 20),
+                    _buildHotWidget(data.hot),
+                  ],
+                  const SizedBox(height: 20),
+                  _buildGenresWidget(data.genres),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     final content = ListView(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
@@ -188,45 +262,30 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
         Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1240),
-            child: desktop
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 7,
+                  child: _type == 'all'
+                      ? _buildLatest(data.latest)
+                      : _buildTypeList(),
+                ),
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 330,
+                  child: Column(
                     children: [
-                      Expanded(
-                        flex: 7,
-                        child: _type == 'all'
-                            ? _buildLatest(data.latest)
-                            : _buildTypeList(),
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 330,
-                        child: Column(
-                          children: [
-                            _buildGenresWidget(data.genres),
-                            if (_type == 'all') ...[
-                              const SizedBox(height: 16),
-                              _buildHotWidget(data.hot),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _type == 'all'
-                          ? _buildLatest(data.latest)
-                          : _buildTypeList(),
+                      _buildGenresWidget(data.genres),
                       if (_type == 'all') ...[
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         _buildHotWidget(data.hot),
                       ],
-                      const SizedBox(height: 20),
-                      _buildGenresWidget(data.genres),
                     ],
                   ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -258,7 +317,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
     );
   }
 
-  Widget _buildTypeList() {
+  Widget _buildTypeList({bool includeItems = true}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -301,7 +360,7 @@ class _KatanaHomeScreenState extends State<KatanaHomeScreen> {
               style: KatanaType.small,
             ),
           )
-        else ...[
+        else if (includeItems) ...[
           for (final manga in _typeItems) ...[
             KatanaItemCard(manga: manga),
             const SizedBox(height: 10),
