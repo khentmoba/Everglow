@@ -13,8 +13,30 @@ import 'stats_track_rows.dart';
 
 /// Dashboard music stats for both people: each user's all-time top-10
 /// leaderboard followed by their five most recent scrobbles.
-class MusicStatsSection extends StatelessWidget {
+class MusicStatsSection extends StatefulWidget {
   const MusicStatsSection({super.key});
+
+  @override
+  State<MusicStatsSection> createState() => _MusicStatsSectionState();
+}
+
+class _MusicStatsSectionState extends State<MusicStatsSection> {
+  MusicStatsProvider? _stats;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final stats = context.read<MusicStatsProvider>();
+    if (_stats != stats) _stats?.setSurfaceActive(false);
+    _stats = stats;
+    stats.setSurfaceActive(TickerMode.valuesOf(context).enabled);
+  }
+
+  @override
+  void dispose() {
+    _stats?.setSurfaceActive(false);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

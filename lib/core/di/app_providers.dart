@@ -78,6 +78,6 @@ final List<SingleChildWidget> appProviders = [
       awardListenXp: (uid) => XPService().awardListen(uid),
     ),
   ),
-  ChangeNotifierProvider(create: (_) => MusicStatsProvider()),
+  ChangeNotifierProvider(create: (_) => MusicStatsProvider(surfaceActive: false)),
   ChangeNotifierProvider(create: (_) => ArtistShowdownProvider()),
 ];

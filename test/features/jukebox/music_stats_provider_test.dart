@@ -134,6 +134,35 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  testWidgets(
+    'unused statistics do not start or poll until their surface activates',
+    (tester) async {
+      final sync = _FakeSync(
+        topTracks: [_topTrack('Demo', 10)],
+        recentTracks: [_recent('Demo')],
+        totalPlays: 10,
+      );
+      final provider = MusicStatsProvider(
+        syncService: sync,
+        surfaceActive: false,
+      );
+      await tester.pump(const Duration(minutes: 11));
+      expect(sync.recentFetches, 0);
+      provider.setSurfaceActive(true);
+      await tester.pump();
+      expect(sync.recentFetches, 2);
+      provider.setSurfaceActive(false);
+      await tester.pump(const Duration(minutes: 11));
+      expect(sync.recentFetches, 2);
+      expect(sync.topFetches, 2);
+      provider.setSurfaceActive(true);
+      await tester.pump();
+      expect(sync.recentFetches, 4);
+      expect(provider.topTracks.single.trackName, 'Demo');
+      provider.dispose();
+    },
+  );
+
   testWidgets('music statistics stop hidden polling and refresh on return', (
     tester,
   ) async {
@@ -218,9 +247,7 @@ void main() {
     });
 
     test('a failed boot fetch surfaces empty state without throwing', () async {
-      final provider = MusicStatsProvider(
-        syncService: _FakeSync(),
-      );
+      final provider = MusicStatsProvider(syncService: _FakeSync());
       addTearDown(provider.dispose);
 
       await _waitFor(() => !provider.isLoading);
@@ -230,46 +257,52 @@ void main() {
       expect(provider.hasData, isFalse);
     });
 
-    test('total plays does not fall back to top 10 sum when user plays is 0', () async {
-      final provider = MusicStatsProvider(
-        syncService: _FakeSync(
-          topTracks: [
-            _topTrack('Song A', 293),
-            _topTrack('Song B', 280),
-            _topTrack('Song C', 262),
-          ],
-          totalPlays: 0,
-        ),
-      );
-      addTearDown(provider.dispose);
+    test(
+      'total plays does not fall back to top 10 sum when user plays is 0',
+      () async {
+        final provider = MusicStatsProvider(
+          syncService: _FakeSync(
+            topTracks: [
+              _topTrack('Song A', 293),
+              _topTrack('Song B', 280),
+              _topTrack('Song C', 262),
+            ],
+            totalPlays: 0,
+          ),
+        );
+        addTearDown(provider.dispose);
 
-      await _waitFor(() => !provider.isLoading);
+        await _waitFor(() => !provider.isLoading);
 
-      expect(provider.topTracks, hasLength(3));
-      // Must NOT return 835 (293+280+262) as total plays!
-      expect(provider.khentTotalPlays, 0);
-      expect(provider.isKhentLeader, isFalse);
-    });
+        expect(provider.topTracks, hasLength(3));
+        // Must NOT return 835 (293+280+262) as total plays!
+        expect(provider.khentTotalPlays, 0);
+        expect(provider.isKhentLeader, isFalse);
+      },
+    );
 
-    test('restores cached total plays from SharedPreferences on boot', () async {
-      SharedPreferences.setMockInitialValues({
-        'jukebox_total_plays_khentsgdz': 6716,
-        'jukebox_total_plays_clairjassen': 4583,
-      });
+    test(
+      'restores cached total plays from SharedPreferences on boot',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'jukebox_total_plays_khentsgdz': 6716,
+          'jukebox_total_plays_clairjassen': 4583,
+        });
 
-      final provider = MusicStatsProvider(
-        syncService: _FakeSync(
-          topTracks: [_topTrack('Song A', 100)],
-          totalPlays: 0, // remote not available yet
-        ),
-      );
-      addTearDown(provider.dispose);
+        final provider = MusicStatsProvider(
+          syncService: _FakeSync(
+            topTracks: [_topTrack('Song A', 100)],
+            totalPlays: 0, // remote not available yet
+          ),
+        );
+        addTearDown(provider.dispose);
 
-      await _waitFor(() => provider.khentTotalPlays > 0);
+        await _waitFor(() => provider.khentTotalPlays > 0);
 
-      expect(provider.khentTotalPlays, 6716);
-      expect(provider.clairTotalPlays, 4583);
-      expect(provider.isKhentLeader, isTrue);
-    });
+        expect(provider.khentTotalPlays, 6716);
+        expect(provider.clairTotalPlays, 4583);
+        expect(provider.isKhentLeader, isTrue);
+      },
+    );
   });
 }
