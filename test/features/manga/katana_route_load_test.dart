@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:everglow/core/services/auth_service.dart';
+import 'package:everglow/features/manga/presentation/katana/katana_item_card.dart';
 import 'package:everglow/features/manga/presentation/screens/katana_home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -77,7 +78,7 @@ class _FakeHttpHeaders implements HttpHeaders {
 
 class _FakeHttpClientResponse extends Stream<List<int>>
     implements HttpClientResponse {
-  static final body = utf8.encode('<html><body></body></html>');
+  static var body = utf8.encode('<html><body></body></html>');
 
   @override
   HttpHeaders get headers => _FakeHttpHeaders();
@@ -141,6 +142,83 @@ class _FakeAuthService extends ChangeNotifier implements AuthService {
 }
 
 void main() {
+  for (final width in [430.0, 810.0]) {
+    testWidgets('Manga home mounts cards lazily at ${width}px', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final cards = List.generate(
+        100,
+        (i) =>
+            '<div class="item" data-id="$i">'
+            '<h3 class="title"><a href="https://mangakatana.com/manga/demo-$i">Demo $i</a></h3>'
+            '</div>',
+      ).join();
+      _FakeHttpClientResponse.body = utf8.encode(
+        '<html><body><h2>Latest Updates</h2>$cards</body></html>',
+      );
+      addTearDown(
+        () => _FakeHttpClientResponse.body = utf8.encode(
+          '<html><body></body></html>',
+        ),
+      );
+      final overrides = _CountingHttpOverrides();
+      HttpOverrides.global = overrides;
+      addTearDown(() => HttpOverrides.global = null);
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthService>.value(
+          value: _FakeAuthService(),
+          child: const MaterialApp(
+            home: Scaffold(body: KatanaHomeScreen(embed: true)),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      final initial = tester
+          .widgetList<KatanaItemCard>(find.byType(KatanaItemCard))
+          .length;
+      expect(initial, greaterThan(0));
+      expect(initial, lessThan(15));
+      expect(find.text('Demo 0'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Demo 70'),
+        650,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 60,
+      );
+      expect(find.text('Demo 70'), findsOneWidget);
+      expect(
+        tester.widgetList<KatanaItemCard>(find.byType(KatanaItemCard)).length,
+        lessThan(15),
+      );
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pump();
+      await tester.tap(find.text('Manga'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(
+        tester.widgetList<KatanaItemCard>(find.byType(KatanaItemCard)).length,
+        inExclusiveRange(0, 15),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Demo 70'),
+        650,
+        scrollable: find.byType(Scrollable).first,
+        maxScrolls: 60,
+      );
+      expect(find.text('Demo 70'), findsOneWidget);
+      expect(
+        tester.widgetList<KatanaItemCard>(find.byType(KatanaItemCard)).length,
+        lessThan(15),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets('standalone MangaCelestia home fetches once', (tester) async {
     tester.view.physicalSize = const Size(1170, 2532);
     tester.view.devicePixelRatio = 1;
