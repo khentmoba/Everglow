@@ -18,6 +18,18 @@ The old all-zero benchmark could also pass without Flutter or actual scrolling.
 There is no guarantee that the app has no issues. CI verifies specific checks;
 real-device and authenticated feature behavior still need matching evidence.
 
+### Whole-site follow-up, 16 October 2026
+
+All 14 findings from the follow-up audit have implementation changes and
+targeted regression evidence: section-only font loading, worker installation,
+Canvas layers/subscriptions, asynchronous photo/document preparation,
+independent catalog rows, manga source/progress handling, coalesced game
+updates, streaming backpressure, inactive music statistics, Spotify cleanup,
+and stale search responses. The audit, matched measurements, verification
+details, and phone/tablet screenshots are in
+[the performance proof](pr-proof/site-performance/README.md).
+These changes do not close the real-device targets above.
+
 ## Changes retained
 
 - Phones (viewport shortest side below 600 logical pixels, including landscape)

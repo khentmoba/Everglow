@@ -1,0 +1,169 @@
+Windows / Flutter 3.44.4 / Dart 3.12.2 / Node 24.21.0 / Chrome
+
+flutter analyze
+Analyzing t3-a3e23d2b...                                        
+No issues found! (ran in 10.6s)
+
+flutter test --exclude-tags="golden,network"
+02:28 +1657: All tests passed!
+
+dart tool/ci/check_*.dart (all 15 existing guards)
+[assets] OK: 73 references resolve.
+[demo-privacy] OK: demo artwork is synthetic.
+[hosting] OK: public dir, rewrites, headers pinned.
+[collections] OK: 35 collections clean and covered.
+[images] OK: 2 raw usages all have fallbacks.
+[layout] OK: pinned card overflow tests intact.
+[guards] OK: pinned model crash-guards intact.
+[guards] note: 74 models lack companion tests (advisory, not failing):
+  - lib\core\models\presence_status.dart
+  - lib\core\services\presence_service.dart
+  - lib\features\academy\data\models\academy_question.dart
+  - lib\features\academy\data\models\game_match.dart
+  - lib\features\academy\data\services\academy_service.dart
+  - lib\features\academy\data\services\study_set_service.dart
+  - lib\features\academy\presentation\screens\academy_hub_screen.dart
+  - lib\features\academy\presentation\screens\game_board_screen.dart
+  - lib\features\ai\data\services\motchi_minis_service.dart
+  - lib\features\ai\domain\models\mini_game.dart
+  ... and 64 more.
+[no-ads] OK: manga stays ad-free (no SDKs, widgets, or webviews).
+[goldens] OK: no new golden tests; thumbnail behavior covered.
+[perf-notes] OK: every path cited in docs/PERF_NOTES.md exists.
+[perf] OK: 647 files, no setState driven by a frame-rate callback.
+[release] OK: v6.2.0 in sync (pubspec, AppVersion, CHANGELOG, README).
+[silent-catches] OK: 17 empty catch blocks, 17 allowlisted, 0 new.
+[insets] OK: global Home Screen status-bar coverage intact.
+[streams] OK: 75 stream queries bounded.
+
+Quality browser test list --platform chrome
+00:50 +53: test\desktop_app_browser_test.dart: desktop action displays native version and requests its updater
+00:51 +54: All tests passed!
+
+Final Spotify/image/PDF browser regressions
+00:00 +2: Spotify shares initialization and releases callbacks and refresh timers
+Spotify device ready: synthetic-device
+Spotify device ready: synthetic-device
+00:00 +3: All tests passed!
+
+Final Anime progressive-feed regression after logging cleanup
+00:00 +0: successful anime hero renders while other feeds are pending
+00:00 +1: All tests passed!
+
+PERF_REQUIRE_CHROME=1 node --test tool/perf/harness.test.mjs
+  ✔ repeat shapes worker network too, after cached stamped core; document is fresh (6020.4641ms)
+✔ Chrome fault controls (46870.3036ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 52161.2379
+
+node tool/service_worker_test.mjs --browser
+✔ online main still fetches if CacheStorage reads fail (4.5404ms)
+✔ versioned deferred JS remains network-readable when its cache read fails (3.9141ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3773.7223
+
+npm run lint -- --max-warnings=25
+✖ 24 problems (0 errors, 24 warnings)
+
+
+npm test (functions)
+✔ activation removes old icon bytes without evicting CanvasKit or core (10.289ms)
+✔ hosting revalidates the build-dependent icon font and manifest (0.8844ms)
+ℹ tests 329
+ℹ suites 4
+ℹ pass 327
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 2
+ℹ todo 0
+ℹ duration_ms 6086.372
+
+node eval_gate.js
+{
+
+  "pass": true,
+
+  "failures": [],
+
+  "checks": {
+
+    "constants.timeout": "pass",
+
+    "constants.rounds": "pass",
+
+    "tools.scanned-file-live": "pass",
+
+    "tools.count": "pass",
+
+    "tools.declared-in-pinned": "pass",
+
+    "tools.pinned-in-declared": "pass",
+
+    "tools.cases-covered": "pass",
+
+    "tools.executors-complete": "pass",
+
+    "tools.dispatcher-complete": "pass",
+
+    "routing.reachable": "pass",
+
+    "routing.group-tools-known": "pass",
+
+    "routing.fastpath-zeroarg": "pass",
+
+    "routing.attached-cap": "pass",
+
+    "routing.eval-recall": "pass",
+
+    "eval.min-cases": "pass",
+
+    "eval.tools-known": "pass",
+
+    "eval.has-no-tool-cases": "pass",
+
+    "prompt.version": "pass",
+
+    "prompt.inventory": "pass"
+
+  },
+
+  "stats": {
+
+    "tools": 69,
+
+    "evalCases": 140,
+
+    "promptVersion": 12,
+
+    "routing": {
+
+      "avgAttached": 8.8,
+
+      "maxAttached": 16,
+
+      "maxAttachedCase": "watch-watched-p2"
+
+    }
+
+  }
+
+}
+
+
+node tool/agent_smoke.mjs build/web
+64/64 destination aliases rendered at 430px and 810px.
+
+Final release route sweep
+42/42 arrivals with nonempty content and no captured runtime/console errors; 21 sections at 414px and 820px.

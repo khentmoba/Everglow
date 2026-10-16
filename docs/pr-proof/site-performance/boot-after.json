@@ -1,0 +1,1126 @@
+[
+  {
+    "profile": "none",
+    "link": {
+      "latencyMs": 0,
+      "downloadKbps": 0,
+      "uploadKbps": 0
+    },
+    "webRoot": "C:\\Users\\Admin\\.t3\\worktrees\\Everglow\\t3-a3e23d2b\\build\\web",
+    "visit": "cold: fresh profile, uncached requests, SW bypassed",
+    "note": "CDP synthetic link on desktop; firstFlutterFrame is not interactivity; no offline/device guarantee. Local ResourceTiming encoded body bytes reflect compression, not filesystem size.",
+    "requestedRuns": 3,
+    "recordedRuns": 3,
+    "bar": {
+      "firstFlutterFrameMs": 2500,
+      "longTaskMs": 200
+    },
+    "verdict": {
+      "complete": true,
+      "allFirstFlutterFramesWithinBudget": false,
+      "noLongTaskOver200ms": false
+    },
+    "median": {
+      "firstFlutterFrameMs": 2687.1999999955297
+    },
+    "worst": {
+      "firstFlutterFrameMs": 2748.2000000029802,
+      "longTaskMs": 347
+    },
+    "details": [
+      {
+        "label": "none-1",
+        "build": "6.2.0+1-d7a3c6d1",
+        "timeOrigin": 1792147159566.2,
+        "firstFlutterFrameMs": 2676.4000000059605,
+        "fcpMs": 140,
+        "lcpMs": 140,
+        "dclMs": 37.600000001490116,
+        "splashMs": 36.400000005960464,
+        "longTaskCount": 6,
+        "longTaskWorstMs": 322,
+        "longTaskTotalMs": 1049,
+        "longTaskOver200ms": 2,
+        "localResources": [
+          {
+            "path": "/flutter_bootstrap.js",
+            "durationMs": 7.600000001490116,
+            "encodedBodyBytes": 4646,
+            "decodedBodyBytes": 11924,
+            "transferBytes": 4946
+          },
+          {
+            "path": "/manifest.json",
+            "durationMs": 2.399999998509884,
+            "encodedBodyBytes": 298,
+            "decodedBodyBytes": 814,
+            "transferBytes": 598
+          },
+          {
+            "path": "/main.dart.js",
+            "durationMs": 176.09999999403954,
+            "encodedBodyBytes": 1335033,
+            "decodedBodyBytes": 4547846,
+            "transferBytes": 1335333
+          },
+          {
+            "path": "/assets/FontManifest.json",
+            "durationMs": 2.5,
+            "encodedBodyBytes": 318,
+            "decodedBodyBytes": 1200,
+            "transferBytes": 618
+          },
+          {
+            "path": "/assets/fonts/MaterialIcons-Regular.otf",
+            "durationMs": 3.2999999970197678,
+            "encodedBodyBytes": 61836,
+            "decodedBodyBytes": 61836,
+            "transferBytes": 62136
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Regular.ttf",
+            "durationMs": 11.700000002980232,
+            "encodedBodyBytes": 137400,
+            "decodedBodyBytes": 137400,
+            "transferBytes": 137700
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-SemiBold.ttf",
+            "durationMs": 5.699999995529652,
+            "encodedBodyBytes": 137412,
+            "decodedBodyBytes": 137412,
+            "transferBytes": 137712
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Bold.ttf",
+            "durationMs": 5.799999997019768,
+            "encodedBodyBytes": 137276,
+            "decodedBodyBytes": 137276,
+            "transferBytes": 137576
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Medium.ttf",
+            "durationMs": 6.200000002980232,
+            "encodedBodyBytes": 42568,
+            "decodedBodyBytes": 42568,
+            "transferBytes": 42868
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-SemiBold.ttf",
+            "durationMs": 6.799999997019768,
+            "encodedBodyBytes": 43132,
+            "decodedBodyBytes": 43132,
+            "transferBytes": 43432
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Bold.ttf",
+            "durationMs": 7.200000002980232,
+            "encodedBodyBytes": 43044,
+            "decodedBodyBytes": 43044,
+            "transferBytes": 43344
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-ExtraBold.ttf",
+            "durationMs": 7.699999995529652,
+            "encodedBodyBytes": 42952,
+            "decodedBodyBytes": 42952,
+            "transferBytes": 43252
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Black.ttf",
+            "durationMs": 8,
+            "encodedBodyBytes": 43000,
+            "decodedBodyBytes": 43000,
+            "transferBytes": 43300
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowEmoji.ttf",
+            "durationMs": 11.699999995529652,
+            "encodedBodyBytes": 317484,
+            "decodedBodyBytes": 317484,
+            "transferBytes": 317784
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowSymbols.ttf",
+            "durationMs": 12.700000002980232,
+            "encodedBodyBytes": 6452,
+            "decodedBodyBytes": 6452,
+            "transferBytes": 6752
+          },
+          {
+            "path": "/assets/assets/google_fonts/DancingScript-Bold.ttf",
+            "durationMs": 12.399999998509884,
+            "encodedBodyBytes": 67856,
+            "decodedBodyBytes": 67856,
+            "transferBytes": 68156
+          },
+          {
+            "path": "/assets/assets/google_fonts/Caveat-Regular.ttf",
+            "durationMs": 13.700000002980232,
+            "encodedBodyBytes": 131636,
+            "decodedBodyBytes": 131636,
+            "transferBytes": 131936
+          },
+          {
+            "path": "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+            "durationMs": 12.700000002980232,
+            "encodedBodyBytes": 1472,
+            "decodedBodyBytes": 1472,
+            "transferBytes": 1772
+          },
+          {
+            "path": "/favicon.png",
+            "durationMs": 8.300000004470348,
+            "encodedBodyBytes": 6566,
+            "decodedBodyBytes": 6566,
+            "transferBytes": 6866
+          },
+          {
+            "path": "/icons/Icon-192.png",
+            "durationMs": 8.700000002980232,
+            "encodedBodyBytes": 39647,
+            "decodedBodyBytes": 39647,
+            "transferBytes": 39947
+          },
+          {
+            "path": "/assets/assets/env.txt",
+            "durationMs": 1.9000000059604645,
+            "encodedBodyBytes": 9,
+            "decodedBodyBytes": 9,
+            "transferBytes": 309
+          },
+          {
+            "path": "/version.json",
+            "durationMs": 2.2000000029802322,
+            "encodedBodyBytes": 76,
+            "decodedBodyBytes": 73,
+            "transferBytes": 376
+          },
+          {
+            "path": "/hls_bridge.js",
+            "durationMs": 2,
+            "encodedBodyBytes": 949,
+            "decodedBodyBytes": 2477,
+            "transferBytes": 1249
+          }
+        ]
+      },
+      {
+        "label": "none-2",
+        "build": "6.2.0+1-d7a3c6d1",
+        "timeOrigin": 1792147166541.4,
+        "firstFlutterFrameMs": 2687.1999999955297,
+        "fcpMs": 136,
+        "lcpMs": 136,
+        "dclMs": 29.600000001490116,
+        "splashMs": 28.5,
+        "longTaskCount": 6,
+        "longTaskWorstMs": 326,
+        "longTaskTotalMs": 1102,
+        "longTaskOver200ms": 2,
+        "localResources": [
+          {
+            "path": "/flutter_bootstrap.js",
+            "durationMs": 6.200000002980232,
+            "encodedBodyBytes": 4646,
+            "decodedBodyBytes": 11924,
+            "transferBytes": 4946
+          },
+          {
+            "path": "/main.dart.js",
+            "durationMs": 178.30000000447035,
+            "encodedBodyBytes": 1335033,
+            "decodedBodyBytes": 4547846,
+            "transferBytes": 1335333
+          },
+          {
+            "path": "/manifest.json",
+            "durationMs": 102.10000000149012,
+            "encodedBodyBytes": 298,
+            "decodedBodyBytes": 814,
+            "transferBytes": 598
+          },
+          {
+            "path": "/assets/FontManifest.json",
+            "durationMs": 2,
+            "encodedBodyBytes": 318,
+            "decodedBodyBytes": 1200,
+            "transferBytes": 618
+          },
+          {
+            "path": "/assets/fonts/MaterialIcons-Regular.otf",
+            "durationMs": 4.300000004470348,
+            "encodedBodyBytes": 61836,
+            "decodedBodyBytes": 61836,
+            "transferBytes": 62136
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Regular.ttf",
+            "durationMs": 8.100000001490116,
+            "encodedBodyBytes": 137400,
+            "decodedBodyBytes": 137400,
+            "transferBytes": 137700
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-SemiBold.ttf",
+            "durationMs": 12.699999995529652,
+            "encodedBodyBytes": 137412,
+            "decodedBodyBytes": 137412,
+            "transferBytes": 137712
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Bold.ttf",
+            "durationMs": 12.800000004470348,
+            "encodedBodyBytes": 137276,
+            "decodedBodyBytes": 137276,
+            "transferBytes": 137576
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Medium.ttf",
+            "durationMs": 12.700000002980232,
+            "encodedBodyBytes": 42568,
+            "decodedBodyBytes": 42568,
+            "transferBytes": 42868
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-SemiBold.ttf",
+            "durationMs": 14.699999995529652,
+            "encodedBodyBytes": 43132,
+            "decodedBodyBytes": 43132,
+            "transferBytes": 43432
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Bold.ttf",
+            "durationMs": 16.5,
+            "encodedBodyBytes": 43044,
+            "decodedBodyBytes": 43044,
+            "transferBytes": 43344
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-ExtraBold.ttf",
+            "durationMs": 16.399999998509884,
+            "encodedBodyBytes": 42952,
+            "decodedBodyBytes": 42952,
+            "transferBytes": 43252
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Black.ttf",
+            "durationMs": 16.600000001490116,
+            "encodedBodyBytes": 43000,
+            "decodedBodyBytes": 43000,
+            "transferBytes": 43300
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowEmoji.ttf",
+            "durationMs": 22.200000002980232,
+            "encodedBodyBytes": 317484,
+            "decodedBodyBytes": 317484,
+            "transferBytes": 317784
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowSymbols.ttf",
+            "durationMs": 18.600000001490116,
+            "encodedBodyBytes": 6452,
+            "decodedBodyBytes": 6452,
+            "transferBytes": 6752
+          },
+          {
+            "path": "/assets/assets/google_fonts/DancingScript-Bold.ttf",
+            "durationMs": 18.799999997019768,
+            "encodedBodyBytes": 67856,
+            "decodedBodyBytes": 67856,
+            "transferBytes": 68156
+          },
+          {
+            "path": "/assets/assets/google_fonts/Caveat-Regular.ttf",
+            "durationMs": 19.30000000447035,
+            "encodedBodyBytes": 131636,
+            "decodedBodyBytes": 131636,
+            "transferBytes": 131936
+          },
+          {
+            "path": "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+            "durationMs": 19,
+            "encodedBodyBytes": 1472,
+            "decodedBodyBytes": 1472,
+            "transferBytes": 1772
+          },
+          {
+            "path": "/favicon.png",
+            "durationMs": 17.299999997019768,
+            "encodedBodyBytes": 6566,
+            "decodedBodyBytes": 6566,
+            "transferBytes": 6866
+          },
+          {
+            "path": "/icons/Icon-192.png",
+            "durationMs": 16,
+            "encodedBodyBytes": 39647,
+            "decodedBodyBytes": 39647,
+            "transferBytes": 39947
+          },
+          {
+            "path": "/assets/assets/env.txt",
+            "durationMs": 1.7999999970197678,
+            "encodedBodyBytes": 9,
+            "decodedBodyBytes": 9,
+            "transferBytes": 309
+          },
+          {
+            "path": "/version.json",
+            "durationMs": 2.3000000044703484,
+            "encodedBodyBytes": 76,
+            "decodedBodyBytes": 73,
+            "transferBytes": 376
+          },
+          {
+            "path": "/hls_bridge.js",
+            "durationMs": 1.8999999985098839,
+            "encodedBodyBytes": 949,
+            "decodedBodyBytes": 2477,
+            "transferBytes": 1249
+          }
+        ]
+      },
+      {
+        "label": "none-3",
+        "build": "6.2.0+1-d7a3c6d1",
+        "timeOrigin": 1792147173889.2,
+        "firstFlutterFrameMs": 2748.2000000029802,
+        "fcpMs": 124,
+        "lcpMs": 124,
+        "dclMs": 16.600000001490116,
+        "splashMs": 15,
+        "longTaskCount": 7,
+        "longTaskWorstMs": 347,
+        "longTaskTotalMs": 1176,
+        "longTaskOver200ms": 2,
+        "localResources": [
+          {
+            "path": "/flutter_bootstrap.js",
+            "durationMs": 6.800000004470348,
+            "encodedBodyBytes": 4646,
+            "decodedBodyBytes": 11924,
+            "transferBytes": 4946
+          },
+          {
+            "path": "/manifest.json",
+            "durationMs": 2.5,
+            "encodedBodyBytes": 298,
+            "decodedBodyBytes": 814,
+            "transferBytes": 598
+          },
+          {
+            "path": "/main.dart.js",
+            "durationMs": 180.70000000298023,
+            "encodedBodyBytes": 1335033,
+            "decodedBodyBytes": 4547846,
+            "transferBytes": 1335333
+          },
+          {
+            "path": "/assets/FontManifest.json",
+            "durationMs": 1.8999999985098839,
+            "encodedBodyBytes": 318,
+            "decodedBodyBytes": 1200,
+            "transferBytes": 618
+          },
+          {
+            "path": "/assets/fonts/MaterialIcons-Regular.otf",
+            "durationMs": 4.5,
+            "encodedBodyBytes": 61836,
+            "decodedBodyBytes": 61836,
+            "transferBytes": 62136
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Regular.ttf",
+            "durationMs": 5.0999999940395355,
+            "encodedBodyBytes": 137400,
+            "decodedBodyBytes": 137400,
+            "transferBytes": 137700
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-SemiBold.ttf",
+            "durationMs": 8.899999998509884,
+            "encodedBodyBytes": 137412,
+            "decodedBodyBytes": 137412,
+            "transferBytes": 137712
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Bold.ttf",
+            "durationMs": 9.5,
+            "encodedBodyBytes": 137276,
+            "decodedBodyBytes": 137276,
+            "transferBytes": 137576
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Medium.ttf",
+            "durationMs": 10.5,
+            "encodedBodyBytes": 42568,
+            "decodedBodyBytes": 42568,
+            "transferBytes": 42868
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-SemiBold.ttf",
+            "durationMs": 12.600000001490116,
+            "encodedBodyBytes": 43132,
+            "decodedBodyBytes": 43132,
+            "transferBytes": 43432
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Bold.ttf",
+            "durationMs": 12.599999994039536,
+            "encodedBodyBytes": 43044,
+            "decodedBodyBytes": 43044,
+            "transferBytes": 43344
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-ExtraBold.ttf",
+            "durationMs": 12.600000001490116,
+            "encodedBodyBytes": 42952,
+            "decodedBodyBytes": 42952,
+            "transferBytes": 43252
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Black.ttf",
+            "durationMs": 12.600000001490116,
+            "encodedBodyBytes": 43000,
+            "decodedBodyBytes": 43000,
+            "transferBytes": 43300
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowEmoji.ttf",
+            "durationMs": 14.5,
+            "encodedBodyBytes": 317484,
+            "decodedBodyBytes": 317484,
+            "transferBytes": 317784
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowSymbols.ttf",
+            "durationMs": 14.800000004470348,
+            "encodedBodyBytes": 6452,
+            "decodedBodyBytes": 6452,
+            "transferBytes": 6752
+          },
+          {
+            "path": "/assets/assets/google_fonts/DancingScript-Bold.ttf",
+            "durationMs": 15,
+            "encodedBodyBytes": 67856,
+            "decodedBodyBytes": 67856,
+            "transferBytes": 68156
+          },
+          {
+            "path": "/assets/assets/google_fonts/Caveat-Regular.ttf",
+            "durationMs": 15.900000005960464,
+            "encodedBodyBytes": 131636,
+            "decodedBodyBytes": 131636,
+            "transferBytes": 131936
+          },
+          {
+            "path": "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+            "durationMs": 15.600000001490116,
+            "encodedBodyBytes": 1472,
+            "decodedBodyBytes": 1472,
+            "transferBytes": 1772
+          },
+          {
+            "path": "/favicon.png",
+            "durationMs": 13.299999997019768,
+            "encodedBodyBytes": 6566,
+            "decodedBodyBytes": 6566,
+            "transferBytes": 6866
+          },
+          {
+            "path": "/icons/Icon-192.png",
+            "durationMs": 12,
+            "encodedBodyBytes": 39647,
+            "decodedBodyBytes": 39647,
+            "transferBytes": 39947
+          },
+          {
+            "path": "/assets/assets/env.txt",
+            "durationMs": 2.5,
+            "encodedBodyBytes": 9,
+            "decodedBodyBytes": 9,
+            "transferBytes": 309
+          },
+          {
+            "path": "/version.json",
+            "durationMs": 2.3000000044703484,
+            "encodedBodyBytes": 76,
+            "decodedBodyBytes": 73,
+            "transferBytes": 376
+          },
+          {
+            "path": "/hls_bridge.js",
+            "durationMs": 1.8999999985098839,
+            "encodedBodyBytes": 949,
+            "decodedBodyBytes": 2477,
+            "transferBytes": 1249
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "profile": "fast3g",
+    "link": {
+      "latencyMs": 150,
+      "downloadKbps": 1600,
+      "uploadKbps": 750
+    },
+    "webRoot": "C:\\Users\\Admin\\.t3\\worktrees\\Everglow\\t3-a3e23d2b\\build\\web",
+    "visit": "cold: fresh profile, uncached requests, SW bypassed",
+    "note": "CDP synthetic link on desktop; firstFlutterFrame is not interactivity; no offline/device guarantee. Local ResourceTiming encoded body bytes reflect compression, not filesystem size.",
+    "requestedRuns": 3,
+    "recordedRuns": 3,
+    "bar": {
+      "firstFlutterFrameMs": 2500,
+      "longTaskMs": 200
+    },
+    "verdict": {
+      "complete": true,
+      "allFirstFlutterFramesWithinBudget": false,
+      "noLongTaskOver200ms": false
+    },
+    "median": {
+      "firstFlutterFrameMs": 29431.89999999851
+    },
+    "worst": {
+      "firstFlutterFrameMs": 29446.70000000298,
+      "longTaskMs": 392
+    },
+    "details": [
+      {
+        "label": "fast3g-1",
+        "build": "6.2.0+1-d7a3c6d1",
+        "timeOrigin": 1792147180903.8,
+        "firstFlutterFrameMs": 29274.5,
+        "fcpMs": 284,
+        "lcpMs": 284,
+        "dclMs": 222,
+        "splashMs": 193.20000000298023,
+        "longTaskCount": 6,
+        "longTaskWorstMs": 365,
+        "longTaskTotalMs": 1099,
+        "longTaskOver200ms": 2,
+        "localResources": [
+          {
+            "path": "/flutter_bootstrap.js",
+            "durationMs": 209.5,
+            "encodedBodyBytes": 4646,
+            "decodedBodyBytes": 11924,
+            "transferBytes": 4946
+          },
+          {
+            "path": "/manifest.json",
+            "durationMs": 168.20000000298023,
+            "encodedBodyBytes": 298,
+            "decodedBodyBytes": 814,
+            "transferBytes": 598
+          },
+          {
+            "path": "/main.dart.js",
+            "durationMs": 13910.60000000149,
+            "encodedBodyBytes": 1335033,
+            "decodedBodyBytes": 4547846,
+            "transferBytes": 1335333
+          },
+          {
+            "path": "/hls_bridge.js",
+            "durationMs": 168.39999999850988,
+            "encodedBodyBytes": 949,
+            "decodedBodyBytes": 2477,
+            "transferBytes": 1249
+          },
+          {
+            "path": "/assets/FontManifest.json",
+            "durationMs": 168.39999999850988,
+            "encodedBodyBytes": 318,
+            "decodedBodyBytes": 1200,
+            "transferBytes": 618
+          },
+          {
+            "path": "/assets/fonts/MaterialIcons-Regular.otf",
+            "durationMs": 2717.60000000149,
+            "encodedBodyBytes": 61836,
+            "decodedBodyBytes": 61836,
+            "transferBytes": 62136
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Regular.ttf",
+            "durationMs": 5450.69999999553,
+            "encodedBodyBytes": 137400,
+            "decodedBodyBytes": 137400,
+            "transferBytes": 137700
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-SemiBold.ttf",
+            "durationMs": 5465.70000000298,
+            "encodedBodyBytes": 137412,
+            "decodedBodyBytes": 137412,
+            "transferBytes": 137712
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Bold.ttf",
+            "durationMs": 5481.0999999940395,
+            "encodedBodyBytes": 137276,
+            "decodedBodyBytes": 137276,
+            "transferBytes": 137576
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Medium.ttf",
+            "durationMs": 1956.8000000044703,
+            "encodedBodyBytes": 42568,
+            "decodedBodyBytes": 42568,
+            "transferBytes": 42868
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-SemiBold.ttf",
+            "durationMs": 1971.6999999955297,
+            "encodedBodyBytes": 43132,
+            "decodedBodyBytes": 43132,
+            "transferBytes": 43432
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Bold.ttf",
+            "durationMs": 3986.7000000029802,
+            "encodedBodyBytes": 43044,
+            "decodedBodyBytes": 43044,
+            "transferBytes": 43344
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-ExtraBold.ttf",
+            "durationMs": 4001.7999999970198,
+            "encodedBodyBytes": 42952,
+            "decodedBodyBytes": 42952,
+            "transferBytes": 43252
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Black.ttf",
+            "durationMs": 4527.80000000447,
+            "encodedBodyBytes": 43000,
+            "decodedBodyBytes": 43000,
+            "transferBytes": 43300
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowEmoji.ttf",
+            "durationMs": 9113,
+            "encodedBodyBytes": 317484,
+            "decodedBodyBytes": 317484,
+            "transferBytes": 317784
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowSymbols.ttf",
+            "durationMs": 4405.29999999702,
+            "encodedBodyBytes": 6452,
+            "decodedBodyBytes": 6452,
+            "transferBytes": 6752
+          },
+          {
+            "path": "/assets/assets/google_fonts/DancingScript-Bold.ttf",
+            "durationMs": 6489.4000000059605,
+            "encodedBodyBytes": 67856,
+            "decodedBodyBytes": 67856,
+            "transferBytes": 68156
+          },
+          {
+            "path": "/assets/assets/google_fonts/Caveat-Regular.ttf",
+            "durationMs": 7456.5,
+            "encodedBodyBytes": 131636,
+            "decodedBodyBytes": 131636,
+            "transferBytes": 131936
+          },
+          {
+            "path": "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+            "durationMs": 5665,
+            "encodedBodyBytes": 1472,
+            "decodedBodyBytes": 1472,
+            "transferBytes": 1772
+          },
+          {
+            "path": "/favicon.png",
+            "durationMs": 1812.3000000044703,
+            "encodedBodyBytes": 6566,
+            "decodedBodyBytes": 6566,
+            "transferBytes": 6866
+          },
+          {
+            "path": "/icons/Icon-192.png",
+            "durationMs": 2618.8000000044703,
+            "encodedBodyBytes": 39647,
+            "decodedBodyBytes": 39647,
+            "transferBytes": 39947
+          },
+          {
+            "path": "/assets/assets/env.txt",
+            "durationMs": 181.39999999850988,
+            "encodedBodyBytes": 9,
+            "decodedBodyBytes": 9,
+            "transferBytes": 309
+          },
+          {
+            "path": "/version.json",
+            "durationMs": 170.89999999850988,
+            "encodedBodyBytes": 76,
+            "decodedBodyBytes": 73,
+            "transferBytes": 376
+          }
+        ]
+      },
+      {
+        "label": "fast3g-2",
+        "build": "6.2.0+1-d7a3c6d1",
+        "timeOrigin": 1792147214052.9,
+        "firstFlutterFrameMs": 29431.89999999851,
+        "fcpMs": 288,
+        "lcpMs": 288,
+        "dclMs": 213.70000000298023,
+        "splashMs": 184.89999999850988,
+        "longTaskCount": 6,
+        "longTaskWorstMs": 369,
+        "longTaskTotalMs": 1110,
+        "longTaskOver200ms": 2,
+        "localResources": [
+          {
+            "path": "/flutter_bootstrap.js",
+            "durationMs": 196.80000000447035,
+            "encodedBodyBytes": 4646,
+            "decodedBodyBytes": 11924,
+            "transferBytes": 4946
+          },
+          {
+            "path": "/manifest.json",
+            "durationMs": 170.69999999552965,
+            "encodedBodyBytes": 298,
+            "decodedBodyBytes": 814,
+            "transferBytes": 598
+          },
+          {
+            "path": "/main.dart.js",
+            "durationMs": 13062.69999999553,
+            "encodedBodyBytes": 1335033,
+            "decodedBodyBytes": 4547846,
+            "transferBytes": 1335333
+          },
+          {
+            "path": "/hls_bridge.js",
+            "durationMs": 170.69999999552965,
+            "encodedBodyBytes": 949,
+            "decodedBodyBytes": 2477,
+            "transferBytes": 1249
+          },
+          {
+            "path": "/assets/FontManifest.json",
+            "durationMs": 170,
+            "encodedBodyBytes": 318,
+            "decodedBodyBytes": 1200,
+            "transferBytes": 618
+          },
+          {
+            "path": "/assets/fonts/MaterialIcons-Regular.otf",
+            "durationMs": 2727,
+            "encodedBodyBytes": 61836,
+            "decodedBodyBytes": 61836,
+            "transferBytes": 62136
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Regular.ttf",
+            "durationMs": 5551.29999999702,
+            "encodedBodyBytes": 137400,
+            "decodedBodyBytes": 137400,
+            "transferBytes": 137700
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-SemiBold.ttf",
+            "durationMs": 5551.30000000447,
+            "encodedBodyBytes": 137412,
+            "decodedBodyBytes": 137412,
+            "transferBytes": 137712
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Bold.ttf",
+            "durationMs": 5566.29999999702,
+            "encodedBodyBytes": 137276,
+            "decodedBodyBytes": 137276,
+            "transferBytes": 137576
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Medium.ttf",
+            "durationMs": 1962,
+            "encodedBodyBytes": 42568,
+            "decodedBodyBytes": 42568,
+            "transferBytes": 42868
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-SemiBold.ttf",
+            "durationMs": 1977.7999999970198,
+            "encodedBodyBytes": 43132,
+            "decodedBodyBytes": 43132,
+            "transferBytes": 43432
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Bold.ttf",
+            "durationMs": 3993,
+            "encodedBodyBytes": 43044,
+            "decodedBodyBytes": 43044,
+            "transferBytes": 43344
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-ExtraBold.ttf",
+            "durationMs": 3994.39999999851,
+            "encodedBodyBytes": 42952,
+            "decodedBodyBytes": 42952,
+            "transferBytes": 43252
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Black.ttf",
+            "durationMs": 4616.60000000149,
+            "encodedBodyBytes": 43000,
+            "decodedBodyBytes": 43000,
+            "transferBytes": 43300
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowEmoji.ttf",
+            "durationMs": 9187.39999999851,
+            "encodedBodyBytes": 317484,
+            "decodedBodyBytes": 317484,
+            "transferBytes": 317784
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowSymbols.ttf",
+            "durationMs": 4443.60000000149,
+            "encodedBodyBytes": 6452,
+            "decodedBodyBytes": 6452,
+            "transferBytes": 6752
+          },
+          {
+            "path": "/assets/assets/google_fonts/DancingScript-Bold.ttf",
+            "durationMs": 6560.29999999702,
+            "encodedBodyBytes": 67856,
+            "decodedBodyBytes": 67856,
+            "transferBytes": 68156
+          },
+          {
+            "path": "/assets/assets/google_fonts/Caveat-Regular.ttf",
+            "durationMs": 7531.10000000149,
+            "encodedBodyBytes": 131636,
+            "decodedBodyBytes": 131636,
+            "transferBytes": 131936
+          },
+          {
+            "path": "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+            "durationMs": 5783.19999999553,
+            "encodedBodyBytes": 1472,
+            "decodedBodyBytes": 1472,
+            "transferBytes": 1772
+          },
+          {
+            "path": "/favicon.png",
+            "durationMs": 1315.6000000014901,
+            "encodedBodyBytes": 6566,
+            "decodedBodyBytes": 6566,
+            "transferBytes": 6866
+          },
+          {
+            "path": "/icons/Icon-192.png",
+            "durationMs": 2075.89999999851,
+            "encodedBodyBytes": 39647,
+            "decodedBodyBytes": 39647,
+            "transferBytes": 39947
+          },
+          {
+            "path": "/assets/assets/env.txt",
+            "durationMs": 177.79999999701977,
+            "encodedBodyBytes": 9,
+            "decodedBodyBytes": 9,
+            "transferBytes": 309
+          },
+          {
+            "path": "/version.json",
+            "durationMs": 181.89999999850988,
+            "encodedBodyBytes": 76,
+            "decodedBodyBytes": 73,
+            "transferBytes": 376
+          }
+        ]
+      },
+      {
+        "label": "fast3g-3",
+        "build": "6.2.0+1-d7a3c6d1",
+        "timeOrigin": 1792147247584.8,
+        "firstFlutterFrameMs": 29446.70000000298,
+        "fcpMs": 284,
+        "lcpMs": 284,
+        "dclMs": 214.70000000298023,
+        "splashMs": 186.80000000447035,
+        "longTaskCount": 6,
+        "longTaskWorstMs": 392,
+        "longTaskTotalMs": 1145,
+        "longTaskOver200ms": 2,
+        "localResources": [
+          {
+            "path": "/flutter_bootstrap.js",
+            "durationMs": 195.40000000596046,
+            "encodedBodyBytes": 4646,
+            "decodedBodyBytes": 11924,
+            "transferBytes": 4946
+          },
+          {
+            "path": "/manifest.json",
+            "durationMs": 172.69999999552965,
+            "encodedBodyBytes": 298,
+            "decodedBodyBytes": 814,
+            "transferBytes": 598
+          },
+          {
+            "path": "/main.dart.js",
+            "durationMs": 13018.39999999851,
+            "encodedBodyBytes": 1335033,
+            "decodedBodyBytes": 4547846,
+            "transferBytes": 1335333
+          },
+          {
+            "path": "/hls_bridge.js",
+            "durationMs": 175.60000000149012,
+            "encodedBodyBytes": 949,
+            "decodedBodyBytes": 2477,
+            "transferBytes": 1249
+          },
+          {
+            "path": "/assets/FontManifest.json",
+            "durationMs": 171.39999999850988,
+            "encodedBodyBytes": 318,
+            "decodedBodyBytes": 1200,
+            "transferBytes": 618
+          },
+          {
+            "path": "/assets/fonts/MaterialIcons-Regular.otf",
+            "durationMs": 2717,
+            "encodedBodyBytes": 61836,
+            "decodedBodyBytes": 61836,
+            "transferBytes": 62136
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Regular.ttf",
+            "durationMs": 5570.20000000298,
+            "encodedBodyBytes": 137400,
+            "decodedBodyBytes": 137400,
+            "transferBytes": 137700
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-SemiBold.ttf",
+            "durationMs": 5585.29999999702,
+            "encodedBodyBytes": 137412,
+            "decodedBodyBytes": 137412,
+            "transferBytes": 137712
+          },
+          {
+            "path": "/assets/assets/google_fonts/CormorantGaramond-Bold.ttf",
+            "durationMs": 5584.80000000447,
+            "encodedBodyBytes": 137276,
+            "decodedBodyBytes": 137276,
+            "transferBytes": 137576
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Medium.ttf",
+            "durationMs": 1971.8999999985099,
+            "encodedBodyBytes": 42568,
+            "decodedBodyBytes": 42568,
+            "transferBytes": 42868
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-SemiBold.ttf",
+            "durationMs": 1972.2999999970198,
+            "encodedBodyBytes": 43132,
+            "decodedBodyBytes": 43132,
+            "transferBytes": 43432
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Bold.ttf",
+            "durationMs": 3990.7000000029802,
+            "encodedBodyBytes": 43044,
+            "decodedBodyBytes": 43044,
+            "transferBytes": 43344
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-ExtraBold.ttf",
+            "durationMs": 3990.5999999940395,
+            "encodedBodyBytes": 42952,
+            "decodedBodyBytes": 42952,
+            "transferBytes": 43252
+          },
+          {
+            "path": "/assets/assets/google_fonts/Outfit-Black.ttf",
+            "durationMs": 4608.10000000149,
+            "encodedBodyBytes": 43000,
+            "decodedBodyBytes": 43000,
+            "transferBytes": 43300
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowEmoji.ttf",
+            "durationMs": 9183.79999999702,
+            "encodedBodyBytes": 317484,
+            "decodedBodyBytes": 317484,
+            "transferBytes": 317784
+          },
+          {
+            "path": "/assets/assets/google_fonts/EverglowSymbols.ttf",
+            "durationMs": 4436.20000000298,
+            "encodedBodyBytes": 6452,
+            "decodedBodyBytes": 6452,
+            "transferBytes": 6752
+          },
+          {
+            "path": "/assets/assets/google_fonts/DancingScript-Bold.ttf",
+            "durationMs": 6574.39999999851,
+            "encodedBodyBytes": 67856,
+            "decodedBodyBytes": 67856,
+            "transferBytes": 68156
+          },
+          {
+            "path": "/assets/assets/google_fonts/Caveat-Regular.ttf",
+            "durationMs": 7546.9000000059605,
+            "encodedBodyBytes": 131636,
+            "decodedBodyBytes": 131636,
+            "transferBytes": 131936
+          },
+          {
+            "path": "/assets/packages/cupertino_icons/assets/CupertinoIcons.ttf",
+            "durationMs": 5799.89999999851,
+            "encodedBodyBytes": 1472,
+            "decodedBodyBytes": 1472,
+            "transferBytes": 1772
+          },
+          {
+            "path": "/favicon.png",
+            "durationMs": 1296.7999999970198,
+            "encodedBodyBytes": 6566,
+            "decodedBodyBytes": 6566,
+            "transferBytes": 6866
+          },
+          {
+            "path": "/icons/Icon-192.png",
+            "durationMs": 2067.5,
+            "encodedBodyBytes": 39647,
+            "decodedBodyBytes": 39647,
+            "transferBytes": 39947
+          },
+          {
+            "path": "/assets/assets/env.txt",
+            "durationMs": 179.70000000298023,
+            "encodedBodyBytes": 9,
+            "decodedBodyBytes": 9,
+            "transferBytes": 309
+          },
+          {
+            "path": "/version.json",
+            "durationMs": 174.80000000447035,
+            "encodedBodyBytes": 76,
+            "decodedBodyBytes": 73,
+            "transferBytes": 376
+          }
+        ]
+      }
+    ]
+  }
+]
