@@ -15,17 +15,19 @@ import 'animex_tokens.dart';
 /// Search page with debounced input, quick filter chips and a results grid.
 class AnimeXSearchPage extends StatefulWidget {
   final AnimeXController controller;
+  final AniListService? service;
 
-  const AnimeXSearchPage({super.key, required this.controller});
+  const AnimeXSearchPage({super.key, required this.controller, this.service});
 
   @override
   State<AnimeXSearchPage> createState() => _AnimeXSearchPageState();
 }
 
 class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
-  final AniListService _aniList = AniListService();
+  late final AniListService _aniList = widget.service ?? AniListService();
   final TextEditingController _input = TextEditingController();
   Timer? _debounce;
+  int _request = 0;
 
   String _query = '';
   String _mode = 'all'; // all | trending | airing | movies | new
@@ -41,6 +43,7 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
   }
 
   void _onChanged(String value) {
+    ++_request;
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 450), () {
       _query = value.trim();
@@ -49,6 +52,7 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
   }
 
   void _selectMode(String mode) {
+    _debounce?.cancel();
     _mode = mode;
     _query = '';
     _input.clear();
@@ -56,6 +60,7 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
   }
 
   Future<void> _run() async {
+    final request = ++_request;
     setState(() {
       _loading = true;
       _searched = true;
@@ -90,14 +95,14 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
           ),
         };
       }
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _results = page.items;
         _loading = false;
       });
     } catch (e) {
       debugPrint('[AnimeXSearch] search failed: $e');
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
         _results = [];
         _loading = false;
@@ -175,6 +180,7 @@ class _AnimeXSearchPageState extends State<AnimeXSearchPage> {
           if (_query.isNotEmpty)
             GestureDetector(
               onTap: () {
+                _debounce?.cancel();
                 _input.clear();
                 _query = '';
                 _run();
