@@ -1,0 +1,18 @@
+{
+  "content": "synthetic only",
+  "browser": "Microsoft Edge, disposable headless profiles",
+  "viewports": [
+    "430x900",
+    "1024x768"
+  ],
+  "checks": [
+    "Continue absent at opening and letter",
+    "unrelated window message ignored",
+    "closing reveals Continue",
+    "restart hides Continue",
+    "Continue completes gift",
+    "later visit skips gift",
+    "no page errors"
+  ],
+  "fallback": "T3 preview previously failed twice: Preview automation snapshot timed out after 15000ms."
+}
