@@ -10,12 +10,17 @@ import '../../../../core/theme/app_typography.dart';
 /// tablet — not just the web app.
 ///
 /// Isolation: JavaScript runs (games need it), but the controller exposes
-/// no JavaScript channels, and every navigation attempt is blocked, so the
+/// only an optional reading-state channel, and navigation is blocked, so the
 /// app can't leave its single page or reach app state.
 class CanvasHtmlView extends StatefulWidget {
   final String html;
+  final ValueChanged<bool>? onContentFinishedChanged;
 
-  const CanvasHtmlView({super.key, required this.html});
+  const CanvasHtmlView({
+    super.key,
+    required this.html,
+    this.onContentFinishedChanged,
+  });
 
   @override
   State<CanvasHtmlView> createState() => _CanvasHtmlViewState();
@@ -50,8 +55,21 @@ class _CanvasHtmlViewState extends State<CanvasHtmlView> {
               if (mounted) setState(() => _loading = false);
             },
           ),
-        )
-        ..loadHtmlString(widget.html);
+        );
+      if (widget.onContentFinishedChanged != null) {
+        controller.addJavaScriptChannel(
+          'EverglowCanvas',
+          onMessageReceived: (message) {
+            if (message.message == 'everglow:content-finished' ||
+                message.message == 'everglow:content-reading') {
+              widget.onContentFinishedChanged?.call(
+                message.message == 'everglow:content-finished',
+              );
+            }
+          },
+        );
+      }
+      controller.loadHtmlString(widget.html);
       _controller = controller;
     } else {
       _loading = false;

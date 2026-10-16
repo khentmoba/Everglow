@@ -25,7 +25,13 @@ normally and tries again on a later session; a failed completion keeps the gift
 open with a retry message. Offline opening does not consume the gift.
 
 The existing sandboxed HTML viewer keeps the document isolated from app state.
-Continue belongs to Flutter, so the HTML has no bridge to account data.
+Continue belongs to Flutter and stays hidden until the letter's final action
+opens the closing message. The document reports `everglow:content-finished`
+at that point and `everglow:content-reading` when restarting or revisiting.
+The optional viewer callback accepts only those two messages; web messages
+must come from this viewer's own iframe. Native uses the optional
+`EverglowCanvas` JavaScript channel. Neither exposes account data or writes a
+receipt. Only the visible Flutter Continue button completes the gift.
 
 For a synthetic local preview:
 

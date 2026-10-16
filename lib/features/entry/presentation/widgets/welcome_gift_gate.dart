@@ -27,6 +27,7 @@ class WelcomeGiftGate extends StatefulWidget {
 class _WelcomeGiftGateState extends State<WelcomeGiftGate> {
   late final WelcomeGiftService _service;
   String? _html;
+  bool _contentFinished = false;
   bool _saving = false;
   bool _saveFailed = false;
 
@@ -42,6 +43,7 @@ class _WelcomeGiftGateState extends State<WelcomeGiftGate> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.recipientUid != widget.recipientUid) {
       _html = null;
+      _contentFinished = false;
       _saving = false;
       _saveFailed = false;
       unawaited(_load());
@@ -58,7 +60,7 @@ class _WelcomeGiftGateState extends State<WelcomeGiftGate> {
 
   Future<void> _complete() async {
     final uid = widget.recipientUid;
-    if (_saving || uid == null) return;
+    if (!_contentFinished || _saving || uid == null) return;
     setState(() {
       _saving = true;
       _saveFailed = false;
@@ -94,34 +96,44 @@ class _WelcomeGiftGateState extends State<WelcomeGiftGate> {
         ExcludeFocus(child: ExcludeSemantics(child: widget.child)),
         Scaffold(
           backgroundColor: AppColors.petalWhite,
-          body: SafeArea(bottom: false, child: CanvasHtmlView(html: html)),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_saveFailed)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 10),
-                      child: Text(
-                        "Couldn't save right now. Check your connection and try again.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.roseDepths),
-                      ),
-                    ),
-                  EverglowButton(
-                    label: _saving ? 'Saving...' : 'Continue to Everglow',
-                    enabled: !_saving,
-                    onPressed: _complete,
-                    backgroundColor: AppColors.roseDepths,
-                    foregroundColor: AppColors.petalWhite,
-                  ),
-                ],
-              ),
+          body: SafeArea(
+            bottom: !_contentFinished,
+            child: CanvasHtmlView(
+              html: html,
+              onContentFinishedChanged: (finished) {
+                if (mounted) setState(() => _contentFinished = finished);
+              },
             ),
           ),
+          bottomNavigationBar: !_contentFinished
+              ? null
+              : SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_saveFailed)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 10),
+                            child: Text(
+                              "Couldn't save right now. Check your connection and try again.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: AppColors.roseDepths),
+                            ),
+                          ),
+                        EverglowButton(
+                          label: _saving ? 'Saving...' : 'Continue to Everglow',
+                          enabled: !_saving,
+                          onPressed: _complete,
+                          backgroundColor: AppColors.roseDepths,
+                          foregroundColor: AppColors.petalWhite,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
         ),
       ],
     );

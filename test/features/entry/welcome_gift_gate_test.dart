@@ -58,6 +58,11 @@ void main() {
       await tester.pumpWidget(_app(service));
       await tester.pump();
       expect(find.byType(CanvasHtmlView), findsOneWidget);
+      expect(find.text('Continue to Everglow'), findsNothing);
+      tester
+          .widget<CanvasHtmlView>(find.byType(CanvasHtmlView))
+          .onContentFinishedChanged!(true);
+      await tester.pump();
       await tester.tap(find.text('Continue to Everglow'));
       await tester.pump();
       expect(find.text('Saving...'), findsOneWidget);
@@ -93,6 +98,10 @@ void main() {
     final service = _GiftService()..failSave = true;
     await tester.pumpWidget(_app(service));
     await tester.pump();
+    tester
+        .widget<CanvasHtmlView>(find.byType(CanvasHtmlView))
+        .onContentFinishedChanged!(true);
+    await tester.pump();
     await tester.tap(find.text('Continue to Everglow'));
     await tester.pumpAndSettle();
     expect(find.textContaining("Couldn't save right now"), findsOneWidget);
@@ -102,6 +111,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(CanvasHtmlView), findsNothing);
     expect(service.saves, 2);
+  }, variant: linux);
+
+  testWidgets('reading, restart and recipient change hide Continue', (
+    tester,
+  ) async {
+    final service = _GiftService();
+    await tester.pumpWidget(_app(service));
+    await tester.pump();
+    final report = tester
+        .widget<CanvasHtmlView>(find.byType(CanvasHtmlView))
+        .onContentFinishedChanged!;
+    report(false);
+    await tester.pump();
+    expect(find.text('Continue to Everglow'), findsNothing);
+    report(true);
+    await tester.pump();
+    expect(find.text('Continue to Everglow'), findsOneWidget);
+    report(false);
+    await tester.pump();
+    expect(find.text('Continue to Everglow'), findsNothing);
+    report(true);
+    await tester.pump();
+    await tester.pumpWidget(_app(service, uid: 'another-recipient'));
+    await tester.pump();
+    expect(find.text('Continue to Everglow'), findsNothing);
+    expect(service.saves, 0);
   }, variant: linux);
 
   testWidgets('a delayed read cannot reveal the gift after sign-out', (
@@ -124,6 +159,11 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(_app(_GiftService()));
+      await tester.pumpAndSettle();
+      expect(find.text('Continue to Everglow'), findsNothing);
+      tester
+          .widget<CanvasHtmlView>(find.byType(CanvasHtmlView))
+          .onContentFinishedChanged!(true);
       await tester.pumpAndSettle();
       expect(find.text('Continue to Everglow'), findsOneWidget);
       expect(tester.takeException(), isNull);
