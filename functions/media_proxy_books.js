@@ -95,6 +95,7 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Access-Control-Expose-Headers', 'X-Book-Source');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -154,7 +155,14 @@ const proxyBookFile = cappedHttps(10, async (req, res) => {
       if (buf.length === 0 || buf.length > MAX_BYTES) continue;
       // Zip magic: EPUBs are zip archives (PK\x03\x04).
       if (buf[0] !== 0x50 || buf[1] !== 0x4b) continue;
-      res.json({ base64: buf.toString('base64'), usedUrl: url, attempted: urls.slice(0, i + 1) });
+      if (String(req.get('Accept') || '').includes('application/epub+zip')) {
+        res.set('Content-Type', 'application/epub+zip');
+        res.set('X-Book-Source', encodeURIComponent(url));
+        res.send(buf);
+      } else {
+        // Keep older installed clients working during the deployment window.
+        res.json({ base64: buf.toString('base64'), usedUrl: url, attempted: urls.slice(0, i + 1) });
+      }
       return;
     } catch (e) {
       console.warn(`proxyBookFile attempt ${i} failed (${url}):`, e.message);

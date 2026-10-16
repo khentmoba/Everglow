@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show Uint8List, compute, kIsWeb;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
@@ -51,8 +51,10 @@ class StudyDocException implements Exception {
 /// the question only, so long PDFs never flood the screen.
 String buildSourcesBlock(List<StudyDoc> docs) {
   final buffer = StringBuffer()
-    ..writeln('Study sources (${docs.length}): '
-        '${docs.map((d) => '"${d.fileName}"').join(', ')}.');
+    ..writeln(
+      'Study sources (${docs.length}): '
+      '${docs.map((d) => '"${d.fileName}"').join(', ')}.',
+    );
   for (final doc in docs) {
     buffer
       ..writeln('--- ${doc.fileName} ---')
@@ -142,13 +144,36 @@ class StudyDocService {
     if (bytes.lengthInBytes > kMaxStudyPdfBytes) {
       throw StudyDocException('That PDF is over 10 MB — try a smaller one.');
     }
-    final text = extractPdfText(bytes);
+    final text = await extractPdfTextAsync(bytes);
     if (text.trim().isEmpty) {
       throw StudyDocException(
         'Motchi could not find any text in there — it may be scanned photos. Try a text-based PDF.',
       );
     }
     return StudyDoc(fileName: file.name, text: text.trim(), truncated: false);
+  }
+}
+
+/// Native extraction runs in an isolate; web yields between complete pages.
+Future<String> extractPdfTextAsync(Uint8List bytes) async {
+  if (!kIsWeb) return compute(extractPdfText, bytes);
+  await Future<void>.delayed(Duration.zero);
+  PdfDocument? document;
+  try {
+    document = PdfDocument(inputBytes: bytes);
+    final extractor = PdfTextExtractor(document);
+    final text = StringBuffer();
+    for (var page = 0; page < document.pages.count; page++) {
+      await Future<void>.delayed(Duration.zero);
+      text.writeln(
+        extractor.extractText(startPageIndex: page, endPageIndex: page),
+      );
+    }
+    return text.toString();
+  } catch (_) {
+    throw StudyDocException('That file is not a readable PDF.');
+  } finally {
+    document?.dispose();
   }
 }
 
