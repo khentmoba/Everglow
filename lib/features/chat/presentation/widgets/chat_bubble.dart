@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_elevation.dart';
+import '../../../../shared/utils/text_utils.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Sanctuary couple-chat bubble — same premium language as Motchi/Study.
-///
-/// - Mine: warm rose gradient, right-aligned, soft glow.
-/// - Theirs: frosted glass with lilac glow, sender label with gold dot.
-/// Long-press or the copy icon copies the message.
+/// A quiet message bubble with selectable text and accessible message actions.
 class ChatBubble extends StatelessWidget {
   final String text;
   final bool isMe;
@@ -38,13 +34,6 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeStr = DateFormat('h:mm a').format(timestamp);
-    final dateStr = DateFormat('MMM d').format(timestamp);
-    final now = DateTime.now();
-    final isToday =
-        now.day == timestamp.day &&
-        now.month == timestamp.month &&
-        now.year == timestamp.year;
-
     void copy() {
       HapticFeedback.selectionClick();
       Clipboard.setData(ClipboardData(text: text));
@@ -63,234 +52,139 @@ class ChatBubble extends StatelessWidget {
       );
     }
 
-    return Semantics(
-      label: isMe ? 'You at $timeStr: $text' : '$sender at $timeStr: $text',
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Column(
-          crossAxisAlignment: isMe
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            if (!isMe && showSender)
-              Padding(
-                padding: const EdgeInsets.only(left: 14, bottom: 5),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.84),
+          child: Semantics(
+            label: isMe ? 'You at $timeStr' : '$sender at $timeStr',
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: isMe
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
+                children: [
+                  if (!isMe && showSender)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, bottom: 7),
+                      child: Text(
+                        displayNameFor(sender),
+                        style: AppTypography.bodySmall().copyWith(
+                          color: AppColors.blushGold,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  GestureDetector(
+                    onLongPress: copy,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 5),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.blushGold, AppColors.deepRose],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        color: isMe ? AppColors.roseDepths : AppColors.silk,
+                        border: isFailed
+                            ? Border.all(color: AppColors.error)
+                            : null,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(20),
+                          topRight: const Radius.circular(20),
+                          bottomLeft: Radius.circular(isMe ? 20 : 5),
+                          bottomRight: Radius.circular(isMe ? 5 : 20),
                         ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.blushGold.withValues(alpha: 0.5),
-                            blurRadius: 6,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SelectableText(
+                            text,
+                            style: AppTypography.bodyMedium().copyWith(
+                              color: AppColors.petalWhite,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              height: 1.5,
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      sender.toUpperCase(),
-                      style: AppTypography.labelSmall().copyWith(
-                        color: AppColors.blushGold,
-                        letterSpacing: 1.2,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            GestureDetector(
-              onLongPress: copy,
-              child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.78,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 13,
-                ),
-                decoration: BoxDecoration(
-                  gradient: isMe
-                      ? (isFailed
-                            ? LinearGradient(
-                                colors: [
-                                  AppColors.roseQuartz.withValues(alpha: 0.25),
-                                  AppColors.roseDepths,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : const LinearGradient(
-                                colors: [
-                                  AppColors.deepRose,
-                                  AppColors.roseDepths,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ))
-                      : LinearGradient(
-                          colors: [
-                            AppColors.moonlight.withValues(alpha: 0.13),
-                            AppColors.moonlight.withValues(alpha: 0.07),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                  color: isMe ? null : AppColors.panelGlass,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(
-                      isMe ? AppRadius.x2 : AppRadius.xs,
-                    ),
-                    topRight: Radius.circular(
-                      isMe ? AppRadius.xs : AppRadius.x2,
-                    ),
-                    bottomLeft: const Radius.circular(AppRadius.xl),
-                    bottomRight: const Radius.circular(AppRadius.xl),
-                  ),
-                  border: Border.all(
-                    color: isMe
-                        ? AppColors.petalWhite.withValues(alpha: 0.14)
-                        : AppColors.moonlight.withValues(alpha: 0.16),
-                  ),
-                  boxShadow: [
-                    ...AppElevation.e2,
-                    BoxShadow(
-                      color: (isMe ? AppColors.deepRose : AppColors.auroraLilac)
-                          .withValues(alpha: isMe ? 0.30 : 0.10),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SelectableText(
-                      text,
-                      style: AppTypography.bodyMedium().copyWith(
-                        color: isMe ? AppColors.petalWhite : AppColors.textHigh,
-                        height: 1.55,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isFailed) ...[
-                          GestureDetector(
-                            onTap: onRetry,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline_rounded,
-                                  size: 11,
-                                  color: AppColors.roseQuartz,
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                timeStr,
+                                style: AppTypography.bodySmall().copyWith(
+                                  fontSize: 11,
+                                  color: isMe
+                                      ? AppColors.petalWhite.withValues(
+                                          alpha: 0.8,
+                                        )
+                                      : AppColors.textMedium,
                                 ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'Retry',
-                                  style: AppTypography.bodySmall().copyWith(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
+                              ),
+                              if (isOptimistic) ...[
+                                const SizedBox(width: 6),
+                                const Tooltip(
+                                  message: 'Sending',
+                                  child: Icon(
+                                    Icons.schedule_rounded,
+                                    size: 14,
                                     color: AppColors.roseQuartz,
                                   ),
                                 ),
                               ],
-                            ),
-                          ),
-                          if (onDismiss != null) ...[
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: onDismiss,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.close_rounded,
-                                    size: 11,
-                                    color: AppColors.petalWhite.withValues(
-                                      alpha: 0.55,
-                                    ),
+                              PopupMenuButton<String>(
+                                tooltip: 'Message actions',
+                                icon: Icon(
+                                  Icons.more_horiz_rounded,
+                                  size: 18,
+                                  color: AppColors.petalWhite.withValues(
+                                    alpha: 0.8,
                                   ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    'Delete',
-                                    style: AppTypography.bodySmall().copyWith(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.petalWhite.withValues(
-                                        alpha: 0.55,
-                                      ),
-                                    ),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 44,
+                                  minHeight: 44,
+                                ),
+                                padding: EdgeInsets.zero,
+                                onSelected: (_) => copy(),
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'copy',
+                                    child: Text('Copy message'),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                          const SizedBox(width: 6),
+                            ],
+                          ),
                         ],
+                      ),
+                    ),
+                  ),
+                  if (isFailed)
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
                         Text(
-                          isToday ? timeStr : '$dateStr, $timeStr',
+                          'Not sent',
                           style: AppTypography.bodySmall().copyWith(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: isMe
-                                ? AppColors.petalWhite.withValues(
-                                    alpha: isOptimistic ? 0.45 : 0.65,
-                                  )
-                                : AppColors.textMuted.withValues(alpha: 0.7),
+                            color: AppColors.error,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        if (isOptimistic)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 2),
-                            child: Icon(
-                              Icons.schedule_rounded,
-                              size: 10,
-                              color: AppColors.petalWhite.withValues(
-                                alpha: 0.55,
-                              ),
-                            ),
-                          )
-                        else
-                          InkWell(
-                            onTap: copy,
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.copy_rounded,
-                                size: 11,
-                                color: isMe
-                                    ? AppColors.petalWhite.withValues(
-                                        alpha: 0.55,
-                                      )
-                                    : AppColors.textDisabled.withValues(
-                                        alpha: 0.7,
-                                      ),
-                              ),
-                            ),
+                        TextButton(
+                          onPressed: onRetry,
+                          child: const Text('Retry'),
+                        ),
+                        if (onDismiss != null)
+                          TextButton(
+                            onPressed: onDismiss,
+                            child: const Text('Delete'),
                           ),
                       ],
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

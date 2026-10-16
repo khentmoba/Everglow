@@ -332,22 +332,22 @@ class AgentFixtures {
   static final List<ChatMessage> demoChatMessages = [
     ChatMessage(
       id: 'msg_1',
-      sender: 'Clair',
-      senderUid: 'clair_demo_uid',
+      sender: 'clairjassen',
+      senderUid: 'agent_clairjassen_uid',
       text: 'Good morning love! Hope you slept well 🥰',
       timestamp: DateTime.now().subtract(const Duration(hours: 3)),
     ),
     ChatMessage(
       id: 'msg_2',
-      sender: 'Khent',
-      senderUid: 'khent_demo_uid',
+      sender: 'khentsgdz',
+      senderUid: 'agent_khentsgdz_uid',
       text: 'Good morning gorgeous! Ready for our movie night later? 🎬💖',
       timestamp: DateTime.now().subtract(const Duration(hours: 2, minutes: 45)),
     ),
     ChatMessage(
       id: 'msg_3',
-      sender: 'Clair',
-      senderUid: 'clair_demo_uid',
+      sender: 'clairjassen',
+      senderUid: 'agent_clairjassen_uid',
       text: 'Yessss! Already craving popcorn! See you soonest 💕',
       timestamp: DateTime.now().subtract(const Duration(hours: 1, minutes: 10)),
     ),

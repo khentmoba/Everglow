@@ -62,6 +62,16 @@ void main() {
   });
 
   group('AgentFixtures', () {
+    test('chat senders match the simulated profiles for both bubble sides', () {
+      expect(
+        AgentFixtures.demoChatMessages.map((message) => message.sender).toSet(),
+        {'khentsgdz', 'clairjassen'},
+      );
+      for (final message in AgentFixtures.demoChatMessages) {
+        expect(message.senderUid, 'agent_${message.sender}_uid');
+      }
+    });
+
     test('provides non-empty demo fixtures for all surfaces', () {
       expect(AgentFixtures.demoMilestones, isNotEmpty);
       expect(AgentFixtures.demoNotes, isNotEmpty);
