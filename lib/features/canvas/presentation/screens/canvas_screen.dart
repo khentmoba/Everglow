@@ -26,7 +26,10 @@ class CanvasScreen extends StatefulWidget {
 class _CanvasScreenState extends State<CanvasScreen> {
   final GlobalKey _canvasKey = GlobalKey();
   final CanvasService _canvasService = CanvasService();
-  DoodleStroke? _activeStroke;
+  final _activeStrokeNotifier = ValueNotifier<DoodleStroke?>(null);
+  DoodleStroke? get _activeStroke => _activeStrokeNotifier.value;
+  set _activeStroke(DoodleStroke? value) => _activeStrokeNotifier.value = value;
+  late Stream<List<DoodleStroke>> _savedStrokes;
   List<DoodleStroke> _liveStrokes =
       []; // Strokes currently being drawn by others
   StreamSubscription? _liveSubscription;
@@ -48,6 +51,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
   @override
   void initState() {
     super.initState();
+    _savedStrokes = _canvasService.getStrokesStream();
     _liveSubscription = _canvasService.getLiveStrokesStream().listen((strokes) {
       if (mounted) {
         setState(() {
@@ -67,6 +71,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
   @override
   void dispose() {
     _liveSubscription?.cancel();
+    _activeStrokeNotifier.dispose();
     final presence = _presenceService;
     final uid = _currentUserId;
     if (presence != null && uid != null) {
@@ -77,8 +82,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userId =
-        context.select<AuthService, String>((a) => a.uid ?? 'unknown');
+    final userId = context.select<AuthService, String>(
+      (a) => a.uid ?? 'unknown',
+    );
 
     return Scaffold(
       backgroundColor: AppColors.inkDeep,
@@ -122,12 +128,14 @@ class _CanvasScreenState extends State<CanvasScreen> {
           // 1. Combined Strokes
           Positioned.fill(
             child: StreamBuilder<List<DoodleStroke>>(
-              stream: _canvasService.getStrokesStream(),
+              stream: _savedStrokes,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
                   return EverglowErrorState(
                     message: 'Could not load canvas: ${snapshot.error}',
-                    onRetry: () => setState(() {}),
+                    onRetry: () => setState(() {
+                      _savedStrokes = _canvasService.getStrokesStream();
+                    }),
                     icon: Icons.brush_outlined,
                   );
                 }
@@ -145,13 +153,11 @@ class _CanvasScreenState extends State<CanvasScreen> {
                   children: [
                     ClipRect(
                       child: RepaintBoundary(
-                        child: CustomPaint(
+                        child: CanvasSurface(
                           key: _canvasKey,
-                          painter: CanvasPainter(
-                            strokes: allStrokes,
-                            activeStroke: _activeStroke,
-                          ),
-                          size: Size.infinite,
+                          strokes: historyStrokes,
+                          live: othersLiveStrokes,
+                          active: _activeStrokeNotifier,
                         ),
                       ),
                     ),
@@ -162,16 +168,19 @@ class _CanvasScreenState extends State<CanvasScreen> {
                           strokeWidth: 2,
                         ),
                       ),
-                    if (!isLoading &&
-                        allStrokes.isEmpty &&
-                        _activeStroke == null)
-                      Center(
-                        child: Text(
-                          'Draw something together',
-                          style: AppTypography.cormorantRegular.copyWith(
-                            fontSize: 26,
-                            letterSpacing: 1.2,
-                            fontWeight: FontWeight.w500,
+                    if (!isLoading && allStrokes.isEmpty)
+                      ValueListenableBuilder<DoodleStroke?>(
+                        valueListenable: _activeStrokeNotifier,
+                        builder: (context, active, child) =>
+                            active == null ? child! : const SizedBox.shrink(),
+                        child: Center(
+                          child: Text(
+                            'Draw something together',
+                            style: AppTypography.cormorantRegular.copyWith(
+                              fontSize: 26,
+                              letterSpacing: 1.2,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ),
@@ -188,7 +197,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
               onPanStart: (details) => _onPanStart(details, userId),
               onPanUpdate: (details) => _onPanUpdate(details, userId),
               onPanEnd: (details) => _onPanEnd(details, userId),
-              child: Container(color: AppColors.petalWhite.withValues(alpha: 0.001)),
+              child: Container(
+                color: AppColors.petalWhite.withValues(alpha: 0.001),
+              ),
             ),
           ),
 
@@ -321,7 +332,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
     if (_activeTool == CanvasTool.eraser) {
       _handleEraserAction(details.globalPosition);
     } else if (_activeStroke != null) {
-      setState(() {
+      {
         final RenderBox? box =
             _canvasKey.currentContext?.findRenderObject() as RenderBox?;
         if (box == null) return;
@@ -353,7 +364,7 @@ class _CanvasScreenState extends State<CanvasScreen> {
             _lastSyncTime = now;
           }
         }
-      });
+      }
     }
 
     _bumpDoodlePresence(userId);
@@ -392,7 +403,9 @@ class _CanvasScreenState extends State<CanvasScreen> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          style: AppTypography.outfitWhite.copyWith(color: AppColors.petalWhite),
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.petalWhite,
+          ),
           decoration: InputDecoration(
             hintText: 'Type something...',
             hintStyle: AppTypography.outfitWhite.copyWith(
