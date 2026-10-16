@@ -118,8 +118,9 @@ class GalleryService {
       fileName: fileName,
       timestamp: stamp,
     );
-    final fullBytes = resizedJpeg(imageBytes, 1600) ?? imageBytes;
-    final thumbBytes = resizedJpeg(imageBytes, 400);
+    final images = prepareUploadImages(imageBytes);
+    final fullBytes = images.full;
+    final thumbBytes = images.thumb;
 
     Future<String> put(String path, Uint8List bytes) async {
       final ref = _storage.ref().child(path);
@@ -178,6 +179,39 @@ class GalleryService {
     );
   }
 
+  /// Decode the original once for both upload sizes.
+  @visibleForTesting
+  static ({Uint8List full, Uint8List? thumb}) prepareUploadImages(
+    Uint8List bytes,
+  ) {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded != null) {
+        return (
+          full: _encodeResized(decoded, 1600),
+          thumb: _encodeResized(decoded, 400),
+        );
+      }
+    } catch (e) {
+      Logger.e('Image resize failed, using original bytes', error: e);
+    }
+    return (full: bytes, thumb: null);
+  }
+
+  static Uint8List _encodeResized(img.Image decoded, int maxSize) {
+    final longest = decoded.width > decoded.height
+        ? decoded.width
+        : decoded.height;
+    final resized = longest <= maxSize
+        ? decoded
+        : img.copyResize(
+            decoded,
+            width: decoded.width >= decoded.height ? maxSize : null,
+            height: decoded.height > decoded.width ? maxSize : null,
+          );
+    return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+  }
+
   /// Decode + downscale to [maxSize] longest edge, re-encode JPEG q85.
   /// Returns null when the bytes aren't a decodable image.
   @visibleForTesting
@@ -185,17 +219,7 @@ class GalleryService {
     try {
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
-      final longest = decoded.width > decoded.height
-          ? decoded.width
-          : decoded.height;
-      final resized = longest <= maxSize
-          ? decoded
-          : img.copyResize(
-              decoded,
-              width: decoded.width >= decoded.height ? maxSize : null,
-              height: decoded.height > decoded.width ? maxSize : null,
-            );
-      return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+      return _encodeResized(decoded, maxSize);
     } catch (e) {
       Logger.e('Image resize failed, using original bytes', error: e);
       return null;

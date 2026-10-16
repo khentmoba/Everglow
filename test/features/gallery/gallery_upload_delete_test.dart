@@ -131,6 +131,24 @@ MemoryPhoto _photo({
     );
 
 void main() {
+  test(
+    'upload preparation makes both JPEG sizes and preserves corrupt input',
+    () {
+      final input = Uint8List.fromList(
+        img.encodePng(img.Image(width: 1800, height: 900)),
+      );
+      final images = GalleryService.prepareUploadImages(input);
+      final full = img.decodeJpg(images.full)!;
+      final thumb = img.decodeJpg(images.thumb!)!;
+      expect((full.width, full.height), (1600, 800));
+      expect((thumb.width, thumb.height), (400, 200));
+      final corrupt = Uint8List.fromList([1, 2, 3]);
+      final fallback = GalleryService.prepareUploadImages(corrupt);
+      expect(fallback.full, same(corrupt));
+      expect(fallback.thumb, isNull);
+    },
+  );
+
   testWidgets('viewer requests only the selected full photo until a swipe', (
     tester,
   ) async {
