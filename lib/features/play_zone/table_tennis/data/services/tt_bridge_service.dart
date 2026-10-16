@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:math' as math;
+import '../../../../../core/utils/latest_value_writer.dart';
+import '../../../../../core/utils/logger.dart';
 import 'package:flutter/foundation.dart';
 import 'package:web/web.dart' as web;
 
@@ -12,12 +15,14 @@ class TTBridgeService {
   StreamSubscription? _firestoreSub;
   bool _isHost = false;
   int _localTick = 0;
-  Timer? _paddleThrottle;
-  Timer? _ballThrottle;
-  double _lastSentPaddleY = -1;
-  String _lastBallSignature = '';
-  bool _hasSentPaddle = false;
-  bool _hasSentBall = false;
+  Timer? _stateTimer;
+  String _lastState = '';
+  int _generation = 0;
+  late final _writer = LatestValueWriter<Future<void> Function()>(
+    write: (save) => save(),
+    onError: (error, stack) =>
+        Logger.e('Table tennis sync failed', error: error, stackTrace: stack),
+  );
   bool _running = false;
 
   String? get roomId => _roomId;
@@ -27,14 +32,15 @@ class TTBridgeService {
     : _mpService = mpService;
 
   void connect({required String roomId, required bool isHost}) {
+    _stateTimer?.cancel();
+    _firestoreSub?.cancel();
+    _writer.clearPending();
+    ++_generation;
     _roomId = roomId;
     _isHost = isHost;
     _localTick = 0;
     _running = true;
-    _lastSentPaddleY = -1;
-    _lastBallSignature = '';
-    _hasSentPaddle = false;
-    _hasSentBall = false;
+    _lastState = '';
 
     final iframe = _findIframe();
     if (iframe != null) {
@@ -46,7 +52,8 @@ class TTBridgeService {
     }
 
     _firestoreSub = _mpService.watchRoom(roomId).listen((room) {
-      if (!_running) return;
+      if (!_running || _roomId != roomId) return;
+      _localTick = math.max(_localTick, room.lastTick);
       final f = _findIframe();
       if (f == null) return;
       _postMessage(f, 'REMOTE_PADDLE', <String, dynamic>{
@@ -66,15 +73,10 @@ class TTBridgeService {
       });
     });
 
-    _paddleThrottle = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      _sendPaddle();
-    });
-
-    if (isHost) {
-      _ballThrottle = Timer.periodic(const Duration(milliseconds: 200), (_) {
-        _sendBallState();
-      });
-    }
+    _stateTimer = Timer.periodic(
+      const Duration(milliseconds: 200),
+      (_) => _sendState(),
+    );
   }
 
   void _postMessage(
@@ -101,61 +103,48 @@ class TTBridgeService {
     }
   }
 
-  void _sendPaddle() {
-    if (_roomId == null) return;
+  void _sendState() {
+    final roomId = _roomId;
     final paddle = TTMultiplayerState.localPaddleY;
-    if (paddle < 0) return;
-    if (_hasSentPaddle && paddle == _lastSentPaddleY) return;
-    _lastSentPaddleY = paddle;
-    _hasSentPaddle = true;
-    _localTick++;
-    if (_isHost) {
-      _mpService.writeHostState(
-        roomId: _roomId!,
-        localTick: _localTick,
-        hostPaddleY: paddle,
-        ball: BallState.fromMap(TTMultiplayerState.latestBallState),
-        hostScore: TTMultiplayerState.latestHostScore,
-        guestScore: TTMultiplayerState.latestGuestScore,
-        status: TTRoomStatus.playing,
-      );
-    } else {
-      _mpService.writeGuestPaddle(
-        roomId: _roomId!,
-        localTick: _localTick,
-        guestPaddleY: paddle,
-      );
-    }
-  }
-
-  void _sendBallState() {
-    if (_roomId == null || !_isHost) return;
-    final ballMap = TTMultiplayerState.latestBallState;
-    if (ballMap == null) return;
+    if (!_running || roomId == null || paddle < 0) return;
+    final ball = BallState.fromMap(TTMultiplayerState.latestBallState);
     final hostScore = TTMultiplayerState.latestHostScore;
     final guestScore = TTMultiplayerState.latestGuestScore;
-    final signature =
-        '${ballMap['x']}|${ballMap['y']}|${ballMap['vx']}|${ballMap['vy']}|$hostScore|$guestScore';
-    if (_hasSentBall && signature == _lastBallSignature) return;
-    _lastBallSignature = signature;
-    _hasSentBall = true;
-    _localTick++;
-    _mpService.writeHostState(
-      roomId: _roomId!,
-      localTick: _localTick,
-      hostPaddleY: _lastSentPaddleY,
-      ball: BallState.fromMap(ballMap),
-      hostScore: hostScore,
-      guestScore: guestScore,
-      status: TTRoomStatus.playing,
-    );
+    final signature = _isHost
+        ? '$paddle|${ball.x}|${ball.y}|${ball.vx}|${ball.vy}|$hostScore|$guestScore'
+        : '$paddle';
+    if (_lastState == signature) return;
+    _lastState = signature;
+    final generation = _generation;
+    final host = _isHost;
+    _writer.add(() async {
+      if (!_running || generation != _generation) return;
+      if (host) {
+        await _mpService.writeHostState(
+          roomId: roomId,
+          localTick: ++_localTick,
+          hostPaddleY: paddle,
+          ball: ball,
+          hostScore: hostScore,
+          guestScore: guestScore,
+          status: TTRoomStatus.playing,
+        );
+      } else {
+        await _mpService.writeGuestPaddle(
+          roomId: roomId,
+          localTick: ++_localTick,
+          guestPaddleY: paddle,
+        );
+      }
+    });
   }
 
   void disconnect() {
     _running = false;
     _firestoreSub?.cancel();
-    _paddleThrottle?.cancel();
-    _ballThrottle?.cancel();
+    _stateTimer?.cancel();
+    ++_generation;
+    _writer.clearPending();
     if (_roomId != null && _isHost) {
       _mpService.endMatch(roomId: _roomId!);
     }
