@@ -6,6 +6,10 @@ import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
+import 'upload_image_preparation_native.dart' as native_images;
+import 'upload_image_preparation_native.dart'
+    if (dart.library.js_interop) 'upload_image_preparation_web.dart'
+    as upload_images;
 import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/agent/agent_fixtures.dart';
 import '../../domain/models/memory_photo.dart';
@@ -118,7 +122,7 @@ class GalleryService {
       fileName: fileName,
       timestamp: stamp,
     );
-    final images = prepareUploadImages(imageBytes);
+    final images = await upload_images.prepareImages(imageBytes);
     final fullBytes = images.full;
     final thumbBytes = images.thumb;
 
@@ -184,32 +188,11 @@ class GalleryService {
   static ({Uint8List full, Uint8List? thumb}) prepareUploadImages(
     Uint8List bytes,
   ) {
-    try {
-      final decoded = img.decodeImage(bytes);
-      if (decoded != null) {
-        return (
-          full: _encodeResized(decoded, 1600),
-          thumb: _encodeResized(decoded, 400),
-        );
-      }
-    } catch (e) {
-      Logger.e('Image resize failed, using original bytes', error: e);
-    }
-    return (full: bytes, thumb: null);
+    return native_images.prepareImagesSync(bytes);
   }
 
   static Uint8List _encodeResized(img.Image decoded, int maxSize) {
-    final longest = decoded.width > decoded.height
-        ? decoded.width
-        : decoded.height;
-    final resized = longest <= maxSize
-        ? decoded
-        : img.copyResize(
-            decoded,
-            width: decoded.width >= decoded.height ? maxSize : null,
-            height: decoded.height > decoded.width ? maxSize : null,
-          );
-    return Uint8List.fromList(img.encodeJpg(resized, quality: 85));
+    return native_images.encodeResized(decoded, maxSize);
   }
 
   /// Decode + downscale to [maxSize] longest edge, re-encode JPEG q85.
