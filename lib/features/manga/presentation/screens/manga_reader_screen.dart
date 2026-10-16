@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
@@ -11,6 +12,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../data/models/manga_item.dart';
 import '../../data/models/chapter_num.dart';
+import '../../data/services/chapter_source_selection.dart';
+import '../../../../core/utils/latest_value_writer.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/services/bato_service.dart';
 import '../../data/services/mangadex_service.dart';
 import '../../data/services/mangakakalot_service.dart';
@@ -65,6 +69,18 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
 
   /// Current scroll position as a page estimate
   int _currentPageEstimate = 0;
+  String _readerUser = '';
+  int? _lastQueuedPage;
+  late final _progressWriter = LatestValueWriter<int>(
+    write: (page) => _kakalotService.saveReadingProgress(
+      mangaId: widget.manga.mangaId,
+      userName: _readerUser,
+      chapterId: widget.chapter.id,
+      page: page + 1,
+    ),
+    onError: (error, stack) =>
+        Logger.e('Manga progress save failed', error: error, stackTrace: stack),
+  );
 
   @override
   void initState() {
@@ -74,7 +90,14 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _readerUser = context.read<AuthService>().currentUser ?? '';
+  }
+
+  @override
   void dispose() {
+    unawaited(_saveProgress(_currentPageEstimate));
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -91,11 +114,11 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     // We'll use a simple ratio
     final ratio = maxScroll > 0 ? offset / maxScroll : 0;
     final totalPages = _pages!.filenames.length;
-    setState(() {
-      _currentPageEstimate = (ratio * totalPages)
-          .clamp(0, math.max(0, totalPages - 1))
-          .toInt();
-    });
+    final page = (ratio * totalPages)
+        .clamp(0, math.max(0, totalPages - 1))
+        .toInt();
+    if (page == _currentPageEstimate) return;
+    setState(() => _currentPageEstimate = page);
 
     // Save progress periodically
     if (_currentPageEstimate % 5 == 0) {
@@ -180,8 +203,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             .searchByTitle(title)
             .timeout(timeout, onTimeout: () => '')
             .then((slug) async {
-              if (slug.isEmpty) return null;
+              if (!mounted || !_isLoading || slug.isEmpty) return null;
               final chapters = await _kakalotService.getChapterFeed(slug);
+              if (!mounted || !_isLoading) return null;
               MangaChapter? match;
               for (final c in chapters) {
                 if (chaptersMatch(c.chapter, widget.chapter.chapter)) {
@@ -241,7 +265,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       );
     }
 
-    // Wait for all and pick the first non-null result
+    // Keep source priority without waiting for lower-priority failures.
     final pages = await _pickBestPages(futures);
 
     if (!mounted) return;
@@ -259,6 +283,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     String mangaDexId,
   ) async {
     final mdChapters = await _mangaDexService.getChapterFeed(mangaDexId);
+    if (!mounted || !_isLoading) return null;
     final targetChapter = mdChapters.cast<MangaChapter?>().firstWhere(
       (c) => c != null && chaptersMatch(c.chapter, widget.chapter.chapter),
       orElse: () => null,
@@ -277,9 +302,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       }
     }
     for (final title in titlesToTry) {
+      if (!mounted || !_isLoading) return null;
       final slug = await _mangakatanaService.searchByTitle(title);
+      if (!mounted || !_isLoading) return null;
       if (slug.isEmpty) continue;
       final chapters = await _mangakatanaService.getChapterFeed(slug);
+      if (!mounted || !_isLoading) return null;
       MangaChapter? match;
       for (final c in chapters) {
         if (chaptersMatch(c.chapter, widget.chapter.chapter)) {
@@ -307,31 +335,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   Future<MangaChapterPages?> _pickBestPages(
     List<Future<MangaChapterPages?>> futures,
   ) async {
-    // Wait for ALL futures so we can pick deterministically by source
-    // priority rather than whichever finishes first.
-    final results = await Future.wait(
-      futures.map((f) => f.then((pages) => pages, onError: (_) => null)),
+    return firstUsableChapterSource(
+      futures,
+      (pages) => pages.filenames.isNotEmpty,
     );
-
-    // Priority order matches the order we added futures:
-    // 0) MangaDex by chapter ID
-    // 1) MangaDex by chapter number (mangaKakalotId)
-    // 2) MangaDex by chapter number (mangaId)
-    // 3) MangaKakalot direct
-    // 4..N) MangaKakalot by title search(es)
-    // N+1) MangaKatana
-    // N+2) Bato.to
-    // N+3) MangaSee123
-    // N+4) Scanlation
-    //
-    // We prefer MangaDex (structured API, reliable page counts) over
-    // scraped sources. Among equals, earlier = higher priority.
-    for (final pages in results) {
-      if (pages != null && pages.filenames.isNotEmpty) {
-        return pages;
-      }
-    }
-    return null;
   }
 
   void _applyPages(MangaChapterPages pages) {
@@ -351,22 +358,23 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
           final ratio = widget.manga.lastReadPage / pages.filenames.length;
           final target = _scrollController.position.maxScrollExtent * ratio;
           _scrollController.jumpTo(
-            target.clamp(0.0, math.max(0.0, _scrollController.position.maxScrollExtent)),
+            target.clamp(
+              0.0,
+              math.max(0.0, _scrollController.position.maxScrollExtent),
+            ),
           );
         }
       });
     }
   }
 
-  Future<void> _saveProgress(int pageIndex) async {
-    final user = context.read<AuthService>().currentUser ?? '';
-    if (user.isEmpty) return;
-    await _kakalotService.saveReadingProgress(
-      mangaId: widget.manga.mangaId,
-      userName: user,
-      chapterId: widget.chapter.id,
-      page: pageIndex + 1,
-    );
+  Future<void> _saveProgress(int pageIndex) {
+    if (_readerUser.isEmpty || _pages == null) {
+      return Future.value();
+    }
+    if (_lastQueuedPage == pageIndex) return _progressWriter.settled;
+    _lastQueuedPage = pageIndex;
+    return _progressWriter.add(pageIndex);
   }
 
   // ── Chapter navigation ──────────────────────────────────────────
@@ -383,8 +391,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     return widget.allChapters[i - 1];
   }
 
-  void _goToChapter(MangaChapter chapter) {
-    _saveProgress(_currentPageEstimate);
+  Future<void> _goToChapter(MangaChapter chapter) async {
+    await _saveProgress(_currentPageEstimate);
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => MangaReaderScreen(

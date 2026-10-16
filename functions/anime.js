@@ -1,5 +1,7 @@
 'use strict';
 
+const { streamMediaBody } = require('./stream_media_body');
+
 /**
  * Everglow anime resolver — ad-free Megavid (+ legacy AnimePahe) playback.
  *
@@ -898,19 +900,17 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     }
     const status = upstream.status === 206 ? 206 : 200;
     if (upstream.body && typeof upstream.body.getReader === 'function') {
-      const reader = upstream.body.getReader();
       res.status(status);
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(Buffer.from(value));
-      }
-      res.end();
+      await streamMediaBody(upstream.body, res);
       return;
     }
     res.status(status).send(Buffer.from(await upstream.arrayBuffer()));
   } catch (e) {
     console.warn(`[proxyMegavidHls] failed (${parsed.hostname}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
@@ -983,18 +983,16 @@ const proxyAnimeSegment = cappedHttps(30, async (req, res) => {
     );
     res.set('Cache-Control', 'public, max-age=300');
     if (upstream.body && typeof upstream.body.getReader === 'function') {
-      const reader = upstream.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(Buffer.from(value));
-      }
-      res.end();
+      await streamMediaBody(upstream.body, res);
       return;
     }
     res.status(200).send(Buffer.from(await upstream.arrayBuffer()));
   } catch (e) {
     console.warn(`[proxyAnimeSegment] failed (${host}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });

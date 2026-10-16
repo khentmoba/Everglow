@@ -17,18 +17,13 @@ Uint8List buildTestEpub() {
   }
 
   add('mimetype', 'application/epub+zip');
-  add(
-    'META-INF/container.xml',
-    '''<?xml version="1.0"?>
+  add('META-INF/container.xml', '''<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles>
     <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
   </rootfiles>
-</container>''',
-  );
-  add(
-    'OEBPS/content.opf',
-    '''<?xml version="1.0"?>
+</container>''');
+  add('OEBPS/content.opf', '''<?xml version="1.0"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
   <metadata><dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Test Book</dc:title></metadata>
   <manifest>
@@ -40,8 +35,7 @@ Uint8List buildTestEpub() {
     <itemref idref="ch1"/>
     <itemref idref="ch2"/>
   </spine>
-</package>''',
-  );
+</package>''');
   add(
     'OEBPS/ch1.xhtml',
     '''<?xml version="1.0"?>
@@ -67,6 +61,20 @@ BookItem bookWithIa(String iaId) => BookItem(
 );
 
 void main() {
+  test(
+    'incremental EPUB parser preserves every chapter and yields to events',
+    () async {
+      var yielded = false;
+      Future<void>.delayed(Duration.zero, () => yielded = true);
+      final bytes = buildTestEpub();
+      final chapters = await EpubService.parseChaptersAsync(bytes);
+      expect(yielded, isTrue);
+      expect(
+        chapters.map((c) => (c.title, c.body)),
+        EpubService.parseChapters(bytes).map((c) => (c.title, c.body)),
+      );
+    },
+  );
   group('EpubService.parseChapters', () {
     test('extracts spine chapters in order with titles', () {
       final chapters = EpubService.parseChapters(buildTestEpub());
@@ -111,10 +119,7 @@ void main() {
     });
 
     test('out-of-range numeric entities do not fail the book', () {
-      expect(
-        EpubService.htmlToText('<p>A&#99999999999;B</p>'),
-        'A\u{FFFD}B',
-      );
+      expect(EpubService.htmlToText('<p>A&#99999999999;B</p>'), 'A\u{FFFD}B');
     });
   });
 

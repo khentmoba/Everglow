@@ -13,6 +13,25 @@ class SpotifyPlayerService extends ChangeNotifier {
   SpotifyPlayerService(this._auth);
 
   bool _ready = false;
+  bool _disposed = false;
+  int _generation = 0;
+  Future<void>? _initialization;
+  Completer<void>? _sdkReady;
+  Timer? _sdkCheck;
+  Timer? _tokenRefresh;
+  final Map<String, JSFunction> _listeners = {};
+
+  void _listen(String name, JSFunction listener) {
+    final previous = _listeners[name];
+    if (previous != null) web.window.removeEventListener(name, previous);
+    _listeners[name] = listener;
+    web.window.addEventListener(name, listener);
+  }
+
+  void _notify() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   bool _connected = false;
   String? _deviceId;
   String? _error;
@@ -22,54 +41,70 @@ class SpotifyPlayerService extends ChangeNotifier {
   String? get deviceId => _deviceId;
   String? get error => _error;
 
-  Future<void> init() async {
+  Future<void> init() {
+    if (_disposed || _connected) return Future.value();
+    final generation = _generation;
+    return _initialization ??= _initialize(generation).whenComplete(() {
+      if (generation == _generation) _initialization = null;
+    });
+  }
+
+  Future<void> _initialize(int generation) async {
     if (!kIsWeb) return;
-    if (_ready) return;
-    if (web.document.querySelector('script[data-spotify-sdk]') == null) {
-      final s = web.document.createElement('script') as web.HTMLScriptElement;
-      s.src = 'https://sdk.scdn.co/spotify-player.js';
-      s.setAttribute('data-spotify-sdk', '1');
-      web.document.head!.appendChild(s);
-      Logger.d('Spotify SDK script injected');
-    }
-    final completer = Completer<void>();
+    final completer = _sdkReady = Completer<void>();
     void onReady() {
-      if (completer.isCompleted) return;
-      _ready = true;
-      completer.complete();
-      notifyListeners();
-      _createPlayer();
+      if (!completer.isCompleted) completer.complete();
     }
 
+    _listen('everglow_sdk_ready', ((web.Event _) => onReady()).toJS);
     _evalJS(
       'window.onSpotifyWebPlaybackSDKReady = function(){ window.dispatchEvent(new Event("everglow_sdk_ready")); }',
     );
-    web.window.addEventListener(
-      'everglow_sdk_ready',
-      ((web.Event _) => onReady()).toJS,
-    );
-
-    Timer(const Duration(milliseconds: 900), () {
-      final present =
-          _evalJS('typeof Spotify !== "undefined" && !!Spotify.Player')
-              as JSBoolean?;
-      if (!completer.isCompleted && (present?.toDart ?? false)) onReady();
-    });
-
+    final present =
+        _evalJS('typeof Spotify !== "undefined" && !!Spotify.Player')
+            as JSBoolean?;
+    if (present?.toDart ?? false) {
+      onReady();
+    } else {
+      if (web.document.querySelector('script[data-spotify-sdk]') == null) {
+        final script = web.HTMLScriptElement()
+          ..src = 'https://sdk.scdn.co/spotify-player.js';
+        script.setAttribute('data-spotify-sdk', '1');
+        web.document.head!.appendChild(script);
+      }
+      _sdkCheck = Timer(const Duration(milliseconds: 900), () {
+        final loaded =
+            _evalJS('typeof Spotify !== "undefined" && !!Spotify.Player')
+                as JSBoolean?;
+        if (loaded?.toDart ?? false) onReady();
+      });
+    }
     try {
       await completer.future.timeout(const Duration(seconds: 12));
-    } catch (_) {
+      if (_disposed || generation != _generation) return;
+      _ready = true;
+      _notify();
+      await _createPlayer();
+    } catch (error) {
+      if (_disposed || generation != _generation) return;
       _error = 'Spotify SDK failed to load';
-      Logger.w('Spotify SDK load timeout');
-      notifyListeners();
+      Logger.e('Spotify SDK initialization failed', error: error);
+      _notify();
+    } finally {
+      if (generation == _generation) {
+        _sdkCheck?.cancel();
+        _sdkReady = null;
+      }
     }
   }
 
   Future<void> _createPlayer() async {
+    final generation = _generation;
     final token = await _auth.getStoredAccessToken();
+    if (_disposed || generation != _generation) return;
     if (token == null) {
       _error = 'Link Spotify first';
-      notifyListeners();
+      _notify();
       return;
     }
     try {
@@ -78,6 +113,7 @@ class SpotifyPlayerService extends ChangeNotifier {
           .replaceAll('"', r'\"')
           .replaceAll("'", r"\'")
           .replaceAll('\n', '');
+      _listenWindowEvents();
       _evalJS('''
         (function(){
           if(window._everglowSpotifyPlayer) return;
@@ -102,17 +138,16 @@ class SpotifyPlayerService extends ChangeNotifier {
           player.connect();
         })();
       ''');
-      _listenWindowEvents();
       _scheduleTokenRefresh();
     } catch (e) {
       _error = e.toString();
       Logger.e('Spotify _createPlayer error', error: e);
-      notifyListeners();
+      _notify();
     }
   }
 
   void _listenWindowEvents() {
-    web.window.addEventListener(
+    _listen(
       'everglow_spotify_ready',
       ((web.Event e) {
         final ce = e as web.CustomEvent;
@@ -121,35 +156,37 @@ class SpotifyPlayerService extends ChangeNotifier {
         _connected = true;
         _error = null;
         Logger.d('Spotify device ready: $_deviceId');
-        notifyListeners();
+        _notify();
       }).toJS,
     );
 
-    web.window.addEventListener(
+    _listen(
       'everglow_spotify_not_ready',
       ((web.Event _) {
         _connected = false;
-        notifyListeners();
+        _notify();
       }).toJS,
     );
 
-    web.window.addEventListener(
+    _listen(
       'everglow_spotify_error',
       ((web.Event e) {
         final ce = e as web.CustomEvent;
         final detail = ce.detail;
         _error = detail != null ? (detail as JSString).toDart : 'Unknown';
         Logger.w('Spotify error: $_error');
-        notifyListeners();
+        _notify();
       }).toJS,
     );
   }
 
   void _scheduleTokenRefresh() {
-    Timer.periodic(const Duration(minutes: 50), (t) async {
-      if (!_connected) return;
+    _tokenRefresh?.cancel();
+    _tokenRefresh = Timer.periodic(const Duration(minutes: 50), (t) async {
+      if (_disposed || !_connected) return;
+      final generation = _generation;
       final fresh = await _auth.getStoredAccessToken();
-      if (fresh == null) return;
+      if (_disposed || generation != _generation || fresh == null) return;
       final esc = fresh.replaceAll('\\', '\\\\').replaceAll('"', r'\"');
       _evalJS(
         'if(window._everglowSpotifyPlayer) { window._everglowSpotifyPlayer._options.getOAuthToken = (cb)=>cb("$esc"); }',
@@ -158,17 +195,20 @@ class SpotifyPlayerService extends ChangeNotifier {
   }
 
   Future<void> playTrack(String trackId) async {
+    final generation = _generation;
     await init();
+    if (_disposed || generation != _generation) return;
     if (_deviceId == null) {
       Logger.w('playTrack: no deviceId yet - will retry after ready');
       for (var i = 0; i < 20; i++) {
         await Future.delayed(const Duration(milliseconds: 300));
+        if (_disposed || generation != _generation) return;
         if (_deviceId != null) break;
       }
       if (_deviceId == null) return;
     }
     final token = await _auth.getStoredAccessToken();
-    if (token == null) return;
+    if (_disposed || generation != _generation || token == null) return;
     final escToken = token.replaceAll('\\', '\\\\').replaceAll('"', r'\"');
     final escDevice = _deviceId!.replaceAll('"', r'\"');
     _evalJS('''
@@ -205,6 +245,19 @@ class SpotifyPlayerService extends ChangeNotifier {
   }
 
   void disposePlayer() {
+    ++_generation;
+    _initialization = null;
+    _sdkCheck?.cancel();
+    _tokenRefresh?.cancel();
+    if (_sdkReady case final pending? when !pending.isCompleted) {
+      pending.complete();
+    }
+    _sdkReady = null;
+    for (final entry in _listeners.entries) {
+      web.window.removeEventListener(entry.key, entry.value);
+    }
+    _listeners.clear();
+    _ready = false;
     try {
       _evalJS(
         'if(window._everglowSpotifyPlayer) { window._everglowSpotifyPlayer.disconnect(); window._everglowSpotifyPlayer=null; }',
@@ -212,6 +265,13 @@ class SpotifyPlayerService extends ChangeNotifier {
     } catch (_) {}
     _connected = false;
     _deviceId = null;
-    notifyListeners();
+    _notify();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    disposePlayer();
+    super.dispose();
   }
 }

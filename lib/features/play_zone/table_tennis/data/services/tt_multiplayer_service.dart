@@ -112,7 +112,7 @@ class TTMultiplayerService {
     await _fs
         .runTransaction((txn) async {
           final snap = await txn.get(ref);
-          if (!snap.exists) return;
+          if (!snap.exists || snap.data()?['status'] != 'playing') return;
           final serverTick = (snap.data()?['lastTick'] as int?) ?? 0;
           if (localTick < serverTick + 1) return;
           txn.update(ref, {
@@ -139,7 +139,7 @@ class TTMultiplayerService {
     await _fs
         .runTransaction((txn) async {
           final snap = await txn.get(ref);
-          if (!snap.exists) return;
+          if (!snap.exists || snap.data()?['status'] != 'playing') return;
           final serverTick = (snap.data()?['lastTick'] as int?) ?? 0;
           if (localTick < serverTick + 1) return;
           txn.update(ref, {

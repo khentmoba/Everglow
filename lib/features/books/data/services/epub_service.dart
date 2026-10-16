@@ -94,7 +94,7 @@ class EpubService {
       );
     }
     try {
-      final chapters = parseChapters(bytes.data, fallbackTitle: '');
+      final chapters = await parseChaptersAsync(bytes.data, fallbackTitle: '');
       if (chapters.isEmpty) {
         return EpubResult.empty('This EPUB has no readable chapters.');
       }
@@ -122,21 +122,29 @@ class EpubService {
             Uri.parse(_proxyEndpoint),
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/epub+zip',
               if (idToken.isNotEmpty) 'Authorization': 'Bearer $idToken',
             },
             body: json.encode({'urls': urls}),
           )
           .timeout(const Duration(seconds: 30));
       if (response.statusCode == 200) {
+        if (_looksLikeZip(response.bodyBytes) &&
+            response.bodyBytes.length <= _maxFileBytes) {
+          return (
+            data: response.bodyBytes,
+            usedUrl: Uri.decodeComponent(
+              response.headers['x-book-source'] ?? '',
+            ),
+          );
+        }
+        // Older deployed proxies still send JSON until the backend rolls out.
         final data = json.decode(response.body) as Map<String, dynamic>;
         final base64 = data['base64'] as String? ?? '';
         if (base64.isNotEmpty) {
           final bytes = base64Decode(base64);
           if (bytes.length <= _maxFileBytes) {
-            return (
-              data: Uint8List.fromList(bytes),
-              usedUrl: (data['usedUrl'] as String?) ?? '',
-            );
+            return (data: bytes, usedUrl: (data['usedUrl'] as String?) ?? '');
           }
         }
       }
@@ -151,10 +159,7 @@ class EpubService {
         if (response.statusCode == 200 &&
             response.bodyBytes.length <= _maxFileBytes &&
             _looksLikeZip(response.bodyBytes)) {
-          return (
-            data: response.bodyBytes,
-            usedUrl: url,
-          );
+          return (data: response.bodyBytes, usedUrl: url);
         }
       } catch (e) {
         Logger.e('EPUB direct fetch failed ($url)', error: e);
@@ -178,37 +183,59 @@ class EpubService {
   static List<EpubChapter> parseChapters(
     Uint8List bytes, {
     String fallbackTitle = 'Book',
-  }) {
+  }) => _readChapters(bytes, fallbackTitle: fallbackTitle).toList();
+
+  static Future<List<EpubChapter>> parseChaptersAsync(
+    Uint8List bytes, {
+    String fallbackTitle = 'Book',
+  }) async {
+    final chapters = <EpubChapter>[];
+    await Future<void>.delayed(Duration.zero);
+    for (final chapter in _readChapters(bytes, fallbackTitle: fallbackTitle)) {
+      chapters.add(chapter);
+      await Future<void>.delayed(Duration.zero);
+    }
+    return chapters;
+  }
+
+  static Iterable<EpubChapter> _readChapters(
+    Uint8List bytes, {
+    required String fallbackTitle,
+  }) sync* {
     final archive = ZipDecoder().decodeBytes(bytes);
     final files = <String, ArchiveFile>{};
     for (final file in archive.files) {
       if (file.isFile) files[file.name] = file;
     }
     final opfPath = _findOpfPath(files);
-    if (opfPath == null) return const [];
+    if (opfPath == null) return;
     final opfDir = opfPath.contains('/')
         ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1)
         : '';
     final opfFile = files[opfPath];
-    if (opfFile == null) return const [];
+    if (opfFile == null) return;
     final opf = _decode(opfFile);
-    if (opf.isEmpty) return const [];
+    if (opf.isEmpty) return;
     final spineHrefs = _spineHrefs(opf);
-    if (spineHrefs.isEmpty) return const [];
+    if (spineHrefs.isEmpty) return;
 
-    final chapters = <EpubChapter>[];
+    var count = 0;
+    var expandedBytes = 0;
     for (final href in spineHrefs.take(_maxSpineItems)) {
       final path = _resolve(opfDir, href);
       final file = files[path] ?? files[Uri.decodeFull(path)];
       if (file == null) continue;
+      expandedBytes += file.size;
+      if (file.size > 8 * 1024 * 1024 || expandedBytes > 32 * 1024 * 1024) {
+        throw const FormatException('EPUB chapter text is too large to open');
+      }
       final html = _decode(file);
       if (html.isEmpty) continue;
       final body = htmlToText(html);
       if (body.trim().isEmpty) continue;
-      final title = _chapterTitle(html, chapters.length + 1, fallbackTitle);
-      chapters.add(EpubChapter(title: title, body: body));
+      final title = _chapterTitle(html, ++count, fallbackTitle);
+      yield EpubChapter(title: title, body: body);
     }
-    return chapters;
   }
 
   static String? _findOpfPath(Map<String, ArchiveFile> files) {
@@ -288,6 +315,9 @@ class EpubService {
   }
 
   static String _decode(ArchiveFile file) {
+    if (file.size > 8 * 1024 * 1024) {
+      throw const FormatException('EPUB text entry is too large to open');
+    }
     try {
       return utf8.decode(file.content as List<int>);
     } catch (_) {
@@ -334,7 +364,10 @@ class EpubService {
     text = text.replaceAll(RegExp('<!--[\\s\\S]*?-->'), '');
     // Block ends become line breaks.
     text = text.replaceAll(
-      RegExp('</(p|h[1-6]|div|li|tr|blockquote|section|article)\\b[^>]*>', caseSensitive: false),
+      RegExp(
+        '</(p|h[1-6]|div|li|tr|blockquote|section|article)\\b[^>]*>',
+        caseSensitive: false,
+      ),
       '\n\n',
     );
     text = text.replaceAll(RegExp('<br\\b[^>]*>', caseSensitive: false), '\n');
@@ -362,17 +395,14 @@ class EpubService {
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'")
         .replaceAll('&apos;', "'")
-        .replaceAllMapped(
-          RegExp('&#(\\d+);'),
-          (m) {
-            // Total decode: a malformed book with an out-of-range
-            // entity used to throw and fail the entire book open.
-            final code = int.tryParse(m.group(1)!);
-            if (code == null || code < 0 || code > 0x10FFFF) {
-              return '\u{FFFD}';
-            }
-            return String.fromCharCode(code);
-          },
-        );
+        .replaceAllMapped(RegExp('&#(\\d+);'), (m) {
+          // Total decode: a malformed book with an out-of-range
+          // entity used to throw and fail the entire book open.
+          final code = int.tryParse(m.group(1)!);
+          if (code == null || code < 0 || code > 0x10FFFF) {
+            return '\u{FFFD}';
+          }
+          return String.fromCharCode(code);
+        });
   }
 }

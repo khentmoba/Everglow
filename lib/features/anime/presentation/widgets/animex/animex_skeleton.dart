@@ -94,6 +94,7 @@ class AnimeXSkeletonGrid extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = (constraints.maxWidth / 140).floor().clamp(2, 8);
+        final width = (constraints.maxWidth - 14 * (columns - 1)) / columns;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -102,9 +103,10 @@ class AnimeXSkeletonGrid extends StatelessWidget {
             crossAxisCount: columns,
             crossAxisSpacing: 14,
             mainAxisSpacing: 28,
-            childAspectRatio: 0.66,
+            childAspectRatio:
+                width / (width * 1.5 + AnimeXTokens.posterDetailsHeight),
           ),
-          itemBuilder: (_, _) => const AnimeXSkeletonCard(width: 140),
+          itemBuilder: (_, _) => AnimeXSkeletonCard(width: width),
         );
       },
     );

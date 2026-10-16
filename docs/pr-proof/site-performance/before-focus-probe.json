@@ -1,0 +1,39 @@
+[
+  {
+    "width": 414,
+    "focus": false,
+    "phase": "normal-render",
+    "errors": []
+  },
+  {
+    "width": 414,
+    "focus": false,
+    "phase": "enable-semantics",
+    "errors": []
+  },
+  {
+    "width": 414,
+    "focus": true,
+    "phase": "normal-render",
+    "errors": [
+      {
+        "type": "console",
+        "args": [
+          "Bad state: RenderBox was not laid out: minified:NS#7a4e1"
+        ]
+      },
+      {
+        "type": "console",
+        "args": [
+          "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:147816:45)\n    at aDH.amE (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:130156:7)"
+        ]
+      }
+    ]
+  },
+  {
+    "width": 414,
+    "focus": true,
+    "phase": "enable-semantics",
+    "errors": []
+  }
+]

@@ -1,5 +1,7 @@
 'use strict';
 
+const { streamMediaBody } = require('./stream_media_body');
+
 const { cappedHttps, enforceRateLimit, requireAuth } = require('./common.js');
 
 /**
@@ -164,13 +166,7 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
 
     // Stream large segment files instead of buffering them fully.
     if (upstream.body && typeof upstream.body.getReader === 'function') {
-      const reader = upstream.body.getReader();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(Buffer.from(value));
-      }
-      res.end();
+      await streamMediaBody(upstream.body, res);
       return;
     }
 
@@ -178,6 +174,10 @@ const proxyWatchStream = cappedHttps(10, async (req, res) => {
     res.status(200).send(buffer);
   } catch (e) {
     console.warn(`proxyWatchStream failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });

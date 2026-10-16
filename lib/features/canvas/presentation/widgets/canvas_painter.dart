@@ -10,7 +10,12 @@ class CanvasPainter extends CustomPainter {
   final List<DoodleStroke> strokes;
   final DoodleStroke? activeStroke;
 
-  CanvasPainter({required this.strokes, this.activeStroke});
+  CanvasPainter({required this.strokes, this.activeStroke, super.repaint});
+
+  void disposePictures() {
+    _gridPicture?.dispose();
+    _strokesPicture?.dispose();
+  }
 
   // ── Grid cache ──────────────────────────────────────────────────
   Picture? _gridPicture;
@@ -132,7 +137,9 @@ class CanvasPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke
-      ..maskFilter = kIsWeb ? null : const MaskFilter.blur(BlurStyle.normal, 3.0);
+      ..maskFilter = kIsWeb
+          ? null
+          : const MaskFilter.blur(BlurStyle.normal, 3.0);
     canvas.drawPoints(PointMode.polygon, offsets, shadowPaint);
 
     // 2. Draw sharp foreground stroke
@@ -190,4 +197,75 @@ class CanvasPainter extends CustomPainter {
     return oldDelegate.strokes != strokes ||
         oldDelegate.activeStroke != activeStroke;
   }
+}
+
+/// Completed artwork keeps its Pictures while the pen repaints independently.
+class CanvasSurface extends StatefulWidget {
+  const CanvasSurface({
+    super.key,
+    required this.strokes,
+    required this.active,
+    this.live = const [],
+  });
+  final List<DoodleStroke> strokes;
+  final List<DoodleStroke> live;
+  final ValueListenable<DoodleStroke?> active;
+
+  @override
+  State<CanvasSurface> createState() => _CanvasSurfaceState();
+}
+
+class _CanvasSurfaceState extends State<CanvasSurface> {
+  late CanvasPainter _history = CanvasPainter(strokes: widget.strokes);
+  late _ActiveStrokePainter _pen = _ActiveStrokePainter(
+    widget.active,
+    widget.live,
+  );
+
+  @override
+  void didUpdateWidget(CanvasSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.strokes, oldWidget.strokes)) {
+      _history.disposePictures();
+      _history = CanvasPainter(strokes: widget.strokes);
+    }
+    if (widget.active != oldWidget.active || widget.live != oldWidget.live) {
+      _pen = _ActiveStrokePainter(widget.active, widget.live);
+    }
+  }
+
+  @override
+  void dispose() {
+    _history.disposePictures();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      RepaintBoundary(child: CustomPaint(painter: _history)),
+      CustomPaint(painter: _pen),
+    ],
+  );
+}
+
+class _ActiveStrokePainter extends CanvasPainter {
+  _ActiveStrokePainter(this.active, this.live)
+    : super(strokes: const [], repaint: active);
+  final ValueListenable<DoodleStroke?> active;
+  final List<DoodleStroke> live;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final stroke in live) {
+      _drawStroke(canvas, size, stroke);
+    }
+    final stroke = active.value;
+    if (stroke != null) _drawStroke(canvas, size, stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ActiveStrokePainter oldDelegate) =>
+      active != oldDelegate.active || live != oldDelegate.live;
 }

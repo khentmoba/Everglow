@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/deferred_route.dart';
+import '../../../../core/theme/section_fonts.dart';
 import '../screens/memory_book_screen.dart';
 import '../screens/memory_trivia_screen.dart';
 import '../screens/motchi_minis_screen.dart';
@@ -13,8 +14,12 @@ import '../widgets/motchi_screen.dart';
 final List<GoRoute> aiRoutes = [
   GoRoute(
     path: '/motchi',
-    builder: (_, state) => MotchiScreen(
-      initialPrompt: state.extra is String ? state.extra as String : null,
+    builder: (_, state) => DeferredRouteLoader(
+      label: 'Motchi',
+      loadLibrary: SectionFonts.reading,
+      builder: () => MotchiScreen(
+        initialPrompt: state.extra is String ? state.extra as String : null,
+      ),
     ),
   ),
   GoRoute(

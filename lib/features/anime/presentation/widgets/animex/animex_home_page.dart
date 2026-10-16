@@ -19,6 +19,7 @@ import 'animex_spotlight.dart';
 import 'animex_ticker.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
+import '../../../../../core/utils/logger.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
 
 class _HomeRow {
@@ -187,12 +188,16 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
 
     try {
       final page = await (widget.loadRow?.call(id) ?? builder());
-      _rows[id] = buildRow(page.items, loading: false);
-      await _cache.saveRow(id, page.items);
+      if (!mounted) return false;
+      setState(() => _rows[id] = buildRow(page.items, loading: false));
+      unawaited(_cache.saveRow(id, page.items));
       return page.items.isNotEmpty;
-    } catch (e) {
-      debugPrint('[AnimeXHome] row $id failed: $e');
-      _rows[id] = buildRow(_rows[id]?.items ?? const [], loading: false);
+    } catch (e, stack) {
+      Logger.e('Anime home row $id failed', error: e, stackTrace: stack);
+      if (!mounted) return false;
+      setState(() {
+        _rows[id] = buildRow(_rows[id]?.items ?? const [], loading: false);
+      });
       return false;
     }
   }

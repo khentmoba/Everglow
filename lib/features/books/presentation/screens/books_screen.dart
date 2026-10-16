@@ -32,6 +32,7 @@ import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/scroll_memory.dart';
 import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 part 'books_screen_widgets.dart';
@@ -52,7 +53,8 @@ class BooksScreen extends StatefulWidget {
   /// Pre-filled search text, e.g. when tapping an author name on the
   /// detail page. Opens straight on the Search tab.
   final String initialQuery;
-  const BooksScreen({super.key, this.initialQuery = ''});
+  final BookCatalogService? catalog;
+  const BooksScreen({super.key, this.initialQuery = '', this.catalog});
 
   @override
   State<BooksScreen> createState() => _BooksScreenState();
@@ -103,7 +105,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
   // ── HOME TAB ───────────────────────────────────────────────────────
 
   Widget _buildHomeTab() {
-    if (_isLoadingHome) {
+    if (_isLoadingHome && _popular.isEmpty && _recent.isEmpty) {
       return _buildShimmerHome();
     }
     return RefreshIndicator(

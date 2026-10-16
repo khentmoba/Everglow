@@ -1,0 +1,548 @@
+[
+  {
+    "width": 414,
+    "route": "dashboard",
+    "path": "/dashboard",
+    "url": "http://127.0.0.1:8951/dashboard?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "EST. FEBRUARY 14, 2026 — KHENT & CLAIR\nwelcome home\nForever In Bloom\nsince February 14, 2026\nLEVEL 1\n0 / 200 XP\n200 XP to level 2\nQUICK ACCESS\nGallery Gallery MEMORIES\nSanctuary Sanctuary CHAT\nCanvas Canvas DRAW\nMotchi Motchi AI COMPANION\nCalendar Calendar DATES\nStarlight Starlight GRATITUDE\nTonight Tonight WHAT TO DO\nJournal Journal DIARY\nBucket List Bucket List DREAMS\nTIME TOGETHER\n8 MONTHS\nTrip Kit Trip Kit LAKAD\nLetterbox Letterbox LETTERS\nSubs Subs TRACKER\nDesktop App Desktop App UPDATES\nMoney Money WALLET\nTime together: 0 years, 8 months, 2 days, since February 14, 2026. 244 days of us YEARS TOGETHER since Feb 14, 2026 08 MONTHS 02 DAYS 16 HOURS 52 MINUTES 02 SECONDS 244 days of us · since Feb 14, 2026\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#77386",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "cinema",
+    "path": "/cinema",
+    "url": "http://127.0.0.1:8951/cinema?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Play\nMore Info\nTrending Now\nDetails for Moonlit Cinema\nDetails for The Lantern Trail\nDetails for Letters from Tomorrow\nDetails for Summer at Sea\nDetails for The Midnight Library\nDetails for A Little Adventure\nTop 10 in the Philippines\n1 1 Details for Moonlit Cinema\n2 2 Details for The Lantern Trail\n3 3 Details for Letters from Tomorrow\n4 4 Details for Summer at Sea\nComing Soon\nDetails for Moonlit Cinema\nDetails for The Lantern Trail\nDetails for Letters from Tomorrow\nDetails for Summer at Sea\nDashboard\nHome\nNew & Popular\nMy List\nSearch\nTogether\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#abb5e",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "anime",
+    "path": "/anime",
+    "url": "http://127.0.0.1:8951/anime?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard\nEVERGLOW\nSearch\nkhentsgdz\nWatch Now\nMore Info\nTrailer\nPause trailer\nUnmute trailer\nBLEACH: Thousand-Year Blood War - The Calamity EP 1\nONE PIECE EP 1\nBlack Clover Season 2 EP 1\nEP 26 NEW 6.8 AIRING The Exiled Heavy Knight Knows How to Game the System 2026 · TV\nNEW 8.1 AIRING The Ramparts of Ice Season 2 2026 · TV\nNEW 8.7 AIRING ONE PIECE 1999 · TV\n170 EP 7.9 Black Clover 2017 · TV\nHome\nBrowse\nSchedule\nSearch\nMy List\nHistory\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#132e0",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "manga",
+    "path": "/manga",
+    "url": "http://127.0.0.1:8951/manga?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "MangaCelestia\nBookmarks\nName\nType at least 3 letters\nHome\nLatest update\nManga Directory\nNew Manga\nGenres\nCurrently Reading\nBookmarks\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#10fcf",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "books",
+    "path": "/books",
+    "url": "http://127.0.0.1:8951/books?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Home Home\nSearch\nLibrary\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#109fe",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "sanctuary",
+    "path": "/sanctuary",
+    "url": "http://127.0.0.1:8951/sanctuary?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nSanctuary our quiet corner\nConnection\nA place for just the two of us\nClair · not online yet\nMessage actions\nMessage actions\nMessage actions\nSend message\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#e4dc3",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "gallery",
+    "path": "/gallery",
+    "url": "http://127.0.0.1:8951/gallery?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nMemory Gallery our shared album\nGrid Grid\nMap Map\nWeek Week\nDemo artwork: rose-colored evening Demo artwork: rose-colored evening Khent\nDemo artwork: rainy evening Demo artwork: rainy evening Khent\nDemo artwork: imaginary hills Demo artwork: imaginary hills Khent\nAdd a photo\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#84893",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "journal",
+    "path": "/journal",
+    "url": "http://127.0.0.1:8951/journal?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nOur Journal words woven together\nNew entry New journal entry\nour story so far\nevery word is a piece of us\n2\nentries\n58\nwords\n2\ndays\nlast 2 weeks\n✨ All 2\n📔 Daily 1\n🙏 Gratitude 1\n📸 Memory\n💌 Letter\n🌙 Dream\n💡 Idea\nAll authors\nK Khent\nC Clair\n📌 Pinned\n🔒 Locked\nPinned with love The Magic of Ordinary Days ☕ by Khent, Gratitude Pinned with love 🙏 Gratitude 🥰 loved 2d ago The Magic of Ordinary Days ☕ Sometimes the sweetest memories are the simplest ones — having coffee by the corner, laughing at random reels, and knowi… #love #peace #us K Khent 1 min read 32 words\nOctober 2026 Looking Forward to our Next Adventure ✨ by Clair, Daily 📔 Daily 🤩 excited Oct 9, 2026 Looking Forward to our Next Adventure ✨ Counting down the days to our next roadtrip. Every milestone with you feels like a page out of a fairy tale. #adventure #future C Clair 1 min read 26 words\nWrite\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#64000",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "tonight",
+    "path": "/tonight",
+    "url": "http://127.0.0.1:8951/tonight?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nTonight An evening for two\nShuffle picks\nJUST US, TONIGHT\nA little time for us.\nA movie, a date, or a little friendly competition.\nWhat are we in the mood for?\nPick your favorite. Choose the same one and it’s a match.\nYour pick Your pick\nChoose together\nPick this Pick this\nChoose together\nPick this Pick this\nChoose together\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#ff1cc",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "calendar",
+    "path": "/calendar",
+    "url": "http://127.0.0.1:8951/calendar?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nShared Calendar our special dates\nRefresh\nCalendar Calendar\nPolls Polls\nPrevious month\nOctober 2026\n3 special dates\nNext month\nMON\nTUE\nWED\nTHU\nFRI\nSAT\nSUN\nThursday, October 1, 2026 1\nFriday, October 2, 2026 2\nSaturday, October 3, 2026 3\nSunday, October 4, 2026 4\nMonday, October 5, 2026 5\nTuesday, October 6, 2026 6\nWednesday, October 7, 2026 7\nThursday, October 8, 2026 8\nFriday, October 9, 2026 9\nSaturday, October 10, 2026 10\nSunday, October 11, 2026 11\nMonday, October 12, 2026 12\nTuesday, October 13, 2026 13\nWednesday, October 14, 2026 14\nThursday, October 15, 2026 15\nFriday, October 16, 2026 16\nSaturday, October 17, 2026, 1 event 17\nSunday, October 18, 2026 18\nMonday, October 19, 2026, 1 event 19\nTuesday, October 20, 2026 20\nWednesday, October 21, 2026 21\nThursday, October 22, 2026, 1 event 22\nFriday, October 23, 2026 23\nSaturday, October 24, 2026 24\nSunday, October 25, 2026 25\nMonday, October 26, 2026 26\nTuesday, October 27, 2026 27\nWednesday, October 28, 2026 28\nThursday, October 29, 2026 29\nFriday, October 30, 2026 30\nSaturday, October 31, 2026 31\nFriday, Oct 16 no events yet\nComing up\nyour next dates\n3\nNEXT DATE ANNIVERSARY 💍 Our Monthly Anniversary 💕 Monday, Oct 19 2 days to go\n💑 Cinema & Ramen Date Night 🍜 Thu, Oct 22 Date Night In 5 days\n⏰ Weekend Garden Bloom Watering 🌸 Sat, Oct 17 Reminder Today ♥\nAdd\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#b0e48",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "garden",
+    "path": "/garden",
+    "url": "http://127.0.0.1:8951/garden?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Our Garden\nKhent\nClair\n42 day streak · 128 visits\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#4500f",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "starlight",
+    "path": "/starlight",
+    "url": "http://127.0.0.1:8951/starlight?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nStarlight Jar gratitude under the stars\nOn This Day memory from the past. Tap to view. 📅 On This Day Grateful for your warm smile that lights up my whole world.\nAll\nGratitude\nMemory\nLove\nDream\nMilestone\nSurprise\nGlass jar containing gratitude notes\n3 stars\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#8f729",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "play-zone",
+    "path": "/play-zone",
+    "url": "http://127.0.0.1:8951/play-zone?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nPlay Zone arcade · co-op · games for two\nReady for Game Night?\nPlayful showdowns, shared live drawings, and cozy board games made just for Khent & Clair.\nCouples Only\nInstant Sync\nNo Ads · Pure Us\nCHOOSE YOUR ARENA\nARCADE · FAST 60 FPS\nTable Tennis World Tour\nSmash through the international tournament bracket solo, or rally face-to-face against Clair in a fast real-time 1v1 showdown!\n1v1 Matchmaking\nSolo Tournament\nSmooth Physics\nSolo Tournament Solo Tournament\n1v1 Match 1v1 Match\nCO-OP · DRAW & GUESS\nScribble Together\nOne draws, one guesses! Real-time synchronized canvas with live strokes, instant word reveals, and playful inside jokes.\nLive Canvas\nCouple Guessing\nInstant Sync\nStart Drawing Start Drawing\nCLASSIC · PASS & PLAY\nCouple Chess\nOur private board with full chess rules, checkmate detection, move history, and quiet cozy turns together.\n2-Player Board\nMove History\nNo Rush\nPlay Chess Play Chess\nMOTCHI MADE · SAVED GAMES\nMotchi's Minis\nTiny games Motchi built just for you two — saved from chat, ready to replay anytime.\nMade For Two\nReplay Anytime\nFrom Chat\nOpen Minis Open Minis\nMore mini-games coming soon — made with love for Clair\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#102de",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "academy",
+    "path": "/academy",
+    "url": "http://127.0.0.1:8951/academy?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nAcademy Hub play · learn · compete together\nWhat shall we learn today?\nSolo for quiet practice, 1v1 to race your love, Motchi for PDFs.\nCHOOSE A MODE\n1v1 Challenge LIVE · TOGETHER 1v1 Challenge Race your love in real time\nSolo Study CALM PRACTICE Solo Study Quiet questions, no timer\nStudy with Motchi AI HELPER Study with Motchi Ask about your PDFs\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#f9ff9",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "trips",
+    "path": "/trips",
+    "url": "http://127.0.0.1:8951/trips?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nTrip Kit every lakad, one page\nPlan a new trip New trip\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#c9504",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "canvas",
+    "path": "/canvas",
+    "url": "http://127.0.0.1:8951/canvas?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Back Go back\nEverglow Canvas\nPen tool\nEraser tool\nText tool\nUndo\nRedo\nPink color\nPowder Blue color\nLemon Chiffon color\nPale Green color\nLavender color\nClear canvas\nKhent (Couple)\nAGENT SANDBOX\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#2b092",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "bucket-list",
+    "path": "/bucket-list",
+    "url": "http://127.0.0.1:8951/bucket-list?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nOur Bucket List dreams we chase together\nShow board view Board\n✨ OUR JOURNEY SO FAR\nOur story is unfolding\n1 of 3 dreams fulfilled · 33%\nPlant a new dream New dream\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#b242d",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "money",
+    "path": "/money",
+    "url": "http://127.0.0.1:8951/money?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nOur Money one shared wallet\nAdd Add money entry\nLeft this month ₱1,750 Got ₱2,000 Spent ₱250\nBUDGETS\nAdd budget\nTHIS MONTH\n💌 Allowance Allowance · Khent +₱2,000\n💕 Fictional coffee date Dates · Clair −₱250\nAdd\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#e0116",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "jukebox",
+    "path": "/jukebox",
+    "url": "http://127.0.0.1:8951/jukebox?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Back Go back\nJukebox\nJUKEBOX\nWhat we're listening to\nSTANDBY\nConnect Spotify\nFor in-app playback (Duo required)\nLink\nKhent is vibing to... OFFLINE Silent Night Unknown Artist Not vibing right now\nClair is vibing to... OFFLINE Silent Night Unknown Artist Not vibing right now\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#2d2b5",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "subs",
+    "path": "/subs",
+    "url": "http://127.0.0.1:8951/subs?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nSubscriptions where the money goes\n💸 EVERY MONTH\n₱300\nacross 1 subscription · Demo movie nights renews in 7 days\nDemo movie nights, ₱300/mo, renews in 7d D Demo movie nights ₱300/mo Shared in 7d\nTrack a new subscription Track\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#a7e4b",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 414,
+    "route": "motchi",
+    "path": "/motchi",
+    "url": "http://127.0.0.1:8951/motchi?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Back\nHistory\nMotchi\nNew chat\nMore from Motchi\nWhat’s on your mind, Dada?\nA small plan, a good film, or just a chat.\nChoose a starting point, then make it yours.\nPick a movie\nPlan a date\nQuiz us\nMake a game\nAdd to message\nReply mode: Auto Auto\nDictate message\nSend message\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#99de2",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "dashboard",
+    "path": "/dashboard",
+    "url": "http://127.0.0.1:8951/dashboard?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "EST. FEBRUARY 14, 2026 — KHENT & CLAIR\nwelcome home\nForever In Bloom\nsince February 14, 2026\nLEVEL 1\n0 / 200 XP\n200 XP to level 2\nQUICK ACCESS\nGallery Gallery MEMORIES\nSanctuary Sanctuary CHAT\nCanvas Canvas DRAW\nMotchi Motchi AI COMPANION\nCalendar Calendar DATES\nStarlight Starlight GRATITUDE\nTonight Tonight WHAT TO DO\nJournal Journal DIARY\nBucket List Bucket List DREAMS\nTrip Kit Trip Kit LAKAD\nLetterbox Letterbox LETTERS\nMoney Money WALLET\nSubs Subs TRACKER\nDesktop App Desktop App UPDATES\nTIME TOGETHER\n8 MONTHS\nTime together: 0 years, 8 months, 2 days, since February 14, 2026. 244 days of us YEARS TOGETHER since Feb 14, 2026 08 MONTHS 02 DAYS 16 HOURS 52 MINUTES 39 40 SECONDS 244 days of us · since Feb 14, 2026\nOpen Motchi AI assistant Open Motchi AI assistant\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#b214c",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "cinema",
+    "path": "/cinema",
+    "url": "http://127.0.0.1:8951/cinema?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Play\nMore Info\nTrending Now\nDetails for Moonlit Cinema\nDetails for The Lantern Trail\nDetails for Letters from Tomorrow\nDetails for Summer at Sea\nDetails for The Midnight Library\nDetails for A Little Adventure\nDetails for Cloud Nine\nDetails for Starlight Station\nTop 10 in the Philippines\n1 1 Details for Moonlit Cinema\n2 2 Details for The Lantern Trail\n3 3 Details for Letters from Tomorrow\n4 4 Details for Summer at Sea\n5 5 Details for The Midnight Library\n6 6 Details for A Little Adventure\n7 7 Details for Cloud Nine\nComing Soon\nDetails for Moonlit Cinema\nDetails for The Lantern Trail\nDetails for Letters from Tomorrow\nDetails for Summer at Sea\nDashboard\nHome\nNew & Popular\nMy List\nSearch\nTogether\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#5a95f",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "anime",
+    "path": "/anime",
+    "url": "http://127.0.0.1:8951/anime?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard\nEVERGLOW\nHome\nSchedule\nBrowse\nHistory\nSearch\nMy List\nMAL\nAniList\nEN\nJP\nkhentsgdz\nWatch Now\nMore Info\nTrailer\nPause trailer\nUnmute trailer\nBLEACH: Thousand-Year Blood War - The Calamity EP 1\nONE PIECE EP 1\nBlack Clover Season 2 EP 1\nSTEEL BALL RUN JoJo's Bizarre Adventure 2nd - 3rd STAGE EP 1\nEP 26 NEW 6.8 AIRING The Exiled Heavy Knight Knows How to Game the System 2026 · TV\nNEW 8.1 AIRING The Ramparts of Ice Season 2 2026 · TV\nNEW 8.7 AIRING ONE PIECE 1999 · TV\n170 EP 7.9 Black Clover 2017 · TV\nEP 12 NEW 6.8 AIRING FX Fighter Kurumi-chan 2026 · TV\nNEW 6.7 AIRING The Iceblade Sorcerer Shall Rule the World II 2026 · TV\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#fec09",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "manga",
+    "path": "/manga",
+    "url": "http://127.0.0.1:8951/manga?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "MangaCelestia\nBookmarks\nManga Name\nType at least 3 letters\nHome\nLatest update\nManga Directory\nNew Manga\nGenres\nCurrently Reading\nBookmarks\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#2700d",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "books",
+    "path": "/books",
+    "url": "http://127.0.0.1:8951/books?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Home Home\nSearch\nLibrary\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#cf8ac",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "sanctuary",
+    "path": "/sanctuary",
+    "url": "http://127.0.0.1:8951/sanctuary?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nSanctuary our quiet corner\nConnection\nA place for just the two of us\nClair · not online yet\nMessage actions\nMessage actions\nMessage actions\nSend message\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#0171c",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "gallery",
+    "path": "/gallery",
+    "url": "http://127.0.0.1:8951/gallery?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nMemory Gallery our shared album\nGrid Grid\nMap Map\nWeek Week\nDemo artwork: rose-colored evening Demo artwork: rose-colored evening Khent\nDemo artwork: rainy evening Demo artwork: rainy evening Khent\nDemo artwork: imaginary hills Demo artwork: imaginary hills Khent\nAdd a photo\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#a3943",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "journal",
+    "path": "/journal",
+    "url": "http://127.0.0.1:8951/journal?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nOur Journal words woven together\nNew entry New journal entry\nour story so far\nevery word is a piece of us\n2\nentries\n58\nwords\n2\ndays\nlast 2 weeks\n✨ All 2\n📔 Daily 1\n🙏 Gratitude 1\n📸 Memory\n💌 Letter\n🌙 Dream\n💡 Idea\nAll authors\nK Khent\nC Clair\n📌 Pinned\n🔒 Locked\nPinned with love The Magic of Ordinary Days ☕ by Khent, Gratitude Pinned with love 🙏 Gratitude 🥰 loved 2d ago The Magic of Ordinary Days ☕ Sometimes the sweetest memories are the simplest ones — having coffee by the corner, laughing at random reels, and knowi… #love #peace #us K Khent 1 min read 32 words\nOctober 2026 Looking Forward to our Next Adventure ✨ by Clair, Daily 📔 Daily 🤩 excited Oct 9, 2026 Looking Forward to our Next Adventure ✨ Counting down the days to our next roadtrip. Every milestone with you feels like a page out of a fairy tale. #adventure #future C Clair 1 min read 26 words\nWrite\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#64380",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "tonight",
+    "path": "/tonight",
+    "url": "http://127.0.0.1:8951/tonight?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nTonight An evening for two\nShuffle picks\nJUST US, TONIGHT\nA little time for us.\nA movie, a date, or a little friendly competition.\nWhat are we in the mood for?\nPick your favorite. Choose the same one and it’s a match.\nYour pick Your pick\nChoose together\nPick this Pick this\nChoose together\nPick this Pick this\nChoose together\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#0732a",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "calendar",
+    "path": "/calendar",
+    "url": "http://127.0.0.1:8951/calendar?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nShared Calendar our special dates\nRefresh\nCalendar Calendar\nPolls Polls\nPrevious month\nOctober 2026\n3 special dates\nNext month\nMON\nTUE\nWED\nTHU\nFRI\nSAT\nSUN\nThursday, October 1, 2026 1\nFriday, October 2, 2026 2\nSaturday, October 3, 2026 3\nSunday, October 4, 2026 4\nMonday, October 5, 2026 5\nTuesday, October 6, 2026 6\nWednesday, October 7, 2026 7\nThursday, October 8, 2026 8\nFriday, October 9, 2026 9\nSaturday, October 10, 2026 10\nSunday, October 11, 2026 11\nMonday, October 12, 2026 12\nTuesday, October 13, 2026 13\nWednesday, October 14, 2026 14\nThursday, October 15, 2026 15\nFriday, October 16, 2026 16\nSaturday, October 17, 2026, 1 event 17\nSunday, October 18, 2026 18\nMonday, October 19, 2026, 1 event 19\nTuesday, October 20, 2026 20\nWednesday, October 21, 2026 21\nThursday, October 22, 2026, 1 event 22\nFriday, October 23, 2026 23\nSaturday, October 24, 2026 24\nSunday, October 25, 2026 25\nMonday, October 26, 2026 26\nTuesday, October 27, 2026 27\nWednesday, October 28, 2026 28\nThursday, October 29, 2026 29\nFriday, October 30, 2026 30\nSaturday, October 31, 2026 31\nFriday, Oct 16 no events yet\nComing up\nyour next dates\n3\nNEXT DATE ANNIVERSARY 💍 Our Monthly Anniversary 💕 Monday, Oct 19 2 days to go\n💑 Cinema & Ramen Date Night 🍜 Thu, Oct 22 Date Night In 5 days\n⏰ Weekend Garden Bloom Watering 🌸 Sat, Oct 17 Reminder Today ♥\nAdd\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#780af",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "garden",
+    "path": "/garden",
+    "url": "http://127.0.0.1:8951/garden?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Our Garden\nKhent\nClair\n42 day streak · 128 visits\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#b2de6",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "starlight",
+    "path": "/starlight",
+    "url": "http://127.0.0.1:8951/starlight?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nStarlight Jar gratitude under the stars\nOn This Day memory from the past. Tap to view. 📅 On This Day Grateful for your warm smile that lights up my whole world.\nAll\nGratitude\nMemory\nLove\nDream\nMilestone\nSurprise\n3 stars\nGlass jar containing gratitude notes\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#42e29",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "play-zone",
+    "path": "/play-zone",
+    "url": "http://127.0.0.1:8951/play-zone?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nPlay Zone arcade · co-op · games for two\nReady for Game Night?\nPlayful showdowns, shared live drawings, and cozy board games made just for Khent & Clair.\nCouples Only\nInstant Sync\nNo Ads · Pure Us\nCHOOSE YOUR ARENA\nARCADE · FAST 60 FPS\nTable Tennis World Tour\nSmash through the international tournament bracket solo, or rally face-to-face against Clair in a fast real-time 1v1 showdown!\n1v1 Matchmaking\nSolo Tournament\nSmooth Physics\nSolo Tournament Solo Tournament\n1v1 Match 1v1 Match\nCO-OP · DRAW & GUESS\nScribble Together\nOne draws, one guesses! Real-time synchronized canvas with live strokes, instant word reveals, and playful inside jokes.\nLive Canvas\nCouple Guessing\nInstant Sync\nStart Drawing Start Drawing\nCLASSIC · PASS & PLAY\nCouple Chess\nOur private board with full chess rules, checkmate detection, move history, and quiet cozy turns together.\n2-Player Board\nMove History\nNo Rush\nPlay Chess Play Chess\nMOTCHI MADE · SAVED GAMES\nMotchi's Minis\nTiny games Motchi built just for you two — saved from chat, ready to replay anytime.\nMade For Two\nReplay Anytime\nFrom Chat\nOpen Minis Open Minis\nMore mini-games coming soon — made with love for Clair\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#f83f1",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "academy",
+    "path": "/academy",
+    "url": "http://127.0.0.1:8951/academy?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nAcademy Hub play · learn · compete together\nWhat shall we learn today?\nSolo for quiet practice, 1v1 to race your love, Motchi for PDFs.\nCHOOSE A MODE\n1v1 Challenge LIVE · TOGETHER 1v1 Challenge Race your love in real time\nSolo Study CALM PRACTICE Solo Study Quiet questions, no timer\nStudy with Motchi AI HELPER Study with Motchi Ask about your PDFs\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#0a3ba",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "trips",
+    "path": "/trips",
+    "url": "http://127.0.0.1:8951/trips?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nTrip Kit every lakad, one page\nPlan a new trip New trip\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#aa4af",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "canvas",
+    "path": "/canvas",
+    "url": "http://127.0.0.1:8951/canvas?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Back Go back\nEverglow Canvas\nPen tool\nEraser tool\nText tool\nUndo\nRedo\nPink color\nPowder Blue color\nLemon Chiffon color\nPale Green color\nLavender color\nClear canvas\nKhent (Couple)\nAGENT SANDBOX\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#29418",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "bucket-list",
+    "path": "/bucket-list",
+    "url": "http://127.0.0.1:8951/bucket-list?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nOur Bucket List dreams we chase together\nShow board view Board\n✨ OUR JOURNEY SO FAR\nOur story is unfolding\n1 of 3 dreams fulfilled · 33%\nPlant a new dream New dream\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#8e1ec",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "money",
+    "path": "/money",
+    "url": "http://127.0.0.1:8951/money?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nOur Money one shared wallet\nAdd Add money entry\nLeft this month ₱1,750 Got ₱2,000 Spent ₱250\nBUDGETS\nAdd budget\nTHIS MONTH\n💌 Allowance Allowance · Khent +₱2,000\n💕 Fictional coffee date Dates · Clair −₱250\nAdd\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#3b37c",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "jukebox",
+    "path": "/jukebox",
+    "url": "http://127.0.0.1:8951/jukebox?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Back Go back\nJukebox\nJUKEBOX\nWhat we're listening to\nSTANDBY\nConnect Spotify\nFor in-app playback (Duo required)\nLink\nKhent is vibing to... OFFLINE Silent Night Unknown Artist Not vibing right now\nClair is vibing to... OFFLINE Silent Night Unknown Artist Not vibing right now\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#184b4",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "subs",
+    "path": "/subs",
+    "url": "http://127.0.0.1:8951/subs?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Dashboard Back\nSubscriptions where the money goes\n💸 EVERY MONTH\n₱300\nacross 1 subscription · Demo movie nights renews in 7 days\nDemo movie nights, ₱300/mo, renews in 7d D Demo movie nights ₱300/mo Shared in 7d\nTrack a new subscription Track\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#13d38",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  },
+  {
+    "width": 820,
+    "route": "motchi",
+    "path": "/motchi",
+    "url": "http://127.0.0.1:8951/motchi?agent=1",
+    "title": "Everglow",
+    "canvas": false,
+    "text": "Back\nHistory\nMotchi\nNew chat\nMore from Motchi\nWhat’s on your mind, Dada?\nA small plan, a good film, or just a chat.\nChoose a starting point, then make it yours.\nPick a movie\nPlan a date\nQuiz us\nMake a game\nAdd to message\nReply mode: Auto Auto\nDictate message\nSend message\nKhent (Couple)\nScreen edges\nDashboard\nCinema\nAnime\nMangacelestia\nBooks\nSanctuary\nGallery\nJournal\nTonight\nPlay Zone\nAcademy\nGarden\nStarlight\nCalendar\nTrip Kit\nCanvas\nBucket List\nMoney\nJukebox\nDoorway\nCollapse HUD (clean screenshot mode)",
+    "errors": [
+      "Bad state: RenderBox was not laid out: minified:NS#8822c",
+      "at Object.ad (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:4264:30)\n    at NS.gI (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115694:18)\n    at NS.gnw (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:115695:18)\n    at aeg.gdh (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:132965:48)\n    at Object.dES (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34167:5)\n    at Object.d3J (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:34131:5)\n    at bAR.adg (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133423:11)\n    at bAR.azp (http://127.0.0.1:8951/main.dart.js?v=6.2.0+1-d7a3c6d1:133427:22)\n    at ajO.aPN (http://127.0.0.1:8951/main.dart.js?v=6.2."
+    ]
+  }
+]

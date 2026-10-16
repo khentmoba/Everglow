@@ -60,6 +60,12 @@ function worker(stamp = A, stores = new Map()) {
         async match(req) { return data.get(key(req))?.clone(); },
         async put(req, response) { data.set(key(req), response.clone()); },
         async delete(req) { return data.delete(key(req)); },
+        async addAll(requests) {
+          for (const req of requests) {
+            calls.push({url: key(req)});
+            data.set(key(req), await network(new URL(key(req))));
+          }
+        },
       };
     },
     async keys() { return [...stores.keys()]; },
@@ -104,6 +110,11 @@ function worker(stamp = A, stores = new Map()) {
       handlers.activate({waitUntil(promise) { done = promise; }});
       await done;
     },
+    async install() {
+      let done;
+      handlers.install({waitUntil(promise) { done = promise; }});
+      await done;
+    },
     async request(url, mode) {
       let response;
       const pending = [];
@@ -129,6 +140,18 @@ async function warm(w, stamp) {
   await w.request(core(stamp));
   await w.request(part(stamp));
 }
+
+test('installation does not download an unused local renderer; on-demand engine cache still works', async () => {
+  const w = worker();
+  await w.install();
+  assert.deepEqual(w.calls.map((call) => new URL(call.url).pathname), ['/index.html']);
+  const engine = '/canvaskit/canvaskit.wasm';
+  await w.request(engine);
+  const fetched = w.calls.length;
+  w.offline();
+  assert.ok(await w.request(engine));
+  assert.equal(w.calls.length, fetched);
+});
 
 test('required loaders are network/no-store online and cached for offline boot', async () => {
   const w = worker();

@@ -16,15 +16,20 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     Future<Uri> Function(Uri url)? signLastfmUrl,
     Duration artworkRetryCooldown = _defaultArtworkRetryCooldown,
     SharedPreferences? prefs,
-  })  : _syncService = syncService ?? MusicSyncService(signUrl: signLastfmUrl),
-        _artworkRetryCooldown = artworkRetryCooldown,
-        _prefs = prefs {
+    bool surfaceActive = true,
+  }) : _syncService = syncService ?? MusicSyncService(signUrl: signLastfmUrl),
+       _artworkRetryCooldown = artworkRetryCooldown,
+       _prefs = prefs,
+       _surfaceActive = surfaceActive {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     WidgetsBinding.instance.addObserver(this);
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _appActive = lifecycle == null || lifecycle == AppLifecycleState.resumed;
-    _init();
+    if (_surfaceActive) {
+      _started = true;
+      _init();
+    }
   }
 
   final MusicSyncService _syncService;
@@ -48,6 +53,30 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _disposed = false;
   bool _appActive = true;
+  bool _surfaceActive;
+  bool _started = false;
+  bool _refreshing = false;
+  bool _topRefreshPending = false;
+  bool get _active => _appActive && _surfaceActive;
+
+  void setSurfaceActive(bool active) {
+    if (_disposed || active == _surfaceActive) return;
+    _surfaceActive = active;
+    _syncActivity();
+  }
+
+  void _syncActivity() {
+    _recentTracksTimer?.cancel();
+    _topTracksTimer?.cancel();
+    if (!_active) return;
+    if (!_started) {
+      _started = true;
+      unawaited(_init());
+    } else if (!_isLoading) {
+      unawaited(_periodicRecentRefresh());
+      _startTimers();
+    }
+  }
 
   /// All-time scrobble totals from Last.fm (0 while loading or when
   /// unavailable; cached in SharedPreferences across app sessions).
@@ -121,16 +150,11 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     final active = state == AppLifecycleState.resumed;
     if (_disposed || active == _appActive) return;
     _appActive = active;
-    _recentTracksTimer?.cancel();
-    _topTracksTimer?.cancel();
-    if (active && !_isLoading) {
-      unawaited(_periodicRecentRefresh());
-      _startTimers();
-    }
+    _syncActivity();
   }
 
   void _startTimers() {
-    if (_disposed || !_appActive) return;
+    if (_disposed || !_active) return;
     _recentTracksTimer?.cancel();
     _topTracksTimer?.cancel();
 
@@ -147,8 +171,34 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _periodicRecentRefresh() async {
-    if (_disposed || !_appActive) return;
+  Future<void> _periodicRecentRefresh() => _refreshStatistics(top: false);
+  Future<void> _periodicTopRefresh() => _refreshStatistics(top: true);
+
+  Future<void> _refreshStatistics({required bool top}) async {
+    if (_disposed || !_active || _isLoading) return;
+    if (_refreshing) {
+      _topRefreshPending |= top;
+      return;
+    }
+    _refreshing = true;
+    try {
+      do {
+        final refreshTop = top || _topRefreshPending;
+        _topRefreshPending = false;
+        if (refreshTop) {
+          await _refreshTop();
+        } else {
+          await _refreshRecent();
+        }
+        top = false;
+      } while (_topRefreshPending && _active && !_disposed);
+    } finally {
+      _refreshing = false;
+    }
+  }
+
+  Future<void> _refreshRecent() async {
+    if (_disposed || !_active) return;
     // If the leaderboard is still empty (e.g. the boot fetch hit a
     // transient Last.fm error payload), retry it here every minute
     // instead of waiting up to 10 minutes for the top-tracks timer —
@@ -173,8 +223,8 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     ]);
   }
 
-  Future<void> _periodicTopRefresh() async {
-    if (_disposed || !_appActive) return;
+  Future<void> _refreshTop() async {
+    if (_disposed || !_active) return;
     await Future.wait([
       _refreshTopTracks(_khentUser, _topTracks),
       _refreshTopTracks(_clairUser, _clairTopTracks),
@@ -319,15 +369,17 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     var changed = false;
     for (var c = 0; c < indices.length; c += concurrency) {
       final chunk = indices.skip(c).take(concurrency).toList();
-      final results = await Future.wait(chunk.map((idx) async {
-        final track = tracks[idx];
-        final meta = await _metadataFor(
-          track.artistName,
-          track.trackName,
-          mbid: track.mbid,
-        );
-        return (idx: idx, track: track, meta: meta);
-      }));
+      final results = await Future.wait(
+        chunk.map((idx) async {
+          final track = tracks[idx];
+          final meta = await _metadataFor(
+            track.artistName,
+            track.trackName,
+            mbid: track.mbid,
+          );
+          return (idx: idx, track: track, meta: meta);
+        }),
+      );
       for (final r in results) {
         if (_disposed || r.meta == null) continue;
         if (!identical(tracks[r.idx], r.track)) continue;
@@ -335,15 +387,12 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
         final newArt = r.meta!.artworkUrl ?? current.imageUrl;
         final newAlbum =
             (r.meta!.albumName != null && r.meta!.albumName!.isNotEmpty)
-                ? r.meta!.albumName
-                : current.albumName;
+            ? r.meta!.albumName
+            : current.albumName;
         if (current.imageUrl == newArt && current.albumName == newAlbum) {
           continue;
         }
-        tracks[r.idx] = current.copyWith(
-          imageUrl: newArt,
-          albumName: newAlbum,
-        );
+        tracks[r.idx] = current.copyWith(imageUrl: newArt, albumName: newAlbum);
         changed = true;
       }
       // Paint each batch as it lands so covers appear progressively
@@ -367,11 +416,16 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     var changed = false;
     for (var c = 0; c < indices.length; c += concurrency) {
       final chunk = indices.skip(c).take(concurrency).toList();
-      final results = await Future.wait(chunk.map((idx) async {
-        final status = tracks[idx];
-        final artwork = await _artworkFor(status.artistName, status.trackName);
-        return (idx: idx, status: status, artwork: artwork);
-      }));
+      final results = await Future.wait(
+        chunk.map((idx) async {
+          final status = tracks[idx];
+          final artwork = await _artworkFor(
+            status.artistName,
+            status.trackName,
+          );
+          return (idx: idx, status: status, artwork: artwork);
+        }),
+      );
       for (final r in results) {
         if (_disposed || r.artwork == null) continue;
         if (!identical(tracks[r.idx], r.status)) continue;
@@ -457,11 +511,7 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
   }) async {
     final key = '$artist\u0000$track';
     if (!_reactiveHealAttempted.add(key)) return;
-    final artwork = await _artworkFor(
-      artist,
-      track,
-      bypassCooldown: true,
-    );
+    final artwork = await _artworkFor(artist, track, bypassCooldown: true);
     if (_disposed || artwork == null) return;
     var changed = false;
     for (final list in [_recentTracks, _clairRecentTracks]) {
