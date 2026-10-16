@@ -7,17 +7,16 @@ import 'app_colors.dart';
 /// Pairing: Cormorant Garamond (display/headline) + Outfit (body/UI).
 /// Handwritten: Dancing Script + Caveat for romantic notes only.
 ///
-/// All styles use fonts bundled in `pubspec.yaml` (`assets/google_fonts/`)
-/// via `fontFamily` — never runtime-fetched. This keeps Flutter Web
-/// CanvasKit text synchronous and sharp: no FOUT, no one-frame fallback,
-/// no synthetic faux-bold from a half-loaded network font.
+/// All styles use fonts bundled in `assets/google_fonts/`.
+/// SectionFonts loads DM Sans before Anime/Motchi; other families load at boot.
+/// Fonts are available before their screen, without third-party font requests.
 ///
 /// All styles are cached as static finals so they are allocated once and
 /// reused across every build -- critical for 60 fps on Flutter web.
 class AppTypography {
   AppTypography._();
 
-  // Font family constants — must match `family:` in pubspec.yaml.
+  // Font aliases match pubspec.yaml or SectionFonts for section-only families.
   static const String display = 'Cormorant Garamond';
   static const String body = 'Outfit';
   // Bundled regular weight for longer, quieter reading surfaces.
