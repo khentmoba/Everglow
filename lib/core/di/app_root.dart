@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../features/watch_party/data/services/voice_chat_bootstrap.dart';
 import '../../features/watch_party/presentation/widgets/incoming_watch_party_banner.dart';
+import '../../features/entry/data/welcome_gift_service.dart';
+import '../../features/entry/presentation/widgets/welcome_gift_gate.dart';
 import '../../shared/widgets/app_network_image.dart';
 import '../system/web_standalone.dart';
 import '../services/auth_service.dart';
@@ -87,9 +89,18 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Selector<AuthService, bool>(
-      selector: (_, auth) => auth.isCoupleUser && !auth.isAgentSession,
-      builder: (context, isCoupleUser, child) {
+    return Selector<AuthService, (bool, String?)>(
+      selector: (_, auth) => (
+        auth.isCoupleUser && !auth.isAgentSession,
+        WelcomeGiftService.recipientUid(
+          username: auth.currentUser,
+          uid: auth.uid,
+          authenticated: auth.isAuthenticated && auth.isSessionLoaded,
+          agentSession: auth.isAgentSession,
+        ),
+      ),
+      builder: (context, session, child) {
+        final (isCoupleUser, giftRecipientUid) = session;
         // Global Home Screen inset: the measured iPhone status-bar overlap
         // is injected into MediaQuery here, so every SafeArea/AppBar below
         // clears it. Kept outside the Stack so banners, dialogs, and every
@@ -119,7 +130,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
                   ),
                 ],
               );
-        return WebStandaloneInsets(child: app);
+        return WebStandaloneInsets(
+          child: WelcomeGiftGate(recipientUid: giftRecipientUid, child: app),
+        );
       },
     );
   }

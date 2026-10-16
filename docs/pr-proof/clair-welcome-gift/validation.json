@@ -1,0 +1,12 @@
+{
+  "content": "synthetic only",
+  "browser": "Microsoft Edge, disposable headless profiles",
+  "checks": [
+    "phone 430x900 rendering",
+    "open envelope inside sandboxed frame",
+    "read sample letter",
+    "Continue dismisses gift",
+    "simulate next visit does not replay",
+    "tablet 1024x768 rendering"
+  ]
+}
