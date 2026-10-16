@@ -201,9 +201,9 @@ async function warmCoreShell() {
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(SHELL).then((c) => c.addAll(PRECACHE).catch(() => {}))
-      .then(() => caches.open(IMMUTABLE).then((c) =>
-        c.addAll(["/canvaskit/canvaskit.wasm"]).catch(() => {}))),
+    // The renderer caches its actual engine URL on demand. A CDN build
+    // must not also download an unused self-hosted CanvasKit binary.
+    caches.open(SHELL).then((c) => c.addAll(PRECACHE).catch(() => {})),
   );
 });
 self.addEventListener("activate", (e) => {
