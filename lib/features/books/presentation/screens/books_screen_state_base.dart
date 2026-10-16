@@ -1,9 +1,10 @@
 part of 'books_screen.dart';
 
 abstract class _BooksScreenStateBase extends State<BooksScreen> {
-  final OpenLibraryService _service = OpenLibraryService();
-  final BookCatalogService _catalog = BookCatalogService();
-  final BookLibraryService _library = BookLibraryService();
+  late final OpenLibraryService _service = OpenLibraryService();
+  late final BookCatalogService _catalog =
+      widget.catalog ?? BookCatalogService();
+  late final BookLibraryService _library = BookLibraryService();
   int _currentIndex = 0;
   int _librarySegment = 0;
 
@@ -19,6 +20,8 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   List<BookSearchResult> _popular = [];
   List<BookSearchResult> _recent = [];
   bool _isLoadingHome = true;
+  bool _homeStarted = false;
+  int _searchRequest = 0;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -41,7 +44,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchHomeData();
+    if (widget.initialQuery.trim().isEmpty) _fetchHomeData();
     if (widget.initialQuery.trim().isNotEmpty) {
       _currentIndex = 1;
       _searchController.text = widget.initialQuery.trim();
@@ -106,20 +109,33 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   }
 
   Future<void> _fetchHomeData() async {
+    _homeStarted = true;
     setState(() => _isLoadingHome = true);
-    final feeds = await Future.wait([
-      _catalog.mostPopular(limit: 12),
-      _catalog.recentlyAdded(limit: 12),
+    Future<void> row(
+      Future<List<BookSearchResult>> future,
+      void Function(List<BookSearchResult>) apply,
+    ) async {
+      try {
+        final items = await future;
+        if (mounted) setState(() => apply(items));
+      } catch (error, stack) {
+        Logger.e('Books home feed failed', error: error, stackTrace: stack);
+      }
+    }
+
+    await Future.wait([
+      row(_catalog.mostPopular(limit: 12), (items) => _popular = items),
+      row(_catalog.recentlyAdded(limit: 12), (items) => _recent = items),
     ]);
     if (!mounted) return;
     setState(() {
-      _popular = feeds[0];
-      _recent = feeds[1];
       _isLoadingHome = false;
     });
   }
 
   void _onSearchChanged(String query) {
+    ++_searchRequest;
+    _isLoadingMore = false;
     if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
       if (!mounted) return;
@@ -140,7 +156,11 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   }
 
   Future<void> _performSearch(String query) async {
-    setState(() => _isSearching = true);
+    final request = ++_searchRequest;
+    setState(() {
+      _isSearching = true;
+      _isLoadingMore = false;
+    });
     final page = await _catalog.searchPaged(
       query,
       filetype: _searchFiletype,
@@ -149,7 +169,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       limit: _searchPageSize,
       filters: _advancedFilters,
     );
-    if (mounted) {
+    if (mounted && request == _searchRequest) {
       setState(() {
         _searchResults = page.results;
         _searchTotal = page.total;
@@ -164,6 +184,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   /// current result list.
   Future<void> _loadMoreSearch() async {
     if (_isLoadingMore || !_searchHasMore) return;
+    final request = _searchRequest;
     setState(() => _isLoadingMore = true);
     final page = await _catalog.searchPaged(
       _searchController.text.trim(),
@@ -174,7 +195,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
       offset: _searchResults.length,
       filters: _advancedFilters,
     );
-    if (mounted) {
+    if (mounted && request == _searchRequest) {
       setState(() {
         _searchResults = [..._searchResults, ...page.results];
         _searchTotal = page.total;
@@ -185,9 +206,20 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   }
 
   void _rerunSearchIfNeeded() {
+    _searchDebounce?.cancel();
+    ++_searchRequest;
     if (_searchController.text.trim().isNotEmpty ||
         _advancedFilters.isNotEmpty) {
       _performSearch(_searchController.text.trim());
+    } else {
+      setState(() {
+        _searchResults = [];
+        _searchTotal = 0;
+        _searchHasMore = false;
+        _isSearching = false;
+        _isLoadingMore = false;
+        _searchRan = false;
+      });
     }
   }
 
@@ -205,6 +237,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
 
   void _switchTab(int index) {
     HapticFeedback.selectionClick();
+    if (index == 0 && !_homeStarted) _fetchHomeData();
     setState(() => _currentIndex = index);
   }
 
