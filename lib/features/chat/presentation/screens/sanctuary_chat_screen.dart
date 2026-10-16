@@ -287,295 +287,326 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
             child: EverglowBackground(baseColor: AppColors.inkDeep),
           ),
           SafeArea(
-            child: Column(
-              children: [
-                EverglowFeatureHeader(
-                  title: 'Sanctuary',
-                  subtitle: 'our quiet corner',
-                  icon: Icons.chat_bubble_rounded,
-                  hue: AppColors.auroraRose,
-                  actions: [
-                    IconButton(
-                      icon: const Icon(
-                        Icons.wifi_tethering,
-                        color: AppColors.blushGold,
-                        size: 18,
-                      ),
-                      onPressed: () => _showDiagnostics(context),
-                      tooltip: 'Connection',
-                    ),
-                  ],
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Center(child: PartnerPresenceIndicator()),
-                ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      if (!_authChecked)
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const PulsingHeartLoader(),
-                              const SizedBox(height: 20),
-                              Text(
-                                'Verifying access...',
-                                style: AppTypography.bodyLarge().copyWith(
-                                  color: AppColors.roseQuartz,
-                                ),
-                              ),
-                            ],
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 860),
+                child: Column(
+                  children: [
+                    EverglowFeatureHeader(
+                      title: 'Sanctuary',
+                      subtitle: 'our quiet corner',
+                      icon: Icons.favorite_border_rounded,
+                      hue: AppColors.auroraRose,
+                      actions: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.wifi_tethering,
+                            color: AppColors.blushGold,
+                            size: 18,
                           ),
-                        )
-                      else if (_authError != null)
-                        _buildAuthError()
-                      else
-                        StreamBuilder<List<ChatMessage>>(
-                          stream: _messagesStream,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                    ConnectionState.done &&
-                                !snapshot.hasData) {
-                              return _ErrorState(
-                                icon: Icons.cloud_off_rounded,
-                                title:
-                                    'Sanctuary is taking too long to respond',
-                                subtitle:
-                                    'Check your connection and try again.',
-                                onRetry: () => _resetAndRetry(context),
-                              );
-                            }
-
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const PulsingHeartLoader(),
-                                    const SizedBox(height: 20),
-                                    Text(
-                                      'Opening our sanctuary...',
-                                      style: AppTypography.bodyLarge().copyWith(
-                                        color: AppColors.roseQuartz,
-                                      ),
+                          onPressed: () => _showDiagnostics(context),
+                          tooltip: 'Connection',
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 2, 28, 14),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 16,
+                        runSpacing: 6,
+                        children: [
+                          Text(
+                            'A place for just the two of us',
+                            style: AppTypography.bodySmall().copyWith(
+                              color: AppColors.textMedium,
+                            ),
+                          ),
+                          const PartnerPresenceIndicator(),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          if (!_authChecked)
+                            Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const PulsingHeartLoader(),
+                                  const SizedBox(height: 20),
+                                  Text(
+                                    'Verifying access...',
+                                    style: AppTypography.bodyLarge().copyWith(
+                                      color: AppColors.roseQuartz,
                                     ),
-                                    const SizedBox(height: 10),
-                                    TextButton(
-                                      onPressed: () => _resetAndRetry(context),
-                                      child: Text(
-                                        'Taking too long? Tap to retry',
-                                        style: AppTypography.bodySmall()
-                                            .copyWith(
-                                              color: AppColors.roseQuartz
-                                                  .withValues(alpha: 0.6),
-                                            ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (_authError != null)
+                            _buildAuthError()
+                          else
+                            StreamBuilder<List<ChatMessage>>(
+                              stream: _messagesStream,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                        ConnectionState.done &&
+                                    !snapshot.hasData) {
+                                  return _ErrorState(
+                                    icon: Icons.cloud_off_rounded,
+                                    title:
+                                        'Sanctuary is taking too long to respond',
+                                    subtitle:
+                                        'Check your connection and try again.',
+                                    onRetry: () => _resetAndRetry(context),
+                                  );
+                                }
 
-                            if (snapshot.hasError) {
-                              final error = snapshot.error.toString();
-                              String message;
-                              String detail;
-
-                              if (error.contains('permission-denied')) {
-                                message = 'Access requires a linked account';
-                                detail =
-                                    'Please log out and log back in to refresh your session.';
-                              } else if (error.contains('unavailable') ||
-                                  error.contains('deadline-exceeded')) {
-                                message =
-                                    'The sanctuary is temporarily unavailable';
-                                detail =
-                                    'Please check your connection and try again.';
-                              } else {
-                                message = 'Something went wrong';
-                                detail = error.length > 120
-                                    ? '${error.substring(0, 120)}...'
-                                    : error;
-                              }
-
-                              return _ErrorState(
-                                icon: Icons.cloud_off_rounded,
-                                title: message,
-                                subtitle: detail,
-                                onRetry: () => _resetAndRetry(context),
-                              );
-                            }
-
-                            final serverMessages =
-                                snapshot.data ?? const <ChatMessage>[];
-                            final messages = _mergeMessages(serverMessages);
-
-                            if (messages.isEmpty) {
-                              return Center(
-                                child: FadeInUp(
-                                  duration: const Duration(milliseconds: 250),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(
-                                      AppSpacing.x2,
-                                    ),
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return Center(
                                     child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: AppColors.glowRose,
-                                                blurRadius: 32,
-                                                spreadRadius: 4,
-                                              ),
-                                            ],
-                                          ),
-                                          child: const Icon(
-                                            Icons.favorite_rounded,
-                                            size: 80,
-                                            color: AppColors.roseQuartz,
-                                          ),
-                                        ),
+                                        const PulsingHeartLoader(),
                                         const SizedBox(height: 20),
                                         Text(
-                                          'Our sanctuary is empty...',
-                                          style: AppTypography.titleLarge()
+                                          'Opening our sanctuary...',
+                                          style: AppTypography.bodyLarge()
                                               .copyWith(
                                                 color: AppColors.roseQuartz,
                                               ),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'Send the first message to start blooming',
-                                          style: AppTypography.bodyMedium()
-                                              .copyWith(
-                                                color: AppColors.roseQuartz
-                                                    .withValues(alpha: 0.6),
-                                              ),
+                                        const SizedBox(height: 10),
+                                        TextButton(
+                                          onPressed: () =>
+                                              _resetAndRetry(context),
+                                          child: Text(
+                                            'Taking too long? Tap to retry',
+                                            style: AppTypography.bodySmall()
+                                                .copyWith(
+                                                  color: AppColors.roseQuartz
+                                                      .withValues(alpha: 0.6),
+                                                ),
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ),
-                              );
-                            }
+                                  );
+                                }
 
-                            // Auto-scroll logic
-                            WidgetsBinding.instance.addPostFrameCallback(
-                              (_) => _scrollToBottom(),
-                            );
+                                if (snapshot.hasError) {
+                                  final error = snapshot.error.toString();
+                                  String message;
+                                  String detail;
 
-                            return Semantics(
-                              liveRegion: true,
-                              child: ListView.builder(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  20,
-                                  16,
-                                  100,
-                                ),
-                                itemCount: messages.length,
-                                itemBuilder: (context, index) {
-                                  final message = messages[index];
-                                  final isMe = message.sender == currentUser;
+                                  if (error.contains('permission-denied')) {
+                                    message =
+                                        'Access requires a linked account';
+                                    detail =
+                                        'Please log out and log back in to refresh your session.';
+                                  } else if (error.contains('unavailable') ||
+                                      error.contains('deadline-exceeded')) {
+                                    message =
+                                        'The sanctuary is temporarily unavailable';
+                                    detail =
+                                        'Please check your connection and try again.';
+                                  } else {
+                                    message = 'Something went wrong';
+                                    detail = error.length > 120
+                                        ? '${error.substring(0, 120)}...'
+                                        : error;
+                                  }
 
-                                  final prev = index > 0
-                                      ? messages[index - 1]
-                                      : null;
-                                  final isGrouped =
-                                      prev != null &&
-                                      prev.sender == message.sender &&
-                                      message.timestamp
-                                              .difference(prev.timestamp)
-                                              .inMinutes <
-                                          5;
-                                  final showSender = !isGrouped;
-                                  final showDayHeader =
-                                      prev == null ||
-                                      !_isSameDay(
-                                        message.timestamp,
-                                        prev.timestamp,
-                                      );
-                                  return Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      if (showDayHeader)
-                                        Semantics(
-                                          header: true,
-                                          child: _DayHeader(
-                                            date: message.timestamp,
-                                          ),
+                                  return _ErrorState(
+                                    icon: Icons.cloud_off_rounded,
+                                    title: message,
+                                    subtitle: detail,
+                                    onRetry: () => _resetAndRetry(context),
+                                  );
+                                }
+
+                                final serverMessages =
+                                    snapshot.data ?? const <ChatMessage>[];
+                                final messages = _mergeMessages(serverMessages);
+
+                                if (messages.isEmpty) {
+                                  return Center(
+                                    child: FadeInUp(
+                                      duration: const Duration(
+                                        milliseconds: 250,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(
+                                          AppSpacing.x2,
                                         ),
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                          top: isGrouped ? 2 : 8,
-                                        ),
-                                        child: Align(
-                                          alignment: isMe
-                                              ? Alignment.centerRight
-                                              : Alignment.centerLeft,
-                                          child: ChatBubble(
-                                            text: message.text,
-                                            isMe: isMe,
-                                            sender: message.sender,
-                                            timestamp: message.timestamp,
-                                            showSender: showSender,
-                                            isOptimistic: message.isOptimistic,
-                                            isFailed: message.isFailed,
-                                            onRetry: () =>
-                                                _retryMessage(message),
-                                            onDismiss: () =>
-                                                _dismissFailedMessage(message),
-                                          ),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: AppColors.glowRose,
+                                                    blurRadius: 32,
+                                                    spreadRadius: 4,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.favorite_rounded,
+                                                size: 80,
+                                                color: AppColors.roseQuartz,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 20),
+                                            Text(
+                                              'Our sanctuary is empty...',
+                                              style: AppTypography.titleLarge()
+                                                  .copyWith(
+                                                    color: AppColors.roseQuartz,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Send the first message to start blooming',
+                                              style: AppTypography.bodyMedium()
+                                                  .copyWith(
+                                                    color: AppColors.roseQuartz
+                                                        .withValues(alpha: 0.6),
+                                                  ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   );
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                      // Scroll-to-bottom FAB
-                      if (_showScrollButton)
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: FadeIn(
-                            duration: const Duration(milliseconds: 200),
-                            child: GestureDetector(
-                              onTap: () => _scrollToBottom(),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceGlass,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.border),
-                                  boxShadow: AppElevation.e2,
-                                ),
-                                child: Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  color: AppColors.textMuted,
-                                  size: 20,
+                                }
+
+                                // Auto-scroll logic
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _scrollToBottom(),
+                                );
+
+                                return Semantics(
+                                  liveRegion: true,
+                                  child: ListView.builder(
+                                    controller: _scrollController,
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      20,
+                                      16,
+                                      24,
+                                    ),
+                                    itemCount: messages.length,
+                                    itemBuilder: (context, index) {
+                                      final message = messages[index];
+                                      final isMe =
+                                          message.sender == currentUser;
+
+                                      final prev = index > 0
+                                          ? messages[index - 1]
+                                          : null;
+                                      final isGrouped =
+                                          prev != null &&
+                                          prev.sender == message.sender &&
+                                          message.timestamp
+                                                  .difference(prev.timestamp)
+                                                  .inMinutes <
+                                              5;
+                                      final showSender = !isGrouped;
+                                      final showDayHeader =
+                                          prev == null ||
+                                          !_isSameDay(
+                                            message.timestamp,
+                                            prev.timestamp,
+                                          );
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          if (showDayHeader)
+                                            Semantics(
+                                              header: true,
+                                              child: _DayHeader(
+                                                date: message.timestamp,
+                                              ),
+                                            ),
+                                          Padding(
+                                            padding: EdgeInsets.only(
+                                              top: isGrouped ? 2 : 8,
+                                            ),
+                                            child: Align(
+                                              alignment: isMe
+                                                  ? Alignment.centerRight
+                                                  : Alignment.centerLeft,
+                                              child: ChatBubble(
+                                                text: message.text,
+                                                isMe: isMe,
+                                                sender: message.sender,
+                                                timestamp: message.timestamp,
+                                                showSender: showSender,
+                                                isOptimistic:
+                                                    message.isOptimistic,
+                                                isFailed: message.isFailed,
+                                                onRetry: () =>
+                                                    _retryMessage(message),
+                                                onDismiss: () =>
+                                                    _dismissFailedMessage(
+                                                      message,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          // Scroll-to-bottom FAB
+                          if (_showScrollButton)
+                            Positioned(
+                              bottom: 8,
+                              right: 8,
+                              child: FadeIn(
+                                duration: const Duration(milliseconds: 200),
+                                child: GestureDetector(
+                                  onTap: () => _scrollToBottom(),
+                                  child: Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceGlass,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.border,
+                                      ),
+                                      boxShadow: AppElevation.e2,
+                                    ),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: AppColors.textMuted,
+                                      size: 20,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
+                        ],
+                      ),
+                    ),
+                    _buildInputArea(),
+                  ],
                 ),
-                _buildInputArea(),
-              ],
+              ),
             ),
           ),
         ],
@@ -587,83 +618,73 @@ class _SanctuaryChatScreenState extends State<SanctuaryChatScreen> {
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.inkDeep.withValues(alpha: 0.72),
-        border: Border(
-          top: BorderSide(
-            color: AppColors.moonlight.withValues(alpha: 0.08),
-            width: 1.0,
-          ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: AppColors.silk,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: AppColors.border),
         ),
-      ),
-      child: SafeArea(
-        top: false,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceGlass,
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(
-                    color: AppColors.moonlight.withValues(alpha: 0.14),
+              child: TextField(
+                controller: _messageController,
+                style: AppTypography.bodyMedium().copyWith(
+                  fontSize: 16,
+                  color: AppColors.textHigh,
+                ),
+                cursorColor: AppColors.roseQuartz,
+                maxLines: 4,
+                minLines: 1,
+                maxLength: 1000,
+                buildCounter:
+                    (
+                      _, {
+                      required int currentLength,
+                      required bool isFocused,
+                      int? maxLength,
+                    }) => null,
+                decoration: InputDecoration(
+                  hintText: 'Leave a little love...',
+                  hintStyle: AppTypography.bodyMedium().copyWith(
+                    color: AppColors.textMedium,
+                  ),
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
                   ),
                 ),
-                child: TextField(
-                  controller: _messageController,
-                  style: AppTypography.bodyMedium(),
-                  maxLines: 4,
-                  minLines: 1,
-                  maxLength: 1000,
-                  buildCounter:
-                      (
-                        _, {
-                        required int currentLength,
-                        required bool isFocused,
-                        int? maxLength,
-                      }) => null,
-                  decoration: InputDecoration(
-                    hintText: 'Type a message...',
-                    hintStyle: AppTypography.bodyMedium().copyWith(
-                      color: AppColors.textDisabled,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                  ),
-                  onSubmitted: (_) => _sendMessage(),
-                ),
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
-            const SizedBox(width: 12),
-            // Send button
-            GestureDetector(
-              onTap: _sendMessage,
-              child: Container(
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: AppColors.deepRose,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.glowRose,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _messageController,
+              builder: (context, value, _) => IconButton.filled(
+                onPressed:
+                    _authChecked &&
+                        _authError == null &&
+                        value.text.trim().isNotEmpty
+                    ? _sendMessage
+                    : null,
+                tooltip: 'Send message',
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.roseDepths,
+                  foregroundColor: AppColors.petalWhite,
+                  disabledBackgroundColor: AppColors.moonlight.withValues(
+                    alpha: 0.06,
+                  ),
+                  disabledForegroundColor: AppColors.textDisabled,
+                  minimumSize: const Size(48, 48),
                 ),
-                child: const Icon(
-                  Icons.send_rounded,
-                  color: AppColors.petalWhite,
-                  size: 20,
-                ),
+                icon: const Icon(Icons.arrow_upward_rounded, size: 24),
               ),
             ),
           ],
@@ -885,26 +906,22 @@ class _DayHeader extends StatelessWidget {
       label = DateFormat('EEEE, MMM d').format(date);
     }
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.moonlight.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: AppColors.moonlight.withValues(alpha: 0.10),
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Row(
+        children: [
+          Expanded(child: Divider(color: AppColors.divider)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              label,
+              style: AppTypography.bodySmall().copyWith(
+                color: AppColors.textMuted,
+                fontSize: 12,
+              ),
             ),
           ),
-          child: Text(
-            label,
-            style: AppTypography.labelSmall().copyWith(
-              color: AppColors.textMuted,
-              fontSize: 10,
-              letterSpacing: 0.6,
-            ),
-          ),
-        ),
+          Expanded(child: Divider(color: AppColors.divider)),
+        ],
       ),
     );
   }
