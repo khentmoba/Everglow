@@ -9,6 +9,7 @@ import 'package:everglow/features/books/data/models/book_item.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
 import 'package:everglow/features/money/data/services/money_service.dart';
 import 'package:everglow/features/subs/data/services/subs_service.dart';
+import 'package:everglow/features/trip_kit/data/models/trip.dart';
 import 'package:everglow/features/trip_kit/data/services/trip_kit_service.dart';
 
 class _LiveFirestore implements FirebaseFirestore {
@@ -42,7 +43,10 @@ void main() {
       final subs = SubsService(db: db);
       expect(await subs.watchAll().first, AgentFixtures.demoSubscriptions);
       await subs.add(AgentFixtures.demoSubscriptions.first);
-      await subs.update(AgentFixtures.demoSubscriptions.first);
+      await subs.update(
+        AgentFixtures.demoSubscriptions.first,
+        original: AgentFixtures.demoSubscriptions.first,
+      );
       await subs.delete('private');
       final trips = TripKitService(db: db);
       final trip = AgentFixtures.demoTrips.first;
@@ -50,9 +54,18 @@ void main() {
       expect(await trips.watchOne(trip.id).first, trip);
       expect(await trips.create(trip), trip.id);
       await trips.updateDetails(trip);
-      await trips.updatePacking('private', []);
-      await trips.updateExpenses('private', []);
-      await trips.updatePlaces('private', []);
+      await trips.addPackingItem(
+        'private',
+        const TripPackItem(id: 'demo-pack', label: 'Demo item'),
+      );
+      await trips.addExpense(
+        'private',
+        const TripExpense(id: 'demo-expense', label: 'Demo expense'),
+      );
+      await trips.addPlace(
+        'private',
+        const TripPlace(id: 'demo-place', name: 'Demo place'),
+      );
       await trips.delete('private');
       final books = OurBooksService(firestore: db);
       expect(await books.getOurBooksStream().first, AgentFixtures.demoBooks);
