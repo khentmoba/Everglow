@@ -63,15 +63,30 @@ test('academy_questions: no open write, delete denied', () => {
   assert.match(rules, /match \/academy_questions\/\{docId\} \{[\s\S]*?allow delete: if false/);
 });
 
-test('active_matches: host-owned create/delete, participant update', () => {
+test('active_matches: join, question refresh, and scoring writes are field-scoped', () => {
+  const matchRules = rules.split('match /active_matches/{docId} {')[1].split('match /tt_rooms/')[0];
+  assert.match(matchRules, /request\.resource\.data\.hostId == request\.auth\.uid/);
+  assert.match(matchRules, /request\.resource\.data\.participantId == null/);
+  assert.match(matchRules, /resource\.data\.participantId == null/);
+  assert.match(matchRules, /request\.resource\.data\.participantUsername == username\(\)/);
+  assert.match(matchRules, /hasOnly\(\['status',\s*'participantId',\s*'participantUsername'\]\)/);
+  assert.match(matchRules, /questionIds\.size\(\) <= 10/);
+  assert.match(matchRules, /hasOnly\(\['questionIds',\s*'currentQuestionId',\s*'questionIndex'\]\)/);
+  assert.match(matchRules, /hasOnly\(\['hostScore',\s*'guestScore',\s*'questionIndex',\s*'currentQuestionId',\s*'status',\s*'winnerId'\]\)/);
+  assert.match(matchRules, /isMatchScoreUpdate\(\)/);
+  assert.match(rules, /data\.get\('hostScore', resource\.data\.get\('khentScore', 0\)\)/);
+  assert.match(rules, /data\.get\('guestScore', resource\.data\.get\('clairScore', 0\)\)/);
+  assert.match(matchRules, /request\.resource\.data\.status == 'finished' && isMatchWinner\(\)/);
+  assert.match(matchRules, /request\.auth\.uid == resource\.data\.hostId/);
+  assert.match(matchRules, /request\.auth\.uid == resource\.data\.participantId/);
+});
+
+test('push tokens are private per-device registrations for the signed-in couple identity', () => {
   assert.match(
     rules,
-    /match \/active_matches\/\{docId\} \{[\s\S]*?request\.resource\.data\.hostId == request\.auth\.uid/,
+    /match \/fcm_tokens\/\{docId\} \{[\s\S]*?allow read, write: if false;[\s\S]*?match \/devices\/\{deviceId\} \{[\s\S]*?allow read: if false;[\s\S]*?allow create, update: if isCouple\(\) && docId == username\(\)/,
   );
-  assert.match(
-    rules,
-    /match \/active_matches\/\{docId\} \{[\s\S]*?resource\.data\.participantId/,
-  );
+  assert.match(rules, /request\.resource\.data\.uid == request\.auth\.uid/);
 });
 
 test('presence writes are owner-scoped', () => {

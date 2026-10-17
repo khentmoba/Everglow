@@ -139,6 +139,43 @@ service cloud.firestore {
           data.size() < 8192;
     }
 
+    function isMatchAdvance() {
+      let nextIndex = resource.data.questionIndex + 1;
+      let questionIds = ('questionIds' in resource.data)
+        ? resource.data.questionIds
+        : [];
+      let finished = nextIndex >= questionIds.size();
+      return request.resource.data.questionIndex == nextIndex &&
+        request.resource.data.status == (finished ? 'finished' : 'active') &&
+        request.resource.data.currentQuestionId ==
+          (finished ? '' : questionIds[nextIndex]);
+    }
+
+    function isMatchWinner() {
+      let host = ('hostUsername' in resource.data &&
+        resource.data.hostUsername is string)
+        ? resource.data.hostUsername : 'draw';
+      let guest = ('participantUsername' in resource.data &&
+        resource.data.participantUsername is string)
+        ? resource.data.participantUsername : 'draw';
+      let winner = request.resource.data.hostScore > request.resource.data.guestScore
+        ? host
+        : (request.resource.data.guestScore > request.resource.data.hostScore
+          ? guest : 'draw');
+      return request.resource.data.winnerId == winner;
+    }
+
+    function isMatchScoreUpdate() {
+      let hostScore = resource.data.get('hostScore', resource.data.get('khentScore', 0));
+      let guestScore = resource.data.get('guestScore', resource.data.get('clairScore', 0));
+      return (request.auth.uid == resource.data.hostId &&
+          request.resource.data.hostScore == hostScore + 10 &&
+          request.resource.data.guestScore == guestScore) ||
+        (request.auth.uid == resource.data.participantId &&
+          request.resource.data.hostScore == hostScore &&
+          request.resource.data.guestScore == guestScore + 10);
+    }
+
     // ---------- User profile and per-user subcollections ----------
 
     match /users/{userId} {
@@ -332,6 +369,9 @@ service cloud.firestore {
       allow read: if isAppUser();
       allow create: if isAppUser() &&
         request.resource.data.hostId == request.auth.uid &&
+        request.resource.data.participantId == null &&
+        request.resource.data.hostScore == 0 &&
+        request.resource.data.guestScore == 0 &&
         request.resource.data.status == 'waiting' &&
         isValidMatchShape(request.resource.data);
       allow update: if isAppUser() &&
@@ -339,13 +379,46 @@ service cloud.firestore {
         request.resource.data.hostId == resource.data.hostId &&
         request.resource.data.category == resource.data.category &&
         (
-          // Guest joining a waiting match: claims the empty seat.
+          // A guest can claim only the empty seat, not rewrite the match.
           (resource.data.status == 'waiting' &&
+           resource.data.participantId == null &&
            request.resource.data.status == 'active' &&
-           request.resource.data.participantId == request.auth.uid) ||
-          // Host or joined guest playing their match.
-          (request.auth.uid == resource.data.hostId ||
-           request.auth.uid == resource.data.participantId)
+           resource.data.hostId != request.auth.uid &&
+           request.resource.data.participantId == request.auth.uid &&
+           request.resource.data.participantUsername == username() &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'participantId', 'participantUsername'])) ||
+          // Host can replace the question order only while waiting.
+          (request.auth.uid == resource.data.hostId &&
+           resource.data.status == 'waiting' &&
+           request.resource.data.status == 'waiting' &&
+           request.resource.data.questionIndex == 0 &&
+           request.resource.data.questionIds is list &&
+           request.resource.data.questionIds.size() > 0 &&
+           request.resource.data.questionIds.size() <= 10 &&
+           request.resource.data.currentQuestionId ==
+             request.resource.data.questionIds[0] &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['questionIds', 'currentQuestionId', 'questionIndex'])) ||
+          // Either player may toggle the replenishment indicator.
+          ((request.auth.uid == resource.data.hostId ||
+            request.auth.uid == resource.data.participantId) &&
+           request.resource.data.isReplenishing is bool &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['isReplenishing'])) ||
+          // A correct answer advances one question and credits only its sender.
+          (resource.data.status == 'active' &&
+           (request.auth.uid == resource.data.hostId ||
+            request.auth.uid == resource.data.participantId) &&
+           isMatchAdvance() &&
+           request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['hostScore', 'guestScore', 'questionIndex',
+                       'currentQuestionId', 'status', 'winnerId']) &&
+           ((request.resource.data.status == 'active' &&
+             request.resource.data.winnerId ==
+               (('winnerId' in resource.data) ? resource.data.winnerId : null)) ||
+            (request.resource.data.status == 'finished' && isMatchWinner())) &&
+           isMatchScoreUpdate())
         );
       allow delete: if isAppUser() &&
         request.auth.uid == resource.data.hostId;
