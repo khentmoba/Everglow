@@ -757,7 +757,22 @@ class _CinemaScreenState extends State<CinemaScreen> {
                               : () async {
                                   HapticFeedback.selectionClick();
                                   final router = GoRouter.of(context);
-                                  await context.read<AuthService>().logout();
+                                  try {
+                                    await context.read<AuthService>().logout();
+                                  } catch (_) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          context
+                                                  .read<AuthService>()
+                                                  .lastAuthError ??
+                                              'Could not log out safely. Try again.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   if (!mounted) return;
                                   router.go('/');
                                 },
@@ -806,7 +821,20 @@ class _CinemaScreenState extends State<CinemaScreen> {
                     : null,
                 onLogout: () async {
                   final router = GoRouter.of(context);
-                  await context.read<AuthService>().logout();
+                  try {
+                    await context.read<AuthService>().logout();
+                  } catch (_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.read<AuthService>().lastAuthError ??
+                              'Could not log out safely. Try again.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
                   if (!mounted) return;
                   router.go('/');
                 },

@@ -27,6 +27,7 @@ class AppRoot extends StatefulWidget {
 
 class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   AuthService? _authService;
+  String? _lastPushSessionKey;
 
   @override
   void initState() {
@@ -68,6 +69,18 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
   void _syncListener() {
     final auth = _authService;
     if (auth == null || !mounted) return;
+    final pushSessionKey =
+        '${auth.uid ?? 'none'}:${auth.isReady}:${auth.isCoupleUser}:${auth.isAgentSession}';
+    if (_lastPushSessionKey != pushSessionKey) {
+      _lastPushSessionKey = pushSessionKey;
+      unawaited(
+        NotificationService.instance.syncAuthSession(
+          // The profile may deny registration, but only the verified Firebase
+          // custom claim inside NotificationService can authorize it.
+          enabled: auth.isReady && auth.isCoupleUser && !auth.isAgentSession,
+        ),
+      );
+    }
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
     if (!auth.isAgentSession &&

@@ -381,8 +381,22 @@ service cloud.firestore {
         (isCinemaProfile() && resource.data.userName == username());
     }
     match /fcm_tokens/{docId} {
-      allow read: if isAppUser() && docId == username();
-      allow write: if isAppUser() && docId == username();
+      // Keep legacy token/Motchi preference documents server-only. Push
+      // registrations now live per installation under devices/.
+      allow read, write: if false;
+      match /devices/{deviceId} {
+        allow read: if false;
+        allow create, update: if isCouple() && docId == username() &&
+          request.resource.data.keys().hasAll(['token', 'uid', 'updatedAt', 'platform']) &&
+          request.resource.data.keys().hasOnly(['token', 'uid', 'updatedAt', 'platform']) &&
+          request.resource.data.token is string &&
+          request.resource.data.token.size() > 0 &&
+          request.resource.data.token.size() <= 4096 &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.updatedAt == request.time &&
+          request.resource.data.platform is string;
+        allow delete: if isCouple() && docId == username();
+      }
     }
     match /config/{docId} {
       allow read: if isRegistered();

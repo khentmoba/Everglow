@@ -11,21 +11,42 @@ async function sendFCMToUser(uid, payload) {
     const db = getDb();
     const ref = db.collection('fcm_tokens').doc(uid);
     const type = payload.data?.type || 'nudge';
-    const tokenDoc = payload.motchi && !type.startsWith('reminder') ? await db.runTransaction(async (tx) => {
-      const doc = await tx.get(ref);
-      if (!doc.exists || !doc.data()?.token || !allowsPush(doc.data()?.motchi, type)) return null;
-      tx.set(ref, { motchi: pushReservation(type) }, { merge: true });
-      return doc;
-    }) : await ref.get();
-    if (!tokenDoc) return;
-    if (!tokenDoc.exists) return;
-    const token = tokenDoc.data()?.token;
-    if (!token) return;
-    await getAdmin().messaging().send({
-      token,
-      notification: { title: payload.title, body: payload.body },
-      data: payload.data || {},
-    });
+    const devices = await ref.collection('devices').get();
+    if (!devices.docs.length) return;
+    if (payload.motchi && !type.startsWith('reminder')) {
+      const allowed = await db.runTransaction(async (tx) => {
+        const doc = await tx.get(ref);
+        if (!allowsPush(doc.exists ? doc.data()?.motchi : undefined, type)) return false;
+        tx.set(ref, { motchi: pushReservation(type) }, { merge: true });
+        return true;
+      });
+      if (!allowed) return;
+    }
+
+    // Parent `token` fields are legacy and may belong to a logged-out device.
+    // Only explicitly registered installation documents are deliverable.
+    const messaging = getAdmin().messaging();
+    await Promise.all(devices.docs.map(async (device) => {
+      const token = device.data()?.token;
+      if (!token) return;
+      try {
+        await messaging.send({
+          token,
+          notification: { title: payload.title, body: payload.body },
+          data: payload.data || {},
+        });
+      } catch (e) {
+        const code = e.code || e.errorInfo?.code;
+        if (code === 'messaging/registration-token-not-registered' ||
+            code === 'messaging/invalid-registration-token') {
+          try { await device.ref.delete(); } catch (cleanupError) {
+            console.warn(`FCM token cleanup for ${uid} failed:`, cleanupError.message);
+          }
+        } else {
+          console.warn(`FCM send to ${uid} failed:`, e.message);
+        }
+      }
+    }));
   } catch (e) {
     console.warn(`FCM send to ${uid} failed:`, e.message);
   }

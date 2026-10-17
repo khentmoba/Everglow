@@ -14,6 +14,7 @@ import '../../features/xp/data/services/xp_service.dart';
 import '../config/env_config.dart';
 import '../router/route_memory.dart';
 import '../utils/firestore_stream_utils.dart';
+import 'notification_service.dart';
 import '../utils/logger.dart';
 
 /// Thrown by [AuthService.verifyCouplePasscode] when no endpoint returned a
@@ -321,6 +322,9 @@ class AuthService extends ChangeNotifier {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
       Logger.i('[AuthService] users doc synced for $_currentUser ($myUid)');
+      // Push registration rules depend on this verified user document. The
+      // AppRoot may have attempted it as soon as Auth became ready; retry now.
+      unawaited(NotificationService.instance.syncAuthSession(enabled: true));
 
       // Remaining work doesn't block first paint — fire-and-forget.
       unawaited(
@@ -358,6 +362,8 @@ class AuthService extends ChangeNotifier {
           '[AuthService] _syncUserDoc failed for $_currentUser ($myUid)',
           error: e,
         );
+      } else {
+        unawaited(NotificationService.instance.syncAuthSession(enabled: true));
       }
     }
   }
@@ -701,6 +707,16 @@ class AuthService extends ChangeNotifier {
 
   Future<void> logout() async {
     _isAgentSession = false;
+    try {
+      await NotificationService.instance.unregisterForLogout();
+    } catch (e) {
+      _lastAuthError =
+          'Could not log out safely. Check your connection and try again.';
+      Logger.e('Logout blocked because push cleanup failed', error: e);
+      notifyListeners();
+      rethrow;
+    }
+    _lastAuthError = null;
     await _auth.signOut();
     // Forget the last page: the next login on this device starts fresh
     // instead of reopening the previous user's screen.
