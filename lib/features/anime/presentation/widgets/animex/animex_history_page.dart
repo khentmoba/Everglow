@@ -141,10 +141,7 @@ class AnimeXHistoryPage extends StatelessWidget {
             (e) => _HistoryRow(
               entry: e,
               onTap: () {
-                controller.openWatch(
-                  mediaItemFromHistory(e),
-                  episode: e.isMovie ? null : e.episode,
-                );
+                controller.openWatch(mediaItemFromHistory(e));
               },
               onRemove: () => _clear(context, [e]),
             ),

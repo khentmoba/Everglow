@@ -61,9 +61,19 @@ class AnimeXWatchPage extends StatefulWidget {
             saved.currentEpisode != null ||
             saved.currentTimestamp != null ||
             saved.isWatched);
+    final completedEpisode =
+        !progress.isMovie &&
+        (progress.durationSeconds ?? 0) > 0 &&
+        (progress.currentTimestamp ?? 0) >= progress.durationSeconds! * 0.95 &&
+        (progress.currentEpisode ?? 0) > 0 &&
+        (progress.currentEpisode ?? 0) < (progress.episodeCount ?? 0);
     final episode =
         requestedEpisode ??
-        (progress.isWatched ? 1 : progress.currentEpisode) ??
+        (progress.isWatched
+            ? 1
+            : completedEpisode
+            ? progress.currentEpisode! + 1
+            : progress.currentEpisode) ??
         (accountIsAuthoritative ? 1 : local?.episode) ??
         1;
     final sameEpisode = progress.isMovie || progress.currentEpisode == episode;
@@ -236,10 +246,8 @@ class AnimeXWatchPage extends StatefulWidget {
   }
 
   /// Picks the server a visit should open on: the remembered choice
-  /// when it is still offered, otherwise Everglow whenever it is
-  /// available, otherwise the first available server. Everglow is ours
-  /// (no ads, no popups), so it stays the default even when a previous
-  /// visit left the index pointing at a third-party server.
+  /// when it is still offered, otherwise Megavid whenever available, then
+  /// the first available server. Megavid reports progress and accepts resume.
   @visibleForTesting
   static int defaultServerIndex(
     List<AnimeServerOption> servers, {
@@ -250,10 +258,10 @@ class AnimeXWatchPage extends StatefulWidget {
       final at = servers.indexWhere((s) => s.available && s.name == remembered);
       if (at != -1) return at;
     }
-    final everglow = servers.indexWhere(
-      (s) => s.available && s.name == 'Everglow',
+    final tracked = servers.indexWhere(
+      (s) => s.available && s.name == 'Megavid',
     );
-    if (everglow != -1) return everglow;
+    if (tracked != -1) return tracked;
     final first = servers.indexWhere((s) => s.available);
     return first == -1 ? 0 : first;
   }
@@ -281,7 +289,7 @@ class AnimeXWatchPage extends StatefulWidget {
   /// players cannot pass reliably — and it ships its own popunder ad
   /// tag — so it is no longer offered. VidLink's anime embeds 404
   /// sitewide since Sep 2026, so it is no longer offered either.
-  /// A remembered AniXo/VidLink choice simply falls back to Everglow
+  /// A remembered AniXo/VidLink choice simply falls back to Megavid
   /// (see [defaultServerIndex]).
   ///
   /// Picks the TMDB id for titles ani.zip can't map, via a strict
