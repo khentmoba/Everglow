@@ -76,7 +76,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
     (title: 'Top-Rated Series', type: 'tv', genre: null, language: null),
     (title: 'Action & Adventure', type: 'movie', genre: 28, language: null),
     (title: 'Need a Laugh?', type: 'movie', genre: 35, language: null),
-    (title: 'Date Night Romance', type: 'movie', genre: 10749, language: null),
+    (title: 'Romance', type: 'movie', genre: 10749, language: null),
     (
       title: 'Edge-of-Your-Seat Thrillers',
       type: 'movie',

@@ -147,7 +147,7 @@ void main() {
             body: home(
               loading: false,
               discovery: {
-                'Date Night Romance': [demo()],
+                'Romance': [demo()],
                 'Empty shelf': [],
                 'Korean Dramas': [demo()],
               },
