@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../core/utils/connectivity_service.dart';
-import '../../../cinema/data/services/tmdb_service.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
 
@@ -182,28 +180,9 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
 
-        _runPartnerCleanupIfNeeded(authService);
         _syncPresenceHeartbeat();
       }
     });
-  }
-
-  Future<void> _runPartnerCleanupIfNeeded(AuthService auth) async {
-    if (auth.currentUser != 'khentsgdz') return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (prefs.getBool('partner_cleanup_v1') == true) return;
-      final tmdbService = TMDBService();
-      final removed = await tmdbService.cleanupDuplicatePartnerEntries();
-      if (removed > 0) {
-        Logger.i(
-          "[Dashboard] Cleanup removed $removed duplicate watchlist entries",
-        );
-      }
-      await prefs.setBool('partner_cleanup_v1', true);
-    } catch (e) {
-      Logger.e("[Dashboard] Partner cleanup failed", error: e);
-    }
   }
 
   @override

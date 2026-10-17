@@ -27,6 +27,64 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   // on the un-capped streams for the cinema/anime screens.
   static const int previewLimit = 24;
 
+  static String _mediaType(String value) =>
+      value.trim().toLowerCase() == 'tv' ? 'tv' : 'movie';
+
+  static int _catalogId(MediaItem item) =>
+      item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
+
+  static bool _matchesCatalog(
+    Map<String, dynamic> data, {
+    required int id,
+    required String source,
+    required String mediaType,
+  }) =>
+      data['tmdbId'] == id &&
+      (data['source'] ?? 'tmdb') == source &&
+      _mediaType(data['mediaType'] as String? ?? 'movie') ==
+          _mediaType(mediaType);
+
+  static QueryDocumentSnapshot<Map<String, dynamic>>? _findCatalogDoc(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required int id,
+    required String source,
+    required String mediaType,
+  }) {
+    for (final doc in snapshot.docs) {
+      if (_matchesCatalog(
+        doc.data(),
+        id: id,
+        source: source,
+        mediaType: mediaType,
+      )) {
+        return doc;
+      }
+    }
+    return null;
+  }
+
+  static QueryDocumentSnapshot<Map<String, dynamic>>? _findAniListDoc(
+    QuerySnapshot<Map<String, dynamic>> snapshot, {
+    required int anilistId,
+    required String source,
+    required String mediaType,
+  }) {
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+      // Missing source normally means TMDB; an exact AniList link safely
+      // identifies older anime records that predate the source field.
+      if (data['anilistId'] == anilistId &&
+          data['isAnime'] == true &&
+          _mediaType(data['mediaType'] as String? ?? 'movie') ==
+              _mediaType(mediaType) &&
+          ((data['source'] ?? 'tmdb') == source ||
+              (!data.containsKey('source') && source != 'tmdb'))) {
+        return doc;
+      }
+    }
+    return null;
+  }
+
   /// Lightweight one-shot fetch for dashboard previews. Reads [limit]
   /// docs once instead of holding a realtime stream each (Cinema + Anime
   /// + Currently Watching previously opened ~1500 realtime docs per
@@ -113,18 +171,44 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       // document. "watched-clair" on Clair's doc → "watched-self", etc.
       final effectiveStatus = _toSelfStatus(status);
 
-      // Check if the owner already has this tmdbId
+      final catalogId = _catalogId(item);
+      // Filter the small same-numeric-ID result in Dart; adding source and
+      // mediaType to the Firestore query would require new composite indexes.
       Logger.d(
-        "[WatchList] Querying tmdbId=${item.tmdbId} (${item.tmdbId.runtimeType}), owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}",
+        "[WatchList] Querying catalogId=$catalogId, owner=$effectiveOwner, status=$effectiveStatus, title=${item.title}",
       );
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: item.tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: effectiveOwner)
-            .limit(1)
             .get(),
         label: 'watchlist save lookup',
       );
+      var existingItem = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      if (existingItem == null &&
+          item.isAnime &&
+          item.source != 'tmdb' &&
+          (item.anilistId ?? 0) > 0) {
+        final byAniListId = await withGetTimeout(
+          collection
+              .where('anilistId', isEqualTo: item.anilistId)
+              .where('userName', isEqualTo: effectiveOwner)
+              .where('isAnime', isEqualTo: true)
+              .get(),
+          label: 'watchlist save AniList lookup',
+        );
+        existingItem = _findAniListDoc(
+          byAniListId,
+          anilistId: item.anilistId!,
+          source: item.source,
+          mediaType: item.mediaType,
+        );
+      }
       Logger.d(
         "[WatchList] Query returned ${existing.docs.length} docs for owner=$effectiveOwner",
       );
@@ -144,9 +228,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       // Otherwise fall back to whatever was already on the item.
       final isAnime = isAnimeOverride ?? item.isAnime;
 
-      if (existing.docs.isNotEmpty) {
+      if (existingItem != null) {
         Logger.d(
-          "[WatchList] Updating existing doc ${existing.docs.first.id} with status=$effectiveStatus, owner=$effectiveOwner",
+          "[WatchList] Updating existing doc ${existingItem.id} with status=$effectiveStatus, owner=$effectiveOwner",
         );
         // Update status if exists — also refresh metadata fields so the
         // dashboard cards always have the latest poster, title, etc.
@@ -164,6 +248,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
           'title': item.title,
           'year': item.year,
           'mediaType': item.mediaType,
+          'source': item.source,
         };
         if (item.posterPath.isNotEmpty) {
           updateData['posterPath'] = item.posterPath;
@@ -177,10 +262,8 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
           updateData['durationSeconds'] = null;
           updateData['progressUpdatedAt'] = Timestamp.now();
         }
-        await collection.doc(existing.docs.first.id).update(updateData);
-        Logger.d(
-          "[WatchList] Update succeeded for doc ${existing.docs.first.id}",
-        );
+        await collection.doc(existingItem.id).update(updateData);
+        Logger.d("[WatchList] Update succeeded for doc ${existingItem.id}");
       } else {
         // Create new entry scoped to the effective owner
         Logger.d(
@@ -189,6 +272,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         await collection.add(
           item
               .copyWith(
+                tmdbId: catalogId,
                 status: effectiveStatus,
                 isAnime: isAnime,
                 userName: effectiveOwner,
@@ -248,20 +332,22 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  /// The caller's saved progress for [tmdbId], or null when there is none
-  /// (or the read failed). Lets the player resume on a device that never
-  /// played the title. Only ever reads the caller's own document, and
-  /// never throws: resuming is a comfort, not a reason to block playback.
+  /// The caller's saved progress for a catalog identity, or null when there
+  /// is none (or the read failed). Never throws: resuming is a comfort, not
+  /// a reason to block playback.
   Future<MediaItem?> getSavedProgress(
-    int tmdbId,
+    int catalogId,
     String userName, {
+    required String source,
+    required String mediaType,
     int? anilistId,
   }) async {
     if (AgentMode.isActive.value) return null;
-    if (userName.isEmpty || (tmdbId <= 0 && (anilistId ?? 0) <= 0)) return null;
+    if (userName.isEmpty || (catalogId <= 0 && (anilistId ?? 0) <= 0)) {
+      return null;
+    }
     try {
-      // Anime catalog cards can carry only AniList, while the stored entry
-      // was opened from MAL. Resolve that identity before numeric ID fallback.
+      // Exact AniList IDs can resume a saved MAL entry whose MAL ID differs.
       if (anilistId != null && anilistId > 0) {
         final anime = await withGetTimeout(
           firestore
@@ -269,40 +355,40 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
               .where('anilistId', isEqualTo: anilistId)
               .where('userName', isEqualTo: userName)
               .where('isAnime', isEqualTo: true)
-              .limit(1)
               .get(),
           label: 'saved anime progress lookup',
         );
-        if (anime.docs.isNotEmpty) {
-          return MediaItem.fromFirestore(
-            anime.docs.first.data(),
-            anime.docs.first.id,
-          );
-        }
+        final doc = _findAniListDoc(
+          anime,
+          anilistId: anilistId,
+          source: source,
+          mediaType: mediaType,
+        );
+        if (doc != null) return MediaItem.fromFirestore(doc.data(), doc.id);
       }
-      if (tmdbId <= 0) return null;
-      Query<Map<String, dynamic>> query = firestore
-          .collection('watch_list')
-          .where('tmdbId', isEqualTo: tmdbId)
-          .where('userName', isEqualTo: userName);
-      if ((anilistId ?? 0) > 0) {
-        query = query.where('isAnime', isEqualTo: true);
-      }
+      if (catalogId <= 0) return null;
       final snap = await withGetTimeout(
-        query.limit(1).get(),
+        firestore
+            .collection('watch_list')
+            .where('tmdbId', isEqualTo: catalogId)
+            .where('userName', isEqualTo: userName)
+            .get(),
         label: 'saved watch progress lookup',
       );
-      if (snap.docs.isEmpty) return null;
-      final savedAniListId = snap.docs.first.data()['anilistId'];
+      final doc = _findCatalogDoc(
+        snap,
+        id: catalogId,
+        source: source,
+        mediaType: mediaType,
+      );
+      if (doc == null) return null;
+      final savedAniListId = doc.data()['anilistId'];
       if ((anilistId ?? 0) > 0 &&
           savedAniListId != null &&
           savedAniListId != anilistId) {
         return null;
       }
-      return MediaItem.fromFirestore(
-        snap.docs.first.data(),
-        snap.docs.first.id,
-      );
+      return MediaItem.fromFirestore(doc.data(), doc.id);
     } catch (e) {
       Logger.e('Error reading saved watch progress', error: e);
       return null;
@@ -329,39 +415,38 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
           : (item.anilistId ?? 0);
       if (effectiveTmdbId <= 0) return;
 
-      // Anime MAL/AniList numbers can collide with cinema TMDB numbers.
-      // Keep every anime lookup source-scoped, and match AniList first just
-      // like account resume. Cinema keeps its existing TMDB-first behavior.
-      Query<Map<String, dynamic>> query = collection.where(
-        'userName',
-        isEqualTo: userName,
-      );
-      if (item.isAnime) query = query.where('isAnime', isEqualTo: true);
-      final animeIdFirst = item.isAnime && (item.anilistId ?? 0) > 0;
-      var existing = await withGetTimeout(
-        query
-            .where(
-              animeIdFirst ? 'anilistId' : 'tmdbId',
-              isEqualTo: animeIdFirst ? item.anilistId : effectiveTmdbId,
-            )
-            .limit(1)
-            .get(),
-        label: 'watch progress lookup',
-      );
-
-      if (existing.docs.isEmpty && (item.anilistId ?? 0) > 0) {
-        existing = await withGetTimeout(
-          query
-              .where(
-                animeIdFirst ? 'tmdbId' : 'anilistId',
-                isEqualTo: animeIdFirst ? effectiveTmdbId : item.anilistId,
-              )
-              .limit(1)
+      QueryDocumentSnapshot<Map<String, dynamic>>? document;
+      if (item.isAnime && item.source != 'tmdb' && (item.anilistId ?? 0) > 0) {
+        final anime = await withGetTimeout(
+          collection
+              .where('anilistId', isEqualTo: item.anilistId)
+              .where('userName', isEqualTo: userName)
+              .where('isAnime', isEqualTo: true)
               .get(),
-          label: 'watch progress fallback lookup',
+          label: 'watch progress AniList lookup',
+        );
+        document = _findAniListDoc(
+          anime,
+          anilistId: item.anilistId!,
+          source: item.source,
+          mediaType: item.mediaType,
         );
       }
-      final document = existing.docs.isEmpty ? null : existing.docs.first;
+      if (document == null && item.tmdbId > 0) {
+        final byCatalogId = await withGetTimeout(
+          collection
+              .where('tmdbId', isEqualTo: item.tmdbId)
+              .where('userName', isEqualTo: userName)
+              .get(),
+          label: 'watch progress lookup',
+        );
+        document = _findCatalogDoc(
+          byCatalogId,
+          id: item.tmdbId,
+          source: item.source,
+          mediaType: item.mediaType,
+        );
+      }
       final savedAniListId = document?.data()['anilistId'];
       final conflictingAnime =
           item.isAnime &&
@@ -443,31 +528,24 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     }
   }
 
-  Future<void> removeFromWatchList(
-    int tmdbId,
-    String userName, {
-    String? docId,
-  }) async {
+  Future<void> removeFromWatchList(MediaItem item, String userName) async {
     if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
-      // Fast path: the drawer often already holds the doc id, which
-      // skips the query round-trip entirely (1 write vs query + write).
-      // Callers must only pass it for single-owner matches — merged
-      // couple items carry the primary's id, never the partner's.
-      if (docId != null && docId.isNotEmpty) {
-        await collection.doc(docId).delete();
-        Logger.i("Removed from watch list: $tmdbId ($userName)");
-        return;
-      }
+      final catalogId = item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watchlist remove lookup',
+      );
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
       );
 
       // NOTE: no partner fallback (see saveToWatchList). Progress and
@@ -475,9 +553,9 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       // exists we create one (progress) or do nothing (remove/
       // heartbeat) instead of hijacking the partner's doc.
 
-      if (existing.docs.isNotEmpty) {
-        await collection.doc(existing.docs.first.id).delete();
-        Logger.i("Removed from watch list: $tmdbId ($userName)");
+      if (document != null) {
+        await collection.doc(document.id).delete();
+        Logger.i("Removed from watch list: $catalogId ($userName)");
       }
     } catch (e) {
       Logger.e("Error removing from watch list", error: e);
@@ -491,22 +569,28 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   /// library under To Watch, but its playback progress is cleared so it no
   /// longer shows up in the watching shelves. Only ever touches the
   /// caller's own document (see saveToWatchList). Does nothing when the
-  /// caller has no document for [tmdbId].
-  Future<void> clearWatchProgress(int tmdbId, String userName) async {
+  /// caller has no document for this catalog identity.
+  Future<void> clearWatchProgress(MediaItem item, String userName) async {
     if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
+      final catalogId = item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watch progress clear lookup',
       );
-      if (existing.docs.isEmpty) return;
-      await collection.doc(existing.docs.first.id).update({
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      if (document == null) return;
+      await collection.doc(document.id).update({
         'status': 'to-watch',
         'currentSeason': null,
         'currentEpisode': null,
@@ -525,22 +609,34 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     if (AgentMode.isActive.value) return false;
     if (userName.isEmpty) return false;
     try {
+      final catalogId = _catalogId(item);
       final existing = await withGetTimeout(
         firestore
             .collection('watch_list')
-            .where('tmdbId', isEqualTo: item.tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watch progress undo lookup',
       );
-      if (existing.docs.isEmpty) return false;
-      final ref = existing.docs.first.reference;
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      if (document == null) return false;
+      final ref = document.reference;
       return await firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(ref);
         final data = snapshot.data();
         if (data == null ||
             data['userName'] != userName ||
+            !_matchesCatalog(
+              data,
+              id: catalogId,
+              source: item.source,
+              mediaType: item.mediaType,
+            ) ||
             data['status'] != 'to-watch' ||
             data['currentTimestamp'] != null ||
             data['currentSeason'] != null ||
@@ -577,7 +673,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       await saveToWatchList(item, 'to-watch', userName);
       return true;
     }
-    await removeFromWatchList(item.tmdbId, userName);
+    await removeFromWatchList(item, userName);
     return false;
   }
 
@@ -591,36 +687,39 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
+      final catalogId = _catalogId(item);
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: item.tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watchlist rating lookup',
       );
-      final ratingData = <String, dynamic>{
-        'userRating': rating,
-        'ratedAt': rating == null ? null : Timestamp.now(),
-      };
-      if (existing.docs.isEmpty) {
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      if (document == null) {
         if (rating == null) return;
         await collection.add(
-          item.copyWith(status: 'to-watch', userName: userName).toFirestore(),
+          item
+              .copyWith(
+                tmdbId: catalogId,
+                status: 'to-watch',
+                userName: userName,
+                userRating: rating,
+                ratedAt: DateTime.now(),
+              )
+              .toFirestore(),
         );
-        final created = await withGetTimeout(
-          collection
-              .where('tmdbId', isEqualTo: item.tmdbId)
-              .where('userName', isEqualTo: userName)
-              .limit(1)
-              .get(),
-          label: 'watchlist rating re-read',
-        );
-        if (created.docs.isEmpty) return;
-        await collection.doc(created.docs.first.id).update(ratingData);
         return;
       }
-      await collection.doc(existing.docs.first.id).update(ratingData);
+      await collection.doc(document.id).update({
+        'userRating': rating,
+        'ratedAt': rating == null ? null : Timestamp.now(),
+      });
     } catch (e) {
       Logger.e('Error updating user rating', error: e);
     }
@@ -638,24 +737,35 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     if (userName.isEmpty) return;
     try {
       final collection = firestore.collection('watch_list');
+      final catalogId = item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: item.tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watchlist remind-me lookup',
       );
-      if (existing.docs.isEmpty) {
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      if (document == null) {
         if (!value) return;
         await collection.add(
           item
-              .copyWith(status: 'to-watch', userName: userName, remindMe: true)
+              .copyWith(
+                tmdbId: catalogId,
+                status: 'to-watch',
+                userName: userName,
+                remindMe: true,
+              )
               .toFirestore(),
         );
         return;
       }
-      await collection.doc(existing.docs.first.id).update({'remindMe': value});
+      await collection.doc(document.id).update({'remindMe': value});
     } catch (e) {
       Logger.e('Error updating reminder', error: e);
       rethrow;
@@ -663,21 +773,26 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   }
 
   /// One-shot read of the "Remind me" bell for the drawer's initial state.
-  Future<bool> isReminderSet(int tmdbId, String userName) async {
+  Future<bool> isReminderSet(MediaItem item, String userName) async {
     if (AgentMode.isActive.value) return false;
     if (userName.isEmpty) return false;
     try {
+      final catalogId = item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
       final existing = await withGetTimeout(
         firestore
             .collection('watch_list')
-            .where('tmdbId', isEqualTo: tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watchlist reminder check',
       );
-      if (existing.docs.isEmpty) return false;
-      return existing.docs.first.data()['remindMe'] == true;
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      return document?.data()['remindMe'] == true;
     } catch (e) {
       Logger.e('Error reading reminder', error: e);
       return false;
@@ -718,7 +833,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   }
 
   /// Stream of the combined watch list for the couple
-  /// (khentsgdz + clairjassen), deduplicated by `tmdbId`.
+  /// (khentsgdz + clairjassen), deduplicated by source, media type, and ID.
   ///
   /// On the merged `MediaItem`:
   ///   - `userName` is a comma-separated list of partners who have the title
@@ -1024,8 +1139,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
 
   /// Keep-alive method to update timestamp while watching (debounced).
   Future<void> heartbeatProgress(
-    int tmdbId,
+    int catalogId,
     String userName, {
+    required String source,
+    required String mediaType,
     int? season,
     int? episode,
     int? timestamp,
@@ -1037,11 +1154,16 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       final collection = firestore.collection('watch_list');
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watch progress heartbeat lookup',
+      );
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: source,
+        mediaType: mediaType,
       );
 
       // NOTE: no partner fallback (see saveToWatchList). Progress and
@@ -1049,13 +1171,13 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       // exists we create one (progress) or do nothing (remove/
       // heartbeat) instead of hijacking the partner's doc.
 
-      if (existing.docs.isNotEmpty) {
+      if (document != null) {
         final data = <String, dynamic>{'progressUpdatedAt': Timestamp.now()};
         if (season != null) data['currentSeason'] = season;
         if (episode != null) data['currentEpisode'] = episode;
         if (timestamp != null) data['currentTimestamp'] = timestamp;
         if (durationSeconds != null) data['durationSeconds'] = durationSeconds;
-        await collection.doc(existing.docs.first.id).update(data);
+        await collection.doc(document.id).update(data);
       }
     } catch (e) {
       Logger.e('Error heartbeating progress', error: e);
@@ -1071,24 +1193,30 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   /// are reset to "to-watch" — the user's own watched-self / watching-self
   /// status is always preserved so personal shelves never go empty.
   Future<void> cleanStalePartnerStatus(
-    int tmdbId,
+    MediaItem item,
     String userName,
     String newStatus,
   ) async {
     if (AgentMode.isActive.value) return;
     try {
       final collection = firestore.collection('watch_list');
+      final catalogId = item.tmdbId > 0 ? item.tmdbId : (item.anilistId ?? 0);
       final existing = await withGetTimeout(
         collection
-            .where('tmdbId', isEqualTo: tmdbId)
+            .where('tmdbId', isEqualTo: catalogId)
             .where('userName', isEqualTo: userName)
-            .limit(1)
             .get(),
         label: 'watchlist stale status lookup',
       );
-      if (existing.docs.isEmpty) return;
+      final document = _findCatalogDoc(
+        existing,
+        id: catalogId,
+        source: item.source,
+        mediaType: item.mediaType,
+      );
+      if (document == null) return;
 
-      final docData = existing.docs.first.data();
+      final docData = document.data();
       final currentStatus = docData['status'] as String? ?? '';
 
       final stalePartner = _companionPartnerStatus(newStatus);
@@ -1102,9 +1230,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         Logger.d(
           "[WatchList] Cleaning stale '$currentStatus' from $userName's doc",
         );
-        await collection.doc(existing.docs.first.id).update({
-          'status': 'to-watch',
-        });
+        await collection.doc(document.id).update({'status': 'to-watch'});
       }
     } catch (e) {
       Logger.e("[WatchList] Error cleaning stale partner status", error: e);
@@ -1132,69 +1258,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   }
 
   // ─── Migration ─────────────────────────────────────────────────────────
-
-  /// One-time cleanup: remove Khent's watchlist entries for items where
-  /// Clair also has the item with a "watched-self" status. These were
-  /// created by a bug that saved partner-specific statuses to the wrong
-  /// user's document.
-  ///
-  /// Returns the number of entries removed.
-  Future<int> cleanupDuplicatePartnerEntries() async {
-    if (AgentMode.isActive.value) return 0;
-    try {
-      final collection = firestore.collection('watch_list');
-
-      // Get all of Khent's entries
-      final khentDocs = await withGetTimeout(
-        collection.where('userName', isEqualTo: 'khentsgdz').get(),
-        label: 'watchlist duplicate cleanup scan',
-      );
-
-      // Get all of Clair's entries
-      final clairDocs = await withGetTimeout(
-        collection.where('userName', isEqualTo: 'clairjassen').get(),
-        label: 'watchlist duplicate cleanup scan',
-      );
-
-      // Build a set of tmdbIds that Clair has with "watched-self"
-      final clairWatchedIds = <int>{};
-      for (final doc in clairDocs.docs) {
-        final data = doc.data();
-        if (data['status'] == 'watched-self') {
-          clairWatchedIds.add(data['tmdbId'] as int);
-        }
-      }
-
-      // Delete Khent's entries that match Clair's watched items
-      int deleted = 0;
-      for (final doc in khentDocs.docs) {
-        final data = doc.data();
-        final tmdbId = data['tmdbId'] as int?;
-        final status = data['status'] as String?;
-        if (tmdbId != null &&
-            clairWatchedIds.contains(tmdbId) &&
-            (status == 'watched-self' || status == 'watching-clair')) {
-          Logger.d(
-            "[Cleanup] Removing Khent's doc ${doc.id} for tmdbId=$tmdbId (status=$status) — Clair already has watched-self",
-          );
-          await doc.reference.delete();
-          deleted++;
-        }
-      }
-
-      if (deleted > 0) {
-        Logger.i(
-          "[Cleanup] Removed $deleted duplicate entries from Khent's watchlist",
-        );
-      } else {
-        Logger.i("[Cleanup] No duplicate entries found");
-      }
-      return deleted;
-    } catch (e) {
-      Logger.e("[Cleanup] Error during cleanup", error: e);
-      return 0;
-    }
-  }
 
   /// One-time migration: backfill `userName` for legacy watch_list items that
   /// predate the per-user scoping. Heuristic by status:
@@ -1269,15 +1332,15 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
         );
       }
 
-      final seen = <int>{};
+      final seen = <String>{};
       final results = <MediaItem>[];
       for (final doc in snapshot.docs) {
         final item = MediaItem.fromFirestore(doc.data(), doc.id);
         if (item.addedAt.month == month &&
             item.addedAt.day == day &&
             item.addedAt.year != now.year &&
-            !seen.contains(item.tmdbId)) {
-          seen.add(item.tmdbId);
+            !seen.contains(item.catalogKey)) {
+          seen.add(item.catalogKey);
           results.add(item);
         }
       }
@@ -1291,26 +1354,24 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   // ─── Couple merge helpers ──────────────────────────────────────────────
 
   /// Merges the two partners' watch lists into a single list. Items are
-  /// deduplicated by `tmdbId`; when both partners have the same title the
+  /// deduplicated by source, media type, and ID; when both partners have the same title the
   /// merged `userName` becomes "userA,userB" and the `status` is the
   /// strongest watched-state across the two (see [_mergeWatchedStatus]).
   static List<MediaItem> _mergeCoupleItems(
     List<MediaItem> itemsA,
     List<MediaItem> itemsB,
   ) {
-    final byId = <int, _MergedEntry>{};
+    final byId = <String, _MergedEntry>{};
     for (final item in itemsA) {
-      byId[item.tmdbId] = _MergedEntry(primary: item, partner: null);
+      byId[item.catalogKey] = _MergedEntry(primary: item, partner: null);
     }
     for (final item in itemsB) {
-      final existing = byId[item.tmdbId];
+      final key = item.catalogKey;
+      final existing = byId[key];
       if (existing == null) {
-        byId[item.tmdbId] = _MergedEntry(primary: item, partner: null);
+        byId[key] = _MergedEntry(primary: item, partner: null);
       } else {
-        byId[item.tmdbId] = _MergedEntry(
-          primary: existing.primary,
-          partner: item,
-        );
+        byId[key] = _MergedEntry(primary: existing.primary, partner: item);
       }
     }
 
@@ -1410,7 +1471,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
 
 /// Internal helper for [TMDBWatchlistService.getCoupleWatchListStream].
 /// Pairs the primary entry with an optional partner entry when both
-/// partners have the same `tmdbId`.
+/// partners have the same catalog identity.
 class _MergedEntry {
   final MediaItem primary;
   final MediaItem? partner;

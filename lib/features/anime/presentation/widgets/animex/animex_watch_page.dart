@@ -293,8 +293,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     } else if (_currentUserName().isNotEmpty) {
       // A suspended tab's library can lag behind another device.
       saved = await _tmdbService.getSavedProgress(
-        _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0),
+        _item.tmdbId,
         _owner,
+        source: _item.source,
+        mediaType: _item.mediaType,
         anilistId: _anilistId,
       );
       saved ??= widget.controller.savedAnime(_item);

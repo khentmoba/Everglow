@@ -242,20 +242,24 @@ class TMDBService with ConnectivityAware {
 
   /// Clean stale partner-specific status from the current user's doc.
   Future<void> cleanStalePartnerStatus(
-    int tmdbId,
+    MediaItem item,
     String userName,
     String newStatus,
-  ) => _watchlist.cleanStalePartnerStatus(tmdbId, userName, newStatus);
-
-  /// One-time cleanup of duplicate partner entries.
-  Future<int> cleanupDuplicatePartnerEntries() =>
-      _watchlist.cleanupDuplicatePartnerEntries();
+  ) => _watchlist.cleanStalePartnerStatus(item, userName, newStatus);
 
   Future<MediaItem?> getSavedProgress(
-    int tmdbId,
+    int catalogId,
     String userName, {
+    required String source,
+    required String mediaType,
     int? anilistId,
-  }) => _watchlist.getSavedProgress(tmdbId, userName, anilistId: anilistId);
+  }) => _watchlist.getSavedProgress(
+    catalogId,
+    userName,
+    source: source,
+    mediaType: mediaType,
+    anilistId: anilistId,
+  );
 
   Future<void> updateProgress(
     MediaItem item,
@@ -275,14 +279,11 @@ class TMDBService with ConnectivityAware {
     status: status,
   );
 
-  Future<void> removeFromWatchList(
-    int tmdbId,
-    String userName, {
-    String? docId,
-  }) => _watchlist.removeFromWatchList(tmdbId, userName, docId: docId);
+  Future<void> removeFromWatchList(MediaItem item, String userName) =>
+      _watchlist.removeFromWatchList(item, userName);
 
-  Future<void> clearWatchProgress(int tmdbId, String userName) =>
-      _watchlist.clearWatchProgress(tmdbId, userName);
+  Future<void> clearWatchProgress(MediaItem item, String userName) =>
+      _watchlist.clearWatchProgress(item, userName);
 
   Future<bool> setListMembership(
     MediaItem item,
@@ -302,8 +303,8 @@ class TMDBService with ConnectivityAware {
     required bool value,
   }) => _watchlist.setRemindMe(item, userName, value: value);
 
-  Future<bool> isReminderSet(int tmdbId, String userName) =>
-      _watchlist.isReminderSet(tmdbId, userName);
+  Future<bool> isReminderSet(MediaItem item, String userName) =>
+      _watchlist.isReminderSet(item, userName);
 
   // ─── Watchlist Streams ─────────────────────────────────────────────────────
 
@@ -357,15 +358,19 @@ class TMDBService with ConnectivityAware {
   // ─── Progress / Heartbeat ──────────────────────────────────────────────────
 
   Future<void> heartbeatProgress(
-    int tmdbId,
+    int catalogId,
     String userName, {
+    required String source,
+    required String mediaType,
     int? season,
     int? episode,
     int? timestamp,
     int? durationSeconds,
   }) => _watchlist.heartbeatProgress(
-    tmdbId,
+    catalogId,
     userName,
+    source: source,
+    mediaType: mediaType,
     season: season,
     episode: episode,
     timestamp: timestamp,
