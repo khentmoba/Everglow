@@ -95,6 +95,7 @@ class _AddSubSheetState extends State<AddSubSheet> {
             cycle: _cycle,
             payer: _payer,
           ),
+          original: existing,
         );
       } else {
         await service.add(

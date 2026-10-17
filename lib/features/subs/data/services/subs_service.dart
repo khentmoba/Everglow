@@ -56,10 +56,22 @@ class SubsService {
   }
 
   /// Update an existing subscription.
-  Future<void> update(Subscription sub) async {
+  Future<void> update(
+    Subscription sub, {
+    required Subscription original,
+  }) async {
     if (AgentMode.isActive.value) return;
+    final changes = <String, dynamic>{};
+    if (sub.name != original.name) changes['name'] = sub.name;
+    if (sub.price != original.price) changes['price'] = sub.price;
+    if (sub.renewalDate != original.renewalDate) {
+      changes['renewalDate'] = Timestamp.fromDate(sub.renewalDate);
+    }
+    if (sub.cycle != original.cycle) changes['cycle'] = sub.cycle.name;
+    if (sub.payer != original.payer) changes['payer'] = sub.payer.name;
+    if (changes.isEmpty) return;
     try {
-      await _db.collection(_collection).doc(sub.id).update(sub.toFirestore());
+      await _db.collection(_collection).doc(sub.id).update(changes);
       Logger.i('Updated subscription: ${sub.id}');
     } catch (e) {
       Logger.e('Error updating subscription', error: e);
