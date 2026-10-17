@@ -24,6 +24,7 @@ Widget home({
   bool loading = true,
   List<MediaItem> watching = const [],
   List<MediaItem> trending = const [],
+  Map<String, List<MediaItem>> discovery = const {},
   void Function(MediaItem)? restart,
   Future<void> Function()? refresh,
 }) => CinemaHomeTab(
@@ -31,6 +32,7 @@ Widget home({
   trendingCarousel: [],
   popularTVShows: [],
   newlyReleased: [],
+  discoveryRows: discovery,
   watchingList: watching,
   trendingGlobal: trending,
   topTenToday: [],
@@ -134,6 +136,42 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+
+  for (final width in [390.0, 810.0]) {
+    testWidgets('extra shelves can be scrolled at ${width}px', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 1080));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: home(
+              loading: false,
+              discovery: {
+                'Date Night Romance': [demo()],
+                'Empty shelf': [],
+                'Korean Dramas': [demo()],
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Korean Dramas'),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(find.text('Korean Dramas'), findsOneWidget);
+      expect(find.text('Empty shelf'), findsNothing);
+      expect(find.text('The catalogue could not load.'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets('empty catalogue offers retry instead of a blank home', (
     tester,
