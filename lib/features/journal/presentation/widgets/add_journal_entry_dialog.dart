@@ -42,12 +42,15 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
   bool _isLocked = false;
   List<String> _tags = [];
   bool _saving = false;
+  bool _conflict = false;
+  JournalEntry? _original;
   String? _saveError;
   final _saveErrorKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    _original = widget.existing;
     _titleController = DraftTextController(
       'journal:new:title',
       text: widget.existing?.title ?? '',
@@ -137,8 +140,8 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     final wordCount = _countWords(content);
 
     try {
-      if (widget.existing != null) {
-        final updated = widget.existing!.copyWith(
+      if (_original != null) {
+        final updated = _original!.copyWith(
           title: title.isEmpty ? 'Untitled' : title,
           content: content,
           createdAt: _memoryDate,
@@ -151,7 +154,10 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
           updatedAt: now,
           wordCount: wordCount,
         );
-        await (widget.service ?? JournalService()).update(updated);
+        await (widget.service ?? JournalService()).update(
+          updated,
+          original: _original!,
+        );
       } else {
         final entry = JournalEntry(
           id: '',
@@ -183,16 +189,53 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
     } catch (e) {
       Logger.e('Journal save failed; keeping draft', error: e);
       if (mounted) {
-        setState(
-          () => _saveError =
-              'Could not save your page. Your words are still here — please try again.',
-        );
+        setState(() {
+          _conflict = e is JournalEditConflict;
+          _saveError = _conflict
+              ? 'This page changed on another device. Reload the latest version before saving.'
+              : 'Could not save your page. Your words are still here — please try again.';
+        });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final errorContext = _saveErrorKey.currentContext;
           if (mounted && errorContext != null) {
             Scrollable.ensureVisible(errorContext, alignment: 0.5);
           }
         });
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _reloadLatest() async {
+    final id = _original?.id;
+    if (id == null || _saving) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      final latest = await (widget.service ?? JournalService()).get(id);
+      if (!mounted) return;
+      setState(() {
+        _original = latest;
+        _titleController.text = latest.title;
+        _contentController.text = latest.content;
+        _memoryDate = latest.createdAt;
+        _category = latest.category;
+        _mood = latest.mood;
+        _tags = List<String>.from(latest.tags);
+        _isPinned = latest.isPinned;
+        _isLocked = latest.isLocked;
+        _conflict = false;
+      });
+    } catch (e) {
+      Logger.e('Journal reload failed', error: e);
+      if (mounted) {
+        setState(
+          () => _saveError =
+              'Could not reload this page. Your draft is still here — try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -640,6 +683,13 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
                   key: _saveErrorKey,
                   style: const TextStyle(color: AppColors.error),
                 ),
+                if (_conflict) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  TextButton(
+                    onPressed: _saving ? null : _reloadLatest,
+                    child: const Text('Reload latest version'),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.md),
               ],
               SizedBox(

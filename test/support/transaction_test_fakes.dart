@@ -8,6 +8,8 @@ class TransactionFirestore implements FirebaseFirestore {
   Map<String, dynamic>? data;
   int revision = 0;
   int retries = 0;
+  int writeAttempts = 0;
+  bool failWrites = false;
   void Function()? beforeCommit;
   TransactionFirestore([this.data]);
   @override
@@ -28,6 +30,13 @@ class TransactionFirestore implements FirebaseFirestore {
       if (transaction.readRevision != revision) {
         retries++;
         continue;
+      }
+      writeAttempts += transaction.writes.length;
+      if (failWrites && transaction.writes.isNotEmpty) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+        );
       }
       for (final write in transaction.writes) {
         write();

@@ -10,6 +10,10 @@ import '../models/journal_entry.dart';
 /// Journal service — Memos + DailyTxT inspired.
 ///
 /// Collection: journal_entries (couple-only, see firestore.rules)
+class JournalEditConflict implements Exception {
+  const JournalEditConflict();
+}
+
 class JournalService {
   static JournalService? _instance;
   factory JournalService({FirebaseFirestore? db}) => db == null
@@ -308,16 +312,85 @@ class JournalService {
     }
   }
 
-  Future<void> update(JournalEntry entry) async {
+  Future<JournalEntry> get(String id) async {
+    final snapshot = await _db.collection(_collection).doc(id).get();
+    final data = snapshot.data();
+    if (!snapshot.exists || data == null) {
+      throw StateError('Journal entry $id no longer exists');
+    }
+    return JournalEntry.fromMap(data, id);
+  }
+
+  Future<void> update(
+    JournalEntry entry, {
+    required JournalEntry original,
+  }) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       Logger.i('Agent session simulated journal update: ${entry.id}');
       return;
     }
 
+    final changes = <String, dynamic>{};
+    if (entry.title != original.title) changes['title'] = entry.title;
+    if (entry.content != original.content) changes['content'] = entry.content;
+    if (!_sameDate(entry.createdAt, original.createdAt)) {
+      changes['createdAt'] = Timestamp.fromDate(entry.createdAt);
+      changes['monthDay'] = _monthDay(entry.createdAt);
+    }
+    if (entry.category != original.category) {
+      changes['category'] = entry.category.name;
+    }
+    if (entry.mood != original.mood) {
+      changes['mood'] = entry.mood?.key ?? FieldValue.delete();
+    }
+    if (!_sameStrings(entry.tags, original.tags)) changes['tags'] = entry.tags;
+    if (entry.isPinned != original.isPinned) {
+      changes['isPinned'] = entry.isPinned;
+    }
+    if (entry.isLocked != original.isLocked) {
+      changes['isLocked'] = entry.isLocked;
+    }
+    if (entry.coverColor != original.coverColor) {
+      changes['coverColor'] = entry.coverColor ?? FieldValue.delete();
+    }
+    if (entry.wordCount != original.wordCount ||
+        entry.content != original.content) {
+      changes['wordCount'] = entry.wordCount;
+    }
+    if (changes.isEmpty) return;
+
     try {
-      await _db.collection(_collection).doc(entry.id).update({
-        ...entry.toFirestore(),
-        'updatedAt': Timestamp.now(),
+      final ref = _db.collection(_collection).doc(entry.id);
+      await _db.runTransaction((transaction) async {
+        final snapshot = await transaction.get(ref);
+        final data = snapshot.data();
+        if (!snapshot.exists || data == null) {
+          throw StateError('Journal entry ${entry.id} no longer exists');
+        }
+        final currentTitle = data['title'] is String
+            ? data['title'] as String
+            : '';
+        final currentContent = data['content'] is String
+            ? data['content'] as String
+            : '';
+        if (changes.containsKey('title') && currentTitle != original.title) {
+          throw const JournalEditConflict();
+        }
+        if (changes.containsKey('content') &&
+            currentContent != original.content) {
+          throw const JournalEditConflict();
+        }
+
+        final patch = Map<String, dynamic>.of(changes)
+          ..['updatedAt'] = Timestamp.fromDate(entry.updatedAt);
+        if (changes.containsKey('title') || changes.containsKey('content')) {
+          final title = changes['title'] as String? ?? currentTitle;
+          final content = changes['content'] as String? ?? currentContent;
+          patch['searchKey'] =
+              '$title ${content.substring(0, content.length > 500 ? 500 : content.length)}'
+                  .toLowerCase();
+        }
+        transaction.update(ref, patch);
       });
       Logger.i('Journal updated: ${entry.id}');
     } catch (e) {
@@ -325,6 +398,14 @@ class JournalService {
       rethrow;
     }
   }
+
+  static bool _sameDate(DateTime a, DateTime b) => a.isAtSameMomentAs(b);
+
+  static bool _sameStrings(List<String> a, List<String> b) =>
+      a.length == b.length && a.indexed.every((pair) => pair.$2 == b[pair.$1]);
+
+  static String _monthDay(DateTime date) =>
+      '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   Future<void> delete(String id) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
