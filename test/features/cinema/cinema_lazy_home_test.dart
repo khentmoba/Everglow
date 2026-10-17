@@ -21,9 +21,11 @@ class _Auth extends ChangeNotifier implements AuthService {
 
 class _Service implements TMDBService {
   int feeds = 0;
+  final discoveries = <({String type, List<int>? genres, String? language})>[];
+  List<MediaItem> items = [];
   Future<List<MediaItem>> _feed() async {
     feeds++;
-    return [];
+    return items;
   }
 
   @override
@@ -40,10 +42,91 @@ class _Service implements TMDBService {
   @override
   Future<List<MediaItem>> fetchUpcoming({String region = 'PH'}) => _feed();
   @override
+  Future<List<MediaItem>> discoverMedia({
+    required String mediaType,
+    String? sortBy,
+    List<int>? withGenres,
+    List<int>? withoutGenres,
+    int? yearGte,
+    int? yearLte,
+    double? voteAverageGte,
+    int? voteCountGte,
+    String? withOriginalLanguage,
+    int page = 1,
+    bool failOnError = false,
+  }) {
+    discoveries.add((
+      type: mediaType,
+      genres: withGenres,
+      language: withOriginalLanguage,
+    ));
+    return _feed();
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
+MediaItem _item(int id, {bool anime = false, String type = 'movie'}) =>
+    MediaItem(
+      id: '$id',
+      tmdbId: id,
+      title: 'Demo $id',
+      mediaType: type,
+      posterPath: '',
+      status: '',
+      isAnime: anime,
+      addedAt: DateTime(2026),
+    );
+
 void main() {
+  testWidgets(
+    'Home loads varied shelves and excludes anime movies and series',
+    (tester) async {
+      final service = _Service()
+        ..items = [
+          _item(1),
+          _item(2, type: 'tv'),
+          _item(3, anime: true),
+          _item(4, anime: true, type: 'tv'),
+        ];
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthService>.value(
+          value: _Auth(),
+          child: MaterialApp(home: CinemaScreen(service: service)),
+        ),
+      );
+      await tester.pump();
+      final home = tester.widget<CinemaHomeTab>(find.byType(CinemaHomeTab));
+      expect(home.isLoadingHome, isFalse);
+      expect(home.discoveryRows.length, 8);
+      expect(service.discoveries.map((r) => r.genres?.single), [
+        null,
+        null,
+        28,
+        35,
+        10749,
+        53,
+        878,
+        18,
+      ]);
+      expect(service.discoveries.last.language, 'ko');
+      expect(service.discoveries.last.type, 'tv');
+      for (final row in [
+        home.trendingCarousel,
+        home.trendingGlobal,
+        home.topTenToday,
+        home.popularTVShows,
+        home.newlyReleased,
+        ...home.discoveryRows.values,
+      ]) {
+        expect(row.map((item) => item.tmdbId), [1, 2]);
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets(
     'Library entry skips Home feeds until first visit, refresh still works',
     (tester) async {
@@ -65,7 +148,7 @@ void main() {
           .onSwitchTab(0);
       await tester.pump();
       await tester.pump();
-      expect(service.feeds, 4);
+      expect(service.feeds, 12);
       final home = tester.widget<CinemaHomeTab>(find.byType(CinemaHomeTab));
       home.onSwitchTab(3);
       await tester.pump();
@@ -73,12 +156,12 @@ void main() {
           .widget<CinemaLibraryTab>(find.byType(CinemaLibraryTab))
           .onSwitchTab(0);
       await tester.pump();
-      expect(service.feeds, 4);
+      expect(service.feeds, 12);
       await tester
           .widget<CinemaHomeTab>(find.byType(CinemaHomeTab))
           .onRefresh();
       await tester.pump();
-      expect(service.feeds, 8);
+      expect(service.feeds, 24);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

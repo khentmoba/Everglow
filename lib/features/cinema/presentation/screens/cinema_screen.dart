@@ -71,6 +71,25 @@ class _CinemaScreenState extends State<CinemaScreen> {
   List<MediaItem> _popularTVShows = [];
   List<MediaItem> _newlyReleased = [];
 
+  static const _discoveryShelves = [
+    (title: 'Top-Rated Movies', type: 'movie', genre: null, language: null),
+    (title: 'Top-Rated Series', type: 'tv', genre: null, language: null),
+    (title: 'Action & Adventure', type: 'movie', genre: 28, language: null),
+    (title: 'Need a Laugh?', type: 'movie', genre: 35, language: null),
+    (title: 'Romance', type: 'movie', genre: 10749, language: null),
+    (
+      title: 'Edge-of-Your-Seat Thrillers',
+      type: 'movie',
+      genre: 53,
+      language: null,
+    ),
+    (title: 'Sci-Fi Escapes', type: 'movie', genre: 878, language: null),
+    (title: 'Korean Dramas', type: 'tv', genre: 18, language: 'ko'),
+  ];
+  final Map<String, List<MediaItem>> _discoveryRows = {
+    for (final shelf in _discoveryShelves) shelf.title: [],
+  };
+
   bool _isLoadingHome = true;
   int _homeRequest = 0;
 
@@ -182,7 +201,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
   Future<void> _fetchHomeData() async {
     final request = ++_homeRequest;
     setState(() => _isLoadingHome = true);
-    // Four small discovery feeds; the full catalogue is fetched in Browse.
+    // Each shelf paints independently; a failed feed leaves the others usable.
     final year = DateTime.now().year;
     await Future.wait([
       _loadRow(
@@ -211,6 +230,20 @@ class _CinemaScreenState extends State<CinemaScreen> {
           return released == null || released >= year - 1;
         }).toList(),
       ),
+      for (final shelf in _discoveryShelves)
+        _loadRow(
+          _tmdbService.discoverMedia(
+            mediaType: shelf.type,
+            sortBy: shelf.genre == null
+                ? 'vote_average.desc'
+                : 'popularity.desc',
+            withGenres: shelf.genre == null ? null : [shelf.genre!],
+            withOriginalLanguage: shelf.language,
+            voteCountGte: shelf.genre == null ? 1000 : 100,
+          ),
+          request,
+          (items) => _discoveryRows[shelf.title] = items,
+        ),
     ]);
     if (mounted && request == _homeRequest) {
       setState(() => _isLoadingHome = false);
@@ -225,7 +258,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
     try {
       final items = await future;
       if (!mounted || request != _homeRequest) return;
-      setState(() => apply(items.where((m) => m.isCinemaItem).toList()));
+      // Home discovery excludes anime films too; saved history stays untouched.
+      setState(() => apply(items.where((m) => !m.isAnime).toList()));
     } catch (e, st) {
       Logger.e('Cinema: home rail fetch failed', error: e, stackTrace: st);
     }
@@ -625,6 +659,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   trendingCarousel: _trendingCarousel,
                   popularTVShows: _popularTVShows,
                   newlyReleased: _newlyReleased,
+                  discoveryRows: _discoveryRows,
                   watchingList: _watchingList,
                   savedList: _watchlist.cinemaItems.toWatch,
                   onRestart: _restartMedia,

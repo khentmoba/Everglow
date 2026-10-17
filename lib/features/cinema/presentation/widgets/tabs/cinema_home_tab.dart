@@ -10,12 +10,13 @@ import '../netflix/netflix_nav_bar.dart';
 import '../netflix/netflix_row.dart';
 import '../netflix/netflix_loading.dart';
 
-/// A small personal home. The rest of the catalogue lives in Browse.
+/// Personal picks and discovery shelves, with the full catalogue in Browse.
 class CinemaHomeTab extends StatelessWidget {
   final bool isLoadingHome;
   final List<MediaItem> trendingCarousel;
   final List<MediaItem> popularTVShows;
   final List<MediaItem> newlyReleased;
+  final Map<String, List<MediaItem>> discoveryRows;
   final List<MediaItem> watchingList;
   final List<MediaItem> savedList;
   final List<MediaItem> trendingGlobal;
@@ -37,6 +38,7 @@ class CinemaHomeTab extends StatelessWidget {
     required this.trendingCarousel,
     required this.popularTVShows,
     required this.newlyReleased,
+    this.discoveryRows = const {},
     required this.watchingList,
     this.savedList = const [],
     required this.trendingGlobal,
@@ -131,7 +133,8 @@ class CinemaHomeTab extends StatelessWidget {
         trendingGlobal.isEmpty &&
         topTenToday.isEmpty &&
         newlyReleased.isEmpty &&
-        popularTVShows.isEmpty;
+        popularTVShows.isEmpty &&
+        discoveryRows.values.every((items) => items.isEmpty);
     return RefreshIndicator(
       color: NetflixColors.accent,
       backgroundColor: NetflixColors.surface,
@@ -186,6 +189,9 @@ class CinemaHomeTab extends StatelessWidget {
               _row('Coming Soon', newlyReleased),
             if (isLoadingHome || popularTVShows.isNotEmpty)
               _row('Popular Series', popularTVShows),
+            for (final row in discoveryRows.entries)
+              if (isLoadingHome || row.value.isNotEmpty)
+                _row(row.key, row.value),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
