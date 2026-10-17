@@ -566,16 +566,16 @@ void main() {
       );
     });
 
-    test('defaultServerIndex keeps Everglow as the main server', () {
+    test('defaultServerIndex prefers the account-tracked Megavid player', () {
       final servers = AnimeXWatchPage.buildServers(
         anilistId: 21,
         malId: 21,
         tmdbId: 37854,
       );
-      // Fresh visits open on Everglow.
+      // Fresh visits use the player with progress and resume support.
       expect(
         AnimeXWatchPage.defaultServerIndex(servers),
-        0,
+        1,
       );
       // An explicit remembered choice still wins.
       expect(
@@ -601,13 +601,13 @@ void main() {
         0,
       );
       // A remembered server that no longer exists (AniXo, VidLink)
-      // falls back to Everglow, never to a dead entry.
+      // falls back to Megavid, never to a dead entry.
       expect(
         AnimeXWatchPage.defaultServerIndex(
           servers,
           rememberedServer: 'AniXo',
         ),
-        0,
+        1,
       );
       // When only CineSrc is available (e.g. no AniList or MAL source):
       final tmdbOnly = AnimeXWatchPage.buildServers(

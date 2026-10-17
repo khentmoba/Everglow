@@ -127,7 +127,13 @@ void main() {
     expect(done.episode, 1);
     expect(done.seconds, isNull);
     final credits = AnimeXWatchPage.resolveResume(item: anime(timestamp: 1400));
+    expect(credits.episode, 8);
     expect(credits.seconds, isNull);
+    final explicit = AnimeXWatchPage.resolveResume(
+      item: anime(timestamp: 1400),
+      requestedEpisode: 7,
+    );
+    expect(explicit.episode, 7);
   });
 
   test('account reset never restores another device’s stale local episode', () {
@@ -204,6 +210,7 @@ void main() {
         ),
       );
       final pending = Completer<MediaItem?>();
+      var loads = 0;
       await tester.pumpWidget(
         ChangeNotifierProvider.value(
           value: AnimexStores.instance,
@@ -211,7 +218,12 @@ void main() {
             home: Scaffold(
               body: AnimeXWatchPage(
                 controller: controller,
-                loadSavedProgress: (_) => pending.future,
+                loadSavedProgress: (_) {
+                  loads++;
+                  return loads == 1
+                      ? pending.future
+                      : Future.value(anime(episode: 3, timestamp: 480));
+                },
               ),
             ),
           ),
@@ -224,6 +236,21 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Hide spoilers'), findsOneWidget);
       expect(find.text('Episode 2'), findsWidgets);
+      // The PC tab was suspended while the phone advanced the account.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(loads, 2);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Text &&
+              widget.data == 'Episode 3' &&
+              widget.style?.fontSize == 18,
+        ),
+        findsOneWidget,
+      );
       controller.closeDetail();
       await tester.pumpWidget(const SizedBox.shrink());
       expect(tester.takeException(), isNull);
@@ -301,6 +328,12 @@ void main() {
       controller.replace([anime(episode: 8, timestamp: 600)]);
       await tester.pump();
       expect(find.text('Resume Episode 8 · 10:00'), findsOneWidget);
+      await tester.ensureVisible(find.text('Resume Episode 8 · 10:00'));
+      await tester.pump();
+      await tester.tap(find.text('Resume Episode 8 · 10:00'));
+      expect(controller.watchItem?.currentEpisode, 8);
+      // A resume card is not an explicit episode selection: fetch fresh progress.
+      expect(controller.watchEpisode, isNull);
       controller.replace([anime(status: 'watched-self')]);
       await tester.pump();
       expect(find.text('Continue Watching'), findsNothing);
@@ -344,10 +377,7 @@ void main() {
       expect(find.text('EP 5/12'), findsOneWidget);
       expect(find.text('Demo Anime 2'), findsNothing);
       expect(find.text('EP 12/12'), findsNothing);
-      expect(
-        controller.continueWatching.map((e) => e.title),
-        ['Demo Anime 1'],
-      );
+      expect(controller.continueWatching.map((e) => e.title), ['Demo Anime 1']);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

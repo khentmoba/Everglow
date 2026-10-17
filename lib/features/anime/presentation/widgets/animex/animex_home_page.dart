@@ -516,10 +516,8 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
                 final e = entries[i];
                 return _ContinueCard(
                   entry: e,
-                  onTap: () => widget.controller.openWatch(
-                    mediaItemFromHistory(e),
-                    episode: e.isMovie ? null : e.episode,
-                  ),
+                  onTap: () =>
+                      widget.controller.openWatch(mediaItemFromHistory(e)),
                 );
               },
             ),

@@ -86,7 +86,8 @@ Widget buildMobileEpisodesSectionForTesting({
   );
 }
 
-class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
+class _AnimeXWatchPageState extends State<AnimeXWatchPage>
+    with WidgetsBindingObserver {
   final AniListService _aniList = AniListService();
   final AniZipService _aniZip = AniZipService();
   final AniSkipService _aniSkip = AniSkipService();
@@ -126,6 +127,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   final PlayerMemoryService _memoryService = PlayerMemoryService();
   late final TMDBService _tmdbService = TMDBService();
   Timer? _progressThrottler;
+  bool _hasUnsavedProgress = false;
+  bool _wasHidden = false;
+  Future<void> _progressSave = Future.value();
 
   /// Server name remembered from the last visit; applied once the
   /// server list resolves in [_load].
@@ -222,6 +226,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _watchItem = widget.controller.watchItem!;
     final resume = context.read<AnimexStores>().findHistory(
       'animex-${_anilistId ?? _malId}',
@@ -275,29 +280,28 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
     setState(() => _ready = true);
     _fetchSkipTimes();
     _recordHistory(_selectedEpisode);
-    _saveWatchProgress();
     _probeCurrentServer();
   }
 
   /// The account's progress wins over this device's comfort preferences.
-  Future<void> _restoreMemory() async {
+  Future<void> _restoreMemory({bool returning = false}) async {
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted) return;
     MediaItem? saved;
     if (widget.loadSavedProgress != null) {
       saved = await widget.loadSavedProgress!(_item);
     } else if (_currentUserName().isNotEmpty) {
-      saved =
-          widget.controller.savedAnime(_item) ??
-          await _tmdbService.getSavedProgress(
-            _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0),
-            _owner,
-            anilistId: _anilistId,
-          );
+      // A suspended tab's library can lag behind another device.
+      saved = await _tmdbService.getSavedProgress(
+        _item.tmdbId > 0 ? _item.tmdbId : (_anilistId ?? 0),
+        _owner,
+        anilistId: _anilistId,
+      );
+      saved ??= widget.controller.savedAnime(_item);
     }
     if (!mounted || (_auth != null && _currentUserName().isEmpty)) return;
     _accountProgress = saved;
-    if (!_episodeChosen) {
+    if (returning || !_episodeChosen) {
       final local = context.read<AnimexStores>().findHistory(
         'animex-${_anilistId ?? _malId}',
       );
@@ -305,11 +309,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
         item: _item,
         saved: saved,
         local: local,
-        requestedEpisode: widget.controller.watchEpisode,
+        requestedEpisode: returning ? null : widget.controller.watchEpisode,
       );
       _selectedEpisode = resume.episode;
       _playerEpisode = resume.episode;
       _startSeconds = resume.seconds;
+      _seekSeconds = null;
+      _hasUnsavedProgress = false;
       _lastKnownPosition = resume.seconds?.toDouble();
       _playbackPosition = null;
       _playbackDuration = (saved ?? _item).durationSeconds?.toDouble();
@@ -346,13 +352,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   /// Only visibility flips rebuild — not every playback tick.
   /// Stale events (previous episode still talking) are dropped.
   void _onPlayerProgress(VideasyProgress progress) {
-    if (!mounted) return;
+    if (!mounted || !_ready) return;
     final episode = progress.episode;
     if (episode != null && episode != _selectedEpisode) return;
     final before = _skipRowVisible;
     _playbackPosition = progress.positionSeconds;
     _lastKnownPosition = progress.positionSeconds;
     _playbackDuration = progress.durationSeconds;
+    _hasUnsavedProgress = true;
     if (before != _skipRowVisible) setState(() {});
     _scheduleProgressSave();
   }
@@ -479,8 +486,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       _detail = detail;
       _episodes = _buildEpisodeList(detail, aniZipEpisodes: aniZipEpisodes);
       _servers = nextServers;
-      // Fresh visits open on Everglow whenever it is available (it is
-      // ours: no ads, no popups); an explicit remembered choice wins.
+      // Fresh visits prefer the tracked player; an explicit choice wins.
       _serverIndex = AnimeXWatchPage.defaultServerIndex(
         nextServers,
         rememberedServer: _rememberedServer,
@@ -489,7 +495,35 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _wasHidden = true;
+      _progressThrottler?.cancel();
+      if (_ready) _saveWatchProgress();
+    } else if (state == AppLifecycleState.resumed && _wasHidden) {
+      _wasHidden = false;
+      if (_ready) _resumeAccountProgress();
+    }
+  }
+
+  Future<void> _resumeAccountProgress() async {
+    setState(() => _ready = false);
+    await _progressSave;
+    if (!mounted) return;
+    try {
+      await _restoreMemory(returning: true);
+    } catch (e, st) {
+      Logger.e('AnimeX: account resume failed', error: e, stackTrace: st);
+    }
+    if (!mounted) return;
+    setState(() => _ready = true);
+    _fetchSkipTimes();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _progressThrottler?.cancel();
     if (_ready) _saveWatchProgress();
     _scrollCtrl.dispose();
@@ -666,7 +700,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
 
   void _saveWatchProgress({int? episode, double? positionSeconds}) {
     final userName = _currentUserName();
-    if (userName.isEmpty) return;
+    if (userName.isEmpty || (!_hasUnsavedProgress && episode == null)) return;
+    _hasUnsavedProgress = false;
 
     final ep = episode ?? _selectedEpisode;
     final pos = positionSeconds ?? _lastKnownPosition;
@@ -727,14 +762,17 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage> {
       episode: ep,
       episodeSlots: _episodeSlots,
     );
-    _tmdbService.updateProgress(
-      mediaItem,
-      userName,
-      season: progressSeason,
-      episode: isMovie ? null : ep,
-      timestamp: pos?.round(),
-      durationSeconds: duration,
-      status: status,
+    // Preserve episode order when a slow save overlaps Next Episode.
+    _progressSave = _progressSave.then(
+      (_) => _tmdbService.updateProgress(
+        mediaItem,
+        userName,
+        season: progressSeason,
+        episode: isMovie ? null : ep,
+        timestamp: pos?.round(),
+        durationSeconds: duration,
+        status: status,
+      ),
     );
   }
 
