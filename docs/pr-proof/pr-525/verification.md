@@ -46,6 +46,10 @@ write-failure test asserts the actual rejected transaction error, not any except
 Environment: Windows; Flutter 3.44.4 / Dart 3.12.2; Node 24.21.0; Java 21.0.10
 from Android Studio's bundled JBR; installed Chrome with a disposable profile.
 Production Functions use Node 22; the local Node test run used Node 24.
+Quality uses Flutter 3.47.7. Its first analysis run rejected promotion of a
+captured nullable local across asynchronous calls in push registration. The
+follow-up captures a final session identity before queueing the operation;
+local analysis and the full Flutter suite were rerun before pushing it.
 
 - `flutter analyze`: no issues.
 - `flutter test --exclude-tags="golden,network"`: **1,698 passed**.

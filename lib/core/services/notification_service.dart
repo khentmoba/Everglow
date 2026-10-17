@@ -183,21 +183,25 @@ class NotificationService {
     if (generation != _sessionGeneration) return;
 
     final previous = _activeIdentity;
-    _activeIdentity = identity;
+    final sessionIdentity = identity;
+    _activeIdentity = sessionIdentity;
     try {
       await _enqueue(() async {
-        if (identity == null) {
+        if (sessionIdentity == null) {
           await _removeRegisteredDevice(previous);
           return;
         }
         final registered = _registeredIdentity;
-        if (registered != null && registered.username != identity.username) {
+        if (registered != null &&
+            registered.username != sessionIdentity.username) {
           await _removeRegisteredDevice(registered);
         }
-        if (!_isCurrent(generation, identity) || !_permissionGranted) return;
+        if (!_isCurrent(generation, sessionIdentity) || !_permissionGranted) {
+          return;
+        }
         final token = await _getToken();
-        if (token == null || !_isCurrent(generation, identity)) return;
-        await _registerToken(identity, token, generation);
+        if (token == null || !_isCurrent(generation, sessionIdentity)) return;
+        await _registerToken(sessionIdentity, token, generation);
       });
     } catch (e) {
       Logger.e('FCM device registration failed', error: e);
