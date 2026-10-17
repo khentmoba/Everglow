@@ -27,11 +27,18 @@ const {
 
 function makeDocStub({ exists = true, data = {} } = {}) {
   const calls = { set: [], deleted: false };
+  let storedExists = exists;
+  let storedData = { ...data };
   return {
     calls,
-    get: async () => ({ exists, data: () => data, id: 'doc1' }),
-    set: async (doc, opts) => { calls.set.push({ doc, opts }); },
-    delete: async () => { calls.deleted = true; },
+    get data() { return storedData; },
+    get: async () => ({ exists: storedExists, data: () => storedData, id: 'doc1' }),
+    set: async (value, opts) => {
+      calls.set.push({ doc: value, opts });
+      storedData = { ...storedData, ...value };
+      storedExists = true;
+    },
+    delete: async () => { calls.deleted = true; storedExists = false; storedData = {}; },
     collection: () => { throw new Error('nested collection not stubbed'); },
   };
 }
@@ -39,6 +46,7 @@ function makeDocStub({ exists = true, data = {} } = {}) {
 function makeDbStub({ leafDoc = null, added = null } = {}) {
   const doc = leafDoc || makeDocStub({ exists: false, data: {} });
   const addedDocs = added || [];
+  let transactionTail = Promise.resolve();
   const terminal = {
     get: (...a) => doc.get(...a),
     set: (...a) => doc.set(...a),
@@ -55,7 +63,19 @@ function makeDbStub({ leafDoc = null, added = null } = {}) {
     get: async () => ({ docs: [], empty: true, size: 0 }),
     add: async (d) => { addedDocs.push(d); return { id: 'new1' }; },
   };
-  return { db: { collection: () => chain }, doc, addedDocs };
+  const db = {
+    collection: () => chain,
+    runTransaction(callback) {
+      const result = transactionTail.then(() => callback({
+        get: (ref) => ref.get(),
+        set: (ref, value, opts) => ref.set(value, opts),
+        delete: (ref) => ref.delete(),
+      }));
+      transactionTail = result.catch(() => {});
+      return result;
+    },
+  };
+  return { db, doc, addedDocs };
 }
 
 function makeCtx(dbOverrides) {
@@ -73,6 +93,7 @@ function makeCtx(dbOverrides) {
     db,
     callerUid: 'khentsgdz',
     caller: 'khentsgdz',
+    authUid: 'firebase-khent-uid',
     levelForXp,
     phtDateString: () => '2026-09-16',
     getTmdbKey: () => 'k',
@@ -114,6 +135,69 @@ test('level curve matches the client (200 XP per level)', () => {
   assert.equal(levelForXp(200), 2);
   assert.equal(levelForXp(400), 3);
   assert.equal(levelForXp('not-a-number'), 1);
+});
+
+test('XP is written to the authenticated Firebase UID, not the profile username', async () => {
+  const { ctx, doc } = makeCtx();
+  let userPath;
+  ctx.db.collection = (name) => ({
+    doc: (uid) => {
+      if (name === 'users') userPath = uid;
+      return { collection: () => ({ doc: () => doc }) };
+    },
+  });
+
+  const out = JSON.parse(await TOOL_EXECUTORS.add_xp(ctx, { amount: 25 }));
+  assert.equal(userPath, 'firebase-khent-uid');
+  assert.equal(out.uid, 'firebase-khent-uid');
+  assert.equal(out.xpTotal, 25);
+});
+
+test('XP stats resolve the partner profile to its Firebase UID', async () => {
+  const { ctx } = makeCtx();
+  const reads = [];
+  const progress = {
+    'firebase-khent-uid': { level: 2, xpTotal: 220, streak: 3 },
+    'firebase-clair-uid': { level: 4, xpTotal: 650, streak: 9 },
+  };
+  ctx.db.collection = (name) => name === 'users' ? {
+    where: (field, op, usernames) => ({
+      get: async () => ({ docs: usernames.includes('clairjassen') ? [
+        { id: 'firebase-clair-uid', data: () => ({ username: 'clairjassen' }) },
+      ] : [] }),
+    }),
+    doc: (uid) => ({
+      collection: (subcollection) => ({
+        doc: (docId) => {
+          reads.push([uid, subcollection, docId]);
+          const data = progress[uid];
+          return { get: async () => ({ exists: !!data, data: () => data }) };
+        },
+      }),
+    }),
+  } : null;
+
+  const out = JSON.parse(await TOOL_EXECUTORS.get_xp_stats(ctx, { user: 'both' }));
+  assert.deepEqual(reads, [
+    ['firebase-khent-uid', 'progress', 'main'],
+    ['firebase-clair-uid', 'progress', 'main'],
+  ]);
+  assert.equal(out.stats.clairjassen.xpTotal, 650);
+});
+
+test('concurrent Motchi XP awards use a transaction for the daily cap', async () => {
+  const leaf = makeDocStub({ exists: false, data: {} });
+  const { ctx, doc } = makeCtx({ leafDoc: leaf });
+  const results = await Promise.all([
+    TOOL_EXECUTORS.add_xp(ctx, { amount: 100 }),
+    TOOL_EXECUTORS.add_xp(ctx, { amount: 100 }),
+    TOOL_EXECUTORS.add_xp(ctx, { amount: 100 }),
+  ].map(async (award) => JSON.parse(await award)));
+
+  assert.equal(results.filter((result) => result.success).length, 2);
+  assert.equal(results.filter((result) => result.capped).length, 1);
+  assert.equal(doc.data.xpTotal, 200);
+  assert.equal(doc.data.motchiXpDayTotal, 200);
 });
 
 test('add_xp clamps the amount and reports the new total', async () => {

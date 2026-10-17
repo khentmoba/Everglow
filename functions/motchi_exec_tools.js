@@ -148,13 +148,14 @@ async function _getSpotifyAppToken() {
 }
 
 /** Shared services for executors. Pass stubs in tests. */
-function createToolCtx({ callerUid, caller, userMessage } = {}) {
+function createToolCtx({ callerUid, caller, authUid, userMessage } = {}) {
   const admin = getAdmin();
   return {
     admin,
     db: admin.firestore(),
     callerUid,
     caller,
+    authUid,
     userMessage: userMessage || '',
     levelForXp,
     phtDateString,
