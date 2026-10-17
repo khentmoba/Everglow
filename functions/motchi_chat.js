@@ -292,7 +292,7 @@ async function handleProxyAI(req, res) {
     return;
   }
   // Shared services for tool executors (built once per request).
-  const toolCtx = createToolCtx({ callerUid: caller, caller });
+  const toolCtx = createToolCtx({ callerUid: caller, caller, authUid: decoded.uid });
   toolCtx.sessionId = typeof sessionId === 'string' ? sessionId.slice(0, 160) : '';
   const actionScopeId = req.body.actionScopeId;
   toolCtx.actionScopeId = typeof actionScopeId === 'string' && /^[a-zA-Z0-9_-]{8,160}$/.test(actionScopeId) ? actionScopeId : '';

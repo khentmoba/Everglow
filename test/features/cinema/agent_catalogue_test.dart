@@ -35,11 +35,16 @@ void main() {
       // A simulated couple session must not read or write real/cached lists.
       expect(await watchlist.getCoupleWatchListStream().first, isEmpty);
       expect(
-        await watchlist.getSavedProgress(item.tmdbId, 'khentsgdz'),
+        await watchlist.getSavedProgress(
+          item.tmdbId,
+          'khentsgdz',
+          source: item.source,
+          mediaType: item.mediaType,
+        ),
         isNull,
       );
       await watchlist.saveToWatchList(item, 'watched-both', 'khentsgdz');
-      await watchlist.removeFromWatchList(item.tmdbId, 'khentsgdz');
+      await watchlist.removeFromWatchList(item, 'khentsgdz');
       expect(await TMDBCacheService().getCachedWatchList('khentsgdz'), isEmpty);
     },
   );

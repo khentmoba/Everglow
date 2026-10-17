@@ -11,7 +11,13 @@ void main() {
       final service = SubsService(db: TestFirestore(TestCollection()));
       final sub = AgentFixtures.demoSubscriptions.first;
       await expectLater(service.add(sub), throwsA(isA<FirebaseException>()));
-      await expectLater(service.update(sub), throwsA(isA<FirebaseException>()));
+      await expectLater(
+        service.update(
+          sub.copyWith(name: '${sub.name} updated'),
+          original: sub,
+        ),
+        throwsA(isA<FirebaseException>()),
+      );
       await expectLater(
         service.delete(sub.id),
         throwsA(isA<FirebaseException>()),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -19,7 +21,8 @@ import 'trip_list_screen.dart' show showTripEditSheet;
 /// One trip page: packing checklist + budget + places, all live.
 class TripDetailScreen extends StatefulWidget {
   final String tripId;
-  const TripDetailScreen({super.key, required this.tripId});
+  final TripKitService? service;
+  const TripDetailScreen({super.key, required this.tripId, this.service});
 
   @override
   State<TripDetailScreen> createState() => _TripDetailScreenState();
@@ -29,10 +32,14 @@ const double _kMaxContentWidth = 720;
 
 class _TripDetailScreenState extends State<TripDetailScreen> {
   final _packController = TextEditingController();
+  bool _addingPackItem = false;
+  bool _addingPlace = false;
   final _expenseLabel = TextEditingController();
   final _expenseAmount = TextEditingController();
   final _placeName = TextEditingController();
   final _placeNote = TextEditingController();
+
+  TripKitService get _service => widget.service ?? TripKitService();
 
   @override
   void dispose() {
@@ -46,7 +53,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final service = TripKitService();
+    final service = _service;
 
     return EverglowScaffold(
       backgroundColor: AppColors.inkDeep,
@@ -108,7 +115,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
                       children: [
                         if (trip.notes.isNotEmpty) _notesCard(trip),
-                        TripBudgetCard(trip: trip),
+                        TripBudgetCard(trip: trip, service: service),
                         TripSectionTitle(
                           icon: Icons.backpack_rounded,
                           title: 'PACKING',
@@ -177,68 +184,126 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
   // ── Packing ───────────────────────────────────────────────
 
-  void _addPackItem(Trip trip) {
+  Future<void> _addPackItem(Trip trip) async {
+    if (_addingPackItem) return;
     final label = _packController.text.trim();
     if (label.isEmpty) return;
-    _packController.clear();
-    TripKitService().updatePacking(trip.id, [
-      ...trip.packing,
+    await _savePackItem(
+      trip,
       TripPackItem(id: Trip.newId(), label: label),
-    ]);
-  }
-
-  void _togglePackItem(Trip trip, TripPackItem item) {
-    final me = context.read<AuthService>().currentUser;
-    TripKitService().updatePacking(
-      trip.id,
-      trip.packing
-          .map(
-            (e) => e.id == item.id
-                ? e.copyWith(packed: !e.packed, packedBy: me)
-                : e,
-          )
-          .toList(),
+      label,
     );
   }
 
-  void _removePackItem(Trip trip, TripPackItem item) {
-    TripKitService().updatePacking(
-      trip.id,
-      trip.packing.where((e) => e.id != item.id).toList(),
-    );
+  Future<void> _savePackItem(Trip trip, TripPackItem item, String label) async {
+    if (_addingPackItem) return;
+    _addingPackItem = true;
+    try {
+      await _runTripAction(
+        'Could not add this item. Your text is still here.',
+        () async {
+          await _service.addPackingItem(trip.id, item);
+          if (mounted && _packController.text.trim() == label) {
+            _packController.clear();
+          }
+        },
+        onRetry: () => unawaited(_savePackItem(trip, item, label)),
+      );
+    } finally {
+      _addingPackItem = false;
+    }
   }
+
+  Future<void> _togglePackItem(Trip trip, TripPackItem item) => _runTripAction(
+    'Could not update this packing item. Please try again.',
+    () => _service.setPackingItemPacked(
+      trip.id,
+      item.id,
+      !item.packed,
+      packedBy: context.read<AuthService>().currentUser,
+    ),
+  );
+
+  Future<void> _removePackItem(Trip trip, TripPackItem item) => _runTripAction(
+    'Could not remove this packing item. Please try again.',
+    () => _service.removePackingItem(trip.id, item.id),
+  );
 
   // ── Places ────────────────────────────────────────────────
 
-  void _addPlace(Trip trip) {
+  Future<void> _addPlace(Trip trip) async {
+    if (_addingPlace) return;
     final name = _placeName.text.trim();
     if (name.isEmpty) return;
     final note = _placeNote.text.trim();
-    _placeName.clear();
-    _placeNote.clear();
-    TripKitService().updatePlaces(trip.id, [
-      ...trip.places,
+    await _savePlace(
+      trip,
       TripPlace(id: Trip.newId(), name: name, note: note),
-    ]);
-  }
-
-  void _togglePlace(Trip trip, TripPlace place) {
-    TripKitService().updatePlaces(
-      trip.id,
-      trip.places
-          .map((e) => e.id == place.id ? e.copyWith(done: !e.done) : e)
-          .toList(),
+      name,
+      note,
     );
   }
 
-  void _removePlace(Trip trip, TripPlace place) {
-    TripKitService().updatePlaces(
-      trip.id,
-      trip.places.where((e) => e.id != place.id).toList(),
-    );
+  Future<void> _savePlace(
+    Trip trip,
+    TripPlace place,
+    String name,
+    String note,
+  ) async {
+    if (_addingPlace) return;
+    _addingPlace = true;
+    try {
+      await _runTripAction(
+        'Could not add this place. Your text is still here.',
+        () async {
+          await _service.addPlace(trip.id, place);
+          if (mounted &&
+              _placeName.text.trim() == name &&
+              _placeNote.text.trim() == note) {
+            _placeName.clear();
+            _placeNote.clear();
+          }
+        },
+        onRetry: () => unawaited(_savePlace(trip, place, name, note)),
+      );
+    } finally {
+      _addingPlace = false;
+    }
   }
 
-  // ── Notes + delete ────────────────────────────────────────
+  Future<void> _togglePlace(Trip trip, TripPlace place) => _runTripAction(
+    'Could not update this place. Please try again.',
+    () => _service.setPlaceDone(trip.id, place.id, !place.done),
+  );
+
+  Future<void> _removePlace(Trip trip, TripPlace place) => _runTripAction(
+    'Could not remove this place. Please try again.',
+    () => _service.removePlace(trip.id, place.id),
+  );
+
+  Future<void> _runTripAction(
+    String message,
+    Future<void> Function() action, {
+    VoidCallback? onRetry,
+  }) async {
+    try {
+      await action();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed:
+                onRetry ?? () => unawaited(_runTripAction(message, action)),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ── Notes + delete ───────────────────────────────────────
 
   Widget _notesCard(Trip trip) {
     return Container(
@@ -247,9 +312,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       decoration: BoxDecoration(
         color: AppColors.moonlight.withValues(alpha: 0.05),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.10),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,17 +372,30 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(
               'Delete',
-              style: AppTypography.outfitBold.copyWith(
-                color: AppColors.error,
-              ),
+              style: AppTypography.outfitBold.copyWith(color: AppColors.error),
             ),
           ),
         ],
       ),
     );
-    if (ok == true && context.mounted) {
-      await TripKitService().delete(trip.id);
+    if (ok == true && context.mounted) await _deleteTrip(context, trip);
+  }
+
+  Future<void> _deleteTrip(BuildContext context, Trip trip) async {
+    try {
+      await _service.delete(trip.id);
       if (context.mounted) context.go('/trips');
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Could not delete this trip. Please try again.'),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => unawaited(_deleteTrip(context, trip)),
+          ),
+        ),
+      );
     }
   }
 }
@@ -328,7 +404,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
 
 class TripBudgetCard extends StatefulWidget {
   final Trip trip;
-  const TripBudgetCard({super.key, required this.trip});
+  final TripKitService? service;
+  const TripBudgetCard({super.key, required this.trip, this.service});
 
   @override
   State<TripBudgetCard> createState() => TripBudgetCardState();
@@ -360,9 +437,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
             ),
             borderRadius: AppRadius.radiusX2,
             border: Border.all(
-              color: (trip.overBudget
-                      ? AppColors.error
-                      : AppColors.auroraTeal)
+              color: (trip.overBudget ? AppColors.error : AppColors.auroraTeal)
                   .withValues(alpha: 0.25),
             ),
           ),
@@ -375,9 +450,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
                     child: _budgetNumber(
                       'Spent',
                       tripPeso(trip.spentTotal),
-                      trip.overBudget
-                          ? AppColors.error
-                          : AppColors.petalWhite,
+                      trip.overBudget ? AppColors.error : AppColors.petalWhite,
                     ),
                   ),
                   Container(
@@ -409,9 +482,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
                       alpha: 0.10,
                     ),
                     valueColor: AlwaysStoppedAnimation(
-                      trip.overBudget
-                          ? AppColors.error
-                          : AppColors.auroraTeal,
+                      trip.overBudget ? AppColors.error : AppColors.auroraTeal,
                     ),
                   ),
                 ),
@@ -428,7 +499,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
                   ),
               ],
               const SizedBox(height: 12),
-              _TripExpenseAdder(trip: trip),
+              _TripExpenseAdder(trip: trip, service: widget.service),
               if (trip.expenses.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 GestureDetector(
@@ -442,9 +513,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
                           '${trip.expenses.length} expense${trip.expenses.length == 1 ? '' : 's'}',
                           style: AppTypography.outfitBold.copyWith(
                             fontSize: 12,
-                            color: AppColors.petalWhite.withValues(
-                              alpha: 0.6,
-                            ),
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(width: 4),
@@ -453,9 +522,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
                               ? Icons.expand_less_rounded
                               : Icons.expand_more_rounded,
                           size: 16,
-                          color: AppColors.petalWhite.withValues(
-                            alpha: 0.5,
-                          ),
+                          color: AppColors.petalWhite.withValues(alpha: 0.5),
                         ),
                       ],
                     ),
@@ -463,7 +530,11 @@ class TripBudgetCardState extends State<TripBudgetCard> {
                 ),
                 if (_expanded)
                   for (final expense in trip.expenses)
-                    _TripExpenseRow(trip: trip, expense: expense),
+                    _TripExpenseRow(
+                      trip: trip,
+                      expense: expense,
+                      service: widget.service,
+                    ),
               ],
             ],
           ),
@@ -486,10 +557,7 @@ class TripBudgetCardState extends State<TripBudgetCard> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: AppTypography.outfitBold.copyWith(
-            fontSize: 20,
-            color: color,
-          ),
+          style: AppTypography.outfitBold.copyWith(fontSize: 20, color: color),
         ),
       ],
     );
@@ -498,7 +566,8 @@ class TripBudgetCardState extends State<TripBudgetCard> {
 
 class _TripExpenseAdder extends StatefulWidget {
   final Trip trip;
-  const _TripExpenseAdder({required this.trip});
+  final TripKitService? service;
+  const _TripExpenseAdder({required this.trip, this.service});
 
   @override
   State<_TripExpenseAdder> createState() => _TripExpenseAdderState();
@@ -506,6 +575,7 @@ class _TripExpenseAdder extends StatefulWidget {
 
 class _TripExpenseAdderState extends State<_TripExpenseAdder> {
   final _label = TextEditingController();
+  bool _saving = false;
   final _amount = TextEditingController();
 
   @override
@@ -528,24 +598,80 @@ class _TripExpenseAdderState extends State<_TripExpenseAdder> {
     );
   }
 
-  void _add() {
+  Future<void> _add() async {
+    if (_saving) return;
     final label = _label.text.trim();
-    final amount = double.tryParse(_amount.text.trim()) ?? 0;
+    final amountText = _amount.text.trim();
+    final amount = double.tryParse(amountText) ?? 0;
     if (label.isEmpty || amount <= 0) return;
-    _label.clear();
-    _amount.clear();
-    final trip = widget.trip;
-    TripKitService().updateExpenses(trip.id, [
-      ...trip.expenses,
-      TripExpense(id: Trip.newId(), label: label, amount: amount),
-    ]);
+    final expense = TripExpense(id: Trip.newId(), label: label, amount: amount);
+    await _saveExpense(widget.trip.id, expense, label, amountText);
+  }
+
+  Future<void> _saveExpense(
+    String tripId,
+    TripExpense expense,
+    String label,
+    String amountText,
+  ) async {
+    if (_saving) return;
+    _saving = true;
+    try {
+      await (widget.service ?? TripKitService()).addExpense(tripId, expense);
+      if (mounted &&
+          _label.text.trim() == label &&
+          _amount.text.trim() == amountText) {
+        _label.clear();
+        _amount.clear();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Could not add this expense. Your text is still here.',
+          ),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () =>
+                unawaited(_saveExpense(tripId, expense, label, amountText)),
+          ),
+        ),
+      );
+    } finally {
+      _saving = false;
+    }
   }
 }
 
 class _TripExpenseRow extends StatelessWidget {
   final Trip trip;
   final TripExpense expense;
-  const _TripExpenseRow({required this.trip, required this.expense});
+  final TripKitService? service;
+  const _TripExpenseRow({
+    required this.trip,
+    required this.expense,
+    this.service,
+  });
+
+  Future<void> _remove(BuildContext context) async {
+    try {
+      await (service ?? TripKitService()).removeExpense(trip.id, expense.id);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Could not remove this expense. Please try again.',
+          ),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () => unawaited(_remove(context)),
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -574,10 +700,7 @@ class _TripExpenseRow extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             GestureDetector(
-              onTap: () => TripKitService().updateExpenses(
-                trip.id,
-                trip.expenses.where((e) => e.id != expense.id).toList(),
-              ),
+              onTap: () => _remove(context),
               child: Padding(
                 padding: const EdgeInsets.all(4),
                 child: Icon(

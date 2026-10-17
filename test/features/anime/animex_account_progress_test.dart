@@ -54,9 +54,9 @@ class _Query implements CollectionReference<Map<String, dynamic>> {
     }
     if (invocation.memberName == #get) {
       db.queries.add(filters);
-      final rows = db.rows
-          .where((row) => filters.entries.every((e) => row[e.key] == e.value))
-          .take(1);
+      final rows = db.rows.where(
+        (row) => filters.entries.every((e) => row[e.key] == e.value),
+      );
       return Future<QuerySnapshot<Map<String, dynamic>>>.value(
         _Snapshot(rows.map(_Document.new).toList()),
       );
@@ -113,9 +113,11 @@ Map<String, dynamic> _saved(
   int mal = 53,
   int? ani = 120,
   bool anime = true,
+  String? source,
 }) => {
   'id': 'demo-$user-$mal-$ani-$anime',
   'tmdbId': mal,
+  'source': ?source,
   'anilistId': ?ani,
   'userName': user,
   'title': 'Demo Anime',
@@ -154,9 +156,13 @@ void main() {
     'a fresh device resolves AniList-only card to the account MAL entry',
     () async {
       final db = _Db([_saved('khentsgdz'), _saved('clairjassen')]);
-      final saved = await _Watchlist(
-        db,
-      ).getSavedProgress(120, 'clairjassen', anilistId: 120);
+      final saved = await _Watchlist(db).getSavedProgress(
+        120,
+        'clairjassen',
+        source: 'jikan',
+        mediaType: 'tv',
+        anilistId: 120,
+      );
       expect(saved!.tmdbId, 53);
       expect(saved.currentEpisode, 7);
       expect(saved.resumeSeconds, 360);
@@ -172,9 +178,13 @@ void main() {
         _saved('khentsgdz'),
         _saved('clairjassen', mal: 120, ani: null, anime: false),
       ]);
-      final saved = await _Watchlist(
-        db,
-      ).getSavedProgress(120, 'clairjassen', anilistId: 120);
+      final saved = await _Watchlist(db).getSavedProgress(
+        120,
+        'clairjassen',
+        source: 'jikan',
+        mediaType: 'tv',
+        anilistId: 120,
+      );
       expect(saved, isNull);
       expect(db.queries.every((q) => q['userName'] == 'clairjassen'), true);
     },
@@ -192,6 +202,8 @@ void main() {
       final saved = await service.getSavedProgress(
         120,
         'clairjassen',
+        source: 'jikan',
+        mediaType: 'tv',
         anilistId: 120,
       );
       expect(saved!.tmdbId, 53);
@@ -230,7 +242,13 @@ void main() {
         final db = _Db([cinema, partner]);
         final service = _Watchlist(db);
         expect(
-          await service.getSavedProgress(120, 'clairjassen', anilistId: 120),
+          await service.getSavedProgress(
+            120,
+            'clairjassen',
+            source: 'jikan',
+            mediaType: 'tv',
+            anilistId: 120,
+          ),
           isNull,
         );
         await service.updateProgress(
@@ -255,7 +273,13 @@ void main() {
     final db = _Db([otherAnime]);
     final service = _Watchlist(db);
     expect(
-      await service.getSavedProgress(120, 'clairjassen', anilistId: 120),
+      await service.getSavedProgress(
+        120,
+        'clairjassen',
+        source: 'jikan',
+        mediaType: 'tv',
+        anilistId: 120,
+      ),
       isNull,
     );
     await service.updateProgress(_card(), 'clairjassen', episode: 1);
@@ -270,7 +294,7 @@ void main() {
       () async {
         final cinema = _saved('clairjassen', ani: null, anime: false);
         final original = Map<String, dynamic>.from(cinema);
-        final anime = _saved('clairjassen', ani: null);
+        final anime = _saved('clairjassen', ani: null, source: 'jikan');
         final db = _Db([cinema, anime]);
         await _Watchlist(
           db,
@@ -307,11 +331,15 @@ void main() {
     'resume numeric fallback finds anime behind a colliding cinema ID',
     () async {
       final cinema = _saved('clairjassen', ani: null, anime: false);
-      final anime = _saved('clairjassen', ani: null);
+      final anime = _saved('clairjassen', ani: null, source: 'jikan');
       final db = _Db([cinema, anime]);
-      final saved = await _Watchlist(
-        db,
-      ).getSavedProgress(53, 'clairjassen', anilistId: 120);
+      final saved = await _Watchlist(db).getSavedProgress(
+        53,
+        'clairjassen',
+        source: 'jikan',
+        mediaType: 'tv',
+        anilistId: 120,
+      );
       expect(saved!.id, anime['id']);
       expect(saved.currentEpisode, 7);
     },
@@ -323,7 +351,13 @@ void main() {
     final db = _Db([cinema]);
     final service = _Watchlist(db);
     expect(
-      await service.getSavedProgress(120, 'clairjassen', anilistId: 120),
+      await service.getSavedProgress(
+        120,
+        'clairjassen',
+        source: 'jikan',
+        mediaType: 'tv',
+        anilistId: 120,
+      ),
       isNull,
     );
     await service.updateProgress(_card(), 'clairjassen', episode: 1);
@@ -331,21 +365,24 @@ void main() {
     expect(db.writes, ['new-1']);
   });
 
-  test('finale progress flips watching to watched and persists the total', () async {
-    final anime = _saved('clairjassen');
-    final db = _Db([anime]);
-    await _Watchlist(db).updateProgress(
-      _card(total: 12),
-      'clairjassen',
-      episode: 12,
-      timestamp: 1400,
-      durationSeconds: 1500,
-      status: 'watching-clair',
-    );
-    expect(anime['status'], 'watched-self');
-    expect(anime['currentEpisode'], 12);
-    expect(anime['episodeCount'], 12);
-  });
+  test(
+    'finale progress flips watching to watched and persists the total',
+    () async {
+      final anime = _saved('clairjassen');
+      final db = _Db([anime]);
+      await _Watchlist(db).updateProgress(
+        _card(total: 12),
+        'clairjassen',
+        episode: 12,
+        timestamp: 1400,
+        durationSeconds: 1500,
+        status: 'watching-clair',
+      );
+      expect(anime['status'], 'watched-self');
+      expect(anime['currentEpisode'], 12);
+      expect(anime['episodeCount'], 12);
+    },
+  );
 
   test('new finale doc is created already watched', () async {
     final db = _Db([]);
@@ -374,17 +411,20 @@ void main() {
     expect(anime['currentEpisode'], 1);
   });
 
-  test('explicit to-watch on the finale is not forced back to watched', () async {
-    final anime = _saved('clairjassen');
-    final db = _Db([anime]);
-    await _Watchlist(db).updateProgress(
-      _card(total: 12),
-      'clairjassen',
-      episode: 12,
-      status: 'to-watch',
-    );
-    expect(anime['status'], 'to-watch');
-  });
+  test(
+    'explicit to-watch on the finale is not forced back to watched',
+    () async {
+      final anime = _saved('clairjassen');
+      final db = _Db([anime]);
+      await _Watchlist(db).updateProgress(
+        _card(total: 12),
+        'clairjassen',
+        episode: 12,
+        status: 'to-watch',
+      );
+      expect(anime['status'], 'to-watch');
+    },
+  );
 
   test('tapping Watching on a completed season restarts it at EP 1', () async {
     final anime = _saved('clairjassen')
@@ -408,7 +448,13 @@ void main() {
   test('logged out lookup never reads data', () async {
     final db = _Db([_saved('clairjassen')]);
     expect(
-      await _Watchlist(db).getSavedProgress(53, '', anilistId: 120),
+      await _Watchlist(db).getSavedProgress(
+        53,
+        '',
+        source: 'jikan',
+        mediaType: 'tv',
+        anilistId: 120,
+      ),
       isNull,
     );
     await _Watchlist(db).updateProgress(_card(), '', episode: 1);

@@ -231,6 +231,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       await TMDBService().heartbeatProgress(
         widget.tmdbId,
         userName,
+        source: widget.isAnime ? 'jikan' : 'tmdb',
+        mediaType: widget.mediaType,
         season: season,
         episode: episode,
         timestamp: position,

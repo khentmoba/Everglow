@@ -24,7 +24,10 @@ import '../models/watch_party_room.dart';
 class WatchPartyService {
   static const String _collection = 'watch_party_rooms';
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  WatchPartyService({FirebaseFirestore? db})
+    : _db = db ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _db;
 
   /// Build the deterministic room id from the two partners' uids. Both
   /// clients call this, sort the uids the same way, and land on the
@@ -32,10 +35,8 @@ class WatchPartyService {
   String roomIdFor(String uidA, String uidB) =>
       WatchPartyRoom.buildRoomId(uidA, uidB);
 
-  /// Create a new room or revive an existing one. If a room already
-  /// exists for this couple-pair and it's still active, we update
-  /// it in place (the host re-opens the screen → re-broadcasts the
-  /// new media selection) instead of leaving a stale doc around.
+  /// Start a fresh movie night at the couple's existing room id.
+  /// Replace old server/episode fields rather than carrying them forward.
   Future<WatchPartyRoom> startRoom({
     required String hostUid,
     required String hostName,
@@ -75,10 +76,7 @@ class WatchPartyService {
     );
 
     try {
-      await _db
-          .collection(_collection)
-          .doc(id)
-          .set(room.toFirestore(), SetOptions(merge: true));
+      await _db.collection(_collection).doc(id).set(room.toFirestore());
     } catch (e, st) {
       debugPrint('WatchPartyService.startRoom failed: $e\n$st');
       rethrow;
@@ -226,16 +224,11 @@ class WatchPartyService {
   }) async {
     try {
       await _db.collection(_collection).doc(roomId).update({
-        // ignore: use_null_aware_elements
-        if (serverType != null) 'serverType': serverType,
-        // ignore: use_null_aware_elements
-        if (serverName != null) 'serverName': serverName,
-        // ignore: use_null_aware_elements
-        if (serverHost != null) 'serverHost': serverHost,
-        // ignore: use_null_aware_elements
-        if (streamUrl != null) 'streamUrl': streamUrl,
-        // ignore: use_null_aware_elements
-        if (subtitleUrl != null) 'subtitleUrl': subtitleUrl,
+        'serverType': serverType ?? FieldValue.delete(),
+        'serverName': serverName ?? FieldValue.delete(),
+        'serverHost': serverHost ?? FieldValue.delete(),
+        'streamUrl': streamUrl ?? FieldValue.delete(),
+        'subtitleUrl': subtitleUrl ?? FieldValue.delete(),
         'proxyEnabled': proxyEnabled,
         'state': 'paused',
         'currentTime': 0.0,

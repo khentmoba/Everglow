@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../support/firestore_test_fakes.dart';
+import '../../support/transaction_test_fakes.dart';
 
 class _Auth extends FirebaseAuthPlatform {
   @override
@@ -119,11 +120,30 @@ void main() {
       createdAt: DateTime(2026),
       updatedAt: DateTime(2026),
     );
-    await expectLater(service.add(entry), throwsA(anything));
-    await expectLater(service.update(entry), throwsA(anything));
-    await expectLater(service.delete(entry.id), throwsA(anything));
-    await expectLater(service.togglePin(entry.id, true), throwsA(anything));
-    await expectLater(service.toggleLock(entry.id, true), throwsA(anything));
+    final rejectedWrite = throwsA(
+      isA<FirebaseException>().having(
+        (error) => error.code,
+        'code',
+        'permission-denied',
+      ),
+    );
+    await expectLater(service.add(entry), rejectedWrite);
+
+    final transactionDb = TransactionFirestore(entry.toFirestore())
+      ..failWrites = true;
+    final transactionService = JournalService(db: transactionDb);
+    await expectLater(
+      transactionService.update(
+        entry.copyWith(title: 'Updated'),
+        original: entry,
+      ),
+      rejectedWrite,
+    );
+    expect(transactionDb.writeAttempts, 1);
+
+    await expectLater(service.delete(entry.id), rejectedWrite);
+    await expectLater(service.togglePin(entry.id, true), rejectedWrite);
+    await expectLater(service.toggleLock(entry.id, true), rejectedWrite);
   });
   testWidgets(
     'rejected journal save retains the dialog, words and persisted draft for retry',

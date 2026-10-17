@@ -115,20 +115,7 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
         Logger.d(
           "[Status] Removing tmdbId=${widget.item.tmdbId} from owner=$ownerToRemove (previous=$previousStatus, viewer=$userName)",
         );
-        // Fast path: the drawer often already holds the Firestore doc id
-        // (items opened from a shelf). Deleting by id skips the query +
-        // delete round-trips. Merged couple items (userName "a,b") keep
-        // the primary's id, so only use it for single-owner matches.
-        String? docId;
-        if (widget.item.id.isNotEmpty &&
-            widget.item.userName.trim() == ownerToRemove) {
-          docId = widget.item.id;
-        }
-        await _tmdbService.removeFromWatchList(
-          widget.item.tmdbId,
-          ownerToRemove,
-          docId: docId,
-        );
+        await _tmdbService.removeFromWatchList(widget.item, ownerToRemove);
         // For "Both" statuses, also remove from the partner's doc.
         if (previousStatus == 'watched-both' ||
             previousStatus == 'watching-both') {
@@ -138,7 +125,7 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
             );
             try {
               await _tmdbService.removeFromWatchList(
-                widget.item.tmdbId,
+                widget.item,
                 partnerUsername,
               );
             } catch (e) {
@@ -244,7 +231,7 @@ abstract class _EpisodeDrawerStateCore2 extends _EpisodeDrawerStateCore {
           );
           try {
             await _tmdbService.cleanStalePartnerStatus(
-              widget.item.tmdbId,
+              widget.item,
               userName,
               newStatus,
             );

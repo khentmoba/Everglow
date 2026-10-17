@@ -30,23 +30,42 @@ function _passcodeMatches(code, expected) {
   return crypto.timingSafeEqual(a, b);
 }
 
-async function _pcLockoutRead(ipHash) {
+async function _pcLockoutAttempt(db, ref, accepted) {
   try {
-    const ref = getAdmin().firestore().collection('auth_attempts').doc(ipHash);
-    const snap = await ref.get();
-    if (!snap.exists) return { locked: false, ref, fails: 0, firstFailAt: Date.now() };
-    const d = snap.data() || {};
-    if (Number(d.lockedUntil || 0) > Date.now()) return { locked: true, ref };
-    let fails = Number(d.fails || 0);
-    let firstFailAt = Number(d.firstFailAt || Date.now());
-    if (Date.now() - firstFailAt > _PC_WINDOW_MS) {
-      fails = 0;
-      firstFailAt = Date.now();
-    }
-    return { locked: false, ref, fails, firstFailAt };
+    return await db.runTransaction(async (transaction) => {
+      const now = Date.now();
+      const snap = await transaction.get(ref);
+      const data = snap.exists ? (snap.data() || {}) : {};
+      if (Number(data.lockedUntil || 0) > now) return { locked: true };
+
+      let fails = Number(data.fails || 0);
+      let firstFailAt = Number(data.firstFailAt || now);
+      if (now - firstFailAt > _PC_WINDOW_MS) {
+        fails = 0;
+        firstFailAt = now;
+      }
+
+      if (accepted) {
+        if (snap.exists) transaction.delete(ref);
+        return { locked: false };
+      }
+
+      fails++;
+      transaction.set(ref, {
+        fails,
+        firstFailAt,
+        lockedUntil: fails >= _PC_MAX_FAILS ? now + _PC_LOCK_MS : 0,
+      }, { merge: true });
+      return { locked: false };
+    });
   } catch (e) {
-    console.warn('[verifyPasscode] lockout read failed (fail-open):', e.message);
-    return { locked: false, ref: null, fails: 0, firstFailAt: Date.now() };
+    // A correct passcode remains usable during a Firestore outage; failed
+    // guesses cannot proceed when the durable lockout counter is unavailable.
+    if (accepted) {
+      console.warn('[verifyPasscode] lockout transaction failed for valid passcode:', e.message);
+      return { locked: false };
+    }
+    throw e;
   }
 }
 
@@ -57,26 +76,26 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
   // Use Google's appended client hop, never the caller-supplied XFF prefix.
   const ip = clientIp(req);
   if(_pcHit(ip)){res.status(429).json({error:'Too many attempts'});return;}
-  const lock = await _pcLockoutRead(_sha256Hex(ip));
-  if(lock.locked){res.status(429).json({error:'Too many attempts — try again later'});return;}
   const code=String((req.body&&req.body.passcode)||'').trim();
   if(!code||!isValidPasscodeFormat(code)){res.status(400).json({error:'passcode required'});return;}
   const clair=(process.env.CLAIR_PASSCODE||'').trim();const khent=(process.env.KHENT_PASSCODE||'').trim();
   let username;
   if(_passcodeMatches(code, clair))username='clairjassen';
   else if(_passcodeMatches(code, khent))username='khentsgdz';
-  else{
-    if (lock.ref) {
-      const fails = (lock.fails || 0) + 1;
-      lock.ref.set({
-        fails,
-        firstFailAt: lock.firstFailAt,
-        lockedUntil: fails >= _PC_MAX_FAILS ? Date.now() + _PC_LOCK_MS : 0,
-      }, { merge: true }).catch((e) => console.warn('[verifyPasscode] lockout write failed:', e.message));
+  let lock;
+  try {
+    const db = getAdmin().firestore();
+    const ref = db.collection('auth_attempts').doc(_sha256Hex(ip));
+    lock = await _pcLockoutAttempt(db, ref, Boolean(username));
+  } catch (e) {
+    console.error('[verifyPasscode] lockout transaction failed:', e.message);
+    if (!username) {
+      res.status(503).json({error:'Login temporarily unavailable'});return;
     }
-    res.status(401).json({error:'Invalid passcode'});return;
+    lock = { locked: false };
   }
-  if (lock.ref) lock.ref.delete().catch(()=>{});
+  if(lock.locked){res.status(429).json({error:'Too many attempts — try again later'});return;}
+  if(!username){res.status(401).json({error:'Invalid passcode'});return;}
   const emails={clairjassen:process.env.CLAIR_EMAIL||'',khentsgdz:process.env.KHENT_EMAIL||''};
   const email=emails[username];if(!email){res.status(500).json({error:'Server not configured'});return;}
   try{
@@ -96,4 +115,4 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
 });
 
 
-module.exports = { verifyPasscode };
+module.exports = { verifyPasscode, _pcLockoutAttempt };

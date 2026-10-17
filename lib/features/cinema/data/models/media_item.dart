@@ -140,6 +140,12 @@ class MediaItem {
     return at;
   }
 
+  /// Catalog identity, shared by database matching and optimistic shelf state.
+  /// Numeric IDs alone are not unique across TMDB movies, TV, and MAL anime.
+  String get catalogKey =>
+      '$source\u0000${mediaType.trim().toLowerCase() == 'tv' ? 'tv' : 'movie'}'
+      '\u0000${tmdbId > 0 ? tmdbId : (anilistId ?? 0)}';
+
   /// MAL-style auto-complete: an episodic series whose saved progress
   /// reached its final episode (EP 12/12) counts as finished even when
   /// the stored status still says watching, so completed seasons leave

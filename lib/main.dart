@@ -62,7 +62,7 @@ Future<void> _startEverglow() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
     },
-    initializeNotifications: () => NotificationService().initialize(),
+    initializeNotifications: () => NotificationService.instance.initialize(),
     scaffoldMessengerKey: _scaffoldMessengerKey,
     probeHealth: () => HealthService(
       isOnline: () => ConnectivityService.instance.isOnline,

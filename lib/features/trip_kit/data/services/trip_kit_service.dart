@@ -77,7 +77,7 @@ class TripKitService {
   }
 
   /// Create a trip; returns the new doc id for navigation.
-  Future<String?> create(Trip trip) async {
+  Future<String> create(Trip trip) async {
     if (AgentMode.isActive.value) return AgentFixtures.demoTrips.first.id;
     try {
       final ref = await _db.collection(_collection).add(trip.toFirestore());
@@ -85,7 +85,7 @@ class TripKitService {
       return ref.id;
     } catch (e) {
       Logger.e('TripKit: error creating trip', error: e);
-      return null;
+      rethrow;
     }
   }
 
@@ -108,39 +108,123 @@ class TripKitService {
       Logger.i('TripKit: updated details ${trip.id}');
     } catch (e) {
       Logger.e('TripKit: error updating details', error: e);
+      rethrow;
     }
   }
 
-  Future<void> updatePacking(String id, List<TripPackItem> packing) async {
-    if (AgentMode.isActive.value) return;
-    try {
-      await _db.collection(_collection).doc(id).update({
-        'packing': packing.map((e) => e.toMap()).toList(),
-      });
-    } catch (e) {
-      Logger.e('TripKit: error updating packing', error: e);
-    }
-  }
+  Future<void> addPackingItem(String tripId, TripPackItem item) =>
+      _updateList<TripPackItem>(
+        tripId,
+        'packing',
+        (trip) => trip.packing,
+        (item) => item.toMap(),
+        (items) => items.any((e) => e.id == item.id) ? items : [...items, item],
+      );
 
-  Future<void> updateExpenses(String id, List<TripExpense> expenses) async {
-    if (AgentMode.isActive.value) return;
-    try {
-      await _db.collection(_collection).doc(id).update({
-        'expenses': expenses.map((e) => e.toMap()).toList(),
-      });
-    } catch (e) {
-      Logger.e('TripKit: error updating expenses', error: e);
-    }
-  }
+  Future<void> setPackingItemPacked(
+    String tripId,
+    String itemId,
+    bool packed, {
+    String? packedBy,
+  }) => _updateList<TripPackItem>(
+    tripId,
+    'packing',
+    (trip) => trip.packing,
+    (item) => item.toMap(),
+    (items) => items
+        .map(
+          (item) => item.id == itemId
+              ? item.copyWith(packed: packed, packedBy: packedBy)
+              : item,
+        )
+        .toList(),
+  );
 
-  Future<void> updatePlaces(String id, List<TripPlace> places) async {
+  Future<void> removePackingItem(String tripId, String itemId) =>
+      _updateList<TripPackItem>(
+        tripId,
+        'packing',
+        (trip) => trip.packing,
+        (item) => item.toMap(),
+        (items) => items.where((item) => item.id != itemId).toList(),
+      );
+
+  Future<void> addExpense(String tripId, TripExpense expense) =>
+      _updateList<TripExpense>(
+        tripId,
+        'expenses',
+        (trip) => trip.expenses,
+        (expense) => expense.toMap(),
+        (items) =>
+            items.any((e) => e.id == expense.id) ? items : [...items, expense],
+      );
+
+  Future<void> removeExpense(String tripId, String expenseId) =>
+      _updateList<TripExpense>(
+        tripId,
+        'expenses',
+        (trip) => trip.expenses,
+        (expense) => expense.toMap(),
+        (items) => items.where((expense) => expense.id != expenseId).toList(),
+      );
+
+  Future<void> addPlace(String tripId, TripPlace place) =>
+      _updateList<TripPlace>(
+        tripId,
+        'places',
+        (trip) => trip.places,
+        (place) => place.toMap(),
+        (items) =>
+            items.any((e) => e.id == place.id) ? items : [...items, place],
+      );
+
+  Future<void> setPlaceDone(String tripId, String placeId, bool done) =>
+      _updateList<TripPlace>(
+        tripId,
+        'places',
+        (trip) => trip.places,
+        (place) => place.toMap(),
+        (items) => items
+            .map(
+              (place) =>
+                  place.id == placeId ? place.copyWith(done: done) : place,
+            )
+            .toList(),
+      );
+
+  Future<void> removePlace(String tripId, String placeId) =>
+      _updateList<TripPlace>(
+        tripId,
+        'places',
+        (trip) => trip.places,
+        (place) => place.toMap(),
+        (items) => items.where((place) => place.id != placeId).toList(),
+      );
+
+  Future<void> _updateList<T>(
+    String id,
+    String field,
+    List<T> Function(Trip) select,
+    Map<String, dynamic> Function(T) toMap,
+    List<T> Function(List<T>) change,
+  ) async {
     if (AgentMode.isActive.value) return;
     try {
-      await _db.collection(_collection).doc(id).update({
-        'places': places.map((e) => e.toMap()).toList(),
+      final ref = _db.collection(_collection).doc(id);
+      await _db.runTransaction((transaction) async {
+        final snapshot = await transaction.get(ref);
+        final data = snapshot.data();
+        if (!snapshot.exists || data == null) {
+          throw StateError('Trip $id no longer exists');
+        }
+        final trip = Trip.fromMap(data, id);
+        transaction.update(ref, {
+          field: change(select(trip)).map(toMap).toList(),
+        });
       });
     } catch (e) {
-      Logger.e('TripKit: error updating places', error: e);
+      Logger.e('TripKit: error updating $field for $id', error: e);
+      rethrow;
     }
   }
 
@@ -151,6 +235,7 @@ class TripKitService {
       Logger.i('TripKit: deleted trip $id');
     } catch (e) {
       Logger.e('TripKit: error deleting trip', error: e);
+      rethrow;
     }
   }
 }

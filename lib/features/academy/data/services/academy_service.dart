@@ -7,8 +7,12 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 
 class AcademyService {
+  AcademyService({FirebaseFirestore? firestore}) : _customFirestore = firestore;
+
+  final FirebaseFirestore? _customFirestore;
   // Lazy so widget tests can construct the service without Firebase.
-  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore =>
+      _customFirestore ?? FirebaseFirestore.instance;
 
   CollectionReference get _questionsRef =>
       _firestore.collection('academy_questions');
@@ -159,7 +163,7 @@ class AcademyService {
     List<String>? questionIds,
   }) async {
     // 1. Cleanup stale matches
-    await _cleanupStaleMatches();
+    await _cleanupStaleMatches(userUid);
 
     // 2. Try to find a waiting match
     final waitingMatches = await withGetTimeout(
@@ -184,7 +188,11 @@ class AcademyService {
             participantId: userUid,
             participantUsername: username,
           );
-          transaction.update(matchDoc.reference, updatedMatch.toMap());
+          transaction.update(matchDoc.reference, {
+            'status': 'active',
+            'participantId': userUid,
+            'participantUsername': username,
+          });
           return updatedMatch;
         }
         throw Exception('Match no longer available');
@@ -236,16 +244,11 @@ class AcademyService {
         final match = GameMatch.fromFirestore(snapshot);
         if (match.status != 'waiting') return false;
         final ids = questionIds.take(matchLength).toList();
-        transaction.update(
-          _matchesRef.doc(matchId),
-          match
-              .copyWith(
-                questionIds: ids,
-                currentQuestionId: ids.first,
-                questionIndex: 0,
-              )
-              .toMap(),
-        );
+        transaction.update(_matchesRef.doc(matchId), {
+          'questionIds': ids,
+          'currentQuestionId': ids.first,
+          'questionIndex': 0,
+        });
         return true;
       });
     } catch (e) {
@@ -307,13 +310,13 @@ class AcademyService {
       final hostScore = match.hostScore + (isHost ? 10 : 0);
       final guestScore = match.guestScore + (!isHost ? 10 : 0);
 
-      final updatedMatch = match.copyWith(
-        hostScore: hostScore,
-        guestScore: guestScore,
-        questionIndex: nextIndex,
-        currentQuestionId: isFinished ? '' : nextQuestionId,
-        status: isFinished ? 'finished' : 'active',
-        winnerId: isFinished
+      transaction.update(matchRef, {
+        'hostScore': hostScore,
+        'guestScore': guestScore,
+        'questionIndex': nextIndex,
+        'currentQuestionId': nextQuestionId,
+        'status': isFinished ? 'finished' : 'active',
+        'winnerId': isFinished
             ? _calculateWinner(
                 hostScore: hostScore,
                 guestScore: guestScore,
@@ -321,9 +324,7 @@ class AcademyService {
                 guestUsername: match.participantUsername,
               )
             : null,
-      );
-
-      transaction.update(matchRef, updatedMatch.toMap());
+      });
       return true;
     });
   }
@@ -339,7 +340,7 @@ class AcademyService {
     return 'draw';
   }
 
-  Future<void> _cleanupStaleMatches() async {
+  Future<void> _cleanupStaleMatches(String userUid) async {
     final staleTime = DateTime.now().subtract(const Duration(minutes: 30));
     final staleQuery = await withGetTimeout(
       _matchesRef
@@ -352,6 +353,8 @@ class AcademyService {
     var batch = _firestore.batch();
     var pending = 0;
     for (var doc in staleQuery.docs) {
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data?['hostId'] != userUid) continue;
       batch.delete(doc.reference);
       pending++;
       if (pending >= 400) {

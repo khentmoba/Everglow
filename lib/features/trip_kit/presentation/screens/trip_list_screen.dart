@@ -18,7 +18,8 @@ import '../widgets/trip_ui.dart';
 
 /// Trip Kit — every lakad on one card: packing + budget + places.
 class TripListScreen extends StatefulWidget {
-  const TripListScreen({super.key});
+  final TripKitService? service;
+  const TripListScreen({super.key, this.service});
 
   @override
   State<TripListScreen> createState() => _TripListScreenState();
@@ -27,9 +28,11 @@ class TripListScreen extends StatefulWidget {
 const double _kMaxContentWidth = 720;
 
 class _TripListScreenState extends State<TripListScreen> {
+  TripKitService get _service => widget.service ?? TripKitService();
+
   @override
   Widget build(BuildContext context) {
-    final service = TripKitService();
+    final service = _service;
 
     return EverglowScaffold(
       backgroundColor: AppColors.inkDeep,
@@ -54,7 +57,7 @@ class _TripListScreenState extends State<TripListScreen> {
                 title: 'No trips yet',
                 subtitle: 'Plan your first lakad together',
                 ctaLabel: 'Plan a trip',
-                onCta: () => _showCreateSheet(context),
+                onCta: () => _showCreateSheet(context, service),
               ),
               builder: (context, trips) {
                 return Center(
@@ -76,19 +79,21 @@ class _TripListScreenState extends State<TripListScreen> {
         ],
       ),
       floatingActionButton: _NewTripFab(
-        onTap: () => _showCreateSheet(context),
+        onTap: () => _showCreateSheet(context, service),
       ),
     );
   }
 
-  void _showCreateSheet(BuildContext context) {
+  void _showCreateSheet(BuildContext context, TripKitService service) {
     final auth = context.read<AuthService>();
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) =>
-          _TripEditSheet(createdBy: auth.currentUser ?? 'unknown'),
+      builder: (context) => _TripEditSheet(
+        createdBy: auth.currentUser ?? 'unknown',
+        service: service,
+      ),
     );
   }
 }
@@ -189,9 +194,7 @@ class TripCard extends StatelessWidget {
                       trip.budgetTotal > 0
                           ? '${tripPeso(trip.spentTotal)} of ${tripPeso(trip.budgetTotal)}'
                           : '${tripPeso(trip.spentTotal)} spent',
-                      trip.overBudget
-                          ? AppColors.error
-                          : AppColors.auroraTeal,
+                      trip.overBudget ? AppColors.error : AppColors.auroraTeal,
                     ),
                     const SizedBox(width: 8),
                     _miniStat(
@@ -264,8 +267,13 @@ class TripCard extends StatelessWidget {
 /// Bottom sheet for a new trip — or editing details of [trip].
 class _TripEditSheet extends StatefulWidget {
   final String createdBy;
+  final TripKitService service;
   final Trip? trip;
-  const _TripEditSheet({required this.createdBy, this.trip});
+  const _TripEditSheet({
+    required this.createdBy,
+    required this.service,
+    this.trip,
+  });
 
   @override
   State<_TripEditSheet> createState() => _TripEditSheetState();
@@ -278,6 +286,8 @@ class _TripEditSheetState extends State<_TripEditSheet> {
   late final TextEditingController _budget;
   DateTime? _start;
   DateTime? _end;
+  bool _saving = false;
+  String? _saveError;
 
   @override
   void initState() {
@@ -345,13 +355,17 @@ class _TripEditSheetState extends State<_TripEditSheet> {
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(child: _dateChip('Start', _start, (d) {
-                  setState(() => _start = d);
-                })),
+                Expanded(
+                  child: _dateChip('Start', _start, (d) {
+                    setState(() => _start = d);
+                  }),
+                ),
                 const SizedBox(width: 8),
-                Expanded(child: _dateChip('End', _end, (d) {
-                  setState(() => _end = d);
-                })),
+                Expanded(
+                  child: _dateChip('End', _end, (d) {
+                    setState(() => _end = d);
+                  }),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -363,8 +377,16 @@ class _TripEditSheetState extends State<_TripEditSheet> {
             const SizedBox(height: 10),
             _field(_notes, 'Notes (optional)', maxLines: 2),
             const SizedBox(height: 16),
+            if (_saveError != null) ...[
+              Text(
+                _saveError!,
+                key: const ValueKey('trip-save-error'),
+                style: const TextStyle(color: AppColors.error),
+              ),
+              const SizedBox(height: 10),
+            ],
             GestureDetector(
-              onTap: _save,
+              onTap: _saving ? null : _save,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 alignment: Alignment.center,
@@ -374,13 +396,22 @@ class _TripEditSheetState extends State<_TripEditSheet> {
                   ),
                   borderRadius: AppRadius.radiusFull,
                 ),
-                child: Text(
-                  editing ? 'Save changes' : 'Create trip',
-                  style: AppTypography.outfitBold.copyWith(
-                    fontSize: 15,
-                    color: AppColors.petalWhite,
-                  ),
-                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.petalWhite,
+                        ),
+                      )
+                    : Text(
+                        editing ? 'Save changes' : 'Create trip',
+                        style: AppTypography.outfitBold.copyWith(
+                          fontSize: 15,
+                          color: AppColors.petalWhite,
+                        ),
+                      ),
               ),
             ),
           ],
@@ -400,9 +431,7 @@ class _TripEditSheetState extends State<_TripEditSheet> {
       decoration: BoxDecoration(
         color: AppColors.moonlight.withValues(alpha: 0.06),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.12)),
       ),
       child: TextField(
         controller: c,
@@ -480,48 +509,65 @@ class _TripEditSheetState extends State<_TripEditSheet> {
 
   Future<void> _save() async {
     final title = _title.text.trim();
-    if (title.isEmpty) return;
-    final service = TripKitService();
+    if (title.isEmpty || _saving) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     final budget = double.tryParse(_budget.text.trim()) ?? 0.0;
     final existing = widget.trip;
-    if (existing == null) {
-      final id = await service.create(
-        Trip(
-          id: '',
-          title: title,
-          destination: _destination.text.trim(),
-          startDate: _start,
-          endDate: _end,
-          notes: _notes.text.trim(),
-          budgetTotal: budget < 0 ? 0 : budget,
-          createdBy: widget.createdBy,
-          createdAt: DateTime.now(),
-        ),
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      if (id != null && mounted) context.push('/trips/$id');
-    } else {
-      await service.updateDetails(
-        existing.copyWith(
-          title: title,
-          destination: _destination.text.trim(),
-          notes: _notes.text.trim(),
-          budgetTotal: budget < 0 ? 0 : budget,
-          clearStartDate: _start == null,
-          clearEndDate: _end == null,
-          // copyWith only overrides non-null, so apply dates explicitly.
-          startDate: _start ?? existing.startDate,
-          endDate: _end ?? existing.endDate,
-        ),
-      );
-      if (mounted) Navigator.of(context).pop();
+    try {
+      if (existing == null) {
+        final id = await widget.service.create(
+          Trip(
+            id: '',
+            title: title,
+            destination: _destination.text.trim(),
+            startDate: _start,
+            endDate: _end,
+            notes: _notes.text.trim(),
+            budgetTotal: budget < 0 ? 0 : budget,
+            createdBy: widget.createdBy,
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        if (mounted) context.push('/trips/$id');
+      } else {
+        await widget.service.updateDetails(
+          existing.copyWith(
+            title: title,
+            destination: _destination.text.trim(),
+            notes: _notes.text.trim(),
+            budgetTotal: budget < 0 ? 0 : budget,
+            clearStartDate: _start == null,
+            clearEndDate: _end == null,
+            startDate: _start ?? existing.startDate,
+            endDate: _end ?? existing.endDate,
+          ),
+        );
+        if (mounted) Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _saveError =
+              'Could not save this trip. Your details are still here — please try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 }
 
 /// Shared with the detail screen's edit button.
-void showTripEditSheet(BuildContext context, Trip trip) {
+void showTripEditSheet(
+  BuildContext context,
+  Trip trip, {
+  TripKitService? service,
+}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -529,6 +575,7 @@ void showTripEditSheet(BuildContext context, Trip trip) {
     builder: (context) => _TripEditSheet(
       createdBy: trip.createdBy,
       trip: trip,
+      service: service ?? TripKitService(),
     ),
   );
 }

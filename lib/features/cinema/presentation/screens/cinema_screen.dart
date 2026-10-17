@@ -59,8 +59,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
   String _listUser = '';
   int _listRevision = 0;
 
-  final OptimisticSet<int> _optimisticWatchlist = OptimisticSet<int>();
-  final Map<int, MediaItem> _optimisticAddedItems = {};
+  final OptimisticSet<String> _optimisticWatchlist = OptimisticSet<String>();
+  final Map<String, MediaItem> _optimisticAddedItems = {};
 
   List<MediaItem> _watchlist = [];
   List<MediaItem> _watchingList = [];
@@ -154,16 +154,16 @@ class _CinemaScreenState extends State<CinemaScreen> {
     ) async {
       if (!mounted || userName != _listUser) return;
       final revision = ++_listRevision;
-      _optimisticWatchlist.reconcile(items.map((e) => e.tmdbId));
+      _optimisticWatchlist.reconcile(items.map((e) => e.catalogKey));
       _optimisticAddedItems.removeWhere(
         (id, _) => !_optimisticWatchlist.isAdded(id),
       );
 
       final effective = items
-          .where((m) => !_optimisticWatchlist.isRemoved(m.tmdbId))
+          .where((m) => !_optimisticWatchlist.isRemoved(m.catalogKey))
           .toList();
       for (final id in _optimisticWatchlist.added) {
-        if (!effective.any((m) => m.tmdbId == id) &&
+        if (!effective.any((m) => m.catalogKey == id) &&
             _optimisticAddedItems.containsKey(id)) {
           effective.add(_optimisticAddedItems[id]!);
         }
@@ -268,9 +268,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
   void _showMediaDetails(MediaItem item) {
     var drawerItem = item;
     for (final saved in _watchlist) {
-      if (saved.tmdbId == item.tmdbId &&
-          saved.mediaType == item.mediaType &&
-          saved.isAnime == item.isAnime) {
+      if (saved.catalogKey == item.catalogKey) {
         drawerItem = item.copyWith(
           status: saved.status,
           currentSeason: saved.currentSeason,
@@ -412,20 +410,20 @@ class _CinemaScreenState extends State<CinemaScreen> {
         }
         setState(() {
           if (add) {
-            _optimisticWatchlist.markAdded(item.tmdbId);
+            _optimisticWatchlist.markAdded(item.catalogKey);
             final optimisticItem = item.copyWith(
               status: 'to-watch',
               userName: userName,
             );
-            _optimisticAddedItems[item.tmdbId] = optimisticItem;
-            if (!_watchlist.any((w) => w.tmdbId == item.tmdbId)) {
+            _optimisticAddedItems[item.catalogKey] = optimisticItem;
+            if (!_watchlist.any((w) => w.catalogKey == item.catalogKey)) {
               _watchlist = [..._watchlist, optimisticItem];
             }
           } else {
-            _optimisticWatchlist.markRemoved(item.tmdbId);
-            _optimisticAddedItems.remove(item.tmdbId);
+            _optimisticWatchlist.markRemoved(item.catalogKey);
+            _optimisticAddedItems.remove(item.catalogKey);
             _watchlist = _watchlist
-                .where((w) => w.tmdbId != item.tmdbId)
+                .where((w) => w.catalogKey != item.catalogKey)
                 .toList();
           }
           _splitWatchlists();
@@ -440,14 +438,14 @@ class _CinemaScreenState extends State<CinemaScreen> {
         }
         setState(() {
           if (add) {
-            _optimisticWatchlist.rollbackAdd(item.tmdbId);
-            _optimisticAddedItems.remove(item.tmdbId);
+            _optimisticWatchlist.rollbackAdd(item.catalogKey);
+            _optimisticAddedItems.remove(item.catalogKey);
             _watchlist = _watchlist
-                .where((w) => w.tmdbId != item.tmdbId)
+                .where((w) => w.catalogKey != item.catalogKey)
                 .toList();
           } else {
-            _optimisticWatchlist.rollbackRemove(item.tmdbId);
-            if (!_watchlist.any((w) => w.tmdbId == item.tmdbId)) {
+            _optimisticWatchlist.rollbackRemove(item.catalogKey);
+            if (!_watchlist.any((w) => w.catalogKey == item.catalogKey)) {
               _watchlist = [..._watchlist, item];
             }
           }
@@ -485,7 +483,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
         setState(() {
           _watchlist = _watchlist
               .map(
-                (m) => m.tmdbId == item.tmdbId
+                (m) => m.catalogKey == item.catalogKey
                     ? m.copyWith(status: 'to-watch', clearProgress: true)
                     : m,
               )
@@ -493,12 +491,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
           _splitWatchlists();
         });
       },
-      action: () => _tmdbService.clearWatchProgress(item.tmdbId, user),
+      action: () => _tmdbService.clearWatchProgress(item, user),
       rollback: () {
         if (!mounted || _auth.currentUser != user) return;
         setState(() {
           _watchlist = _watchlist
-              .map((m) => m.tmdbId == item.tmdbId ? item : m)
+              .map((m) => m.catalogKey == item.catalogKey ? item : m)
               .toList();
           _splitWatchlists();
         });
@@ -577,7 +575,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
           return;
         }
         setState(() {
-          final index = _watchlist.indexWhere((w) => w.tmdbId == item.tmdbId);
+          final index = _watchlist.indexWhere(
+            (w) => w.catalogKey == item.catalogKey,
+          );
           if (index >= 0) {
             final copy = List<MediaItem>.of(_watchlist);
             copy[index] = _watchlist[index].copyWith(userRating: rating);
@@ -671,8 +671,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onPlayItem: _playMedia,
                   onToggleListItem: _toggleListItem,
                   onRateItem: _rateItem,
-                  isInList: (item) =>
-                      _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
+                  isInList: (item) => _watchlist.any(
+                    (saved) => saved.catalogKey == item.catalogKey,
+                  ),
                   onRemoveProgress: _removeProgress,
                   onSwitchTab: _switchTab,
                 ),
@@ -682,8 +683,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onPlayItem: _playMedia,
                   onToggleListItem: _toggleListItem,
                   onRateItem: _rateItem,
-                  isInList: (item) =>
-                      _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
+                  isInList: (item) => _watchlist.any(
+                    (saved) => saved.catalogKey == item.catalogKey,
+                  ),
                   onSwitchTab: _switchTab,
                 ),
                 CinemaBrowseTab(
@@ -693,8 +695,9 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onPlayItem: _playMedia,
                   onToggleListItem: _toggleListItem,
                   onRateItem: _rateItem,
-                  isInList: (item) =>
-                      _watchlist.any((saved) => saved.tmdbId == item.tmdbId),
+                  isInList: (item) => _watchlist.any(
+                    (saved) => saved.catalogKey == item.catalogKey,
+                  ),
                 ),
                 CinemaLibraryTab(
                   watchlist: _watchlist,
@@ -757,7 +760,22 @@ class _CinemaScreenState extends State<CinemaScreen> {
                               : () async {
                                   HapticFeedback.selectionClick();
                                   final router = GoRouter.of(context);
-                                  await context.read<AuthService>().logout();
+                                  try {
+                                    await context.read<AuthService>().logout();
+                                  } catch (_) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          context
+                                                  .read<AuthService>()
+                                                  .lastAuthError ??
+                                              'Could not log out safely. Try again.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   if (!mounted) return;
                                   router.go('/');
                                 },
@@ -806,7 +824,20 @@ class _CinemaScreenState extends State<CinemaScreen> {
                     : null,
                 onLogout: () async {
                   final router = GoRouter.of(context);
-                  await context.read<AuthService>().logout();
+                  try {
+                    await context.read<AuthService>().logout();
+                  } catch (_) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.read<AuthService>().lastAuthError ??
+                              'Could not log out safely. Try again.',
+                        ),
+                      ),
+                    );
+                    return;
+                  }
                   if (!mounted) return;
                   router.go('/');
                 },

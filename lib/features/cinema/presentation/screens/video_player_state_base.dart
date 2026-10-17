@@ -617,6 +617,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       await TMDBService().heartbeatProgress(
         widget.tmdbId,
         user,
+        source: widget.isAnime ? 'jikan' : 'tmdb',
+        mediaType: widget.mediaType,
         season: season,
         episode: episode,
         timestamp: position,
@@ -866,7 +868,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         widget.startSeconds != null;
     final saved = routeNamedSpot || _currentUserName.isEmpty
         ? null
-        : await TMDBService().getSavedProgress(widget.tmdbId, _currentUserName);
+        : await TMDBService().getSavedProgress(
+            widget.tmdbId,
+            _currentUserName,
+            source: widget.isAnime ? 'jikan' : 'tmdb',
+            mediaType: widget.mediaType,
+          );
     if (!mounted || revision != _restoreRevision) return;
     // A finished title starts over instead of jumping to its credits.
     final live = saved == null || saved.isWatched ? null : saved;

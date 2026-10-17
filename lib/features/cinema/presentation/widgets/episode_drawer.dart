@@ -1438,10 +1438,7 @@ class _RemindMeButtonState extends State<_RemindMeButton> {
       if (mounted) setState(() => _set = false);
       return;
     }
-    final value = await TMDBService().isReminderSet(
-      widget.item.tmdbId,
-      userName,
-    );
+    final value = await TMDBService().isReminderSet(widget.item, userName);
     if (mounted) setState(() => _set = value);
   }
 

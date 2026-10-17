@@ -300,7 +300,7 @@ class AnimeXController extends ChangeNotifier {
         _library.removeAt(index);
         notifyListeners();
       },
-      action: () => _tmdbService.removeFromWatchList(item.tmdbId, userName),
+      action: () => _tmdbService.removeFromWatchList(item, userName),
       rollback: () {
         _optimisticAnime.rollbackRemove(item.tmdbId);
         if (!_library.any((m) => m.tmdbId == item.tmdbId)) {

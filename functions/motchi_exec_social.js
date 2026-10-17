@@ -99,18 +99,32 @@ async function exec_get_xp_stats(ctx, args) {
     const targetUsers = args.user && args.user !== 'both'
       ? [args.user]
       : users;
+    const userIds = {};
+    if (targetUsers.includes(ctx.callerUid) && ctx.authUid) userIds[ctx.callerUid] = ctx.authUid;
+    const unresolved = targetUsers.filter((user) => !userIds[user]);
+    if (unresolved.length) {
+      const usersSnap = await ctx.db.collection('users')
+        .where('username', 'in', unresolved)
+        .get();
+      for (const doc of usersSnap.docs) {
+        const username = String(doc.data()?.username || '').toLowerCase();
+        if (unresolved.includes(username)) userIds[username] = doc.id;
+      }
+    }
     const stats = {};
-    for (const uid of targetUsers) {
-      const doc = await ctx.db.collection('users').doc(uid).collection('progress').doc('main').get();
+    for (const user of targetUsers) {
+      const doc = userIds[user]
+        ? await ctx.db.collection('users').doc(userIds[user]).collection('progress').doc('main').get()
+        : { exists: false };
       if (doc.exists) {
         const d = doc.data();
-        stats[uid] = {
+        stats[user] = {
           level: d.level || 1,
           xpTotal: d.xpTotal || 0,
           streak: d.streak || 0,
         };
       } else {
-        stats[uid] = { level: 1, xpTotal: 0, streak: 0 };
+        stats[user] = { level: 1, xpTotal: 0, streak: 0 };
       }
     }
     return JSON.stringify({ stats });
@@ -124,40 +138,44 @@ const MOTCHI_XP_DAILY_CAP = 200;
 
 async function exec_add_xp(ctx, args) {
   const amount = Math.min(Math.max(Number(args.amount) || 25, 1), 100);
-  const uid = ctx.callerUid || 'khentsgdz';
+  const uid = ctx.authUid;
+  if (!uid) return JSON.stringify({ error: 'Authenticated user unavailable' });
   const ref = ctx.db.collection('users').doc(uid).collection('progress').doc('main');
-  const doc = await ref.get();
-  const data = (doc.exists && doc.data()) || {};
-  const current = data.xpTotal || 0;
   const today = ctx.phtDateString();
-  const dayTotal = (data.motchiXpDate === today && data.motchiXpDayTotal) || 0;
-  if (dayTotal >= MOTCHI_XP_DAILY_CAP) {
-    return JSON.stringify({
-      success: false,
-      capped: true,
-      dayTotal,
-      cap: MOTCHI_XP_DAILY_CAP,
-      xpTotal: current,
-      level: ctx.levelForXp(current),
-      message: 'Daily Motchi treat limit reached — more applause tomorrow!',
-    });
-  }
-  const grant = Math.min(amount, MOTCHI_XP_DAILY_CAP - dayTotal);
-  const xpTotal = current + grant;
-  const level = ctx.levelForXp(xpTotal);
-  await ref.set({
-    xpTotal,
-    level,
-    streak: doc.exists ? (doc.data()?.streak || 0) : 0,
-    lastAwardReason: args.reason || 'Motchi award',
-    lastAwardedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
-    motchiXpDate: today,
-    motchiXpDayTotal: dayTotal + grant,
-  }, { merge: true });
-  return JSON.stringify({
-    success: true, uid, amount: grant, xpTotal, level,
-    dayTotal: dayTotal + grant, cap: MOTCHI_XP_DAILY_CAP,
+  const result = await ctx.db.runTransaction(async (transaction) => {
+    const doc = await transaction.get(ref);
+    const data = (doc.exists && doc.data()) || {};
+    const current = data.xpTotal || 0;
+    const dayTotal = (data.motchiXpDate === today && data.motchiXpDayTotal) || 0;
+    if (dayTotal >= MOTCHI_XP_DAILY_CAP) {
+      return {
+        success: false,
+        capped: true,
+        dayTotal,
+        cap: MOTCHI_XP_DAILY_CAP,
+        xpTotal: current,
+        level: ctx.levelForXp(current),
+        message: 'Daily Motchi treat limit reached — more applause tomorrow!',
+      };
+    }
+    const grant = Math.min(amount, MOTCHI_XP_DAILY_CAP - dayTotal);
+    const xpTotal = current + grant;
+    const level = ctx.levelForXp(xpTotal);
+    transaction.set(ref, {
+      xpTotal,
+      level,
+      streak: doc.exists ? (data.streak || 0) : 0,
+      lastAwardReason: args.reason || 'Motchi award',
+      lastAwardedAt: ctx.admin.firestore.FieldValue.serverTimestamp(),
+      motchiXpDate: today,
+      motchiXpDayTotal: dayTotal + grant,
+    }, { merge: true });
+    return {
+      success: true, uid, amount: grant, xpTotal, level,
+      dayTotal: dayTotal + grant, cap: MOTCHI_XP_DAILY_CAP,
+    };
   });
+  return JSON.stringify(result);
 }
 
 async function exec_log_activity(ctx, args) {
