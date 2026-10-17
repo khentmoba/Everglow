@@ -189,8 +189,15 @@ service cloud.firestore {
         (request.auth.uid == resource.data.hostUid ||
          request.auth.uid == resource.data.partnerUid) &&
         isValidRoomShape(request.resource.data) &&
-        request.resource.data.hostUid == resource.data.hostUid &&
-        request.resource.data.partnerUid == resource.data.partnerUid;
+        ((request.resource.data.hostUid == resource.data.hostUid &&
+          request.resource.data.partnerUid == resource.data.partnerUid) ||
+         // The other partner may host the next night, never replace the pair.
+         ((!resource.data.active ||
+           (resource.data.updatedAt is timestamp &&
+            resource.data.updatedAt < request.time - duration.value(15, 'm'))) &&
+          request.resource.data.hostUid == request.auth.uid &&
+          request.resource.data.hostUid == resource.data.partnerUid &&
+          request.resource.data.partnerUid == resource.data.hostUid));
       allow delete: if isCouple() &&
         (request.auth.uid == resource.data.hostUid ||
          request.auth.uid == resource.data.partnerUid);
