@@ -18,8 +18,21 @@ import '../../../../core/utils/logger.dart';
 import '../../../../shared/utils/firestore_pagination.dart';
 
 class GalleryService {
-  GalleryService({FirebaseFirestore? db}) : _customDb = db;
+  GalleryService({
+    FirebaseFirestore? db,
+    Future<String> Function(String path, Uint8List bytes)? uploadObject,
+    Future<void> Function(String imageUrl)? deleteStorageFile,
+    Future<void> Function(String imageUrl)? deleteStorageViaFunction,
+  }) : _customDb = db,
+       _uploadObject = uploadObject,
+       _deleteStorageFile = deleteStorageFile,
+       _deleteStorageViaFunctionForTesting = deleteStorageViaFunction;
+
   final FirebaseFirestore? _customDb;
+  final Future<String> Function(String path, Uint8List bytes)? _uploadObject;
+  final Future<void> Function(String imageUrl)? _deleteStorageFile;
+  final Future<void> Function(String imageUrl)?
+  _deleteStorageViaFunctionForTesting;
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   FirebaseStorage get _storage => FirebaseStorage.instance;
   final String _collection = 'gallery';
@@ -126,16 +139,13 @@ class GalleryService {
     final fullBytes = images.full;
     final thumbBytes = images.thumb;
 
+    final uploadedUrls = <String>[];
     Future<String> put(String path, Uint8List bytes) async {
-      final ref = _storage.ref().child(path);
-      final snap = await ref.putData(
-        bytes,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-          cacheControl: 'public, max-age=31536000',
-        ),
-      );
-      return snap.ref.getDownloadURL();
+      final url = _uploadObject == null
+          ? await _putStorageFile(path, bytes)
+          : await _uploadObject(path, bytes);
+      uploadedUrls.add(url);
+      return url;
     }
 
     final downloadUrl = await put('${base}_full.jpg', fullBytes);
@@ -149,22 +159,29 @@ class GalleryService {
       }
     }
 
-    // Save metadata to Firestore
-    final docRef = await _db
-        .collection(_collection)
-        .add(
-          buildMetadataPayload(
-            imageUrl: downloadUrl,
-            thumbUrl: thumbUrl,
-            caption: caption,
-            uploadedBy: uploadedBy,
-            tags: tags,
-            latitude: latitude,
-            longitude: longitude,
-            locationName: locationName,
-            takenAt: takenAt,
-          ),
-        );
+    // Save metadata to Firestore. If it fails, remove only objects whose
+    // upload completed; a committed metadata write must keep its files.
+    late final DocumentReference<Map<String, dynamic>> docRef;
+    try {
+      docRef = await _db
+          .collection(_collection)
+          .add(
+            buildMetadataPayload(
+              imageUrl: downloadUrl,
+              thumbUrl: thumbUrl,
+              caption: caption,
+              uploadedBy: uploadedBy,
+              tags: tags,
+              latitude: latitude,
+              longitude: longitude,
+              locationName: locationName,
+              takenAt: takenAt,
+            ),
+          );
+    } catch (e, st) {
+      await _cleanupUploadedFiles(uploadedUrls);
+      Error.throwWithStackTrace(e, st);
+    }
 
     Logger.i("Photo uploaded successfully: ${docRef.id}");
 
@@ -245,31 +262,20 @@ class GalleryService {
         );
   }
 
-  /// Delete a photo from Firestore and Storage (full + thumbnail).
+  /// Delete a photo from Storage before its Firestore metadata.
   Future<void> deletePhoto(MemoryPhoto photo) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return;
     }
 
     try {
-      // Delete from Firestore
-      await _db.collection(_collection).doc(photo.id).delete();
-
-      // Delete from Storage (best-effort). The direct delete only works
-      // for the uploader's own files; for the partner's photo it falls back
-      // to the couple-only cloud function so no orphaned file is left behind.
       for (final url in {
         photo.imageUrl,
         if (photo.thumbUrl?.isNotEmpty == true) photo.thumbUrl!,
       }) {
-        try {
-          final ref = _storage.refFromURL(url);
-          await ref.delete();
-        } catch (_) {
-          await _deleteStorageViaFunction(url);
-        }
+        await _deleteStorageObject(url);
       }
-
+      await _db.collection(_collection).doc(photo.id).delete();
       Logger.i("Photo deleted: ${photo.id}");
     } catch (e) {
       Logger.e("Error deleting photo: ${photo.id}", error: e);
@@ -277,19 +283,89 @@ class GalleryService {
     }
   }
 
-  /// Server-side Storage delete for the partner's photos. Best-effort:
-  /// never throws, so a failed cleanup can't fail the whole delete.
+  Future<String> _putStorageFile(String path, Uint8List bytes) async {
+    final ref = _storage.ref().child(path);
+    await ref.putData(
+      bytes,
+      SettableMetadata(
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000',
+      ),
+    );
+    try {
+      return await ref.getDownloadURL();
+    } catch (e, st) {
+      try {
+        await ref.delete();
+      } catch (cleanupError, cleanupSt) {
+        Logger.e(
+          'Gallery: failed to clean uploaded file $path',
+          error: cleanupError,
+          stackTrace: cleanupSt,
+        );
+      }
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
+  Future<void> _cleanupUploadedFiles(List<String> urls) async {
+    for (final url in urls) {
+      try {
+        await _deleteStorageObject(url);
+      } catch (e, st) {
+        Logger.e(
+          'Gallery: failed to clean uploaded file $url',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteStorageObject(String imageUrl) async {
+    try {
+      if (_deleteStorageFile case final delete?) {
+        await delete(imageUrl);
+      } else {
+        await _storage.refFromURL(imageUrl).delete();
+      }
+    } catch (e) {
+      if (_isObjectNotFound(e)) return;
+      await _deleteStorageViaFunction(imageUrl);
+    }
+  }
+
+  static bool _isObjectNotFound(Object error) =>
+      error is FirebaseException &&
+      (error.code == 'object-not-found' ||
+          error.code == 'storage/object-not-found');
+
+  /// Server-side Storage delete for the partner's photos.
   Future<void> _deleteStorageViaFunction(String imageUrl) async {
+    if (_deleteStorageViaFunctionForTesting case final delete?) {
+      try {
+        await delete(imageUrl);
+      } catch (e) {
+        if (_isObjectNotFound(e)) return;
+        rethrow;
+      }
+      return;
+    }
+
     try {
       final idToken =
           await FirebaseAuth.instance.currentUser?.getIdToken() ?? '';
-      if (idToken.isEmpty) return;
+      if (idToken.isEmpty) {
+        throw StateError('No authenticated user for gallery file cleanup');
+      }
       final urls = <Uri>[
         if (kIsWeb) Uri.parse('/api/deleteGalleryPhoto'),
         Uri.parse(
           'https://us-central1-everglow-1c6db.cloudfunctions.net/deleteGalleryPhoto',
         ),
       ];
+      Object? lastError;
+      StackTrace? lastStack;
       for (final url in urls) {
         try {
           final resp = await http
@@ -303,23 +379,32 @@ class GalleryService {
               )
               .timeout(const Duration(seconds: 10));
           if (resp.statusCode == 200) return;
-          Logger.e('deleteGalleryPhoto $url -> ${resp.statusCode}');
+          final error = StateError(
+            'deleteGalleryPhoto $url returned ${resp.statusCode}',
+          );
+          Logger.e('Gallery storage fallback failed', error: error);
+          lastError = error;
+          lastStack = StackTrace.current;
         } catch (e, st) {
+          if (_isObjectNotFound(e)) return;
           Logger.e(
             'deleteGalleryPhoto attempt failed for $url',
             error: e,
             stackTrace: st,
           );
-          // Try the next URL.
+          lastError = e;
+          lastStack = st;
         }
       }
+      if (lastError != null) Error.throwWithStackTrace(lastError, lastStack!);
+      throw StateError('Gallery storage fallback did not run');
     } catch (e, st) {
       Logger.e(
         'Gallery: storage cleanup via function failed for $imageUrl',
         error: e,
         stackTrace: st,
       );
-      // Best-effort only.
+      rethrow;
     }
   }
 

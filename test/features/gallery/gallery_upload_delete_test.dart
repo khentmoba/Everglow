@@ -466,10 +466,97 @@ void main() {
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      // Should show rollback SnackBar
-      expect(find.text('Failed to delete photo. Restored.'), findsOneWidget);
-      // Photo count is restored back to 2
+      // The failure restores the photo and gives Clair a retry action.
+      expect(find.text('Could not finish deleting. Please try again.'), findsOneWidget);
+      expect(find.byType(SnackBarAction), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
+    });
+
+    testWidgets('retry can delete the restored photo', (tester) async {
+      final auth = _FakeAuthService(testUid: 'u1', testUser: 'khentsgdz');
+      final photos = [
+        _photo(id: 'p1', uploader: 'khentsgdz'),
+        _photo(id: 'p2', uploader: 'khentsgdz'),
+      ];
+      var attempts = 0;
+
+      await tester.pumpWidget(
+        createViewerApp(
+          photos: photos,
+          authService: auth,
+          onDelete: (photo) async {
+            if (attempts++ == 0) throw Exception('Temporary failure');
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 / 2'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete Photo?'), findsOneWidget);
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(attempts, 2);
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(find.text('Could not finish deleting. Please try again.'), findsNothing);
+    });
+
+    testWidgets('keeps the last photo open and retryable after delete fails', (
+      tester,
+    ) async {
+      final auth = _FakeAuthService(testUid: 'u1', testUser: 'khentsgdz');
+      var attempts = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => ChangeNotifierProvider<AuthService>.value(
+                        value: auth,
+                        child: PhotoViewerScreen(
+                          photos: [_photo(id: 'only', uploader: 'khentsgdz')],
+                          onDelete: (_) async {
+                            if (attempts++ == 0) {
+                              throw Exception('Temporary failure');
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Open Viewer'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open Viewer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 / 1'), findsOneWidget);
+      expect(find.byType(SnackBarAction), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(attempts, 2);
+      expect(find.text('Open Viewer'), findsOneWidget);
     });
 
     testWidgets('pops screen immediately when deleting the last photo', (

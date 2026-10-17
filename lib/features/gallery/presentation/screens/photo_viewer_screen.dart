@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/utils/logger.dart';
 import '../../../../core/utils/optimistic_action.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
@@ -87,16 +86,9 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
               final deleteAction =
                   widget.onDelete ?? GalleryService().deletePhoto;
 
-              if (isLastPhoto) {
-                Navigator.pop(context);
-                deleteAction(removedPhoto).catchError((Object e) {
-                  Logger.e('Photo delete failed', error: e);
-                });
-                return;
-              }
-
               OptimisticAction.run(
                 apply: () {
+                  if (isLastPhoto) return;
                   setState(() {
                     _photos.removeAt(removedIndex);
                     if (_currentIndex >= _photos.length) {
@@ -105,18 +97,29 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
                   });
                 },
                 action: () => deleteAction(removedPhoto),
+                onSuccess: (_) {
+                  if (isLastPhoto && mounted) Navigator.pop(context);
+                },
                 rollback: () {
                   if (mounted) {
-                    setState(() {
-                      _photos.insert(
-                        removedIndex.clamp(0, _photos.length),
-                        removedPhoto,
-                      );
-                    });
+                    if (!isLastPhoto) {
+                      setState(() {
+                        _photos.insert(
+                          removedIndex.clamp(0, _photos.length),
+                          removedPhoto,
+                        );
+                      });
+                    }
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to delete photo. Restored.'),
-                        duration: Duration(seconds: 2),
+                      SnackBar(
+                        content: const Text(
+                          'Could not finish deleting. Please try again.',
+                        ),
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'Retry',
+                          onPressed: () => _showDeleteDialog(removedPhoto),
+                        ),
                       ),
                     );
                   }
