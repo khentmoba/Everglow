@@ -38,6 +38,18 @@ class Milestone {
   static String repairLegacyImageUrl(String url) =>
       legacyAssetPathFixes[url] ?? url;
 
+  /// Resolve retired bundle references without changing stored documents.
+  static String? privateImagePath(String url) {
+    const prefix = 'assets/images/milestones/';
+    final repaired = repairLegacyImageUrl(url);
+    if (!repaired.startsWith(prefix)) return null;
+    final filename = repaired.substring(prefix.length);
+    if (!RegExp(r'^[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp)$').hasMatch(filename)) {
+      return null;
+    }
+    return 'milestones/legacy/$filename';
+  }
+
   final String id;
   final String title;
   final String description;
@@ -64,9 +76,10 @@ class Milestone {
       description: data['description'] as String,
       date: _parseDateTime(data['date']),
       imageUrls:
-          (data['imageUrls'] as List<dynamic>?)
-              ?.map((e) => repairLegacyImageUrl(e as String))
-              .toList() ??
+          (data['imageUrls'] as List<dynamic>?)?.map((e) {
+            final url = e as String;
+            return privateImagePath(url) ?? url;
+          }).toList() ??
           [],
       author: data['author'] as String?,
       category: MilestoneCategory.values.firstWhere(

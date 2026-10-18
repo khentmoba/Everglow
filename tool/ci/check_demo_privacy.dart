@@ -19,8 +19,49 @@ List<String> demoPrivacyFailures(String source) {
   return failures;
 }
 
-Future<void> main() async {
+List<String> privateBundleFailures(String pubspec, Iterable<String> tracked) {
   final failures = <String>[];
+  if (RegExp(
+    r'^\s*-\s*assets/images/(?:milestones/|\s*$)',
+    multiLine: true,
+  ).hasMatch(pubspec)) {
+    failures.add(
+      'Personal milestone photos must not be bundled as public assets.',
+    );
+  }
+  if (tracked.any((path) => path.startsWith('assets/images/milestones/'))) {
+    failures.add('Personal milestone photos must not be tracked by Git.');
+  }
+  return failures;
+}
+
+List<String> privateSeedFailures(String source) =>
+    RegExp(
+      r'''\bMilestone\s*\(|collection\(\s*['"]milestones['"]''',
+    ).hasMatch(source)
+    ? ['The public login page must not embed private milestone seed data.']
+    : [];
+
+Future<void> main() async {
+  final tracked = await Process.run('git', [
+    'ls-files',
+    'assets/images/milestones',
+  ]);
+  if (tracked.exitCode != 0) {
+    stderr.writeln('Cannot verify private photo tracking: ${tracked.stderr}');
+    exit(1);
+  }
+  final failures =
+      privateBundleFailures(
+        await File('pubspec.yaml').readAsString(),
+        (tracked.stdout as String).split('\n'),
+      )..addAll(
+        privateSeedFailures(
+          await File(
+            'lib/features/entry/presentation/pages/gateway_page.dart',
+          ).readAsString(),
+        ),
+      );
   for (final root in ['lib/core/agent', 'lib/core/perf']) {
     await for (final file in Directory(root).list(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;

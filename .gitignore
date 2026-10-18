@@ -47,6 +47,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Private legacy photos: local migration input, never bundled or tracked.
+/assets/images/milestones/
+
 # Environment files
 .env*
 assets/env.txt

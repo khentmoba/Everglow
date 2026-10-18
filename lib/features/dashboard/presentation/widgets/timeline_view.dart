@@ -10,8 +10,7 @@ import '../../domain/models/milestone.dart';
 import '../../data/services/milestone_service.dart';
 import './memory_detail_view.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../shared/widgets/app_network_image.dart';
-import 'package:everglow/core/perf/perf_settings.dart';
+import 'milestone_photo.dart';
 
 class TimelineView extends StatefulWidget {
   const TimelineView({super.key});
@@ -947,52 +946,6 @@ class _MilestoneCarouselCardState extends State<_MilestoneCarouselCard> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Renders one Living Archive photo. Bundled assets and network photos
-/// share the same fallback so a missing file never shows as a confusing
-/// blank frame again.
-class MilestonePhoto extends StatelessWidget {
-  final String path;
-
-  const MilestonePhoto({super.key, required this.path});
-
-  @override
-  Widget build(BuildContext context) {
-    if (path.startsWith('assets/')) {
-      // cacheWidth matches the ~320px card at 2x DPR: the bundled
-      // milestone JPGs decode full-res otherwise, on every rebuild.
-      return Image.asset(
-        path,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        cacheWidth: PerfSettings.sizedDecodeWidth(640),
-        errorBuilder: (context, error, stack) => _photoFallback(),
-      );
-    }
-    // Disk + memory cached: the carousel auto-scrolls every 5s and each
-    // card has its own 3s photo pager, so uncached network photos
-    // re-fetch constantly while sitting still.
-    return AppNetworkImage(
-      imageUrl: path,
-      fit: BoxFit.cover,
-      cacheWidth: 600,
-      errorWidget: _photoFallback(),
-    );
-  }
-
-  Widget _photoFallback() {
-    return Container(
-      color: AppColors.deepRose.withValues(alpha: 0.08),
-      child: Center(
-        child: Icon(
-          Icons.broken_image_rounded,
-          color: AppColors.roseQuartz.withValues(alpha: 0.4),
-          size: 28,
         ),
       ),
     );
