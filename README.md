@@ -1,3 +1,5 @@
+![Everglow — a little universe for two. Khent & Clair.](docs/assets/everglow-banner.svg)
+
 # Everglow
 
 [![Latest Release](https://img.shields.io/github/v/release/khentmoba/Everglow?style=flat-square&label=latest&color=rgba(194,24,91,0.6))](https://github.com/khentmoba/Everglow/releases/latest)
