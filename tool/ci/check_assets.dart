@@ -8,8 +8,8 @@
 // entries from pubspec.yaml (trailing slash) resolve as prefixes.
 //
 // Intentional exception: lib/features/dashboard/domain/models/milestone.dart
-// keeps a legacyAssetPathFixes map of stale .png KEYS that the read path
-// rewrites on purpose. Those keys are skipped; every other ref must hit
+// keeps a legacyAssetPathFixes map for retired private photos now served
+// from authenticated Storage. That map is skipped; other refs must hit
 // disk. If you rename or recompress an asset, update its refs (and add a
 // read-path rewrite + migration like Milestone.repairLegacyImageUrl) or
 // this check fails the PR.
@@ -53,9 +53,8 @@ Future<void> main() async {
       final inLegacyMap = mapStart >= 0 && i >= mapStart && i <= mapEnd;
       for (final m in assetPattern.allMatches(lines[i])) {
         var ref = m.group(0)!;
-        // Inside the rename map only the stale .png KEYS are excused;
-        // the .jpg targets are live assets and must still resolve.
-        if (inLegacyMap && ref.endsWith('.png')) continue;
+        // Neither side is bundled: both resolve to private Storage now.
+        if (inLegacyMap) continue;
         // Raw web URLs (plain <img>/<model-viewer> src, JS GLB paths)
         // address the compiled bundle, where Flutter serves asset keys
         // under an extra `assets/` prefix: assets/assets/models/x.glb

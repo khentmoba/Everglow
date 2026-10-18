@@ -233,15 +233,15 @@ The workflow:
 | `proxyAnimeImage` | CORS proxy for anime CDN thumbnails (Crunchyroll, Funimation) |
 | `proxyLastfmImage` | CORS proxy for Last.fm album artwork (dashboard leaderboards) |
 | `proxyGalleryImage` | CORS proxy for gallery + Firebase Storage images |
-| `proxyScanlation` / `proxyFetchHtml` / `proxyEmbed` | CORS proxies for scanlation sites + generic HTML/embed fetch |
-| `proxyVideoStream` / `proxyWatchStream` | Video stream proxies with allow-list + SSRF guard |
+| `proxyScanlation` / `proxyFetchHtml` | CORS proxies for scanlation sites and HTML fetching |
+| `proxyWatchStream` | Authenticated stream proxy with public-host and redirect checks |
 | `proxyTmdb` | Authenticated TMDB proxy (server-side API key, ID-token required) |
 | `proxyLastfm` | Authenticated Last.fm proxy (server-side API key) |
 | `proxySpotifySearch` / `spotifyExchange` / `spotifyRefresh` / `spotifyCurrentlyPlaying` | Spotify OAuth + search + playback |
 | `proxyAI` / `proxyAIv2` | Motchi AI proxy — Agnes 3.0 Flash (apihub.agnes-ai.com) via SSE streaming, 512K context, 50+ tools |
 | `verifyPasscode` | Server-verified passcode login (Khent/Clair) |
 | `health` | Public liveness + Firestore reachability |
-| `onNewChatMessage` + 6 triggers | Firestore triggers: push + Discord fan-out for chat, moods, stars, watchlist, gallery, milestones, invites |
+| `onNewChatMessage` + 5 triggers | Firestore triggers: push + Discord fan-out for chat, moods, stars, watchlist, gallery, milestones |
 | `motchiDailyDigest` + 7 schedules | Motchi scheduled jobs: digests, recaps, nudges, reminders, memory sweep |
 | `notifyDiscordWatch` / `discordInteractions` | Discord watch-party notifications + interactions |
 | `sweepStalePresence` / `motchiStats` | Presence janitor + Motchi usage stats |

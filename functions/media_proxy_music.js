@@ -1,6 +1,7 @@
 'use strict';
 
 const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const { streamMediaBody } = require('./stream_media_body');
 
 /**
  * Last.fm artwork CDN hosts. Covers come from the `image` arrays in
@@ -101,10 +102,13 @@ const proxyLastfmImage = cappedHttps(30, async (req, res) => {
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.status(200).send(buffer);
+    await streamMediaBody(upstream.body, res);
   } catch (e) {
     console.warn(`proxyLastfmImage failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });

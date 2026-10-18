@@ -10,6 +10,7 @@ import '../../../../../core/theme/app_typography.dart';
 import '../../../../../shared/utils/pick_image_bytes.dart';
 import '../../../data/services/creator_service.dart';
 import '../../../domain/models/milestone.dart';
+import '../milestone_photo.dart';
 
 class CreatorMemoriesTab extends StatefulWidget {
   final CreatorService creatorService;
@@ -43,8 +44,7 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
   void initState() {
     super.initState();
     try {
-      _milestonesStream =
-          widget.creatorService.watchMilestones(limit: 50);
+      _milestonesStream = widget.creatorService.watchMilestones(limit: 50);
     } catch (_) {
       // Test / offline fallback: Firebase unavailable in widget tests.
       _milestonesStream = Stream.value(const []);
@@ -74,7 +74,8 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
       setState(() {
         _pickedImages.add((
           bytes: picked.bytes,
-          name: 'memory_${DateTime.now().millisecondsSinceEpoch}_${_pickedImages.length}.jpg',
+          name:
+              'memory_${DateTime.now().millisecondsSinceEpoch}_${_pickedImages.length}.jpg',
         ));
       });
     }
@@ -342,7 +343,10 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
             if (_editingMilestoneId != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.blushGold.withValues(alpha: 0.15),
                   borderRadius: AppRadius.radiusMd,
@@ -402,7 +406,9 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                       label: Text('${c.emoji} ${c.displayName}'),
                       labelStyle: AppTypography.outfitWhite.copyWith(
                         fontSize: 12,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         color: isSelected
                             ? AppColors.petalWhite
                             : AppColors.textMedium,
@@ -648,21 +654,10 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                       children: [
                         ClipRRect(
                           borderRadius: AppRadius.radiusMd,
-                          child: Image.network(
-                            url,
+                          child: SizedBox(
                             width: 90,
                             height: 90,
-                            cacheWidth: 200,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => Container(
-                              width: 90,
-                              height: 90,
-                              color: AppColors.velvet,
-                              child: Icon(
-                                Icons.broken_image_rounded,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
+                            child: MilestonePhoto(path: url),
                           ),
                         ),
                         Positioned(
@@ -764,9 +759,7 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
       decoration: BoxDecoration(
         color: AppColors.velvet.withValues(alpha: 0.7),
         borderRadius: AppRadius.radiusLg,
-        border: Border.all(
-          color: AppColors.blushGold.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: AppColors.blushGold.withValues(alpha: 0.35)),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -821,13 +814,10 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
                       width: double.infinity,
                       fit: BoxFit.cover,
                     )
-                  : Image.network(
-                      _existingImageUrls.first,
+                  : SizedBox(
                       height: 120,
                       width: double.infinity,
-                      cacheWidth: 600,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                      child: MilestonePhoto(path: _existingImageUrls.first),
                     ),
             ),
           ],
@@ -1028,8 +1018,9 @@ class _CreatorMemoriesTabState extends State<CreatorMemoriesTab> {
             ),
             contentPadding: const EdgeInsets.all(16),
           ),
-          validator: (value) =>
-              value == null || value.trim().isEmpty ? 'Please fill this in' : null,
+          validator: (value) => value == null || value.trim().isEmpty
+              ? 'Please fill this in'
+              : null,
         ),
       ],
     );

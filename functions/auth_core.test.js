@@ -8,7 +8,12 @@ test('a client profile cannot impersonate the couple; signed identity wins', () 
   const cinema = { uid: 'demo-cinema', firebase: { sign_in_provider: 'password' } };
   assert.equal(trustedProfileUsername(cinema, 'khentsgdz'), null);
   assert.equal(trustedProfileUsername(cinema, 'clairjassen'), null);
-  assert.equal(trustedProfileUsername(cinema, 'breyan'), 'breyan');
+  assert.equal(trustedProfileUsername(cinema, 'breyan'), null);
+  const knownCinema = { ...cinema, email: 'cinema@example.test' };
+  assert.equal(trustedProfileUsername(knownCinema, 'breyan', 'cinema@example.test'), 'breyan');
+  assert.equal(trustedProfileUsername(knownCinema, 'breyan', 'other@example.test'), null);
+  assert.equal(trustedProfileUsername({ ...knownCinema, email: 'stranger@example.test' },
+    'breyan', 'cinema@example.test'), null);
   assert.equal(trustedProfileUsername({ ...cinema, username: 'clairjassen' }, 'clairjassen'), null);
   const couple = { uid: 'demo-couple', username: 'clairjassen', firebase: { sign_in_provider: 'custom' } };
   assert.equal(trustedProfileUsername(couple, 'khentsgdz'), 'clairjassen');

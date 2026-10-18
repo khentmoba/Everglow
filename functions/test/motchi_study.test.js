@@ -65,6 +65,18 @@ test('parseStudySet rejects garbage', () => {
   assert.equal(study.parseStudySet('[]').error, 'too-few-valid');
 });
 
+test('study access includes couple and recognized cinema profiles only', () => {
+  for (const profile of ['khentsgdz', 'clairjassen', 'breyan', 'octagram']) {
+    assert.equal(study.isStudyProfile(profile), true);
+  }
+  for (const profile of [null, 'unknown', 'cinema-guest']) {
+    assert.equal(study.isStudyProfile(profile), false);
+  }
+  assert.equal(study.studyDailyLimit('breyan'), 50);
+  assert.equal(study.studyDailyLimit('octagram'), 50);
+  assert.equal(study.studyDailyLimit('khentsgdz'), 300);
+});
+
 test('clampCount stays in range', () => {
   assert.equal(study.clampCount(10), 10);
   assert.equal(study.clampCount(99), 20);

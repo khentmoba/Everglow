@@ -33,6 +33,15 @@ const DEFAULT_COUNT = 10;
 // A set with fewer keepers than this is a failure — the client falls
 // back to its cached pool instead of starting a stub game.
 const MIN_KEEPERS = 5;
+const STUDY_PROFILES = ['khentsgdz', 'clairjassen', 'breyan', 'octagram'];
+
+function isStudyProfile(username) {
+  return STUDY_PROFILES.includes(username);
+}
+
+function studyDailyLimit(username) {
+  return ['breyan', 'octagram'].includes(username) ? 50 : 300;
+}
 
 function clampCount(value) {
   const n = Number(value);
@@ -185,8 +194,12 @@ async function handleGenerateStudySet(req, res) {
 
   // Shared cap with Motchi chat: one set costs the same as one chat turn.
   // Fails open on counter hiccups (see common.js) — never block study.
-  const caller = await getVerifiedUsername(decoded).catch(() => '');
-  const dailyLimit = caller === 'khentsgdz' || caller === 'clairjassen' ? 300 : 50;
+  const caller = await getVerifiedUsername(decoded).catch(() => null);
+  if (!isStudyProfile(caller)) {
+    res.status(403).json({ error: 'A verified app profile is required' });
+    return;
+  }
+  const dailyLimit = studyDailyLimit(caller);
   const usage = await checkDailyCap(decoded.uid, 'proxyAI', dailyLimit);
   if (!usage.allowed) {
     res.status(429).json({ error: 'Daily AI limit reached — Motchi will be back tomorrow.' });
@@ -268,4 +281,6 @@ module.exports = {
   parseStudySet,
   clampCount,
   STUDY_CATEGORIES,
+  isStudyProfile,
+  studyDailyLimit,
 };

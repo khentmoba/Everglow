@@ -52,8 +52,10 @@ GoRouter createAppRouter() {
       final uri = state.uri;
 
       // Agent mode activation from query parameter (?agent=1, ?agent=khent, ?agent=cinema, ?agent=anime, ?agent=manga, etc.)
-      final agentParam = uri.queryParameters['agent'] ?? uri.queryParameters['demo'];
-      final jumpParam = uri.queryParameters['jump'] ?? uri.queryParameters['to'];
+      final agentParam =
+          uri.queryParameters['agent'] ?? uri.queryParameters['demo'];
+      final jumpParam =
+          uri.queryParameters['jump'] ?? uri.queryParameters['to'];
       String? targetRoute;
 
       if (agentParam != null) {
@@ -61,15 +63,22 @@ GoRouter createAppRouter() {
         if (AgentMode.routeAliases.containsKey(lower)) {
           targetRoute = AgentMode.routeAliases[lower];
           final profile = lower == 'cinema' ? 'breyan' : 'khentsgdz';
-          AgentMode.enable(profile: profile);
-          di.authService.enableAgentSession(profile: profile);
+          if (AgentMode.enable(profile: profile)) {
+            di.authService.enableAgentSession(profile: profile);
+          } else {
+            targetRoute = null;
+          }
         } else {
           final profile = AgentMode.parseProfile(agentParam);
-          AgentMode.enable(profile: profile);
-          di.authService.enableAgentSession(profile: profile);
+          if (AgentMode.enable(profile: profile)) {
+            di.authService.enableAgentSession(profile: profile);
+          }
         }
-      } else if (AgentMode.isActive.value && di.authService.currentUser == null) {
-        di.authService.enableAgentSession(profile: AgentMode.activeProfile.value);
+      } else if (AgentMode.isActive.value &&
+          di.authService.currentUser == null) {
+        di.authService.enableAgentSession(
+          profile: AgentMode.activeProfile.value,
+        );
       }
 
       if (jumpParam != null && jumpParam.isNotEmpty) {
@@ -89,7 +98,8 @@ GoRouter createAppRouter() {
       // re-listing its path here; the guard is a compile-time constant, so none
       // of this exists in production builds.
       // In Agent Mode, all routes are accessible without bouncing to the gateway door.
-      final isPublic = loc == '/' ||
+      final isPublic =
+          loc == '/' ||
           (kPerfBenchCompiledIn && loc.startsWith('/perf-bench')) ||
           AgentMode.isActive.value;
 
@@ -120,7 +130,9 @@ GoRouter createAppRouter() {
       // render empty for them (Firestore rules deny every read), so
       // anything else — deep links and restored pages included —
       // bounces to /cinema. (In Agent Mode, free navigation is allowed).
-      if (authed && di.authService.isCinemaOnlyUser && !AgentMode.isActive.value) {
+      if (authed &&
+          di.authService.isCinemaOnlyUser &&
+          !AgentMode.isActive.value) {
         final bounce = AppErrorPage.cinemaOnlyRedirect(loc);
         if (bounce != null) return bounce;
       }

@@ -44,6 +44,31 @@ void main() {
     });
   });
 
+  group('private legacy milestone photos', () {
+    test('maps retired asset references to private Storage paths', () {
+      expect(
+        Milestone.privateImagePath(
+          'assets/images/milestones/valentines_khent_1.jpg',
+        ),
+        'milestones/legacy/valentines_khent_1.jpg',
+      );
+      expect(
+        Milestone.privateImagePath(
+          'assets/images/milestones/valentines_khent_2.png',
+        ),
+        'milestones/legacy/valentines_khent_2.jpg',
+      );
+      expect(
+        Milestone.privateImagePath('https://example.com/photo.jpg'),
+        isNull,
+      );
+      expect(
+        Milestone.privateImagePath('assets/images/milestones/../private.jpg'),
+        isNull,
+      );
+    });
+  });
+
   group('repairLegacyImageUrl', () {
     test('rewrites each stale .png milestone photo to its .jpg', () {
       expect(

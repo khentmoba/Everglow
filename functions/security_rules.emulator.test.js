@@ -66,13 +66,17 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
       ...(method === 'POST' ? { body: Buffer.from('demo image') } : {}),
     });
   }
-  for (const path of ['gallery/audit-khent/demo.png', 'milestones/legacy-demo.png']) {
+  for (const path of ['gallery/audit-khent/demo.png', 'milestones/legacy-demo.png', 'milestones/legacy/demo.png']) {
     assert.equal((await image(path, 'owner', 'POST')).status, 200);
     assert.equal((await image(path, cinema)).status, 403);
     assert.equal((await image(path, clair)).status, 200);
     assert.equal((await image(path, khent)).status, 200);
   }
   assert.equal((await image('gallery/audit-cinema/demo.png', cinema, 'POST')).status, 403);
+  for (const bearer of [cinema, clair, khent, token('audit-anon', 'anonymous')]) {
+    assert.equal((await image('vault/audit-cinema/demo.png', bearer, 'POST')).status, 403);
+  }
+  assert.equal((await image('milestones/legacy/demo.png', token('audit-anon', 'anonymous'))).status, 403);
 });
 
 test('academy permits normal play but refuses poisoned joins and other-player scores', { skip: !host }, async () => {
