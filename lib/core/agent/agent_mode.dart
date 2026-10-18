@@ -56,8 +56,9 @@ class AgentMode {
   /// - `khentsgdz`: Full couple access (Khent's perspective)
   /// - `clairjassen`: Full couple access (Clair's perspective)
   /// - `breyan`: Cinema-only guest profile
-  static final ValueNotifier<String> activeProfile =
-      ValueNotifier<String>('khentsgdz');
+  static final ValueNotifier<String> activeProfile = ValueNotifier<String>(
+    'khentsgdz',
+  );
 
   /// Whether services should feed privacy-safe mock demo fixtures instead of
   /// hitting real Firestore / Firebase Storage.
@@ -71,16 +72,24 @@ class AgentMode {
 
   static const String _prefActiveKey = 'everglow_agent_mode_active';
   static const String _prefProfileKey = 'everglow_agent_mode_profile';
+  static Future<void> _pendingPersist = Future<void>.value();
 
   /// Whether the current runtime is local development (debug mode or localhost).
   static bool get isLocalDev {
-    if (kDebugMode) return true;
-    if (kIsWeb) {
-      final host = Uri.base.host;
-      return host == 'localhost' || host == '127.0.0.1' || host == '0.0.0.0';
-    }
-    return false;
+    if (kIsWeb && isLocalHost(Uri.base.host)) return true;
+    return kDebugMode;
   }
+
+  /// Agent fixtures must never be enabled on the canonical live site, even
+  /// when a debug build or a persisted preference is opened there.
+  static bool isProductionHost(String host) =>
+      host == 'everglow-1c6db.web.app' ||
+      host == 'everglow-1c6db.firebaseapp.com';
+
+  static bool isLocalHost(String host) =>
+      host == 'localhost' || host == '127.0.0.1' || host == '0.0.0.0';
+
+  static bool get canActivate => !kIsWeb || !isProductionHost(Uri.base.host);
 
   /// Whether agent mode is compiled in via dart-define `--dart-define=AGENT_MODE=true`.
   static const bool isCompiledIn = bool.fromEnvironment(
@@ -102,7 +111,15 @@ class AgentMode {
   }
 
   /// Initializes AgentMode on app boot from URL parameters and preferences.
-  static Future<void> init({Map<String, String>? queryParameters}) async {
+  static Future<void> init({
+    Map<String, String>? queryParameters,
+    String? host,
+  }) async {
+    if (isProductionHost(host ?? (kIsWeb ? Uri.base.host : ''))) {
+      isActive.value = false;
+      await clearPersistedState();
+      return;
+    }
     final params = queryParameters ?? Uri.base.queryParameters;
     final agentParam = params['agent'] ?? params['demo'];
 
@@ -126,11 +143,13 @@ class AgentMode {
   }
 
   /// Activates Agent Mode with the specified profile.
-  static void enable({String profile = 'khentsgdz'}) {
+  static bool enable({String profile = 'khentsgdz', String? host}) {
+    if (isProductionHost(host ?? (kIsWeb ? Uri.base.host : ''))) return false;
     isActive.value = true;
     activeProfile.value = profile;
     Logger.i('[AgentMode] Activated with profile: $profile');
     _persist();
+    return true;
   }
 
   /// Switches active profile while remaining in Agent Mode.
@@ -147,13 +166,37 @@ class AgentMode {
     _persist();
   }
 
-  static Future<void> _persist() async {
+  /// Clears any simulated session and its saved boot state (used on logout).
+  static Future<void> clearPersistedState() async {
+    isActive.value = false;
+    await _pendingPersist;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_prefActiveKey, isActive.value);
-      await prefs.setString(_prefProfileKey, activeProfile.value);
+      await prefs.remove(_prefActiveKey);
+      await prefs.remove(_prefProfileKey);
     } catch (e, st) {
-      Logger.e('AgentMode: failed to persist state', error: e, stackTrace: st);
+      Logger.e(
+        'AgentMode: failed to clear saved state',
+        error: e,
+        stackTrace: st,
+      );
     }
+  }
+
+  static Future<void> _persist() {
+    _pendingPersist = _pendingPersist.then((_) async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_prefActiveKey, isActive.value);
+        await prefs.setString(_prefProfileKey, activeProfile.value);
+      } catch (e, st) {
+        Logger.e(
+          'AgentMode: failed to persist state',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    });
+    return _pendingPersist;
   }
 }

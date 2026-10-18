@@ -4,44 +4,62 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { _pcLockoutAttempt } = require('./passcode.js');
 
-function makeDb(initial = null, fail = false) {
-  let data = initial;
+function makeDb(initial = {}) {
+  const data = new Map(Object.entries(initial));
   let tail = Promise.resolve();
   return {
-    ref: {},
+    ref: (id) => id,
     get data() { return data; },
     runTransaction(callback) {
-      const run = tail.then(async () => {
-        if (fail) throw new Error('Firestore unavailable');
-        return callback({
-          get: async () => ({ exists: data !== null, data: () => data }),
-          set: (_ref, value) => { data = { ...data, ...value }; },
-          delete: () => { data = null; },
-        });
-      });
+      const run = tail.then(async () => callback({
+        get: async (ref) => ({ exists: data.has(ref), data: () => data.get(ref) }),
+        set: (ref, value) => { data.set(ref, { ...data.get(ref), ...value }); },
+        delete: (ref) => { data.delete(ref); },
+      }));
       tail = run.catch(() => {});
       return run;
     },
   };
 }
 
-test('concurrent invalid passcodes atomically reach the durable lockout threshold', async () => {
+const attempt = (db, ip, accepted = false) =>
+  _pcLockoutAttempt(db, db.ref(ip), db.ref('global'), accepted);
+
+test('concurrent invalid passcodes atomically exhaust the shared global budget across IPs', async () => {
   const db = makeDb();
   const attempts = await Promise.all(
-    Array.from({ length: 25 }, () => _pcLockoutAttempt(db, db.ref, false)),
+    Array.from({ length: 100 }, (_, i) => attempt(db, `ip-${i}`, false)),
   );
 
-  assert.equal(db.data.fails, 20);
-  assert.equal(attempts.filter((result) => result.locked).length, 5);
-  assert.ok(db.data.lockedUntil > Date.now());
+  assert.equal(attempts.filter((result) => result.locked).length, 0);
+  assert.equal(db.data.get('global').fails, 100);
+  assert.ok(db.data.get('global').lockedUntil > Date.now());
+  assert.deepEqual(await attempt(db, 'new-rotated-ip', true), { locked: true });
 });
 
-test('a valid passcode clears failures and remains usable if lockout storage is down', async () => {
-  const db = makeDb({ fails: 19, firstFailAt: Date.now(), lockedUntil: 0 });
-  assert.deepEqual(await _pcLockoutAttempt(db, db.ref, true), { locked: false });
-  assert.equal(db.data, null);
+test('valid passcode still works and clears IP failures when no lockout is active', async () => {
+  const db = makeDb({ ip: { fails: 3, firstFailAt: Date.now(), lockedUntil: 0 } });
+  assert.deepEqual(await attempt(db, 'ip', true), { locked: false });
+  assert.equal(db.data.has('ip'), false);
+});
 
-  const unavailable = makeDb(null, true);
-  assert.equal((await _pcLockoutAttempt(unavailable, unavailable.ref, true)).locked, false);
-  await assert.rejects(_pcLockoutAttempt(unavailable, unavailable.ref, false), /Firestore unavailable/);
+test('correct passcode is rejected during an IP lockout', async () => {
+  const db = makeDb({
+    ip: { fails: 20, firstFailAt: Date.now(), lockedUntil: Date.now() + 60_000 },
+  });
+  assert.deepEqual(await attempt(db, 'ip', true), { locked: true });
+});
+
+test('correct passcode is rejected during global lockout regardless of IP', async () => {
+  const db = makeDb({
+    global: { fails: 100, firstFailAt: Date.now() - 1_000, lockedUntil: Date.now() + 60_000 },
+  });
+  assert.deepEqual(await attempt(db, 'different-ip', true), { locked: true });
+});
+
+test('invalid passcode attempts fail closed if durable lockout storage is down', async () => {
+  const db = makeDb();
+  db.runTransaction = async () => { throw new Error('Firestore unavailable'); };
+  await assert.rejects(attempt(db, 'ip', true), /Firestore unavailable/);
+  await assert.rejects(attempt(db, 'ip', false), /Firestore unavailable/);
 });

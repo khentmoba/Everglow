@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/dashboard/data/services/letterbox_service.dart';
 import '../../features/xp/data/services/xp_service.dart';
+import '../agent/agent_mode.dart';
 import '../config/env_config.dart';
 import '../router/route_memory.dart';
 import '../utils/firestore_stream_utils.dart';
@@ -215,6 +216,7 @@ class AuthService extends ChangeNotifier {
   /// Establishes an in-memory simulated session for AI agents and local dev testing.
   /// Bypasses the passcode door and live Firebase auth without touching disk sessions.
   void enableAgentSession({String profile = 'khentsgdz'}) {
+    if (!AgentMode.canActivate) return;
     // Router redirects can repeat; notifying the router again recurses on web.
     if (_isAgentSession && _currentUser == profile) return;
     _isAgentSession = true;
@@ -728,6 +730,7 @@ class AuthService extends ChangeNotifier {
     _hasSyncedUserDoc = false;
     _offlineUnlocked = false;
     await _saveSession(null);
+    await AgentMode.clearPersistedState();
     notifyListeners();
   }
 }
