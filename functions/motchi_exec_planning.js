@@ -6,7 +6,7 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
-const { parseReminderDate } = require('./motchi_core.js');
+const { parseReminderDate, phtDateString } = require('./motchi_core.js');
 const { getCalendarEvents } = require('./calendar_core.js');
 
 async function exec_create_reminder(ctx, args) {
@@ -699,18 +699,18 @@ async function exec_edit_trip(ctx, args) {
 // correct without edits.
 
 function _subAddMonths(d, months) {
-  const m = d.getMonth() + months;
-  const y = d.getFullYear() + Math.floor(m / 12);
+  const m = d.getUTCMonth() + months;
+  const y = d.getUTCFullYear() + Math.floor(m / 12);
   const mm = ((m % 12) + 12) % 12;
-  const lastDay = new Date(y, mm + 1, 0).getDate();
-  return new Date(y, mm, Math.min(d.getDate(), lastDay));
+  const lastDay = new Date(Date.UTC(y, mm + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, mm, Math.min(d.getUTCDate(), lastDay)));
 }
 
+// Return a PHT calendar date encoded as UTC midnight, not a billing instant.
 function subNextRenewal(renewalDate, cycle, now) {
-  const day = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const today = day(now || new Date());
-  let next = renewalDate instanceof Date ? day(renewalDate) : today;
-  if (Number.isNaN(next.getTime())) next = today;
+  const today = new Date(phtDateString((now || new Date()).getTime()));
+  let next = renewalDate instanceof Date && !Number.isNaN(renewalDate.getTime())
+    ? new Date(phtDateString(renewalDate.getTime())) : today;
   const step = cycle === 'yearly' ? 12 : 1;
   let guard = 0;
   while (next < today && guard < 1200) {
@@ -725,7 +725,7 @@ async function exec_get_subscriptions(ctx, args) {
     const snap = await ctx.db.collection('subscriptions').orderBy('createdAt','desc').limit(50).get();
     if (snap.empty) return JSON.stringify({ items: [], count: 0, monthly_total: 0 });
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date(phtDateString(now.getTime()));
     const items = [];
     let monthlyTotal = 0;
     for (const d of snap.docs) {
