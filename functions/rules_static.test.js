@@ -153,7 +153,7 @@ test('storage gallery/memories/milestones allow couple reads', () => {
       `${prefix} must allow couple reads`,
     );
   }
-  assert.ok(!storage.includes('request.auth.uid == userId;\n      allow write') || true);
+  assert.doesNotMatch(storage, /match \/vault\//);
 });
 
 test('subscriptions is couple-only', () => {

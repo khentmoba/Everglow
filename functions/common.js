@@ -37,7 +37,12 @@ async function requireAuth(req, res) {
     return null;
   }
   try {
-    return await getAdmin().auth().verifyIdToken(idToken);
+    const decoded = await getAdmin().auth().verifyIdToken(idToken);
+    if (decoded.firebase?.sign_in_provider === 'anonymous') {
+      res.status(401).json({ error: 'A signed-in profile is required' });
+      return null;
+    }
+    return decoded;
   } catch (e) {
     console.warn('Auth verification failed:', e.message);
     res.status(401).json({ error: 'Invalid or expired auth token' });
@@ -45,29 +50,29 @@ async function requireAuth(req, res) {
   }
 }
 
+const nonPublicIps = new net.BlockList();
+for (const [address, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10],
+  ['127.0.0.0', 8], ['169.254.0.0', 16], ['172.16.0.0', 12],
+  ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.168.0.0', 16],
+  ['198.18.0.0', 15], ['198.51.100.0', 24], ['203.0.113.0', 24],
+  ['224.0.0.0', 3],
+]) nonPublicIps.addSubnet(address, prefix, 'ipv4');
+const publicIpv6 = new net.BlockList();
+publicIpv6.addSubnet('2000::', 3, 'ipv6');
+for (const [address, prefix] of [
+  ['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['3fff::', 20],
+]) nonPublicIps.addSubnet(address, prefix, 'ipv6');
+
 function isPrivateIpv4(ip) {
-  const parts = ip.split('.').map(Number);
-  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p))) return true;
-  const [a, b] = parts;
-  if (a === 0 || a === 10 || a === 127 || a >= 224) return true;
-  if (a === 169 && b === 254) return true;
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  return false;
+  return !net.isIPv4(ip) || nonPublicIps.check(ip, 'ipv4');
 }
 
 function isPrivateIp(ip) {
   if (net.isIPv4(ip)) return isPrivateIpv4(ip);
   if (!net.isIPv6(ip)) return true;
-  const lower = ip.toLowerCase();
-  if (lower === '::1' || lower === '::') return true;
-  if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80')) {
-    return true;
-  }
-  if (lower.startsWith('::ffff:')) {
-    return isPrivateIpv4(lower.slice('::ffff:'.length));
-  }
-  return false;
+  // Only global unicast IPv6; this also rejects mapped/translated IPv4.
+  return !publicIpv6.check(ip, 'ipv6') || nonPublicIps.check(ip, 'ipv6');
 }
 
 async function isPublicDnsHost(hostname) {
@@ -77,6 +82,53 @@ async function isPublicDnsHost(hostname) {
   } catch (e) {
     console.warn('DNS lookup failed for', hostname, e.message);
     return false;
+  }
+}
+
+/** Public-only GET, with DNS pinned to the checked address on every hop. */
+async function fetchPublicUrl(target, { headers, signal }) {
+  const { Readable } = require('node:stream');
+  let url = new URL(target);
+  for (let hop = 0; hop <= 5; hop++) {
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+      throw new Error('Only credential-free http(s) urls are allowed');
+    }
+    if (url.hostname === '' || url.port && !/^\d+$/.test(url.port)) {
+      throw new Error('Invalid URL');
+    }
+    const hostname = url.hostname.replace(/^\[|\]$/g, '');
+    const records = net.isIP(hostname)
+      ? [{ address: hostname, family: net.isIP(hostname) }]
+      : await dns.lookup(hostname, { all: true });
+    if (!records.length || records.some(({ address }) => isPrivateIp(address))) {
+      throw new Error('Host not allowed');
+    }
+    const transport = require(url.protocol === 'https:' ? 'node:https' : 'node:http');
+    const incoming = await new Promise((resolve, reject) => {
+      const request = transport.get(url, {
+        headers, signal,
+        // No pooled connection or second DNS lookup may bypass validation.
+        agent: false,
+        lookup: (_host, options, callback) => {
+          callback(null, options.all ? [records[0]] : records[0].address, records[0].family);
+        },
+      }, resolve);
+      request.on('error', reject);
+    });
+    if ([301, 302, 303, 307, 308].includes(incoming.statusCode)) {
+      incoming.destroy();
+      if (!incoming.headers.location || hop === 5) throw new Error('Invalid or excessive redirects');
+      const nextUrl = new URL(incoming.headers.location, url);
+      if (nextUrl.origin !== url.origin && headers?.Referer) delete headers.Referer;
+      url = nextUrl;
+      continue;
+    }
+    return {
+      ok: incoming.statusCode >= 200 && incoming.statusCode < 300,
+      status: incoming.statusCode,
+      headers: new Headers(Object.entries(incoming.headers).map(([key, value]) => [key, String(value)])),
+      body: Readable.toWeb(incoming),
+    };
   }
 }
 
@@ -106,7 +158,11 @@ async function getVerifiedUsername(decoded) {
     const snap = await getAdmin().firestore().collection('users').doc(decoded.uid).get();
     if (snap.exists) {
       const username = (snap.data()?.username || '').toString().trim().toLowerCase();
-      return trustedProfileUsername(decoded, username);
+      const cinemaEmail = username === 'breyan'
+        ? (process.env.BREYAN_EMAIL || '').trim()
+        : username === 'octagram'
+          ? (process.env.OCTAGRAM_EMAIL || '').trim() : '';
+      return trustedProfileUsername(decoded, username, cinemaEmail);
     }
   } catch (e) {
     console.warn('[auth] getVerifiedUsername lookup failed:', e.message);
@@ -312,6 +368,7 @@ module.exports = {
   isPrivateIpv4,
   isPrivateIp,
   isPublicDnsHost,
+  fetchPublicUrl,
   isAllowedBookTextUrl,
   _getExternalCache,
   _setExternalCache,

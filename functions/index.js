@@ -27,12 +27,8 @@ const {
 const {
   proxyScanlation,
   proxyFetchHtml,
-  proxyEmbed,
 } = require('./media_proxy_html.js');
-const {
-  proxyVideoStream,
-  proxyWatchStream,
-} = require('./media_proxy_video.js');
+const { proxyWatchStream } = require('./media_proxy_video.js');
 const { proxyCatalog } = require('./media_proxy_catalog.js');
 
 const {
@@ -41,7 +37,6 @@ const {
   onNewStarDrop,
   onNewWatchlistItem,
   onNewGalleryPhoto,
-  onWatchPartyInvite,
   onNewMilestone,
 } = require('./triggers.js');
 
@@ -117,9 +112,7 @@ module.exports = Object.assign({}, module.exports, {
   deleteGalleryPhoto,
   proxyScanlation,
   proxyFetchHtml,
-  proxyEmbed,
   proxyMangaDex,
-  proxyVideoStream,
   proxyWatchStream,
   proxyAnime,
   proxyAnimeSegment,
@@ -134,7 +127,6 @@ module.exports = Object.assign({}, module.exports, {
   onNewStarDrop,
   onNewWatchlistItem,
   onNewGalleryPhoto,
-  onWatchPartyInvite,
   onNewMilestone,
 });
 

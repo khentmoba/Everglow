@@ -198,23 +198,6 @@ const onNewGalleryPhoto = functions.firestore
   });
 
 /**
- * Watch party invite → notify the partner.
- */
-const onWatchPartyInvite = functions.firestore
-  .document('watch_party_invites/{inviteId}')
-  .onCreate(async (snap) => {
-    const data = snap.data();
-    const to = (data.to || '').toLowerCase();
-    if (!to || !PARTNER_UID[to]) return;
-
-    await sendFCMToUser(to, {
-      title: '🎬 Watch party invite',
-      body: data.message || 'You have been invited to a watch party',
-      data: { type: 'watch_party_invite' },
-    });
-  });
-
-/**
  * Milestone → celebrate with the couple.
  */
 const onNewMilestone = functions.firestore
@@ -239,6 +222,5 @@ module.exports = {
   onNewStarDrop,
   onNewWatchlistItem,
   onNewGalleryPhoto,
-  onWatchPartyInvite,
   onNewMilestone,
 };

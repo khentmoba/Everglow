@@ -8,7 +8,7 @@ const { proxyBookFile } = require('./media_proxy_books');
 
 test('EPUB proxy supports binary responses and older JSON clients', async (t) => {
   t.mock.method(getAdmin().auth(), 'verifyIdToken', async () => ({ uid: 'synthetic-books' }));
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.8', family: 4 }]);
+  t.mock.method(dns, 'lookup', async () => [{ address: '8.8.8.8', family: 4 }]);
   const bytes = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0]);
   t.mock.method(global, 'fetch', async () => new Response(bytes, {
     headers: { 'Content-Type': 'application/epub+zip' },

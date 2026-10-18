@@ -1,6 +1,7 @@
 'use strict';
 
 const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
+const { streamMediaBody } = require('./stream_media_body');
 
 /**
  * Proxies manga chapter page images so Flutter web isn't blocked by
@@ -93,10 +94,13 @@ const proxyMangaImage = cappedHttps(30, async (req, res) => {
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=600');
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.status(200).send(buffer);
+    await streamMediaBody(upstream.body, res);
   } catch (e) {
     console.warn(`proxyMangaImage failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
@@ -180,10 +184,13 @@ const proxyMangaKakalotImage = cappedHttps(30, async (req, res) => {
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=600');
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.status(200).send(buffer);
+    await streamMediaBody(upstream.body, res);
   } catch (e) {
     console.warn(`proxyMangaKakalotImage failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
@@ -271,10 +278,13 @@ const proxyMangaKatana = cappedHttps(30, async (req, res) => {
       upstream.headers.get('content-type') || 'image/jpeg';
     res.set('Content-Type', contentType);
     res.set('Cache-Control', 'public, max-age=600');
-    const buffer = Buffer.from(await upstream.arrayBuffer());
-    res.status(200).send(buffer);
+    await streamMediaBody(upstream.body, res);
   } catch (e) {
     console.warn(`proxyMangaKatana failed (${targetUrl}):`, e.message);
+    if (res.headersSent || res.destroyed) {
+      if (!res.destroyed) res.destroy(e);
+      return;
+    }
     res.status(502).json({ error: `Upstream fetch failed: ${e.message}` });
   }
 });
