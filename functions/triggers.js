@@ -12,7 +12,7 @@ async function sendFCMToUser(uid, payload) {
     const ref = db.collection('fcm_tokens').doc(uid);
     const type = payload.data?.type || 'nudge';
     const devices = await ref.collection('devices').get();
-    if (!devices.docs.length) return;
+    if (!devices.docs.length) return true;
     if (payload.motchi && !type.startsWith('reminder')) {
       const allowed = await db.runTransaction(async (tx) => {
         const doc = await tx.get(ref);
@@ -20,12 +20,13 @@ async function sendFCMToUser(uid, payload) {
         tx.set(ref, { motchi: pushReservation(type) }, { merge: true });
         return true;
       });
-      if (!allowed) return;
+      if (!allowed) return true;
     }
 
     // Parent `token` fields are legacy and may belong to a logged-out device.
     // Only explicitly registered installation documents are deliverable.
     const messaging = getAdmin().messaging();
+    let delivered = true;
     await Promise.all(devices.docs.map(async (device) => {
       const token = device.data()?.token;
       if (!token) return;
@@ -43,12 +44,15 @@ async function sendFCMToUser(uid, payload) {
             console.warn(`FCM token cleanup for ${uid} failed:`, cleanupError.message);
           }
         } else {
+          delivered = false;
           console.warn(`FCM send to ${uid} failed:`, e.message);
         }
       }
     }));
+    return delivered;
   } catch (e) {
     console.warn(`FCM send to ${uid} failed:`, e.message);
+    return false;
   }
 }
 

@@ -12,6 +12,21 @@ test('catalog group exposes TMDB + Last.fm proxies', () => {
   assert.equal(typeof catalog.lastfmCacheTtlMs, 'function');
 });
 
+test('catalog endpoints reject unapproved accounts before calling an upstream API', async (t) => {
+  const admin = require('./common').getAdmin();
+  t.mock.method(admin.auth(), 'verifyIdToken', async () => ({
+    uid: 'stranger', username: 'breyan', firebase: { sign_in_provider: 'password' },
+  }));
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => assert.fail('must not call upstream'));
+  for (const endpoint of [catalog.proxyTmdb, catalog.proxyLastfm]) {
+    const res = { set() { return this; }, status(code) { this.code = code; return this; },
+      json(body) { this.body = body; } };
+    await endpoint({ method: 'GET', headers: {}, get: () => 'Bearer fake' }, res);
+    assert.equal(res.code, 403);
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+});
+
 test('cache key omits the server API key and sorts params', () => {
   const upstream = new URL(
     'https://ws.audioscrobbler.com/2.0/?api_key=server-key&method=artist.getInfo&username=clair',

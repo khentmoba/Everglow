@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:everglow/core/agent/agent_mode.dart';
 import 'package:everglow/core/agent/agent_fixtures.dart';
 import 'package:everglow/features/books/data/models/book_item.dart';
+import 'package:everglow/features/calendar/data/services/calendar_service.dart';
+import 'package:everglow/features/canvas/data/services/canvas_service.dart';
+import 'package:everglow/features/canvas/domain/models/doodle_stroke.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
 import 'package:everglow/features/money/data/services/money_service.dart';
 import 'package:everglow/features/subs/data/services/subs_service.dart';
@@ -29,6 +32,29 @@ void main() {
       AgentMode.isActive.value = true;
       addTearDown(() => AgentMode.isActive.value = false);
       final db = _LiveFirestore();
+      final calendar = CalendarService(db: db);
+      expect(
+        await calendar.getEventsForMonth(DateTime(2026)).first,
+        AgentFixtures.demoEvents,
+      );
+      await calendar.addEvent(AgentFixtures.demoEvents.first);
+      await calendar.updateEvent('private', {});
+      await calendar.deleteEvent('private');
+      final canvas = CanvasService(db: db);
+      expect(await canvas.getStrokesStream().first, isEmpty);
+      expect(await canvas.getLiveStrokesStream().first, isEmpty);
+      final stroke = DoodleStroke(
+        id: '',
+        userId: 'demo',
+        color: '#ffffff',
+        strokeWidth: 3,
+        points: const [],
+      );
+      expect((await canvas.saveStroke(stroke)).id, isNotEmpty);
+      await canvas.deleteStroke('private');
+      await canvas.updateActiveStroke('demo', stroke);
+      await canvas.clearActiveStroke('demo');
+      await canvas.clearAllStrokes();
       final month = DateTime(2026, 10);
       final money = MoneyService(db: db);
       expect((await money.watchMonth(month).first).map((e) => e.id), [

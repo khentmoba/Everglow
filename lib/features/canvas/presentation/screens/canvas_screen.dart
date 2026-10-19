@@ -17,7 +17,9 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 
 class CanvasScreen extends StatefulWidget {
-  const CanvasScreen({super.key});
+  const CanvasScreen({super.key, this.canvasService});
+
+  final CanvasService? canvasService;
 
   @override
   State<CanvasScreen> createState() => _CanvasScreenState();
@@ -25,7 +27,8 @@ class CanvasScreen extends StatefulWidget {
 
 class _CanvasScreenState extends State<CanvasScreen> {
   final GlobalKey _canvasKey = GlobalKey();
-  final CanvasService _canvasService = CanvasService();
+  late final CanvasService _canvasService =
+      widget.canvasService ?? CanvasService();
   final _activeStrokeNotifier = ValueNotifier<DoodleStroke?>(null);
   DoodleStroke? get _activeStroke => _activeStrokeNotifier.value;
   set _activeStroke(DoodleStroke? value) => _activeStrokeNotifier.value = value;
@@ -482,10 +485,18 @@ class _CanvasScreenState extends State<CanvasScreen> {
       ],
       text: text.trim(),
     );
-    _canvasService.saveStroke(stroke).then((_) {
-      _sessionStrokes.add(stroke);
-      _redoStack.clear();
-    });
+    _canvasService
+        .saveStroke(stroke)
+        .then((saved) {
+          if (!mounted) return;
+          setState(() {
+            _sessionStrokes.add(saved);
+            _redoStack.clear();
+          });
+        })
+        .catchError((Object e) {
+          Logger.e('Canvas: text save failed', error: e);
+        });
   }
 
   void _handleEraserAction(Offset globalPosition) {
@@ -527,10 +538,18 @@ class _CanvasScreenState extends State<CanvasScreen> {
       );
       final strokeToSave = _activeStroke!.copyWith(points: simplifiedPoints);
 
-      _canvasService.saveStroke(strokeToSave).then((_) {
-        _sessionStrokes.add(strokeToSave);
-        _redoStack.clear();
-      });
+      _canvasService
+          .saveStroke(strokeToSave)
+          .then((saved) {
+            if (!mounted) return;
+            setState(() {
+              _sessionStrokes.add(saved);
+              _redoStack.clear();
+            });
+          })
+          .catchError((Object e) {
+            Logger.e('Canvas: stroke save failed', error: e);
+          });
     }
 
     setState(() {
@@ -542,26 +561,27 @@ class _CanvasScreenState extends State<CanvasScreen> {
     if (_sessionStrokes.isEmpty) return;
 
     final lastStroke = _sessionStrokes.removeLast();
-    _redoStack.add(lastStroke);
-
-    final strokes = await _canvasService.getStrokesStream().first;
     try {
-      final actualStroke = strokes.lastWhere(
-        (s) =>
-            s.userId == lastStroke.userId &&
-            s.points.length == lastStroke.points.length,
-      );
-      await _canvasService.deleteStroke(actualStroke.id);
+      await _canvasService.deleteStroke(lastStroke.id);
+      _redoStack.add(lastStroke);
     } catch (e) {
+      _sessionStrokes.add(lastStroke);
       Logger.e('Canvas: undo failed to remove stroke', error: e);
     }
+    if (mounted) setState(() {});
   }
 
-  void _redo() {
+  void _redo() async {
     if (_redoStack.isEmpty) return;
 
     final strokeToRedo = _redoStack.removeLast();
-    _sessionStrokes.add(strokeToRedo);
-    _canvasService.saveStroke(strokeToRedo);
+    try {
+      final saved = await _canvasService.saveStroke(strokeToRedo);
+      _sessionStrokes.add(saved);
+    } catch (e) {
+      _redoStack.add(strokeToRedo);
+      Logger.e('Canvas: redo failed to save stroke', error: e);
+    }
+    if (mounted) setState(() {});
   }
 }

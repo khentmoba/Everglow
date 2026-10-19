@@ -56,17 +56,11 @@ jobs:
         env:
           FCM_VAPID_KEY: ${{ secrets.FCM_VAPID_KEY }}
           SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-          BREYAN_EMAIL: ${{ secrets.BREYAN_EMAIL }}
-          BREYAN_PASSWORD: ${{ secrets.BREYAN_PASSWORD }}
-          OCTAGRAM_EMAIL: ${{ secrets.OCTAGRAM_EMAIL }}
-          OCTAGRAM_PASSWORD: ${{ secrets.OCTAGRAM_PASSWORD }}
-          BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
-          OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
         run: |
           # tool/build_web.dart forwards to `flutter build web` and adds the
           # engine-pinned gstatic CanvasKit URL when reachable (safe fallback).
           ARGS=(--release --no-source-maps) # prod: no maps; staging uses --source-maps
-          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID BREYAN_EMAIL BREYAN_PASSWORD OCTAGRAM_EMAIL OCTAGRAM_PASSWORD BREYAN_PASSCODE OCTAGRAM_PASSCODE; do
+          for KEY in FCM_VAPID_KEY SPOTIFY_CLIENT_ID; do
             VAL="${!KEY}"
             if [ -n "$VAL" ]; then
               ARGS+=(--dart-define="$KEY=$VAL")
@@ -108,6 +102,7 @@ jobs:
           npm audit --omit=dev --audit-level=moderate
 
       - name: Deploy Cloud Functions, Firestore Rules & Storage
+        id: backend
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_EVERGLOW_1C6DB }}
           AGNES_API_KEY: ${{ secrets.AGNES_API_KEY }}
@@ -115,6 +110,8 @@ jobs:
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           CLAIR_PASSCODE: ${{ secrets.CLAIR_PASSCODE }}
           KHENT_PASSCODE: ${{ secrets.KHENT_PASSCODE }}
+          BREYAN_PASSCODE: ${{ secrets.BREYAN_PASSCODE }}
+          OCTAGRAM_PASSCODE: ${{ secrets.OCTAGRAM_PASSCODE }}
           CLAIR_EMAIL: ${{ secrets.CLAIR_EMAIL }}
           KHENT_EMAIL: ${{ secrets.KHENT_EMAIL }}
           BREYAN_EMAIL: ${{ secrets.BREYAN_EMAIL }}
@@ -133,6 +130,12 @@ jobs:
             echo "TMDB_API_KEY and LASTFM_API_KEY are required for the authenticated media proxies."
             exit 1
           fi
+          for KEY in CLAIR_PASSCODE KHENT_PASSCODE BREYAN_PASSCODE OCTAGRAM_PASSCODE CLAIR_EMAIL KHENT_EMAIL BREYAN_EMAIL OCTAGRAM_EMAIL; do
+            if [ -z "${!KEY}" ]; then
+              echo "$KEY is required for server-verified profile login."
+              exit 1
+            fi
+          done
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$HOME"/firebase-sa.json
           if [ -n "$AGNES_API_KEY" ]; then
             echo "AGNES_API_KEY=${AGNES_API_KEY}" > functions/.env
@@ -145,6 +148,8 @@ jobs:
           fi
           if [ -n "${CLAIR_PASSCODE:-}" ]; then echo "CLAIR_PASSCODE=${CLAIR_PASSCODE}" >> functions/.env; fi
           if [ -n "${KHENT_PASSCODE:-}" ]; then echo "KHENT_PASSCODE=${KHENT_PASSCODE}" >> functions/.env; fi
+          if [ -n "${BREYAN_PASSCODE:-}" ]; then echo "BREYAN_PASSCODE=${BREYAN_PASSCODE}" >> functions/.env; fi
+          if [ -n "${OCTAGRAM_PASSCODE:-}" ]; then echo "OCTAGRAM_PASSCODE=${OCTAGRAM_PASSCODE}" >> functions/.env; fi
           if [ -n "${CLAIR_EMAIL:-}" ]; then echo "CLAIR_EMAIL=${CLAIR_EMAIL}" >> functions/.env; fi
           if [ -n "${KHENT_EMAIL:-}" ]; then echo "KHENT_EMAIL=${KHENT_EMAIL}" >> functions/.env; fi
           if [ -n "${BREYAN_EMAIL:-}" ]; then echo "BREYAN_EMAIL=${BREYAN_EMAIL}" >> functions/.env; fi
@@ -161,12 +166,11 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS="$HOME"/firebase-sa.json \
           firebase deploy --only functions,firestore:rules,firestore:indexes,storage --project everglow-1c6db --force
 
-      # The site must ship even when the server step above fails: a red
-      # server deploy already fails the workflow loudly, but it must not
-      # hold client fixes hostage. Only broken client checks block hosting.
+      # Login changes require matching server handlers and security rules.
+      # Never publish a new client against a failed backend deployment.
       - name: Deploy to Firebase Hosting
         id: hosting
-        if: always() && steps.test-flutter.outcome == 'success' && steps.build-web.outcome == 'success'
+        if: steps.backend.outcome == 'success' && steps.test-flutter.outcome == 'success' && steps.build-web.outcome == 'success'
         uses: FirebaseExtended/action-hosting-deploy@v0.9.0
         env:
           NODE_OPTIONS: '--no-warnings'

@@ -4,8 +4,8 @@ rules_version = '2';
 //
 // Access model:
 //   * Anonymous auth is not allowed for app data.
-//   * A registered user must have a /users/{uid} document whose username is
-//     one of the four known profiles.
+//   * A registered user must have a server-signed identity for one of the
+//     four profiles and a /users/{uid} document.
 //   * Khent and Clair are the "couple" and own the shared scrapbook data.
 //   * Breyan and Octagram are cinema-only profiles; they can use their own
 //     watch list, games, and academy data, but not couple-only collections.
@@ -24,6 +24,7 @@ service cloud.firestore {
 
     function isRegistered() {
       return isAuthenticated() && isNotAnonymous() &&
+        (hasCoupleIdentity() || hasCinemaIdentity()) &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
@@ -45,9 +46,16 @@ service cloud.firestore {
         username() == request.auth.token.username;
     }
 
+    function hasCinemaIdentity() {
+      return isAuthenticated() &&
+        request.auth.token.firebase.sign_in_provider == 'custom' &&
+        'username' in request.auth.token &&
+        request.auth.token.username in ['breyan', 'octagram'];
+    }
+
     function isCinemaProfile() {
-      return isRegistered() &&
-        username() in ['breyan', 'octagram'];
+      return isRegistered() && hasCinemaIdentity() &&
+        username() == request.auth.token.username;
     }
 
     function isAppUser() {
@@ -181,9 +189,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow create: if isAuthenticated() && isNotAnonymous() &&
         request.auth.uid == userId &&
-        (request.resource.data.username in ['breyan', 'octagram'] ||
-          (hasCoupleIdentity() &&
-            request.resource.data.username == request.auth.token.username));
+        (hasCoupleIdentity() || hasCinemaIdentity()) &&
+        request.resource.data.username == request.auth.token.username;
       allow read: if isRegistered();
       allow update: if ownerOf(userId) &&
         resource.data.username == request.resource.data.username && request.resource.data.keys().hasOnly(['username', 'partnerUsername', 'updatedAt', 'createdAt']);

@@ -26,8 +26,8 @@ function getDb() {
 }
 
 /**
- * Requires a valid Firebase ID token on a request. Returns the decoded
- * token, or writes a 401 and returns null.
+ * Requires a valid Firebase ID token carrying a server-approved profile.
+ * Returns the decoded token, or writes a 401/403 and returns null.
  */
 async function requireAuth(req, res) {
   const header = req.get('Authorization') || req.headers.authorization || '';
@@ -40,6 +40,10 @@ async function requireAuth(req, res) {
     const decoded = await getAdmin().auth().verifyIdToken(idToken);
     if (decoded.firebase?.sign_in_provider === 'anonymous') {
       res.status(401).json({ error: 'A signed-in profile is required' });
+      return null;
+    }
+    if (!trustedProfileUsername(decoded)) {
+      res.status(403).json({ error: 'An approved profile is required — please log in with your passcode' });
       return null;
     }
     return decoded;
@@ -149,25 +153,9 @@ function isAllowedBookTextUrl(url) {
   return allowed;
 }
 
-/** Resolve couple identity from the verified token, never a client profile. */
+/** Resolve identity from the verified token, never a client-writable profile. */
 async function getVerifiedUsername(decoded) {
-  if (!decoded?.uid || decoded.firebase?.sign_in_provider === 'anonymous') return null;
-  const signed = trustedProfileUsername(decoded);
-  if (signed) return signed;
-  try {
-    const snap = await getAdmin().firestore().collection('users').doc(decoded.uid).get();
-    if (snap.exists) {
-      const username = (snap.data()?.username || '').toString().trim().toLowerCase();
-      const cinemaEmail = username === 'breyan'
-        ? (process.env.BREYAN_EMAIL || '').trim()
-        : username === 'octagram'
-          ? (process.env.OCTAGRAM_EMAIL || '').trim() : '';
-      return trustedProfileUsername(decoded, username, cinemaEmail);
-    }
-  } catch (e) {
-    console.warn('[auth] getVerifiedUsername lookup failed:', e.message);
-  }
-  return null;
+  return trustedProfileUsername(decoded);
 }
 
 // ─── External API cache (TMDB/weather/books/anime) ───────────

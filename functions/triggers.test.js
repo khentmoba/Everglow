@@ -4,6 +4,31 @@ const test = require('node:test');
 const { getAdmin } = require('./common.js');
 const triggers = require('./triggers.js');
 
+test('temporary push failures return false so reminders can retry', async (t) => {
+  const admin = getAdmin();
+  t.mock.method(admin, 'firestore', () => ({ collection: () => ({ doc: () => ({
+    collection: () => ({ get: async () => ({ docs: [
+      { data: () => ({ token: 'fake-device' }) },
+    ] }) }),
+  }) }) }));
+  t.mock.method(admin, 'messaging', () => ({ send: async () => {
+    const error = new Error('temporary outage');
+    error.code = 'messaging/server-unavailable';
+    throw error;
+  } }));
+  assert.equal(await triggers.sendFCMToUser('clairjassen', {
+    title: 'Demo only', data: { type: 'reminder' },
+  }), false);
+});
+
+test('push registration read failures also remain retryable', async (t) => {
+  t.mock.method(getAdmin(), 'firestore', () => { throw new Error('database unavailable'); });
+  assert.equal(await triggers.sendFCMToUser('clairjassen', {
+    title: 'Demo only', data: { type: 'reminder' },
+  }), false);
+});
+
+
 test('partner triggers use app collection paths, authors, and navigation types', async (t) => {
   const previousProject = process.env.GCLOUD_PROJECT;
   process.env.GCLOUD_PROJECT = 'demo-everglow';

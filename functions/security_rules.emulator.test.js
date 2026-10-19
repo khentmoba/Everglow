@@ -31,7 +31,12 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
   skip: !host,
 }, async () => {
   assert.ok(project.startsWith('demo-'), 'never run this against a real project');
-  const cinema = token('audit-cinema', 'password');
+  const cinema = token('audit-cinema', 'custom', 'breyan');
+  const stranger = token('audit-stranger', 'password', 'breyan');
+  assert.equal((await request('users/audit-stranger', stranger, 'PATCH', 'breyan')).status, 403);
+  // A forged legacy document cannot grant cinema access either.
+  await request('users/audit-stranger', 'owner', 'PATCH', 'breyan');
+  assert.equal((await request('academy_questions/demo', stranger)).status, 403);
   const clair = token('audit-clair', 'custom', 'clairjassen');
   const khent = token('audit-khent', 'custom', 'khentsgdz');
   for (const [uid, bearer, username] of [
@@ -73,6 +78,14 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
     assert.equal((await image(path, khent)).status, 200);
   }
   assert.equal((await image('gallery/audit-cinema/demo.png', cinema, 'POST')).status, 403);
+  for (const prefix of ['gallery', 'memories', 'milestones']) {
+    const path = `${prefix}/audit-khent/owner-delete.png`;
+    assert.equal((await image(path, khent, 'POST')).status, 200);
+    assert.equal((await image(path, clair, 'DELETE')).status, 403);
+    assert.equal((await image(path, cinema, 'DELETE')).status, 403);
+    const deleted = await image(path, khent, 'DELETE');
+    assert.ok([200, 204].includes(deleted.status), `owner delete failed for ${path}: ${deleted.status}`);
+  }
   for (const bearer of [cinema, clair, khent, token('audit-anon', 'anonymous')]) {
     assert.equal((await image('vault/audit-cinema/demo.png', bearer, 'POST')).status, 403);
   }
@@ -83,7 +96,7 @@ test('academy permits normal play but refuses poisoned joins and other-player sc
   assert.ok(project.startsWith('demo-'), 'never run against a real project');
   const hostToken = token('academy-host', 'custom', 'khentsgdz');
   const guestToken = token('academy-guest', 'custom', 'clairjassen');
-  const otherToken = token('academy-other', 'password');
+  const otherToken = token('academy-other', 'custom', 'breyan');
   for (const [uid, bearer, username] of [
     ['academy-host', hostToken, 'khentsgdz'],
     ['academy-guest', guestToken, 'clairjassen'],
@@ -194,7 +207,7 @@ test('either partner may host a fresh night, but an active room cannot be stolen
 test('table tennis permits one guest claim and play without a category field', { skip: !host }, async () => {
   assert.ok(project.startsWith('demo-'));
   const players = ['tt-host', 'tt-guest', 'tt-other'];
-  const tokens = players.map((uid) => token(uid, 'password'));
+  const tokens = players.map((uid) => token(uid, 'custom', 'breyan'));
   for (let i = 0; i < players.length; i++) {
     assert.equal((await request(`users/${players[i]}`, tokens[i], 'PATCH', 'breyan')).status, 200);
   }

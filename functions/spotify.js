@@ -1,15 +1,13 @@
 // ===== Spotify: Client Credentials search + User OAuth (Duo) =====
 'use strict';
 
-const functions = require('firebase-functions/v1');
-
 const { getAdmin, requireAuth, enforceRateLimit, cappedHttps } = require('./common.js');
 
 
 // ===== Spotify: Client Credentials search + User OAuth (Duo) =====
 function _getSpotifyCreds() {
-  const id = (process.env.SPOTIFY_CLIENT_ID || '').trim() || (functions.config().spotify && functions.config().spotify.client_id) || '';
-  const secret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim() || (functions.config().spotify && functions.config().spotify.client_secret) || '';
+  const id = (process.env.SPOTIFY_CLIENT_ID || '').trim();
+  const secret = (process.env.SPOTIFY_CLIENT_SECRET || '').trim();
   return { id, secret };
 }
 let _spotifyTokenCache = null; // { token, expiresAt }
@@ -285,6 +283,7 @@ const spotifyCurrentlyPlaying = cappedHttps(20, async (req, res) => {
 });
 
 module.exports = {
+  getSpotifyAppToken: _getSpotifyAppToken,
   proxySpotifySearch,
   spotifyExchange,
   spotifyRefresh,

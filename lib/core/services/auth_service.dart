@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/dashboard/data/services/letterbox_service.dart';
 import '../../features/xp/data/services/xp_service.dart';
 import '../agent/agent_mode.dart';
-import '../config/env_config.dart';
 import '../router/route_memory.dart';
 import '../utils/firestore_stream_utils.dart';
 import 'notification_service.dart';
@@ -235,57 +234,6 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Ensures the user is authenticated with a real account based on their passcode
-  Future<void> loginWithPasscode(String username) async {
-    String email;
-    String password;
-
-    if (username == 'clairjassen' || username == 'khentsgdz') {
-      throw StateError('Couple access must use server passcode verification');
-    } else if (username == 'breyan') {
-      email = EnvConfig.breyanEmail;
-      password = EnvConfig.breyanPassword;
-    } else if (username == 'octagram') {
-      email = EnvConfig.octagramEmail;
-      password = EnvConfig.octagramPassword;
-    } else {
-      throw StateError('Unknown username: $username');
-    }
-
-    if (email.isEmpty || password.isEmpty) {
-      _lastAuthError =
-          '$username credentials are not configured for this build.';
-      Logger.e(_lastAuthError!);
-      return;
-    }
-
-    try {
-      Logger.d("Attempting login for $username ($email)...");
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      _currentUser = username;
-      _isAgentSession = false;
-      await _saveSession(username);
-      unawaited(_syncUserDoc());
-      _lastAuthError = null;
-      _offlineUnlocked = false;
-      Logger.i(
-        "Successfully logged in as $username (UID: ${_auth.currentUser?.uid})",
-      );
-      notifyListeners();
-    } on FirebaseAuthException catch (e) {
-      Logger.e('Login failed with FirebaseAuthException', error: e);
-      _lastAuthError = 'Authentication failed: ${e.message ?? e.code}';
-      Logger.e(
-        'Passcode login failed for $username — account must exist; client never auto-registers',
-        error: e,
-      );
-    } catch (e) {
-      _lastAuthError = 'Login error. Falling back to guest access.';
-      Logger.e("General auth error during passcode login", error: e);
-      await ensureAuthenticated();
-    }
-  }
-
   /// Ensures the user is authenticated with Firebase (anonymously if needed)
   Future<void> ensureAuthenticated() async {
     if (_auth.currentUser == null && !_isAgentSession) {
@@ -318,6 +266,21 @@ class AuthService extends ChangeNotifier {
 
     final db = FirebaseFirestore.instance;
     try {
+      final identity = await _auth.currentUser!.getIdTokenResult();
+      if (identity.signInProvider == 'password' && isCinemaOnlyUser) {
+        // Old web builds exposed guest passwords. Require a fresh server code.
+        _currentUser = null;
+        _user = null;
+        _hasSyncedUserDoc = false;
+        await _saveSession(null);
+        await _auth.signOut();
+        notifyListeners();
+        return;
+      }
+      if (identity.claims?['username'] != _currentUser) {
+        _hasSyncedUserDoc = false;
+        return; // An auth event can arrive before the new profile is assigned.
+      }
       await db.collection('users').doc(myUid).set({
         'username': _currentUser,
         'partnerUsername': partnerUsername,
@@ -537,8 +500,8 @@ class AuthService extends ChangeNotifier {
     return DateTime.fromMillisecondsSinceEpoch(0);
   }
 
-  /// Server-verified Khent/Clair passcode -> Firebase custom token.
-  /// Returns username (khentsgdz/clairjassen) on success, null on bad code.
+  /// Server-verified passcode for any of the four profiles -> custom token.
+  /// Returns the signed profile username on success, null on bad code.
   /// Throws [PasscodeConnectionException] when no endpoint gave a
   /// definitive answer (offline, timeout, 5xx) so the gateway can tell
   /// "wrong code" apart from "couldn't connect".
@@ -595,7 +558,7 @@ class AuthService extends ChangeNotifier {
         }
         _currentUser = username;
         _isAgentSession = false;
-        await _saveSession(username, passcode: passcode);
+        await _saveSession(username, passcode: isCoupleUser ? passcode : null);
         unawaited(_syncUserDoc());
         _lastAuthError = null;
         _offlineUnlocked = false;
@@ -688,23 +651,6 @@ class AuthService extends ChangeNotifier {
       'loginCoupleOffline refused anonymous couple session for $username — real login required',
     );
     notifyListeners();
-  }
-
-  /// Direct login for Breyan/Octagram (client-verified, non-sensitive).
-  /// Passcodes come from EnvConfig only (build-time --dart-define or .env);
-  /// no hardcoded literals so builds without config can't be bypassed.
-  Future<bool> loginCinemaWithPasscode(String passcode) async {
-    if (EnvConfig.breyanPasscode.isNotEmpty &&
-        passcode == EnvConfig.breyanPasscode) {
-      await loginWithPasscode('breyan');
-      return lastAuthError == null;
-    }
-    if (EnvConfig.octagramPasscode.isNotEmpty &&
-        passcode == EnvConfig.octagramPasscode) {
-      await loginWithPasscode('octagram');
-      return lastAuthError == null;
-    }
-    return false;
   }
 
   Future<void> logout() async {
