@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/services/open_library_service.dart';
 import '../widgets/advanced_search_sheet.dart';
 import '../widgets/book_categories.dart';
+import '../widgets/book_cover_card.dart';
 import 'book_list_screen.dart';
 import '../widgets/zlib_result_row.dart';
 import '../../../../core/services/auth_service.dart';
@@ -21,12 +22,10 @@ import '../../../../shared/widgets/shelf/filter_chip.dart';
 import '../../../../shared/widgets/shelf/scroll_edge_fade.dart';
 import '../../../../shared/widgets/shelf/shelf_icon_button.dart';
 import '../../../../shared/widgets/shelf/media_section_menu.dart';
-import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
 import '../../../../shared/widgets/shelf/shelf_section_header.dart';
 import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_pill_nav.dart';
-import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/shelf/staggered_entrance.dart';
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -125,7 +124,7 @@ class _BooksScreenState extends _BooksScreenStateBase {
             child: StaggeredEntrance(index: 1, child: _buildHomeSearch()),
           ),
           SliverToBoxAdapter(
-            child: StaggeredEntrance(index: 2, child: _buildStatsStrip()),
+            child: StaggeredEntrance(index: 2, child: _buildSpotlight()),
           ),
           if (_readHistoryList.isNotEmpty) ...[
             SliverToBoxAdapter(
@@ -150,10 +149,48 @@ class _BooksScreenState extends _BooksScreenStateBase {
     );
   }
 
+  /// Books already finished, newest first, with who read them.
   Widget _buildContinueReading() {
-    return _ContinueReadingRail(
-      items: _readHistoryList,
-      onOpen: _showBookDetails,
+    final items = _readHistoryList.take(12).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 30, 20, 14),
+          child: ShelfSectionHeader(
+            eyebrow: 'Pick one up again',
+            title: 'Read Before',
+            accent: _cRose,
+            onSeeAll: () {
+              setState(() => _librarySegment = 1);
+              _switchTab(2);
+            },
+          ),
+        ),
+        ScrollEdgeFade(
+          fadeColor: _cBlack,
+          child: SizedBox(
+            height: 246,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return BookCoverCard(
+                  width: 112,
+                  item: item,
+                  statusBadge: item.readDisplay,
+                  badgeColor: _readBadgeColor(item.status),
+                  onTap: () => _showBookDetails(item),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -164,95 +201,52 @@ class _BooksScreenState extends _BooksScreenStateBase {
     final isCinemaOnly = context.select<AuthService, bool>(
       (a) => a.isCinemaOnlyUser,
     );
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, top + 14, 20, 10),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, top + 14, 20, 0),
       child: Row(
         children: [
-          if (isCinemaOnly)
-            const MediaSectionMenu(currentRoute: '/books')
-          else if (canPop)
+          if (isCinemaOnly) ...[
+            const MediaSectionMenu(currentRoute: '/books'),
+            const SizedBox(width: 12),
+          ] else if (canPop) ...[
             ShelfIconButton(
               icon: Icons.arrow_back_ios_new_rounded,
               semanticLabel: 'Back',
               tooltip: 'Back',
               onTap: () => Navigator.pop(context),
-            )
-          else
-            const SizedBox(width: 44, height: 44),
-          const Spacer(),
-          Column(
-            children: [
-              Text(
-                'OUR BOOKS',
-                style: AppTypography.cormorantBlack.copyWith(
-                  fontSize: 20,
-                  letterSpacing: 4,
-                  color: _cWhite,
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Books',
+                  style: AppTypography.cormorantBlack.copyWith(
+                    fontSize: 32,
+                    height: 1.0,
+                    color: _cWhite,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _cDeepRose,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _cDeepRose.withValues(alpha: 0.7),
-                          blurRadius: 6,
-                        ),
-                      ],
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  'Free classics and new finds',
+                  style: AppTypography.outfitWhite.copyWith(
+                    fontSize: 12,
+                    color: _cMuted,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'BY EVERGLOW',
-                    style: AppTypography.outfitBold.copyWith(
-                      fontSize: 9,
-                      color: _cMuted,
-                      letterSpacing: 2.5,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _cDeepRose,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _cDeepRose.withValues(alpha: 0.7),
-                          blurRadius: 6,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           if (isCouple)
             ShelfIconButton(
               icon: Icons.favorite_rounded,
               semanticLabel: 'Open Our Books',
               tooltip: 'Our Books',
               onTap: () => context.push('/our-books'),
-            )
-          else
-            const SizedBox(width: 44, height: 44),
-          const SizedBox(width: 8),
-          ShelfIconButton(
-            icon: Icons.search_rounded,
-            semanticLabel: 'Search',
-            tooltip: 'Search books',
-            onTap: () => _switchTab(1),
-          ),
+            ),
         ],
       ),
     );
@@ -260,96 +254,169 @@ class _BooksScreenState extends _BooksScreenStateBase {
 
   Widget _buildHomeSearch() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-      child: GestureDetector(
-        onTap: _openFullDatabaseSearch,
-        child: Container(
-          height: 52,
-          decoration: BoxDecoration(
-            color: _cCard,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _cRose.withValues(alpha: 0.15)),
-            boxShadow: [
-              BoxShadow(
-                color: _cDeepRose.withValues(alpha: 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.travel_explore_rounded,
-                color: _cDeepRose,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Search the full database...',
-                  style: AppTypography.outfitWhite.copyWith(
-                    color: _cMuted,
-                    fontSize: 14,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      child: Semantics(
+        button: true,
+        label: 'Search books',
+        excludeSemantics: true,
+        child: GestureDetector(
+          onTap: _openFullDatabaseSearch,
+          child: Container(
+            height: 50,
+            decoration: BoxDecoration(
+              color: _cCard.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: _cRose.withValues(alpha: 0.12)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  color: _cRose.withValues(alpha: 0.8),
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Search titles, authors, subjects',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: _cMuted,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'FULL DATABASE',
-                  style: AppTypography.outfitBold.copyWith(
-                    color: _cDeepRose,
-                    fontSize: 8.5,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  // ── Z-LIB HOME SECTIONS ────────────────────────────────────────────
-
-  /// Honest counts from the feeds actually loaded — no fake totals.
-  Widget _buildStatsStrip() {
-    final popular = _popular.length;
-    final recent = _recent.length;
-    if (popular == 0 && recent == 0) return const SizedBox.shrink();
+  /// Netflix-style spotlight: the week's top book, big and calm, so the
+  /// home screen opens on one clear thing to read.
+  Widget _buildSpotlight() {
+    final pick = _popular.isNotEmpty
+        ? _popular.first
+        : (_recent.isNotEmpty ? _recent.first : null);
+    if (pick == null) return const SizedBox.shrink();
+    final blurb = pick.description.isNotEmpty
+        ? pick.description
+        : pick.subjects.take(3).join(' · ');
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: _cCard.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _cRose.withValues(alpha: 0.1)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _StatBit(value: '$popular', label: 'Popular now'),
-            Container(
-              width: 1,
-              height: 28,
-              color: _cRose.withValues(alpha: 0.12),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+      child: GestureDetector(
+        onTap: () => _showResultDetails(pick),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                _cAmber.withValues(alpha: 0.16),
+                AppColors.velvet.withValues(alpha: 0.85),
+                _cBlack.withValues(alpha: 0.9),
+              ],
             ),
-            _StatBit(value: '$recent', label: 'Fresh titles'),
-            Container(
-              width: 1,
-              height: 28,
-              color: _cRose.withValues(alpha: 0.12),
-            ),
-            _StatBit(value: '${bookCategories.length}', label: 'Shelves'),
-          ],
+            border: Border.all(color: _cAmber.withValues(alpha: 0.18)),
+          ),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 112,
+                child: BookCover(
+                  imageUrl: pick.coverUrl,
+                  title: pick.title,
+                  author: pick.author,
+                  cacheWidth: 400,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'TOP PICK THIS WEEK',
+                      style: AppTypography.outfitBold.copyWith(
+                        color: _cAmber,
+                        fontSize: 10,
+                        letterSpacing: 1.6,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      pick.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.cormorantBlack.copyWith(
+                        fontSize: 22,
+                        height: 1.1,
+                        color: _cWhite,
+                      ),
+                    ),
+                    if (pick.author.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        pick.author,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cRose.withValues(alpha: 0.85),
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                    if (blurb.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        blurb,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: _cMuted,
+                          fontSize: 11.5,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _cWhite,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_stories_rounded,
+                            color: _cBlack,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Open book',
+                            style: AppTypography.outfitBold.copyWith(
+                              color: _cBlack,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -360,63 +427,53 @@ class _BooksScreenState extends _BooksScreenStateBase {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
+          padding: const EdgeInsets.fromLTRB(20, 30, 20, 14),
           child: ShelfSectionHeader(
             eyebrow: 'Browse',
-            title: 'Categories',
-            icon: Icons.grid_view_rounded,
+            title: 'Shelves',
             accent: _cAmber,
-            count: bookCategories.length,
-            countLabel: 'shelves',
             onSeeAll: () => context.push('/books/categories'),
           ),
         ),
         ScrollEdgeFade(
           fadeColor: _cBlack,
           child: SizedBox(
-            height: 96,
-            child: ListView.builder(
+            height: 44,
+            child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: bookCategories.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final category = bookCategories[index];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: GestureDetector(
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      context.push('/books/category', extra: category);
-                    },
-                    child: Container(
-                      width: 92,
-                      decoration: BoxDecoration(
-                        color: _cCard.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: category.color.withValues(alpha: 0.25),
-                        ),
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    context.push('/books/category', extra: category);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: category.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: category.color.withValues(alpha: 0.3),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(category.icon, color: category.color, size: 24),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            child: Text(
-                              category.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.outfitBold.copyWith(
-                                color: _cWhite,
-                                fontSize: 11,
-                              ),
-                            ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(category.icon, color: category.color, size: 17),
+                        const SizedBox(width: 8),
+                        Text(
+                          category.name,
+                          style: AppTypography.outfitBold.copyWith(
+                            color: _cWhite,
+                            fontSize: 12.5,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -432,7 +489,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     return _buildFeedRail(
       eyebrow: 'Trending this week',
       title: 'Most Popular',
-      icon: Icons.local_fire_department_rounded,
       accent: _cAmber,
       results: _popular,
       onSeeAll: () =>
@@ -444,7 +500,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
     return _buildFeedRail(
       eyebrow: 'Fresh in the catalog',
       title: 'Recently Added',
-      icon: Icons.fiber_new_rounded,
       accent: _cDeepRose,
       results: _recent,
       onSeeAll: () =>
@@ -455,7 +510,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
   Widget _buildFeedRail({
     required String eyebrow,
     required String title,
-    required IconData icon,
     required Color accent,
     required List<BookSearchResult> results,
     required VoidCallback onSeeAll,
@@ -465,44 +519,30 @@ class _BooksScreenState extends _BooksScreenStateBase {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 14),
+          padding: const EdgeInsets.fromLTRB(20, 30, 20, 14),
           child: ShelfSectionHeader(
             eyebrow: eyebrow,
             title: title,
-            icon: icon,
             accent: accent,
-            count: results.length,
-            countLabel: results.length == 1 ? 'title' : 'titles',
             onSeeAll: onSeeAll,
           ),
         ),
         ScrollEdgeFade(
           fadeColor: _cBlack,
           child: SizedBox(
-            height: 250,
-            child: ListView.builder(
+            height: 262,
+            child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
               itemCount: results.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 14),
               itemBuilder: (context, index) {
                 final result = results[index];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: SizedBox(
-                    width: 150,
-                    child: ShelfPosterCard(
-                      imageUrl: result.coverUrl,
-                      title: result.title,
-                      subtitle: result.author.isNotEmpty
-                          ? 'by ${result.author}'
-                          : (result.year.isNotEmpty ? result.year : null),
-                      badge: 'BOOK',
-                      badgeIcon: Icons.menu_book_rounded,
-                      badgeColor: accent,
-                      onTap: () => _showResultDetails(result),
-                    ),
-                  ),
+                return BookCoverCard(
+                  width: 124,
+                  item: result.toBookItem(),
+                  onTap: () => _showResultDetails(result),
                 );
               },
             ),
@@ -842,24 +882,21 @@ class _BooksScreenState extends _BooksScreenStateBase {
                   physics: const BouncingScrollPhysics(),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: AppBreakpoint.isDesktop(context)
-                        ? 6
-                        : (AppBreakpoint.isTablet(context) ? 5 : 2),
-                    childAspectRatio: 0.62,
+                        ? 7
+                        : (AppBreakpoint.isTablet(context) ? 5 : 3),
+                    childAspectRatio: 0.46,
                     crossAxisSpacing: 14,
-                    mainAxisSpacing: 14,
+                    mainAxisSpacing: 18,
                   ),
                   itemCount: list.length,
                   itemBuilder: (context, index) {
                     final item = list[index];
-                    return ShelfPosterCard(
-                      imageUrl: item.coverUrl,
-                      title: item.title,
-                      subtitle: item.author.isNotEmpty
-                          ? 'by ${item.author}'
-                          : (item.year.isNotEmpty ? item.year : null),
-                      badge: _libraryBadge(item),
-                      badgeColor: _libraryBadgeColor(item),
-                      badgeIcon: _libraryBadgeIcon(),
+                    return BookCoverCard(
+                      item: item,
+                      statusBadge: _librarySegment == 1
+                          ? item.readDisplay
+                          : null,
+                      badgeColor: _readBadgeColor(item.status),
                       onTap: () => _showBookDetails(item),
                     );
                   },
@@ -937,48 +974,6 @@ class _BooksScreenState extends _BooksScreenStateBase {
         },
       ),
     );
-  }
-
-  String _libraryBadge(BookItem item) {
-    switch (_librarySegment) {
-      case 1:
-        return item.readDisplay.toUpperCase();
-      case 2:
-        return 'LOVED';
-      case 3:
-        return 'SAVED FILE';
-      case 0:
-      default:
-        return 'TO READ';
-    }
-  }
-
-  Color _libraryBadgeColor(BookItem item) {
-    switch (_librarySegment) {
-      case 1:
-        return _readBadgeColor(item.status);
-      case 2:
-        return AppColors.cinemaPink;
-      case 3:
-        return AppColors.cinemaBlue;
-      case 0:
-      default:
-        return _cAmber;
-    }
-  }
-
-  IconData _libraryBadgeIcon() {
-    switch (_librarySegment) {
-      case 1:
-        return Icons.check_rounded;
-      case 2:
-        return Icons.favorite_rounded;
-      case 3:
-        return Icons.download_rounded;
-      case 0:
-      default:
-        return Icons.bookmark_rounded;
-    }
   }
 
   IconData _libraryEmptyIcon() {

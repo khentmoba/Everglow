@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../shared/widgets/app_network_image.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -14,8 +13,7 @@ import '../../data/services/book_library_service.dart';
 import '../../data/services/open_library_service.dart';
 import '../../data/services/our_books_service.dart';
 import '../../../../core/services/auth_service.dart';
-import '../../../../shared/widgets/everglow/everglow_empty_state.dart';
-import '../../../../shared/widgets/shelf/shelf_poster_card.dart';
+import '../widgets/book_cover_card.dart';
 import '../../../../core/theme/app_colors.dart';
 part 'book_detail_widgets.dart';
 
@@ -40,13 +38,11 @@ class BookDetailScreen extends StatefulWidget {
   State<BookDetailScreen> createState() => _BookDetailScreenState();
 }
 
-class _BookDetailScreenState extends State<BookDetailScreen>
-    with SingleTickerProviderStateMixin {
+class _BookDetailScreenState extends State<BookDetailScreen> {
   final BookCatalogService _catalog = BookCatalogService();
   final OpenLibraryService _service = OpenLibraryService();
   final BookLibraryService _library = BookLibraryService();
   final OurBooksService _ours = OurBooksService();
-  late final TabController _tabController;
 
   BookSearchResult? _result;
   bool _loadingDetails = true;
@@ -61,17 +57,10 @@ class _BookDetailScreenState extends State<BookDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _saved = _item.isToRead || _item.isRead;
     _result = widget.args.result;
     _loadDetails();
     _loadSimilar();
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadDetails() async {
@@ -203,9 +192,9 @@ class _BookDetailScreenState extends State<BookDetailScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _DownloadSheet(
-        result: _result,
-        item: _item,
-        onDownloaded: _logDownload,
+        entries: _downloads,
+        sourceLabel: _result?.sourceLabel ?? _item.readSourceLabel,
+        onDownload: _downloadFile,
       ),
     );
   }
@@ -262,22 +251,6 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     );
   }
 
-  /// Best download format first (EPUB > PDF > TXT ...) so the big
-  /// button always offers the nicest file.
-  MapEntry<String, String>? get _bestDownload {
-    final downloads = <String, String>{...?(_result?.downloadUrls)};
-    if (downloads.isEmpty && _item.iaId.isNotEmpty) {
-      downloads['epub'] =
-          'https://archive.org/download/${_item.iaId}/${_item.iaId}.epub';
-      downloads['pdf'] =
-          'https://archive.org/download/${_item.iaId}/${_item.iaId}.pdf';
-    }
-    if (downloads.isEmpty) return null;
-    final entries = downloads.entries.toList()
-      ..sort((a, b) => _formatRank(a.key).compareTo(_formatRank(b.key)));
-    return entries.first;
-  }
-
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -299,99 +272,59 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: _cBlack,
-      body: SafeArea(
-        top: false,
-        child: DefaultTabController(
-          length: 2,
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              SliverToBoxAdapter(
-                child: Container(
-                  padding: EdgeInsets.fromLTRB(12, top + 8, 12, 0),
-                  child: Row(
-                    children: [
-                      _TopIconButton(
-                        icon: Icons.arrow_back_ios_new_rounded,
-                        label: 'Back',
-                        onTap: () => Navigator.pop(context),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'BOOK DETAILS',
-                              style: AppTypography.outfitHeading.copyWith(
-                                fontSize: 10,
-                                color: _cMuted,
-                              ),
-                            ),
-                            Text(
-                              _item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.outfitBold.copyWith(
-                                fontSize: 14,
-                                color: _cWhite,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _TopIconButton(
-                        icon: Icons.share_rounded,
-                        label: 'Share',
-                        onTap: _share,
-                      ),
-                      const SizedBox(width: 8),
-                      _TopIconButton(
-                        icon: _favorited
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        label: _favorited ? 'Favorited' : 'Favorite',
-                        active: _favorited,
-                        onTap: _toggleFavorite,
-                      ),
-                      const SizedBox(width: 8),
-                      _TopIconButton(
-                        icon: _saved
-                            ? Icons.bookmark_rounded
-                            : Icons.bookmark_border_rounded,
-                        label: _saved ? 'Saved' : 'Save',
-                        active: _saved,
-                        onTap: _toggleSave,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SliverToBoxAdapter(child: _buildHero()),
-              SliverToBoxAdapter(child: _buildDownloadHero()),
-              SliverToBoxAdapter(child: _buildDescription()),
-              SliverToBoxAdapter(child: _buildDetailsCard()),
-              SliverToBoxAdapter(child: _buildActionBar()),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _TabHeaderDelegate(
-                  controller: _tabController,
-                  count: 2,
-                ),
-              ),
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildDownloadsTab(),
-                    _buildSimilarTab(),
+      body: Stack(
+        children: [
+          // Warm glow behind the cover; gradients only, no blur, so the
+          // page stays light on phones.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 420 + top,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.3),
+                  radius: 0.9,
+                  colors: [
+                    _cAmber.withValues(alpha: 0.16),
+                    _cDeepRose.withValues(alpha: 0.06),
+                    _cBlack.withValues(alpha: 0),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+          SafeArea(
+            top: false,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(12, top + 8, 12, 0),
+                    child: Row(
+                      children: [
+                        _TopIconButton(
+                          icon: Icons.arrow_back_ios_new_rounded,
+                          label: 'Back',
+                          onTap: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(child: _buildHero()),
+                SliverToBoxAdapter(child: _buildDownloadHero()),
+                SliverToBoxAdapter(child: _buildActionBar()),
+                SliverToBoxAdapter(child: _buildDescription()),
+                SliverToBoxAdapter(child: _buildDetailsCard()),
+                SliverToBoxAdapter(child: _buildSimilarRail()),
+                const SliverPadding(padding: EdgeInsets.only(bottom: 40)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -408,86 +341,78 @@ class _BookDetailScreenState extends State<BookDetailScreen>
             _item.readSourceLabel,
           ].where((e) => e.isNotEmpty).join(' · ');
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+      child: Column(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 132,
-              height: 196,
-              child: cover.isNotEmpty
-                  ? AppNetworkImage(
-                      imageUrl: cover,
-                      fit: BoxFit.cover,
-                      cacheWidth: 600,
-                      errorWidget: Container(color: _cCard),
-                    )
-                  : Container(
-                      color: _cCard,
-                      child: const Icon(
-                        Icons.menu_book_rounded,
-                        color: _cMuted,
-                        size: 40,
-                      ),
-                    ),
+          SizedBox(
+            width: 168,
+            child: BookCover(
+              imageUrl: cover,
+              title: title,
+              author: author,
+              radius: 10,
+              cacheWidth: 600,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.cormorantBlack.copyWith(
-                    fontSize: 24,
-                    height: 1.12,
-                    color: _cWhite,
-                  ),
-                ),
-                if (author.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      context.push('/books', extra: author);
-                    },
-                    child: Text(
-                      author,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: _cRose.withValues(alpha: 0.85),
-                        fontSize: 12.5,
-                        fontStyle: FontStyle.italic,
-                        decoration: TextDecoration.underline,
-                        decorationColor: _cRose.withValues(alpha: 0.4),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 10),
-                Text(
-                  meta,
+          const SizedBox(height: 22),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: AppTypography.cormorantBlack.copyWith(
+              fontSize: 28,
+              height: 1.1,
+              color: _cWhite,
+            ),
+          ),
+          if (author.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Semantics(
+              button: true,
+              label: 'More by $author',
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  context.push('/books', extra: author);
+                },
+                child: Text(
+                  author,
+                  textAlign: TextAlign.center,
                   style: AppTypography.outfitWhite.copyWith(
-                    color: _cMuted,
-                    fontSize: 11.5,
+                    color: _cRose.withValues(alpha: 0.9),
+                    fontSize: 14,
+                    decoration: TextDecoration.underline,
+                    decorationColor: _cRose.withValues(alpha: 0.35),
                   ),
                 ),
-                const SizedBox(height: 8),
-                _buildRating(result),
-                if (_loadingDetails)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: LinearProgressIndicator(
-                      color: _cDeepRose,
-                      backgroundColor: _cCard,
-                      minHeight: 2,
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
+          ],
+          if (meta.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              meta,
+              textAlign: TextAlign.center,
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cMuted,
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          _buildRating(result),
+          if (_loadingDetails)
+            const Padding(
+              padding: EdgeInsets.only(top: 14),
+              child: SizedBox(
+                width: 80,
+                child: LinearProgressIndicator(
+                  color: _cAmber,
+                  backgroundColor: _cCard,
+                  minHeight: 2,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -497,13 +422,14 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     if (result == null || !result.hasRating) {
       if (result?.ratingCount != null) {
         return Text(
-          '${result!.ratingCount} downloads',
-          style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 11),
+          '${_compact(result!.ratingCount!)} downloads',
+          style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 11.5),
         );
       }
       return const SizedBox.shrink();
     }
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         for (var i = 1; i <= 5; i++)
           Icon(
@@ -511,14 +437,14 @@ class _BookDetailScreenState extends State<BookDetailScreen>
                 ? Icons.star_rounded
                 : Icons.star_border_rounded,
             color: _cGold,
-            size: 15,
+            size: 16,
           ),
         const SizedBox(width: 6),
         Text(
           '${result.rating!.toStringAsFixed(1)} (${_compact(result.ratingCount ?? 0)})',
           style: AppTypography.outfitWhite.copyWith(
             color: _cMuted,
-            fontSize: 11,
+            fontSize: 11.5,
           ),
         ),
       ],
@@ -569,80 +495,108 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     );
   }
 
-  /// Z-Lib style primary download block: one big button offering
-  /// the best format, with Read / Listen as quiet secondaries.
+  /// Main actions. Reading comes first (like Play on Netflix); download
+  /// takes the lead only when the book can't be read in the app.
   Widget _buildDownloadHero() {
     final best = _bestDownload;
     final canRead =
         _result?.readCandidates.isNotEmpty == true ||
-        _item.readSourceUrl.isNotEmpty;
+        _item.readSourceUrl.isNotEmpty ||
+        (_result?.gutenbergId ?? 0) > 0;
+    final size = _result?.sizeMb;
+    final downloadLabel = best == null
+        ? ''
+        : 'Download ${best.key.toUpperCase()}'
+              '${size != null && size > 0 ? ' · ${size.toStringAsFixed(1)} MB' : ''}';
+    void download() {
+      if (_downloads.length > 1) {
+        _showDownloadSheet();
+      } else {
+        _downloadFile(best!.key, best.value);
+      }
+    }
+
+    final roundShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+    );
+    final outlined = OutlinedButton.styleFrom(
+      foregroundColor: _cWhite,
+      side: BorderSide(color: _cRose.withValues(alpha: 0.25)),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      shape: roundShape,
+      textStyle: AppTypography.outfitBold.copyWith(fontSize: 14),
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (best != null)
-            ElevatedButton.icon(
-              onPressed: () {
-                final count = (_result?.downloadUrls.length ?? 0);
-                if (count > 1) {
-                  _showDownloadSheet();
-                } else {
-                  _downloadFile(best.key, best.value);
-                }
-              },
-              icon: const Icon(Icons.download_rounded, size: 20),
-              label: Text(
-                'Download ${best.key.toUpperCase()}${_result?.sizeMb != null && _result!.sizeMb! > 0 ? ' · ${_result!.sizeMb!.toStringAsFixed(1)} MB' : ''}',
-                style: AppTypography.outfitBold.copyWith(fontSize: 15),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _cDeepRose,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          if (canRead)
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _openReader(),
+                    icon: const Icon(Icons.auto_stories_rounded, size: 20),
+                    label: const Text('Read'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _cWhite,
+                      foregroundColor: _cBlack,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: roundShape,
+                      elevation: 0,
+                      textStyle: AppTypography.outfitBold.copyWith(
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
                 ),
-                elevation: 6,
-                shadowColor: _cDeepRose.withValues(alpha: 0.5),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openReader(listen: true),
+                    icon: const Icon(Icons.headphones_rounded, size: 18),
+                    label: const Text('Listen'),
+                    style: outlined,
+                  ),
+                ),
+              ],
+            ),
+          if (best != null) ...[
+            if (canRead) const SizedBox(height: 10),
+            if (canRead)
+              OutlinedButton.icon(
+                onPressed: download,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: Text(downloadLabel),
+                style: outlined,
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: download,
+                icon: const Icon(Icons.download_rounded, size: 20),
+                label: Text(downloadLabel),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _cDeepRose,
+                  foregroundColor: _cWhite,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: roundShape,
+                  elevation: 0,
+                  textStyle: AppTypography.outfitBold.copyWith(fontSize: 15),
+                ),
+              ),
+          ],
+          if (!canRead && best == null)
+            Text(
+              'This one has no free file to read or download yet.',
+              textAlign: TextAlign.center,
+              style: AppTypography.outfitWhite.copyWith(
+                color: _cMuted,
+                fontSize: 12.5,
               ),
             ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: canRead ? () => _openReader() : null,
-                  icon: const Icon(Icons.auto_stories_rounded, size: 18),
-                  label: const Text('Read Online'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _cWhite,
-                    side: BorderSide(color: _cRose.withValues(alpha: 0.25)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: canRead ? () => _openReader(listen: true) : null,
-                  icon: const Icon(Icons.headphones_rounded, size: 18),
-                  label: const Text('Listen'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _cWhite,
-                    side: BorderSide(color: _cRose.withValues(alpha: 0.25)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -779,158 +733,60 @@ class _BookDetailScreenState extends State<BookDetailScreen>
   }
 
   Widget _buildActionBar() {
+    final isCouple = context.select<AuthService, bool>((a) => a.isCoupleUser);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+      padding: const EdgeInsets.fromLTRB(28, 22, 28, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _ActionChip(
-            icon: Icons.favorite_rounded,
-            label: 'Ours',
-            color: _cDeepRose,
-            enabled: true,
-            onTap: _sendToOurs,
-          ),
-          _ActionChip(
-            icon: Icons.share_rounded,
-            label: 'Share',
-            color: AppColors.cinemaBlue,
-            enabled: true,
-            onTap: _share,
-          ),
           _ActionChip(
             icon: _saved
                 ? Icons.bookmark_rounded
                 : Icons.bookmark_border_rounded,
             label: _saved ? 'Saved' : 'Save',
-            color: const Color(0xFF7B1FA2),
-            enabled: true,
+            active: _saved,
             onTap: _toggleSave,
           ),
           _ActionChip(
             icon: _favorited
-                ? Icons.star_rounded
-                : Icons.star_border_rounded,
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
             label: _favorited ? 'Loved' : 'Love',
-            color: _cAmber,
-            enabled: true,
+            active: _favorited,
             onTap: _toggleFavorite,
+          ),
+          if (isCouple)
+            _ActionChip(
+              icon: Icons.volunteer_activism_rounded,
+              label: 'Our Books',
+              onTap: _sendToOurs,
+            ),
+          _ActionChip(
+            icon: Icons.ios_share_rounded,
+            label: 'Share',
+            onTap: _share,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDownloadsTab() {
-    final result = _result;
-    final downloads = <String, String>{...?(result?.downloadUrls)};
+  /// Every file we can offer, nicest format first (EPUB > TXT > PDF ...).
+  List<MapEntry<String, String>> get _downloads {
+    final downloads = <String, String>{...?(_result?.downloadUrls)};
     if (downloads.isEmpty && _item.iaId.isNotEmpty) {
       downloads['epub'] =
           'https://archive.org/download/${_item.iaId}/${_item.iaId}.epub';
       downloads['pdf'] =
           'https://archive.org/download/${_item.iaId}/${_item.iaId}.pdf';
     }
-    if (downloads.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(28),
-          child: Text(
-            'No downloadable file available for this title in our legal catalogs.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: _cMuted, fontSize: 13, height: 1.5),
-          ),
-        ),
-      );
-    }
-    final entries = downloads.entries.toList()
+    return downloads.entries.toList()
       ..sort((a, b) => _formatRank(a.key).compareTo(_formatRank(b.key)));
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-      itemCount: entries.length + 1,
-      itemBuilder: (context, index) {
-        if (index == entries.length) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: Text(
-              'Public-domain files only. Free to read, download, and share.',
-              textAlign: TextAlign.center,
-              style: AppTypography.outfitWhite.copyWith(
-                color: _cMuted,
-                fontSize: 10.5,
-              ),
-            ),
-          );
-        }
-        final entry = entries[index];
-        final ext = entry.key.toUpperCase();
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: _cCard.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _cRose.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _cDeepRose.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  ext,
-                  style: AppTypography.outfitBold.copyWith(
-                    color: _cDeepRose,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '$ext file',
-                      style: AppTypography.outfitBold.copyWith(
-                        color: _cWhite,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      result?.sourceLabel ?? _item.readSourceLabel,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: _cMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              TextButton(
-                onPressed: () => _downloadFile(entry.key, entry.value),
-                style: TextButton.styleFrom(
-                  backgroundColor: _cDeepRose,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Download', style: TextStyle(fontSize: 11.5)),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  }
+
+  MapEntry<String, String>? get _bestDownload {
+    final all = _downloads;
+    return all.isEmpty ? null : all.first;
   }
 
   int _formatRank(String ext) {
@@ -958,56 +814,53 @@ class _BookDetailScreenState extends State<BookDetailScreen>
     return cleaned.isEmpty ? 'book' : cleaned;
   }
 
-  Widget _buildSimilarTab() {
-    if (_loadingSimilar) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(
-          child: CircularProgressIndicator(color: _cDeepRose, strokeWidth: 2.5),
-        ),
-      );
-    }
-    if (_similar.isEmpty) {
-      return const EverglowEmptyState(
-        icon: Icons.local_library_rounded,
-        title: 'No similar titles found',
-        subtitle: 'Try exploring the search tab for more books.',
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-      scrollDirection: Axis.horizontal,
-      itemCount: _similar.length,
-      itemBuilder: (context, index) {
-        final book = _similar[index];
-        return Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: SizedBox(
-            width: 130,
-            child: ShelfPosterCard(
-              imageUrl: book.coverUrl,
-              title: book.title,
-              subtitle: book.author.isNotEmpty ? book.author : null,
-              badge: 'BOOK',
-              badgeIcon: Icons.menu_book_rounded,
-              badgeColor: _cDeepRose,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => BookDetailScreen(
-                      args: BookDetailArgs(
-                        item: book.toBookItem(),
-                        result: book,
-                      ),
-                    ),
-                  ),
-                );
-              },
+  Widget _buildSimilarRail() {
+    if (!_loadingSimilar && _similar.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 30, 20, 14),
+          child: Text(
+            'More like this',
+            style: AppTypography.cormorantBlack.copyWith(
+              fontSize: 22,
+              color: _cWhite,
             ),
           ),
-        );
-      },
+        ),
+        SizedBox(
+          height: 246,
+          child: _loadingSimilar
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: _cAmber,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _similar.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 14),
+                  itemBuilder: (context, index) {
+                    final book = _similar[index];
+                    return BookCoverCard(
+                      width: 112,
+                      item: book.toBookItem(),
+                      onTap: () => context.push(
+                        '/books/detail',
+                        extra: BookDetailArgs(
+                          item: book.toBookItem(),
+                          result: book,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
