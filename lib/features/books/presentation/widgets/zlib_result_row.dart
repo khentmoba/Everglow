@@ -3,14 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../shared/widgets/app_network_image.dart';
 import '../../data/models/book_search_result.dart';
+import 'book_cover_card.dart';
 
-const _cBlack = AppColors.animeBackground;
 const _cCard = AppColors.shimmerBase;
 const _cRose = AppColors.roseQuartz;
-const _cDeepRose = AppColors.deepRose;
-const _cGold = AppColors.animeGold;
 const _cWhite = AppColors.petalWhite;
 const _cMuted = AppColors.mutedPurple;
 
@@ -43,35 +40,23 @@ class ZlibResultRow extends StatelessWidget {
           onOpen();
         },
         child: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
           decoration: BoxDecoration(
-            color: _cCard.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(14),
+            color: _cCard.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: _cRose.withValues(alpha: 0.08)),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 44,
-                  height: 64,
-                  child: result.coverUrl.isNotEmpty
-                      ? AppNetworkImage(
-                          imageUrl: result.coverUrl,
-                          fit: BoxFit.cover,
-                          cacheWidth: 120,
-                          errorWidget: Container(color: _cBlack),
-                        )
-                      : Container(
-                          color: _cBlack,
-                          child: const Icon(
-                            Icons.menu_book_rounded,
-                            color: _cMuted,
-                            size: 18,
-                          ),
-                        ),
+              SizedBox(
+                width: 52,
+                child: BookCover(
+                  imageUrl: result.coverUrl,
+                  title: result.title,
+                  author: result.author,
+                  radius: 5,
+                  cacheWidth: 140,
                 ),
               ),
               const SizedBox(width: 12),
@@ -85,8 +70,8 @@ class ZlibResultRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.outfitBold.copyWith(
                         color: _cWhite,
-                        fontSize: 13,
-                        height: 1.2,
+                        fontSize: 14,
+                        height: 1.25,
                       ),
                     ),
                     if (result.author.isNotEmpty) ...[
@@ -96,13 +81,12 @@ class ZlibResultRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.outfitWhite.copyWith(
-                          color: _cDeepRose,
-                          fontSize: 11,
-                          fontStyle: FontStyle.italic,
+                          color: _cRose.withValues(alpha: 0.85),
+                          fontSize: 12,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 6),
                     _MetaLine(result: result),
                   ],
                 ),
@@ -113,14 +97,12 @@ class ZlibResultRow extends StatelessWidget {
                   _MiniAction(
                     icon: Icons.download_rounded,
                     tooltip: 'Download',
-                    color: AppColors.cinemaGreen,
                     onTap: onDownload,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   _MiniAction(
                     icon: Icons.bookmark_border_rounded,
                     tooltip: 'Save',
-                    color: const Color(0xFF7B1FA2),
                     onTap: onSave,
                   ),
                 ],
@@ -155,8 +137,8 @@ class _MetaLine extends StatelessWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: AppTypography.outfitWhite.copyWith(
-        color: _cGold.withValues(alpha: 0.8),
-        fontSize: 10.5,
+        color: _cMuted,
+        fontSize: 11,
       ),
     );
   }
@@ -165,39 +147,39 @@ class _MetaLine extends StatelessWidget {
 class _MiniAction extends StatelessWidget {
   final IconData icon;
   final String tooltip;
-  final Color color;
   final VoidCallback? onTap;
   const _MiniAction({
     required this.icon,
     required this.tooltip,
-    required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    return GestureDetector(
-      onTap: onTap == null
-          ? null
-          : () {
-              HapticFeedback.selectionClick();
-              onTap!();
-            },
-      child: Tooltip(
-        message: tooltip,
-        child: Opacity(
-          opacity: enabled ? 1.0 : 0.3,
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(9),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: tooltip,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap == null
+              ? null
+              : () {
+                  HapticFeedback.selectionClick();
+                  onTap!();
+                },
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(
+              icon,
+              color: _cRose.withValues(alpha: enabled ? 0.85 : 0.2),
+              size: 20,
             ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: color, size: 15),
           ),
         ),
       ),
