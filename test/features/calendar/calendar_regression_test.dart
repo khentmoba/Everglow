@@ -1,3 +1,7 @@
+// SDK sealed types are implemented only as network-free test doubles.
+// ignore_for_file: subtype_of_sealed_class
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/features/calendar/data/services/calendar_service.dart';
 import 'package:everglow/features/calendar/data/services/calendar_poll_service.dart';
 import 'package:everglow/features/calendar/domain/models/calendar_event.dart';
@@ -17,7 +21,55 @@ CalendarEvent event(
   recurring: recurring,
   isAllDay: allDay,
 );
+
+class _LiveCollection extends TestCollection {
+  _LiveCollection(List<Map<String, dynamic>> entries) : super(entries: entries);
+  @override
+  Stream<QuerySnapshot<Map<String, dynamic>>> snapshots({
+    bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
+  }) {
+    late StreamController<QuerySnapshot<Map<String, dynamic>>> controller;
+    controller = StreamController(
+      onListen: () => controller.add(TestSnapshot(entries)),
+    );
+    controller.onCancel = () {
+      unawaited(controller.close());
+    };
+    return controller.stream;
+  }
+}
+
 void main() {
+  test(
+    'late upcoming listeners receive dates while the dashboard stays subscribed',
+    () async {
+      final now = DateTime.now();
+      final service = CalendarService(
+        db: TestFirestore(
+          _LiveCollection([
+            event(now.add(const Duration(days: 1))).toFirestore(),
+          ]),
+        ),
+      );
+      final ready = Completer<void>();
+      final dashboard = service.getUpcomingEvents(days: 60).listen((_) {
+        if (!ready.isCompleted) ready.complete();
+      });
+      await ready.future;
+      final calendar = await service
+          .getUpcomingEvents(days: 60)
+          .first
+          .timeout(const Duration(seconds: 2));
+      expect(calendar, hasLength(1));
+      final reopened = await service
+          .getUpcomingEvents(days: 60)
+          .first
+          .timeout(const Duration(seconds: 2));
+      expect(reopened, hasLength(1));
+      await dashboard.cancel();
+    },
+  );
   test(
     'monthly/yearly recurrences expand, clamp month ends, and keep their anchor',
     () {

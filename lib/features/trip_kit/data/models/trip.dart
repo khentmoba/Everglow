@@ -51,10 +51,7 @@ class Trip {
     DateTime? asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
     double asMoney(dynamic v) =>
         v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
-    List<T> asList<T>(
-      dynamic v,
-      T Function(Map<String, dynamic>) parse,
-    ) {
+    List<T> asList<T>(dynamic v, T Function(Map<String, dynamic>) parse) {
       if (v is! List) return <T>[];
       final out = <T>[];
       for (final e in v) {
@@ -78,12 +75,15 @@ class Trip {
     return Trip(
       id: id,
       title: data['title'] is String ? data['title'] as String : '',
-      destination:
-          data['destination'] is String ? data['destination'] as String : '',
+      destination: data['destination'] is String
+          ? data['destination'] as String
+          : '',
       startDate: asDate(data['startDate']),
       endDate: asDate(data['endDate']),
-      notes: data['notes'] is String ? data['notes'] as String : '',
-      budgetTotal: asMoney(data['budgetTotal']),
+      notes: (data['notes'] ?? data['description']) is String
+          ? (data['notes'] ?? data['description']) as String
+          : '',
+      budgetTotal: asMoney(data['budgetTotal'] ?? data['budgetEstimate']),
       packing: asList(data['packing'], TripPackItem.fromMap),
       expenses: asList(data['expenses'], TripExpense.fromMap),
       places: asList(data['places'], TripPlace.fromMap),
@@ -238,12 +238,18 @@ class TripPlace {
   final String name;
   final String note;
   final bool done;
+  final double? lat;
+  final double? lng;
+  final String? category;
 
   const TripPlace({
     required this.id,
     required this.name,
     this.note = '',
     this.done = false,
+    this.lat,
+    this.lng,
+    this.category,
   });
 
   factory TripPlace.fromMap(Map<String, dynamic> data) {
@@ -252,11 +258,22 @@ class TripPlace {
       name: data['name'] is String ? data['name'] as String : '',
       note: data['note'] is String ? data['note'] as String : '',
       done: data['done'] is bool ? data['done'] as bool : false,
+      lat: data['lat'] is num ? (data['lat'] as num).toDouble() : null,
+      lng: data['lng'] is num ? (data['lng'] as num).toDouble() : null,
+      category: data['category'] is String ? data['category'] as String : null,
     );
   }
 
   Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'note': note, 'done': done};
+    return {
+      'id': id,
+      'name': name,
+      'note': note,
+      'done': done,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+      if (category != null) 'category': category,
+    };
   }
 
   TripPlace copyWith({String? name, String? note, bool? done}) {
@@ -265,6 +282,9 @@ class TripPlace {
       name: name ?? this.name,
       note: note ?? this.note,
       done: done ?? this.done,
+      lat: lat,
+      lng: lng,
+      category: category,
     );
   }
 }

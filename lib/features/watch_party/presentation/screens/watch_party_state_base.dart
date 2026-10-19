@@ -877,7 +877,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   /// iframe would use for the current provider — if every embed has
   /// failed, this gives the user a manual escape hatch.
   String _externalOpenUrl() {
-    if (_isHlsServer) return _hlsStreamUrl;
+    if (_isHlsServer) {
+      return _hlsController.playbackUrl ?? _room.streamUrl ?? '';
+    }
     if (_isEmbedServer) return _room.streamUrl ?? '';
     return _buildPlayerUrl(_selectedProvider, startSeconds: _localStartHint());
   }

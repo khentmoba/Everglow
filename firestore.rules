@@ -484,6 +484,7 @@ service cloud.firestore {
     }
 
     // Server-only collections
+    match /watch_stream_keys/{uid} { allow read, write: if false; }
     match /auth_attempts/{attemptId} { allow read, write: if false; }
     match /api_usage/{uid} { allow read, write: if false; }
     match /api_usage/{uid}/days/{dayId} { allow read, write: if false; }

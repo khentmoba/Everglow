@@ -927,52 +927,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   Stream<List<MediaItem>> getCoupleAnimeStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
-  }) {
-    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
-    final controller = StreamController<List<MediaItem>>.broadcast();
-    List<MediaItem> itemsA = const [];
-    List<MediaItem> itemsB = const [];
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
-
-    void emit() {
-      final merged = _mergeCoupleItems(itemsA, itemsB);
-      controller.add(merged.where((i) => i.isAnime).toList());
-    }
-
-    controller.onListen = () {
-      subA = firestore
-          .collection('watch_list')
-          .where('userName', isEqualTo: userA)
-          .limit(streamLimit)
-          .snapshots()
-          .listen((snapshot) {
-            itemsA = snapshot.docs
-                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-                .toList();
-            emit();
-          });
-      subB = firestore
-          .collection('watch_list')
-          .where('userName', isEqualTo: userB)
-          .limit(streamLimit)
-          .snapshots()
-          .listen((snapshot) {
-            itemsB = snapshot.docs
-                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-                .toList();
-            emit();
-          });
-    };
-
-    controller.onCancel = () async {
-      await subA?.cancel();
-      await subB?.cancel();
-      await controller.close();
-    };
-
-    return controller.stream;
-  }
+  }) => getCoupleWatchListStream(
+    userA: userA,
+    userB: userB,
+  ).map((items) => items.where((i) => i.isAnime).toList());
 
   /// Stream of currently watching items for a single user.
   Stream<List<MediaItem>> getCurrentlyWatchingStream(
@@ -1005,52 +963,10 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
   Stream<List<MediaItem>> getCoupleCurrentlyWatchingStream({
     String userA = 'khentsgdz',
     String userB = 'clairjassen',
-  }) {
-    if (AgentMode.isActive.value) return Stream.value(const <MediaItem>[]);
-    final controller = StreamController<List<MediaItem>>.broadcast();
-    List<MediaItem> itemsA = const [];
-    List<MediaItem> itemsB = const [];
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subA;
-    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? subB;
-
-    void emit() {
-      final merged = _mergeCoupleItems(itemsA, itemsB);
-      controller.add(merged.where((i) => i.isCurrentlyWatching).toList());
-    }
-
-    controller.onListen = () {
-      subA = firestore
-          .collection('watch_list')
-          .where('userName', isEqualTo: userA)
-          .limit(streamLimit)
-          .snapshots()
-          .listen((snapshot) {
-            itemsA = snapshot.docs
-                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-                .toList();
-            emit();
-          });
-      subB = firestore
-          .collection('watch_list')
-          .where('userName', isEqualTo: userB)
-          .limit(streamLimit)
-          .snapshots()
-          .listen((snapshot) {
-            itemsB = snapshot.docs
-                .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
-                .toList();
-            emit();
-          });
-    };
-
-    controller.onCancel = () async {
-      await subA?.cancel();
-      await subB?.cancel();
-      await controller.close();
-    };
-
-    return controller.stream;
-  }
+  }) => getCoupleWatchListStream(
+    userA: userA,
+    userB: userB,
+  ).map((items) => items.where((i) => i.isCurrentlyWatching).toList());
 
   /// Anime-only currently watching for a single user.
   Stream<List<MediaItem>> getCurrentlyWatchingAnimeStream(

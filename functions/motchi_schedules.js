@@ -23,7 +23,7 @@ const { subNextRenewal } = require('./motchi_exec_planning.js');
 function subsRenewingSoon(subsSnap) {
   if (!subsSnap || subsSnap.empty) return [];
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = new Date(phtDateString(now.getTime()));
   return subsSnap.docs
     .map((d) => {
       const v = d.data() || {};

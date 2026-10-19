@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/watch_party_server.dart';
@@ -64,6 +66,50 @@ class WatchPartyServerService extends ChangeNotifier {
   static String proxyUrlFor(String url) {
     return '$functionsBase/proxyWatchStream?url='
         '${Uri.encodeComponent(url)}';
+  }
+
+  /// Exchange Firebase auth for a stream-only URL that native Safari can load.
+  static Future<String> authorizeStreamUrl(
+    String url, {
+    Future<String?> Function()? getToken,
+    http.Client? client,
+  }) async {
+    final parsed = Uri.parse(url);
+    final endpoint = Uri.parse('$functionsBase/proxyWatchStream');
+    if (parsed.origin != endpoint.origin || parsed.path != endpoint.path) {
+      return url;
+    }
+    final target = parsed.queryParameters['url'];
+    if (target == null) throw StateError('Missing upstream stream URL');
+    final token =
+        await (getToken ??
+            () async => FirebaseAuth.instance.currentUser?.getIdToken())();
+    if (token == null) {
+      throw StateError('Please sign in again to play this stream');
+    }
+    final ownedClient = client ?? http.Client();
+    try {
+      final response = await ownedClient
+          .post(
+            endpoint,
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'url': target,
+              'referer': ?parsed.queryParameters['referer'],
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) {
+        throw StateError('Stream authorization failed');
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return data['url'] as String;
+    } finally {
+      if (client == null) ownedClient.close();
+    }
   }
 
   /// Final playback URL for a server: proxied when configured, otherwise
