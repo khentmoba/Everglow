@@ -846,6 +846,7 @@ const MOTCHI_TOOLS = [
         properties: {
           id: { type: 'string', description: 'The Firestore document ID of the journal entry (from search_journal_entries or get_journal_entries)' },
           title: { type: 'string', description: 'The title of the journal entry (fallback if id is not known)' },
+          confirm: { type: 'boolean', description: 'Only true after the user explicitly agrees to open this sealed entry. Never infer permission from a list or search request.' },
         },
       },
     },

@@ -11,7 +11,7 @@ const {
   _setExternalCache,
   _EXTERNAL_CACHE_TTLS,
 } = require('./common.js');
-const { selectBlockKeys, formatChatContext, formatSessionContext, phtDateLabel, PHT_OFFSET_MS } = require('./motchi_core.js');
+const { selectBlockKeys, formatChatContext, formatSessionContext, phtDateLabel, phtDateString, PHT_OFFSET_MS } = require('./motchi_core.js');
 
 /**
  * In-memory cache for individual feature context blocks.
@@ -455,7 +455,8 @@ async function getJournalContext() {
     if (snap.empty) return '';
     const lines = snap.docs.map(d => {
       const v = d.data();
-      return `${v.title || 'Untitled'} (${v.category||'daily'}) by ${v.author||''} - ${(v.content||'').slice(0,120).replace(/\n/g,' ')}`;
+      const preview = v.isLocked ? '[Sealed — ask before opening]' : (v.content || '').slice(0, 120).replace(/\n/g, ' ');
+      return `${v.title || 'Untitled'} (${v.category||'daily'}) by ${v.author||''} - ${preview}`;
     }).join('\n');
     return `Recent journal:\n${lines}`;
   } catch (_) { return ''; }
@@ -509,7 +510,7 @@ async function getSubsContext() {
     if (snap.empty) return '';
     const { subNextRenewal } = require('./motchi_exec_planning.js');
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date(phtDateString(now.getTime()));
     const rows = snap.docs.map(d => {
       const v = d.data() || {};
       const stored = v.renewalDate?.toDate?.() instanceof Date ? v.renewalDate.toDate() : null;
@@ -526,14 +527,15 @@ async function getBudgetContext() {
   try {
     const db = getDb();
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const month = phtDateString(now.getTime()).slice(0, 7);
+    const start = new Date(`${month}-01T00:00:00+08:00`);
     const snap = await db.collection('budget_transactions')
-      .where('date','>=', getAdmin().firestore.Timestamp.fromDate(start))
-      .orderBy('date','desc').limit(10).get();
+      .where('createdAt', '>=', getAdmin().firestore.Timestamp.fromDate(start))
+      .orderBy('createdAt', 'desc').limit(10).get();
     if (snap.empty) return '';
     const lines = snap.docs.map(d => {
       const v = d.data();
-      return `${v.title||v.category||'Expense'} ${v.amount||''} ${v.currency||'PHP'} by ${v.paidBy||''}`;
+      return `${v.type || 'expense'}: ${v.category || 'Other'} ₱${Number(v.amount) || 0} by ${v.author || ''}${v.note ? ' — ' + v.note : ''}`;
     }).join('\n');
     return `Recent spending (this month):\n${lines}`;
   } catch (_) { return ''; }

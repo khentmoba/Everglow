@@ -321,7 +321,8 @@ async function exec_get_journal_entries(ctx, args) {
     if (snap.empty) return JSON.stringify({ entries: [], count: 0 });
     const entries = snap.docs.map(d => {
       const v=d.data();
-      return { id: d.id, title: v.title||'', category: v.category||'daily', preview: (v.content||'').slice(0,150), author: v.author||'' };
+      return { id: d.id, title: v.title || '', category: v.category || 'daily',
+        preview: v.isLocked ? '[Sealed]' : (v.content || '').slice(0, 150), author: v.author || '', isLocked: !!v.isLocked };
     });
     return JSON.stringify({ entries, count: entries.length, note: 'Call read_journal_entry with entry id to read the full unabridged content.' });
 }
@@ -347,9 +348,9 @@ async function exec_search_journal_entries(ctx, args) {
     const matched = snap.docs.map((d) => {
       const v = d.data();
       const title = String(v.title || '');
-      const content = String(v.content || '');
+      const content = v.isLocked ? '' : String(v.content || '');
       const entryAuthor = String(v.author || '').toLowerCase();
-      const tags = Array.isArray(v.tags) ? v.tags.map((t) => String(t).toLowerCase()) : [];
+      const tags = !v.isLocked && Array.isArray(v.tags) ? v.tags.map((t) => String(t).toLowerCase()) : [];
       const category = String(v.category || 'daily');
       const mood = v.mood || null;
       const createdAt = v.createdAt?.toDate?.()?.toISOString()?.slice(0, 10) || null;
@@ -396,9 +397,10 @@ async function exec_search_journal_entries(ctx, args) {
         author: v.author || '',
         category,
         mood,
-        tags: v.tags || [],
-        wordCount: v.wordCount || content.split(/\s+/).filter(Boolean).length,
-        snippet,
+        tags: v.isLocked ? [] : v.tags || [],
+        wordCount: v.isLocked ? 0 : v.wordCount || content.split(/\s+/).filter(Boolean).length,
+        snippet: v.isLocked ? '[Sealed]' : snippet,
+        isLocked: !!v.isLocked,
         score,
       };
     }).filter(Boolean);
@@ -440,6 +442,10 @@ async function exec_read_journal_entry(ctx, args) {
     }
 
     const v = doc.data();
+    if (v.isLocked && args.confirm !== true) {
+      return JSON.stringify({ needs_confirmation: true, id: doc.id, title: v.title || 'Untitled',
+        message: 'This entry is sealed. Ask the user whether to open it; only then re-call with confirm:true.' });
+    }
     const content = String(v.content || '');
     return JSON.stringify({
       success: true,
