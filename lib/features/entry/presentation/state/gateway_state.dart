@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-// verifyCouplePasscode is wired by GatewayPage -> AuthService
-import '../../../../core/config/env_config.dart';
+// verifyCouplePasscode is wired by GatewayPage -> AuthService for all profiles.
 
 enum GatewayState {
   initialLoad,
@@ -93,24 +92,16 @@ class GatewayNotifier extends ChangeNotifier {
     // Brief pause to feel intentional but not sluggish
     await Future.delayed(const Duration(milliseconds: 220));
 
-    // Breyan/Octagram stay client-verified (non-sensitive).
-    // Passcodes come from EnvConfig only (build-time --dart-define or .env);
-    // no hardcoded literals so builds without config can't be bypassed.
-    final clientPasscodes = <String>{
-      if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
-      if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
-    };
-    final isClientCinemaCode = clientPasscodes.contains(_currentInput);
-    if (isClientCinemaCode) {
-      _lastEnteredPasscode = _currentInput;
-      updateState(GatewayState.unlocking);
-      return;
-    }
     if (verifyCouplePasscode != null) {
       try {
         final username = await verifyCouplePasscode!(_currentInput);
         if (username != null &&
-            (username == 'khentsgdz' || username == 'clairjassen')) {
+            const [
+              'khentsgdz',
+              'clairjassen',
+              'breyan',
+              'octagram',
+            ].contains(username)) {
           _lastFailureReason = null;
           _lastEnteredPasscode = _currentInput;
           updateState(GatewayState.unlocking);

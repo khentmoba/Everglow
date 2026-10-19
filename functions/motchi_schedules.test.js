@@ -7,6 +7,40 @@ const path = require('node:path');
 
 const schedules = require('./motchi_schedules');
 const indexExports = require('./index');
+const { getAdmin } = require('./common');
+
+test('failed reminders stay pending and retry only the recipient that failed', async (t) => {
+  const admin = getAdmin();
+  const data = { createdBy: 'khentsgdz', title: 'Demo reminder', fired: false,
+    remindAtTs: admin.firestore.Timestamp.fromDate(new Date(0)), notifiedUsers: [] };
+  const sends = [];
+  let failClair = true;
+  const ref = { update: async (patch) => {
+    if (patch.notifiedUsers) data.notifiedUsers.push(...patch.notifiedUsers);
+    else Object.assign(data, patch);
+  } };
+  const query = { where() { return this; }, limit() { return this; },
+    get: async () => ({ empty: data.fired, size: 1,
+      docs: data.fired ? [] : [{ id: 'demo-reminder', data: () => data, ref }] }) };
+  t.mock.method(admin.firestore.FieldValue, 'arrayUnion', (value) => [value]);
+  t.mock.method(admin, 'firestore', () => ({ collection: (name) => name === 'reminders' ? query : {
+    doc: (username) => ({ collection: () => ({ get: async () => ({ docs: [
+      { data: () => ({ token: username }) },
+    ] }) }) }),
+  } }));
+  t.mock.method(admin, 'messaging', () => ({ send: async ({ token }) => {
+    sends.push(token);
+    if (token === 'clairjassen' && failClair) throw new Error('temporary outage');
+  } }));
+  await schedules.motchiReminderChecker.run();
+  assert.equal(data.fired, false);
+  assert.deepEqual(data.notifiedUsers, ['khentsgdz']);
+  failClair = false;
+  await schedules.motchiReminderChecker.run();
+  assert.equal(data.fired, true);
+  assert.deepEqual(sends, ['khentsgdz', 'clairjassen', 'clairjassen']);
+});
+
 
 const NAMES = [
   'motchiDailyDigest',

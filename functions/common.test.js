@@ -80,14 +80,20 @@ test('fetchPublicUrl pins a public DNS result and streams successful responses',
   assert.equal(await new Response(result.body).text(), 'video');
 });
 
-test('requireAuth rejects anonymous tokens and accepts a verified login', async (t) => {
+test('requireAuth rejects anonymous and unapproved accounts, accepting signed profiles only', async (t) => {
   t.mock.method(adminCompat, 'getAdminCompat', () => ({
-    auth: () => ({ verifyIdToken: async (token) => ({ uid: 'u1', firebase: { sign_in_provider: token } }) }),
+    auth: () => ({ verifyIdToken: async (token) => ({ uid: 'u1', username: 'breyan',
+      firebase: { sign_in_provider: token } }) }),
   }));
   const req = (token) => ({ get: () => `Bearer ${token}`, headers: {} });
   const anonymousRes = resMock();
   assert.equal(await requireAuth(req('anonymous'), anonymousRes), null);
   assert.equal(anonymousRes.statusCode, 401);
   assert.match(anonymousRes.body.error, /signed-in profile/);
-  assert.deepEqual(await requireAuth(req('password'), resMock()), { uid: 'u1', firebase: { sign_in_provider: 'password' } });
+  const strangerRes = resMock();
+  assert.equal(await requireAuth(req('password'), strangerRes), null);
+  assert.equal(strangerRes.statusCode, 403);
+  assert.deepEqual(await requireAuth(req('custom'), resMock()), {
+    uid: 'u1', username: 'breyan', firebase: { sign_in_provider: 'custom' },
+  });
 });

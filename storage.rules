@@ -14,21 +14,24 @@ service firebase.storage {
     }
     match /gallery/{userId}/{allPaths=**} {
       allow read: if isCoupleUser();
-      allow write: if isCoupleUser() && request.auth.uid == userId
+      allow create, update: if isCoupleUser() && request.auth.uid == userId
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+      allow delete: if isCoupleUser() && request.auth.uid == userId;
     }
     match /memories/{userId}/{allPaths=**} {
       allow read: if isCoupleUser();
-      allow write: if isCoupleUser() && request.auth.uid == userId
+      allow create, update: if isCoupleUser() && request.auth.uid == userId
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+      allow delete: if isCoupleUser() && request.auth.uid == userId;
     }
     match /milestones/{userId}/{allPaths=**} {
       allow read: if isCoupleUser();
-      allow write: if isCoupleUser() && request.auth.uid == userId
+      allow create, update: if isCoupleUser() && request.auth.uid == userId
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+      allow delete: if isCoupleUser() && request.auth.uid == userId;
     }
     match /milestones/{legacyFile} {
       allow read: if isCoupleUser();

@@ -4,32 +4,30 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { normalizePasscode, isValidPasscodeFormat, trustedProfileUsername } = require('./auth_core');
 
-test('a client profile cannot impersonate the couple; signed identity wins', () => {
-  const cinema = { uid: 'demo-cinema', firebase: { sign_in_provider: 'password' } };
-  assert.equal(trustedProfileUsername(cinema, 'khentsgdz'), null);
-  assert.equal(trustedProfileUsername(cinema, 'clairjassen'), null);
-  assert.equal(trustedProfileUsername(cinema, 'breyan'), null);
-  const knownCinema = { ...cinema, email: 'cinema@example.test' };
-  assert.equal(trustedProfileUsername(knownCinema, 'breyan', 'cinema@example.test'), 'breyan');
-  assert.equal(trustedProfileUsername(knownCinema, 'breyan', 'other@example.test'), null);
-  assert.equal(trustedProfileUsername({ ...knownCinema, email: 'stranger@example.test' },
-    'breyan', 'cinema@example.test'), null);
-  assert.equal(trustedProfileUsername({ ...cinema, username: 'clairjassen' }, 'clairjassen'), null);
-  const couple = { uid: 'demo-couple', username: 'clairjassen', firebase: { sign_in_provider: 'custom' } };
-  assert.equal(trustedProfileUsername(couple, 'khentsgdz'), 'clairjassen');
-  assert.equal(trustedProfileUsername({ ...couple, firebase: { sign_in_provider: 'anonymous' } }), null);
+test('only server-signed app profiles are trusted', () => {
+  for (const username of ['khentsgdz', 'clairjassen', 'breyan', 'octagram']) {
+    const signed = { uid: 'demo', username, firebase: { sign_in_provider: 'custom' } };
+    assert.equal(trustedProfileUsername(signed), username);
+    for (const provider of ['password', 'anonymous', 'google.com']) {
+      assert.equal(trustedProfileUsername({ ...signed, firebase: { sign_in_provider: provider } }), null);
+    }
+  }
+  assert.equal(trustedProfileUsername({ uid: 'demo', username: 'stranger',
+    firebase: { sign_in_provider: 'custom' } }), null);
+  assert.equal(trustedProfileUsername(null), null);
 });
 
-test('web build inputs and client config cannot ship couple codes', () => {
+test('web build inputs and client config cannot ship any login credentials', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const root = path.join(__dirname, '..');
+  const forbidden = /(?:CLAIR|KHENT|BREYAN|OCTAGRAM)_(?:PASSCODE|PASSWORD|EMAIL)/;
   const config = fs.readFileSync(path.join(root, 'lib/core/config/env_config.dart'), 'utf8');
-  assert.ok(!/CLAIR_PASSCODE|KHENT_PASSCODE/.test(config));
+  assert.ok(!forbidden.test(config));
   for (const workflow of ['deploy.yml', 'quality.yml']) {
     const source = fs.readFileSync(path.join(root, '.github/workflows', workflow), 'utf8');
     const build = source.split('- name: Build web')[1].split('\n      - name:')[0];
-    assert.ok(!/CLAIR_PASSCODE|KHENT_PASSCODE/.test(build));
+    assert.ok(!forbidden.test(build), workflow);
   }
 });
 

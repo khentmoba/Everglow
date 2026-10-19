@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const { getAdmin, clientIp, cappedHttps } = require('./common.js');
 const { isValidPasscodeFormat } = require('./auth_core.js');
 
-// ===== verifyPasscode (Khent/Clair server gate; Breyan/Octagram stay client) =====
+// ===== verifyPasscode (all four profiles; credentials never leave the server) =====
 // Per-IP and shared durable limits survive cold starts; the in-memory limit
 // also runs before checking whether a submitted code is correct.
 const _pcAttempts = new Map();
@@ -87,6 +87,16 @@ async function _pcLockoutAttempt(db, ipRef, globalRef, accepted) {
   });
 }
 
+function profileForPasscode(code, env = process.env) {
+  const profiles = [
+    ['clairjassen', env.CLAIR_PASSCODE], ['khentsgdz', env.KHENT_PASSCODE],
+    ['breyan', env.BREYAN_PASSCODE], ['octagram', env.OCTAGRAM_PASSCODE],
+  ];
+  const matches = profiles.filter(([, expected]) => _passcodeMatches(code, (expected || '').trim()));
+  // A duplicated server code must never select a more privileged profile.
+  return matches.length === 1 ? matches[0][0] : null;
+}
+
 const verifyPasscode = cappedHttps(10, async(req,res)=>{
   res.set('Access-Control-Allow-Origin','*');res.set('Access-Control-Allow-Methods','POST, OPTIONS');res.set('Access-Control-Allow-Headers','Content-Type');
   if(req.method==='OPTIONS'){res.status(204).send('');return;}
@@ -96,10 +106,7 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
   if(_pcHit(ip)){res.status(429).json({error:'Too many attempts'});return;}
   const code=String((req.body&&req.body.passcode)||'').trim();
   if(!code||!isValidPasscodeFormat(code)){res.status(400).json({error:'passcode required'});return;}
-  const clair=(process.env.CLAIR_PASSCODE||'').trim();const khent=(process.env.KHENT_PASSCODE||'').trim();
-  let username;
-  if(_passcodeMatches(code, clair))username='clairjassen';
-  else if(_passcodeMatches(code, khent))username='khentsgdz';
+  const username = profileForPasscode(code);
   let lock;
   try {
     const db = getAdmin().firestore();
@@ -113,7 +120,10 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
   }
   if(lock.locked){res.status(429).json({error:'Too many attempts — try again later'});return;}
   if(!username){res.status(401).json({error:'Invalid passcode'});return;}
-  const emails={clairjassen:process.env.CLAIR_EMAIL||'',khentsgdz:process.env.KHENT_EMAIL||''};
+  const emails = {
+    clairjassen: process.env.CLAIR_EMAIL, khentsgdz: process.env.KHENT_EMAIL,
+    breyan: process.env.BREYAN_EMAIL, octagram: process.env.OCTAGRAM_EMAIL,
+  };
   const email=emails[username];if(!email){res.status(500).json({error:'Server not configured'});return;}
   try{
     let user;
@@ -132,4 +142,4 @@ const verifyPasscode = cappedHttps(10, async(req,res)=>{
 });
 
 
-module.exports = { verifyPasscode, _pcLockoutAttempt };
+module.exports = { verifyPasscode, _pcLockoutAttempt, profileForPasscode };

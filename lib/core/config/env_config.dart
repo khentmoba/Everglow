@@ -1,21 +1,9 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-/// Runtime configuration for Everglow.
-///
-/// Values are supplied at build time via --dart-define, or at run time via
-/// a locally provided .env file. Passcodes and account credentials have no
-/// literal fallbacks in source code: builds must pass them via --dart-define
-/// or .env, or the field is empty and that profile cannot log in. Server
-/// stays the only source of truth for Khent/Clair. Breyan/Octagram cinema-only
-/// profiles stay client-verified.
+/// Public client configuration only. All profile codes and account
+/// credentials are verified by the server and must never enter a web build.
 class EnvConfig {
   static const Map<String, String> _compileTimeEnv = {
-    'BREYAN_EMAIL': String.fromEnvironment('BREYAN_EMAIL'),
-    'BREYAN_PASSWORD': String.fromEnvironment('BREYAN_PASSWORD'),
-    'OCTAGRAM_EMAIL': String.fromEnvironment('OCTAGRAM_EMAIL'),
-    'OCTAGRAM_PASSWORD': String.fromEnvironment('OCTAGRAM_PASSWORD'),
-    'BREYAN_PASSCODE': String.fromEnvironment('BREYAN_PASSCODE'),
-    'OCTAGRAM_PASSCODE': String.fromEnvironment('OCTAGRAM_PASSCODE'),
     'LASTFM_USER_KHENT': String.fromEnvironment('LASTFM_USER_KHENT'),
     'LASTFM_USER_CLAIR': String.fromEnvironment('LASTFM_USER_CLAIR'),
     'FCM_VAPID_KEY': String.fromEnvironment('FCM_VAPID_KEY'),
@@ -32,19 +20,6 @@ class EnvConfig {
     return fallback;
   }
 
-  static String get breyanEmail =>
-      _from('BREYAN_EMAIL', fallback: 'breyan@scrapbook.local');
-  static String get breyanPassword => _from('BREYAN_PASSWORD');
-  static String get octagramEmail =>
-      _from('OCTAGRAM_EMAIL', fallback: 'octagram@scrapbook.local');
-  static String get octagramPassword => _from('OCTAGRAM_PASSWORD');
-
-  // Gateway passcodes: server-verified for Khent/Clair; Breyan/Octagram are
-  // client-verified cinema-only profiles. Passcodes and passwords must be
-  // passed via --dart-define or .env; no hardcoded literal fallbacks in source.
-  static String get breyanPasscode => _from('BREYAN_PASSCODE');
-  static String get octagramPasscode => _from('OCTAGRAM_PASSCODE');
-
   static String get lastfmUserKhent =>
       _from('LASTFM_USER_KHENT', fallback: 'khentsgdz');
   static String get lastfmUserClair =>
@@ -56,19 +31,5 @@ class EnvConfig {
   static String get fcmVapidKey =>
       _from('FCM_VAPID_KEY', fallback: _kFcmVapidKey);
 
-  static bool get hasBreyanCreds =>
-      breyanEmail.isNotEmpty && breyanPassword.isNotEmpty;
-  static bool get hasOctagramCreds =>
-      octagramEmail.isNotEmpty && octagramPassword.isNotEmpty;
   static bool get hasSpotifyClientId => spotifyClientId.isNotEmpty;
-
-  static bool get hasAnyPasscodes =>
-      breyanPasscode.isNotEmpty || octagramPasscode.isNotEmpty;
-
-  static List<String> missingRequired() {
-    final missing = <String>[];
-    if (!hasBreyanCreds) missing.add('BREYAN_EMAIL / BREYAN_PASSWORD');
-    if (!hasOctagramCreds) missing.add('OCTAGRAM_EMAIL / OCTAGRAM_PASSWORD');
-    return missing;
-  }
 }

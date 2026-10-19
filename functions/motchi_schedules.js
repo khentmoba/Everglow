@@ -487,24 +487,27 @@ const motchiReminderChecker = onSchedule({
       const title = (data.title || 'Reminder').toString().slice(0, 120);
       const note = (data.note || '').toString().slice(0, 180);
       const body = note ? `${title} — ${note}` : title;
-      // Fire notification to creator (and partner if available)
-      if (createdBy) {
-        await sendFCMToUser(createdBy, {
-          title: '⏰ Motchi Reminder',
+      const partnerMap = { khentsgdz: 'clairjassen', clairjassen: 'khentsgdz' };
+      const notifiedUsers = Array.isArray(data.notifiedUsers) ? data.notifiedUsers : [];
+      const recipients = createdBy ? [createdBy, partnerMap[createdBy]].filter(Boolean) : [];
+      let complete = true;
+      for (const recipient of recipients) {
+        if (notifiedUsers.includes(recipient)) continue;
+        const isCreator = recipient === createdBy;
+        const delivered = await sendFCMToUser(recipient, {
+          title: isCreator ? '⏰ Motchi Reminder'
+            : `⏰ Reminder for ${createdBy === 'khentsgdz' ? 'Khent' : 'Clair'}`,
           body: body.slice(0, 240),
-          data: { type: 'reminder', reminderId: doc.id, title },
+          data: { type: isCreator ? 'reminder' : 'reminder_shared', reminderId: doc.id, title,
+            ...(isCreator ? {} : { for: createdBy }) },
         });
-        // Also notify partner for shared awareness (inline map to avoid forward-ref)
-        const partnerMap = { khentsgdz: 'clairjassen', clairjassen: 'khentsgdz' };
-        const partner = partnerMap[createdBy];
-        if (partner) {
-          await sendFCMToUser(partner, {
-            title: `⏰ Reminder for ${createdBy === 'khentsgdz' ? 'Khent' : 'Clair'}`,
-            body: body.slice(0, 240),
-            data: { type: 'reminder_shared', reminderId: doc.id, title, for: createdBy },
-          });
+        if (!delivered) {
+          complete = false;
+          continue;
         }
+        await doc.ref.update({ notifiedUsers: getAdmin().firestore.FieldValue.arrayUnion(recipient) });
       }
+      if (!complete) return; // Keep pending after a temporary delivery failure.
       await doc.ref.update({
         fired: true,
         firedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
@@ -512,7 +515,10 @@ const motchiReminderChecker = onSchedule({
       firedCount++;
       return null; // map-to-promises: values unused, allSettled joins only
     });
-    await Promise.allSettled(jobs);
+    const results = await Promise.allSettled(jobs);
+    for (const result of results) {
+      if (result.status === 'rejected') console.warn('[motchiReminderChecker] reminder failed:', result.reason);
+    }
     if (firedCount > 0) console.log(`[motchiReminderChecker] fired ${firedCount}/${snap.size}`);
   } catch (e) {
     console.warn('[motchiReminderChecker] failed:', e.message);

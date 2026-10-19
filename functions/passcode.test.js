@@ -2,7 +2,52 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { _pcLockoutAttempt } = require('./passcode.js');
+const { _pcLockoutAttempt, profileForPasscode } = require('./passcode.js');
+
+test('all four codes resolve server-side; missing, wrong and duplicate codes fail closed', () => {
+  const env = { CLAIR_PASSCODE: '1001', KHENT_PASSCODE: '1002',
+    BREYAN_PASSCODE: '1003', OCTAGRAM_PASSCODE: '1004' };
+  for (const [code, username] of [['1001', 'clairjassen'], ['1002', 'khentsgdz'],
+    ['1003', 'breyan'], ['1004', 'octagram']]) {
+    assert.equal(profileForPasscode(code, env), username);
+  }
+  assert.equal(profileForPasscode('9999', env), null);
+  assert.equal(profileForPasscode('1003', {}), null);
+  assert.equal(profileForPasscode('1003', { ...env, CLAIR_PASSCODE: '1003' }), null);
+});
+
+test('the login handler issues signed tokens for existing guest accounts, without passwords', async (t) => {
+  const env = { BREYAN_PASSCODE: '3001', OCTAGRAM_PASSCODE: '3002',
+    BREYAN_EMAIL: 'breyan@example.test', OCTAGRAM_EMAIL: 'octagram@example.test' };
+  const previous = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, env);
+  t.after(() => {
+    for (const key of Object.keys(env)) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+  });
+  const admin = require('./common').getAdmin();
+  const db = makeDb();
+  db.collection = () => ({ doc: (id) => id });
+  t.mock.method(admin, 'firestore', () => db);
+  const issued = [];
+  t.mock.method(admin.auth(), 'getUserByEmail', async (email) => ({ uid: email }));
+  t.mock.method(admin.auth(), 'createCustomToken', async (uid, claims) => {
+    issued.push({ uid, claims });
+    return 'fake-custom-token';
+  });
+  const { verifyPasscode } = require('./passcode');
+  for (const [passcode, username] of [['3001', 'breyan'], ['3002', 'octagram']]) {
+    const res = { code: 200, set() { return this; }, status(code) { this.code = code; return this; },
+      json(body) { this.body = body; } };
+    await verifyPasscode({ method: 'POST', ip: '127.0.0.1', headers: {},
+      get: () => '', body: { passcode } }, res);
+    assert.equal(res.code, 200);
+    assert.deepEqual(res.body, { token: 'fake-custom-token', username });
+    assert.deepEqual(issued.at(-1).claims, { username });
+  }
+});
 
 function makeDb(initial = {}) {
   const data = new Map(Object.entries(initial));

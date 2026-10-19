@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../cinema/data/services/tmdb_service.dart';
-import '../../../../core/config/env_config.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/router/route_helpers.dart';
@@ -56,19 +55,6 @@ class _GatewayPageState extends State<GatewayPage> {
               Uri.base.host == '127.0.0.1' ||
               Uri.base.host == '0.0.0.0'));
 
-  void _quickLogin(String passcode) {
-    if (passcode.isEmpty) return;
-    if (_notifier.currentState != GatewayState.awaitingInput &&
-        _notifier.currentState != GatewayState.initialLoad &&
-        _notifier.currentState != GatewayState.error) {
-      return;
-    }
-    _notifier.clearInput();
-    for (final char in passcode.split('')) {
-      _notifier.appendDigit(char);
-    }
-  }
-
   /// Where to go after a successful login: back to the deep-linked page
   /// when the router remembered one (`/?from=...`), else the default home.
   String _postLoginTarget({
@@ -93,31 +79,12 @@ class _GatewayPageState extends State<GatewayPage> {
     _lastProcessedState = newState;
 
     if (newState == GatewayState.unlocking) {
-      final passcode = _notifier.lastEnteredPasscode;
       final authService = context.read<AuthService>();
-      final cinemaOnlyPasscodes = {
-        if (EnvConfig.breyanPasscode.isNotEmpty) EnvConfig.breyanPasscode,
-        if (EnvConfig.octagramPasscode.isNotEmpty) EnvConfig.octagramPasscode,
-      };
-      final isCinemaOnlyAccess = cinemaOnlyPasscodes.contains(passcode);
+      final isCinemaOnlyAccess = authService.isCinemaOnlyUser;
       if (!isCinemaOnlyAccess) {
         DashboardLoadVeil.requestPasscodeLoader();
       }
-
-      Future<void> authTask;
-      final isBreyan =
-          EnvConfig.breyanPasscode.isNotEmpty &&
-          passcode == EnvConfig.breyanPasscode;
-      final isOctagram =
-          EnvConfig.octagramPasscode.isNotEmpty &&
-          passcode == EnvConfig.octagramPasscode;
-      if (isBreyan) {
-        authTask = authService.loginWithPasscode('breyan');
-      } else if (isOctagram) {
-        authTask = authService.loginWithPasscode('octagram');
-      } else {
-        authTask = authService.ensureAuthenticated();
-      }
+      final authTask = authService.ensureAuthenticated();
 
       unawaited(
         authTask
@@ -368,23 +335,47 @@ class _GatewayPageState extends State<GatewayPage> {
     final destinations = <({String label, String route, IconData icon})>[
       (label: 'Cinema', route: '/cinema', icon: Icons.movie_rounded),
       (label: 'Anime', route: '/anime', icon: Icons.smart_display_rounded),
-      (label: 'Mangacelestia', route: '/manga', icon: Icons.auto_stories_rounded),
+      (
+        label: 'Mangacelestia',
+        route: '/manga',
+        icon: Icons.auto_stories_rounded,
+      ),
       (label: 'Books', route: '/books', icon: Icons.menu_book_rounded),
       (label: 'Dashboard', route: '/dashboard', icon: Icons.home_rounded),
-      (label: 'Sanctuary', route: '/sanctuary', icon: Icons.chat_bubble_rounded),
+      (
+        label: 'Sanctuary',
+        route: '/sanctuary',
+        icon: Icons.chat_bubble_rounded,
+      ),
       (label: 'Gallery', route: '/gallery', icon: Icons.photo_library_rounded),
       (label: 'Journal', route: '/journal', icon: Icons.book_rounded),
       (label: 'Tonight', route: '/tonight', icon: Icons.nightlife_rounded),
-      (label: 'Play Zone', route: '/play-zone', icon: Icons.sports_esports_rounded),
+      (
+        label: 'Play Zone',
+        route: '/play-zone',
+        icon: Icons.sports_esports_rounded,
+      ),
       (label: 'Academy', route: '/academy', icon: Icons.school_rounded),
       (label: 'Garden', route: '/garden', icon: Icons.local_florist_rounded),
       (label: 'Starlight', route: '/starlight', icon: Icons.star_rounded),
-      (label: 'Calendar', route: '/calendar', icon: Icons.calendar_month_rounded),
+      (
+        label: 'Calendar',
+        route: '/calendar',
+        icon: Icons.calendar_month_rounded,
+      ),
       (label: 'Trip Kit', route: '/trips', icon: Icons.flight_takeoff_rounded),
       (label: 'Jukebox', route: '/jukebox', icon: Icons.music_note_rounded),
       (label: 'Canvas', route: '/canvas', icon: Icons.palette_rounded),
-      (label: 'Bucket List', route: '/bucket-list', icon: Icons.checklist_rounded),
-      (label: 'Money', route: '/money', icon: Icons.account_balance_wallet_rounded),
+      (
+        label: 'Bucket List',
+        route: '/bucket-list',
+        icon: Icons.checklist_rounded,
+      ),
+      (
+        label: 'Money',
+        route: '/money',
+        icon: Icons.account_balance_wallet_rounded,
+      ),
     ];
 
     return Container(
@@ -412,7 +403,11 @@ class _GatewayPageState extends State<GatewayPage> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.bolt_rounded, color: AppColors.auroraGold, size: 16),
+              const Icon(
+                Icons.bolt_rounded,
+                color: AppColors.auroraGold,
+                size: 16,
+              ),
               const SizedBox(width: 6),
               Text(
                 'Agent Fast-Jump:',
@@ -428,10 +423,6 @@ class _GatewayPageState extends State<GatewayPage> {
               _devUserChip('🌸 Clair', () => _agentLogin('clairjassen')),
               const SizedBox(width: 6),
               _devUserChip('🍿 Guest', () => _agentLogin('breyan')),
-              if (EnvConfig.breyanPasscode.isNotEmpty) ...[
-                const SizedBox(width: 6),
-                _devUserChip('Passcode', () => _quickLogin(EnvConfig.breyanPasscode)),
-              ],
             ],
           ),
           const SizedBox(height: 6),
@@ -447,7 +438,10 @@ class _GatewayPageState extends State<GatewayPage> {
                       onTap: () => _agentJump(dest.route),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.inkDeep.withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(12),

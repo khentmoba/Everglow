@@ -147,6 +147,7 @@ class CalendarService {
 
   /// Add a new calendar event.
   Future<void> addEvent(CalendarEvent event) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).add(event.toFirestore());
       Logger.i("Calendar event added: ${event.title}");
@@ -158,6 +159,7 @@ class CalendarService {
 
   /// Update an existing event.
   Future<void> updateEvent(String id, Map<String, dynamic> data) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).update(data);
     } catch (e) {
@@ -168,6 +170,7 @@ class CalendarService {
 
   /// Delete an event.
   Future<void> deleteEvent(String id) async {
+    if (AgentMode.isActive.value) return;
     try {
       await _db.collection(_collection).doc(id).delete();
       Logger.i("Calendar event deleted: $id");

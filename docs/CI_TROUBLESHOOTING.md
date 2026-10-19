@@ -47,6 +47,24 @@ Deployment/release workflows on `main` are unchanged.
 
 Read the failed job's annotations and logs before changing code.
 
+## Profile login rollout
+
+All four profiles now use the server's `verifyPasscode` endpoint. Never put
+profile emails, passwords, or codes in Flutter build arguments or client assets.
+The deployment requires `CLAIR_PASSCODE`, `KHENT_PASSCODE`, `BREYAN_PASSCODE`,
+`OCTAGRAM_PASSCODE` and the matching four `*_EMAIL` secrets on the server.
+Use four different four-digit codes; duplicate codes fail closed.
+
+Deploy the functions and rules before the client. Hosting now waits for the
+backend deployment to succeed. Existing guest accounts keep their Firebase UID
+(and saved data) because the server finds them by their configured email.
+Old password-based guest sessions are signed out and must enter their code again.
+Guest accounts cannot read couple data.
+
+Treat any guest password shipped by an older web build as public. Rotate those
+passwords in Firebase Auth outside this code change; do not paste them in a PR.
+No live credentials are changed by the tests or the code review.
+
 ## A job never acquired a runner
 
 PR #476 had eleven jobs with no assigned runner and zero executed steps.

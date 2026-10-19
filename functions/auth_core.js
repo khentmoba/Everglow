@@ -9,17 +9,11 @@ function isValidPasscodeFormat(value) {
   return /^\d{4}$/.test(normalizePasscode(value));
 }
 
-/** Only verifyPasscode's signed identity can authorize couple data. */
-function trustedProfileUsername(decoded, profileUsername = '', cinemaEmail = '') {
-  const provider = decoded?.firebase?.sign_in_provider;
-  if (!decoded?.uid || provider === 'anonymous') return null;
-  if (provider === 'custom' && ['khentsgdz', 'clairjassen'].includes(decoded.username)) {
-    return decoded.username;
-  }
-  // A self-created profile name is not proof of an approved cinema account.
-  return provider === 'password' && ['breyan', 'octagram'].includes(profileUsername) &&
-    cinemaEmail && decoded.email?.toLowerCase() === cinemaEmail.toLowerCase()
-    ? profileUsername : null;
+/** Only verifyPasscode's signed identity can authorize an app profile. */
+function trustedProfileUsername(decoded) {
+  return decoded?.uid && decoded.firebase?.sign_in_provider === 'custom' &&
+    ['khentsgdz', 'clairjassen', 'breyan', 'octagram'].includes(decoded.username)
+    ? decoded.username : null;
 }
 
 module.exports = {

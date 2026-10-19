@@ -18,7 +18,7 @@
  *   carry a fix hint, and transient throws get one retry.
  */
 
-const functions = require('firebase-functions/v1');
+const { getSpotifyAppToken } = require('./spotify.js');
 const { isWriteTool } = require('./motchi_reply_details.js');
 const { actionKey } = require('./motchi_agent.js');
 
@@ -124,29 +124,6 @@ function levelForXp(xpTotal) {
   return Math.floor(xp / XP_PER_LEVEL) + 1;
 }
 
-function _getSpotifyCreds() {
-  const id = (process.env.SPOTIFY_CLIENT_ID || "").trim() || (functions.config().spotify && functions.config().spotify.client_id) || "";
-  const secret = (process.env.SPOTIFY_CLIENT_SECRET || "").trim() || (functions.config().spotify && functions.config().spotify.client_secret) || "";
-  return { id, secret };
-}
-let _spotifyTokenCache = null;
-async function _getSpotifyAppToken() {
-  const { id, secret } = _getSpotifyCreds();
-  if (!id || !secret) return null;
-  if (_spotifyTokenCache && Date.now() < _spotifyTokenCache.expiresAt - 60000) return _spotifyTokenCache.token;
-  const basic = Buffer.from(id + ":" + secret).toString("base64");
-  const res = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: { "Authorization": "Basic " + basic, "Content-Type": "application/x-www-form-urlencoded" },
-    body: "grant_type=client_credentials",
-    signal: AbortSignal.timeout(10000),
-  });
-  if (!res.ok) { console.warn("[spotify] token error", res.status, await res.text().catch(()=>"" )); return null; }
-  const data = await res.json();
-  _spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in * 1000) };
-  return data.access_token;
-}
-
 /** Shared services for executors. Pass stubs in tests. */
 function createToolCtx({ callerUid, caller, authUid, userMessage } = {}) {
   const admin = getAdmin();
@@ -161,7 +138,7 @@ function createToolCtx({ callerUid, caller, authUid, userMessage } = {}) {
     phtDateString,
     getTmdbKey,
     sendFCMToUser,
-    getSpotifyAppToken: _getSpotifyAppToken,
+    getSpotifyAppToken,
     cacheGet: _getExternalCache,
     cacheSet: _setExternalCache,
     cacheTTLs: _EXTERNAL_CACHE_TTLS,

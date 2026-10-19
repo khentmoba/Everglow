@@ -63,15 +63,15 @@ KHENT_PASSCODE=0938
       expect(notifier.currentInput, '');
     });
 
-    testWidgets('client cinema code unlocks without a server verifier wired', (
+    testWidgets('even a locally configured cinema code requires the server', (
       tester,
     ) async {
       final notifier = GatewayNotifier();
       for (final d in ['8', '0', '8', '0']) {
         notifier.appendDigit(d);
       }
-      await tester.pump(const Duration(milliseconds: 600));
-      expect(notifier.currentState, GatewayState.unlocking);
+      await tester.pump(const Duration(milliseconds: 1200));
+      expect(notifier.currentState, GatewayState.awaitingInput);
     });
 
     testWidgets('unknown code errors and resets to awaitingInput', (
@@ -91,6 +91,18 @@ KHENT_PASSCODE=0938
       expect(notifier.currentState, GatewayState.awaitingInput);
       expect(notifier.currentInput, '');
     });
+
+    for (final username in ['breyan', 'octagram']) {
+      testWidgets('server-verified $username passcode unlocks', (tester) async {
+        final notifier = GatewayNotifier()
+          ..verifyCouplePasscode = (_) async => username;
+        for (final digit in '8080'.split('')) {
+          notifier.appendDigit(digit);
+        }
+        await tester.pump(const Duration(milliseconds: 700));
+        expect(notifier.currentState, GatewayState.unlocking);
+      });
+    }
 
     testWidgets('server-verified couple passcode unlocks', (tester) async {
       final notifier = GatewayNotifier()

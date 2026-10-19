@@ -289,25 +289,4 @@ class WatchPartyService {
       debugPrint('WatchPartyService.deleteRoom failed: $e');
     }
   }
-
-  /// Stream of all rooms where `hostUid == uid` OR
-  /// `partnerUid == uid`, restricted to active ones. The dashboard
-  /// uses this to surface an "Active watch party" banner with a
-  /// Resume button.
-  Stream<WatchPartyRoom?> watchActiveRoomFor(String uid) {
-    return _db
-        .collection(_collection)
-        .where('active', isEqualTo: true)
-        .limit(20)
-        .snapshots()
-        .map((snap) {
-          for (final doc in snap.docs) {
-            final data = doc.data();
-            if (data['hostUid'] == uid || data['partnerUid'] == uid) {
-              return WatchPartyRoom.fromFirestore(doc);
-            }
-          }
-          return null;
-        });
-  }
 }
