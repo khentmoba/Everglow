@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
@@ -166,6 +167,9 @@ class OurBooksService {
     return null;
   }
 
+  static String bookDocumentId(String workKey) =>
+      sha256.convert(utf8.encode(workKey.trim())).toString();
+
   Future<OurBooksItem?> addToOurBooks(BookItem item, String addedBy) async {
     if (AgentMode.isActive.value) return AgentFixtures.demoBooks.first;
     if (!coupleUsernames.contains(addedBy)) {
@@ -174,8 +178,21 @@ class OurBooksService {
     }
     try {
       final collection = _firestore.collection(_collection);
+      final workKey = item.workKey.trim();
+      final iaId = item.iaId.trim();
+      final key = workKey.isNotEmpty ? workKey : 'ia:$iaId';
+      if (workKey.isEmpty && iaId.isEmpty) {
+        throw ArgumentError('A book work key or archive id is required');
+      }
+      // Keep pre-existing random-id records readable; new writes share one id.
       final existing = await withGetTimeout(
-        collection.where('workKey', isEqualTo: item.workKey).limit(1).get(),
+        collection
+            .where(
+              workKey.isNotEmpty ? 'workKey' : 'iaId',
+              isEqualTo: workKey.isNotEmpty ? workKey : iaId,
+            )
+            .limit(1)
+            .get(),
         label: 'our-books duplicate check',
       );
       if (existing.docs.isNotEmpty) {
@@ -186,7 +203,7 @@ class OurBooksService {
       }
       final draft = OurBooksItem(
         id: '',
-        workKey: item.workKey,
+        workKey: key,
         editionKey: item.editionKey,
         iaId: item.iaId,
         title: item.title,
@@ -197,8 +214,15 @@ class OurBooksService {
         addedBy: addedBy,
         addedAt: DateTime.now(),
       );
-      final docRef = await collection.add(draft.toFirestore());
-      return draft.copyWith(id: docRef.id);
+      final docRef = collection.doc(bookDocumentId(key));
+      return await _firestore.runTransaction((transaction) async {
+        final saved = await transaction.get(docRef);
+        if (saved.exists) {
+          return OurBooksItem.fromFirestore(saved.data()!, docRef.id);
+        }
+        transaction.set(docRef, draft.toFirestore());
+        return draft.copyWith(id: docRef.id);
+      });
     } catch (e) {
       Logger.e('Error adding to our_books', error: e);
       return null;

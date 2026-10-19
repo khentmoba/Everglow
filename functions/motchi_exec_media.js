@@ -6,6 +6,8 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
+const { createHash } = require('node:crypto');
+
 async function exec_add_to_watchlist(ctx, args) {
     // W2-A3: Support tmdb_id disambiguation + candidate return
     const mediaType = args.media_type || 'movie';
@@ -364,16 +366,28 @@ async function exec_add_book_to_our_books(ctx, args) {
     if (!book) return JSON.stringify({ error: `No book found for "${queryRaw}"` });
     const title = book.title || 'Unknown';
     const author = (book.author_name || []).slice(0, 2).join(', ');
-    await ctx.db.collection('our_books').add({
-      title,
-      author,
-      coverUrl: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : '',
-      year: book.first_publish_year ? String(book.first_publish_year) : '',
-      workKey: book.key || '',
-      addedBy: ctx.callerUid,
-      addedAt: new Date().toISOString(),
+    const workKey = String(book.key || '').trim();
+    if (!workKey) return JSON.stringify({ error: 'Book has no Open Library work key' });
+    const collection = ctx.db.collection('our_books');
+    const legacy = await collection.where('workKey', '==', workKey).limit(1).get();
+    if (!legacy.empty) {
+      return JSON.stringify({ success: true, id: legacy.docs[0].id, title, author, already_done: true });
+    }
+    // Same SHA-256 id as OurBooksService; never overwrite either partner's flags.
+    const ref = collection.doc(createHash('sha256').update(workKey).digest('hex'));
+    await ctx.db.runTransaction(async (tx) => {
+      if ((await tx.get(ref)).exists) return;
+      tx.set(ref, {
+        title,
+        author,
+        coverUrl: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : '',
+        year: book.first_publish_year ? String(book.first_publish_year) : '',
+        workKey,
+        addedBy: ctx.callerUid,
+        addedAt: ctx.admin.firestore.Timestamp.now(),
+      });
     });
-    return JSON.stringify({ success: true, title, author, openLibraryKey: book.key || null });
+    return JSON.stringify({ success: true, id: ref.id, title, author, openLibraryKey: workKey });
 }
 
 async function exec_update_book_progress(ctx, args) {
