@@ -4,6 +4,39 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/trip_kit/data/models/trip.dart';
 
 void main() {
+  test(
+    'legacy Motchi fields remain visible without overwriting canonical values',
+    () {
+      final legacy = Trip.fromMap({
+        'description': 'Demo notes',
+        'budgetEstimate': 5000,
+      }, 'legacy');
+      expect(legacy.notes, 'Demo notes');
+      expect(legacy.budgetTotal, 5000);
+      final edited = Trip.fromMap({
+        'notes': '',
+        'budgetTotal': 0,
+        'description': 'Old notes',
+        'budgetEstimate': 5000,
+      }, 'edited');
+      expect(edited.notes, '');
+      expect(edited.budgetTotal, 0);
+    },
+  );
+  test('place edits keep recovered coordinates and category', () {
+    final place = TripPlace.fromMap({
+      'id': 'demo',
+      'name': 'Demo cafe',
+      'lat': 10,
+      'lng': 12,
+      'category': 'eat',
+    });
+    final saved = place.copyWith(done: true).toMap();
+    expect(saved['lat'], 10);
+    expect(saved['lng'], 12);
+    expect(saved['category'], 'eat');
+    expect(saved['done'], true);
+  });
   group('Trip.fromMap', () {
     test('parses a full trip with all sections', () {
       final trip = Trip.fromMap({
@@ -14,7 +47,12 @@ void main() {
         'notes': 'Bring jackets',
         'budgetTotal': 8000,
         'packing': [
-          {'id': 'p1', 'label': 'Sunscreen', 'packed': true, 'packedBy': 'clairjassen'},
+          {
+            'id': 'p1',
+            'label': 'Sunscreen',
+            'packed': true,
+            'packedBy': 'clairjassen',
+          },
           {'id': 'p2', 'label': 'Camera', 'packed': false},
         ],
         'expenses': [
@@ -89,9 +127,7 @@ void main() {
         id: 't',
         title: 'x',
         budgetTotal: 100,
-        expenses: const [
-          TripExpense(id: 'e1', label: 'Food', amount: 120),
-        ],
+        expenses: const [TripExpense(id: 'e1', label: 'Food', amount: 120)],
         createdBy: 'khentsgdz',
         createdAt: DateTime(2026, 1, 1),
       );
@@ -121,7 +157,12 @@ void main() {
     });
 
     test('unchecking packing clears packedBy', () {
-      const item = TripPackItem(id: 'p1', label: 'x', packed: true, packedBy: 'clairjassen');
+      const item = TripPackItem(
+        id: 'p1',
+        label: 'x',
+        packed: true,
+        packedBy: 'clairjassen',
+      );
       expect(item.copyWith(packed: false).packedBy, isNull);
     });
   });

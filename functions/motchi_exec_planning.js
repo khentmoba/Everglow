@@ -6,6 +6,7 @@
  * ride on ctx (see motchi_exec_tools.js createToolCtx).
  */
 
+const { randomUUID } = require('node:crypto');
 const { parseReminderDate, phtDateString } = require('./motchi_core.js');
 const { getCalendarEvents } = require('./calendar_core.js');
 
@@ -122,14 +123,13 @@ async function exec_add_trip(ctx, args) {
     if (Number.isNaN(sd.getTime()) || Number.isNaN(ed.getTime())) return JSON.stringify({ error: 'Invalid start_date or end_date' });
     const data = {
       title,
-      description: String(args.description||''),
-      coverUrl: '',
+      notes: String(args.description||''),
       startDate: ctx.admin.firestore.Timestamp.fromDate(sd),
       endDate: ctx.admin.firestore.Timestamp.fromDate(ed),
       status: 'planning',
       createdBy: ctx.callerUid,
       createdAt: ctx.admin.firestore.Timestamp.now(),
-      budgetEstimate: Number(args.budget)||0,
+      budgetTotal: Number(args.budget)||0,
       currency: 'PHP',
       memberIds: ['khentsgdz','clairjassen'],
       searchKey: `${title.toLowerCase()} ${(args.description||'').toLowerCase()}`,
@@ -153,27 +153,23 @@ async function exec_add_trip_pin(ctx, args) {
       }
     }
     if (!tripId) return JSON.stringify({ error: 'trip_id or trip_title required and not found' });
-    // Verify trip exists
-    const tripSnap = await ctx.db.collection('travel_trips').doc(tripId).get();
-    if (!tripSnap.exists) return JSON.stringify({ error: `Trip ${tripId} not found` });
-    const lat = Number(args.lat)||0;
-    const lng = Number(args.lng)||0;
-    const cat = ['stay','eat','sight','activity','transit'].includes(String(args.category||'')) ? String(args.category) : 'sight';
-    // Determine order
-    const existing = await ctx.db.collection('travel_pins').where('tripId','==',tripId).get();
-    const order = existing.size;
+    const ref = ctx.db.collection('travel_trips').doc(tripId);
     const pin = {
-      tripId,
-      title,
-      note: String(args.note||''),
-      lat,
-      lng,
-      category: cat,
-      order,
-      createdBy: ctx.callerUid,
+      id: randomUUID(),
+      name: title,
+      note: String(args.note || ''),
+      done: false,
+      ...(Number.isFinite(Number(args.lat)) ? { lat: Number(args.lat) } : {}),
+      ...(Number.isFinite(Number(args.lng)) ? { lng: Number(args.lng) } : {}),
+      category: ['stay', 'eat', 'sight', 'activity', 'transit'].includes(args.category) ? args.category : 'sight',
     };
-    const ref = await ctx.db.collection('travel_pins').add(pin);
-    return JSON.stringify({ success: true, id: ref.id, tripId, title });
+    await ctx.db.runTransaction(async (tx) => {
+      const trip = await tx.get(ref);
+      if (!trip.exists) throw new Error('Trip not found');
+      const places = Array.isArray(trip.data().places) ? trip.data().places : [];
+      tx.update(ref, { places: [...places, pin] });
+    });
+    return JSON.stringify({ success: true, id: pin.id, tripId, title });
 }
 
 async function exec_get_trips(ctx, args) {
@@ -670,7 +666,7 @@ async function exec_edit_trip(ctx, args) {
     if (!t) return JSON.stringify({ error: 'new_title must not be empty' });
     update.title = t;
   }
-  if (args.description !== undefined) update.description = String(args.description);
+  if (args.description !== undefined) update.notes = String(args.description);
   if (args.start_date !== undefined) {
     const d = new Date(String(args.start_date).trim());
     if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid start_date: ${args.start_date}` });
@@ -681,13 +677,11 @@ async function exec_edit_trip(ctx, args) {
     if (Number.isNaN(d.getTime())) return JSON.stringify({ error: `Invalid end_date: ${args.end_date}` });
     update.endDate = ctx.admin.firestore.Timestamp.fromDate(d);
   }
-  if (args.budget !== undefined) update.budgetEstimate = Number(args.budget) || 0;
+  if (args.budget !== undefined) update.budgetTotal = Number(args.budget) || 0;
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'Nothing to update — provide a field to change' });
-  if (update.title !== undefined || update.description !== undefined) {
+  if (update.title !== undefined || update.notes !== undefined) {
     const data = found.snap.data() || {};
-    const title = update.title !== undefined ? update.title : (data.title || '');
-    const desc = update.description !== undefined ? update.description : (data.description || '');
-    update.searchKey = `${title.toLowerCase()} ${desc.toLowerCase()}`;
+    update.searchKey = `${update.title ?? data.title ?? ''} ${update.notes ?? data.notes ?? data.description ?? ''}`.toLowerCase();
   }
   await found.ref.update(update);
   return JSON.stringify({ success: true, id: found.ref.id, title: update.title || found.snap.data()?.title || '' });
