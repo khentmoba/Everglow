@@ -7,7 +7,7 @@ export function checkPrContract({body = '', draft = false, paths = []}, exists =
   if (draft) return [];
   body = body.replace(/<!--[\s\S]*?-->/g, '');
   const errors = [];
-  for (const heading of ['Summary', 'Evidence', 'Merge Danger']) {
+  for (const heading of ['Summary', 'Evidence', 'Merge Danger', 'Still to do']) {
     const section = body.match(new RegExp(`^## ${heading}\\s*\\n([\\s\\S]*?)(?=^## |$(?![\\s\\S]))`, 'm'))?.[1]?.trim();
     if (!section) errors.push(`Fill in ## ${heading}.`);
   }

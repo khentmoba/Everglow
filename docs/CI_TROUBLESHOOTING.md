@@ -47,6 +47,14 @@ Deployment/release workflows on `main` are unchanged.
 
 Read the failed job's annotations and logs before changing code.
 
+## Flutter version mismatch
+
+`pubspec.yaml` → `environment.flutter` pins the SDK used by all Flutter
+workflows via `flutter-version-file`. Check `flutter --version` locally
+before diagnosing a CI-only analysis or compilation failure. Install that
+same SDK version on the PC; change the pin and local SDK together when
+upgrading. Do not downgrade CI just to match an old local installation.
+
 ## Profile login rollout
 
 All four profiles now use the server's `verifyPasscode` endpoint. Never put

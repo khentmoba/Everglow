@@ -54,7 +54,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: pubspec.yaml
           cache: true
       - if: needs.changes.outputs.app == 'true'
         run: flutter pub get
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version-file: pubspec.yaml
           cache: true
       - uses: actions/setup-node@v4
         with:

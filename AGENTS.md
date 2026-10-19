@@ -105,7 +105,7 @@ only on a version bump — a merge with no bump does nothing.
 
 ## Watch-outs (learned from live breaks)
 
-- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / TokenHarbor keys server-side.
+- **Privacy first:** couple-only data (chat, gallery, notes, garden, AI memories) is Khent + Clair only. Breyan / Octagram are movies-only. Cinema is shared with family guests, so keep its words neutral: no couple or romance framing. When touching Firestore or functions, re-check `firestore.rules` and keep TMDB / Last.fm / TokenHarbor keys server-side.
 - **Main screen is fragile on web:** the Together zone broke live several times (grey cover, full-stack crash). Reproduce in Chrome first. Keep lists finite, avoid blur-over-big-area and pinned headers that jump.
 - **Helpers need a login token:** the app never calls TMDB / Last.fm / AI models directly. It calls our cloud helpers with a Firebase login token. Don't add direct web calls or client keys.
 - **Look locally before you look live:** never "fix live by redeploying to see". Details in the `everglow-pr` skill.
@@ -117,6 +117,7 @@ only on a version bump — a merge with no bump does nothing.
 * Keyless public catalogs (Open Library, Jikan) go through `proxyCatalog` with a login token when signed in. No direct third-party fetches from the client except `proxyBookText` candidates and cover/thumbnail `<img>` URLs.
 * For live data use `.snapshots()`. If something fails, leave a `Logger.e` so we can see it in release too (raw `print` is banned by `avoid_print`).
 * Use Provider only. No Riverpod, no Bloc.
+* Subagents run on GPT-6 Luna (`gpt-6-luna`) unless Khent names another model.
 * Use relative imports inside `lib/`, like `../../features/...`.
 * Dart files are `snake_case`. Screens end in `Screen`.
 

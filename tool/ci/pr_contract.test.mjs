@@ -18,7 +18,9 @@ Guards: passed — all guards
 Browser: passed — phone and tablet
 ## Merge Danger
 **Door:** two-way
-**Blast radius:** demo fixtures only`;
+**Blast radius:** demo fixtures only
+## Still to do
+None`;
 const pr = {body,paths:['lib/core/agent/agent_fixtures.dart']};
 
 test('CLI checks the merge parent when the PR event base is unavailable', () => {
@@ -55,10 +57,19 @@ test('ready visual PR requires real pinned proof and completed check declaration
   assert.deepEqual(checkPrContract(pr, () => true), []);
   assert.ok(checkPrContract(pr, () => false).some(e => e.includes('missing')));
   for (const bad of [body.replace(shot,'Proof: N/A — capture failed'), body.replace('a'.repeat(40),'main'),
-    body.replace('## Merge Danger','## Risk'), body.replace('Tests: passed — 1492 tests','Tests: timed out'),
+    body.replace('## Merge Danger','## Risk'), body.replace(/## Still to do[\s\S]*/,''), body.replace('Tests: passed — 1492 tests','Tests: timed out'),
     body + '\nUnverified: browser route', body + '\n- [ ] screenshot']) {
     assert.ok(checkPrContract({...pr,body:bad}).length);
   }
+});
+
+test('follow-ups need an explicit answer, not just a heading or template comment', () => {
+  for (const answer of ['', '<!-- Write None or name the follow-up. -->']) {
+    assert.ok(checkPrContract({...pr, body: body.replace(/None$/, answer)})
+      .some(error => error.includes('Still to do')));
+  }
+  assert.deepEqual(checkPrContract({...pr, body: body.replace(/None$/,
+    'Khent: verify the phone-to-PC handoff after merge.')}), []);
 });
 
 test('drafts may report blockers; nonvisual PRs must explain N/A', () => {
