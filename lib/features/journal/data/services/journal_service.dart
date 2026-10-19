@@ -230,24 +230,22 @@ class JournalService {
 
     final q = query.toLowerCase().trim();
     if (q.isEmpty) return const [];
-    final snap = await withGetTimeout(
-      _db
-          .collection(_collection)
-          .orderBy('createdAt', descending: true)
-          .limit(80)
-          .get(),
-      label: 'journal search',
-    );
-    return snap.docs
-        .map((d) => JournalEntry.fromFirestore(d))
-        .where(
+    final matches = <JournalEntry>[];
+    DocumentSnapshot? cursor;
+    do {
+      final page = await fetchPage(cursor: cursor, limit: 80);
+      matches.addAll(
+        page.items.where(
           (e) =>
               e.title.toLowerCase().contains(q) ||
               e.content.toLowerCase().contains(q) ||
               e.tags.any((t) => t.toLowerCase().contains(q)) ||
               e.category.name.contains(q),
-        )
-        .toList();
+        ),
+      );
+      cursor = page.nextCursor;
+    } while (cursor != null);
+    return matches;
   }
 
   /// On This Day — same monthDay

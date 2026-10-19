@@ -39,7 +39,7 @@ class WatchPartyChatService {
         .doc(roomId)
         .collection(_messagesSubcollection)
         .orderBy('timestamp', descending: true)
-        .limitToLast(200)
+        .limit(200)
         .snapshots()
         .map((snapshot) {
           final messages = <WatchPartyChatMessage>[];
