@@ -80,6 +80,7 @@ class AuthService extends ChangeNotifier {
   Future<void> _loadSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (_isAgentSession) return;
       _currentUser = prefs.getString('current_user_name');
       final savedVerifier = prefs.getString('offline_passcode_verifier');
       if (savedVerifier != null) {
@@ -111,8 +112,10 @@ class AuthService extends ChangeNotifier {
     } catch (e) {
       Logger.e('Failed to load session from disk', error: e);
     } finally {
-      _isSessionLoaded = true;
-      notifyListeners();
+      if (!_isAgentSession) {
+        _isSessionLoaded = true;
+        notifyListeners();
+      }
     }
   }
 
