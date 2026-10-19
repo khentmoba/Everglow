@@ -5,6 +5,8 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
+import '../../data/services/watch_party_server_service.dart';
+import '../../../../core/utils/logger.dart';
 
 /// Controls a real `<video>` element playing an HLS stream through
 /// hls.js inside a Flutter platform view.
@@ -28,6 +30,8 @@ class HlsServerPlayerController {
   }
 
   bool get isAttached => _state != null;
+
+  String? get playbackUrl => _state?._loadingUrl;
 
   /// Latest known playback position in seconds. Falls back to the last
   /// reported time so the screen's clock keeps ticking even between
@@ -152,6 +156,7 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   bool _ready = false;
   bool _destroyed = false;
   String? _loadingUrl;
+  int _loadGeneration = 0;
   double _pendingStart = 0.0;
   bool _pendingAutoplay = false;
   bool _muted = true;
@@ -307,12 +312,14 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     );
   }
 
-  void _loadStream(
+  Future<void> _loadStream(
     String url, {
     required double startSeconds,
     required bool autoplay,
-  }) {
-    _loadingUrl = url;
+  }) async {
+    final generation = ++_loadGeneration;
+    _bridgePollTimer?.cancel();
+    _loadingUrl = null;
     _pendingStart = startSeconds;
     _pendingAutoplay = autoplay;
     _ready = false;
@@ -329,10 +336,24 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
       // Fresh element; nothing to reset.
     }
     _attachSubtitle();
+    try {
+      final authorized = await WatchPartyServerService.authorizeStreamUrl(url);
+      if (_destroyed || generation != _loadGeneration) return;
+      _loadingUrl = authorized;
+    } catch (e, st) {
+      if (_destroyed || generation != _loadGeneration) return;
+      Logger.e(
+        'Watch party stream authorization failed',
+        error: e,
+        stackTrace: st,
+      );
+      widget.onError?.call('Unable to authorize stream — try again');
+      return;
+    }
 
     if (_nativeHls) {
       try {
-        video.src = url;
+        video.src = _loadingUrl!;
       } catch (e) {
         widget.onError?.call('unable to load stream');
       }

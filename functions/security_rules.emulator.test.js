@@ -49,6 +49,10 @@ test('rules prevent cinema-to-couple escalation and preserve both existing coupl
   assert.equal((await request('notes/audit-note', cinema)).status, 403);
   assert.equal((await request('notes/audit-note', clair)).status, 200);
   assert.equal((await request('notes/audit-note', khent)).status, 200);
+  for (const bearer of [cinema, clair, khent]) {
+    assert.equal((await request('watch_stream_keys/audit-key', bearer)).status, 403);
+    assert.equal((await request('watch_stream_keys/audit-key', bearer, 'PATCH', 'demo')).status, 403);
+  }
   assert.equal((await request('users/audit-cinema', cinema, 'DELETE')).status, 200);
   assert.equal((await request('users/audit-cinema', cinema, 'PATCH', 'khentsgdz')).status, 403);
   assert.equal((await request('users/audit-cinema', cinema, 'PATCH', 'clairjassen')).status, 403);

@@ -2,8 +2,57 @@ import 'package:everglow/features/watch_party/data/models/watch_party_room.dart'
 import 'package:everglow/features/watch_party/data/models/watch_party_server.dart';
 import 'package:everglow/features/watch_party/data/services/watch_party_server_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'dart:convert';
 
 void main() {
+  test(
+    'native-media URL exchange authenticates without putting the Firebase token in the URL',
+    () async {
+      const raw = 'https://media.example.com/master.m3u8';
+      final client = MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.headers['Authorization'], 'Bearer demo-token');
+        expect(jsonDecode(request.body)['url'], raw);
+        return http.Response(
+          jsonEncode({'url': 'https://proxy.example/stream?signature=demo'}),
+          200,
+        );
+      });
+      final result = await WatchPartyServerService.authorizeStreamUrl(
+        WatchPartyServerService.proxyUrlFor(raw),
+        getToken: () async => 'demo-token',
+        client: client,
+      );
+      expect(result, 'https://proxy.example/stream?signature=demo');
+      expect(result, isNot(contains('demo-token')));
+      expect(
+        await WatchPartyServerService.authorizeStreamUrl(
+          raw,
+          getToken: () async => throw StateError('not needed'),
+        ),
+        raw,
+      );
+      await expectLater(
+        WatchPartyServerService.authorizeStreamUrl(
+          WatchPartyServerService.proxyUrlFor(raw),
+          getToken: () async => null,
+          client: client,
+        ),
+        throwsStateError,
+      );
+      await expectLater(
+        WatchPartyServerService.authorizeStreamUrl(
+          WatchPartyServerService.proxyUrlFor(raw),
+          getToken: () async => 'demo-token',
+          client: MockClient((_) async => http.Response('denied', 403)),
+        ),
+        throwsStateError,
+      );
+      client.close();
+    },
+  );
   group('WatchPartyServer', () {
     test('round-trips through JSON', () {
       const server = WatchPartyServer(

@@ -130,6 +130,7 @@ async function fetchPublicUrl(target, { headers, signal }) {
     return {
       ok: incoming.statusCode >= 200 && incoming.statusCode < 300,
       status: incoming.statusCode,
+      url: url.toString(),
       headers: new Headers(Object.entries(incoming.headers).map(([key, value]) => [key, String(value)])),
       body: Readable.toWeb(incoming),
     };
