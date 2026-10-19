@@ -257,6 +257,37 @@ Map<String, dynamic> _row(
 
 void main() {
   test(
+    'derived couple shelves filter the combined stream without losing partner attribution',
+    () async {
+      final service = _Watchlist(
+        _Db([
+          _row('movie', 'khentsgdz', 1, status: 'watching-self'),
+          _row(
+            'anime',
+            'clairjassen',
+            2,
+            anime: true,
+            mediaType: 'tv',
+            status: 'watching-self',
+          ),
+        ]),
+      );
+      final anime = await service.getCoupleAnimeStream().firstWhere(
+        (items) => items.isNotEmpty,
+      );
+      expect(anime.single.isAnime, true);
+      expect(anime.single.userName, 'clairjassen');
+      final watching = await service
+          .getCoupleCurrentlyWatchingStream()
+          .firstWhere((items) => items.length == 2);
+      expect(watching.every((item) => item.isCurrentlyWatching), true);
+      expect(watching.map((item) => item.userName).toSet(), {
+        'khentsgdz',
+        'clairjassen',
+      });
+    },
+  );
+  test(
     'optimistic removal never hides a different catalog sharing the number',
     () {
       final movie = _item(77);
