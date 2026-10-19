@@ -223,18 +223,18 @@ class _SharedUpcomingStream {
     );
   }
 
-  Stream<List<CalendarEvent>> get stream => _controller.stream;
+  late final Stream<List<CalendarEvent>> stream = Stream.multi((listener) {
+    final subscription = _controller.stream.listen(
+      listener.addSync,
+      onError: listener.addErrorSync,
+      onDone: listener.closeSync,
+    );
+    final cached = _lastData;
+    if (cached != null) listener.addSync(cached);
+    listener.onCancel = subscription.cancel;
+  }, isBroadcast: true);
 
   void _onListen() {
-    if (_lastData != null) {
-      final cached = _lastData!;
-      scheduleMicrotask(() {
-        if (!_controller.isClosed && _controller.hasListener) {
-          _controller.add(cached);
-        }
-      });
-    }
-
     _sourceSub ??= sourceFactory().listen(
       (data) {
         _lastData = data;
