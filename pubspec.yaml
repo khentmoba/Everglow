@@ -6,6 +6,9 @@ version: 6.2.0+1
 
 environment:
   sdk: ^3.11.3
+  # CI reads this exact version (flutter-version-file). Change it here and
+  # on your PC together, so local checks match GitHub and the live build.
+  flutter: 3.47.7
 
 dependencies:
   flutter:

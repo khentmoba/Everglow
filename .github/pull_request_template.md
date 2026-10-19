@@ -26,3 +26,8 @@ Browser:
 **Blast radius:**
 
 <!-- Choose one-way or two-way. For one-way changes describe failure and recovery. -->
+
+## Still to do
+
+<!-- What Khent must do or check after merge: change a password, test on
+     the iPhone, verify phone-to-PC sync. Write None if nothing. -->

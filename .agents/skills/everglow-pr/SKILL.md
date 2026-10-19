@@ -84,6 +84,13 @@ ordinary Quality success does not prove that those browser checks passed.
   - Or click any of the 1-click fast-jump destination chips on the doorway launchpad (Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, etc.).
   - In Agent Mode, password gates are bypassed and all couple surfaces automatically render safe in-memory demo fixtures.
   - Use the floating Agent HUD at the bottom across all 20 surfaces to jump between screens or switch profiles (`Khent ⇄ Clair ⇄ Cinema`). Click the minimize button (`—`) on the HUD before snapping the proof screenshot.
+- **iPhone Home Screen changes** (status bar, bottom strip, installed
+  launch): Chrome cannot prove these. Ask Khent to open
+  `<preview>/screen_test.html` in Safari and follow that page's install
+  steps. Its dedicated launch page restores demo mode even with fresh iOS
+  storage; ordinary `?agent=` links do not guarantee an installed launch.
+  Until he confirms, say "unverified on iPhone" and keep the PR draft. Give
+  him only steps you have seen on that screen.
 - Embed it in the PR body with a raw URL pinned to the commit SHA
   (branches get deleted, SHAs don't):
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
@@ -96,7 +103,7 @@ ordinary Quality success does not prove that those browser checks passed.
 
 ## 4. Write the PR body
 
-Three sections, no preamble. Khent should be able to read the body and
+Four sections, no preamble. Khent should be able to read the body and
 know whether to merge without opening a single file.
 Use `.github/pull_request_template.md`. Quality checks its required fields
 on PR creation, code pushes, body edits, and draft changes. Keep blocked
@@ -180,6 +187,12 @@ unless `functions/` backfills it first.
 On a one-way door, add one sentence on what happens if this is wrong
 and how to undo it. That sentence is what lets Khent say yes.
 
+### Still to do — what outlives the thread
+
+List what Khent must do or check after merge: change a password, test on
+the iPhone, try a phone-to-PC handoff. Write `None` if nothing. A final
+chat reply disappears when the thread settles; the PR body stays.
+
 ## Definition of done — proof over confidence
 
 Pi agents get mechanical reminders of the first three rules from
@@ -192,8 +205,10 @@ rules judge honesty:
 - No PR without a Merge Danger line. Two-way door is a real answer; a
   missing line is not.
 - Never invent a verification command — `ls tool/ci/` first.
-- Reproduce a bug before fixing it, then repeat the same steps after. If
-  reproduction is blocked, say what is missing instead of guessing around it.
+- Reproduce a bug before fixing it, then repeat the same steps after, from
+  both a fresh start and existing state (new chat and old chat, first load
+  and later loads). If reproduction is blocked, say what is missing instead
+  of guessing around it.
 - A diagnosis must cite the code you actually read. An untested explanation
   is a hypothesis — call it one.
 - Match the evidence to the claim: a screenshot proves looks, not behavior.
