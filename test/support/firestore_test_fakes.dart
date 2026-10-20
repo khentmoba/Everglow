@@ -66,7 +66,16 @@ class TestCollection implements CollectionReference<Map<String, dynamic>> {
   }
 
   @override
-  DocumentReference<Map<String, dynamic>> doc([String? path]) => TestDocument();
+  DocumentReference<Map<String, dynamic>> doc([String? path]) {
+    final id = path ?? 'doc-${_issued.length}';
+    _issued.add(id);
+    return TestDocument(id, this);
+  }
+
+  final List<String> _issued = [];
+
+  /// Ids of documents written through [TestDocument.set].
+  final List<String> docIds = [];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -94,12 +103,23 @@ class TestBatch implements WriteBatch {
 }
 
 class TestDocument implements DocumentReference<Map<String, dynamic>> {
+  TestDocument([this.id = 'test-doc', this.owner]);
   @override
-  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async =>
-      throw FirebaseException(
-        plugin: 'cloud_firestore',
-        code: 'permission-denied',
-      );
+  final String id;
+
+  /// When set, writes follow the collection's [TestCollection.failWrites].
+  final TestCollection? owner;
+  @override
+  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) async {
+    owner?._writes.add(null);
+    owner?.docIds.add(id);
+    if (owner?.failWrites == false) return;
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'permission-denied',
+    );
+  }
+
   @override
   Future<void> update(Map<Object, Object?> data) async =>
       throw FirebaseException(

@@ -15,6 +15,7 @@ class PagedCollection extends TestCollection {
   final bool descending;
   final int? pageLimit;
   final String? cursor;
+  final Object? afterValue;
   final List<bool Function(Map<String, dynamic>)> filters;
   PagedCollection({
     required super.entries,
@@ -23,6 +24,7 @@ class PagedCollection extends TestCollection {
     this.descending = false,
     this.pageLimit,
     this.cursor,
+    this.afterValue,
     this.filters = const [],
   }) : reads = reads ?? QueryReads();
 
@@ -31,6 +33,7 @@ class PagedCollection extends TestCollection {
     bool? descending,
     int? pageLimit,
     String? cursor,
+    Object? afterValue,
     List<bool Function(Map<String, dynamic>)>? filters,
   }) => PagedCollection(
     entries: entries,
@@ -39,6 +42,7 @@ class PagedCollection extends TestCollection {
     descending: descending ?? this.descending,
     pageLimit: pageLimit ?? this.pageLimit,
     cursor: cursor ?? this.cursor,
+    afterValue: afterValue ?? this.afterValue,
     filters: filters ?? this.filters,
   );
 
@@ -87,12 +91,22 @@ class PagedCollection extends TestCollection {
     DocumentSnapshot documentSnapshot,
   ) => _copy(cursor: documentSnapshot.id);
 
+  @override
+  Query<Map<String, dynamic>> startAfter(Iterable<Object?> values) =>
+      _copy(afterValue: values.single);
+
   PagedSnapshot snapshot() {
     var rows = [
       for (var i = 0; i < entries.length; i++) {'_id': '$i', ...entries[i]},
     ].where((row) => filters.every((filter) => filter(row))).toList();
     if (order != null) {
       rows.sort((a, b) => compare(a[order], b[order]) * (descending ? -1 : 1));
+    }
+    if (afterValue != null) {
+      rows = rows.where((row) {
+        final c = compare(row[order], afterValue);
+        return descending ? c < 0 : c > 0;
+      }).toList();
     }
     if (cursor != null) {
       rows = rows

@@ -22,8 +22,17 @@ The viewer deliberately does no speculative neighbor prefetching, so it needs
 no browser-specific connection detection. This trades some first-swipe waiting
 on fast connections for predictable demand on slow connections.
 
-The offline pending-write states, durable photo downloads, history/query changes,
-and device timing targets in the second pass remain future work. Verification
+The second pass is now implemented on `perf/lighter-loads`: new journal pages
+close as "saved on this device" after 4s without a server answer, show a
+syncing badge until confirmed, keep their draft until then, and reuse one id
+per unsaved page so retries never duplicate; gallery uploads report byte
+progress and offer Retry; Gallery "Keep on this phone" stores the grid
+thumbnails in `everglow-offline-photos-v1` (served first by `web/sw.js`,
+kept across updates, deleted on logout); gallery Load More reads older pages
+by cursor and search reuses one metadata read per screen; book search shows
+each library's results as it answers. The journal first page stays at 100
+because stats, chapter counts and filters are computed from it. Edits to an
+existing entry still need a connection. Device timing targets remain open. Verification
 and synthetic screenshots are recorded in `docs/pr-proof/slow-network/README.md`.
 
 ## What already helps

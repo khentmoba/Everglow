@@ -35,12 +35,19 @@ class JournalService {
           .collection(_collection)
           .orderBy('createdAt', descending: true)
           .limit(100)
-          .snapshots()
+          // Metadata changes flip an entry from "syncing" to synced.
+          .snapshots(includeMetadataChanges: true)
           .map((snap) {
             final out = <JournalEntry>[];
             for (final d in snap.docs) {
               try {
-                out.add(JournalEntry.fromFirestore(d));
+                out.add(
+                  JournalEntry.fromMap(
+                    d.data(),
+                    d.id,
+                    isSyncing: d.metadata.hasPendingWrites,
+                  ),
+                );
               } catch (e) {
                 Logger.e('Journal: skipping malformed entry ${d.id}', error: e);
               }
@@ -295,14 +302,24 @@ class JournalService {
     }
   }
 
-  Future<void> add(JournalEntry entry) async {
+  /// A fresh id for a new entry, so retrying a save rewrites the same
+  /// document instead of creating a duplicate.
+  String newEntryId() => AgentMode.isActive.value && AgentMode.useDemoData.value
+      ? 'demo-${DateTime.now().microsecondsSinceEpoch}'
+      : _db.collection(_collection).doc().id;
+
+  Future<void> add(JournalEntry entry, {String? id}) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       Logger.i('Agent session simulated journal add: ${entry.title}');
       return;
     }
 
     try {
-      await _db.collection(_collection).add(entry.toFirestore());
+      if (id == null) {
+        await _db.collection(_collection).add(entry.toFirestore());
+      } else {
+        await _db.collection(_collection).doc(id).set(entry.toFirestore());
+      }
       Logger.i('Journal added: ${entry.title}');
     } catch (e) {
       Logger.e('Error adding journal', error: e);

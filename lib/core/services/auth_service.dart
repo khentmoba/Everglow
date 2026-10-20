@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/gallery/data/services/offline_photos.dart';
 import '../../features/dashboard/data/services/letterbox_service.dart';
 import '../../features/xp/data/services/xp_service.dart';
 import '../agent/agent_mode.dart';
@@ -680,6 +681,9 @@ class AuthService extends ChangeNotifier {
     _offlineUnlocked = false;
     await _saveSession(null);
     await AgentMode.clearPersistedState();
+    // Kept gallery photos are couple-only; the next person on this device
+    // must not find them.
+    await OfflinePhotos.instance.clear();
     notifyListeners();
   }
 }

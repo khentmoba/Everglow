@@ -712,7 +712,9 @@ class _BooksScreenState extends _BooksScreenStateBase {
                             ),
                             const Spacer(),
                             Text(
-                              'FULL DATABASE',
+                              _searchingMore
+                                  ? 'SEARCHING MORE LIBRARIES...'
+                                  : 'FULL DATABASE',
                               style: AppTypography.outfitWhite.copyWith(
                                 fontSize: 10,
                                 color: _cDeepRose,

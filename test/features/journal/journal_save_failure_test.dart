@@ -1,5 +1,8 @@
+// Network-free test doubles for sealed SDK types.
+// ignore_for_file: subtype_of_sealed_class, must_be_immutable
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:everglow/features/journal/data/models/journal_entry.dart';
 import 'package:everglow/features/journal/data/services/journal_service.dart';
 import 'package:everglow/features/journal/presentation/widgets/add_journal_entry_dialog.dart';
@@ -187,6 +190,84 @@ void main() {
       await tester.tap(find.text('Save Entry ✨'));
       await tester.pumpAndSettle();
       expect(entries.writeAttempts, 2);
+      expect(
+        entries.docIds.toSet().length,
+        1,
+        reason: 'a retry rewrites the same entry instead of adding another',
+      );
     },
   );
+  testWidgets(
+    'a slow save closes as saved on this device and keeps the draft until synced',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final entries = _SlowCollection();
+      final xp = _Xp();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => AddJournalEntryDialog(
+                    author: 'demo',
+                    service: JournalService(db: TestFirestore(entries)),
+                    xpService: xp,
+                  ),
+                ),
+                child: const Text('Write'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Write'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'Demo entry');
+      await tester.enterText(
+        find.byType(TextField).at(1),
+        'Offline demo words',
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.ensureVisible(find.text('Save Entry ✨'));
+      await tester.tap(find.text('Save Entry ✨'));
+      await tester.pump(AddJournalEntryDialog.syncWait);
+      await tester.pumpAndSettle();
+      expect(find.byType(AddJournalEntryDialog), findsNothing);
+      expect(find.textContaining('Saved on this device'), findsOneWidget);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString('draft:journal:new:content'),
+        'Offline demo words',
+      );
+      expect(xp.awards, 0, reason: 'XP waits for the server');
+
+      entries.server.complete();
+      await tester.pumpAndSettle();
+      expect(prefs.getString('draft:journal:new:content'), isNull);
+      expect(prefs.getString('journal:new:pendingId'), isNull);
+      expect(xp.awards, 1);
+      xp.pending.complete(true);
+    },
+  );
+}
+
+/// The server never answers until [server] completes, like a weak signal.
+class _SlowCollection extends TestCollection {
+  final server = Completer<void>();
+  @override
+  DocumentReference<Map<String, dynamic>> doc([String? path]) =>
+      _SlowDocument(server.future);
+}
+
+class _SlowDocument extends Fake
+    implements DocumentReference<Map<String, dynamic>> {
+  _SlowDocument(this.confirmed);
+  final Future<void> confirmed;
+  @override
+  String get id => 'slow-doc';
+  @override
+  Future<void> set(Map<String, dynamic> data, [SetOptions? options]) =>
+      confirmed;
 }

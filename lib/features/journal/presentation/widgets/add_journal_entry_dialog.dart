@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -18,6 +19,11 @@ class AddJournalEntryDialog extends StatefulWidget {
   final JournalEntry? existing;
   final JournalService? service;
   final XPService? xpService;
+
+  /// How long a new page waits for the server before closing as
+  /// "saved on this device".
+  @visibleForTesting
+  static Duration syncWait = const Duration(seconds: 4);
 
   const AddJournalEntryDialog({
     super.key,
@@ -173,11 +179,45 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
           isLocked: _isLocked,
           wordCount: wordCount,
         );
-        await (widget.service ?? JournalService()).add(entry);
-        final uid = FirebaseAuth.instance.currentUser?.uid;
-        if (uid != null && uid.isNotEmpty) {
-          unawaited(_awardJournalXp(uid));
+        final service = widget.service ?? JournalService();
+        final id = await _pendingEntryId(service);
+        final write = service.add(entry, id: id);
+        final waited = Completer<bool>();
+        final wait = Timer(
+          AddJournalEntryDialog.syncWait,
+          () => waited.complete(false),
+        );
+        final confirmed = await Future.any([
+          write.then((_) => true),
+          waited.future,
+        ]).whenComplete(wait.cancel);
+        if (!confirmed) {
+          // The queued write finishes on its own; keep the draft until the
+          // server confirms it, so the words survive a lost tab.
+          unawaited(
+            write.then(
+              (_) => _afterNewEntrySaved(id, title: title, content: content),
+              onError: (Object e, StackTrace st) => Logger.e(
+                'Journal: queued save failed; draft kept',
+                error: e,
+                stackTrace: st,
+              ),
+            ),
+          );
+          if (mounted) {
+            final messenger = ScaffoldMessenger.maybeOf(context);
+            Navigator.pop(context);
+            messenger?.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  "Saved on this device. It will sync when you're back online.",
+                ),
+              ),
+            );
+          }
+          return;
         }
+        await _afterNewEntrySaved(id);
       }
       if (widget.existing == null) {
         // Words are saved now — forget the draft so it never comes back
@@ -239,6 +279,50 @@ class _AddJournalEntryDialogState extends State<AddJournalEntryDialog> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  static const _pendingIdKey = 'journal:new:pendingId';
+
+  /// One id per unsaved page, kept with its draft, so a retry — even from a
+  /// reopened dialog — rewrites the same entry instead of adding another.
+  Future<String> _pendingEntryId(JournalService service) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_pendingIdKey);
+      if (saved != null) return saved;
+      final id = service.newEntryId();
+      await prefs.setString(_pendingIdKey, id);
+      return id;
+    } catch (e) {
+      Logger.e('Journal: could not keep the pending entry id', error: e);
+      return service.newEntryId();
+    }
+  }
+
+  /// Server confirmed a new page: award XP, then forget its id and draft.
+  /// [title]/[content] guard drafts the user has since rewritten.
+  Future<void> _afterNewEntrySaved(
+    String id, {
+    String? title,
+    String? content,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null && uid.isNotEmpty) unawaited(_awardJournalXp(uid));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(_pendingIdKey) == id) {
+        await prefs.remove(_pendingIdKey);
+      }
+    } catch (e) {
+      Logger.e('Journal: could not clear the pending entry id', error: e);
+    }
+    if (title != null) {
+      await DraftTextController.forgetDraft('journal:new:title', onlyIf: title);
+      await DraftTextController.forgetDraft(
+        'journal:new:content',
+        onlyIf: content,
+      );
     }
   }
 

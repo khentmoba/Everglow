@@ -236,6 +236,24 @@ test('API/auth, manifest and push/worker scripts never cache or use cached fallb
   assert.deepEqual(await (await w.request('/version.json')).json(), {offline: true});
 });
 
+test('kept gallery photos open offline and survive updates; other photos stay network-only', async () => {
+  const proxy = 'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyGalleryImage';
+  const kept = `${proxy}?url=demo-kept`;
+  const other = `${proxy}?url=demo-other`;
+  const w = worker(A);
+  await w.seed('everglow-offline-photos-v1', kept, new Response('kept-bytes'));
+  await w.seed('stale-runtime', '/old.js', new Response('old'));
+  await w.activate();
+  assert.ok(w.stores.has('everglow-offline-photos-v1'), 'an update never clears kept photos');
+  assert.equal(w.stores.has('stale-runtime'), false, 'other unknown caches still rotate out');
+  w.offline();
+  assert.equal(await (await w.request(kept)).text(), 'kept-bytes');
+  await assert.rejects(w.request(other), 'unkept photos are never served from a cache');
+  w.network(async () => new Response('fresh'));
+  assert.equal(await (await w.request(other)).text(), 'fresh');
+  assert.equal(w.stores.get('everglow-offline-photos-v1').size, 1, 'the worker never keeps photos by itself');
+});
+
 test('cache storage failure does not turn a successful new deploy into stale bootstrap bytes', async () => {
   const w = worker();
   await warm(w, A);

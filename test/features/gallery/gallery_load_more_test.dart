@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
+import 'package:everglow/shared/utils/firestore_pagination.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,7 @@ import 'package:everglow/features/gallery/presentation/screens/gallery_screen.da
 
 class _Gallery extends GalleryService {
   final limits = <int>[];
+  final olderBefore = <DateTime>[];
   var mapFetches = 0;
   var weekFetches = 0;
   @override
@@ -19,6 +22,27 @@ class _Gallery extends GalleryService {
   Future<List<MemoryPhoto>> getPhotosFromThisWeek() async {
     weekFetches++;
     return [];
+  }
+
+  @override
+  Future<FirestorePage<MemoryPhoto>> fetchOlderPhotos({
+    required DateTime before,
+    DocumentSnapshot? cursor,
+    int limit = 40,
+  }) async {
+    olderBefore.add(before);
+    return FirestorePage(
+      items: [
+        MemoryPhoto(
+          id: 'older',
+          imageUrl: '',
+          caption: 'Older demo photo',
+          uploadedBy: 'demo',
+          uploadedAt: DateTime(2026, 1),
+        ),
+      ],
+      nextCursor: null,
+    );
   }
 
   @override
@@ -65,7 +89,9 @@ void main() {
       expect(gallery.limits, [40]);
       await tester.tap(find.text('Load older photos'));
       await tester.pumpAndSettle();
-      expect(gallery.limits, [40, 80]);
+      expect(gallery.limits, [40], reason: 'live page is not re-read');
+      expect(gallery.olderBefore, [DateTime(2026, 2)]);
+      expect(find.text('Load older photos'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

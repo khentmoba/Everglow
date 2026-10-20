@@ -27,6 +27,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
   final FocusNode _searchFocusNode = FocusNode();
   List<BookSearchResult> _searchResults = [];
   bool _isSearching = false;
+  bool _searchingMore = false;
   Timer? _searchDebounce;
   BookSort _searchSort = BookSort.relevant;
   String? _searchFiletype;
@@ -147,6 +148,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
           _searchTotal = 0;
           _searchHasMore = false;
           _isSearching = false;
+          _searchingMore = false;
           _searchRan = false;
         });
       } else {
@@ -163,6 +165,17 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
     });
     final page = await _catalog.searchPaged(
       query,
+      onPartial: (page) {
+        if (!mounted || request != _searchRequest) return;
+        setState(() {
+          _searchResults = page.results;
+          _searchTotal = page.total;
+          _searchHasMore = false;
+          _isSearching = false;
+          _searchingMore = true;
+          _searchRan = true;
+        });
+      },
       filetype: _searchFiletype,
       language: _searchLanguage,
       sort: _searchSort,
@@ -175,6 +188,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
         _searchTotal = page.total;
         _searchHasMore = page.hasMore;
         _isSearching = false;
+        _searchingMore = false;
         _searchRan = true;
       });
     }
@@ -217,6 +231,7 @@ abstract class _BooksScreenStateBase extends State<BooksScreen> {
         _searchTotal = 0;
         _searchHasMore = false;
         _isSearching = false;
+        _searchingMore = false;
         _isLoadingMore = false;
         _searchRan = false;
       });

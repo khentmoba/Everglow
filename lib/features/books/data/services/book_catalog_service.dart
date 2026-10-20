@@ -146,8 +146,13 @@ class BookCatalogService {
   /// are Open Library only — it is the only source with true
   /// offset paging over millions of docs, and merging ranked pages
   /// from three APIs would duplicate and mis-order results.
+  ///
+  /// [onPartial] gets page 1 early, once per source that answers while
+  /// others are still pending, so one slow library doesn't hold back the
+  /// rest. Partial pages never offer Load More; the returned page is final.
   Future<CatalogPage> searchPaged(
     String query, {
+    void Function(CatalogPage page)? onPartial,
     String? filetype,
     String? language,
     BookSort sort = BookSort.relevant,
@@ -185,7 +190,42 @@ class BookCatalogService {
       );
     }
 
-    final results = await Future.wait([
+    OpenLibraryPage? olPage;
+    List<BookSearchResult>? olResults;
+    List<BookSearchResult>? gutenbergResults;
+    List<BookSearchResult>? archiveResults;
+
+    CatalogPage build({required bool done}) {
+      var merged = _merge([
+        ...?olResults,
+        ...?gutenbergResults,
+        ...?archiveResults,
+      ]);
+      merged = _applyFilters(
+        merged,
+        filetype: filetype,
+        language: language,
+        filters: filters,
+        query: q,
+      );
+      merged = _applySort(merged, sort);
+      final total = olPage?.total ?? 0;
+      return CatalogPage(
+        results: merged.take(limit).toList(),
+        total: total,
+        hasMore:
+            done && (total > (olResults?.length ?? 0) || merged.length > limit),
+      );
+    }
+
+    var pending = 3;
+    void arrived() {
+      if (--pending == 0 || onPartial == null) return;
+      final page = build(done: false);
+      if (page.results.isNotEmpty) onPartial(page);
+    }
+
+    await Future.wait([
       _openLibrary
           .searchPaged(
             q,
@@ -195,42 +235,29 @@ class BookCatalogService {
             publisher: filters.publisher,
             isbn: filters.isbn,
           )
-          .then((p) => (page: p, results: _fromOpenLibrary(p.items))),
-      _gutenberg.search(
-        _effectiveQuery(q, filters),
-        language: _gutenbergLang(langCode),
-        limit: limit,
-      ),
-      _archive.search(
-        _effectiveQuery(q, filters),
-        language: langCode,
-        limit: limit,
-      ),
+          .then((p) {
+            olPage = p;
+            olResults = _fromOpenLibrary(p.items);
+            arrived();
+          }),
+      _gutenberg
+          .search(
+            _effectiveQuery(q, filters),
+            language: _gutenbergLang(langCode),
+            limit: limit,
+          )
+          .then((r) {
+            gutenbergResults = r;
+            arrived();
+          }),
+      _archive
+          .search(_effectiveQuery(q, filters), language: langCode, limit: limit)
+          .then((r) {
+            archiveResults = r;
+            arrived();
+          }),
     ]);
-
-    final olPage = (results[0] as ({OpenLibraryPage page, List<BookSearchResult> results})).page;
-    final olResults =
-        (results[0] as ({OpenLibraryPage page, List<BookSearchResult> results})).results;
-    final all = [
-      ...olResults,
-      ...(results[1] as List<BookSearchResult>),
-      ...(results[2] as List<BookSearchResult>),
-    ];
-    var merged = _merge(all);
-    merged = _applyFilters(
-      merged,
-      filetype: filetype,
-      language: language,
-      filters: filters,
-      query: q,
-    );
-    merged = _applySort(merged, sort);
-    final clipped = merged.take(limit).toList();
-    return CatalogPage(
-      results: clipped,
-      total: olPage.total,
-      hasMore: olPage.total > olResults.length || merged.length > limit,
-    );
+    return build(done: true);
   }
 
   /// Gutenberg and Gutendex/IA only take a free-text query, so fold
@@ -292,8 +319,6 @@ class BookCatalogService {
     }).toList();
   }
 
-
-
   /// Enrich a result with the full detail payload (description,
   /// publisher, size, real download URLs) for the detail page.
   Future<BookSearchResult> details(BookSearchResult result) async {
@@ -316,8 +341,7 @@ class BookCatalogService {
         if ((e['number_of_pages'] as num?) != null ||
             (e['isbn_13'] is List && (e['isbn_13'] as List).isNotEmpty) ||
             (e['isbn_10'] is List && (e['isbn_10'] as List).isNotEmpty) ||
-            (e['publishers'] is List &&
-                (e['publishers'] as List).isNotEmpty)) {
+            (e['publishers'] is List && (e['publishers'] as List).isNotEmpty)) {
           edition = e;
           break;
         }
@@ -359,7 +383,8 @@ class BookCatalogService {
                     ? editionPublisher
                     : result.publisher),
           pageCount:
-              (edition?['number_of_pages'] as num?)?.toInt() ?? result.pageCount,
+              (edition?['number_of_pages'] as num?)?.toInt() ??
+              result.pageCount,
           isbn13: isbn13 is List && isbn13.isNotEmpty
               ? isbn13.first.toString()
               : result.isbn13,
@@ -526,7 +551,9 @@ class BookCatalogService {
       // Structured filters: Open Library already applied them
       // server-side, but Gutenberg/IA results need them here.
       if (filters.title?.trim().isNotEmpty == true &&
-          !r.title.toLowerCase().contains(filters.title!.trim().toLowerCase())) {
+          !r.title.toLowerCase().contains(
+            filters.title!.trim().toLowerCase(),
+          )) {
         return false;
       }
       if (filters.author?.trim().isNotEmpty == true &&

@@ -1,11 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
 import 'package:flutter/material.dart';
+
 import 'dart:async';
+
 import '../../../../core/theme/app_breakpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/logger.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_scaffold.dart';
 import '../../../../shared/widgets/everglow/everglow_segmented_control.dart';
@@ -15,6 +19,7 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
+import '../../data/services/offline_photos.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../widgets/add_photo_dialog.dart';
 import '../widgets/gallery_map_view.dart';
@@ -37,10 +42,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Timer? _searchDebounce;
   Future<List<MemoryPhoto>>? _searchFuture;
   int _tabIndex = 0; // 0 grid, 1 map, 2 week
-  int _photoLimit = 40;
-  late Stream<List<MemoryPhoto>> _photos = _galleryService.getPhotosStream(
-    limit: _photoLimit,
-  );
+  late Stream<List<MemoryPhoto>> _photos = _galleryService.getPhotosStream();
+  List<MemoryPhoto> _livePhotos = const [];
+  final List<MemoryPhoto> _olderPhotos = [];
+  DocumentSnapshot? _olderCursor;
+  bool _olderDone = false;
+  bool _loadingOlder = false;
+  bool _keepingOffline = false;
   Future<List<MemoryPhoto>>? _mapPhotos;
 
   @override
@@ -62,6 +70,40 @@ class _GalleryScreenState extends State<GalleryScreen> {
       barrierColor: Colors.black54,
       builder: (context) => const AddPhotoDialog(),
     );
+  }
+
+  Future<void> _loadOlder() async {
+    if (_loadingOlder || _livePhotos.isEmpty) return;
+    setState(() => _loadingOlder = true);
+    try {
+      final page = await _galleryService.fetchOlderPhotos(
+        before:
+            (_olderPhotos.isEmpty ? _livePhotos : _olderPhotos).last.uploadedAt,
+        cursor: _olderCursor,
+      );
+      if (!mounted) return;
+      setState(() {
+        _olderPhotos.addAll(page.items);
+        _olderCursor = page.nextCursor;
+        _olderDone = !page.hasMore;
+      });
+    } catch (e, st) {
+      Logger.e('Gallery: older photos failed', error: e, stackTrace: st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load older photos')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingOlder = false);
+    }
+  }
+
+  Future<void> _deletePhoto(MemoryPhoto photo) async {
+    await _galleryService.deletePhoto(photo);
+    if (mounted) {
+      setState(() => _olderPhotos.removeWhere((p) => p.id == photo.id));
+    }
   }
 
   @override
@@ -154,9 +196,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     errorMessage: 'Could not load photos',
                     errorIcon: Icons.photo_library_outlined,
                     onRetry: () => setState(() {
-                      _photos = _galleryService.getPhotosStream(
-                        limit: _photoLimit,
-                      );
+                      _photos = _galleryService.getPhotosStream();
                     }),
                     loadingView: EverglowSkeletonGrid(
                       count: 6,
@@ -172,7 +212,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       ctaLabel: 'Add Photo',
                       onCta: _openAddPhoto,
                     ),
-                    builder: (context, photos) {
+                    builder: (context, live) {
+                      _livePhotos = live;
+                      final liveIds = {for (final p in live) p.id};
+                      final photos = [
+                        ...live,
+                        ..._olderPhotos.where((p) => !liveIds.contains(p.id)),
+                      ];
                       return Column(
                         children: [
                           Expanded(
@@ -200,6 +246,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                         builder: (_) => PhotoViewerScreen(
                                           photos: photos,
                                           initialIndex: index,
+                                          onDelete: _deletePhoto,
                                         ),
                                       ),
                                     );
@@ -208,15 +255,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
                               },
                             ),
                           ),
-                          if (photos.length == _photoLimit)
+                          if (live.length == 40 && !_olderDone)
                             TextButton(
-                              onPressed: () => setState(() {
-                                _photoLimit += 40;
-                                _photos = _galleryService.getPhotosStream(
-                                  limit: _photoLimit,
-                                );
-                              }),
-                              child: const Text('Load older photos'),
+                              onPressed: _loadingOlder ? null : _loadOlder,
+                              child: Text(
+                                _loadingOlder
+                                    ? 'Loading older photos...'
+                                    : 'Load older photos',
+                              ),
                             ),
                         ],
                       );
@@ -250,7 +296,10 @@ class _GalleryScreenState extends State<GalleryScreen> {
             subtitle: 'Try again',
             ctaLabel: 'Retry',
             onCta: () => setState(() {
-              _searchFuture = _galleryService.searchPhotos(_searchQuery);
+              _searchFuture = _galleryService.searchPhotos(
+                _searchQuery,
+                recent: _livePhotos,
+              );
             }),
           );
         }
@@ -279,8 +328,11 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        PhotoViewerScreen(photos: photos, initialIndex: index),
+                    builder: (_) => PhotoViewerScreen(
+                      photos: photos,
+                      initialIndex: index,
+                      onDelete: _deletePhoto,
+                    ),
                   ),
                 );
               },
@@ -317,7 +369,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 _searchQuery = q;
                 _searchFuture = q.isEmpty
                     ? null
-                    : _galleryService.searchPhotos(q);
+                    : _galleryService.searchPhotos(q, recent: _livePhotos);
               });
             });
           },
@@ -332,6 +384,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
               color: AppColors.petalWhite.withValues(alpha: 0.42),
               size: 19,
             ),
+            suffixIcon: OfflinePhotos.instance.supported
+                ? IconButton(
+                    tooltip: 'Keep photos on this phone',
+                    onPressed: _keepingOffline ? null : _openKeepOffline,
+                    icon: _keepingOffline
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.roseQuartz,
+                            ),
+                          )
+                        : Icon(
+                            Icons.download_for_offline_outlined,
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
+                            size: 20,
+                          ),
+                  )
+                : null,
             isDense: true,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(
@@ -342,6 +414,90 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openKeepOffline() async {
+    final liveIds = {for (final p in _livePhotos) p.id};
+    final photos = [
+      ..._livePhotos,
+      ..._olderPhotos.where((p) => !liveIds.contains(p.id)),
+    ];
+    final saved = await OfflinePhotos.instance.savedCount();
+    if (!mounted) return;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.velvet,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.25)),
+        ),
+        title: const Text(
+          'Keep photos on this phone',
+          style: AppTypography.cormorantBold,
+        ),
+        content: Text(
+          'Saves small versions of the ${photos.length} photos in the grid '
+          'so they open without internet. '
+          '${saved > 0 ? '$saved already kept. ' : ''}'
+          'They are removed when you log out.',
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.petalWhite.withValues(alpha: 0.75),
+          ),
+        ),
+        actions: [
+          if (saved > 0)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'clear'),
+              child: const Text('Remove kept photos'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (photos.isNotEmpty)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'keep'),
+              child: Text('Keep ${photos.length}'),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (choice == 'clear') {
+      await OfflinePhotos.instance.clear();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Kept photos removed from this phone')),
+      );
+      return;
+    }
+    setState(() => _keepingOffline = true);
+    try {
+      final kept = await OfflinePhotos.instance.save([
+        for (final p in photos) GalleryService.gridUrl(p),
+      ]);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            kept == photos.length
+                ? 'Kept $kept photos on this phone'
+                : 'Kept $kept of ${photos.length} photos. Try again for the rest.',
+          ),
+        ),
+      );
+    } catch (e, st) {
+      Logger.e(
+        'Gallery: keeping photos offline failed',
+        error: e,
+        stackTrace: st,
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text("Couldn't keep photos on this phone")),
+      );
+    } finally {
+      if (mounted) setState(() => _keepingOffline = false);
+    }
   }
 }
 
@@ -474,10 +630,7 @@ class _PhotoCardState extends State<_PhotoCard> {
               fit: StackFit.expand,
               children: [
                 AppNetworkImage(
-                  imageUrl: GalleryService.displayUrl(
-                    photo.previewUrl,
-                    thumb: photo.thumbUrl?.isNotEmpty != true,
-                  ),
+                  imageUrl: GalleryService.gridUrl(photo),
                   fit: BoxFit.cover,
                   cacheWidth: 440,
                   errorWidget: Container(
