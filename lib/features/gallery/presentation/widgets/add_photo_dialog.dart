@@ -8,6 +8,7 @@ import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../shared/utils/pick_image_bytes.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/services/gallery_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -27,6 +28,7 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
   Uint8List? _imageBytes;
   String _fileName = '';
   bool _isUploading = false;
+  double? _progress; // null while the photo is being prepared
   bool _isSubmitEnabled = false;
   bool _addLocation = false;
 
@@ -55,7 +57,10 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
   Future<void> _upload() async {
     if (_imageBytes == null || _isUploading) return;
 
-    setState(() => _isUploading = true);
+    setState(() {
+      _isUploading = true;
+      _progress = null;
+    });
 
     try {
       final auth = context.read<AuthService>();
@@ -74,17 +79,29 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
         longitude: _addLocation ? lng : null,
         locationName: _addLocation && loc.isNotEmpty ? loc : null,
         takenAt: DateTime.now(),
+        onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
+        },
       );
 
       if (mounted) {
         Navigator.pop(context, photo);
       }
-    } catch (e) {
+    } catch (e, st) {
+      Logger.e('Gallery upload failed', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Upload failed: $e"),
+            content: const Text(
+              "Couldn't upload the photo. It's still here — try again.",
+            ),
             backgroundColor: AppColors.deepRose,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: AppColors.petalWhite,
+              onPressed: _upload,
+            ),
           ),
         );
       }
@@ -405,13 +422,27 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                       ),
                     ),
                     child: _isUploading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.petalWhite,
-                            ),
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  value: _progress,
+                                  color: AppColors.petalWhite,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                _progress == null
+                                    ? 'Preparing...'
+                                    : _progress! >= 1
+                                    ? 'Saving...'
+                                    : 'Uploading ${(_progress! * 100).round()}%',
+                              ),
+                            ],
                           )
                         : Text(
                             "Upload",

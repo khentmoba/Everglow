@@ -231,4 +231,29 @@ void main() {
     expect(events.last, 'metadata-add');
     expect(events.where((event) => event.startsWith('delete:')), isEmpty);
   });
+
+  test(
+    'upload progress climbs to complete across full and thumbnail',
+    () async {
+      final events = <String>[];
+      final progress = <double>[];
+      final service = GalleryService(
+        db: _Firestore(events),
+        uploadObject: (path, _) async => 'https://storage.test/$path',
+      );
+
+      await service.uploadPhoto(
+        imageBytes: _testImage(),
+        fileName: 'demo.jpg',
+        caption: 'Demo',
+        uploadedBy: 'khentsgdz',
+        userId: 'demo-user',
+        onProgress: progress.add,
+      );
+
+      expect(progress.length, 2, reason: 'one report per uploaded file');
+      expect(progress.first, inExclusiveRange(0, 1));
+      expect(progress.last, 1);
+    },
+  );
 }

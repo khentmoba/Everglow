@@ -126,6 +126,7 @@ class GalleryService {
     double? longitude,
     String? locationName,
     DateTime? takenAt,
+    void Function(double progress)? onProgress,
   }) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return AgentFixtures.demoPhotos.first;
@@ -142,11 +143,17 @@ class GalleryService {
     final thumbBytes = images.thumb;
 
     final uploadedUrls = <String>[];
+    final totalBytes = fullBytes.length + (thumbBytes?.length ?? 0);
+    var sentBytes = 0;
+    void report(int inFlight) =>
+        onProgress?.call(((sentBytes + inFlight) / totalBytes).clamp(0, 1));
     Future<String> put(String path, Uint8List bytes) async {
       final url = _uploadObject == null
-          ? await _putStorageFile(path, bytes)
+          ? await _putStorageFile(path, bytes, onSent: report)
           : await _uploadObject(path, bytes);
       uploadedUrls.add(url);
+      sentBytes += bytes.length;
+      report(0);
       return url;
     }
 
@@ -315,15 +322,28 @@ class GalleryService {
     }
   }
 
-  Future<String> _putStorageFile(String path, Uint8List bytes) async {
+  Future<String> _putStorageFile(
+    String path,
+    Uint8List bytes, {
+    void Function(int sentBytes)? onSent,
+  }) async {
     final ref = _storage.ref().child(path);
-    await ref.putData(
+    final task = ref.putData(
       bytes,
       SettableMetadata(
         contentType: 'image/jpeg',
         cacheControl: 'public, max-age=31536000',
       ),
     );
+    final progress = task.snapshotEvents.listen(
+      (snap) => onSent?.call(snap.bytesTransferred),
+      onError: (_) {}, // the awaited task below reports the failure
+    );
+    try {
+      await task;
+    } finally {
+      await progress.cancel();
+    }
     try {
       return await ref.getDownloadURL();
     } catch (e, st) {
