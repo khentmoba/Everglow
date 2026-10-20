@@ -37,6 +37,12 @@ class OfflinePhotos {
     var saved = 0;
     var done = 0;
     for (final url in urls) {
+      // App-bundled images (demo artwork) already ship with the offline app.
+      if (!url.startsWith('http')) {
+        saved++;
+        onProgress?.call(++done);
+        continue;
+      }
       try {
         await cache.add(url.toJS).toDart;
         saved++;
