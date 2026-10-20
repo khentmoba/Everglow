@@ -45,6 +45,9 @@ class JournalEntry {
   final String? coverColor; // hex or null
   final int wordCount;
 
+  /// Saved on this device but not yet confirmed by the server. Not stored.
+  final bool isSyncing;
+
   const JournalEntry({
     required this.id,
     required this.title,
@@ -59,6 +62,7 @@ class JournalEntry {
     this.isLocked = false,
     this.coverColor,
     this.wordCount = 0,
+    this.isSyncing = false,
   });
 
   static JournalMood? _parseMood(dynamic v) {
@@ -97,7 +101,11 @@ class JournalEntry {
         doc.id,
       );
 
-  factory JournalEntry.fromMap(Map<String, dynamic> data, String id) {
+  factory JournalEntry.fromMap(
+    Map<String, dynamic> data,
+    String id, {
+    bool isSyncing = false,
+  }) {
     final content = data['content'] ?? '';
     return JournalEntry(
       id: id,
@@ -122,6 +130,7 @@ class JournalEntry {
               .split(RegExp(r'\s+'))
               .where((w) => w.isNotEmpty)
               .length,
+      isSyncing: isSyncing,
     );
   }
 

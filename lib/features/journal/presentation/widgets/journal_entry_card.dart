@@ -29,7 +29,8 @@ class JournalEntryCard extends StatelessWidget {
               '${entry.category.displayName}';
 
     return EverglowCard(
-      onTap: onTap ?? () => showJournalDetailSheet(context: context, entry: entry),
+      onTap:
+          onTap ?? () => showJournalDetailSheet(context: context, entry: entry),
       semanticLabel: semanticLabel,
       padding: EdgeInsets.zero,
       radius: AppRadius.xl,
@@ -91,6 +92,26 @@ class JournalEntryCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (entry.isSyncing) ...[
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 12,
+                          color: AppColors.petalWhite.withValues(alpha: 0.6),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Saved on this device · syncing',
+                          style: AppTypography.outfitWhite.copyWith(
+                            fontSize: 10.5,
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   if (entry.isPinned) ...[
                     Row(
                       children: [
@@ -103,7 +124,9 @@ class JournalEntryCard extends StatelessWidget {
                             color: AppColors.blushGold.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(AppRadius.full),
                             border: Border.all(
-                              color: AppColors.blushGold.withValues(alpha: 0.35),
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.35,
+                              ),
                             ),
                           ),
                           child: Row(
@@ -147,7 +170,10 @@ class JournalEntryCard extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(entry.category.emoji, style: const TextStyle(fontSize: 11)),
+                            Text(
+                              entry.category.emoji,
+                              style: const TextStyle(fontSize: 11),
+                            ),
                             const SizedBox(width: 5),
                             Text(
                               entry.category.displayName,
@@ -171,14 +197,18 @@ class JournalEntryCard extends StatelessWidget {
                             color: AppColors.moonlight.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(AppRadius.full),
                             border: Border.all(
-                              color: AppColors.moonlight.withValues(alpha: 0.10),
+                              color: AppColors.moonlight.withValues(
+                                alpha: 0.10,
+                              ),
                             ),
                           ),
                           child: Text(
                             '${entry.mood!.emoji} ${entry.mood!.name}',
                             style: AppTypography.outfitMedium.copyWith(
                               fontSize: 10.5,
-                              color: AppColors.petalWhite.withValues(alpha: 0.72),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.72,
+                              ),
                             ),
                           ),
                         ),
@@ -238,7 +268,9 @@ class JournalEntryCard extends StatelessWidget {
                             'Sealed with a kiss — tap to open',
                             style: AppTypography.outfitWhite.copyWith(
                               fontSize: 12,
-                              color: AppColors.petalWhite.withValues(alpha: 0.68),
+                              color: AppColors.petalWhite.withValues(
+                                alpha: 0.68,
+                              ),
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -262,32 +294,36 @@ class JournalEntryCard extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        ...entry.tags.take(3).map(
-                          (t) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.softLavender.withValues(
-                                alpha: 0.12,
-                              ),
-                              borderRadius: BorderRadius.circular(AppRadius.full),
-                              border: Border.all(
-                                color: AppColors.softLavender.withValues(
-                                  alpha: 0.18,
+                        ...entry.tags
+                            .take(3)
+                            .map(
+                              (t) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.softLavender.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.full,
+                                  ),
+                                  border: Border.all(
+                                    color: AppColors.softLavender.withValues(
+                                      alpha: 0.18,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  '#$t',
+                                  style: AppTypography.outfitMedium.copyWith(
+                                    fontSize: 10.5,
+                                    color: AppColors.softLavender,
+                                  ),
                                 ),
                               ),
                             ),
-                            child: Text(
-                              '#$t',
-                              style: AppTypography.outfitMedium.copyWith(
-                                fontSize: 10.5,
-                                color: AppColors.softLavender,
-                              ),
-                            ),
-                          ),
-                        ),
                         if (entry.tags.length > 3)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 3.5),

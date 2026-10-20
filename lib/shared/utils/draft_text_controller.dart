@@ -71,9 +71,17 @@ class DraftTextController extends TextEditingController {
   Future<void> clearDraft() async {
     _saveTimer?.cancel();
     clear();
+    await forgetDraft(draftKey);
+  }
+
+  /// Forgets a draft by key, for saves that finish after the field is gone.
+  /// With [onlyIf], a draft holding other (newer) words is kept.
+  static Future<void> forgetDraft(String draftKey, {String? onlyIf}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_storageKey);
+      final key = 'draft:$draftKey';
+      if (onlyIf != null && (prefs.getString(key) ?? '') != onlyIf) return;
+      await prefs.remove(key);
     } catch (_) {
       // Words were already sent or saved; a stale draft is harmless.
     }
