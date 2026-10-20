@@ -66,9 +66,13 @@ class TestCollection implements CollectionReference<Map<String, dynamic>> {
   }
 
   @override
-  DocumentReference<Map<String, dynamic>> doc([String? path]) =>
-      TestDocument(path ?? 'doc-${_ids++}', this);
-  var _ids = 0;
+  DocumentReference<Map<String, dynamic>> doc([String? path]) {
+    final id = path ?? 'doc-${_issued.length}';
+    _issued.add(id);
+    return TestDocument(id, this);
+  }
+
+  final List<String> _issued = [];
 
   /// Ids of documents written through [TestDocument.set].
   final List<String> docIds = [];
