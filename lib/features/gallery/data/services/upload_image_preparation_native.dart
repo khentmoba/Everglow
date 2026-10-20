@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+
 import '../../../../core/utils/logger.dart';
 
 Future<({Uint8List full, Uint8List? thumb})> prepareImages(Uint8List bytes) =>

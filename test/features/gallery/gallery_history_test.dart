@@ -20,10 +20,24 @@ void main() {
         ],
       );
       final service = GalleryService(db: TestFirestore(query));
-      expect((await service.getPhotosStream().first).length, 40);
-      expect((await service.getPhotosStream(limit: 80).first).length, 80);
+      final live = await service.getPhotosStream().first;
+      expect(live.length, 40);
+      final older = await service.fetchOlderPhotos(
+        before: live.last.uploadedAt,
+      );
+      expect(older.items.length, 40);
+      final last = await service.fetchOlderPhotos(
+        before: older.items.last.uploadedAt,
+        cursor: older.nextCursor,
+      );
+      final ids = {...live, ...older.items, ...last.items}.map((p) => p.id);
+      expect(ids.toSet().length, 81, reason: 'every photo once, none missing');
+      expect(last.hasMore, isFalse);
       expect((await service.searchPhotos('seaside')).single.id, '0');
-      expect(query.reads.limits, [40, 80, 40, 40, 40]);
+      expect((await service.searchPhotos('photo')).length, 80);
+      // Live page + two older pages, then the search index read once (3
+      // pages) and reused by the second query.
+      expect(query.reads.limits, [40, 40, 40, 40, 40, 40]);
     },
   );
 }

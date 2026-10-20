@@ -4,17 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/gallery/domain/models/memory_photo.dart';
 
 MemoryPhoto _photo() => MemoryPhoto(
-      id: 'p1',
-      imageUrl: 'http://img/photo.jpg',
-      caption: 'Sunset at the beach',
-      uploadedBy: 'clair',
-      uploadedAt: DateTime.utc(2026, 9, 1, 18),
-      tags: const ['beach'],
-      latitude: 14.5,
-      longitude: 120.9,
-      locationName: 'Batangas',
-      takenAt: DateTime.utc(2026, 9, 1, 17, 45),
-    );
+  id: 'p1',
+  imageUrl: 'http://img/photo.jpg',
+  caption: 'Sunset at the beach',
+  uploadedBy: 'clair',
+  uploadedAt: DateTime.utc(2026, 9, 1, 18),
+  tags: const ['beach'],
+  latitude: 14.5,
+  longitude: 120.9,
+  locationName: 'Batangas',
+  takenAt: DateTime.utc(2026, 9, 1, 17, 45),
+);
 
 void main() {
   group('MemoryPhoto', () {
@@ -78,15 +78,14 @@ void main() {
     });
 
     test('fromMap reads every field', () {
-      final photo = MemoryPhoto.fromMap(
-        {
-          'imageUrl': 'u',
-          'caption': 'c',
-          'uploadedBy': 'clair',
-          'uploadedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 1)),
-          'tags': ['beach'],
-          'latitude': 14.5,
-          'longitude': 120.9,
+      final photo = MemoryPhoto.fromMap({
+        'imageUrl': 'u',
+        'caption': 'c',
+        'uploadedBy': 'clair',
+        'uploadedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 1)),
+        'tags': ['beach'],
+        'latitude': 14.5,
+        'longitude': 120.9,
       }, id: 'p9');
 
       expect(photo.id, 'p9');

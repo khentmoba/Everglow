@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:image/image.dart' as img;
+
 import 'upload_image_preparation_native.dart' as native_images;
 import 'upload_image_preparation_native.dart'
     if (dart.library.js_interop) 'upload_image_preparation_web.dart'
@@ -244,6 +246,33 @@ class GalleryService {
         );
   }
 
+  /// Older photos below the live first page. Seed with the oldest live
+  /// photo's date, then continue with the returned cursor, so Load More
+  /// reads each photo once instead of re-reading the whole album.
+  Future<FirestorePage<MemoryPhoto>> fetchOlderPhotos({
+    required DateTime before,
+    DocumentSnapshot? cursor,
+    int limit = 40,
+  }) async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return const FirestorePage(items: [], nextCursor: null);
+    }
+
+    final ordered = _db
+        .collection(_collection)
+        .orderBy('uploadedAt', descending: true);
+    final query = cursor == null
+        ? ordered.startAfter([Timestamp.fromDate(before)])
+        : ordered.startAfterDocument(cursor);
+    final snap = await withGetTimeout(
+      query.limit(limit).get(),
+      label: 'gallery older photos',
+    );
+    final items = snap.docs.map(MemoryPhoto.fromFirestore).toList();
+    final next = snap.docs.length < limit ? null : snap.docs.last;
+    return FirestorePage(items: items, nextCursor: next);
+  }
+
   /// Stream of recent photos (for dashboard preview).
   Stream<List<MemoryPhoto>> getRecentPhotos({int limit = 6}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
@@ -276,6 +305,9 @@ class GalleryService {
         await _deleteStorageObject(url);
       }
       await _db.collection(_collection).doc(photo.id).delete();
+      _searchIndex = _searchIndex?.then(
+        (photos) => photos.where((p) => p.id != photo.id).toList(),
+      );
       Logger.i("Photo deleted: ${photo.id}");
     } catch (e) {
       Logger.e("Error deleting photo: ${photo.id}", error: e);
@@ -408,23 +440,44 @@ class GalleryService {
     }
   }
 
-  /// Search photos by caption or tags (client-side, one-shot so typing
-  /// doesn't re-query on every remote write).
-  Future<List<MemoryPhoto>> searchPhotos(String query) async {
+  // shortcut: a photo the partner deletes stays searchable until this
+  // service (one per gallery screen) is recreated; add a refresh if it shows.
+  Future<List<MemoryPhoto>>? _searchIndex;
+
+  /// Search photos by caption or tags. The album's metadata is read once
+  /// per service and reused for every later query; [recent] (the live first
+  /// page) adds photos uploaded since.
+  Future<List<MemoryPhoto>> searchPhotos(
+    String query, {
+    List<MemoryPhoto> recent = const [],
+  }) async {
+    final lowerQuery = query.toLowerCase().trim();
+    bool matches(MemoryPhoto photo) =>
+        photo.caption.toLowerCase().contains(lowerQuery) ||
+        photo.tags.any((t) => t.toLowerCase().contains(lowerQuery));
+
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      final lowerQuery = query.toLowerCase();
-      return AgentFixtures.demoPhotos
-          .where(
-            (photo) =>
-                photo.caption.toLowerCase().contains(lowerQuery) ||
-                photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-          )
-          .toList();
+      return AgentFixtures.demoPhotos.where(matches).toList();
     }
 
-    final lowerQuery = query.toLowerCase().trim();
     if (lowerQuery.isEmpty) return [];
-    final matches = <MemoryPhoto>[];
+    final index = _searchIndex ??= _readAllPhotos();
+    final List<MemoryPhoto> all;
+    try {
+      all = await index;
+    } catch (_) {
+      if (identical(_searchIndex, index)) _searchIndex = null;
+      rethrow;
+    }
+    final recentIds = {for (final p in recent) p.id};
+    return [
+      ...recent,
+      ...all.where((p) => !recentIds.contains(p.id)),
+    ].where(matches).toList();
+  }
+
+  Future<List<MemoryPhoto>> _readAllPhotos() async {
+    final photos = <MemoryPhoto>[];
     DocumentSnapshot? cursor;
     do {
       final page = await fetchFirestorePage<MemoryPhoto>(
@@ -434,16 +487,10 @@ class GalleryService {
         limit: 40,
         fromDoc: MemoryPhoto.fromFirestore,
       );
-      matches.addAll(
-        page.items.where(
-          (photo) =>
-              photo.caption.toLowerCase().contains(lowerQuery) ||
-              photo.tags.any((t) => t.toLowerCase().contains(lowerQuery)),
-        ),
-      );
+      photos.addAll(page.items);
       cursor = page.nextCursor;
     } while (cursor != null);
-    return matches;
+    return photos;
   }
 
   /// "On This Day" — photos uploaded on the same month+day in previous years.

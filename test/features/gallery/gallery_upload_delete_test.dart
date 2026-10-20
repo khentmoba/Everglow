@@ -57,12 +57,73 @@ class _FakeHttpHeaders implements HttpHeaders {
 class _FakeHttpClientResponse extends Stream<List<int>>
     implements HttpClientResponse {
   static final _kTransparentPng = Uint8List.fromList([
-    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
-    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
-    0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-    0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
-    0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    0x01,
+    0x08,
+    0x06,
+    0x00,
+    0x00,
+    0x00,
+    0x1F,
+    0x15,
+    0xC4,
+    0x89,
+    0x00,
+    0x00,
+    0x00,
+    0x0A,
+    0x49,
+    0x44,
+    0x41,
+    0x54,
+    0x78,
+    0x9C,
+    0x63,
+    0x00,
+    0x01,
+    0x00,
+    0x00,
+    0x05,
+    0x00,
+    0x01,
+    0x0D,
+    0x0A,
+    0x2D,
+    0xB4,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x49,
+    0x45,
+    0x4E,
+    0x44,
+    0xAE,
+    0x42,
+    0x60,
+    0x82,
   ]);
 
   @override
@@ -120,15 +181,14 @@ MemoryPhoto _photo({
   required String id,
   required String uploader,
   String? thumbUrl,
-}) =>
-    MemoryPhoto(
-      id: id,
-      imageUrl: 'https://firebasestorage.googleapis.com/v0/b/app/o/$id.jpg',
-      thumbUrl: thumbUrl,
-      caption: 'Photo $id',
-      uploadedBy: uploader,
-      uploadedAt: DateTime.utc(2026, 9, 1, 12),
-    );
+}) => MemoryPhoto(
+  id: id,
+  imageUrl: 'https://firebasestorage.googleapis.com/v0/b/app/o/$id.jpg',
+  thumbUrl: thumbUrl,
+  caption: 'Photo $id',
+  uploadedBy: uploader,
+  uploadedAt: DateTime.utc(2026, 9, 1, 12),
+);
 
 void main() {
   test(
@@ -467,7 +527,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // The failure restores the photo and gives Clair a retry action.
-      expect(find.text('Could not finish deleting. Please try again.'), findsOneWidget);
+      expect(
+        find.text('Could not finish deleting. Please try again.'),
+        findsOneWidget,
+      );
       expect(find.byType(SnackBarAction), findsOneWidget);
       expect(find.text('1 / 2'), findsOneWidget);
     });
@@ -504,7 +567,10 @@ void main() {
 
       expect(attempts, 2);
       expect(find.text('1 / 1'), findsOneWidget);
-      expect(find.text('Could not finish deleting. Please try again.'), findsNothing);
+      expect(
+        find.text('Could not finish deleting. Please try again.'),
+        findsNothing,
+      );
     });
 
     testWidgets('keeps the last photo open and retryable after delete fails', (

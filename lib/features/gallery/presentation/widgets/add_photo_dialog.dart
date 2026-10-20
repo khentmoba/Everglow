@@ -1,8 +1,12 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/services/auth_service.dart';
+
 import 'package:provider/provider.dart';
+
 import '../../../../shared/utils/pick_image_bytes.dart';
 import '../../data/services/gallery_service.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -156,7 +160,9 @@ class _AddPhotoDialogState extends State<AddPhotoDialog> {
                             Icon(
                               Icons.add_photo_alternate_outlined,
                               size: 48,
-                              color: AppColors.blushGold.withValues(alpha: 0.65),
+                              color: AppColors.blushGold.withValues(
+                                alpha: 0.65,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Text(

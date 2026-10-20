@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:math' as math;
 import 'dart:typed_data';
+
 import 'package:web/web.dart' as web;
+
 import '../../../../core/utils/logger.dart';
 
 Future<({Uint8List full, Uint8List? thumb})> prepareImages(
