@@ -21,7 +21,9 @@ class _AdvancedButton extends StatelessWidget {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: active ? _cAmber.withValues(alpha: 0.18) : _cCard,
+            color: active
+                ? _cAmber.withValues(alpha: 0.18)
+                : _cCard,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: active

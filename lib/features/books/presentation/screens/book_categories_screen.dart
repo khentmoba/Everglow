@@ -104,7 +104,10 @@ class BookCategoriesScreen extends StatelessWidget {
                       return GestureDetector(
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          context.push('/books/category', extra: category);
+                          context.push(
+                            '/books/category',
+                            extra: category,
+                          );
                         },
                         child: Container(
                           decoration: BoxDecoration(
@@ -121,7 +124,9 @@ class BookCategoriesScreen extends StatelessWidget {
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: category.color.withValues(alpha: 0.15),
+                                  color: category.color.withValues(
+                                    alpha: 0.15,
+                                  ),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: category.color.withValues(

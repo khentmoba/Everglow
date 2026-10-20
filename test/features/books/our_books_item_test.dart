@@ -23,7 +23,8 @@ void main() {
       expect(item.id, 'doc1');
       expect(item.title, 'The Little Prince');
       expect(item.subjects, ['Fable']);
-      expect(item.addedAt.millisecondsSinceEpoch, added.millisecondsSinceEpoch);
+      expect(item.addedAt.millisecondsSinceEpoch,
+          added.millisecondsSinceEpoch);
       expect(item.status, 'to-read');
       expect(item.readSourceLabel, 'Internet Archive');
     });

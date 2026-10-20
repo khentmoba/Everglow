@@ -198,7 +198,9 @@ class _DownloadSheet extends StatelessWidget {
                       },
                       icon: const Icon(Icons.download_rounded),
                       color: _cWhite,
-                      style: IconButton.styleFrom(backgroundColor: _cDeepRose),
+                      style: IconButton.styleFrom(
+                        backgroundColor: _cDeepRose,
+                      ),
                     ),
                   ],
                 ),
