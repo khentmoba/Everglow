@@ -19,6 +19,7 @@ import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../../../shared/widgets/everglow/everglow_stream_view.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
+import '../../data/services/offline_photos.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../widgets/add_photo_dialog.dart';
 import '../widgets/gallery_map_view.dart';
@@ -47,6 +48,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   DocumentSnapshot? _olderCursor;
   bool _olderDone = false;
   bool _loadingOlder = false;
+  bool _keepingOffline = false;
   Future<List<MemoryPhoto>>? _mapPhotos;
 
   @override
@@ -382,6 +384,26 @@ class _GalleryScreenState extends State<GalleryScreen> {
               color: AppColors.petalWhite.withValues(alpha: 0.42),
               size: 19,
             ),
+            suffixIcon: OfflinePhotos.instance.supported
+                ? IconButton(
+                    tooltip: 'Keep photos on this phone',
+                    onPressed: _keepingOffline ? null : _openKeepOffline,
+                    icon: _keepingOffline
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.roseQuartz,
+                            ),
+                          )
+                        : Icon(
+                            Icons.download_for_offline_outlined,
+                            color: AppColors.petalWhite.withValues(alpha: 0.6),
+                            size: 20,
+                          ),
+                  )
+                : null,
             isDense: true,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(
@@ -392,6 +414,90 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openKeepOffline() async {
+    final liveIds = {for (final p in _livePhotos) p.id};
+    final photos = [
+      ..._livePhotos,
+      ..._olderPhotos.where((p) => !liveIds.contains(p.id)),
+    ];
+    final saved = await OfflinePhotos.instance.savedCount();
+    if (!mounted) return;
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.velvet,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.blushGold.withValues(alpha: 0.25)),
+        ),
+        title: const Text(
+          'Keep photos on this phone',
+          style: AppTypography.cormorantBold,
+        ),
+        content: Text(
+          'Saves small versions of the ${photos.length} photos in the grid '
+          'so they open without internet. '
+          '${saved > 0 ? '$saved already kept. ' : ''}'
+          'They are removed when you log out.',
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.petalWhite.withValues(alpha: 0.75),
+          ),
+        ),
+        actions: [
+          if (saved > 0)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'clear'),
+              child: const Text('Remove kept photos'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          if (photos.isNotEmpty)
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'keep'),
+              child: Text('Keep ${photos.length}'),
+            ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (choice == 'clear') {
+      await OfflinePhotos.instance.clear();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Kept photos removed from this phone')),
+      );
+      return;
+    }
+    setState(() => _keepingOffline = true);
+    try {
+      final kept = await OfflinePhotos.instance.save([
+        for (final p in photos) GalleryService.gridUrl(p),
+      ]);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            kept == photos.length
+                ? 'Kept $kept photos on this phone'
+                : 'Kept $kept of ${photos.length} photos. Try again for the rest.',
+          ),
+        ),
+      );
+    } catch (e, st) {
+      Logger.e(
+        'Gallery: keeping photos offline failed',
+        error: e,
+        stackTrace: st,
+      );
+      messenger.showSnackBar(
+        const SnackBar(content: Text("Couldn't keep photos on this phone")),
+      );
+    } finally {
+      if (mounted) setState(() => _keepingOffline = false);
+    }
   }
 }
 
@@ -524,10 +630,7 @@ class _PhotoCardState extends State<_PhotoCard> {
               fit: StackFit.expand,
               children: [
                 AppNetworkImage(
-                  imageUrl: GalleryService.displayUrl(
-                    photo.previewUrl,
-                    thumb: photo.thumbUrl?.isNotEmpty != true,
-                  ),
+                  imageUrl: GalleryService.gridUrl(photo),
                   fit: BoxFit.cover,
                   cacheWidth: 440,
                   errorWidget: Container(

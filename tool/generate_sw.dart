@@ -43,6 +43,9 @@ const SHELL="$buildConst-SHELL-v1";
 // build misses (fetches fresh) while the previous shell stays cached for
 // offline boots. Only the newest two shells are kept (see trimCore).
 const CORE="everglow-core-v1";
+// Gallery thumbnails kept on purpose ("Keep on this phone"); the page fills
+// and clears it (offline_photos_web.dart). Never purged by an update.
+const OFFLINE_PHOTOS="everglow-offline-photos-v1";
 // Immutable bytes keyed by engine revision, not by app build: CanvasKit
 // filenames are STABLE across Flutter builds, so a per-build purge would
 // force a ~7MB re-download on every deploy even when the engine did not
@@ -212,7 +215,7 @@ self.addEventListener("activate", (e) => {
       .then((ks) => Promise.all(
         // Keep previous versioned loaders/chunks until their core rotates
         // out. Activation can precede the new build's first complete boot.
-        ks.filter((k) => !k.endsWith("-SHELL-v1") && k !== IMMUTABLE && k !== CORE).map((k) => caches.delete(k)),
+        ks.filter((k) => !k.endsWith("-SHELL-v1") && k !== IMMUTABLE && k !== CORE && k !== OFFLINE_PHOTOS).map((k) => caches.delete(k)),
       ))
       .then(async () => {
         try {
@@ -236,6 +239,17 @@ self.addEventListener("fetch", (e) => {
   try {
     url = new URL(e.request.url);
   } catch {
+    return;
+  }
+  // Kept gallery photos answer from the device first, so they open offline.
+  // Only URLs the page saved are in this cache; others go to the network.
+  if (url.pathname.endsWith("/proxyGalleryImage")) {
+    e.respondWith(
+      caches.open(OFFLINE_PHOTOS)
+        .then((c) => c.match(e.request))
+        .catch(() => undefined)
+        .then((hit) => hit || fetch(e.request)),
+    );
     return;
   }
   // Only handle same-origin; CDN media (jsdelivr/googleapis/gstatic)

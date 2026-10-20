@@ -110,6 +110,15 @@ class GalleryService {
     return imageUrl;
   }
 
+  /// The grid's image URL for [photo]. The viewer shows the same thumbnail
+  /// under the full photo, so keeping this one URL makes a photo viewable
+  /// offline.
+  static String gridUrl(MemoryPhoto photo, {bool? isWeb}) => displayUrl(
+    photo.previewUrl,
+    thumb: photo.thumbUrl?.isNotEmpty != true,
+    isWeb: isWeb,
+  );
+
   /// Upload a photo and store its metadata in Firestore.
   ///
   /// Uploads a web-friendly full image (max 1600px, JPEG q85) plus a
