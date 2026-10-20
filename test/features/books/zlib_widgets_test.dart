@@ -106,9 +106,7 @@ void main() {
     expect(picked!.summary.contains('Title'), isTrue);
   });
 
-  testWidgets('AdvancedSearchSheet rejects out-of-range years', (
-    tester,
-  ) async {
+  testWidgets('AdvancedSearchSheet rejects out-of-range years', (tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 1400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     BookSearchFilters? picked;

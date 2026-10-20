@@ -7,27 +7,37 @@ void main() {
   group('BookItem', () {
     test('isRead covers every read status variant', () {
       BookItem withStatus(String status) => BookItem(
-            id: 'doc1',
-            workKey: '/works/OL45804W',
-            title: 'T',
-            status: status,
-            addedAt: DateTime.utc(2026, 1, 1),
-          );
+        id: 'doc1',
+        workKey: '/works/OL45804W',
+        title: 'T',
+        status: status,
+        addedAt: DateTime.utc(2026, 1, 1),
+      );
 
-      for (final s in ['read', 'read-khent', 'read-clair', 'read-both', 'read-self']) {
-        expect(withStatus(s).isRead, isTrue, reason: 'status "$s" should be read');
+      for (final s in [
+        'read',
+        'read-khent',
+        'read-clair',
+        'read-both',
+        'read-self',
+      ]) {
+        expect(
+          withStatus(s).isRead,
+          isTrue,
+          reason: 'status "$s" should be read',
+        );
       }
       expect(withStatus('to-read').isRead, isFalse);
     });
 
     test('readDisplay maps statuses to labels', () {
       BookItem display(String status) => BookItem(
-            id: 'doc1',
-            workKey: '/works/OL45804W',
-            title: 'T',
-            status: status,
-            addedAt: DateTime.utc(2026, 1, 1),
-          );
+        id: 'doc1',
+        workKey: '/works/OL45804W',
+        title: 'T',
+        status: status,
+        addedAt: DateTime.utc(2026, 1, 1),
+      );
 
       expect(display('read-khent').readDisplay, 'Read by Khent');
       expect(display('read-clair').readDisplay, 'Read by Clair');
@@ -38,11 +48,20 @@ void main() {
     });
 
     test('cover helpers derive Open Library CDN URLs', () {
-      expect(BookItem.coverFromCoverId(12345), 'https://covers.openlibrary.org/b/id/12345-L.jpg');
-      expect(BookItem.coverFromCoverId(12345, size: 'M'), 'https://covers.openlibrary.org/b/id/12345-M.jpg');
+      expect(
+        BookItem.coverFromCoverId(12345),
+        'https://covers.openlibrary.org/b/id/12345-L.jpg',
+      );
+      expect(
+        BookItem.coverFromCoverId(12345, size: 'M'),
+        'https://covers.openlibrary.org/b/id/12345-M.jpg',
+      );
       expect(BookItem.coverFromCoverId(null), '');
       expect(BookItem.coverFromCoverId(0), '');
-      expect(BookItem.coverFromOlid('OL45804W'), 'https://covers.openlibrary.org/b/olid/OL45804W-L.jpg');
+      expect(
+        BookItem.coverFromOlid('OL45804W'),
+        'https://covers.openlibrary.org/b/olid/OL45804W-L.jpg',
+      );
       expect(BookItem.coverFromOlid(''), '');
     });
 
@@ -52,7 +71,10 @@ void main() {
         'https://www.gutenberg.org/cache/epub/1234/pg1234.txt',
       );
       expect(
-        BookItem.deriveReadSourceUrl(iaId: 'adventureoftoms00twai', workKey: '/works/OL1W'),
+        BookItem.deriveReadSourceUrl(
+          iaId: 'adventureoftoms00twai',
+          workKey: '/works/OL1W',
+        ),
         'https://archive.org/details/adventureoftoms00twai',
       );
       expect(
@@ -63,8 +85,14 @@ void main() {
     });
 
     test('deriveReadSourceLabel prefers Gutenberg then IA then OL', () {
-      expect(BookItem.deriveReadSourceLabel(iaId: 'pg1234'), 'Project Gutenberg');
-      expect(BookItem.deriveReadSourceLabel(iaId: 'ia1234'), 'Internet Archive');
+      expect(
+        BookItem.deriveReadSourceLabel(iaId: 'pg1234'),
+        'Project Gutenberg',
+      );
+      expect(
+        BookItem.deriveReadSourceLabel(iaId: 'ia1234'),
+        'Internet Archive',
+      );
       expect(BookItem.deriveReadSourceLabel(iaId: ''), 'Open Library');
     });
 
@@ -103,8 +131,10 @@ void main() {
       expect(restored.subjects, book.subjects);
       expect(restored.status, book.status);
       expect(restored.userName, book.userName);
-      expect(restored.addedAt.millisecondsSinceEpoch,
-          addedAt.millisecondsSinceEpoch);
+      expect(
+        restored.addedAt.millisecondsSinceEpoch,
+        addedAt.millisecondsSinceEpoch,
+      );
       expect(restored.readSourceUrl, book.readSourceUrl);
     });
 
@@ -117,8 +147,10 @@ void main() {
         // No readSourceUrl — legacy document.
       }, 'doc1');
 
-      expect(restored.readSourceUrl,
-          'https://www.gutenberg.org/cache/epub/74/pg74.txt');
+      expect(
+        restored.readSourceUrl,
+        'https://www.gutenberg.org/cache/epub/74/pg74.txt',
+      );
       expect(restored.readSourceLabel, 'Project Gutenberg');
     });
   });
@@ -139,10 +171,8 @@ void main() {
 
     test('status reflects which partners have read the book', () {
       expect(item().status, 'to-read');
-      expect(
-          item(khentReadAt: DateTime.utc(2026, 2, 1)).status, 'read-khent');
-      expect(
-          item(clairReadAt: DateTime.utc(2026, 2, 1)).status, 'read-clair');
+      expect(item(khentReadAt: DateTime.utc(2026, 2, 1)).status, 'read-khent');
+      expect(item(clairReadAt: DateTime.utc(2026, 2, 1)).status, 'read-clair');
       expect(
         item(
           khentReadAt: DateTime.utc(2026, 2, 1),
@@ -154,10 +184,14 @@ void main() {
 
     test('statusLabel maps statuses for display', () {
       expect(item().statusLabel, 'To Read Together');
-      expect(item(khentReadAt: DateTime.utc(2026, 2, 1)).statusLabel,
-          'Read by Khent');
-      expect(item(clairReadAt: DateTime.utc(2026, 2, 1)).statusLabel,
-          'Read by Clair');
+      expect(
+        item(khentReadAt: DateTime.utc(2026, 2, 1)).statusLabel,
+        'Read by Khent',
+      );
+      expect(
+        item(clairReadAt: DateTime.utc(2026, 2, 1)).statusLabel,
+        'Read by Clair',
+      );
       expect(
         item(
           khentReadAt: DateTime.utc(2026, 2, 1),
@@ -198,17 +232,14 @@ void main() {
     });
 
     test('toFirestore/fromFirestore round-trips nullable read stamps', () {
-      final source = item(
-        khentReadAt: DateTime.utc(2026, 2, 1, 8, 0),
-      );
-      final restored = OurBooksItem.fromFirestore(
-        source.toFirestore(),
-        'doc1',
-      );
+      final source = item(khentReadAt: DateTime.utc(2026, 2, 1, 8, 0));
+      final restored = OurBooksItem.fromFirestore(source.toFirestore(), 'doc1');
 
       expect(restored.khentReadAt, isNotNull);
-      expect(restored.khentReadAt!.millisecondsSinceEpoch,
-          source.khentReadAt!.millisecondsSinceEpoch);
+      expect(
+        restored.khentReadAt!.millisecondsSinceEpoch,
+        source.khentReadAt!.millisecondsSinceEpoch,
+      );
       expect(restored.clairReadAt, isNull);
     });
 

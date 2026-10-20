@@ -423,7 +423,10 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       if (result?.ratingCount != null) {
         return Text(
           '${_compact(result!.ratingCount!)} downloads',
-          style: AppTypography.outfitBold.copyWith(color: _cGold, fontSize: 11.5),
+          style: AppTypography.outfitBold.copyWith(
+            color: _cGold,
+            fontSize: 11.5,
+          ),
         );
       }
       return const SizedBox.shrink();
@@ -705,8 +708,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     final result = _result;
     final isbn = [
       if ((result?.isbn13 ?? '').isNotEmpty) result!.isbn13,
-      if ((result?.isbn ?? _item.isbn).isNotEmpty)
-        (result?.isbn ?? _item.isbn),
+      if ((result?.isbn ?? _item.isbn).isNotEmpty) (result?.isbn ?? _item.isbn),
     ].join(' · ');
     return <(String, String)>[
       if ((result?.subjects ?? const []).isNotEmpty)
@@ -720,8 +722,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       if ((result?.pageCount ?? _item.pageCount) > 0)
         ('Pages', '${result?.pageCount ?? _item.pageCount}'),
       if (isbn.isNotEmpty) ('ISBN', isbn),
-      if ((_result?.fileLine ?? '').isNotEmpty)
-        ('File', _result!.fileLine),
+      if ((_result?.fileLine ?? '').isNotEmpty) ('File', _result!.fileLine),
       ('Source', result?.sourceLabel ?? _item.readSourceLabel),
       if (result?.ratingCount != null)
         ('Downloads', _compact(result!.ratingCount!)),

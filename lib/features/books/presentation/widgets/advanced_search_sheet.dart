@@ -159,9 +159,17 @@ class _AdvancedSearchSheetState extends State<AdvancedSearchSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            _Field(controller: _title, label: 'Title', hint: 'e.g. Pride and Prejudice'),
+            _Field(
+              controller: _title,
+              label: 'Title',
+              hint: 'e.g. Pride and Prejudice',
+            ),
             const SizedBox(height: 10),
-            _Field(controller: _author, label: 'Author', hint: 'e.g. Jane Austen'),
+            _Field(
+              controller: _author,
+              label: 'Author',
+              hint: 'e.g. Jane Austen',
+            ),
             const SizedBox(height: 10),
             _Field(
               controller: _publisher,
@@ -382,11 +390,7 @@ class ActiveFiltersPill extends StatelessWidget {
             const SizedBox(width: 8),
             GestureDetector(
               onTap: onClear,
-              child: const Icon(
-                Icons.close_rounded,
-                color: _cAmber,
-                size: 16,
-              ),
+              child: const Icon(Icons.close_rounded, color: _cAmber, size: 16),
             ),
           ],
         ),

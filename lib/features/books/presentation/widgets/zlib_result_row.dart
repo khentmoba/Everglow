@@ -136,10 +136,7 @@ class _MetaLine extends StatelessWidget {
       bits.join(' · '),
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: AppTypography.outfitWhite.copyWith(
-        color: _cMuted,
-        fontSize: 11,
-      ),
+      style: AppTypography.outfitWhite.copyWith(color: _cMuted, fontSize: 11),
     );
   }
 }
