@@ -15,6 +15,7 @@ import '../../../../cinema/data/services/player_memory_service.dart';
 import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../data/services/anilist_service.dart';
+import '../../../data/services/tmdb_anime_details.dart';
 import '../../../data/services/animex_stores.dart';
 import '../../../data/services/aniskip_service.dart';
 import 'animex_videasy_progress.dart';
@@ -147,8 +148,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   /// the route item; [_load] refines it once the AniList detail lands.
   bool _isFilm = false;
 
-  String get _memoryKey =>
-      PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
+  String get _memoryKey => _item.source == 'tmdb'
+      ? PlayerMemoryService.cinemaKey(id: _item.tmdbId, mediaType: _item.mediaType, isAnime: false)
+      : PlayerMemoryService.animexKey(anilistId: _anilistId, malId: _malId);
   List<_ServerOption> _servers = [];
 
   final Set<int> _failedServerIndices = {};
@@ -188,7 +190,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   MediaItem get _item => _watchItem;
-  int get _malId => _detail?.malId ?? _item.tmdbId;
+  String get _historyKey => _item.source == 'tmdb'
+      ? 'animex-tmdb-${_item.mediaType}-${_item.tmdbId}'
+      : 'animex-${_anilistId ?? _malId}';
+  int get _malId => _detail?.malId ?? (_item.source == 'tmdb' ? 0 : _item.tmdbId);
   int? get _anilistId => _item.anilistId;
 
   List<AniListSeason> get _seasons => _detail?.seasons ?? const [];
@@ -229,7 +234,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     WidgetsBinding.instance.addObserver(this);
     _watchItem = widget.controller.watchItem!;
     final resume = context.read<AnimexStores>().findHistory(
-      'animex-${_anilistId ?? _malId}',
+      _historyKey,
     );
     try {
       _auth = context.read<AuthService>();
@@ -305,7 +310,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _accountProgress = saved;
     if (returning || !_episodeChosen) {
       final local = context.read<AnimexStores>().findHistory(
-        'animex-${_anilistId ?? _malId}',
+        _historyKey,
       );
       final resume = AnimeXWatchPage.resolveResume(
         item: _item,
@@ -393,6 +398,21 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   Future<void> _load() async {
+    if (_item.source == 'tmdb') {
+      final data = await _tmdbService.fetchMediaDetails(_item.tmdbId, _item.mediaType);
+      if (!mounted) return;
+      final mapped = mapTmdbAnimeDetails(_item, data ?? const {});
+      _mappedTmdbId = _item.tmdbId;
+      _episodeSlots = mapped.slots;
+      _isFilm = _item.isMovie;
+      setState(() {
+        _detail = mapped.detail;
+        _episodes = _buildEpisodeList(mapped.detail);
+        _servers = _buildServers();
+        _serverIndex = AnimeXWatchPage.defaultServerIndex(_servers, rememberedServer: _rememberedServer);
+      });
+      return;
+    }
     final malId = _malId;
     final anilistId = _anilistId;
     if (malId <= 0 && anilistId == null) return;
@@ -664,9 +684,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   void _recordHistory(int episode) {
+    // TMDB history comes from the source-aware saved account item.
+    if (_item.source == 'tmdb') return;
     final stores = context.read<AnimexStores>();
     stores.recordWatch(
-      key: 'animex-${_anilistId ?? _malId}',
+      key: _historyKey,
       anilistId: _anilistId,
       malId: _malId,
       title: _item.title,

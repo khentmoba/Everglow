@@ -55,7 +55,7 @@ class _AnimeXSchedulePageState extends State<AnimeXSchedulePage> {
         ),
         const SizedBox(height: 4),
         Text(
-          "This week's broadcast dates in your local time",
+          "This week's anime broadcasts",
           style: dmSansStyle(size: 13, color: AnimeXTokens.textSecondary),
         ),
         const SizedBox(height: 16),

@@ -23,13 +23,15 @@ class AnimexMediaPage {
 /// One row of the weekly airing schedule.
 class AnimexScheduleEntry {
   final MediaItem media;
-  final int episode;
+  final int? episode;
   final DateTime airingAt;
+  final bool hasExactTime;
 
   const AnimexScheduleEntry({
     required this.media,
     required this.episode,
     required this.airingAt,
+    this.hasExactTime = true,
   });
 }
 
@@ -69,7 +71,9 @@ class AnimexHistoryEntry {
 
   factory AnimexHistoryEntry.fromMediaItem(MediaItem item) {
     return AnimexHistoryEntry(
-      key: 'animex-${item.anilistId ?? item.tmdbId}',
+      key: item.source == 'tmdb'
+          ? 'animex-tmdb-${item.mediaType}-${item.tmdbId}'
+          : 'animex-${item.anilistId ?? item.tmdbId}',
       anilistId: item.anilistId,
       malId: item.tmdbId,
       title: item.title,
@@ -171,6 +175,11 @@ class AnimexPlaylist {
 }
 
 class AnimexPlaylistItem {
+  final String source;
+  String get key => anilistId != null ? 'anilist:$anilistId' : '$source:$malId';
+
+  bool matchesMedia(MediaItem item) => key == (item.anilistId != null
+      ? 'anilist:${item.anilistId}' : '${item.source}:${item.tmdbId}');
   final int? anilistId;
   final int malId;
   final String title;
@@ -179,6 +188,7 @@ class AnimexPlaylistItem {
   final String format;
 
   const AnimexPlaylistItem({
+    this.source = 'jikan',
     this.anilistId,
     required this.malId,
     required this.title,
@@ -188,6 +198,7 @@ class AnimexPlaylistItem {
   });
 
   Map<String, dynamic> toJson() => {
+    'source': source,
     if (anilistId != null) 'anilistId': anilistId,
     'malId': malId,
     'title': title,
@@ -198,6 +209,7 @@ class AnimexPlaylistItem {
 
   factory AnimexPlaylistItem.fromJson(Map<String, dynamic> json) {
     return AnimexPlaylistItem(
+      source: json['source'] as String? ?? 'jikan',
       anilistId: json['anilistId'] as int?,
       malId: (json['malId'] as num?)?.toInt() ?? 0,
       title: json['title'] as String? ?? '',

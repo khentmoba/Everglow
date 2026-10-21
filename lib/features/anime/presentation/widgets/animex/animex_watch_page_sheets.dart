@@ -103,6 +103,7 @@ void _showPlaylistSheet(BuildContext context) {
                         await stores.addToPlaylist(
                           playlist.id,
                           AnimexPlaylistItem(
+                            source: item.source,
                             anilistId: item.anilistId,
                             malId: item.tmdbId,
                             title: item.title,
@@ -151,19 +152,20 @@ void _showPlaylistSheet(BuildContext context) {
                             ),
                           ),
                           trailing: Icon(
-                            p.items.any((i) => i.anilistId == item.anilistId)
+                            p.items.any((i) => i.matchesMedia(item))
                                 ? Icons.check_circle_rounded
                                 : Icons.radio_button_unchecked_rounded,
                             size: 20,
                             color:
                                 p.items.any(
-                                  (i) => i.anilistId == item.anilistId,
+                                  (i) => i.matchesMedia(item),
                                 )
                                 ? AnimeXTokens.success
                                 : AnimeXTokens.textMuted,
                           ),
                           onTap: () async {
                             final entry = AnimexPlaylistItem(
+                              source: item.source,
                               anilistId: item.anilistId,
                               malId: item.tmdbId,
                               title: item.title,
@@ -172,14 +174,9 @@ void _showPlaylistSheet(BuildContext context) {
                               format: item.format,
                             );
                             if (p.items.any(
-                              (i) => i.anilistId == item.anilistId,
+                              (i) => i.matchesMedia(item),
                             )) {
-                              if (item.anilistId != null) {
-                                await stores.removeFromPlaylist(
-                                  p.id,
-                                  item.anilistId!,
-                                );
-                              }
+                              await stores.removePlaylistEntry(p.id, entry);
                             } else {
                               await stores.addToPlaylist(p.id, entry);
                             }

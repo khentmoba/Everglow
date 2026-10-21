@@ -184,6 +184,7 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
   }
 
   static String? _resolveKey(MediaItem item) {
+    if (item.source == 'tmdb') return null;
     if (item.anilistId != null) return 'a${item.anilistId}';
     if (item.tmdbId != 0) return 'm${item.tmdbId}';
     return null;

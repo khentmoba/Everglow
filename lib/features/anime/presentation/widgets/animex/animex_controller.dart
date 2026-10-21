@@ -103,7 +103,8 @@ class AnimeXController extends ChangeNotifier {
     for (final saved in _library) {
       if (item.anilistId != null && saved.anilistId != null) {
         if (item.anilistId == saved.anilistId) return saved;
-      } else if (item.tmdbId > 0 && item.tmdbId == saved.tmdbId) {
+      } else if (item.source == saved.source &&
+          item.tmdbId > 0 && item.tmdbId == saved.tmdbId) {
         return saved;
       }
     }

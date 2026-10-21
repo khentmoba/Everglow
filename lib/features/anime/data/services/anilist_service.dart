@@ -8,6 +8,7 @@ import '../models/anilist_detail.dart';
 import '../models/animex_models.dart';
 import '../../../cinema/data/models/media_item.dart';
 import './jikan_service.dart';
+import 'tmdb_anime_schedule_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_discovery_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_search_service.dart';
 
@@ -27,8 +28,12 @@ class AniListService with ConnectivityAware {
   // Singleton — AniList responses are stable and we want the in-memory
   // detail cache to survive screen rebuilds.
   static final AniListService _instance = AniListService._internal();
-  factory AniListService() => _instance;
-  AniListService._internal();
+  factory AniListService({TmdbAnimeScheduleService? scheduleFallback}) =>
+      scheduleFallback == null ? _instance : AniListService._internal(scheduleFallback);
+  AniListService._internal([TmdbAnimeScheduleService? scheduleFallback])
+    : _scheduleFallback = scheduleFallback ?? TmdbAnimeScheduleService();
+
+  final TmdbAnimeScheduleService _scheduleFallback;
 
   /// In-memory detail cache. AniList detail pages are mostly static, so
   /// we only re-fetch if the user explicitly pulls to refresh.
@@ -1057,10 +1062,10 @@ class AniListService with ConnectivityAware {
       return _pageFromItems(items, page: page);
     }
 
-    // TMDB's anime discovery is a coarse but independent third source.
-    // The API key is optional in dev builds, so skip when it's absent.
+    // TMDB is independent of both anime catalogs and uses our signed proxy.
     if (search != null && search.trim().isNotEmpty) {
-      items = await TMDBSearchService().searchMedia(search);
+      items = (await TMDBSearchService().searchMedia(search, page: page))
+          .where((item) => item.isAnime).toList();
     } else if (sort == 'SCORE_DESC') {
       items = await TMDBDiscoveryService().discoverAnime(
         sortBy: 'vote_average.desc',
@@ -1078,7 +1083,9 @@ class AniListService with ConnectivityAware {
     }
     if (items.isNotEmpty) {
       Logger.w('[AnimeX] AniList and Jikan unavailable; showing TMDB fallback');
-      return _pageFromItems(items, page: page);
+      return _pageFromItems(items.map((item) => item.copyWith(
+        format: item.isMovie ? 'MOVIE' : 'TV',
+      )).toList(), page: page);
     }
 
     return null;
@@ -1137,6 +1144,17 @@ class AniListService with ConnectivityAware {
     );
     final end = DateTime(start.year, start.month, start.day + 1);
     final pageSize = perPage.clamp(1, 50).toInt();
+    try {
+      return await _fetchAniListSchedule(start, end, pageSize);
+    } catch (error) {
+      Logger.e('[AnimeX] AniList schedule failed; trying TMDB', error: error);
+      return _scheduleFallback.fetchDay(start);
+    }
+  }
+
+  Future<List<AnimexScheduleEntry>> _fetchAniListSchedule(
+    DateTime start, DateTime end, int pageSize,
+  ) async {
     const maxPages = 4;
     final out = <AnimexScheduleEntry>[];
     for (var page = 1; page <= maxPages; page++) {

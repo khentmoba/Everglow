@@ -51,6 +51,7 @@ in the committed proof.
   the dashboard text. The widget render above is the only visual evidence;
   the draft PR needs a successful app preview check before review.
 
-Anime catalog and schedule availability still require the external services to
-recover. The desktop shell was not changed: these failures were reproduced in
-the shared web/backend paths. A native Desktop end-to-end check remains unverified.
+The follow-up [Anime outage fix](../anime-outage/README.md) adds an independent
+TMDB schedule and correct handling for fallback titles. Exact AniList broadcast
+times still require that service to recover. The desktop shell was not changed;
+a native Desktop end-to-end check remains unverified.

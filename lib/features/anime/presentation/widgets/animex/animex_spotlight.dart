@@ -130,6 +130,7 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
   }
 
   Future<void> _resolveTrailer(MediaItem item) async {
+    if (item.source == 'tmdb') return;
     final key = _cacheKey(item);
     if (_trailerCache.containsKey(key)) return;
     try {

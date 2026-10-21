@@ -297,7 +297,7 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
           onTrailer: (item) => showAnimexTrailer(
             context,
             anilistId: item.anilistId,
-            malId: item.tmdbId,
+            malId: item.source == 'tmdb' ? null : item.tmdbId,
             title: item.title,
           ),
         ),
