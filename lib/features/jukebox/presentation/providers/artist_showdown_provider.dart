@@ -207,6 +207,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
     final artist = name.trim();
     clearSuggestions();
     if (artist.isEmpty || artist == _artist) return;
+    final request = ++_requestId;
     final key = artist.toLowerCase();
     final cachedHist = _historyCache[key];
     if (cachedHist != null) {
@@ -229,11 +230,19 @@ class ArtistShowdownProvider extends ChangeNotifier {
       _safeNotify();
       return;
     }
-    final request = ++_requestId;
     _artist = artist;
     _isLoading = true;
     _safeNotify();
-    final rows = await _fetchArtistShowdownRows(artist);
+    final rows = await _fetchArtistShowdownRows(
+      artist,
+      onChartRows: (rows) {
+        if (_disposed || request != _requestId || rows.$3.isEmpty) return;
+        _khentTotal = rows.$1;
+        _clairTotal = rows.$2;
+        _tracks = rows.$3;
+        _safeNotify();
+      },
+    );
     // A newer selectArtist won while these reads were in flight — drop them.
     if (_disposed || request != _requestId) return;
     _khentTotal = rows.$1;
@@ -304,9 +313,19 @@ class ArtistShowdownProvider extends ChangeNotifier {
   /// If catalog discovery finds no plays (e.g. offline, mock test service,
   /// or zero scrobbles found), falls back to filtering the top tracks chart.
   Future<(int, int, List<ShowdownTrack>)> _fetchArtistShowdownRows(
-    String artist,
-  ) async {
+    String artist, {
+    required void Function((int, int, List<ShowdownTrack>)) onChartRows,
+  }) async {
     final wanted = artist.trim().toLowerCase();
+
+    final chartFuture =
+        Future.wait([
+          _tracksForArtistLegacy(_khentUser, artist),
+          _tracksForArtistLegacy(_clairUser, artist),
+        ]).then((charts) {
+          onChartRows(_merge(charts[0], charts[1]));
+          return charts;
+        });
 
     // 1. Discover all candidate tracks strictly for this artist.
     final catalogFuture = _sync.fetchArtistCatalogTracksAll(artist);
@@ -323,7 +342,8 @@ class ArtistShowdownProvider extends ChangeNotifier {
     final recentKhent = await recentKhentFuture;
     final recentClair = await recentClairFuture;
     for (final s in [...recentKhent, ...recentClair]) {
-      if (s.artistName.trim().toLowerCase() == wanted && s.trackName.isNotEmpty) {
+      if (s.artistName.trim().toLowerCase() == wanted &&
+          s.trackName.isNotEmpty) {
         final key = s.trackName.trim().toLowerCase();
         candidateMap.putIfAbsent(
           key,
@@ -358,14 +378,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
         artist,
         candidateTracks: candidates,
       );
-      final khentChartFuture = _tracksForArtistLegacy(_khentUser, artist);
-      final clairChartFuture = _tracksForArtistLegacy(_clairUser, artist);
       final khentTracks = await khentTracksFuture;
       final clairTracks = await clairTracksFuture;
-      final khentChart = await khentChartFuture;
-      final clairChart = await clairChartFuture;
-      final khent = _unionUserTracks(khentTracks, khentChart);
-      final clair = _unionUserTracks(clairTracks, clairChart);
+      final charts = await chartFuture;
+      final khent = _unionUserTracks(khentTracks, charts[0]);
+      final clair = _unionUserTracks(clairTracks, charts[1]);
 
       if (khent.isNotEmpty || clair.isNotEmpty) {
         return _merge(khent, clair);
@@ -374,9 +391,8 @@ class ArtistShowdownProvider extends ChangeNotifier {
 
     // 3. Fallback: if catalog & candidate search returned no plays (e.g. mock test
     // that only stubs fetchTopTracks, or network error), fall back to top tracks.
-    final khentFallback = await _tracksForArtistLegacy(_khentUser, artist);
-    final clairFallback = await _tracksForArtistLegacy(_clairUser, artist);
-    return _merge(khentFallback, clairFallback);
+    final charts = await chartFuture;
+    return _merge(charts[0], charts[1]);
   }
 
   /// Legacy fallback: pulls each user's top tracks chart and filters by artist.
