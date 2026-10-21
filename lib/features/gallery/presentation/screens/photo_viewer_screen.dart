@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../domain/models/memory_photo.dart';
 import '../../data/services/gallery_service.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../journal/presentation/widgets/open_shared_memory.dart';
 
 class PhotoViewerScreen extends StatefulWidget {
   final List<MemoryPhoto> photos;
@@ -65,6 +66,24 @@ class _PhotoViewerScreenState extends State<PhotoViewerScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Keep this memory',
+            icon: const Icon(
+              Icons.auto_stories_outlined,
+              color: AppColors.petalWhite,
+            ),
+            onPressed: () {
+              final photo = _photos[_currentIndex];
+              openSharedMemory(
+                context,
+                title: photo.caption.isEmpty
+                    ? 'A memory together'
+                    : photo.caption,
+                date: photo.takenAt ?? photo.uploadedAt,
+                photoId: photo.id,
+              );
+            },
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(

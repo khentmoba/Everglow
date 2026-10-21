@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../bucket_list/data/models/bucket_item.dart';
 import '../../../../core/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import '../../domain/models/calendar_event.dart';
@@ -7,12 +8,14 @@ import '../../data/services/calendar_service.dart';
 import '../../../../core/theme/app_typography.dart';
 
 class AddEventDialog extends StatefulWidget {
+  final BucketItem? bucketItem;
   final DateTime selectedDay;
   final CalendarEventType initialType;
 
   const AddEventDialog({
     super.key,
     required this.selectedDay,
+    this.bucketItem,
     this.initialType = CalendarEventType.custom,
   });
 
@@ -38,6 +41,14 @@ class _AddEventDialogState extends State<AddEventDialog> {
   void initState() {
     super.initState();
     _selectedType = widget.initialType;
+    if (widget.bucketItem case final item?) {
+      _titleController.text = item.title;
+      _descController.text = [
+        item.description,
+        item.notes,
+      ].where((s) => s.isNotEmpty).join('\n\n');
+      _attendees.addAll(['khentsgdz', 'clairjassen']);
+    }
   }
 
   Future<void> _pickTime() async {
@@ -84,6 +95,7 @@ class _AddEventDialogState extends State<AddEventDialog> {
 
       final event = CalendarEvent(
         id: '',
+        bucketItemId: widget.bucketItem?.id,
         title: _titleController.text.trim(),
         description: _descController.text.trim(),
         date: _combinedDate,

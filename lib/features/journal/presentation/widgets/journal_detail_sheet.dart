@@ -10,6 +10,7 @@ import '../../../../shared/widgets/everglow/everglow_icon_button.dart';
 import '../../data/models/journal_entry.dart';
 import '../../data/services/journal_service.dart';
 import 'journal_ui.dart';
+import 'memory_connections.dart';
 
 /// Opens the journal reading sheet — the ONE full-entry view.
 ///
@@ -283,6 +284,7 @@ class _JournalDetailSheetState extends State<JournalDetailSheet> {
                   color: AppColors.textHigh,
                 ),
               ),
+            if (!locked) MemoryConnections(entry: _entry),
             const SizedBox(height: 24),
             Row(
               children: [

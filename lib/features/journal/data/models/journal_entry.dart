@@ -31,6 +31,10 @@ enum JournalMood {
 }
 
 class JournalEntry {
+  final String? bucketItemId;
+  final String? calendarEventId;
+  final List<String> photoIds;
+  final Map<String, String> perspectives;
   final String id;
   final String title;
   final String content; // markdown
@@ -50,6 +54,10 @@ class JournalEntry {
 
   const JournalEntry({
     required this.id,
+    this.bucketItemId,
+    this.calendarEventId,
+    this.photoIds = const [],
+    this.perspectives = const {},
     required this.title,
     required this.content,
     required this.author,
@@ -109,6 +117,16 @@ class JournalEntry {
     final content = data['content'] ?? '';
     return JournalEntry(
       id: id,
+      bucketItemId: data['bucketItemId'] as String?,
+      calendarEventId: data['calendarEventId'] as String?,
+      photoIds:
+          (data['photoIds'] as List?)?.whereType<String>().take(20).toList() ??
+          const [],
+      perspectives:
+          (data['perspectives'] as Map?)?.map(
+            (k, v) => MapEntry(k.toString(), v.toString()),
+          ) ??
+          const {},
       title: data['title'] ?? '',
       content: content,
       author: data['author'] ?? '',
@@ -136,6 +154,10 @@ class JournalEntry {
 
   Map<String, dynamic> toFirestore() {
     return {
+      if (bucketItemId != null) 'bucketItemId': bucketItemId,
+      if (calendarEventId != null) 'calendarEventId': calendarEventId,
+      'photoIds': photoIds,
+      'perspectives': perspectives,
       'title': title,
       'content': content,
       'author': author.toLowerCase(),
@@ -176,6 +198,11 @@ class JournalEntry {
   }) {
     return JournalEntry(
       id: id,
+      bucketItemId: bucketItemId,
+      calendarEventId: calendarEventId,
+      photoIds: photoIds,
+      perspectives: perspectives,
+      isSyncing: isSyncing,
       title: title ?? this.title,
       content: content ?? this.content,
       author: author ?? this.author,

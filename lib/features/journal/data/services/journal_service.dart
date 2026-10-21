@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'dart:async';
 import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
@@ -24,6 +25,167 @@ class JournalService {
   final FirebaseFirestore? _customDb;
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'journal_entries';
+  final Map<String, JournalEntry> _demoMemories = {};
+  final _demoChanges = StreamController<void>.broadcast();
+
+  Stream<JournalEntry?> watchEntry(JournalEntry initial) {
+    if (AgentMode.isActive.value) return _watchDemoEntry(initial);
+    return _db
+        .collection(_collection)
+        .doc(initial.id)
+        .snapshots()
+        .map((doc) => doc.exists ? JournalEntry.fromFirestore(doc) : null);
+  }
+
+  Stream<JournalEntry?> _watchDemoEntry(JournalEntry initial) async* {
+    yield _demoMemories[initial.id] ?? initial;
+    yield* _demoChanges.stream.map((_) => _demoMemories[initial.id] ?? initial);
+  }
+
+  Future<JournalEntry> memoryForSource({
+    required String title,
+    required String author,
+    required DateTime date,
+    String? bucketItemId,
+    String? calendarEventId,
+    String? photoId,
+  }) async {
+    final source = bucketItemId != null
+        ? 'bucket_$bucketItemId'
+        : calendarEventId != null
+        ? 'event_$calendarEventId'
+        : 'photo_$photoId';
+    final id = 'memory_$source';
+    if (photoId != null && !AgentMode.isActive.value) {
+      final linked = await withGetTimeout(
+        _db
+            .collection(_collection)
+            .where('photoIds', arrayContains: photoId)
+            .limit(1)
+            .get(),
+        label: 'photo memory lookup',
+      );
+      if (linked.docs.isNotEmpty) {
+        return JournalEntry.fromFirestore(linked.docs.first);
+      }
+    }
+    final now = DateTime.now();
+    final entry = JournalEntry(
+      id: id,
+      title: title,
+      content: '',
+      author: author,
+      createdAt: date.isAfter(now) ? now : date,
+      updatedAt: now,
+      category: JournalCategory.memory,
+      bucketItemId: bucketItemId,
+      calendarEventId: calendarEventId,
+      photoIds: photoId == null ? const [] : [photoId],
+    );
+    if (AgentMode.isActive.value) {
+      return _demoMemories.putIfAbsent(id, () => entry);
+    }
+    try {
+      final ref = _db.collection(_collection).doc(id);
+      return await _db.runTransaction((tx) async {
+        final current = await tx.get(ref);
+        if (current.exists) {
+          final saved = JournalEntry.fromFirestore(current);
+          if (calendarEventId != null && saved.calendarEventId == null) {
+            tx.update(ref, {'calendarEventId': calendarEventId});
+            return JournalEntry.fromMap({
+              ...saved.toFirestore(),
+              'calendarEventId': calendarEventId,
+            }, id);
+          }
+          return saved;
+        }
+        tx.set(ref, entry.toFirestore());
+        return entry;
+      });
+    } catch (e) {
+      Logger.e('Could not open shared memory', error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> savePerspective(String id, String username, String words) async {
+    if (!{'khentsgdz', 'clairjassen'}.contains(username) ||
+        words.length > 1000) {
+      throw ArgumentError('Invalid memory contribution');
+    }
+    if (AgentMode.isActive.value) {
+      final entry =
+          _demoMemories[id] ??
+          AgentFixtures.demoJournalEntries.firstWhere((e) => e.id == id);
+      _demoMemories[id] = JournalEntry.fromMap({
+        ...entry.toFirestore(),
+        'perspectives': {...entry.perspectives, username: words.trim()},
+      }, id);
+      _demoChanges.add(null);
+      return;
+    }
+    try {
+      await _db.collection(_collection).doc(id).update({
+        'perspectives.$username': words.trim(),
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      Logger.e('Could not save memory contribution', error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> setMemoryPhotos(String id, List<String> photoIds) async {
+    if (photoIds.length > 20) throw ArgumentError('Up to 20 photos per memory');
+    if (AgentMode.isActive.value) {
+      final entry =
+          _demoMemories[id] ??
+          AgentFixtures.demoJournalEntries.firstWhere((e) => e.id == id);
+      _demoMemories[id] = JournalEntry.fromMap({
+        ...entry.toFirestore(),
+        'photoIds': photoIds.toSet().toList(),
+      }, id);
+      _demoChanges.add(null);
+      return;
+    }
+    try {
+      await _db.collection(_collection).doc(id).update({
+        'photoIds': photoIds.toSet().toList(),
+        'updatedAt': Timestamp.now(),
+      });
+    } catch (e) {
+      Logger.e('Could not link memory photos', error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> addMemoryPhoto(String id, String photoId) async {
+    if (AgentMode.isActive.value) {
+      final entry =
+          _demoMemories[id] ??
+          AgentFixtures.demoJournalEntries.firstWhere((e) => e.id == id);
+      return setMemoryPhotos(id, {...entry.photoIds, photoId}.toList());
+    }
+    try {
+      final ref = _db.collection(_collection).doc(id);
+      await _db.runTransaction((tx) async {
+        final doc = await tx.get(ref);
+        if (!doc.exists) throw StateError('Memory no longer exists');
+        final photos = {...JournalEntry.fromFirestore(doc).photoIds, photoId};
+        if (photos.length > 20) {
+          throw StateError('Memory already has 20 photos');
+        }
+        tx.update(ref, {
+          'photoIds': photos.toList(),
+          'updatedAt': Timestamp.now(),
+        });
+      });
+    } catch (e) {
+      Logger.e('Could not add memory photo', error: e);
+      rethrow;
+    }
+  }
 
   Stream<List<JournalEntry>> watchAll() {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {

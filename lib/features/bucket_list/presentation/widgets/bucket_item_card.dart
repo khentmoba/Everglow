@@ -10,6 +10,21 @@ import '../../../../core/utils/optimistic_action.dart';
 import '../../data/models/bucket_item.dart';
 import '../../data/services/bucket_list_service.dart';
 import '../widgets/bucket_ui.dart';
+import '../../../calendar/presentation/widgets/add_event_dialog.dart';
+import '../../../calendar/domain/models/calendar_event.dart';
+import '../../../journal/presentation/widgets/open_shared_memory.dart';
+import '../../../calendar/presentation/widgets/day_detail_sheet.dart';
+
+Future<void> showBucketItemDetail(
+  BuildContext context,
+  BucketItem item,
+  String username,
+) => showModalBottomSheet<void>(
+  context: context,
+  backgroundColor: AppColors.velvet,
+  isScrollControlled: true,
+  builder: (_) => _DreamDetailSheet(item: item, currentUsername: username),
+);
 
 /// A dream ticket: big tap-to-fulfill ring, category + due + assignee pills.
 ///
@@ -281,6 +296,24 @@ class _BucketItemCardState extends State<BucketItemCard> {
             return service.markComplete(widget.item.id, widget.currentUsername);
           } else {
             return service.markUncomplete(widget.item.id);
+          }
+        },
+        onSuccess: (_) {
+          if (mounted && nextCompleted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('A wish came true.'),
+                action: SnackBarAction(
+                  label: 'Keep memory',
+                  onPressed: () => openSharedMemory(
+                    context,
+                    title: widget.item.title,
+                    date: DateTime.now(),
+                    bucketItemId: widget.item.id,
+                  ),
+                ),
+              ),
+            );
           }
         },
         rollback: () {
@@ -749,6 +782,76 @@ class _DreamDetailSheet extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 18),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (!isCompleted)
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.roseQuartz,
+                        ),
+                        icon: const Icon(Icons.event_available_outlined),
+                        label: Text(
+                          item.calendarEventId != null
+                              ? 'View calendar plan'
+                              : 'Plan this',
+                        ),
+                        onPressed: () async {
+                          if (item.calendarEventId != null) {
+                            showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: AppColors.velvet,
+                              builder: (_) => DayDetailSheet(
+                                day: item.dueDate ?? DateTime.now(),
+                                onEventAdded: () {},
+                              ),
+                            );
+                            return;
+                          }
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate:
+                                item.dueDate != null &&
+                                    item.dueDate!.isAfter(DateTime.now())
+                                ? item.dueDate!
+                                : DateTime.now(),
+                            firstDate: DateUtils.dateOnly(DateTime.now()),
+                            lastDate: DateTime(DateTime.now().year + 10),
+                          );
+                          if (date == null || !context.mounted) return;
+                          final saved = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AddEventDialog(
+                              selectedDay: date,
+                              initialType: CalendarEventType.dateNight,
+                              bucketItem: item,
+                            ),
+                          );
+                          if (saved == true && context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                      ),
+                    if (isCompleted)
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.roseQuartz,
+                        ),
+                        icon: const Icon(Icons.auto_stories_outlined),
+                        label: const Text('Keep this memory'),
+                        onPressed: () => openSharedMemory(
+                          context,
+                          title: item.title,
+                          date: item.completedAt ?? DateTime.now(),
+                          bucketItemId: item.id,
+                          calendarEventId: item.calendarEventId,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 const _SectionLabel(label: 'Dream journey'),
                 const SizedBox(height: 10),
                 _JourneyStepper(

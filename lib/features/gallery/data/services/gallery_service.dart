@@ -245,6 +245,29 @@ class GalleryService {
   }
 
   /// Stream of all photos, newest first.
+  Stream<List<MemoryPhoto>> watchPhotosByIds(List<String> ids) {
+    if (ids.isEmpty) return Stream.value(const []);
+    if (AgentMode.isActive.value) {
+      return Stream.value(
+        AgentFixtures.demoPhotos.where((p) => ids.contains(p.id)).toList(),
+      );
+    }
+    return _db
+        .collection(_collection)
+        .where(FieldPath.documentId, whereIn: ids.take(20).toList())
+        .snapshots()
+        .map((snapshot) {
+          final photos = {
+            for (final doc in snapshot.docs)
+              doc.id: MemoryPhoto.fromFirestore(doc),
+          };
+          return [
+            for (final id in ids)
+              if (photos[id] != null) photos[id]!,
+          ];
+        });
+  }
+
   Stream<List<MemoryPhoto>> getPhotosStream({int limit = 40}) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       return Stream.value(AgentFixtures.demoPhotos.take(limit).toList());

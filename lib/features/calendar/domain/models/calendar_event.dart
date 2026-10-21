@@ -11,6 +11,7 @@ calendarEventTypeInfo = {
 };
 
 class CalendarEvent {
+  final String? bucketItemId;
   final String id;
   final String title;
   final String description;
@@ -28,6 +29,7 @@ class CalendarEvent {
 
   const CalendarEvent({
     required this.id,
+    this.bucketItemId,
     required this.title,
     required this.description,
     required this.date,
@@ -45,6 +47,7 @@ class CalendarEvent {
     final data = doc.data() as Map<String, dynamic>? ?? const {};
     return CalendarEvent(
       id: doc.id,
+      bucketItemId: data['bucketItemId'] as String?,
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       date: _parseTimestamp(data['date']),
@@ -137,6 +140,7 @@ class CalendarEvent {
 
   Map<String, dynamic> toFirestore() {
     return {
+      if (bucketItemId != null) 'bucketItemId': bucketItemId,
       'title': title,
       'description': description,
       'date': Timestamp.fromDate(date),
@@ -168,6 +172,7 @@ class CalendarEvent {
   }) {
     return CalendarEvent(
       id: id,
+      bucketItemId: bucketItemId,
       title: title ?? this.title,
       description: description ?? this.description,
       date: date ?? this.date,

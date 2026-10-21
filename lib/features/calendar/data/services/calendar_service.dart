@@ -49,6 +49,19 @@ class CalendarService {
       ...CalendarEvent.fromFirestore(doc).occurrencesBetween(start, end),
   ]..sort((a, b) => a.date.compareTo(b.date));
 
+  Stream<CalendarEvent?> watchEvent(String id) {
+    if (AgentMode.isActive.value) {
+      return Stream.value(
+        AgentFixtures.demoEvents.where((event) => event.id == id).firstOrNull,
+      );
+    }
+    return _db
+        .collection(_collection)
+        .doc(id)
+        .snapshots()
+        .map((doc) => doc.exists ? CalendarEvent.fromFirestore(doc) : null);
+  }
+
   /// Stream of events for a specific month.
   ///
   /// Re-attaches once when the first snapshot is slow: cold dashboard
@@ -149,7 +162,28 @@ class CalendarService {
   Future<void> addEvent(CalendarEvent event) async {
     if (AgentMode.isActive.value) return;
     try {
-      await _db.collection(_collection).add(event.toFirestore());
+      if (event.bucketItemId == null) {
+        await _db.collection(_collection).add(event.toFirestore());
+      } else {
+        final bucket = _db.collection('bucket_list').doc(event.bucketItemId);
+        final eventRef = _db
+            .collection(_collection)
+            .doc('bucket_${event.bucketItemId}');
+        await _db.runTransaction((tx) async {
+          final wish = await tx.get(bucket);
+          final existing = await tx.get(eventRef);
+          if (!wish.exists) throw StateError('This wish no longer exists');
+          if (existing.exists) {
+            throw StateError('This wish already has a calendar plan');
+          }
+          tx.set(eventRef, event.toFirestore());
+          tx.update(bucket, {
+            'calendarEventId': eventRef.id,
+            'status': 'planned',
+            'dueDate': Timestamp.fromDate(event.date),
+          });
+        });
+      }
       Logger.i("Calendar event added: ${event.title}");
     } catch (e) {
       Logger.e("Error adding calendar event", error: e);
