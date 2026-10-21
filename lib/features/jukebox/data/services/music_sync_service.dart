@@ -68,17 +68,24 @@ class MusicSyncService {
 
   Future<http.Response> _getWithAuth(Uri url) async {
     final signUrl = _signUrl;
-    if (signUrl != null) {
-      final signed = await signUrl(url);
-      return _client.get(signed).timeout(const Duration(seconds: 15));
-    }
-    final token = await _getTokenCached();
-    if (token == null || token.isEmpty) {
+    final signed = signUrl == null ? url : await signUrl(url);
+    final token = signUrl == null ? await _getTokenCached() : null;
+    if (signUrl == null && (token == null || token.isEmpty)) {
       throw StateError('Last.fm requires an authenticated user');
     }
-    return _client
-        .get(url, headers: {'Authorization': "Bearer $token"})
-        .timeout(const Duration(seconds: 15));
+    for (var attempt = 0; ; attempt++) {
+      final response = await _client
+          .get(
+            signed,
+            headers: token == null ? null : {'Authorization': 'Bearer $token'},
+          )
+          .timeout(const Duration(seconds: 15));
+      if (attempt == 1 ||
+          !const [502, 503, 504].contains(response.statusCode)) {
+        return response;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
   }
 
   // Usernames that Last.fm reported as invalid (HTTP 404 / error code 6

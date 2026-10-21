@@ -1,5 +1,21 @@
 # PR checks and recovery
 
+## Private photos return 403 after a rules deployment
+
+`storage.rules` checks the signed-in user's Firestore profile. The Firebase
+Storage service agent needs `roles/firebaserules.firestoreServiceAgent` on the
+project so these cross-service reads can run. Without it, valid couple logins
+also receive 403 for archive and gallery photos.
+
+Check the project's IAM policy for that role on
+`service-220334592353@gcp-sa-firebasestorage.iam.gserviceaccount.com`.
+Restore the cross-service permission through Firebase's rules setup if missing;
+keep the profile and token checks in `storage.rules`. After a repair, verify
+authorized access and denied guest/anonymous access. Allow time for IAM changes
+to propagate. The October 21, 2026 incident was resolved by restoring this role.
+
+## PR verification
+
 Quality uses `tool/ci/changes.mjs` to select work from the base-to-merge
 diff, including deleted paths. Docs-only PRs run selection tests and the
 cheap Dart guards; app analysis/tests, web builds, backend tests and privacy

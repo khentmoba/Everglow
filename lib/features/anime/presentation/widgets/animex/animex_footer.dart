@@ -41,21 +41,31 @@ class AnimeXFooter extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
                   children: [
-                    Text(
-                      'EVER',
-                      style: bebasStyle(
-                        size: 19,
-                        color: AnimeXTokens.textPrimary,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'EVER',
+                          style: bebasStyle(
+                            size: 19,
+                            color: AnimeXTokens.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'GLOW',
+                          style: bebasStyle(
+                            size: 19,
+                            color: AnimeXTokens.accent,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'GLOW',
-                      style: bebasStyle(size: 19, color: AnimeXTokens.accent),
-                    ),
-                    const SizedBox(width: 10),
                     Text(
                       '— anime section',
                       style: dmSansStyle(

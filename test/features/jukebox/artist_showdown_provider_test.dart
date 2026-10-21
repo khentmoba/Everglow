@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:everglow/features/jukebox/data/models/artist_suggestion.dart';
@@ -25,6 +27,8 @@ class _FakeSync extends MusicSyncService {
     this.historyByUser = const {},
     this.catalogTracks = const [],
     this.userArtistTracks = const {},
+    this.catalogGate,
+    this.gatedArtist,
   });
 
   /// Last.fm username -> full all-time top tracks (provider filters by
@@ -37,6 +41,8 @@ class _FakeSync extends MusicSyncService {
 
   final List<TopMusicTrack> catalogTracks;
   final Map<String, List<TopMusicTrack>> userArtistTracks;
+  final Completer<void>? catalogGate;
+  final String? gatedArtist;
   int calls = 0;
   int artworkCalls = 0;
   int suggestionCalls = 0;
@@ -46,12 +52,19 @@ class _FakeSync extends MusicSyncService {
   int userArtistTrackCalls = 0;
 
   @override
+  Future<List<MusicStatus>> fetchRecentTracks(
+    String username, {
+    int limit = 5,
+  }) async => const [];
+
+  @override
   Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
     String artist, {
     int pageSize = 50,
     int maxPages = 10,
   }) async {
     catalogCalls++;
+    if (gatedArtist == null || gatedArtist == artist) await catalogGate?.future;
     return catalogTracks;
   }
 
@@ -133,6 +146,48 @@ Future<void> _waitFor(bool Function() condition) async {
 
 void main() {
   group('ArtistShowdownProvider', () {
+    test('cached selection ignores late results from another artist', () async {
+      final gate = Completer<void>();
+      final sync = _FakeSync(
+        byUser: {'khentsgdz': [_track('Strangers', 12)]},
+        catalogGate: gate,
+        gatedArtist: 'Other Artist',
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      addTearDown(provider.dispose);
+      await _waitFor(() => !provider.isLoading);
+      final pending = provider.selectArtist('Other Artist');
+      await provider.selectArtist('Ethel Cain');
+      gate.complete();
+      await pending;
+      expect(provider.artist, 'Ethel Cain');
+      expect(provider.khentTotal, 12);
+      expect(provider.tracks.single.trackName, 'Strangers');
+    });
+
+    test('shows chart rows while catalog discovery is still pending', () async {
+      final gate = Completer<void>();
+      final sync = _FakeSync(
+        byUser: {
+          'khentsgdz': [_track('Strangers', 12)],
+          'clairjassen': [_track('Strangers', 8)],
+        },
+        catalogGate: gate,
+      );
+      final provider = ArtistShowdownProvider(syncService: sync);
+      addTearDown(provider.dispose);
+      try {
+        await _waitFor(() => provider.hasData);
+        expect(provider.hasData, isTrue);
+        expect(provider.khentTotal, 12);
+        expect(provider.clairTotal, 8);
+        expect(provider.isLoading, isTrue);
+      } finally {
+        gate.complete();
+        await _waitFor(() => !provider.isLoading);
+      }
+    });
+
     test('loads Ethel Cain by default with totals and leader', () async {
       final sync = _FakeSync(
         byUser: {

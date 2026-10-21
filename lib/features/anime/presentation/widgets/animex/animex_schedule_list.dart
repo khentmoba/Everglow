@@ -22,8 +22,7 @@ bool animexScheduleIsInLibrary(MediaItem media, Iterable<MediaItem> library) {
     if (id != null && id > 0 && otherId != null && otherId > 0) {
       return id == otherId;
     }
-    return media.source == 'jikan' &&
-        item.source == 'jikan' &&
+    return media.source == item.source &&
         media.tmdbId > 0 &&
         media.tmdbId == item.tmdbId;
   });
@@ -144,6 +143,15 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
               style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
             ),
             const SizedBox(height: 16),
+            if (_entries.any((entry) => !entry.hasExactTime))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'Backup schedule · Japan broadcast dates. '
+                  'Episode numbers and times are unavailable.',
+                  style: dmSansStyle(size: 12, color: AnimeXTokens.textSecondary),
+                ),
+              ),
             if (_loading ||
                 (!_failed &&
                     _entries.isNotEmpty &&
@@ -170,7 +178,10 @@ class _AnimeXScheduleListState extends State<AnimeXScheduleList> {
               )
             else if (visible.isEmpty)
               _message(
-                library.isEmpty
+                _entries.any((entry) => !entry.hasExactTime)
+                    ? 'The backup schedule cannot match every saved title. '
+                        'Choose All anime to see broadcast dates.'
+                    : library.isEmpty
                     ? 'Add anime to My List to see their broadcast dates here.'
                     : 'No airings from your list in this day’s schedule.',
               )
@@ -287,7 +298,7 @@ class _ScheduleRow extends StatelessWidget {
                         runSpacing: 4,
                         children: [
                           AnimeXBadge(
-                            label: 'EP ${entry.episode}',
+                            label: entry.episode == null ? 'Broadcast day' : 'EP ${entry.episode}',
                             kind: AnimeXBadgeKind.episodes,
                           ),
                           if (inMyList)
@@ -299,14 +310,16 @@ class _ScheduleRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '${animexAiringLabel(entry.airingAt, now)} · $date',
+                        entry.hasExactTime
+                            ? '${animexAiringLabel(entry.airingAt, now)} · $date'
+                            : date,
                         style: dmSansStyle(
                           size: 12,
                           color: AnimeXTokens.accent,
                         ),
                       ),
                       Text(
-                        '$time local time',
+                        entry.hasExactTime ? '$time local time' : 'Time unavailable',
                         style: dmSansStyle(
                           size: 11,
                           color: AnimeXTokens.textSecondary,

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
+import 'package:http/http.dart' as http;
 import '../../../../shared/utils/catalog_proxy_client.dart';
 import '../../../../core/utils/connectivity_aware.dart';
 import '../../../../core/utils/logger.dart';
@@ -21,13 +22,19 @@ import '../../../cinema/data/models/media_item.dart';
 /// asks for and then resume.
 class JikanService with ConnectivityAware {
   static const String _proxyBase = 'jikan';
-  final CatalogProxyClient _proxy = CatalogProxyClient();
+  final CatalogProxyClient _proxy;
+  final DateTime Function() _now;
+  DateTime? _unavailableUntil;
 
   // Singleton — same lifetime as TMDBService so the queue is shared
   // between the anime screen, the search modal, and the episode drawer.
   static final JikanService _instance = JikanService._internal();
-  factory JikanService() => _instance;
-  JikanService._internal();
+  factory JikanService({CatalogProxyClient? proxy, DateTime Function()? now}) =>
+      proxy == null && now == null ? _instance : JikanService._internal(proxy, now);
+  JikanService._internal([CatalogProxyClient? proxy, DateTime Function()? now])
+      : _proxy = proxy ?? CatalogProxyClient(), _now = now ?? DateTime.now;
+
+  bool get _temporarilyUnavailable => _unavailableUntil?.isAfter(_now()) ?? false;
 
   /// Serial FIFO queue of pending request tasks. Every public method
   /// appends a [JikanTask] here and waits for its completion. Tasks run
@@ -110,10 +117,12 @@ class JikanService with ConnectivityAware {
     Map<String, String>? params,
     int maxRetries = 3,
   }) async {
+    if (_temporarilyUnavailable) return null;
     // Routed through the proxyCatalog Cloud Function (allow-listed to
     // api.jikan.moe, edge-cached) instead of calling Jikan directly.
     // The proxy sets the User-Agent server-side.
     return _enqueue(() async {
+      if (_temporarilyUnavailable) return null;
       var attempt = 0;
       while (true) {
         try {
@@ -147,9 +156,15 @@ class JikanService with ConnectivityAware {
             '[Jikan] $path failed (${response.statusCode}): '
             '${response.body.length > 200 ? '${response.body.substring(0, 200)}...' : response.body}',
           );
+          if (response.statusCode >= 500) {
+            _unavailableUntil = _now().add(const Duration(seconds: 30));
+          }
           return null;
         } catch (e) {
           Logger.e('[Jikan] $path error', error: e);
+          if (e is TimeoutException || e is http.ClientException) {
+            _unavailableUntil = _now().add(const Duration(seconds: 30));
+          }
           return null;
         }
       }

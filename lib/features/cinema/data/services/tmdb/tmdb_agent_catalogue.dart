@@ -113,6 +113,9 @@ Map<String, dynamic>? agentTmdbResponse(Uri url) {
           return true;
         },
       )
+      .map((record) => url.queryParameters['with_original_language'] == 'ja'
+          ? {...record, 'original_language': 'ja', 'genre_ids': [16]}
+          : record)
       .toList();
   return {
     'page': page,

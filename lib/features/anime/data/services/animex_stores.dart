@@ -276,7 +276,7 @@ class AnimexStores extends ChangeNotifier {
     final index = _playlists.indexWhere((p) => p.id == id);
     if (index < 0) return;
     final current = _playlists[index];
-    final exists = current.items.any((i) => i.anilistId == item.anilistId);
+    final exists = current.items.any((i) => i.key == item.key);
     if (exists) return;
     _playlists[index] = current.copyWith(items: [...current.items, item]);
     notifyListeners();
@@ -289,6 +289,17 @@ class AnimexStores extends ChangeNotifier {
     final current = _playlists[index];
     _playlists[index] = current.copyWith(
       items: current.items.where((i) => i.anilistId != anilistId).toList(),
+    );
+    notifyListeners();
+    await _persist();
+  }
+
+  Future<void> removePlaylistEntry(String id, AnimexPlaylistItem item) async {
+    final index = _playlists.indexWhere((playlist) => playlist.id == id);
+    if (index < 0) return;
+    final current = _playlists[index];
+    _playlists[index] = current.copyWith(
+      items: current.items.where((entry) => entry.key != item.key).toList(),
     );
     notifyListeners();
     await _persist();

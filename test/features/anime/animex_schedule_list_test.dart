@@ -67,6 +67,28 @@ Widget _app(Widget child, {double textScale = 1}) => MaterialApp(
 );
 
 void main() {
+  testWidgets('date-only fallback never claims a time or episode number', (tester) async {
+    final controller = _LibraryController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_app(AnimeXScheduleList(
+      controller: controller, weekday: 0, now: () => _now, onlyMyList: false,
+      loadSchedule: (_) async => [AnimexScheduleEntry(
+        media: _media('Backup anime', malId: 42, source: 'tmdb'),
+        episode: null, airingAt: _now, hasExactTime: false,
+      )],
+    )));
+    await tester.pumpAndSettle();
+    expect(find.text('Backup anime'), findsOneWidget);
+    expect(find.text('Time unavailable'), findsOneWidget);
+    expect(find.text('BROADCAST DAY'), findsOneWidget);
+    expect(find.textContaining('Aired today'), findsNothing);
+    expect(find.text('EP null'), findsNothing);
+    expect(find.textContaining('Japan broadcast dates'), findsOneWidget);
+    await tester.tap(find.text('Backup anime'));
+    expect(controller.watchItem?.source, 'tmdb');
+    expect(controller.watchItem?.tmdbId, 42);
+  });
+
   group('schedule identity', () {
     test('prefers matching AniList IDs even if the MAL IDs differ', () {
       final media = _media('Schedule', anilistId: 900, malId: 100);

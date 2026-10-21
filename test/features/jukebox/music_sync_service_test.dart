@@ -44,6 +44,47 @@ Map<String, dynamic> _itunesResult({
 }
 
 void main() {
+  for (final status in [401, 429, 503]) {
+    test('bounds retries for Last.fm HTTP $status', () async {
+      var calls = 0;
+      final client = MockClient((request) async {
+        calls++;
+        return http.Response('unavailable', status);
+      });
+      final service = MusicSyncService(client: client, signUrl: (url) async => url);
+      await service.fetchTrackUserPlayCount(
+        username: 'demo', artist: 'Demo Artist', track: 'Demo Song',
+      );
+      expect(calls, status == 503 ? 2 : 1);
+      client.close();
+    });
+  }
+
+  test('retries a temporary Last.fm 503 before dropping playcounts', () async {
+    var calls = 0;
+    final client = MockClient((request) async {
+      calls++;
+      if (calls == 1) return http.Response('upstream connection timeout', 503);
+      return _jsonResponse({
+        'track': {'userplaycount': '12'},
+      });
+    });
+    final service = MusicSyncService(
+      client: client,
+      signUrl: (url) async => url,
+    );
+    expect(
+      await service.fetchTrackUserPlayCount(
+        username: 'demo',
+        artist: 'Demo Artist',
+        track: 'Demo Song',
+      ),
+      12,
+    );
+    expect(calls, 2);
+    client.close();
+  });
+
   group('MusicSyncService.fetchTrackArtwork', () {
     test('falls back to iTunes when Last.fm has no artwork', () async {
       final requestedTerms = <String>[];
