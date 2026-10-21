@@ -405,6 +405,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
     int? timestamp,
     int? durationSeconds,
     String? status,
+    bool failOnError = false,
   }) async {
     if (AgentMode.isActive.value) return;
     if (userName.isEmpty) return;
@@ -525,6 +526,7 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
       }
     } catch (e) {
       Logger.e('Error updating watch progress', error: e);
+      if (failOnError) rethrow;
     }
   }
 

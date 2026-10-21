@@ -731,7 +731,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
           ),
           const SizedBox(height: 6),
           Text(
-            'The embed returned a 404 or didn\'t respond. Try a different source below.',
+            'This source could not start playback. Retry it or choose another source below. Resume support depends on the source.',
             textAlign: TextAlign.center,
             style: AppTypography.outfitMuted.copyWith(
               color: Colors.white60,
@@ -739,6 +739,14 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             ),
           ),
           const SizedBox(height: 24),
+          TextButton.icon(
+            onPressed: () => _selectProvider(active, retry: true),
+            icon: const Icon(Icons.refresh, color: AppColors.petalWhite),
+            label: const Text(
+              'Retry this source',
+              style: TextStyle(color: AppColors.petalWhite),
+            ),
+          ),
           if (others.isNotEmpty) ...[
             Text(
               'Try another source',
