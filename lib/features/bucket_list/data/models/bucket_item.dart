@@ -40,6 +40,7 @@ enum BucketPriority {
 
 /// A single bucket list item shared between the couple.
 class BucketItem {
+  final String? calendarEventId;
   final String id;
   final String title;
   final String description;
@@ -60,6 +61,7 @@ class BucketItem {
 
   const BucketItem({
     required this.id,
+    this.calendarEventId,
     required this.title,
     this.description = '',
     this.category = BucketCategory.other,
@@ -86,9 +88,11 @@ class BucketItem {
     DateTime? asDate(dynamic v) => v is Timestamp ? v.toDate() : null;
     return BucketItem(
       id: id,
+      calendarEventId: data['calendarEventId'] as String?,
       title: data['title'] is String ? data['title'] as String : '',
-      description:
-          data['description'] is String ? data['description'] as String : '',
+      description: data['description'] is String
+          ? data['description'] as String
+          : '',
       category: BucketCategory.values.firstWhere(
         (c) => c.name == data['category'],
         orElse: () => BucketCategory.other,
@@ -100,22 +104,25 @@ class BucketItem {
       createdBy: data['createdBy'] is String ? data['createdBy'] : '',
       createdAt: asDate(data['createdAt']) ?? DateTime.now(),
       completedAt: asDate(data['completedAt']),
-      completedBy:
-          data['completedBy'] is String ? data['completedBy'] as String : null,
-      imageUrl:
-          data['imageUrl'] is String ? data['imageUrl'] as String : null,
+      completedBy: data['completedBy'] is String
+          ? data['completedBy'] as String
+          : null,
+      imageUrl: data['imageUrl'] is String ? data['imageUrl'] as String : null,
       notes: data['notes'] is String ? data['notes'] as String : '',
       priority: BucketPriority.values.firstWhere(
         (p) => p.name == data['priority'],
         orElse: () => BucketPriority.medium,
       ),
-      assignedTo: data['assignedTo'] is String ? data['assignedTo'] as String : null,
+      assignedTo: data['assignedTo'] is String
+          ? data['assignedTo'] as String
+          : null,
       dueDate: asDate(data['dueDate']),
     );
   }
 
   Map<String, dynamic> toFirestore() {
     return {
+      if (calendarEventId != null) 'calendarEventId': calendarEventId,
       'title': title,
       'description': description,
       'category': category.name,
@@ -151,6 +158,7 @@ class BucketItem {
   }) {
     return BucketItem(
       id: id,
+      calendarEventId: calendarEventId,
       title: title ?? this.title,
       description: description ?? this.description,
       category: category ?? this.category,

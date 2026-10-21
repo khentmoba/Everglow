@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/agent/agent_mode.dart';
@@ -12,6 +13,7 @@ class MoodSource {
     required String username,
     required int score,
     required String emoji,
+    HeartNeed? need,
   }) => throw UnimplementedError();
 
   Future<bool> hasSubmittedToday(String username) => throw UnimplementedError();
@@ -25,6 +27,24 @@ class MoodSource {
 
 class MoodService implements MoodSource {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final _demoMoods = <String, UserMood>{};
+  final _demoChanges = StreamController<void>.broadcast();
+
+  UserMood _demoMood(String username) =>
+      _demoMoods[username] ??
+      UserMood(
+        id: 'demo_$username',
+        username: username,
+        moodScore: AgentFixtures.demoMood.moodScore,
+        moodEmoji: AgentFixtures.demoMood.moodEmoji,
+        need: username == 'clairjassen' ? HeartNeed.company : null,
+        timestamp: DateTime.now(),
+      );
+
+  Stream<UserMood?> _watchDemo(String username) async* {
+    yield _demoMood(username);
+    yield* _demoChanges.stream.map((_) => _demoMood(username));
+  }
 
   /// Day key shared with Motchi's server reads (`moods.date`).
   /// Device-local calendar day — Khent and Clair are on Philippine time,
@@ -44,16 +64,58 @@ class MoodService implements MoodSource {
     required String username,
     required int score,
     required String emoji,
+    HeartNeed? need,
   }) async {
-    if (AgentMode.isActive.value) return;
+    if (AgentMode.isActive.value) {
+      _demoMoods[username] = UserMood(
+        id: 'demo_$username',
+        username: username,
+        moodScore: score,
+        moodEmoji: emoji,
+        need: need,
+        timestamp: DateTime.now(),
+      );
+      _demoChanges.add(null);
+      return;
+    }
     await _db.collection('moods').add({
       'username': username,
       'uid': username,
       'date': dateKeyFor(DateTime.now()),
       'moodScore': score,
       'moodEmoji': emoji,
+      if (need != null) 'need': need.name,
       'timestamp': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> acknowledge(UserMood mood, String username) async {
+    if (!mood.isCurrentAt(DateTime.now()) ||
+        mood.need == null ||
+        mood.id == null) {
+      throw StateError('This check-in has expired');
+    }
+    if (AgentMode.isActive.value) {
+      _demoMoods[mood.username] = UserMood(
+        id: mood.id,
+        username: mood.username,
+        moodScore: mood.moodScore,
+        moodEmoji: mood.moodEmoji,
+        timestamp: mood.timestamp,
+        need: mood.need,
+        acknowledgedBy: username,
+      );
+      _demoChanges.add(null);
+      return;
+    }
+    try {
+      await _db.collection('moods').doc(mood.id).update({
+        'acknowledgedBy': username,
+      });
+    } catch (e) {
+      Logger.e('Could not acknowledge mood', error: e);
+      rethrow;
+    }
   }
 
   /// Checks if the user has already submitted a mood today.
@@ -89,7 +151,7 @@ class MoodService implements MoodSource {
   @override
   Future<UserMood?> getLatestMood(String username) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      return AgentFixtures.demoMood;
+      return _demoMood(username);
     }
     try {
       final snapshot = await withGetTimeout(
@@ -102,7 +164,10 @@ class MoodService implements MoodSource {
         label: 'mood latest',
       );
       if (snapshot.docs.isEmpty) return null;
-      return UserMood.fromFirestore(snapshot.docs.first.data());
+      return UserMood.fromFirestore(
+        snapshot.docs.first.data(),
+        id: snapshot.docs.first.id,
+      );
     } catch (e) {
       Logger.e('MoodService.getLatestMood failed for $username', error: e);
       return null;
@@ -113,7 +178,7 @@ class MoodService implements MoodSource {
   @override
   Stream<UserMood?> watchLatestMood(String username) {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      return Stream.value(AgentFixtures.demoMood);
+      return _watchDemo(username);
     }
     return withFirestoreTimeout(
       _db
@@ -124,7 +189,10 @@ class MoodService implements MoodSource {
           .snapshots()
           .map((snapshot) {
             if (snapshot.docs.isEmpty) return null;
-            return UserMood.fromFirestore(snapshot.docs.first.data());
+            return UserMood.fromFirestore(
+              snapshot.docs.first.data(),
+              id: snapshot.docs.first.id,
+            );
           }),
       label: 'mood-$username',
     );

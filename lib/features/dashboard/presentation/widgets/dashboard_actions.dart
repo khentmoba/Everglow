@@ -21,14 +21,14 @@ class _DashboardActionsState extends State<DashboardActions> {
     final moodController = context.watch<MoodController>();
     final guardianController = context.watch<GuardianController>();
 
-    if (moodController.hasSubmittedToday) {
-      return const SizedBox.shrink();
-    }
-
     final isVisible = guardianController.isMoodPromptVisible;
 
     return Tooltip(
-      message: isVisible ? 'Dismiss mood picker' : 'Open mood picker',
+      message: isVisible
+          ? 'Dismiss mood picker'
+          : moodController.hasSubmittedToday
+          ? 'Update your check-in'
+          : 'Open mood picker',
       child: Semantics(
         label: isVisible ? 'Dismiss mood picker' : 'Open mood picker',
         button: true,

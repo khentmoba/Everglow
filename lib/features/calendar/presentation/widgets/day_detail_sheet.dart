@@ -13,6 +13,7 @@ import '../../data/services/calendar_service.dart';
 import '../../domain/models/calendar_event.dart';
 import 'add_event_dialog.dart';
 import 'calendar_event_style.dart';
+import '../../../journal/presentation/widgets/open_shared_memory.dart';
 
 class DayDetailSheet extends StatefulWidget {
   final DateTime day;
@@ -702,6 +703,21 @@ class _EventTile extends StatelessWidget {
                       color: AppColors.petalWhite,
                     ),
                   ),
+                  if (!event.date.isAfter(DateTime.now()))
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.roseQuartz,
+                      ),
+                      icon: const Icon(Icons.auto_stories_outlined),
+                      label: const Text('Keep this memory'),
+                      onPressed: () => openSharedMemory(
+                        context,
+                        title: event.title,
+                        date: event.date,
+                        calendarEventId: event.id,
+                        bucketItemId: event.bucketItemId,
+                      ),
+                    ),
                   if (event.description.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(

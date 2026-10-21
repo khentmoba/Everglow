@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'tonight_option.dart';
+import 'tonight_preferences.dart';
 
 enum TonightStatus {
   voting,
@@ -22,6 +23,7 @@ enum TonightStatus {
 }
 
 class TonightDecision {
+  final TonightPreferences preferences;
   final String id;
   final TonightStatus status;
   final List<TonightOption> options;
@@ -34,6 +36,7 @@ class TonightDecision {
 
   const TonightDecision({
     required this.id,
+    this.preferences = const TonightPreferences(),
     this.status = TonightStatus.voting,
     this.options = const [],
     this.votes = const {},
@@ -103,6 +106,11 @@ class TonightDecision {
 
     return TonightDecision(
       id: id ?? 'active',
+      preferences: TonightPreferences.fromMap(
+        data['preferences'] is Map
+            ? Map<String, dynamic>.from(data['preferences'] as Map)
+            : null,
+      ),
       status: TonightStatus.fromString(data['status']),
       options: options,
       votes: votes,
@@ -128,6 +136,7 @@ class TonightDecision {
   }
 
   Map<String, dynamic> toMap() => {
+    'preferences': preferences.toMap(),
     'status': status.name,
     'options': options.map((o) => o.toMap()).toList(),
     'votes': votes,

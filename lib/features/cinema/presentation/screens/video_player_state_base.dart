@@ -1017,8 +1017,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// Called when the user picks a different provider from the dropdown
   /// or error card. Clears the failed set so the chosen provider gets
   /// a fresh attempt.
-  void _selectProvider(VideoSourceConfig provider) {
-    if (provider.id == _selectedProvider.id) return;
+  void _selectProvider(VideoSourceConfig provider, {bool retry = false}) {
+    if (provider.id == _selectedProvider.id && !retry) return;
     ++_restoreRevision;
     _resolvedStartSeconds = _playbackPositionSeconds;
     _cancelUpNext();

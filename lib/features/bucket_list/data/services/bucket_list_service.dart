@@ -15,6 +15,19 @@ class BucketListService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final String _collection = 'bucket_list';
 
+  Stream<BucketItem?> watchItem(String id) {
+    if (AgentMode.isActive.value) {
+      return Stream.value(
+        AgentFixtures.demoBucketList.where((item) => item.id == id).firstOrNull,
+      );
+    }
+    return _db
+        .collection(_collection)
+        .doc(id)
+        .snapshots()
+        .map((doc) => doc.exists ? BucketItem.fromFirestore(doc) : null);
+  }
+
   /// All items, newest first.
   Stream<List<BucketItem>> watchAll() {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {

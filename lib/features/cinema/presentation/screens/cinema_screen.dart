@@ -11,6 +11,7 @@ import '../../../../core/utils/optimistic_action.dart';
 import '../widgets/episode_drawer.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/theme/app_breakpoints.dart';
+import '../widgets/cinema_playback_sheet.dart';
 import 'package:go_router/go_router.dart';
 import '../widgets/netflix/netflix_colors.dart';
 import '../widgets/netflix/netflix_nav_bar.dart';
@@ -338,6 +339,72 @@ class _CinemaScreenState extends State<CinemaScreen> {
   }
 
   void _playMedia(MediaItem item) {
+    if ((item.currentTimestamp ?? 0) > 0 || (item.currentEpisode ?? 0) > 0) {
+      _manageProgress(item);
+    } else {
+      _launchMedia(item);
+    }
+  }
+
+  Future<void> _manageProgress(MediaItem item) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: NetflixColors.surface,
+      isScrollControlled: true,
+      builder: (_) => CinemaPlaybackSheet(item: item),
+    );
+    if (!mounted) return;
+    switch (action) {
+      case 'resume':
+        _launchMedia(item);
+      case 'restart':
+        _restartMedia(item);
+      case 'episodes':
+        _showMediaDetails(item);
+      case 'remove':
+        await _removeProgress(item);
+      case 'finished':
+        final username = _auth.currentUser;
+        if (username == null) return;
+        try {
+          await _tmdbService.watchlist.updateProgress(
+            item,
+            username,
+            season: item.currentSeason,
+            episode: item.currentEpisode,
+            timestamp: item.currentTimestamp,
+            durationSeconds: item.durationSeconds,
+            status: 'watched-self',
+            failOnError: true,
+          );
+          if (!mounted || _auth.currentUser != username) return;
+          setState(() {
+            _watchlist = _watchlist
+                .map(
+                  (saved) => saved.catalogKey == item.catalogKey
+                      ? saved.copyWith(status: 'watched-self')
+                      : saved,
+                )
+                .toList();
+            _splitWatchlists();
+          });
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Marked as finished.')));
+        } catch (e) {
+          Logger.e('Cinema: could not mark finished', error: e);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Could not save. Please try again.'),
+              ),
+            );
+          }
+        }
+    }
+  }
+
+  void _launchMedia(MediaItem item) {
     // Omit unknown position so cloud + local memory can restore the saved
     // spot. Explicit start=0 is reserved for Restart.
     if (item.mediaType == 'movie') {
