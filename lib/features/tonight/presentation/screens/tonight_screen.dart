@@ -18,6 +18,7 @@ import '../../../../shared/widgets/app_network_image.dart';
 import '../../../../shared/widgets/everglow/everglow_skeleton.dart';
 import '../../data/models/tonight_decision.dart';
 import '../../data/models/tonight_option.dart';
+import '../../data/models/tonight_preferences.dart';
 import '../../data/services/tonight_service.dart';
 
 class TonightScreen extends StatefulWidget {
@@ -31,6 +32,11 @@ class TonightScreen extends StatefulWidget {
 class _TonightScreenState extends State<TonightScreen> {
   final TonightService _service = TonightService();
   bool _isShuffling = false;
+  bool _preferencesLoaded = false;
+  int? _minutes;
+  bool _goingOut = false;
+  EveningEnergy _energy = EveningEnergy.quiet;
+  String? _shuffleError;
   bool _isMakingPlan = false;
   DateTime _selectedPlanTime = _defaultPlanTime();
 
@@ -43,9 +49,30 @@ class _TonightScreenState extends State<TonightScreen> {
   }
 
   Future<void> _handleShuffle() async {
-    setState(() => _isShuffling = true);
-    await _service.createOrShuffle(force: true);
-    if (mounted) setState(() => _isShuffling = false);
+    if (_isShuffling) return;
+    setState(() {
+      _isShuffling = true;
+      _shuffleError = null;
+    });
+    try {
+      await _service.createOrShuffle(
+        force: true,
+        preferences: TonightPreferences(
+          minutes: _minutes,
+          goingOut: _goingOut,
+          energy: _energy,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _shuffleError =
+              'Could not save new picks. Your previous picks are safe. Try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isShuffling = false);
+    }
   }
 
   Future<void> _handleVote(String optionId) async {
@@ -173,6 +200,12 @@ class _TonightScreenState extends State<TonightScreen> {
                       }
 
                       final decision = snapshot.data;
+                      if (!_preferencesLoaded && decision != null) {
+                        _preferencesLoaded = true;
+                        _minutes = decision.preferences.minutes;
+                        _goingOut = decision.preferences.goingOut;
+                        _energy = decision.preferences.energy;
+                      }
                       if (decision == null || decision.options.isEmpty) {
                         return _buildEmptyOrBootstrapView();
                       }
@@ -189,6 +222,79 @@ class _TonightScreenState extends State<TonightScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreferences() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('How much time do we have?'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final minutes in <int?>[30, 45, 90, 180, null])
+                ChoiceChip(
+                  label: Text(minutes == null ? 'No limit' : '$minutes min'),
+                  selected: _minutes == minutes,
+                  onSelected: _isShuffling
+                      ? null
+                      : (_) => setState(() => _minutes = minutes),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final goingOut in [false, true])
+                ChoiceChip(
+                  label: Text(goingOut ? 'Go out' : 'Stay in'),
+                  selected: _goingOut == goingOut,
+                  onSelected: _isShuffling
+                      ? null
+                      : (_) => setState(() => _goingOut = goingOut),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Our energy'),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final energy in EveningEnergy.values)
+                ChoiceChip(
+                  label: Text(switch (energy) {
+                    EveningEnergy.quiet => 'Quiet',
+                    EveningEnergy.playful => 'Playful',
+                    EveningEnergy.adventurous => 'Adventurous',
+                  }),
+                  selected: _energy == energy,
+                  onSelected: _isShuffling
+                      ? null
+                      : (_) => setState(() => _energy = energy),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Short evenings use nearby activities. Movies with unknown running times are left out of timed picks.',
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: AppColors.roseQuartz),
+            onPressed: _isShuffling ? null : _handleShuffle,
+            icon: const Icon(Icons.shuffle),
+            label: Text(_isShuffling ? 'Finding picks...' : 'Find three picks'),
+          ),
+          if (_shuffleError != null)
+            Text(
+              _shuffleError!,
+              style: const TextStyle(color: AppColors.error),
+            ),
         ],
       ),
     );
@@ -214,56 +320,59 @@ class _TonightScreenState extends State<TonightScreen> {
   }
 
   Widget _buildEmptyOrBootstrapView() {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.auroraRose.withValues(alpha: 0.12),
-                  border: Border.all(
-                    color: AppColors.auroraRose.withValues(alpha: 0.3),
+    return SingleChildScrollView(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.auroraRose.withValues(alpha: 0.12),
+                    border: Border.all(
+                      color: AppColors.auroraRose.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: AppColors.auroraRose,
+                    size: 36,
                   ),
                 ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: AppColors.auroraRose,
-                  size: 36,
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  '“What should we do tonight?”',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headlineSmall().copyWith(
+                    color: AppColors.moonlight,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                '“What should we do tonight?”',
-                textAlign: TextAlign.center,
-                style: AppTypography.headlineSmall().copyWith(
-                  color: AppColors.moonlight,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Choose what suits your evening, then find three ideas.',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyMedium().copyWith(
+                    color: AppColors.moonlight.withValues(alpha: 0.7),
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Roll 3 curated suggestions for tonight from your watchlist, date ideas, and games.',
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMedium().copyWith(
-                  color: AppColors.moonlight.withValues(alpha: 0.7),
+                const SizedBox(height: AppSpacing.xl),
+                _buildPreferences(),
+                EverglowButton(
+                  label: 'Roll Suggestions',
+                  icon: Icons.casino_rounded,
+                  backgroundColor: AppColors.auroraRose,
+                  foregroundColor: AppColors.inkDeep,
+                  onPressed: _isShuffling ? null : _handleShuffle,
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              EverglowButton(
-                label: 'Roll Suggestions',
-                icon: Icons.casino_rounded,
-                backgroundColor: AppColors.auroraRose,
-                foregroundColor: AppColors.inkDeep,
-                onPressed: _handleShuffle,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -314,6 +423,14 @@ class _TonightScreenState extends State<TonightScreen> {
                 ),
                 const SizedBox(height: AppSpacing.lg),
               ],
+              if (decision.status == TonightStatus.voting)
+                ExpansionTile(
+                  title: const Text('What suits tonight?'),
+                  subtitle: Text(
+                    '${decision.preferences.minutes == null ? "No time limit" : "${decision.preferences.minutes} minutes"} / ${decision.preferences.goingOut ? "Go out" : "Stay in"} / ${decision.preferences.energy.name}',
+                  ),
+                  children: [_buildPreferences()],
+                ),
               _buildLiveStatusBar(decision, currentUsername, partnerName),
               const SizedBox(height: AppSpacing.lg),
               if (decision.status != TonightStatus.voting &&
@@ -638,7 +755,10 @@ class _TonightScreenState extends State<TonightScreen> {
                   label: switch (winningOption.type) {
                     TonightOptionType.movie => 'Open Cinema',
                     TonightOptionType.game => 'Play together',
-                    TonightOptionType.date => 'View Calendar',
+                    TonightOptionType.date =>
+                      winningOption.targetRoute == '/calendar'
+                          ? 'View Calendar'
+                          : 'Open activity',
                   },
                   icon: Icons.play_arrow_rounded,
                   backgroundColor: AppColors.auroraTeal,
@@ -656,7 +776,7 @@ class _TonightScreenState extends State<TonightScreen> {
                 label: 'New picks',
                 icon: Icons.refresh_rounded,
                 foregroundColor: AppColors.blushGold,
-                onPressed: _handleShuffle,
+                onPressed: _isShuffling ? null : _handleShuffle,
               ),
             ],
           ),
@@ -820,7 +940,10 @@ class _TonightOptionCard extends StatelessWidget {
                   ],
                 )
               else ...[
-                SizedBox(height: 144, child: _buildVisual(hue, cacheWidth: 400)),
+                SizedBox(
+                  height: 144,
+                  child: _buildVisual(hue, cacheWidth: 400),
+                ),
                 const SizedBox(height: AppSpacing.md),
                 details,
               ],

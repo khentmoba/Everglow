@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -10,6 +11,7 @@ import '../../../../shared/utils/tmdb_images.dart';
 import '../../../calendar/domain/models/calendar_event.dart';
 import '../models/tonight_decision.dart';
 import '../models/tonight_option.dart';
+import '../models/tonight_preferences.dart';
 
 class TonightService {
   static final TonightService _instance = TonightService._internal();
@@ -19,6 +21,8 @@ class TonightService {
   TonightService._internal([this._customDb]);
 
   final FirebaseFirestore? _customDb;
+  TonightDecision? _demoDecision;
+  final _demoChanges = StreamController<TonightDecision>.broadcast();
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
 
   CollectionReference<Map<String, dynamic>> get _collection =>
@@ -35,7 +39,7 @@ class TonightService {
   /// Bounded to one doc for today's shared decision.
   Stream<TonightDecision?> watchActiveDecision() {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      return Stream.value(AgentFixtures.demoDecision);
+      return _watchDemo();
     }
 
     Stream<TonightDecision?> subscribe() {
@@ -53,10 +57,20 @@ class TonightService {
     );
   }
 
+  Stream<TonightDecision> _watchDemo() async* {
+    yield _demoDecision ?? AgentFixtures.demoDecision;
+    yield* _demoChanges.stream;
+  }
+
+  void _setDemo(TonightDecision decision) {
+    _demoDecision = decision;
+    _demoChanges.add(decision);
+  }
+
   /// Get the active decision once.
   Future<TonightDecision?> getActiveDecision() async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      return AgentFixtures.demoDecision;
+      return _demoDecision ?? AgentFixtures.demoDecision;
     }
 
     try {
@@ -111,32 +125,8 @@ class TonightService {
     'Cozy tea talk sharing our top 5 favorite memories',
   ];
 
-  /// Curated fallback movies when watchlist is empty or offline.
-  static const List<Map<String, String>> fallbackMovies = [
-    {
-      'title': 'Spirited Away',
-      'overview': 'A whimsical, magical journey by Studio Ghibli.',
-      'posterPath': '/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg',
-    },
-    {
-      'title': 'About Time',
-      'overview': 'A heartwarming romance about family, time, and true love.',
-      'posterPath': '/mBO5A8p1YgNf8mC8jZ1vX7m6c2C.jpg',
-    },
-    {
-      'title': 'Your Name',
-      'overview': 'Two souls connected across time, destiny, and the stars.',
-      'posterPath': '/q719jXXEzOoYaps6q2PWi9qQI7W.jpg',
-    },
-    {
-      'title': 'La La Land',
-      'overview': 'A vibrant musical love letter to dreaming and romance.',
-      'posterPath': '/uDO8zWDdoWNzAcSkzQI8zFG4fys.jpg',
-    },
-  ];
-
-  /// Fetch a random movie from watchlist or fallback.
-  Future<TonightOption> fetchMovieSuggestion() async {
+  /// Prefer an unwatched film with a usable playback link.
+  Future<TonightOption> fetchMovieSuggestion({int? maxMinutes}) async {
     try {
       final snap = await withGetTimeout(
         _db
@@ -154,13 +144,28 @@ class TonightService {
         // when the queue contains other choices, but allow a rewatch fallback.
         final mediaType = (data['mediaType'] as String? ?? 'movie')
             .toLowerCase();
-        return mediaType == 'movie' && !status.contains('watched');
+        final duration = data['durationSeconds'];
+        final fits =
+            maxMinutes == null ||
+            (duration is num && duration > 0 && duration <= maxMinutes * 60);
+        return mediaType == 'movie' &&
+            (data['source'] ?? 'tmdb') == 'tmdb' &&
+            movieRoute(data) != '/cinema' &&
+            !status.contains('watched') &&
+            fits;
       }).toList();
 
       final movies = snap.docs.where((doc) {
         final mediaType = (doc.data()['mediaType'] as String? ?? 'movie')
             .toLowerCase();
-        return mediaType == 'movie';
+        final duration = doc.data()['durationSeconds'];
+        return mediaType == 'movie' &&
+            (doc.data()['source'] ?? 'tmdb') == 'tmdb' &&
+            movieRoute(doc.data()) != '/cinema' &&
+            (maxMinutes == null ||
+                (duration is num &&
+                    duration > 0 &&
+                    duration <= maxMinutes * 60));
       }).toList();
       final list = candidates.isNotEmpty ? candidates : movies;
       if (list.isNotEmpty) {
@@ -183,24 +188,14 @@ class TonightService {
           subtitle: 'From Cinema Watchlist',
           description: overview,
           imageUrl: imageUrl,
-          targetRoute: '/cinema',
+          targetRoute: movieRoute(data),
         );
       }
     } catch (e) {
       Logger.e('Error fetching movie suggestion for Tonight', error: e);
     }
 
-    // Fallback movie
-    final fallback = fallbackMovies[Random().nextInt(fallbackMovies.length)];
-    return TonightOption(
-      id: 'opt_movie_fallback_${DateTime.now().millisecondsSinceEpoch}',
-      type: TonightOptionType.movie,
-      title: fallback['title']!,
-      subtitle: 'Cinema Classic',
-      description: fallback['overview']!,
-      imageUrl: '${TmdbImages.card}${fallback['posterPath']}',
-      targetRoute: '/cinema',
-    );
+    return quietOptions.first;
   }
 
   /// Fetch a random date idea from date_ideas collection or fallback.
@@ -246,20 +241,117 @@ class TonightService {
     return availableGames[Random().nextInt(availableGames.length)];
   }
 
-  /// Generate a fresh trio of suggestions: 1 Movie, 1 Date Idea, 1 Game.
-  Future<List<TonightOption>> generateSuggestions() async {
-    final movieFuture = fetchMovieSuggestion();
-    final dateFuture = fetchDateIdeaSuggestion();
-    final game = fetchGameSuggestion();
+  static String movieRoute(Map<String, dynamic> data) {
+    final rawId = data['tmdbId'];
+    final id = rawId is num ? rawId.toInt() : int.tryParse('$rawId');
+    if (id == null || id <= 0) return '/cinema';
+    return Uri(
+      path: '/cinema/video/$id',
+      queryParameters: {
+        'type': 'movie',
+        'title': data['title'] as String? ?? '',
+      },
+    ).toString();
+  }
 
-    final results = await Future.wait([movieFuture, dateFuture]);
-    return [results[0], results[1], game];
+  static const quietOptions = [
+    TonightOption(
+      id: 'quiet_chat',
+      type: TonightOptionType.date,
+      title: 'Tea and a little catch-up',
+      subtitle: '20 minutes / Stay in',
+      description: 'Make something warm and share the best part of your day.',
+      targetRoute: '/sanctuary',
+    ),
+    TonightOption(
+      id: 'quiet_draw',
+      type: TonightOptionType.game,
+      title: 'Draw a tiny memory together',
+      subtitle: '20 minutes / Stay in',
+      description: 'Take turns adding something to your shared canvas.',
+      targetRoute: '/canvas',
+    ),
+    TonightOption(
+      id: 'quiet_music',
+      type: TonightOptionType.date,
+      title: 'Trade three favorite songs',
+      subtitle: '20 minutes / Stay in',
+      description: 'Play a few songs and tell each other why you chose them.',
+      targetRoute: '/jukebox',
+    ),
+  ];
+
+  static List<TonightOption> localSuggestions(TonightPreferences preferences) {
+    if (preferences.goingOut) {
+      final adventurous = preferences.energy == EveningEnergy.adventurous;
+      return [
+        TonightOption(
+          id: 'out_walk',
+          type: TonightOptionType.date,
+          title: adventurous
+              ? 'Take a new route together'
+              : 'A gentle evening walk',
+          subtitle: '20 minutes / Go out',
+          description:
+              'Choose somewhere nearby and enjoy a little time outside.',
+          targetRoute: '/calendar',
+        ),
+        const TonightOption(
+          id: 'out_treat',
+          type: TonightOptionType.date,
+          title: 'Share a nearby treat',
+          subtitle: '30 minutes / Go out',
+          description: 'Pick a nearby spot for a snack or a drink.',
+          targetRoute: '/calendar',
+        ),
+        TonightOption(
+          id: 'out_photo',
+          type: TonightOptionType.date,
+          title: adventurous
+              ? 'A little photo scavenger hunt'
+              : 'Find a quiet spot to sit',
+          subtitle: '20 minutes / Go out',
+          description: 'Keep it nearby, with no big plan needed.',
+          targetRoute: '/calendar',
+        ),
+      ];
+    }
+    if (preferences.energy == EveningEnergy.quiet) return quietOptions;
+    return [availableGames[0], availableGames[1], availableGames[2]];
+  }
+
+  Future<List<TonightOption>> generateSuggestions({
+    TonightPreferences preferences = const TonightPreferences(),
+  }) async {
+    final local = localSuggestions(preferences);
+    if (preferences.goingOut ||
+        (preferences.minutes != null && preferences.minutes! < 90)) {
+      return local;
+    }
+    final movie = await fetchMovieSuggestion(maxMinutes: preferences.minutes);
+    if (preferences.minutes == null &&
+        preferences.energy != EveningEnergy.quiet) {
+      return [movie, await fetchDateIdeaSuggestion(), local[2]];
+    }
+    return [movie, ...local.where((option) => option.id != movie.id).take(2)];
   }
 
   /// Start a new session or re-roll suggestions.
-  Future<TonightDecision> createOrShuffle({bool force = false}) async {
+  Future<TonightDecision> createOrShuffle({
+    bool force = false,
+    TonightPreferences preferences = const TonightPreferences(),
+  }) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      return AgentFixtures.demoDecision;
+      final now = DateTime.now();
+      final decision = TonightDecision(
+        id: activeDocId,
+        options: localSuggestions(preferences),
+        preferences: preferences,
+        createdAt: now,
+        updatedAt: now,
+      );
+      _setDemo(decision);
+      return decision;
     }
 
     try {
@@ -270,12 +362,13 @@ class TonightService {
         return existing;
       }
 
-      final options = await generateSuggestions();
+      final options = await generateSuggestions(preferences: preferences);
       final now = DateTime.now();
       final decision = TonightDecision(
         id: activeDocId,
         status: TonightStatus.voting,
         options: options,
+        preferences: preferences,
         votes: const {},
         createdAt: now,
         updatedAt: now,
@@ -286,34 +379,7 @@ class TonightService {
       return decision;
     } catch (e) {
       Logger.e('Error creating Tonight decision', error: e);
-      final now = DateTime.now();
-      return TonightDecision(
-        id: activeDocId,
-        status: TonightStatus.voting,
-        options: [
-          fallbackMovies
-              .map(
-                (m) => TonightOption(
-                  id: 'opt_m',
-                  type: TonightOptionType.movie,
-                  title: m['title']!,
-                  subtitle: 'Cinema',
-                  description: m['overview']!,
-                ),
-              )
-              .first,
-          TonightOption(
-            id: 'opt_d',
-            type: TonightOptionType.date,
-            title: fallbackDateIdeas.first,
-            subtitle: 'Date Idea',
-            description: 'Spend cozy time together.',
-          ),
-          availableGames.first,
-        ],
-        createdAt: now,
-        updatedAt: now,
-      );
+      rethrow;
     }
   }
 
@@ -324,7 +390,19 @@ class TonightService {
     required String optionId,
   }) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      Logger.i('Agent session simulated vote: $username -> $optionId');
+      final current = _demoDecision ?? AgentFixtures.demoDecision;
+      final votes = {...current.votes, username: optionId};
+      final match =
+          votes['khentsgdz'] != null &&
+          votes['khentsgdz'] == votes['clairjassen'];
+      _setDemo(
+        TonightDecision.fromMap({
+          ...current.toMap(),
+          'votes': votes,
+          if (match) 'status': 'decided',
+          if (match) 'winnerOptionId': optionId,
+        }, current.id),
+      );
       return;
     }
 
@@ -375,7 +453,14 @@ class TonightService {
   /// Explicitly decide the winner (e.g. "We pick this together" or tie-breaker).
   Future<void> decideWinner({required String optionId}) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
-      Logger.i('Agent session simulated decide winner: $optionId');
+      final current = _demoDecision ?? AgentFixtures.demoDecision;
+      _setDemo(
+        TonightDecision.fromMap({
+          ...current.toMap(),
+          'status': 'decided',
+          'winnerOptionId': optionId,
+        }, current.id),
+      );
       return;
     }
 
