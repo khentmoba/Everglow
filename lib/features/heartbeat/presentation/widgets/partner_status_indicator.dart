@@ -26,11 +26,26 @@ class PartnerStatusIndicator extends StatelessWidget {
         }
 
         final mood = snapshot.data!;
+        if (!mood.isCurrentAt(DateTime.now())) return const SizedBox.shrink();
         final score = mood.moodScore;
 
         return Tooltip(
           message: '$partnerName is feeling ${mood.moodEmoji}',
-          child: _MoodHeart(score: score, emoji: mood.moodEmoji),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(27),
+            onTap: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: AppColors.velvet,
+              builder: (_) => _PartnerCheckIn(
+                mood: mood,
+                partnerName: partnerName,
+                service: context.read<MoodService>(),
+                username: context.read<AuthService>().currentUser ?? '',
+              ),
+            ),
+            child: _MoodHeart(score: score, emoji: mood.moodEmoji),
+          ),
         );
       },
     );
@@ -69,7 +84,8 @@ class _MoodHeartState extends State<_MoodHeart>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (AppMotion.reduceAmbientMotion(context) || !TickerMode.valuesOf(context).enabled) {
+    if (AppMotion.reduceAmbientMotion(context) ||
+        !TickerMode.valuesOf(context).enabled) {
       _controller.stop();
     } else if (!_controller.isAnimating) {
       _controller.repeat(reverse: true);
@@ -133,4 +149,82 @@ class _MoodHeartState extends State<_MoodHeart>
       ),
     );
   }
+}
+
+class _PartnerCheckIn extends StatefulWidget {
+  final UserMood mood;
+  final String partnerName;
+  final MoodService service;
+  final String username;
+  const _PartnerCheckIn({
+    required this.mood,
+    required this.partnerName,
+    required this.service,
+    required this.username,
+  });
+  @override
+  State<_PartnerCheckIn> createState() => _PartnerCheckInState();
+}
+
+class _PartnerCheckInState extends State<_PartnerCheckIn> {
+  bool _saving = false;
+  bool _acknowledged = false;
+  String? _error;
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${widget.partnerName} today',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 12),
+          Text('Feeling ${widget.mood.moodEmoji}'),
+          if (widget.mood.need != null) ...[
+            const SizedBox(height: 12),
+            Text(widget.mood.need!.label),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              icon: const Icon(Icons.favorite_outline),
+              label: Text(
+                _acknowledged || widget.mood.acknowledgedBy != null
+                    ? 'You let them know you are here'
+                    : _saving
+                    ? 'Sending...'
+                    : 'I am here for you',
+              ),
+              onPressed:
+                  _saving || _acknowledged || widget.mood.acknowledgedBy != null
+                  ? null
+                  : () async {
+                      setState(() {
+                        _saving = true;
+                        _error = null;
+                      });
+                      try {
+                        await widget.service.acknowledge(
+                          widget.mood,
+                          widget.username,
+                        );
+                        if (mounted) setState(() => _acknowledged = true);
+                      } catch (_) {
+                        if (mounted) {
+                          setState(() => _error = 'Could not send. Try again.');
+                        }
+                      } finally {
+                        if (mounted) setState(() => _saving = false);
+                      }
+                    },
+            ),
+          ],
+          if (_error != null)
+            Text(_error!, style: const TextStyle(color: AppColors.error)),
+        ],
+      ),
+    ),
+  );
 }

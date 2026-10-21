@@ -1,17 +1,23 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/utils/logger.dart';
 import '../../data/services/mood_service.dart';
+import '../../data/models/user_mood.dart';
 
 class MoodController extends ChangeNotifier {
   final MoodSource _service;
   final Future<bool> Function(String uid)? _awardMoodXp;
 
+  String? saveError;
+  bool _isSaving = false;
+  bool get isSaving => _isSaving;
   bool _isCheckingIn = false;
   int? _selectedScore;
   bool _hasSubmittedToday = false;
 
-  MoodController(this._service, {Future<bool> Function(String uid)? awardMoodXp})
-      : _awardMoodXp = awardMoodXp;
+  MoodController(
+    this._service, {
+    Future<bool> Function(String uid)? awardMoodXp,
+  }) : _awardMoodXp = awardMoodXp;
 
   bool get isCheckingIn => _isCheckingIn;
   int? get selectedScore => _selectedScore;
@@ -45,13 +51,26 @@ class MoodController extends ChangeNotifier {
     required int score,
     required String emoji,
     String? uid,
+    HeartNeed? need,
   }) async {
+    if (_isSaving || username.isEmpty) return;
+    _isSaving = true;
+    saveError = null;
     _selectedScore = score;
     notifyListeners();
 
     try {
-      await _service.submitMood(username: username, score: score, emoji: emoji);
+      await _service.submitMood(
+        username: username,
+        score: score,
+        emoji: emoji,
+        need: need,
+      );
+      _isSaving = false;
     } catch (e) {
+      _isSaving = false;
+      saveError = 'Could not save your check-in. Please try again.';
+      Logger.e('Could not save mood', error: e);
       // If it fails, revert the selection so user can try again
       _selectedScore = null;
       notifyListeners();
