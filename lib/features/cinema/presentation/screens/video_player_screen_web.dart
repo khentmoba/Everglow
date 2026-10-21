@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
+
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -78,41 +79,19 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
   @override
   Widget build(BuildContext context) {
     _maybeAutoFullscreen(context);
-    if (_isFullscreen) {
-      // Theater: the platform-view iframe is fixed to the viewport via
-      // DOM (see _toggleFullScreen), so Flutter only needs a black
-      // backdrop plus a fallback exit pill. The pill sits behind the
-      // fixed iframe when the DOM fix lands (harmless) and stays
-      // tappable when it doesn't (no-trap fallback).
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            const ColoredBox(color: Colors.black),
-            Center(child: _buildPlayerArea()),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: _PlayerPillButton(
-                icon: Icons.fullscreen_exit_rounded,
-                label: 'Exit theater',
-                onTap: _toggleFullScreen,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
     return Scaffold(
       backgroundColor: Colors.black,
       // Home Screen status-bar inset arrives via MediaQuery (see
       // WebStandaloneInsets at the app root), so this SafeArea clears
       // it with no per-screen work.
       body: SafeArea(
+        top: !_isFullscreen,
+        bottom: !_isFullscreen,
+        left: !_isFullscreen,
+        right: !_isFullscreen,
         child: Column(
           children: [
-            _buildTopBar(),
+            if (!_isFullscreen) _buildTopBar(),
             // Scrollable body: video + metadata + server selector
             Expanded(
               child: SingleChildScrollView(
@@ -120,34 +99,34 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Player iframe area: 16:9, but capped so a strip of
-                    // page content stays visible below it. In browser
-                    // fullscreen the full-width player is taller than the
-                    // viewport, and because embeds swallow wheel events the
-                    // page can't be scrolled down to the server selector.
+                    // Keep this subtree in place while theater mode changes.
+                    // Rebuilding HtmlElementView under a different parent can
+                    // detach the iframe and restart the embed.
                     _buildPlayerArea(),
-                    // Episode Navigator for TV content
-                    if (widget.mediaType == 'tv' && !widget.isAnime)
-                      EpisodeNavigator(
-                        // Rebuild on auto-advance so the playing episode
-                        // highlight follows the Up Next flow.
-                        key: ValueKey(
-                          'ep-nav-$_currentSeason-$_currentEpisode',
+                    if (!_isFullscreen) ...[
+                      // Episode Navigator for TV content
+                      if (widget.mediaType == 'tv' && !widget.isAnime)
+                        EpisodeNavigator(
+                          // Rebuild on auto-advance so the playing episode
+                          // highlight follows the Up Next flow.
+                          key: ValueKey(
+                            'ep-nav-$_currentSeason-$_currentEpisode',
+                          ),
+                          tmdbId: widget.tmdbId,
+                          initialSeason: _currentSeason,
+                          initialEpisode: _currentEpisode,
+                          positionSeconds: _playbackPositionSeconds,
+                          durationSeconds: _playbackDurationSeconds,
+                          allEpisodesWatched: widget.allEpisodesWatched,
+                          currentEpisodeCompleted: _currentEpisodeCompleted,
+                          onSeasonChanged: _onSeasonChanged,
+                          onEpisodeChanged: _onEpisodeChanged,
                         ),
-                        tmdbId: widget.tmdbId,
-                        initialSeason: _currentSeason,
-                        initialEpisode: _currentEpisode,
-                        positionSeconds: _playbackPositionSeconds,
-                        durationSeconds: _playbackDurationSeconds,
-                        allEpisodesWatched: widget.allEpisodesWatched,
-                        currentEpisodeCompleted: _currentEpisodeCompleted,
-                        onSeasonChanged: _onSeasonChanged,
-                        onEpisodeChanged: _onEpisodeChanged,
-                      ),
-                    const CinemaViewingPreferences(compact: true),
-                    RepaintBoundary(child: _buildMetadataSection()),
-                    RepaintBoundary(child: _buildServerSelectorSection()),
-                    const SizedBox(height: 40),
+                      const CinemaViewingPreferences(compact: true),
+                      RepaintBoundary(child: _buildMetadataSection()),
+                      RepaintBoundary(child: _buildServerSelectorSection()),
+                      const SizedBox(height: 40),
+                    ],
                   ],
                 ),
               ),

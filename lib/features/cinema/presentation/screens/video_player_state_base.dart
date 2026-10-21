@@ -104,7 +104,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   final ScrollController _scrollController = ScrollController();
 
   /// DOM exit chip shown above the Flutter platform view in theater mode.
-  web.HTMLDivElement? _fullscreenExitButton;
+  web.HTMLButtonElement? _fullscreenExitButton;
   web.HTMLDivElement? _playerHost;
   web.HTMLElement? _theaterPlatformView;
   String? _platformViewStyles;
@@ -1042,8 +1042,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// Toggles theater mode by expanding the platform-view wrapper to the
   /// viewport while keeping the iframe mounted in place. Always flips
   /// [_isFullscreen] so the button never looks dead: the DOM fix is
-  /// best-effort (host may not be mounted yet) with a Flutter fallback
-  /// exit pill in the theater layout covering that case.
+  /// best-effort (host may not be mounted yet); the document-level exit
+  /// button remains available in either case.
   void _toggleFullScreen() {
     final entering = !_isFullscreen;
     if (entering) {
@@ -1133,7 +1133,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// element appended to the page with a higher z-index.
   void _showFullscreenExitButton() {
     if (_fullscreenExitButton != null) return;
-    final button = web.HTMLDivElement()..textContent = 'Exit theater';
+    final button = web.HTMLButtonElement()
+      ..type = 'button'
+      ..textContent = 'Exit theater'
+      ..setAttribute('aria-label', 'Exit theater');
     // Standalone-web only: keep the chip below the iPhone status bar
     // so it stays tappable. Everywhere else the inset is 0.
     final topInset = WebStandalone.safeAreaTop();
