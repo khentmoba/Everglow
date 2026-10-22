@@ -20,6 +20,8 @@ const {
   isMegavidHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
+  megavidHeaders,
+  MEGAVID_ORIGIN,
 } = require('./anime');
 
 test('normTitle strips punctuation for fuzzy matching', () => {
@@ -585,6 +587,54 @@ test('isMegavidHost only allows trusted Megavid hosts', () => {
   assert.equal(isMegavidHost('megavid.buzz.evil.com'), false);
   assert.equal(isMegavidHost('cdn.api-webs.com.evil.com'), false);
   assert.equal(isMegavidHost('aniwatchtv.site.evil.com'), false);
+});
+
+test('isMegavidHost allows the rotating megavid.se CDN apex', () => {
+  // Regression: in late October 2026 Megavid moved its CDN to megavid.se
+  // (s-90.megavid.se). A host left out of the allowlist is refused by
+  // proxyMegavidHls with "Host not allowed", so every episode dies before
+  // a single byte streams.
+  assert.equal(isMegavidHost('s-90.megavid.se'), true);
+  assert.equal(isMegavidHost('s-91.megavid.se'), true);
+  assert.equal(isMegavidHost('megavid.se'), true);
+  assert.equal(isMegavidHost('MEGAVID.SE'), true);
+  assert.equal(isMegavidHost('megavid.se.evil.com'), false);
+  assert.equal(isMegavidHost('notmegavid.se'), false);
+});
+
+test('megavidHeaders sends the origin the CDN demands', () => {
+  // Regression: Megavid's CDN answers 403 to the identical request without
+  // an Origin header, which took every episode down while the catalog
+  // kept working.
+  const headers = megavidHeaders();
+  assert.equal(headers.Origin, 'https://megavid.buzz');
+  assert.equal(headers.Referer, 'https://megavid.buzz/');
+  assert.ok(headers['User-Agent']);
+  // Extra headers (e.g. Range) are merged, not dropped.
+  const ranged = megavidHeaders({ Range: 'bytes=0-1023' });
+  assert.equal(ranged.Range, 'bytes=0-1023');
+  assert.equal(ranged.Origin, 'https://megavid.buzz');
+  assert.equal(MEGAVID_ORIGIN, 'https://megavid.buzz');
+});
+
+test('rewriteMegavidPlaylist proxies relative URIs on the megavid.se CDN', () => {
+  // Regression: the current CDN answers with playlist paths relative to
+  // the playlist itself ("/uwu/.../playlist.txt"). Left as-is, the browser
+  // resolves them against our own domain and every segment 404s.
+  const base = 'https://host/proxyMegavidHls';
+  const master =
+    '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n/uwu/v1/abc/playlist.txt\n';
+  const out = rewriteMegavidPlaylist(
+    master,
+    'https://s-90.megavid.se/uwu/v1/abc/master.txt',
+    base,
+  );
+  assert.ok(
+    out.includes(
+      `${base}?u=${encodeURIComponent('https://s-90.megavid.se/uwu/v1/abc/playlist.txt')}`,
+    ),
+  );
+  assert.ok(!out.includes('/uwu/v1/abc/playlist.txt\n'));
 });
 
 test('rewriteMegavidPlaylist proxies nested URIs and keys', () => {

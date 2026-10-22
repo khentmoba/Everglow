@@ -406,11 +406,38 @@ async function resolvePahe(base, titles, year, ep, audio) {
 
 /** Megavid upstream hosts. Restricted allowlist so the HLS proxy below
  *  can never become an open proxy. Playlists are served from Megavid's own
- *  domain (incl. cp.megavid.buzz), and its current video CDN at
- *  cdnx.aniwatchtv.site — leaving a media host out means rewritten
- *  playlists point the browser straight at a CDN without CORS headers. */
-const MEGAVID_HOSTS = new Set(['megavid.buzz', 'cdn.api-webs.com']);
+ *  domain (incl. cp.megavid.buzz), and its video CDN has moved more than
+ *  once: cdn.api-webs.com, then cdnx.aniwatchtv.site, and now the
+ *  megavid.se apex (s-90.megavid.se and siblings). Leaving a media host out
+ *  means rewritten playlists point the browser straight at a CDN without
+ *  CORS headers - and the host rotates, so the apex is listed instead of
+ *  one CDN subdomain. */
+const MEGAVID_HOSTS = new Set([
+  'megavid.buzz',
+  'cdn.api-webs.com',
+  'megavid.se',
+]);
 const MEGAVID_EXACT_HOSTS = new Set(['cdnx.aniwatchtv.site']);
+
+/** Megavid's site origin. Its CDN (megavid.se) only answers for the site's
+ *  own origin: the identical request without `Origin` comes back 403, which
+ *  killed every episode in late October 2026 while the catalog still worked. */
+const MEGAVID_ORIGIN = 'https://megavid.buzz';
+
+/** Headers every request on Megavid's behalf must carry. The CDN checks the
+ *  origin, the browser cannot set it on a cross-origin fetch, so we set it
+ *  server-side. */
+function megavidHeaders(extra) {
+  return Object.assign(
+    {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Referer: `${MEGAVID_ORIGIN}/`,
+      Origin: MEGAVID_ORIGIN,
+    },
+    extra || {},
+  );
+}
 
 function isMegavidHost(hostname) {
   const h = String(hostname || '').toLowerCase();
@@ -460,11 +487,7 @@ function playlistUris(text, base, { variantsOnly = false } = {}) {
  */
 async function fetchPlaylist(url, timeoutMs, label) {
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': DESKTOP_UA,
-      Accept: '*/*',
-      Referer: 'https://megavid.buzz/',
-    },
+    headers: megavidHeaders(),
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
@@ -484,12 +507,7 @@ async function fetchPlaylist(url, timeoutMs, label) {
  */
 async function fetchSegmentHead(url, timeoutMs, label) {
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': DESKTOP_UA,
-      Accept: '*/*',
-      Referer: 'https://megavid.buzz/',
-      Range: 'bytes=0-1023',
-    },
+    headers: megavidHeaders({ Range: 'bytes=0-1023' }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
@@ -662,11 +680,7 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
       ? `https://megavid.buzz/ani/${anilistId}/${ep}/${isDub}/source`
       : `https://megavid.buzz/mal/${malId}/${ep}/${isDub}/source`;
   const res = await fetch(url, {
-    headers: {
-      'User-Agent': DESKTOP_UA,
-      Accept: 'application/json',
-      Referer: 'https://megavid.buzz/',
-    },
+    headers: megavidHeaders({ Accept: 'application/json' }),
     signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) throw new Error(`megavid ${res.status}`);
@@ -678,9 +692,15 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
   // that never plays — verify first so the app fails over to the next
   // server instead of stalling (see verifyMegavidStream).
   await verifyMegavidStream(data.source);
-  const tracks = (Array.isArray(data.tracks) ? data.tracks : []).filter(
-    (t) => t && t.file,
-  );
+  const tracks = (Array.isArray(data.tracks) ? data.tracks : [])
+    .filter((t) => t && t.file)
+    .map((t) => ({
+      ...t,
+      // Megavid's CDN answers only for its own origin, so subtitle files
+      // have to travel through our proxy like the media does - a browser
+      // fetch from the player page is rejected outright.
+      file: megavidProxyUrl(megavidProxyBase(req), t.file),
+    }));
   // Megavid's CDN answers `access-control-allow-origin: https://megavid.buzz`
   // for every playlist and segment — never `*`, never our origin — so a
   // direct hls.js fetch from our player domain always dies on CORS and the
@@ -851,11 +871,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
   }
   try {
     // Megavid's CDN only ever answers for its own origin.
-    const headers = {
-      'User-Agent': DESKTOP_UA,
-      Accept: '*/*',
-      Referer: 'https://megavid.buzz/',
-    };
+    const headers = megavidHeaders();
     const range = req.get('Range') || req.headers.range;
     if (range && typeof range === 'string') headers.Range = range;
     const upstream = await fetch(targetUrl, {
@@ -1019,4 +1035,6 @@ module.exports = {
   isMegavidHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
+  megavidHeaders,
+  MEGAVID_ORIGIN,
 }
