@@ -36,8 +36,13 @@ episode 1.
 - `anime-player-after.png` - the branch with the fix. The video element is
   present and playing: `readyState 4`, `currentTime 19.5s`, `paused false`,
   `1440x1080`, and the frame above is a real decoded video frame.
+- `anime-player-live.png` - the same player on the deployed function
+  (`https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime?
+  source=megavid&anilistId=21&ep=1&audio=sub`), captured after this merged:
+  `readyState 4`, `currentTime 22.9s`, `paused false`, `1440x1080`.
 
 What this proves: the episode streams again through our own domain. It does
-not prove signed-in catalog coverage - AniList and Jikan are still down
-upstream, so browsing still runs on the TMDB fallback - and it does not prove
-the production deployment, which only happens after this merges.
+not prove signed-in catalog coverage - AniList and Jikan were both down while
+this was written (AniList came back during the work, Jikan is still timing
+out) - and it does not prove playback inside the Flutter app itself, which
+needs a signed-in session.
