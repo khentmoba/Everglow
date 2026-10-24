@@ -1,16 +1,23 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:everglow/features/anime/data/models/animex_models.dart';
 import 'package:everglow/features/anime/data/services/animex_stores.dart';
 import 'package:everglow/features/anime/data/services/aniskip_service.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_controller.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_home_page.dart';
+import 'package:everglow/features/anime/presentation/widgets/animex/animex_player.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_watch_page.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
+
+import 'support/player_iframe_stub.dart'
+    if (dart.library.js_interop) 'support/player_iframe_web.dart';
 
 MediaItem anime({
   int id = 20,
@@ -183,9 +190,11 @@ void main() {
   });
 
   testWidgets(
-    'episode metadata stays withheld until account resume completes',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({});
+    'account resume loads once and tab switches preserve the open episode',
+    (tester) => http.runWithClient(() async {
+      SharedPreferences.setMockInitialValues({
+        'player_memory_v1/tmdb/0/tv': '{"server":"Everglow"}',
+      });
       AnimexStores.instance.resetForTest();
       await AnimexStores.instance.load(username: 'demo');
       await AnimexStores.instance.recordWatch(
@@ -201,6 +210,7 @@ void main() {
         MediaItem(
           id: 'demo',
           tmdbId: 0,
+          anilistId: kIsWeb ? 1 : null,
           title: 'Demo',
           mediaType: 'tv',
           posterPath: '',
@@ -236,9 +246,62 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Hide spoilers'), findsOneWidget);
       expect(find.text('Episode 2'), findsWidgets);
-      // The PC tab was suspended while the phone advanced the account.
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      final player = find.byType(AnimeXPlayerFrame);
+      final playerState = kIsWeb ? tester.state(player) : null;
+      final playerUrl = kIsWeb
+          ? tester.widget<AnimeXPlayerFrame>(player).url
+          : null;
+      // Browser coverage also verifies that the real iframe survives.
+      final iframe = kIsWeb ? playerIframe(playerState!) : null;
+      if (kIsWeb) isolatePlayerIframe(playerState!);
+      // A background tab must keep its current session even if another
+      // device's saved progress differs. Reopening the page loads it afresh.
+      for (final backgroundState in [
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(backgroundState);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(find.text('Hide spoilers'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(loads, 1);
+        if (kIsWeb) {
+          expect(tester.state(player), same(playerState));
+          expect(tester.widget<AnimeXPlayerFrame>(player).url, playerUrl);
+          expect(playerIframe(tester.state(player)), same(iframe));
+        }
+        expect(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                widget.data == 'Episode 2' &&
+                widget.style?.fontSize == 18,
+          ),
+          findsOneWidget,
+        );
+      }
+      // A fresh visit still reads account progress from the other device.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: AnimexStores.instance,
+          child: MaterialApp(
+            home: Scaffold(
+              body: AnimeXWatchPage(
+                controller: controller,
+                loadSavedProgress: (_) async {
+                  loads++;
+                  return anime(episode: 3, timestamp: 480);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(loads, 2);
@@ -254,7 +317,7 @@ void main() {
       controller.closeDetail();
       await tester.pumpWidget(const SizedBox.shrink());
       expect(tester.takeException(), isNull);
-    },
+    }, () => MockClient((_) async => http.Response('{}', 200))),
   );
 
   test('only servers with implemented capabilities offer controls', () {
