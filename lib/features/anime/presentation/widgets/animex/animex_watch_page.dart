@@ -129,7 +129,6 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   late final TMDBService _tmdbService = TMDBService();
   Timer? _progressThrottler;
   bool _hasUnsavedProgress = false;
-  bool _wasHidden = false;
   Future<void> _progressSave = Future.value();
 
   /// Server name remembered from the last visit; applied once the
@@ -289,14 +288,15 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   /// The account's progress wins over this device's comfort preferences.
-  Future<void> _restoreMemory({bool returning = false}) async {
+  Future<void> _restoreMemory() async {
     final memory = await _memoryService.load(_memoryKey);
     if (!mounted) return;
     MediaItem? saved;
     if (widget.loadSavedProgress != null) {
       saved = await widget.loadSavedProgress!(_item);
     } else if (_currentUserName().isNotEmpty) {
-      // A suspended tab's library can lag behind another device.
+      // A fresh visit reads account progress, including another device's
+      // updates. The mounted player keeps its live session on tab switches.
       saved = await _tmdbService.getSavedProgress(
         _item.tmdbId,
         _owner,
@@ -308,7 +308,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     }
     if (!mounted || (_auth != null && _currentUserName().isEmpty)) return;
     _accountProgress = saved;
-    if (returning || !_episodeChosen) {
+    if (!_episodeChosen) {
       final local = context.read<AnimexStores>().findHistory(
         _historyKey,
       );
@@ -316,7 +316,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
         item: _item,
         saved: saved,
         local: local,
-        requestedEpisode: returning ? null : widget.controller.watchEpisode,
+        requestedEpisode: widget.controller.watchEpisode,
       );
       _selectedEpisode = resume.episode;
       _playerEpisode = resume.episode;
@@ -520,27 +520,11 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.hidden ||
         state == AppLifecycleState.paused) {
-      _wasHidden = true;
       _progressThrottler?.cancel();
       if (_ready) _saveWatchProgress();
-    } else if (state == AppLifecycleState.resumed && _wasHidden) {
-      _wasHidden = false;
-      if (_ready) _resumeAccountProgress();
     }
-  }
-
-  Future<void> _resumeAccountProgress() async {
-    setState(() => _ready = false);
-    await _progressSave;
-    if (!mounted) return;
-    try {
-      await _restoreMemory(returning: true);
-    } catch (e, st) {
-      Logger.e('AnimeX: account resume failed', error: e, stackTrace: st);
-    }
-    if (!mounted) return;
-    setState(() => _ready = true);
-    _fetchSkipTimes();
+    // Keep the mounted player on resume. Restoring account progress here
+    // removed it from the tree and reloaded playback on every tab switch.
   }
 
   @override

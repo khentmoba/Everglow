@@ -111,10 +111,11 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
 
     _onMessage = ((web.MessageEvent event) {
       // Origin alone also admits unrelated iframes from the same host.
-      // Gate EVERY message, including errors and episode changes.
+      // Gate EVERY message, including errors and episode changes. Identity
+      // avoids Dart equality inspecting a cross-origin WindowProxy.
       if (!mounted ||
           _iframe.contentWindow == null ||
-          event.source != _iframe.contentWindow ||
+          !identical(event.source, _iframe.contentWindow) ||
           !animeXPlayerMessageOriginAllowed(widget.url, event.origin)) {
         return;
       }

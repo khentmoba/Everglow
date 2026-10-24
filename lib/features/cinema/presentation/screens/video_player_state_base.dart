@@ -437,7 +437,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         final msg = e as web.MessageEvent;
         final origin = msg.origin;
         final data = msg.data;
-        if (data == null || msg.source != _iframe.contentWindow) return;
+        if (data == null || !identical(msg.source, _iframe.contentWindow)) {
+          return;
+        }
         // All events must come from the active frame and its exact origin.
         if (origin != Uri.parse(_iframe.src).origin) return;
         final wrapperMessage = data.dartify();

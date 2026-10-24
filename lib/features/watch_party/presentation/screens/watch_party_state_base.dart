@@ -760,7 +760,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         final origin = msg.origin;
         final data = msg.data;
         if (data == null) return;
-        if (msg.source != _iframe.contentWindow) return;
+        if (!identical(msg.source, _iframe.contentWindow)) return;
         final iframeOrigin = Uri.parse(_iframe.src).origin;
         final activeOrigin = _originForProvider(_selectedProvider.id);
         if (origin != iframeOrigin && origin != activeOrigin) return;
