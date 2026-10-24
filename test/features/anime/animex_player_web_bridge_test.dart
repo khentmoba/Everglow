@@ -24,7 +24,10 @@ void main() {
   setUp(() => ui_web.debugOverridePlatformViewRegistry(_Registry()));
   tearDown(() => ui_web.debugOverridePlatformViewRegistry(null));
 
-  Future<web.HTMLIFrameElement> frameFor(WidgetTester tester) async {
+  Future<web.HTMLIFrameElement> frameFor(
+    WidgetTester tester, {
+    bool opaqueOrigin = false,
+  }) async {
     final state = tester.state(find.byType(AnimeXPlayerFrame)) as dynamic;
     final frame = state.debugIframe as web.HTMLIFrameElement;
     await tester.runAsync(() async {
@@ -34,6 +37,7 @@ void main() {
         ((web.Event event) => loaded.complete()).toJS,
         web.AddEventListenerOptions(once: true),
       );
+      if (opaqueOrigin) frame.setAttribute('sandbox', 'allow-scripts');
       frame.src = 'about:blank';
       web.document.body!.appendChild(frame);
       await loaded.future;
@@ -99,6 +103,37 @@ void main() {
     expect(progress.single.positionSeconds, 25);
     expect(episodes, [(1, 4)]);
     expect(errors, 1, reason: 'content failure is only reported once');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('cross-origin player messages use safe window identity', (
+    tester,
+  ) async {
+    final progress = <VideasyProgress>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AnimeXPlayerFrame(url: url, onProgress: progress.add),
+      ),
+    );
+    // Without allow-same-origin, even about:blank has an opaque origin.
+    // This exercises the real WindowProxy restrictions of an external player.
+    final frame = await frameFor(tester, opaqueOrigin: true);
+    expect(
+      () => frame.contentWindow!.getProperty('document'.toJS),
+      throwsA(anything),
+      reason: 'the fixture must enforce real cross-origin window restrictions',
+    );
+    final payload = {
+      'type': 'animex-progress',
+      'position': 25,
+      'duration': 100,
+      'episode': 3,
+    };
+    message(frame.contentWindow, 'https://evil.example', payload);
+    expect(progress, isEmpty);
+    message(frame.contentWindow, animeXProxyOrigin, payload);
+    expect(progress.single.positionSeconds, 25);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
