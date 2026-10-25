@@ -28,13 +28,17 @@ class AnimeXTopHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName =
-        context.select<AuthService, String>((a) => a.currentUser ?? '');
-    final isCoupleUser =
-        context.select<AuthService, bool>((a) => a.isCoupleUser);
-    final isCinemaOnlyUser =
-        context.select<AuthService, bool>((a) => a.isCinemaOnlyUser);
-    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    final userName = context.select<AuthService, String>(
+      (a) => a.currentUser ?? '',
+    );
+    final isCoupleUser = context.select<AuthService, bool>(
+      (a) => a.isCoupleUser,
+    );
+    final isCinemaOnlyUser = context.select<AuthService, bool>(
+      (a) => a.isCinemaOnlyUser,
+    );
+    final isDesktop =
+        MediaQuery.sizeOf(context).width >= AnimeXTokens.desktopNavBreakpoint;
     final items = const [
       (AnimexPage.home, 'Home', Icons.house_outlined),
       (AnimexPage.schedule, 'Schedule', Icons.calendar_month_outlined),
@@ -53,9 +57,7 @@ class AnimeXTopHeader extends StatelessWidget {
             AnimeXTokens.bg.withValues(alpha: 0.94),
           ],
         ),
-        border: const Border(
-          bottom: BorderSide(color: AnimeXTokens.border),
-        ),
+        border: const Border(bottom: BorderSide(color: AnimeXTokens.border)),
         boxShadow: const [
           BoxShadow(
             color: AppColors.scrimStrong,
@@ -102,118 +104,126 @@ class AnimeXTopHeader extends StatelessWidget {
                     ),
                   ],
                 ],
-                const Spacer(),
-                // Keep section switching compact so phone headers still fit
-                // the search and profile controls.
-                const MediaSectionMenu(currentRoute: '/anime'),
-                AnimeXIconButton(
-                  icon: Icons.search_rounded,
-                  tooltip: 'Search',
-                  onTap: onSearch,
-                ),
-                if (isCoupleUser && controller.watchItem != null && onMotchiToggle != null) ...[
-                  if (isDesktop) ...[
-                    const SizedBox(width: 4),
-                    AnimeXGhostButton(
-                      label: 'Motchi',
-                      iconWidget: Container(
-                        width: 20,
-                        height: 20,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // Keep section switching compact so phone headers still fit
+                      // the search and profile controls.
+                      const MediaSectionMenu(currentRoute: '/anime'),
+                      AnimeXIconButton(
+                        icon: Icons.search_rounded,
+                        tooltip: 'Search',
+                        onTap: onSearch,
+                      ),
+                      if (isCoupleUser &&
+                          controller.watchItem != null &&
+                          onMotchiToggle != null) ...[
+                        if (isDesktop) ...[
+                          const SizedBox(width: 4),
+                          AnimeXGhostButton(
+                            label: 'Motchi',
+                            iconWidget: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isMotchiOpen
+                                      ? AppColors.blushGold
+                                      : AppColors.blushGold.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                  width: 1.2,
+                                ),
+                                boxShadow: isMotchiOpen
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.blushGold.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                          blurRadius: 8,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/motchi_avatar.webp',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
                             color: isMotchiOpen
                                 ? AppColors.blushGold
-                                : AppColors.blushGold.withValues(alpha: 0.6),
-                            width: 1.2,
+                                : AnimeXTokens.textPrimary,
+                            onTap: onMotchiToggle,
                           ),
-                          boxShadow: isMotchiOpen
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.blushGold.withValues(alpha: 0.4),
-                                    blurRadius: 8,
-                                  ),
-                                ]
-                              : null,
+                        ] else ...[
+                          const SizedBox(width: 2),
+                          AnimeXIconButton(
+                            iconWidget: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isMotchiOpen
+                                      ? AppColors.blushGold
+                                      : AppColors.blushGold.withValues(
+                                          alpha: 0.6,
+                                        ),
+                                  width: 1.2,
+                                ),
+                                boxShadow: isMotchiOpen
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.blushGold.withValues(
+                                            alpha: 0.45,
+                                          ),
+                                          blurRadius: 8,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: ClipOval(
+                                child: Image.asset(
+                                  'assets/images/motchi_avatar.webp',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            tooltip: 'Motchi Chat',
+                            onTap: onMotchiToggle,
+                          ),
+                        ],
+                      ],
+                      if (isDesktop) ...[
+                        const SizedBox(width: 4),
+                        AnimeXGhostButton(
+                          label: 'My List',
+                          icon: Icons.bookmark_add_outlined,
+                          color: AnimeXTokens.textPrimary,
+                          onTap: () => controller.goTo(AnimexPage.myList),
                         ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/images/motchi_avatar.webp',
-                            fit: BoxFit.cover,
+                      ],
+                      if (MediaQuery.sizeOf(context).width >= 768) ...[
+                        const SizedBox(width: 10),
+                        _TitleLanguageToggle(),
+                        const SizedBox(width: 10),
+                      ] else
+                        const SizedBox(width: 4),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 180),
+                          child: AnimeXLoginButton(
+                            label: userName.isEmpty ? 'Login' : userName,
+                            icon: Icons.person_outline_rounded,
+                            onTap: () => controller.goTo(AnimexPage.myList),
                           ),
                         ),
                       ),
-                      color: isMotchiOpen
-                          ? AppColors.blushGold
-                          : AnimeXTokens.textPrimary,
-                      onTap: onMotchiToggle,
-                    ),
-                  ] else ...[
-                    const SizedBox(width: 2),
-                    AnimeXIconButton(
-                      iconWidget: Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isMotchiOpen
-                                ? AppColors.blushGold
-                                : AppColors.blushGold.withValues(alpha: 0.6),
-                            width: 1.2,
-                          ),
-                          boxShadow: isMotchiOpen
-                              ? [
-                                  BoxShadow(
-                                    color: AppColors.blushGold.withValues(alpha: 0.45),
-                                    blurRadius: 8,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/images/motchi_avatar.webp',
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                      tooltip: 'Motchi Chat',
-                      onTap: onMotchiToggle,
-                    ),
-                  ],
-                ],
-                if (isDesktop) ...[
-                  const SizedBox(width: 4),
-                  AnimeXGhostButton(
-                    label: 'My List',
-                    icon: Icons.bookmark_add_outlined,
-                    color: AnimeXTokens.textPrimary,
-                    onTap: () => controller.goTo(AnimexPage.myList),
-                  ),
-                  const SizedBox(width: 8),
-                  const _SourceToggle(),
-                  const SizedBox(width: 8),
-                  _TitleLanguageToggle(),
-                  const SizedBox(width: 10),
-                ] else
-                  const SizedBox(width: 4),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    // Reserve space for back + logo + search + gaps so the
-                    // profile pill shrinks (ellipsis) instead of overflowing
-                    // on narrow phones (iPhone SE 375px, Pro Max 430px).
-                    maxWidth: isDesktop
-                        ? 180
-                        : (MediaQuery.sizeOf(context).width - 250).clamp(
-                            90.0,
-                            180.0,
-                          ),
-                  ),
-                  child: AnimeXLoginButton(
-                    label: userName.isEmpty ? 'Login' : userName,
-                    icon: Icons.person_outline_rounded,
-                    onTap: () => controller.goTo(AnimexPage.myList),
+                    ],
                   ),
                 ),
               ],
@@ -267,31 +277,38 @@ class AnimeXMobileBottomNav extends StatelessWidget {
       ),
     ];
 
-    return Container(
-      height: AnimeXTokens.mobileNavHeight,
-      padding: const EdgeInsets.only(bottom: 0),
-      decoration: const BoxDecoration(
-        color: Color(0xFA0A0A0F),
-        border: Border(top: BorderSide(color: Color(0x12FFFFFF))),
-      ),
-      child: Row(
-        children: [
-          for (final (page, label, icon, activeIcon) in items)
-            Expanded(
-              child: _MobileItem(
-                label: label,
-                icon: controller.page == page ? activeIcon : icon,
-                active: controller.page == page && !controller.hasDetail,
-                onTap: page == AnimexPage.search
-                    ? onSearch
-                    : () => controller.goTo(page),
-              ),
+    return ColoredBox(
+      color: AnimeXTokens.surface,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: AnimeXTokens.mobileNavHeight,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: AnimeXTokens.border)),
             ),
-        ],
+            child: Row(
+              children: [
+                for (final (page, label, icon, activeIcon) in items)
+                  Expanded(
+                    child: _MobileItem(
+                      label: label,
+                      icon: controller.page == page ? activeIcon : icon,
+                      active: controller.page == page && !controller.hasDetail,
+                      onTap: page == AnimexPage.search
+                          ? onSearch
+                          : () => controller.goTo(page),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 }
+
 class _Logo extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
@@ -315,18 +332,19 @@ class _Logo extends StatelessWidget {
             children: [
               TextSpan(
                 text: 'GLOW',
-                style: bebasStyle(
-                  size: size,
-                  color: AnimeXTokens.accent,
-                  letterSpacing: 0.06,
-                ).copyWith(
-                  shadows: [
-                    Shadow(
-                      color: AnimeXTokens.accent.withValues(alpha: 0.55),
-                      blurRadius: 14,
+                style:
+                    bebasStyle(
+                      size: size,
+                      color: AnimeXTokens.accent,
+                      letterSpacing: 0.06,
+                    ).copyWith(
+                      shadows: [
+                        Shadow(
+                          color: AnimeXTokens.accent.withValues(alpha: 0.55),
+                          blurRadius: 14,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -376,9 +394,7 @@ class _NavItemState extends State<_NavItem> {
             borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
             border: Border(
               bottom: BorderSide(
-                color: widget.active
-                    ? AnimeXTokens.accent
-                    : Colors.transparent,
+                color: widget.active ? AnimeXTokens.accent : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -395,28 +411,6 @@ class _NavItemState extends State<_NavItem> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// MAL / AniList segmented pill (visual source switcher).
-class _SourceToggle extends StatefulWidget {
-  const _SourceToggle();
-
-  @override
-  State<_SourceToggle> createState() => _SourceToggleState();
-}
-
-class _SourceToggleState extends State<_SourceToggle> {
-  int _index = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SegmentedPill(
-      labels: const ['MAL', 'AniList'],
-      selected: _index,
-      activeBackground: const Color(0xFF3DB4F2),
-      onSelect: (i) => setState(() => _index = i),
     );
   }
 }
@@ -521,30 +515,50 @@ class _MobileItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: active ? AnimeXTokens.accent : AnimeXTokens.textMuted,
+    return Semantics(
+      selected: active,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          focusColor: AnimeXTokens.cardHover,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                width: 44,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: active
+                      ? AnimeXTokens.accent.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusLg),
+                ),
+                child: Icon(
+                  icon,
+                  size: 22,
+                  color: active
+                      ? AnimeXTokens.accentWarm
+                      : AnimeXTokens.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: dmSansStyle(
+                  size: 11,
+                  color: active
+                      ? AnimeXTokens.textPrimary
+                      : AnimeXTokens.textSecondary,
+                  weight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: dmSansStyle(
-              size: 9.5,
-              color: active ? AnimeXTokens.accent : AnimeXTokens.textMuted,
-              weight: FontWeight.w600,
-              letterSpacing: 0.04,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

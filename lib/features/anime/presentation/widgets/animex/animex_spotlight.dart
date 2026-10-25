@@ -14,9 +14,8 @@ import 'animex_buttons.dart';
 import 'animex_skeleton.dart';
 import 'animex_tokens.dart';
 
-/// Full-bleed hero carousel with crossfading slides, slow Ken Burns zoom,
-/// title/synopsis/buttons and dot navigation, matching the reference
-/// spotlight section.
+/// Artwork-led spotlight with readable metadata and separate touch controls.
+/// Leaves room for the catalog on phones and tablets.
 class AnimeXSpotlight extends StatefulWidget {
   final List<MediaItem> items;
   final bool loading;
@@ -279,45 +278,49 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
     final hasTrailer = trailerKey != null && trailerKey.isNotEmpty;
 
     return Container(
-      height: _heroHeight(context),
+      constraints: BoxConstraints(minHeight: _heroHeight(context)),
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(color: AnimeXTokens.bg),
       child: Stack(
-        fit: StackFit.expand,
+        fit: StackFit.passthrough,
         children: [
           // Keep only the current backdrop (plus the outgoing fade), not
           // five full-resolution images with four hidden at zero opacity.
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 700),
-            // The default switcher stack loosens constraints, letting banners
-            // and poster fallbacks shrink to their decoded image dimensions.
-            layoutBuilder: (currentChild, previousChildren) => Stack(
-              fit: StackFit.expand,
-              children: [
-                ...previousChildren,
-                ?currentChild,
-              ],
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 700),
+              // The default switcher stack loosens constraints, letting banners
+              // and poster fallbacks shrink to their decoded image dimensions.
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                fit: StackFit.expand,
+                children: [...previousChildren, ?currentChild],
+              ),
+              child: _SlideLayer(
+                key: ValueKey(_cacheKey(active)),
+                item: active,
+              ),
             ),
-            child: _SlideLayer(key: ValueKey(_cacheKey(active)), item: active),
           ),
 
           // 2. Active trailer player, smoothly cross-faded in when loaded.
           if (_active && hasTrailer && _trailerArmed)
-            AnimatedOpacity(
-              key: ValueKey('hero-trailer-layer-$trailerKey'),
-              opacity: (_trailerReady && _playing) ? 1.0 : 0.0,
-              duration: const Duration(milliseconds: 600),
-              curve: Curves.easeInOut,
-              child: IgnorePointer(
-                child: KeyedSubtree(
-                  key: ValueKey('hero-trailer-$trailerKey'),
-                  child: TrailerPlayer(
-                    videoKey: trailerKey,
-                    muted: _muted,
-                    playing: _playing,
-                    autoplay: true,
-                    loop: true,
-                    onLoaded: _onTrailerLoaded,
+            Positioned.fill(
+              child: AnimatedOpacity(
+                key: ValueKey('hero-trailer-layer-$trailerKey'),
+                opacity: (_trailerReady && _playing) ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOut,
+                child: IgnorePointer(
+                  child: KeyedSubtree(
+                    key: ValueKey('hero-trailer-$trailerKey'),
+                    child: TrailerPlayer(
+                      videoKey: trailerKey,
+                      muted: _muted,
+                      playing: _playing,
+                      autoplay: true,
+                      loop: true,
+                      onLoaded: _onTrailerLoaded,
+                    ),
                   ),
                 ),
               ),
@@ -325,43 +328,53 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
           // Top shade for header legibility, fading into the page bg at the
           // bottom so the hero melts into the ticker below.
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.scrimMedium,
-                  Colors.transparent,
-                  Color(0xD90A0A0F),
-                  AnimeXTokens.bg,
-                ],
-                stops: [0, 0.4, 0.82, 1],
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.scrimMedium,
+                    Colors.transparent,
+                    Color(0xD90A0A0F),
+                    AnimeXTokens.bg,
+                  ],
+                  stops: [0, 0.4, 0.82, 1],
+                ),
               ),
             ),
           ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Color(0xE6000000),
-                  Color(0x8C000000),
-                  Colors.transparent,
-                ],
-                stops: [0, 0.35, 0.7],
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xE6000000),
+                    Color(0x8C000000),
+                    Colors.transparent,
+                  ],
+                  stops: [0, 0.35, 0.7],
+                ),
               ),
             ),
           ),
           SafeArea(
             bottom: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 64),
+              padding: EdgeInsets.fromLTRB(
+                MediaQuery.sizeOf(context).width < 600 ? 24 : 48,
+                80,
+                24,
+                80,
+              ),
               child: Align(
+                heightFactor: 1,
                 alignment: Alignment.bottomLeft,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 560),
+                  constraints: const BoxConstraints(maxWidth: 640),
                   child: _SlideContent(
                     item: active,
                     key: ValueKey(active.tmdbId),
@@ -392,42 +405,24 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
           ),
           if (items.length > 1)
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 22,
+              left: MediaQuery.sizeOf(context).width < 600 ? 18 : 42,
+              bottom: 16,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
+                  for (var i = 0; i < items.length; i++)
+                    _HeroDot(
+                      active: i == activeIndex,
+                      title: 'Show ${items[i].title}',
+                      onTap: () => _select(i),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (var i = 0; i < items.length; i++)
-                          _HeroDot(
-                            active: i == activeIndex,
-                            onTap: () => _select(i),
-                          ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
           if (hasTrailer)
             Positioned(
-              right: 20,
-              bottom: 22,
+              right: 24,
+              top: 16,
               child: _HeroMediaControls(
                 playing: _playing,
                 muted: _muted,
@@ -442,13 +437,12 @@ class _AnimeXSpotlightState extends State<AnimeXSpotlight> {
 
   double _heroHeight(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final isDesktop = size.width >= 768;
-    final raw = isDesktop
-        ? size.height - AnimeXTokens.headerHeight
-        : size.height -
-              AnimeXTokens.headerHeight -
-              AnimeXTokens.mobileNavHeight;
-    return raw.clamp(320.0, double.infinity);
+    final phone = size.width < 600;
+    final height = (size.height * (phone ? 0.68 : 0.58)).clamp(
+      phone ? 500.0 : 440.0,
+      phone ? 620.0 : 660.0,
+    );
+    return height;
   }
 
   Widget _buildSkeleton() {
@@ -537,239 +531,147 @@ class _SlideContent extends StatelessWidget {
     final isAiring =
         item.airingStatus.toUpperCase().contains('RELEASING') ||
         item.airingStatus.toUpperCase().contains('AIRING');
-    // Replays on every slide change: the parent keys this widget by item.
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 550),
-      curve: Curves.easeOutCubic,
-      builder: (context, t, child) => Opacity(
-        opacity: t,
-        child: Transform.translate(
-          offset: Offset(0, 18 * (1 - t)),
-          child: child,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: bebasStyle(
+            size: MediaQuery.sizeOf(context).width < 600 ? 38 : 60,
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AnimeXTokens.accent, AnimeXTokens.accentHover],
-                  ),
-                  borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-                  boxShadow: AnimeXTokens.accentGlowShadow(0.4),
-                ),
-                child: Text(
-                  '#${index + 1} TRENDING',
-                  style: dmSansStyle(
-                    size: 11,
-                    color: Colors.white,
-                    weight: FontWeight.w800,
-                    letterSpacing: 0.08,
-                  ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 14,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '#${index + 1} TRENDING',
+              style: dmSansStyle(
+                size: 12,
+                color: AnimeXTokens.accentWarm,
+                weight: FontWeight.w700,
+              ),
+            ),
+            if (isAiring)
+              Text(
+                'Airing Now',
+                style: dmSansStyle(
+                  size: 12,
+                  color: AnimeXTokens.success,
+                  weight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 10),
-              if (isAiring) ...[
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: const BoxDecoration(
-                    color: AnimeXTokens.success,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: AnimeXTokens.success, blurRadius: 8),
-                    ],
+            if (item.score != null && item.score! > 0)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    color: AnimeXTokens.gold,
+                    size: 15,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Airing Now',
-                  style: dmSansStyle(
-                    size: 12,
-                    color: AnimeXTokens.success,
-                    weight: FontWeight.w700,
-                    letterSpacing: 0.06,
+                  const SizedBox(width: 4),
+                  Text(
+                    item.score!.toStringAsFixed(1),
+                    style: dmSansStyle(size: 13, weight: FontWeight.w700),
                   ),
-                ),
-              ] else
-                Text(
-                  item.year.isNotEmpty ? item.year : 'Spotlight',
-                  style: dmSansStyle(
-                    size: 12,
-                    color: AnimeXTokens.textSecondary,
-                    weight: FontWeight.w600,
-                    letterSpacing: 0.08,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
+                ],
+              ),
+            if (item.year.isNotEmpty) _metadata(item.year),
+            if (item.format.isNotEmpty) _metadata(item.format),
+            if (item.episodeCount != null && item.episodeCount! > 0)
+              _metadata('${item.episodeCount} episodes'),
+          ],
+        ),
+        if (item.genres.isNotEmpty) ...[
+          const SizedBox(height: 10),
           Text(
-            item.title,
+            item.genres.take(3).join(' · '),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: bebasStyle(
-              size: _titleSize(context),
-              color: AnimeXTokens.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _MetaRow(item: item),
-          const SizedBox(height: 12),
-          if (item.synopsis.isNotEmpty)
-            Text(
-              item.synopsis,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: interBodyStyle(size: 13.5, height: 1.55),
-            ),
-          const SizedBox(height: 22),
-          Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            children: [
-              AnimeXWatchNowButton(
-                label: 'Watch Now',
-                onTap: () => onWatch?.call(item),
-              ),
-              AnimeXSecondaryButton(
-                label: 'More Info',
-                icon: Icons.info_outline_rounded,
-                strong: true,
-                onTap: () => onMoreInfo?.call(item),
-              ),
-              AnimeXGhostButton(
-                label: hasTrailer && !muted ? 'Full Trailer' : 'Trailer',
-                icon: hasTrailer
-                    ? (muted
-                          ? Icons.volume_off_rounded
-                          : Icons.volume_up_rounded)
-                    : Icons.play_circle_outline_rounded,
-                onTap: () => onTrailer?.call(item),
-              ),
-            ],
+            style: dmSansStyle(size: 13, color: AnimeXTokens.white85),
           ),
         ],
-      ),
-    );
-  }
-
-  double _titleSize(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    return (width * 0.055).clamp(32.0, 64.0);
-  }
-}
-
-/// Score / year / format / episode glass chips under the hero title.
-class _MetaRow extends StatelessWidget {
-  final MediaItem item;
-
-  const _MetaRow({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        if (item.score != null && item.score! > 0)
-          _chip(
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.star_rounded,
-                  color: AnimeXTokens.gold,
-                  size: 14,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  item.score!.toStringAsFixed(1),
-                  style: dmSansStyle(
-                    size: 12.5,
-                    color: AnimeXTokens.gold,
-                    weight: FontWeight.w800,
-                  ),
-                ),
-              ],
+        if (item.synopsis.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(
+            item.synopsis,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: interBodyStyle(
+              size: 14,
+              height: 1.55,
+              color: AnimeXTokens.white85,
             ),
           ),
-        if (item.year.isNotEmpty) _chip(_label(item.year)),
-        if (item.format.isNotEmpty) _chip(_label(item.format)),
-        if (item.episodeCount != null && item.episodeCount! > 0)
-          _chip(_label('EP ${item.episodeCount}')),
-        for (final genre in item.genres.take(3))
-          _chip(_label(genre), ghost: true),
+        ],
+        const SizedBox(height: 22),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AnimeXWatchNowButton(
+              label: 'Watch Now',
+              onTap: () => onWatch?.call(item),
+            ),
+            AnimeXSecondaryButton(
+              label: 'More Info',
+              icon: Icons.info_outline_rounded,
+              onTap: () => onMoreInfo?.call(item),
+            ),
+            AnimeXGhostButton(
+              label: hasTrailer && !muted ? 'Full Trailer' : 'Trailer',
+              icon: hasTrailer
+                  ? (muted ? Icons.volume_off_rounded : Icons.volume_up_rounded)
+                  : Icons.play_circle_outline_rounded,
+              color: AnimeXTokens.white85,
+              onTap: () => onTrailer?.call(item),
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _label(String text) {
-    return Text(
-      text,
-      style: dmSansStyle(
-        size: 12,
-        color: AnimeXTokens.textPrimary,
-        weight: FontWeight.w600,
-      ),
-    );
-  }
-
-  Widget _chip(Widget child, {bool ghost = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: ghost
-            ? Colors.transparent
-            : Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: ghost ? 0.16 : 0.1),
-        ),
-      ),
-      child: child,
-    );
-  }
+  Widget _metadata(String label) =>
+      Text(label, style: dmSansStyle(size: 13, color: AnimeXTokens.white85));
 }
 
 class _HeroDot extends StatelessWidget {
   final bool active;
+  final String title;
   final VoidCallback onTap;
 
-  const _HeroDot({required this.active, required this.onTap});
+  const _HeroDot({
+    required this.active,
+    required this.title,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          width: active ? 32 : 8,
-          height: 6,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
+    return Semantics(
+      selected: active,
+      child: IconButton(
+        tooltip: title,
+        onPressed: onTap,
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        icon: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: active ? 28 : 8,
+          height: 4,
           decoration: BoxDecoration(
-            color: active ? Colors.white : Colors.white.withValues(alpha: 0.35),
-            borderRadius: BorderRadius.circular(3),
-            boxShadow: active
-                ? [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      blurRadius: 10,
-                    ),
-                  ]
-                : null,
+            color: active
+                ? AnimeXTokens.textPrimary
+                : AnimeXTokens.textSecondary,
+            borderRadius: BorderRadius.circular(2),
           ),
         ),
       ),
@@ -777,8 +679,7 @@ class _HeroDot extends StatelessWidget {
   }
 }
 
-/// Floating glass controls (play/pause and mute/unmute) anchored at the
-/// bottom-right corner of the hero banner.
+/// Trailer controls stay over the artwork, separate from carousel navigation.
 class _HeroMediaControls extends StatelessWidget {
   final bool playing;
   final bool muted;
@@ -844,39 +745,17 @@ class _HeroControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      waitDuration: const Duration(milliseconds: 300),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: highlighted
-                  ? AnimeXTokens.accent.withValues(alpha: 0.3)
-                  : Colors.white.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: highlighted
-                    ? AnimeXTokens.accent.withValues(alpha: 0.75)
-                    : Colors.white.withValues(alpha: 0.2),
-              ),
-            ),
-            child: Icon(
-              icon,
-              size: 17,
-              color: highlighted
-                  ? Colors.white
-                  : Colors.white.withValues(alpha: 0.9),
-            ),
-          ),
-        ),
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        foregroundColor: AnimeXTokens.textPrimary,
+        backgroundColor: highlighted
+            ? AnimeXTokens.accent.withValues(alpha: 0.3)
+            : Colors.transparent,
       ),
+      icon: Icon(icon, size: 20),
     );
   }
 }

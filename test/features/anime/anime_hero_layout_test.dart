@@ -30,6 +30,41 @@ MediaItem _animexItem(int i) {
 }
 
 void main() {
+  for (final size in [const Size(320, 800), const Size(820, 1180)]) {
+    testWidgets('spotlight actions remain reachable with large text at $size', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      var watched = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.8)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AnimeXSpotlight(
+                items: [_animexItem(1)],
+                onWatch: (_) => watched = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.text('Watch Now'));
+      await tester.tap(find.text('Watch Now'));
+      expect(watched, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('AnimeXSpotlight hero fits viewport on phone with status bar', (
     WidgetTester tester,
   ) async {
