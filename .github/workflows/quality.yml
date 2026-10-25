@@ -36,7 +36,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test tool/ci/changes.test.mjs
+      - run: node --test tool/ci/changes.test.mjs tool/ci/deploy_parity.test.mjs
       - run: node --test tool/ci/pr_contract.test.mjs tool/remove_worktree.test.mjs
       - name: Enforce ready PR evidence and verification declarations
         if: github.event_name == 'pull_request'
@@ -148,19 +148,9 @@ jobs:
       - if: needs.changes.outputs.backend == 'true'
         working-directory: functions
         run: npm ci
-      - if: needs.changes.outputs.backend == 'true'
-        working-directory: functions
-        run: npm run lint -- --max-warnings=25
-      - if: needs.changes.outputs.backend == 'true'
-        working-directory: functions
-        run: npm test
-      - if: needs.changes.outputs.backend == 'true'
-        working-directory: functions
-        run: node eval_gate.js
-      # ESLint already parses every JS module; a separate node --check is redundant.
-      - if: needs.changes.outputs.audit == 'true'
-        working-directory: functions
-        run: npm audit --omit=dev --audit-level=moderate
+      # Shared with production: includes audit on every PR, even frontend/docs.
+      - working-directory: functions
+        run: npm run verify
       - if: needs.changes.outputs.security == 'true'
         uses: actions/setup-java@v4
         with:

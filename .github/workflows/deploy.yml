@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.sha }}
 
       - uses: actions/setup-node@v4
         with:
@@ -88,18 +88,12 @@ jobs:
 
       - name: Install functions dependencies
         working-directory: functions
-        run: npm install
+        run: npm ci
 
       - name: Test functions
         working-directory: functions
-        run: |
-          # Same lint gate as the PR quality job (budget = one-way ratchet,
-          # see functions/eslint.config.js); keeps main honest too.
-          npm run lint -- --max-warnings=25
-          npm test
-          node --check index.js
-          node eval_gate.js
-          npm audit --omit=dev --audit-level=moderate
+        # Exactly the same backend gate and locked dependencies as Quality.
+        run: npm run verify
 
       - name: Deploy Cloud Functions, Firestore Rules & Storage
         id: backend
