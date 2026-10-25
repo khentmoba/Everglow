@@ -217,8 +217,14 @@ const proxyFetchHtml = cappedHttps(20, async (req, res) => {
     // Public pages, same guard as the rest.
     '.vidlink.pro',
     '.megaplay.buzz',
+    '.megaplays.se',
+    '.megaplay.su',
     '.anixo.buzz',
     '.megavid.buzz',
+    '.tryembed.us.cc',
+    '.vidcore.org',
+    '.rivestream.us',
+    '.fmov.my',
     'everglow-1c6db.web.app',
     'us-central1-everglow-1c6db.cloudfunctions.net',
     // Scanlation group sites
