@@ -113,6 +113,11 @@ class AnimeXWatchPage extends StatefulWidget {
     return lower.contains('error code: <span>410</span>') ||
         lower.contains('error - megaplay') ||
         lower.contains('no playable stream sources') ||
+        lower.contains('no playable stream') ||
+        lower.contains('no video sources found') ||
+        lower.contains('stream not found') ||
+        lower.contains('could not resolve stream') ||
+        lower.contains('tryembed_sandbox_blocked') ||
         // AniXo firewall cards (its 403 block page). The healthy player
         // only ever says "anti-leech protection" (no "engaged"), so
         // the full phrases stay unambiguous.
@@ -280,9 +285,14 @@ class AnimeXWatchPage extends StatefulWidget {
   ///   AniList id (falls back to MAL). Sandboxed, no referrer. A dead
   ///   episode answers with the failover marker so the probe advances
   ///   to the next server instead of spinning.
+  /// - TryEmbed: dedicated anime embed player keyed on AniList (falls
+  ///   back to MAL). Multi-server upstream with sub/dub toggle.
   /// - CineSrc: our own embed.html shell around CineSrc. TMDB-keyed,
   ///   so it only becomes available once ani.zip supplies a
   ///   `themoviedb_id`. Sandboxed, no referrer, 100% ad-free.
+  /// - VidCore: fast EdgeOne CDN player, TMDB-keyed, clean UI.
+  /// - Rive: high-performance HLS player, TMDB-keyed.
+  /// - Fmov: multi-server aggregator, TMDB-keyed with direct HLS proxy.
   ///
   /// AniXo used to sit between the last two, but it is only a scraper
   /// relay over MegaPlay behind a bot-check ticket that embedded
@@ -383,6 +393,58 @@ class AnimeXWatchPage extends StatefulWidget {
         available: effectiveTmdb > 0,
         supportsAudioSelection: false,
         supportsResume: true,
+      ),
+      AnimeServerOption(
+        name: 'TryEmbed',
+        urlBuilder: (ep, audio) {
+          if (hasAni) {
+            return 'https://tryembed.us.cc/embed/anime/$aniId/$ep/$audio';
+          }
+          return 'https://tryembed.us.cc/embed/anime/$effectiveMal/$ep/$audio?type=mal';
+        },
+        available: hasSource,
+      ),
+      AnimeServerOption(
+        name: 'VidCore',
+        urlBuilder: (ep, audio) {
+          if (isMovie) {
+            return 'https://vidcore.org/embed/movie/$effectiveTmdb';
+          }
+          final slot = episodeSlots[ep];
+          final season = slot?.season ?? 1;
+          final episode = slot?.episode ?? ep;
+          return 'https://vidcore.org/embed/tv/$effectiveTmdb/$season/$episode';
+        },
+        available: effectiveTmdb > 0,
+        supportsAudioSelection: false,
+      ),
+      AnimeServerOption(
+        name: 'Rive',
+        urlBuilder: (ep, audio) {
+          if (isMovie) {
+            return 'https://rivestream.us/embed?type=movie&id=$effectiveTmdb';
+          }
+          final slot = episodeSlots[ep];
+          final season = slot?.season ?? 1;
+          final episode = slot?.episode ?? ep;
+          return 'https://rivestream.us/embed?type=tv&id=$effectiveTmdb&season=$season&episode=$episode';
+        },
+        available: effectiveTmdb > 0,
+        supportsAudioSelection: false,
+      ),
+      AnimeServerOption(
+        name: 'Fmov',
+        urlBuilder: (ep, audio) {
+          if (isMovie) {
+            return 'https://fmov.my/embed/movie/$effectiveTmdb';
+          }
+          final slot = episodeSlots[ep];
+          final season = slot?.season ?? 1;
+          final episode = slot?.episode ?? ep;
+          return 'https://fmov.my/embed/anime/$effectiveTmdb/$season/$episode';
+        },
+        available: effectiveTmdb > 0,
+        supportsAudioSelection: false,
       ),
     ];
   }

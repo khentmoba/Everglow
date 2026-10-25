@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AnimeXEmbedPolicy', () {
-    test('sandboxAllowed refuses MegaPlay and AniXo only', () {
-      // Both detect the sandbox attribute and block playback (MegaPlay
-      // renders a Remove-sandbox card, AniXo pauses behind an overlay).
+    test('sandboxAllowed refuses MegaPlay, AniXo, and TryEmbed only', () {
+      // MegaPlay, AniXo, and TryEmbed detect the sandbox attribute and
+      // block playback.
       expect(
         AnimeXEmbedPolicy.sandboxAllowed(
           'https://megaplay.buzz/stream/ani/21/1/sub',
@@ -18,10 +18,34 @@ void main() {
         ),
         isFalse,
       );
-      // Megavid has no detector — it stays caged so its popunders die.
+      expect(
+        AnimeXEmbedPolicy.sandboxAllowed(
+          'https://tryembed.us.cc/embed/anime/21/1/sub',
+        ),
+        isFalse,
+      );
+      // Megavid, VidCore, Rive, Fmov have no detector — they stay caged.
       expect(
         AnimeXEmbedPolicy.sandboxAllowed(
           'https://megavid.buzz/ani/21/1/sub',
+        ),
+        isTrue,
+      );
+      expect(
+        AnimeXEmbedPolicy.sandboxAllowed(
+          'https://vidcore.org/embed/tv/1/1/1',
+        ),
+        isTrue,
+      );
+      expect(
+        AnimeXEmbedPolicy.sandboxAllowed(
+          'https://rivestream.us/embed?type=tv&id=1&season=1&episode=1',
+        ),
+        isTrue,
+      );
+      expect(
+        AnimeXEmbedPolicy.sandboxAllowed(
+          'https://fmov.my/embed/anime/1/1/1',
         ),
         isTrue,
       );
@@ -55,6 +79,13 @@ void main() {
       expect(
         AnimeXEmbedPolicy.referrerFor(
           'https://megavid.buzz/ani/21/1/sub',
+          fallback,
+        ),
+        'strict-origin-when-cross-origin',
+      );
+      expect(
+        AnimeXEmbedPolicy.referrerFor(
+          'https://tryembed.us.cc/embed/anime/21/1/sub',
           fallback,
         ),
         'strict-origin-when-cross-origin',

@@ -222,7 +222,7 @@ void main() {
         malId: 21,
         tmdbId: 37854,
       );
-      expect(servers.length, 3);
+      expect(servers.length, 7);
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
@@ -248,6 +248,34 @@ void main() {
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=37854&type=tv&s=1&e=1',
       );
+
+      expect(servers[3].name, 'TryEmbed');
+      expect(servers[3].available, isTrue);
+      expect(
+        servers[3].urlBuilder(1, 'sub'),
+        'https://tryembed.us.cc/embed/anime/21/1/sub',
+      );
+
+      expect(servers[4].name, 'VidCore');
+      expect(servers[4].available, isTrue);
+      expect(
+        servers[4].urlBuilder(1, 'sub'),
+        'https://vidcore.org/embed/tv/37854/1/1',
+      );
+
+      expect(servers[5].name, 'Rive');
+      expect(servers[5].available, isTrue);
+      expect(
+        servers[5].urlBuilder(1, 'sub'),
+        'https://rivestream.us/embed?type=tv&id=37854&season=1&episode=1',
+      );
+
+      expect(servers[6].name, 'Fmov');
+      expect(servers[6].available, isTrue);
+      expect(
+        servers[6].urlBuilder(1, 'sub'),
+        'https://fmov.my/embed/anime/37854/1/1',
+      );
     });
 
     test('buildServers points Megavid at our ad-free resolver', () {
@@ -270,7 +298,7 @@ void main() {
         malId: 52991,
         tmdbId: 209867,
       );
-      expect(servers.length, 3);
+      expect(servers.length, 7);
 
       expect(servers[0].name, 'Everglow');
       expect(
@@ -292,10 +320,38 @@ void main() {
         '?tmdbId=209867&type=tv&s=1&e=3',
       );
 
+      expect(servers[3].name, 'TryEmbed');
+      expect(
+        servers[3].urlBuilder(3, 'sub'),
+        'https://tryembed.us.cc/embed/anime/52991/3/sub?type=mal',
+      );
+
+      expect(servers[4].name, 'VidCore');
+      expect(
+        servers[4].urlBuilder(3, 'sub'),
+        'https://vidcore.org/embed/tv/209867/1/3',
+      );
+
+      expect(servers[5].name, 'Rive');
+      expect(
+        servers[5].urlBuilder(3, 'sub'),
+        'https://rivestream.us/embed?type=tv&id=209867&season=1&episode=3',
+      );
+
+      expect(servers[6].name, 'Fmov');
+      expect(
+        servers[6].urlBuilder(3, 'sub'),
+        'https://fmov.my/embed/anime/209867/1/3',
+      );
+
       // AniList-only routes still get every AniList-keyed server.
       expect(servers[0].available, isTrue);
       expect(servers[1].available, isTrue);
       expect(servers[2].available, isTrue);
+      expect(servers[3].available, isTrue);
+      expect(servers[4].available, isTrue);
+      expect(servers[5].available, isTrue);
+      expect(servers[6].available, isTrue);
     });
 
     test('buildServers maps multi-season episodes for TMDB-keyed players',
@@ -328,7 +384,7 @@ void main() {
       );
       expect(
         servers.map((s) => s.name),
-        ['Everglow', 'Megavid', 'CineSrc'],
+        ['Everglow', 'Megavid', 'CineSrc', 'TryEmbed', 'VidCore', 'Rive', 'Fmov'],
       );
     });
 
@@ -344,6 +400,14 @@ void main() {
       expect(servers[1].available, isTrue);
       expect(servers[2].name, 'CineSrc');
       expect(servers[2].available, isFalse);
+      expect(servers[3].name, 'TryEmbed');
+      expect(servers[3].available, isTrue);
+      expect(servers[4].name, 'VidCore');
+      expect(servers[4].available, isFalse);
+      expect(servers[5].name, 'Rive');
+      expect(servers[5].available, isFalse);
+      expect(servers[6].name, 'Fmov');
+      expect(servers[6].available, isFalse);
     });
 
     test('buildServers marks all unavailable when no ID is present', () {
@@ -362,13 +426,31 @@ void main() {
         tmdbId: 877957,
         isMovie: true,
       );
-      expect(servers.length, 3);
+      expect(servers.length, 7);
       expect(servers[2].name, 'CineSrc');
       expect(servers[2].available, isTrue);
       expect(
         servers[2].urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=877957&type=movie',
+      );
+      expect(servers[4].name, 'VidCore');
+      expect(servers[4].available, isTrue);
+      expect(
+        servers[4].urlBuilder(1, 'sub'),
+        'https://vidcore.org/embed/movie/877957',
+      );
+      expect(servers[5].name, 'Rive');
+      expect(servers[5].available, isTrue);
+      expect(
+        servers[5].urlBuilder(1, 'sub'),
+        'https://rivestream.us/embed?type=movie&id=877957',
+      );
+      expect(servers[6].name, 'Fmov');
+      expect(servers[6].available, isTrue);
+      expect(
+        servers[6].urlBuilder(1, 'sub'),
+        'https://fmov.my/embed/movie/877957',
       );
       // Series keep the season/episode TV endpoint by default.
       final series = AnimeXWatchPage.buildServers(
@@ -380,6 +462,18 @@ void main() {
         series[2].urlBuilder(1, 'sub'),
         'https://everglow-1c6db.web.app/embed.html'
         '?tmdbId=37854&type=tv&s=1&e=1',
+      );
+      expect(
+        series[4].urlBuilder(1, 'sub'),
+        'https://vidcore.org/embed/tv/37854/1/1',
+      );
+      expect(
+        series[5].urlBuilder(1, 'sub'),
+        'https://rivestream.us/embed?type=tv&id=37854&season=1&episode=1',
+      );
+      expect(
+        series[6].urlBuilder(1, 'sub'),
+        'https://fmov.my/embed/anime/37854/1/1',
       );
     });
 
@@ -1558,7 +1652,11 @@ void main() {
         servers.first.urlBuilder(1, 'sub'),
         'https://megaplay.buzz/stream/ani/127720/1/sub',
       );
-      expect(servers.last.urlBuilder(1, 'sub'), contains('&s=1&e=12'));
+      expect(
+        servers.firstWhere((s) => s.name == 'CineSrc').urlBuilder(1, 'sub'),
+        contains('&s=1&e=12'),
+      );
+      expect(servers.last.urlBuilder(1, 'sub'), contains('/1/12'));
     });
 
     test('episode list keeps unknown counts and fills missing metadata', () {

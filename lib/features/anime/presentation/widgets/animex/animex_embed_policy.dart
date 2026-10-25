@@ -20,13 +20,22 @@ class AnimeXEmbedPolicy {
   const AnimeXEmbedPolicy._();
 
   /// Hosts that refuse to play inside a sandboxed iframe at all.
-  static const _unsandboxedHosts = {'megaplay.buzz', 'anixo.buzz'};
+  static const _unsandboxedHosts = {
+    'megaplay.buzz',
+    'megaplays.se',
+    'megaplay.su',
+    'anixo.buzz',
+    'tryembed.us.cc',
+  };
 
   /// Hosts that reject referrer-less loads and need the origin sent.
   static const _originReferrerHosts = {
     'megaplay.buzz',
+    'megaplays.se',
+    'megaplay.su',
     'anixo.buzz',
     'megavid.buzz',
+    'tryembed.us.cc',
   };
 
   static bool _matches(String host, String apex) =>
