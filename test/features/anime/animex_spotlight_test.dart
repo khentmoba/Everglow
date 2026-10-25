@@ -86,7 +86,7 @@ void main() {
       }
 
       expectFullArtwork();
-      await tester.tap(find.byType(GestureDetector).last);
+      await tester.tap(find.byTooltip('Show Demo anime 2'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       expect(find.text('Demo anime 2'), findsOneWidget);

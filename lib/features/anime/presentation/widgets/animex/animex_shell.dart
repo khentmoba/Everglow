@@ -63,7 +63,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final isHeaderDesktop = size.width >= 768;
+    final isHeaderDesktop = size.width >= AnimeXTokens.desktopNavBreakpoint;
     final isCoupleUser =
         context.select<AuthService, bool>((a) => a.isCoupleUser);
     // If the profile changed while the shell is mounted (logout/login on

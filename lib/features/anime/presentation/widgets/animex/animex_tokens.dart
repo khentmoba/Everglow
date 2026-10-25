@@ -45,7 +45,9 @@ abstract final class AnimeXTokens {
   static const double popoverMaxHeight = 320;
 
   static const double headerHeight = 60;
-  static const double mobileNavHeight = 56;
+  static const double mobileNavHeight = 68;
+  // Full navigation needs room for the catalog links and profile controls.
+  static const double desktopNavBreakpoint = 1200;
 
   /// Soft accent glow used under hovered cards and primary actions.
   static List<BoxShadow> accentGlowShadow(double opacity) => [

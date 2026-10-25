@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'animex_tokens.dart';
 
-/// Shared hover + tap shell for every AnimeX button below.
-///
-/// All six buttons had the same copy-pasted `MouseRegion` + `GestureDetector`
-/// + `_hover` flag. This keeps that behavior (150ms hover lift handled by
-/// each button's own `AnimatedContainer`) while each button keeps its exact
-/// brand styling — no visual change.
+/// Shared touch, hover and keyboard-focus behavior for AnimeX actions.
 class _HoverTap extends StatefulWidget {
   final VoidCallback? onTap;
   final Widget Function(BuildContext context, bool hovered) builder;
@@ -20,16 +15,21 @@ class _HoverTap extends StatefulWidget {
 
 class _HoverTapState extends State<_HoverTap> {
   bool _hover = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: widget.onTap,
-        child: widget.builder(context, _hover),
+        onHover: (value) => setState(() => _hover = value),
+        onFocusChange: (value) => setState(() => _focused = value),
+        borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: widget.builder(context, _hover || _focused),
+        ),
       ),
     );
   }
@@ -135,19 +135,17 @@ class AnimeXSecondaryButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (icon != null) ...[
-              Icon(
-                icon,
-                color: AnimeXTokens.textPrimary,
-                size: 15,
-              ),
+              Icon(icon, color: AnimeXTokens.textPrimary, size: 15),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: dmSansStyle(
-                size: 14,
-                color: AnimeXTokens.textPrimary,
-                weight: strong ? FontWeight.w600 : FontWeight.w600,
+            Flexible(
+              child: Text(
+                label,
+                style: dmSansStyle(
+                  size: 14,
+                  color: AnimeXTokens.textPrimary,
+                  weight: strong ? FontWeight.w600 : FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -194,19 +192,17 @@ class AnimeXGhostButton extends StatelessWidget {
               iconWidget!,
               const SizedBox(width: 6),
             ] else if (icon != null) ...[
-              Icon(
-                icon,
-                size: 14,
-                color: hover ? Colors.white : color,
-              ),
+              Icon(icon, size: 14, color: hover ? Colors.white : color),
               const SizedBox(width: 6),
             ],
-            Text(
-              label,
-              style: dmSansStyle(
-                size: 13,
-                color: hover ? AnimeXTokens.textPrimary : color,
-                weight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                label,
+                style: dmSansStyle(
+                  size: 13,
+                  color: hover ? AnimeXTokens.textPrimary : color,
+                  weight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -245,12 +241,14 @@ class AnimeXWatchNowButton extends StatelessWidget {
               fill: 1,
             ),
             const SizedBox(width: 7),
-            Text(
-              label,
-              style: dmSansStyle(
-                size: 13.5,
-                color: AnimeXTokens.bg,
-                weight: FontWeight.w700,
+            Flexible(
+              child: Text(
+                label,
+                style: dmSansStyle(
+                  size: 13.5,
+                  color: AnimeXTokens.bg,
+                  weight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -343,7 +341,8 @@ class AnimeXIconButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(AnimeXTokens.radiusSm),
           ),
           child: Center(
-            child: iconWidget ??
+            child:
+                iconWidget ??
                 Icon(
                   icon,
                   size: 18,
