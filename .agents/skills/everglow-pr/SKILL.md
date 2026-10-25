@@ -56,15 +56,16 @@ Run these in order. Red locally means don't open the PR yet:
    the command doesn't exist.
 4. `flutter run -d chrome` — actually open the app and look at what
    you changed. A typo fix doesn't need this; anything visual does.
-5. If you touched `functions/`: `cd functions`, then
-   `npm run lint -- --max-warnings=25`, `npm test`, and
-   `node eval_gate.js`.
+5. If you touched `functions/`: `cd functions`, then `npm ci` and
+   `npm run verify` (the same lint, tests, syntax, eval, and production audit
+   gate used by Quality and deployment).
 
-CI selects checks from the PR diff: app changes keep analysis/tests,
-relevant browser-only app tests, and a release web build; backend/rules
-changes keep their server/privacy tests. The inexpensive Dart guards run
-on every PR in the Flutter job. Unknown inputs or an unavailable diff
-run the full set. Docs-only PRs avoid app compilation and Chrome.
+CI runs every deterministic deployment prerequisite on every PR: app
+analysis/tests, a release web build, Dart guards, and the shared backend
+`npm run verify` gate (including the production dependency audit). Main
+deploys the whole application even for docs-only changes. The PR diff
+selects extra browser-only app tests and privacy emulator coverage.
+Unknown inputs or an unavailable diff run the full set.
 If any selected CI check fails, stop and fix it. Do not add
 `continue-on-error` or hide failures.
 

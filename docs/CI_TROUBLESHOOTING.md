@@ -17,9 +17,11 @@ to propagate. The October 21, 2026 incident was resolved by restoring this role.
 ## PR verification
 
 Quality uses `tool/ci/changes.mjs` to select work from the base-to-merge
-diff, including deleted paths. Docs-only PRs run selection tests and the
-cheap Dart guards; app analysis/tests, web builds, backend tests and privacy
-emulators run for their relevant inputs. Unknown inputs and failed diff
+diff, including deleted paths. Every PR runs app analysis/tests, a release
+web build, Dart guards, and backend verification including the production
+dependency audit. Every main push deploys the whole application, so even
+docs-only PRs must verify those prerequisites. Only extra browser and privacy
+emulator coverage is selected from the diff. Unknown inputs and failed diff
 discovery select everything. `workflow_dispatch` also runs full verification.
 
 The guards share Flutter setup with app verification. The release web build
@@ -57,9 +59,18 @@ one failing suite cannot prevent the other from running:
 gh workflow run browser_checks.yml --ref YOUR_BRANCH -f suite=all --repo khentmoba/Everglow
 ```
 
-Backend dependency changes retain `npm audit`; the Dependency audit workflow
-also checks `main` daily at 06:00 UTC for newly reported vulnerabilities.
-Deployment/release workflows on `main` are unchanged.
+Quality and deployment both install the committed backend lockfile with
+`npm ci` and run `npm run verify` in `functions/` (lint, tests, syntax, eval
+gate, and production dependency audit). The Dependency audit workflow also
+checks `main` daily at 06:00 UTC for newly reported vulnerabilities.
+
+PRs #543–#545 merged successfully but deployment stopped on the same
+`body-parser` advisory (GHSA-27r3-jxmh-p828). Frontend PRs had skipped the
+backend audit. Updating the lockfile and making these prerequisites mandatory
+closes that gap; `tool/ci/deploy_parity.test.mjs` guards against recurrence.
+A green PR verifies the candidate merge at that time. Firebase outages,
+credential changes, newly published advisories, or subsequent base changes
+can still fail a later deployment; green checks cannot guarantee those.
 
 Read the failed job's annotations and logs before changing code.
 

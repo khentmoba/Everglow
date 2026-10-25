@@ -9,6 +9,7 @@
     "deploy": "firebase deploy --only functions",
     "test": "node --test",
     "lint": "eslint .",
+    "verify": "npm run lint -- --max-warnings=25 && npm test && node --check index.js && node eval_gate.js && npm audit --omit=dev --audit-level=moderate",
     "lint:fix": "eslint . --fix"
   },
   "engines": {
