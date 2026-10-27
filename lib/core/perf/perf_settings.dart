@@ -92,7 +92,13 @@ class PerfSettings {
     final dprParam = params['dpr'];
     final sizedParam = params['sizeddecode'];
     if (perfParam != null) meter = _isOn(perfParam);
-    if (dprParam != null) scale = _parseScale(dprParam) ?? scale;
+    if (dprParam != null) {
+      if (_isReset(dprParam)) {
+        scale = null;
+      } else {
+        scale = _parseScale(dprParam) ?? scale;
+      }
+    }
     if (sizedParam != null) sizedDecode = _isOn(sizedParam);
 
     frameMeter.value = meter;
@@ -181,6 +187,16 @@ class PerfSettings {
   static bool _isOn(String raw) {
     final value = raw.trim().toLowerCase();
     return value == '1' || value == 'true' || value == 'on' || value == 'yes';
+  }
+
+  static bool _isReset(String raw) {
+    final value = raw.trim().toLowerCase();
+    return value == '0' ||
+        value == 'reset' ||
+        value == 'device' ||
+        value == 'auto' ||
+        value == 'off' ||
+        value == 'null';
   }
 
   /// Returns null (→ device DPR) for anything unparsable or out of range, so a

@@ -97,6 +97,25 @@ void main() {
       expect(PerfSettings.renderScale.value, 1.5);
     });
 
+    test('?dpr=device, ?dpr=0, or ?dpr=reset clears saved render scale', () async {
+      for (final resetVal in ['device', '0', 'reset', 'auto']) {
+        SharedPreferences.setMockInitialValues(<String, Object>{
+          'perf_render_scale_v1': 2.0,
+        });
+        PerfSettings.debugReset();
+
+        await PerfSettings.load(queryParameters: {'dpr': resetVal});
+
+        expect(PerfSettings.renderScale.value, isNull);
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.containsKey('perf_render_scale_v1'),
+          isFalse,
+          reason: '$resetVal should remove the saved scale key',
+        );
+      }
+    });
+
     test('ignores an out-of-range render scale', () async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       PerfSettings.debugReset();
