@@ -1,4 +1,6 @@
 ﻿import 'dart:async';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
@@ -53,6 +55,14 @@ class CatVisualsState extends State<CatVisuals> {
     }
 
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
+      try {
+        final jsWindow = web.window as JSObject;
+        if (jsWindow.has('__everglowEnsureMediaLibs')) {
+          jsWindow.callMethod<JSPromise?>('__everglowEnsureMediaLibs'.toJS);
+        }
+      } catch (_) {
+        // Media lib loader unavailable.
+      }
       final el = web.document.createElement('model-viewer') as web.HTMLElement;
       el
         // Web-relative path (the pubspec asset key gains an extra

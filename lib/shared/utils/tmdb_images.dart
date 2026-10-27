@@ -45,9 +45,19 @@ class TmdbImages {
     return true;
   }
 
+  static final RegExp _tmdbUrlPattern =
+      RegExp(r'^https?://image\.tmdb\.org/t/p/[^/]+(/.+)$');
+
   static String _resolve(String? path, String base) {
     if (!isUsablePath(path)) return '';
     final trimmed = path!.trim();
+    // Normalize existing TMDB full URLs so adaptive sizing reaches mapped items.
+    final tmdbMatch = _tmdbUrlPattern.firstMatch(trimmed);
+    if (tmdbMatch != null) {
+      final relative = tmdbMatch.group(1)!;
+      return '$base$relative';
+    }
+    // External non-TMDB images (e.g. AniList/OpenLibrary) stay untouched.
     if (trimmed.startsWith('http')) return trimmed;
     // TMDB paths always start with '/'. If the slash was ever stripped
     // on save ("abc.jpg"), restoring it beats a guaranteed 404.

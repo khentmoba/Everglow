@@ -46,6 +46,16 @@ class FastNetworkCache {
     _inFlightKeys.clear();
   }
 
+  /// Directly updates a cached string value (e.g. on explicit force-refresh).
+  void putStringDirectly(
+    String key,
+    String data, {
+    Duration ttl = const Duration(minutes: 15),
+    Duration staleTtl = const Duration(hours: 24),
+  }) {
+    _putString(key, data, ttl, staleTtl);
+  }
+
   /// Fetches an HTTP response with transparent stale-while-revalidate caching.
   Future<http.Response> getOrFetchResponse(
     String key,

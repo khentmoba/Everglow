@@ -331,6 +331,7 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
       widget.slug,
       _chapter.path,
       server: _server,
+      forceRefresh: true,
     );
     _refreshingTokens = false;
     if (!mounted) return;

@@ -121,8 +121,20 @@ class KatanaService {
 
   String proxiedImageUrl(String url) => proxyImageUrl(url);
 
-  Future<String?> _fetchHtml(Uri uri, {String cookie = ''}) async {
-    final cacheKey = 'katana:${uri.toString()}${cookie.isNotEmpty ? ':$cookie' : ''}';
+  Future<String?> _fetchHtml(
+    Uri uri, {
+    String cookie = '',
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey =
+        'katana:${uri.toString()}${cookie.isNotEmpty ? ':$cookie' : ''}';
+    if (forceRefresh) {
+      final fresh = await _rawFetchHtml(uri, cookie: cookie);
+      if (fresh != null && fresh.isNotEmpty) {
+        FastNetworkCache.instance.putStringDirectly(cacheKey, fresh);
+      }
+      return fresh;
+    }
     return FastNetworkCache.instance.getOrFetchString(
       cacheKey,
       () => _rawFetchHtml(uri, cookie: cookie),
@@ -230,6 +242,7 @@ class KatanaService {
     String slug,
     String chapterId, {
     String server = '',
+    bool forceRefresh = false,
   }) async {
     if (slug.isEmpty || chapterId.isEmpty) return const [];
     const servers = ['', '?sv=mk', '?sv=3'];
@@ -238,6 +251,7 @@ class KatanaService {
       final html = await _fetchHtml(
         Uri.parse('$_baseUrl/manga/$slug/$chapterId$sv'),
         cookie: cookieForServer(sv),
+        forceRefresh: forceRefresh,
       );
       if (html == null) continue;
       final urls = _parseImageArrays(html);
