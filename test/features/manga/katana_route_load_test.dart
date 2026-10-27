@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:everglow/core/network/fast_network_cache.dart';
 import 'package:everglow/core/services/auth_service.dart';
 import 'package:everglow/features/manga/presentation/katana/katana_item_card.dart';
 import 'package:everglow/features/manga/presentation/screens/katana_home_screen.dart';
@@ -142,6 +143,10 @@ class _FakeAuthService extends ChangeNotifier implements AuthService {
 }
 
 void main() {
+  setUp(() {
+    FastNetworkCache.instance.clear();
+  });
+
   for (final width in [430.0, 810.0]) {
     testWidgets('Manga home mounts cards lazily at ${width}px', (tester) async {
       await tester.binding.setSurfaceSize(Size(width, 932));

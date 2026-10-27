@@ -1,3 +1,6 @@
+import '../../core/network/network_quality_service.dart';
+import '../../core/perf/device_capability.dart';
+
 /// Single source of truth for TMDB image CDN base URLs.
 ///
 /// Previously these string literals were duplicated across
@@ -10,11 +13,17 @@ class TmdbImages {
 
   static const String poster = '$_cdn/w500';
   static const String card = '$_cdn/w342';
+  static const String cardLow = '$_cdn/w185';
   static const String still = '$_cdn/w300';
   static const String stillLarge = '$_cdn/w400';
   static const String backdrop = '$_cdn/w780';
   static const String backdropLarge = '$_cdn/w1280';
   static const String profile = '$_cdn/w185';
+
+  /// Whether current environment should use bandwidth/CPU-optimized smaller assets.
+  static bool get _useLowDataVariant =>
+      NetworkQualityService.instance.isSlowConnection ||
+      DeviceCapability.isLowEndDevice;
 
   /// Strings that mean "no image" when stored in Firestore. TMDB returns
   /// `poster_path: null` for artwork-less titles; if that null ever gets
@@ -46,13 +55,17 @@ class TmdbImages {
     return '$base$relative';
   }
 
-  static String posterFor(String? path) => _resolve(path, poster);
+  static String posterFor(String? path, {bool forceFullQuality = false}) {
+    final base = (forceFullQuality || !_useLowDataVariant) ? poster : card;
+    return _resolve(path, base);
+  }
 
-  /// Small-grid variant (w342): enough for 120-175px cards even at 3x DPR
-  /// (175 * 3 = 525 physical px; w342 is a touch soft there but saves ~40%
-  /// bytes + wasm decode time on every scroll frame, which is the PWA
-  /// bottleneck — detail drawers keep using w500 via [posterFor]).
-  static String cardFor(String? path) => _resolve(path, card);
+  /// Small-grid variant: w342 for regular lines, or w185 on slow connections /
+  /// low-end devices (saving ~78% bytes and 4x decode memory per card).
+  static String cardFor(String? path, {bool forceFullQuality = false}) {
+    final base = (forceFullQuality || !_useLowDataVariant) ? card : cardLow;
+    return _resolve(path, base);
+  }
 
   static String backdropFor(String? path, {bool large = false}) =>
       _resolve(path, large ? backdropLarge : backdrop);

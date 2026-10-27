@@ -21,6 +21,8 @@ import 'core/system/app_error_widget.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
+import 'core/network/network_quality_service.dart';
+import 'core/perf/device_capability.dart';
 import 'core/utils/connectivity_service.dart';
 import 'core/utils/logger.dart';
 import 'firebase_options.dart';
@@ -52,8 +54,9 @@ Future<void> _startEverglow() async {
   };
   ErrorWidget.builder = buildEverglowErrorWidget;
 
-  // Initialize connectivity monitoring for offline-aware error handling.
+  // Initialize connectivity & network quality monitoring.
   ConnectivityService.instance.init();
+  NetworkQualityService.instance.init();
 
   final bootstrap = AppBootstrap(
     loadEnvironment: () => dotenv.load(fileName: 'assets/env.txt'),
@@ -96,9 +99,13 @@ Future<void> _startEverglow() async {
   // bitmaps, which is more than Clair's phone can give back to the OS. A
   // byte-based ceiling evicts by real cost instead, and the smaller object
   // count keeps the pending/keep-alive bookkeeping cheap.
+  //
+  // Low-end devices (<=4 cores or <=4GB RAM) use an even lighter limit (48 MB)
+  // to avoid tab discards and memory pressure.
+  final isLowEnd = DeviceCapability.isLowEndDevice;
   PaintingBinding.instance.imageCache
-    ..maximumSize = 220
-    ..maximumSizeBytes = 96 << 20; // 96 MB of decoded bitmaps
+    ..maximumSize = isLowEnd ? 100 : 220
+    ..maximumSizeBytes = isLowEnd ? (48 << 20) : (96 << 20);
   // Remembered page for this device (route_memory.dart): ready before the
   // router is created so a killed tab/PWA reopens where she left off.
   await RouteMemory.load();

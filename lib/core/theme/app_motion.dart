@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../perf/device_capability.dart';
 import '../theme/app_theme.dart';
 
 /// Dusk Petal v2 — Motion token system.
@@ -60,12 +61,14 @@ class AppMotion {
   /// Whether the user has reduced-motion enabled.
   static bool get reduced => AppTheme.shouldReduceMotion;
 
-  /// Phones keep the artwork, without continuously repainting decoration.
-  /// The shortest side also covers landscape phones; tablets keep their motion.
+  /// Phones and low-end devices keep the artwork, without continuously repainting decoration.
+  /// The shortest side covers landscape phones; tablets and desktops keep motion
+  /// unless constrained by CPU/RAM.
   static bool reduceAmbientMotion(BuildContext context) =>
       reduced ||
       MediaQuery.disableAnimationsOf(context) ||
-      MediaQuery.sizeOf(context).shortestSide < 600;
+      MediaQuery.sizeOf(context).shortestSide < 600 ||
+      DeviceCapability.isLowEndDevice;
 
   /// Returns [duration] or [Duration.zero] depending on the
   /// user's motion preference. Drop in front of every
