@@ -54,7 +54,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
   ArtistShowdownProvider({
     MusicSyncService? syncService,
     String initialArtist = ArtistShowdownProvider.defaultArtist,
-  }) : _sync = syncService ?? MusicSyncService() {
+    Duration chartTimeout = const Duration(seconds: 5),
+    Duration discoveryTimeout = const Duration(seconds: 15),
+  }) : _sync = syncService ?? MusicSyncService(),
+       _chartTimeout = chartTimeout,
+       _discoveryTimeout = discoveryTimeout {
     _khentUser = EnvConfig.lastfmUserKhent;
     _clairUser = EnvConfig.lastfmUserClair;
     selectArtist(initialArtist);
@@ -72,6 +76,8 @@ class ArtistShowdownProvider extends ChangeNotifier {
   static const int _historyMaxTracks = 50;
 
   final MusicSyncService _sync;
+  final Duration _chartTimeout;
+  final Duration _discoveryTimeout;
   late final String _khentUser;
   late final String _clairUser;
 
@@ -233,22 +239,29 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
     _artist = artist;
     _isLoading = true;
+    _khentTotal = 0;
+    _clairTotal = 0;
+    _tracks = const [];
     _safeNotify();
+    var timedOut = false;
+    (int, int, List<ShowdownTrack>)? localRows;
     try {
       final rows = await _fetchArtistShowdownRows(
         artist,
         onChartRows: (rows) {
           if (_disposed || request != _requestId || rows.$3.isEmpty) return;
+          localRows = rows;
           _khentTotal = rows.$1;
           _clairTotal = rows.$2;
           _tracks = rows.$3;
           _safeNotify();
         },
       ).timeout(
-        const Duration(seconds: 15),
+        _discoveryTimeout,
         onTimeout: () {
+          timedOut = true;
           Logger.w('ArtistShowdown: discovery timed out for "$artist"');
-          return (_khentTotal, _clairTotal, _tracks);
+          return localRows ?? (0, 0, const <ShowdownTrack>[]);
         },
       );
       // A newer selectArtist won while these reads were in flight — drop them.
@@ -256,11 +269,13 @@ class ArtistShowdownProvider extends ChangeNotifier {
       _khentTotal = rows.$1;
       _clairTotal = rows.$2;
       _tracks = rows.$3;
-      _cache[key] = _CachedShowdown(
-        khentTotal: _khentTotal,
-        clairTotal: _clairTotal,
-        tracks: _tracks,
-      );
+      if (!timedOut) {
+        _cache[key] = _CachedShowdown(
+          khentTotal: _khentTotal,
+          clairTotal: _clairTotal,
+          tracks: _tracks,
+        );
+      }
     } catch (e, st) {
       Logger.e('ArtistShowdown: failed to load "$artist"', error: e, stackTrace: st);
     } finally {
@@ -336,8 +351,16 @@ class ArtistShowdownProvider extends ChangeNotifier {
         Future.wait([
           _tracksForArtistLegacy(_khentUser, artist),
           _tracksForArtistLegacy(_clairUser, artist),
-        ]).then((charts) {
-          onChartRows(_merge(charts[0], charts[1]));
+        ]).timeout(
+          _chartTimeout,
+          onTimeout: () {
+            Logger.w('ArtistShowdown: chart fetch timed out for "$artist"');
+            return <List<TopMusicTrack>>[const [], const []];
+          },
+        ).then((charts) {
+          if (charts[0].isNotEmpty || charts[1].isNotEmpty) {
+            onChartRows(_merge(charts[0], charts[1]));
+          }
           return charts;
         }).catchError((Object e, StackTrace st) {
           Logger.w('ArtistShowdown: chart fetch failed for "$artist"', error: e);
