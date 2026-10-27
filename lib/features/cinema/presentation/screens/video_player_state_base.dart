@@ -41,6 +41,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   Timer? _upNextTimer;
   bool _upNextDismissed = false;
   bool _autoFullscreen = false;
+  bool _landscapeFullscreenDismissed = false;
   final NextEpisodeService _nextService = NextEpisodeService();
   static const int _upNextCountdownSeconds = 10;
 
@@ -805,24 +806,39 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _resolvedStartSeconds = null;
   }
 
-  /// Auto-enters theater mode when a phone rotates to landscape, and
-  /// auto-exits when it rotates back to portrait. Tablets/desktops and
-  /// manual toggles are never touched.
+  /// Auto-enters theater when a phone rotates to landscape and exits on
+  /// portrait. A manual exit lasts until the next portrait orientation.
   void _maybeAutoFullscreen(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final isPhone = size.shortestSide < 600;
-    if (!isPhone) return;
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    if (isLandscape && !_isFullscreen && !_iframeFailed) {
+    if (!isLandscape) _landscapeFullscreenDismissed = false;
+    final isPhone = size.shortestSide < 600;
+    if (!isPhone) return;
+    if (isLandscape &&
+        !_isFullscreen &&
+        !_iframeFailed &&
+        !_landscapeFullscreenDismissed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _isFullscreen) return;
+        if (!mounted ||
+            _isFullscreen ||
+            _iframeFailed ||
+            _landscapeFullscreenDismissed ||
+            MediaQuery.orientationOf(context) != Orientation.landscape ||
+            MediaQuery.sizeOf(context).shortestSide >= 600) {
+          return;
+        }
         _autoFullscreen = true;
         _toggleFullScreen();
       });
     } else if (!isLandscape && _isFullscreen && _autoFullscreen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_isFullscreen || !_autoFullscreen) return;
+        if (!mounted ||
+            !_isFullscreen ||
+            !_autoFullscreen ||
+            MediaQuery.orientationOf(context) != Orientation.portrait) {
+          return;
+        }
         _autoFullscreen = false;
         _toggleFullScreen();
       });
@@ -1158,7 +1174,14 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       ..fontWeight = '700'
       ..fontFamily = 'system-ui, sans-serif'
       ..userSelect = 'none';
-    _onFullscreenExitListener = ((web.Event _) => _toggleFullScreen()).toJS;
+    _onFullscreenExitListener = ((web.Event _) {
+      if (MediaQuery.sizeOf(context).shortestSide < 600 &&
+          MediaQuery.orientationOf(context) == Orientation.landscape) {
+        _landscapeFullscreenDismissed = true;
+      }
+      _autoFullscreen = false;
+      _toggleFullScreen();
+    }).toJS;
     button.addEventListener('click', _onFullscreenExitListener);
     web.document.body?.appendChild(button);
     _fullscreenExitButton = button;
