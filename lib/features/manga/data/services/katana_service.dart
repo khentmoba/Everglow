@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:html_unescape/html_unescape.dart';
 
+import '../../../../core/network/fast_network_cache.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/katana_models.dart';
@@ -120,7 +121,28 @@ class KatanaService {
 
   String proxiedImageUrl(String url) => proxyImageUrl(url);
 
-  Future<String?> _fetchHtml(Uri uri, {String cookie = ''}) async {
+  Future<String?> _fetchHtml(
+    Uri uri, {
+    String cookie = '',
+    bool forceRefresh = false,
+  }) async {
+    final cacheKey =
+        'katana:${uri.toString()}${cookie.isNotEmpty ? ':$cookie' : ''}';
+    if (forceRefresh) {
+      final fresh = await _rawFetchHtml(uri, cookie: cookie);
+      if (fresh != null && fresh.isNotEmpty) {
+        FastNetworkCache.instance.putStringDirectly(cacheKey, fresh);
+      }
+      return fresh;
+    }
+    return FastNetworkCache.instance.getOrFetchString(
+      cacheKey,
+      () => _rawFetchHtml(uri, cookie: cookie),
+      ttl: const Duration(minutes: 15),
+    );
+  }
+
+  Future<String?> _rawFetchHtml(Uri uri, {String cookie = ''}) async {
     // One retry for transient hiccups (cold Cloud Function instances
     // occasionally answer 200 with an empty body, and the site or CDN
     // sometimes drops a request). Keeps chapter loads and search from
@@ -220,6 +242,7 @@ class KatanaService {
     String slug,
     String chapterId, {
     String server = '',
+    bool forceRefresh = false,
   }) async {
     if (slug.isEmpty || chapterId.isEmpty) return const [];
     const servers = ['', '?sv=mk', '?sv=3'];
@@ -228,6 +251,7 @@ class KatanaService {
       final html = await _fetchHtml(
         Uri.parse('$_baseUrl/manga/$slug/$chapterId$sv'),
         cookie: cookieForServer(sv),
+        forceRefresh: forceRefresh,
       );
       if (html == null) continue;
       final urls = _parseImageArrays(html);

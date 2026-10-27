@@ -435,6 +435,19 @@
       }).catch(function () { return false; });
     };
     function __everglowIdleLoadMedia() {
+      // On slow connections (2G/3G or saveData) or low-end devices (<=4 cores),
+      // DO NOT eagerly pre-download ~700KB of external media libraries in the background.
+      // They are loaded on-demand when the user actually plays a video or views 3D.
+      try {
+        var conn = navigator.connection;
+        if (conn && (conn.saveData || /(^|-)2g|3g$/.test(conn.effectiveType || ''))) {
+          return;
+        }
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) {
+          return;
+        }
+      } catch (_) {}
+
       var kick = function () {
         try {
           var p = window.__everglowEnsureMediaLibs();

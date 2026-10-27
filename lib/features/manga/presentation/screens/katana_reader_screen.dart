@@ -313,6 +313,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         widget.slug,
         _chapter.path,
         server: _server,
+        forceRefresh: true,
       );
     }
 

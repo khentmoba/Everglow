@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import '../../core/network/fast_network_cache.dart';
 
 /// Shared helper for keyless public JSON catalogs (Open Library, Jikan,
 /// iTunes, AniSkip).
@@ -29,7 +30,11 @@ class CatalogProxyClient {
     final uri = Uri.parse(proxyBase).replace(
       queryParameters: {'base': base, 'path': '$path$rawQuery'},
     );
-    return _getWithOptionalAuth(uri, timeout);
+    return FastNetworkCache.instance.getOrFetchResponse(
+      uri.toString(),
+      () => _getWithOptionalAuth(uri, timeout),
+      ttl: const Duration(minutes: 20),
+    );
   }
 
   Future<http.Response> _getWithOptionalAuth(

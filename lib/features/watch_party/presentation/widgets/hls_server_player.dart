@@ -362,12 +362,33 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     }
   }
 
+  bool _loadTriggered = false;
+  void _triggerMediaLibsLoad() {
+    if (_loadTriggered) return;
+    _loadTriggered = true;
+    try {
+      if (globalContext.has('__everglowEnsureMediaLibs')) {
+        final p = globalContext.callMethod<JSPromise?>(
+          '__everglowEnsureMediaLibs'.toJS,
+        );
+        p?.toDart.then((_) {
+          if (!_destroyed && mounted) _ensureBridgeAndCreate();
+        }).catchError((_) {
+          _loadTriggered = false;
+        });
+      }
+    } catch (_) {
+      // JS global unavailable or throwing.
+    }
+  }
+
   void _ensureBridgeAndCreate() {
     if (_destroyed || _loadingUrl == null) return;
     final bridge = globalContext.getProperty<JSObject>(
       'EverglowHlsBridge'.toJS,
     );
     if (bridge.isUndefinedOrNull) {
+      _triggerMediaLibsLoad();
       _scheduleBridgePoll();
       return;
     }

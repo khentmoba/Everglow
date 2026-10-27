@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
+import '../../../../../core/network/fast_network_cache.dart';
 import '../../../../../core/agent/agent_mode.dart';
 import 'tmdb_agent_catalogue.dart';
 import '../../models/media_item.dart';
@@ -56,8 +57,7 @@ mixin TMDBBase {
   /// unit tests (no Firebase app), while every caller only needs it lazily.
   FirebaseFirestore get firestore => FirebaseFirestore.instance;
 
-  /// Sends a signed TMDB request. [http.get] cannot be used directly because
-  /// the Authorization header makes browsers issue an authenticated CORS call.
+  /// Sends a signed TMDB request with transparent caching.
   Future<http.Response> tmdbGet(Uri url) async {
     if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
       final data = agentTmdbResponse(url);
@@ -67,13 +67,19 @@ mixin TMDBBase {
         headers: {'content-type': 'application/json'},
       );
     }
-    final token = await _getIdTokenCached();
-    if (token == null || token.isEmpty) {
-      throw StateError('TMDB requires an authenticated user');
-    }
-    return http
-        .get(url, headers: {'Authorization': 'Bearer $token'})
-        .timeout(const Duration(seconds: 12));
+    return FastNetworkCache.instance.getOrFetchResponse(
+      url.toString(),
+      () async {
+        final token = await _getIdTokenCached();
+        if (token == null || token.isEmpty) {
+          throw StateError('TMDB requires an authenticated user');
+        }
+        return http
+            .get(url, headers: {'Authorization': 'Bearer $token'})
+            .timeout(const Duration(seconds: 12));
+      },
+      ttl: const Duration(minutes: 20),
+    );
   }
 
   /// Generic mapping helper: TMDB result -> MediaItem
