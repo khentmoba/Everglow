@@ -28,6 +28,7 @@ class _FakeSync extends MusicSyncService {
     this.catalogTracks = const [],
     this.userArtistTracks = const {},
     this.catalogGate,
+    this.chartGate,
     this.gatedArtist,
   });
 
@@ -42,6 +43,7 @@ class _FakeSync extends MusicSyncService {
   final List<TopMusicTrack> catalogTracks;
   final Map<String, List<TopMusicTrack>> userArtistTracks;
   final Completer<void>? catalogGate;
+  final Completer<void>? chartGate;
   final String? gatedArtist;
   int calls = 0;
   int artworkCalls = 0;
@@ -87,6 +89,7 @@ class _FakeSync extends MusicSyncService {
     String period = 'overall',
   }) async {
     calls++;
+    if (chartGate != null) await chartGate!.future;
     if (page > 1) return const [];
     return byUser[username] ?? const [];
   }
@@ -690,5 +693,163 @@ void main() {
         provider.dispose();
       },
     );
+
+    test(
+      'selectArtist recovers safely when network throws and does not get stuck in loading state',
+      () async {
+        final sync = _ThrowingSync();
+        final provider = ArtistShowdownProvider(syncService: sync);
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.isLoading, isFalse);
+        expect(provider.hasData, isFalse);
+
+        await provider.selectArtist('Lana Del Rey');
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.isLoading, isFalse);
+        expect(provider.artist, 'Lana Del Rey');
+        provider.dispose();
+      },
+    );
+
+    test(
+      'catalog playcounts succeed and display while chart requests remain pending',
+      () async {
+        final chartGate = Completer<void>();
+        final sync = _FakeSync(
+          byUser: {
+            'khentsgdz': [_track('Chart Track', 100)],
+            'clairjassen': [_track('Chart Track', 50)],
+          },
+          catalogTracks: [_track('Rare B-Side', 0)],
+          userArtistTracks: {
+            'khentsgdz': [_track('Rare B-Side', 42)],
+            'clairjassen': [_track('Rare B-Side', 67)],
+          },
+          chartGate: chartGate,
+        );
+        // chartTimeout is 50ms so chart lookup bounds quickly without waiting
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          chartTimeout: const Duration(milliseconds: 50),
+        );
+        addTearDown(() {
+          if (!chartGate.isCompleted) chartGate.complete();
+          provider.dispose();
+        });
+
+        await _waitFor(() => !provider.isLoading);
+
+        // Catalog track playcounts are returned even though chart was pending
+        expect(provider.hasData, isTrue);
+        expect(provider.khentTotal, 42);
+        expect(provider.clairTotal, 67);
+        expect(provider.tracks, hasLength(1));
+        expect(provider.tracks.first.trackName, 'Rare B-Side');
+      },
+    );
+
+    test(
+      'timeout fallback does not cache or retain previous artist data',
+      () async {
+        final slowGate = Completer<void>();
+        final sync = _GatedArtistSync(
+          byUser: {
+            'khentsgdz': [_track('American Teenager', 10)],
+            'clairjassen': [_track('American Teenager', 20)],
+          },
+          gatedArtist: 'Slow Artist',
+          gate: slowGate,
+        );
+
+        final provider = ArtistShowdownProvider(
+          syncService: sync,
+          discoveryTimeout: const Duration(milliseconds: 60),
+        );
+        addTearDown(() {
+          if (!slowGate.isCompleted) slowGate.complete();
+          provider.dispose();
+        });
+
+        await _waitFor(() => !provider.isLoading);
+        expect(provider.artist, 'Ethel Cain');
+        expect(provider.khentTotal, 10);
+        expect(provider.tracks, hasLength(1));
+
+        // Select an artist that times out before any data resolves
+        await provider.selectArtist('Slow Artist');
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.artist, 'Slow Artist');
+        // Must NOT keep Ethel Cain's totals or tracks!
+        expect(provider.khentTotal, 0);
+        expect(provider.clairTotal, 0);
+        expect(provider.tracks, isEmpty);
+        expect(provider.hasData, isFalse);
+
+        // Switching back to Ethel Cain restores cached Ethel Cain
+        await provider.selectArtist('Ethel Cain');
+        expect(provider.artist, 'Ethel Cain');
+        expect(provider.khentTotal, 10);
+        expect(provider.clairTotal, 20);
+      },
+    );
   });
+}
+
+class _GatedArtistSync extends _FakeSync {
+  _GatedArtistSync({
+    required super.byUser,
+    required this.gate,
+    super.gatedArtist,
+  });
+
+  final Completer<void> gate;
+
+  @override
+  Future<List<TopMusicTrack>> fetchTopTracks(
+    String username, {
+    int limit = 10,
+    int page = 1,
+    String period = 'overall',
+  }) async {
+    if (gatedArtist != null && calls >= 2) {
+      await gate.future;
+    }
+    return super.fetchTopTracks(username, limit: limit, page: page, period: period);
+  }
+
+  @override
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
+    String artist, {
+    int pageSize = 50,
+    int maxPages = 10,
+  }) async {
+    if (artist == gatedArtist) {
+      await gate.future;
+    }
+    return super.fetchArtistCatalogTracksAll(artist, pageSize: pageSize, maxPages: maxPages);
+  }
+}
+
+class _ThrowingSync extends MusicSyncService {
+  @override
+  Future<List<TopMusicTrack>> fetchTopTracks(
+    String username, {
+    int limit = 10,
+    int page = 1,
+    String period = 'overall',
+  }) async {
+    throw StateError('Simulated network error');
+  }
+
+  @override
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
+    String artist, {
+    int pageSize = 50,
+    int maxPages = 10,
+  }) async {
+    throw StateError('Simulated catalog timeout');
+  }
 }

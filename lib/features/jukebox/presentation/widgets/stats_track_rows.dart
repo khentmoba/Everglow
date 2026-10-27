@@ -69,33 +69,23 @@ class TopTrackRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        track.trackName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.outfitHeading.copyWith(
-                          fontSize: _isPodium ? 15.5 : 14.5,
-                          height: 1.15,
-                          color: AppColors.petalWhite,
-                          shadows: _isPodium
-                              ? [
-                                  Shadow(
-                                    color: _podiumColor.withValues(alpha: 0.35),
-                                    blurRadius: 12,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                    if (_isPodium) ...[
-                      const SizedBox(width: 6),
-                      _PodiumTag(rank: track.rank, isPink: isPink),
-                    ],
-                  ],
+                Text(
+                  track.trackName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.outfitHeading.copyWith(
+                    fontSize: _isPodium ? 15.0 : 14.0,
+                    height: 1.15,
+                    color: AppColors.petalWhite,
+                    shadows: _isPodium
+                        ? [
+                            Shadow(
+                              color: _podiumColor.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                            ),
+                          ]
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -254,64 +244,6 @@ class TopTrackRow extends StatelessWidget {
   }
 }
 
-class _PodiumTag extends StatelessWidget {
-  final int rank;
-  final bool isPink;
-  const _PodiumTag({required this.rank, this.isPink = false});
-  @override
-  Widget build(BuildContext context) {
-    final c = isPink
-        ? switch (rank) {
-            1 => AppColors.cinemaPink,
-            2 => AppColors.roseQuartz,
-            3 => AppColors.softLavender,
-            _ => AppColors.auroraRose,
-          }
-        : switch (rank) {
-            1 => AppColors.auroraGold,
-            2 => AppColors.rankSilverCool,
-            3 => AppColors.rankBronzeWarm,
-            _ => AppColors.blushGold,
-          };
-    final label = switch (rank) {
-      1 => '#1',
-      2 => '#2',
-      3 => '#3',
-      _ => '#$rank',
-    };
-    final extra = rank == 1 ? ' TOP' : '';
-    final icon = switch (rank) {
-      1 => Icons.emoji_events_rounded,
-      2 => Icons.workspace_premium_rounded,
-      3 => Icons.military_tech_rounded,
-      _ => Icons.star_rounded,
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: c.withValues(alpha: 0.48)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 10, color: c),
-          const SizedBox(width: 3),
-          Text(
-            '$label$extra',
-            style: AppTypography.outfitBold.copyWith(
-              fontSize: 8,
-              color: c,
-              letterSpacing: 0.9,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _PlayBar extends StatelessWidget {
   final double fraction;
   final Color color;
@@ -392,7 +324,7 @@ class _PlayCountPill extends StatelessWidget {
       );
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -467,7 +399,7 @@ class _PodiumArtwork extends StatelessWidget {
             3 => AppColors.rankBronzeWarm.withValues(alpha: 0.75),
             _ => AppColors.moonlight.withValues(alpha: 0.14),
           };
-    final size = isPodium ? 50.0 : 46.0;
+    final size = isPodium ? 48.0 : 44.0;
     final art = Container(
       width: size,
       height: size,

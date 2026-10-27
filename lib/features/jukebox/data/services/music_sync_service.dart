@@ -237,22 +237,17 @@ class MusicSyncService {
         if (tracks.isNotEmpty) {
           final parsed = <TopMusicTrack>[];
           for (var i = 0; i < tracks.length; i++) {
-            final track = TopMusicTrack.fromJson(tracks[i]);
-            // Last.fm includes a rank, but fall back to the list order so
-            // the leaderboard always renders 1..10.
-            parsed.add(
-              track.rank > 0
-                  ? track
-                  : TopMusicTrack(
-                      rank: i + 1,
-                      trackName: track.trackName,
-                      artistName: track.artistName,
-                      playCount: track.playCount,
-                      imageUrl: track.imageUrl,
-                      spotifyUrl: track.spotifyUrl,
-                      mbid: track.mbid,
-                    ),
-            );
+            parsed.add(TopMusicTrack.fromJson(tracks[i]));
+          }
+          parsed.sort((a, b) {
+            final cmp = b.playCount.compareTo(a.playCount);
+            if (cmp != 0) return cmp;
+            final rankA = a.rank > 0 ? a.rank : 999;
+            final rankB = b.rank > 0 ? b.rank : 999;
+            return rankA.compareTo(rankB);
+          });
+          for (var i = 0; i < parsed.length; i++) {
+            parsed[i] = parsed[i].copyWith(rank: i + 1);
           }
           return parsed;
         } else {
@@ -489,7 +484,7 @@ class MusicSyncService {
     String username,
     String artist, {
     required List<TopMusicTrack> candidateTracks,
-    int batchSize = 6,
+    int batchSize = 8,
   }) async {
     final trimmedArtist = artist.trim();
     if (username.isEmpty ||

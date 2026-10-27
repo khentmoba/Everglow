@@ -320,9 +320,20 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     );
     if (_disposed) return;
     if (tracks.isEmpty && destination.isNotEmpty) return;
+    final sorted = List<TopMusicTrack>.from(tracks)
+      ..sort((a, b) {
+        final cmp = b.playCount.compareTo(a.playCount);
+        if (cmp != 0) return cmp;
+        final rankA = a.rank > 0 ? a.rank : 999;
+        final rankB = b.rank > 0 ? b.rank : 999;
+        return rankA.compareTo(rankB);
+      });
+    for (var i = 0; i < sorted.length; i++) {
+      sorted[i] = sorted[i].copyWith(rank: i + 1);
+    }
     destination
       ..clear()
-      ..addAll(tracks);
+      ..addAll(sorted);
     _safeNotify();
   }
 
