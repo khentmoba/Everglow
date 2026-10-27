@@ -215,5 +215,41 @@ void main() {
       final plays = await service.fetchUserTotalPlays('khentsgdz');
       expect(plays, 6716);
     });
+
+    test('fetchTopTracks sorts tracks by playcount descending and updates rank', () async {
+      final service = _service(
+        () async => _jsonResponse({
+          'toptracks': {
+            'track': [
+              {
+                'name': 'A House in Nebraska',
+                'playcount': '7925898',
+                'artist': {'name': 'Ethel Cain'},
+                'mbid': '',
+                '@attr': {'rank': '4'},
+              },
+              {
+                'name': 'Sun Bleached Flies',
+                'playcount': '9105893',
+                'artist': {'name': 'Ethel Cain'},
+                'mbid': '',
+                '@attr': {'rank': '5'},
+              },
+            ],
+          },
+        }),
+      );
+
+      final tracks = await service.fetchTopTracks('khentsgdz');
+      expect(tracks, hasLength(2));
+      // Sun Bleached Flies has 9.1M plays, so it must be rank 1
+      expect(tracks[0].trackName, 'Sun Bleached Flies');
+      expect(tracks[0].rank, 1);
+      expect(tracks[0].playCount, 9105893);
+      // A House in Nebraska has 7.9M plays, so it must be rank 2
+      expect(tracks[1].trackName, 'A House in Nebraska');
+      expect(tracks[1].rank, 2);
+      expect(tracks[1].playCount, 7925898);
+    });
   });
 }

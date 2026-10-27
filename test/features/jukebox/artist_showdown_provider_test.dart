@@ -690,5 +690,45 @@ void main() {
         provider.dispose();
       },
     );
+
+    test(
+      'selectArtist recovers safely when network throws and does not get stuck in loading state',
+      () async {
+        final sync = _ThrowingSync();
+        final provider = ArtistShowdownProvider(syncService: sync);
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.isLoading, isFalse);
+        expect(provider.hasData, isFalse);
+
+        await provider.selectArtist('Lana Del Rey');
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.isLoading, isFalse);
+        expect(provider.artist, 'Lana Del Rey');
+        provider.dispose();
+      },
+    );
   });
+}
+
+class _ThrowingSync extends MusicSyncService {
+  @override
+  Future<List<TopMusicTrack>> fetchTopTracks(
+    String username, {
+    int limit = 10,
+    int page = 1,
+    String period = 'overall',
+  }) async {
+    throw StateError('Simulated network error');
+  }
+
+  @override
+  Future<List<TopMusicTrack>> fetchArtistCatalogTracksAll(
+    String artist, {
+    int pageSize = 50,
+    int maxPages = 10,
+  }) async {
+    throw StateError('Simulated catalog timeout');
+  }
 }

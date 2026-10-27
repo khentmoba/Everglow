@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../../../core/config/env_config.dart';
+import '../../../../core/utils/logger.dart';
 import '../../data/models/artist_suggestion.dart';
 import '../../data/models/music_status.dart';
 import '../../data/models/top_music_track.dart';
@@ -233,28 +234,41 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _artist = artist;
     _isLoading = true;
     _safeNotify();
-    final rows = await _fetchArtistShowdownRows(
-      artist,
-      onChartRows: (rows) {
-        if (_disposed || request != _requestId || rows.$3.isEmpty) return;
-        _khentTotal = rows.$1;
-        _clairTotal = rows.$2;
-        _tracks = rows.$3;
+    try {
+      final rows = await _fetchArtistShowdownRows(
+        artist,
+        onChartRows: (rows) {
+          if (_disposed || request != _requestId || rows.$3.isEmpty) return;
+          _khentTotal = rows.$1;
+          _clairTotal = rows.$2;
+          _tracks = rows.$3;
+          _safeNotify();
+        },
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          Logger.w('ArtistShowdown: discovery timed out for "$artist"');
+          return (_khentTotal, _clairTotal, _tracks);
+        },
+      );
+      // A newer selectArtist won while these reads were in flight — drop them.
+      if (_disposed || request != _requestId) return;
+      _khentTotal = rows.$1;
+      _clairTotal = rows.$2;
+      _tracks = rows.$3;
+      _cache[key] = _CachedShowdown(
+        khentTotal: _khentTotal,
+        clairTotal: _clairTotal,
+        tracks: _tracks,
+      );
+    } catch (e, st) {
+      Logger.e('ArtistShowdown: failed to load "$artist"', error: e, stackTrace: st);
+    } finally {
+      if (!_disposed && request == _requestId) {
+        _isLoading = false;
         _safeNotify();
-      },
-    );
-    // A newer selectArtist won while these reads were in flight — drop them.
-    if (_disposed || request != _requestId) return;
-    _khentTotal = rows.$1;
-    _clairTotal = rows.$2;
-    _tracks = rows.$3;
-    _cache[key] = _CachedShowdown(
-      khentTotal: _khentTotal,
-      clairTotal: _clairTotal,
-      tracks: _tracks,
-    );
-    _isLoading = false;
-    _safeNotify();
+      }
+    }
     // `user.gettoptracks` rarely ships real covers, so rows would all fall
     // back to the music-note tile. Enrich missing artwork in the background
     // (Last.fm track.getinfo, then iTunes) and pop covers in as they land.
@@ -325,12 +339,33 @@ class ArtistShowdownProvider extends ChangeNotifier {
         ]).then((charts) {
           onChartRows(_merge(charts[0], charts[1]));
           return charts;
+        }).catchError((Object e, StackTrace st) {
+          Logger.w('ArtistShowdown: chart fetch failed for "$artist"', error: e);
+          return <List<TopMusicTrack>>[const [], const []];
         });
 
     // 1. Discover all candidate tracks strictly for this artist.
-    final catalogFuture = _sync.fetchArtistCatalogTracksAll(artist);
-    final recentKhentFuture = _sync.fetchRecentTracks(_khentUser, limit: 200);
-    final recentClairFuture = _sync.fetchRecentTracks(_clairUser, limit: 200);
+    final catalogFuture = _sync
+        .fetchArtistCatalogTracksAll(artist, pageSize: 50, maxPages: 2)
+        .timeout(const Duration(seconds: 6), onTimeout: () => const [])
+        .catchError((Object e, StackTrace st) {
+          Logger.w('ArtistShowdown: catalog fetch failed for "$artist"', error: e);
+          return const <TopMusicTrack>[];
+        });
+    final recentKhentFuture = _sync
+        .fetchRecentTracks(_khentUser, limit: 50)
+        .timeout(const Duration(seconds: 4), onTimeout: () => const [])
+        .catchError((Object e, StackTrace st) {
+          Logger.w('ArtistShowdown: recent tracks fetch failed for "$artist"', error: e);
+          return const <MusicStatus>[];
+        });
+    final recentClairFuture = _sync
+        .fetchRecentTracks(_clairUser, limit: 50)
+        .timeout(const Duration(seconds: 4), onTimeout: () => const [])
+        .catchError((Object e, StackTrace st) {
+          Logger.w('ArtistShowdown: recent tracks fetch failed for "$artist"', error: e);
+          return const <MusicStatus>[];
+        });
 
     final catalog = await catalogFuture;
     final candidateMap = <String, TopMusicTrack>{};
@@ -360,7 +395,7 @@ class ArtistShowdownProvider extends ChangeNotifier {
       }
     }
 
-    final candidates = candidateMap.values.toList();
+    final candidates = candidateMap.values.take(30).toList();
 
     // 2. If candidate tracks were found for this artist, query per-track
     // playcounts and union with each user's own chart: the catalog misses
@@ -368,16 +403,28 @@ class ArtistShowdownProvider extends ChangeNotifier {
     // misses deep cuts below its pages. Unioned, every played song is a
     // named row instead of unnamed filler.
     if (candidates.isNotEmpty) {
-      final khentTracksFuture = _sync.fetchUserArtistTracks(
-        _khentUser,
-        artist,
-        candidateTracks: candidates,
-      );
-      final clairTracksFuture = _sync.fetchUserArtistTracks(
-        _clairUser,
-        artist,
-        candidateTracks: candidates,
-      );
+      final khentTracksFuture = _sync
+          .fetchUserArtistTracks(
+            _khentUser,
+            artist,
+            candidateTracks: candidates,
+          )
+          .timeout(const Duration(seconds: 8), onTimeout: () => const [])
+          .catchError((Object e, StackTrace st) {
+            Logger.w('ArtistShowdown: user artist tracks fetch failed for "$artist"', error: e);
+            return const <TopMusicTrack>[];
+          });
+      final clairTracksFuture = _sync
+          .fetchUserArtistTracks(
+            _clairUser,
+            artist,
+            candidateTracks: candidates,
+          )
+          .timeout(const Duration(seconds: 8), onTimeout: () => const [])
+          .catchError((Object e, StackTrace st) {
+            Logger.w('ArtistShowdown: user artist tracks fetch failed for "$artist"', error: e);
+            return const <TopMusicTrack>[];
+          });
       final khentTracks = await khentTracksFuture;
       final clairTracks = await clairTracksFuture;
       final charts = await chartFuture;
@@ -522,51 +569,58 @@ class ArtistShowdownProvider extends ChangeNotifier {
         .map((t) => t.trackName)
         .toList();
 
-    final results = await Future.wait([
-      _sync.fetchArtistHistory(
-        _khentUser,
-        artist: artist,
-        knownTracks: khentTracks,
-        maxTracks: _historyMaxTracks,
-      ),
-      _sync.fetchArtistHistory(
-        _clairUser,
-        artist: artist,
-        knownTracks: clairTracks,
-        maxTracks: _historyMaxTracks,
-      ),
-    ]);
+    try {
+      final results = await Future.wait([
+        _sync.fetchArtistHistory(
+          _khentUser,
+          artist: artist,
+          knownTracks: khentTracks,
+          maxTracks: _historyMaxTracks,
+        ),
+        _sync.fetchArtistHistory(
+          _clairUser,
+          artist: artist,
+          knownTracks: clairTracks,
+          maxTracks: _historyMaxTracks,
+        ),
+      ]);
 
-    if (_disposed || request != _historyRequestId) return;
+      if (_disposed || request != _historyRequestId) return;
 
-    // Attach enriched artwork from _tracks if available and missing on scrobble
-    final trackArtworks = <String, String>{};
-    for (final t in _tracks) {
-      if (t.imageUrl != null && t.imageUrl!.isNotEmpty) {
-        trackArtworks[t.trackName.trim().toLowerCase()] = t.imageUrl!;
+      // Attach enriched artwork from _tracks if available and missing on scrobble
+      final trackArtworks = <String, String>{};
+      for (final t in _tracks) {
+        if (t.imageUrl != null && t.imageUrl!.isNotEmpty) {
+          trackArtworks[t.trackName.trim().toLowerCase()] = t.imageUrl!;
+        }
+      }
+
+      List<MusicStatus> attachCovers(List<MusicStatus> list) {
+        return list.map((s) {
+          if (s.imageUrl != null && s.imageUrl!.isNotEmpty) return s;
+          final matchingArt = trackArtworks[s.trackName.trim().toLowerCase()];
+          if (matchingArt != null) {
+            return s.copyWith(imageUrl: matchingArt);
+          }
+          return s;
+        }).toList();
+      }
+
+      _khentHistory = attachCovers(results[0]);
+      _clairHistory = attachCovers(results[1]);
+
+      _historyCache[key] = _CachedArtistHistory(
+        khentHistory: _khentHistory,
+        clairHistory: _clairHistory,
+      );
+    } catch (e, st) {
+      Logger.e('ArtistShowdown: failed to load history for "$artist"', error: e, stackTrace: st);
+    } finally {
+      if (!_disposed && request == _historyRequestId) {
+        _isLoadingHistory = false;
+        _safeNotify();
       }
     }
-
-    List<MusicStatus> attachCovers(List<MusicStatus> list) {
-      return list.map((s) {
-        if (s.imageUrl != null && s.imageUrl!.isNotEmpty) return s;
-        final matchingArt = trackArtworks[s.trackName.trim().toLowerCase()];
-        if (matchingArt != null) {
-          return s.copyWith(imageUrl: matchingArt);
-        }
-        return s;
-      }).toList();
-    }
-
-    _khentHistory = attachCovers(results[0]);
-    _clairHistory = attachCovers(results[1]);
-
-    _historyCache[key] = _CachedArtistHistory(
-      khentHistory: _khentHistory,
-      clairHistory: _clairHistory,
-    );
-    _isLoadingHistory = false;
-    _safeNotify();
   }
 
   @override

@@ -97,6 +97,20 @@ void main() {
       expect(find.byType(AppNetworkImage), findsNothing);
       expect(find.byIcon(Icons.music_note_rounded), findsOneWidget);
     });
+
+    testWidgets(
+      'podium row gives full width to track name without redundant podium tag',
+      (tester) async {
+        await _pumpRow(
+          tester,
+          _rowTrack(name: 'American Teenager', rank: 1),
+        );
+
+        expect(find.text('American Teenager'), findsOneWidget);
+        expect(find.text('#1 TOP'), findsNothing);
+        expect(find.text('#1'), findsNothing);
+      },
+    );
   });
 
   group('MusicStatsSection thumbnails', () {
