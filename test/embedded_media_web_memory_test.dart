@@ -8,6 +8,8 @@ import 'package:web/web.dart' as web;
 import 'package:everglow/features/ai/presentation/widgets/canvas_html_view_web.dart';
 import 'package:everglow/features/jukebox/presentation/widgets/spotify_embed_view_web.dart';
 
+import 'cinema_fullscreen_web_test.dart' as cinema_fullscreen;
+
 // Counts custom factory registrations (must stay zero) and supplies dummy
 // roots so fromTagName callbacks run without loading third parties.
 class _Registry extends ui_web.PlatformViewRegistry {
@@ -27,6 +29,8 @@ class _Registry extends ui_web.PlatformViewRegistry {
 }
 
 void main() {
+  group('cinema fullscreen', cinema_fullscreen.main);
+
   late _Registry registry;
   setUp(() {
     registry = _Registry();
