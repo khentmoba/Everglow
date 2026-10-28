@@ -195,13 +195,15 @@ class _CanvasScreenState extends State<CanvasScreen> {
 
           // 2. Gesture Detector
           Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onPanStart: (details) => _onPanStart(details, userId),
-              onPanUpdate: (details) => _onPanUpdate(details, userId),
-              onPanEnd: (details) => _onPanEnd(details, userId),
-              child: Container(
-                color: AppColors.petalWhite.withValues(alpha: 0.001),
+            child: SelectionContainer.disabled(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanStart: (details) => _onPanStart(details, userId),
+                onPanUpdate: (details) => _onPanUpdate(details, userId),
+                onPanEnd: (details) => _onPanEnd(details, userId),
+                child: Container(
+                  color: AppColors.petalWhite.withValues(alpha: 0.001),
+                ),
               ),
             ),
           ),

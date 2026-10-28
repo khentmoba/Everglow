@@ -19,6 +19,7 @@ class _Service implements AniListService {
     int? seasonYear,
     String? format,
     String? genre,
+    List<String>? genres,
     int page = 1,
     int perPage = 24,
   }) => (requests[search ?? ''] = Completer<AnimexMediaPage>()).future;

@@ -34,6 +34,7 @@ abstract final class AnimeXTokens {
   static const double radiusXl = 10;
   static const double radius2xl = 12;
   static const double radiusCard = 14;
+  static const double radiusFull = 999;
 
   static const double pageMaxWidth = 1536; // max-w-screen-2xl
   static const double watchPageMaxWidth = 1400;

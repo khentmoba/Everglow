@@ -6,6 +6,7 @@ import '../../../../cinema/data/models/media_item.dart';
 import '../../../data/services/anilist_service.dart';
 
 import 'animex_badges.dart';
+import 'animex_navigation.dart';
 import 'animex_tokens.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../shared/widgets/app_network_image.dart';
@@ -265,12 +266,29 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
           child: MouseRegion(
             onEnter: (_) => _onPopoverEnter(),
             onExit: (_) => _onPopoverExit(),
-            child: _PopoverEntrance(
-              fromLeft: _popoverLeft,
-              child: _CardPopover(
-                item: item,
-                score: score,
-                loadingDetails: _resolving && _resolvedItem == null,
+            child: Listener(
+              onPointerDown: (event) {
+                if (AnimeXNavigation.isMiddleClick(event)) {
+                  AnimeXNavigation.openInNewTab(item);
+                }
+              },
+              child: GestureDetector(
+                onTap: () {
+                  if (AnimeXNavigation.isNewTabModifierPressed()) {
+                    AnimeXNavigation.openInNewTab(item);
+                  } else {
+                    widget.onTap?.call();
+                  }
+                },
+                child: _PopoverEntrance(
+                  fromLeft: _popoverLeft,
+                  child: _CardPopover(
+                    item: item,
+                    score: score,
+                    loadingDetails: _resolving && _resolvedItem == null,
+                    onOpenNewTab: () => AnimeXNavigation.openInNewTab(item),
+                  ),
+                ),
               ),
             ),
           ),
@@ -280,9 +298,21 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
         onEnter: (_) => _enter(),
         onExit: (_) => _onCardExit(),
         cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: SizedBox(
+        child: Listener(
+          onPointerDown: (event) {
+            if (AnimeXNavigation.isMiddleClick(event)) {
+              AnimeXNavigation.openInNewTab(item);
+            }
+          },
+          child: GestureDetector(
+            onTap: () {
+              if (AnimeXNavigation.isNewTabModifierPressed()) {
+                AnimeXNavigation.openInNewTab(item);
+              } else {
+                widget.onTap?.call();
+              }
+            },
+            child: SizedBox(
             width: widget.width,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,7 +505,8 @@ class _AnimeXPosterCardState extends State<AnimeXPosterCard> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _posterImage(MediaItem item) {
@@ -527,11 +558,13 @@ class _CardPopover extends StatelessWidget {
   final MediaItem item;
   final double? score;
   final bool loadingDetails;
+  final VoidCallback? onOpenNewTab;
 
   const _CardPopover({
     required this.item,
     this.score,
     this.loadingDetails = false,
+    this.onOpenNewTab,
   });
 
   @override
@@ -737,6 +770,24 @@ class _CardPopover extends StatelessWidget {
                                 weight: FontWeight.w700,
                               ),
                             ),
+                            if (onOpenNewTab != null) ...[
+                              const SizedBox(width: 6),
+                              Tooltip(
+                                message: 'Open in new tab',
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(4),
+                                  onTap: onOpenNewTab,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(2),
+                                    child: Icon(
+                                      Icons.open_in_new_rounded,
+                                      size: 13,
+                                      color: AnimeXTokens.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

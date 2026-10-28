@@ -73,7 +73,13 @@ class AnimeXController extends ChangeNotifier {
   String? browseStatus;
   String? browseSeason;
   int? browseYear;
-  String? browseGenre;
+  List<String> browseGenres = [];
+
+  String? get browseGenre =>
+      browseGenres.isNotEmpty ? browseGenres.first : null;
+  set browseGenre(String? value) {
+    browseGenres = value != null && value.isNotEmpty ? [value] : [];
+  }
 
   List<MediaItem> get library => List.unmodifiable(_library);
   bool get libraryLoading => _libraryLoading;
@@ -244,12 +250,19 @@ class AnimeXController extends ChangeNotifier {
     String? season,
     int? year,
     String? genre,
+    List<String>? genres,
   }) {
     browseSort = sort;
     browseStatus = status;
     browseSeason = season;
     browseYear = year;
-    browseGenre = genre;
+    if (genres != null) {
+      browseGenres = List.from(genres);
+    } else if (genre != null && genre.isNotEmpty) {
+      browseGenres = [genre];
+    } else {
+      browseGenres = [];
+    }
     goTo(AnimexPage.browse);
   }
 
@@ -278,6 +291,7 @@ class AnimeXController extends ChangeNotifier {
 
   void closeDetail() {
     watchItem = null;
+    watchEpisode = null;
     playlistId = null;
     dmcaOpen = false;
     motchiOpen = false;
