@@ -30,7 +30,28 @@ import 'animex_watch_page.dart';
 ///    (breyan / octagram) inside AnimeXTopHeader; khent / clair see no
 ///    cinema affordance here and use the Dashboard back arrow instead.
 class AnimeXShell extends StatefulWidget {
-  const AnimeXShell({super.key});
+  final int? initialAnilistId;
+  final int? initialMalId;
+  final int? initialTmdbId;
+  final String? initialSource;
+  final String? initialType;
+  final String? initialFormat;
+  final String? initialTitle;
+  final String? initialPoster;
+  final int? initialEpisode;
+
+  const AnimeXShell({
+    super.key,
+    this.initialAnilistId,
+    this.initialMalId,
+    this.initialTmdbId,
+    this.initialSource,
+    this.initialType,
+    this.initialFormat,
+    this.initialTitle,
+    this.initialPoster,
+    this.initialEpisode,
+  });
 
   @override
   State<AnimeXShell> createState() => _AnimeXShellState();
@@ -51,7 +72,56 @@ class _AnimeXShellState extends State<AnimeXShell> {
       _lastUser = user;
       AnimexStores.instance.load(username: user);
       _controller.initLibrary(context);
+      _maybeOpenInitialItem();
     });
+  }
+
+  void _maybeOpenInitialItem() {
+    final anilistId = widget.initialAnilistId;
+    final malId = widget.initialMalId;
+    final tmdbId = widget.initialTmdbId;
+    final source = widget.initialSource ??
+        (tmdbId != null && tmdbId > 0 && (malId == null || malId <= 0)
+            ? 'tmdb'
+            : 'jikan');
+
+    final isMovie = (widget.initialType?.toLowerCase() == 'movie') ||
+        (widget.initialFormat?.toUpperCase() == 'MOVIE');
+    final mediaType = isMovie ? 'movie' : (widget.initialType ?? 'tv');
+    final resolvedTmdbId =
+        source == 'tmdb' ? (tmdbId ?? 0) : (malId ?? tmdbId ?? 0);
+
+    if (anilistId != null || resolvedTmdbId > 0) {
+      final initialItem = MediaItem(
+        id: '',
+        tmdbId: resolvedTmdbId,
+        title: widget.initialTitle ?? '',
+        mediaType: mediaType,
+        posterPath: widget.initialPoster ?? '',
+        year: '',
+        status: '',
+        isAnime: true,
+        addedAt: DateTime.now(),
+        source: source,
+        anilistId: anilistId,
+        format: widget.initialFormat ?? (isMovie ? 'MOVIE' : 'TV'),
+      );
+      _controller.openWatch(initialItem, episode: widget.initialEpisode);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimeXShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((widget.initialAnilistId != null ||
+            widget.initialMalId != null ||
+            widget.initialTmdbId != null) &&
+        (widget.initialAnilistId != oldWidget.initialAnilistId ||
+            widget.initialMalId != oldWidget.initialMalId ||
+            widget.initialTmdbId != oldWidget.initialTmdbId ||
+            widget.initialEpisode != oldWidget.initialEpisode)) {
+      _maybeOpenInitialItem();
+    }
   }
 
   @override

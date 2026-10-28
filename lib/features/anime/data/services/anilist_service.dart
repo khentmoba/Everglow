@@ -935,7 +935,7 @@ class AniListService with ConnectivityAware {
 
   /// Rich media page for the anime section (browse grid, home rows,
   /// seasonal). Supports the same filters the reference UI exposes:
-  /// sort, status, season/year, format, single genre and free text.
+  /// sort, status, season/year, format, single or multiple genres/tags and free text.
   /// Returns items with synopsis, genres, banner and scores populated so
   /// cards and hover popovers render full detail without extra fetches.
   Future<AnimexMediaPage> fetchAnimexPage({
@@ -946,9 +946,22 @@ class AniListService with ConnectivityAware {
     int? seasonYear,
     String? format,
     String? genre,
+    List<String>? genres,
     int page = 1,
     int perPage = 24,
   }) async {
+    const knownTags = {'Isekai', 'Reincarnation', 'Reverse Isekai'};
+    final effectiveGenres = genres != null && genres.isNotEmpty
+        ? genres
+        : (genre != null && genre.isNotEmpty ? [genre] : const <String>[]);
+
+    final selectedTags = effectiveGenres
+        .where((g) => knownTags.contains(g))
+        .toList();
+    final selectedStandardGenres = effectiveGenres
+        .where((g) => !knownTags.contains(g))
+        .toList();
+
     final variables = <String, dynamic>{
       if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
       if (sort != null && sort.isNotEmpty) 'sort': [sort],
@@ -956,7 +969,12 @@ class AniListService with ConnectivityAware {
       if (season != null && season.isNotEmpty) 'season': season,
       'seasonYear': ?seasonYear,
       if (format != null && format.isNotEmpty) 'format': format,
-      if (genre != null && genre.isNotEmpty) 'genre': genre,
+      if (selectedStandardGenres.length == 1)
+        'genre': selectedStandardGenres.first,
+      if (selectedStandardGenres.length > 1)
+        'genre_in': selectedStandardGenres,
+      if (selectedTags.length == 1) 'tag': selectedTags.first,
+      if (selectedTags.length > 1) 'tag_in': selectedTags,
       'page': page,
       'perPage': perPage,
     };
@@ -971,6 +989,7 @@ class AniListService with ConnectivityAware {
         seasonYear: seasonYear,
         format: format,
         genre: genre,
+        genres: genres,
         page: page,
         perPage: perPage,
       );
@@ -1014,6 +1033,7 @@ class AniListService with ConnectivityAware {
     int? seasonYear,
     String? format,
     String? genre,
+    List<String>? genres,
     int page = 1,
     int perPage = 24,
   }) async {
@@ -1042,8 +1062,15 @@ class AniListService with ConnectivityAware {
       );
     }
 
-    if (genre != null && genre.trim().isNotEmpty) {
-      final genreIds = _jikanGenreIds(genre);
+    final genreList = genres != null && genres.isNotEmpty
+        ? genres
+        : (genre != null && genre.trim().isNotEmpty ? [genre] : null);
+
+    if (genreList != null && genreList.isNotEmpty) {
+      final genreIds = genreList
+          .expand((g) => _jikanGenreIds(g))
+          .toSet()
+          .toList();
       if (genreIds.isNotEmpty) {
         final byGenre = await jikan.fetchByGenres(
           genreIds,
@@ -1110,14 +1137,21 @@ class AniListService with ConnectivityAware {
       'Comedy': 4,
       'Mystery': 7,
       'Drama': 8,
+      'Ecchi': 9,
       'Fantasy': 10,
       'Horror': 14,
+      'Mahou Shoujo': 66,
+      'Mecha': 18,
+      'Music': 19,
+      'Psychological': 40,
       'Romance': 22,
       'Sci-Fi': 24,
       'Sports': 30,
       'Slice of Life': 36,
       'Supernatural': 37,
       'Thriller': 41,
+      'Isekai': 62,
+      'Reincarnation': 78,
     };
     final id = map[genre];
     return id == null ? const [] : [id];
@@ -1450,6 +1484,9 @@ query (
   $seasonYear: Int
   $format: MediaFormat
   $genre: String
+  $genre_in: [String]
+  $tag: String
+  $tag_in: [String]
   $page: Int
   $perPage: Int
 ) {
@@ -1468,6 +1505,9 @@ query (
       seasonYear: $seasonYear
       format: $format
       genre: $genre
+      genre_in: $genre_in
+      tag: $tag
+      tag_in: $tag_in
     ) {
       id
       idMal
