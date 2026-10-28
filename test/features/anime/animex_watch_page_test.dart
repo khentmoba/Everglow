@@ -226,9 +226,12 @@ void main() {
 
       expect(servers[0].name, 'Everglow');
       expect(servers[0].available, isTrue);
+      expect(servers[0].supportsSeek, isTrue);
+      expect(servers[0].supportsResume, isTrue);
       expect(
         servers[0].urlBuilder(1, 'sub'),
-        'https://megaplay.buzz/stream/ani/21/1/sub',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=megaplay&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
       // Megavid plays through our ad-free resolver, never the
@@ -303,7 +306,8 @@ void main() {
       expect(servers[0].name, 'Everglow');
       expect(
         servers[0].urlBuilder(3, 'sub'),
-        'https://megaplay.buzz/stream/mal/52991/3/sub',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=megaplay&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
       expect(servers[1].name, 'Megavid');
@@ -1650,7 +1654,8 @@ void main() {
       );
       expect(
         servers.first.urlBuilder(1, 'sub'),
-        'https://megaplay.buzz/stream/ani/127720/1/sub',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=megaplay&anilistId=127720&malId=45576&ep=1&audio=sub',
       );
       expect(
         servers.firstWhere((s) => s.name == 'CineSrc').urlBuilder(1, 'sub'),

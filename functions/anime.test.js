@@ -18,10 +18,17 @@ const {
   MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
   isMegavidHost,
+  isMegaPlayHost,
+  isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
   megavidHeaders,
+  megaplayHeaders,
   MEGAVID_ORIGIN,
+  MEGAPLAY_ORIGIN,
+  decryptMegaPlayPayload,
+  makeMegaPlayToken,
+  verifyMegaPlayStream,
 } = require('./anime');
 
 test('normTitle strips punctuation for fuzzy matching', () => {
@@ -702,6 +709,112 @@ test('megavidProxyUrl carries the upstream URL, never a token', () => {
   assert.ok(u.startsWith('https://h/proxyMegavidHls?u='));
   assert.ok(u.includes(encodeURIComponent('https://megavid.buzz/v.m3u8')));
   assert.ok(!u.includes('token='));
+});
+
+test('validateAnimeParams accepts megaplay and everglow sources', () => {
+  const okMegaPlay = validateAnimeParams({
+    source: 'megaplay',
+    anilistId: 21,
+    malId: 0,
+    ep: 1,
+    audio: 'sub',
+  });
+  assert.equal(okMegaPlay.error, undefined);
+  assert.equal(okMegaPlay.source, 'megaplay');
+
+  const okEverglow = validateAnimeParams({
+    source: 'everglow',
+    anilistId: 0,
+    malId: 21,
+    ep: 1,
+    audio: 'dub',
+  });
+  assert.equal(okEverglow.error, undefined);
+  assert.equal(okEverglow.source, 'everglow');
+});
+
+test('isMegaPlayHost and isAnimeCdnHost recognize trusted hosts', () => {
+  assert.equal(isMegaPlayHost('megaplay.buzz'), true);
+  assert.equal(isMegaPlayHost('fetch.nexabloom.top'), true);
+  assert.equal(isMegaPlayHost('7v8gl.eclipseharbor.space'), true);
+  assert.equal(isMegaPlayHost('de3bv.eclipseharbor.world'), true);
+  assert.equal(isMegaPlayHost('yaf6t.emeralddrift.world'), true);
+  assert.equal(isMegaPlayHost('xdw5v.qeltrix.top'), true);
+  assert.equal(isMegaPlayHost('evil.com'), false);
+  assert.equal(isMegaPlayHost('nexabloom.top.evil.com'), false);
+
+  assert.equal(isAnimeCdnHost('megavid.buzz'), true);
+  assert.equal(isAnimeCdnHost('s-90.megavid.se'), true);
+  assert.equal(isAnimeCdnHost('fetch.nexabloom.top'), true);
+  assert.equal(isAnimeCdnHost('evil.com'), false);
+});
+
+test('megaplayHeaders sends the Origin and Referer required by MegaPlay CDN', () => {
+  const h = megaplayHeaders();
+  assert.equal(h.Origin, MEGAPLAY_ORIGIN);
+  assert.equal(h.Referer, `${MEGAPLAY_ORIGIN}/`);
+  assert.ok(h['User-Agent']);
+});
+
+test('decryptMegaPlayPayload and makeMegaPlayToken decrypt and sign correctly', () => {
+  const enc =
+    'wdeBruh3qqn_i5wUNnyaPcXqidp1UWP84FfPHzGyKXA2hDZBfMCmZ4FLvs7_pQuH549Eptax8UOjAJyRIZfrRhUGUKy9OBeGh2yB_-m_JLAlLnWTLzYZC3_C5I4ltveYoiaU66Do9RgI9bCetmk_o87-sd66brXnWV1MbjhLnjw';
+  const dec = decryptMegaPlayPayload(enc);
+  assert.equal(
+    dec.file,
+    'https://fetch.nexabloom.top/anime/f899139df5e1059396431415e770c6dd/61b87186ab260d05003427e16ccf5657/master.m3u8',
+  );
+
+  const path = 'f899139df5e1059396431415e770c6dd/61b87186ab260d05003427e16ccf5657';
+  const token = makeMegaPlayToken(path);
+  assert.ok(token.includes('.'));
+  const [b64Payload, b64Sig] = token.split('.');
+  assert.ok(b64Payload);
+  assert.ok(b64Sig);
+  const rawPayload = Buffer.from(b64Payload, 'base64url').toString('utf8');
+  assert.ok(rawPayload.endsWith(`|${path}`));
+});
+
+test('verifyMegaPlayStream accepts healthy stream and rejects dead playlists', async () => {
+  const realFetch = globalThis.fetch;
+  const segOk = {
+    ok: true,
+    status: 200,
+    headers: new Map(),
+    arrayBuffer: async () => new Uint8Array([0x47, 0, 0, 0]).buffer,
+  };
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes('master.m3u8')) {
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000\nhttps://fetch.nexabloom.top/v.m3u8\n',
+      };
+    }
+    if (u.includes('v.m3u8')) {
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          '#EXTM3U\n#EXTINF:200,\nhttps://7v8gl.eclipseharbor.space/seg.jpg\n',
+      };
+    }
+    return segOk;
+  };
+
+  await assert.doesNotReject(
+    verifyMegaPlayStream('https://fetch.nexabloom.top/master.m3u8'),
+  );
+
+  globalThis.fetch = async () => ({ ok: false, status: 404 });
+  await assert.rejects(
+    verifyMegaPlayStream('https://fetch.nexabloom.top/master.m3u8'),
+    /megaplay/,
+  );
+
+  globalThis.fetch = realFetch;
 });
 
 test('hlsPlayerHtml sends the token as a header, not in URLs', () => {

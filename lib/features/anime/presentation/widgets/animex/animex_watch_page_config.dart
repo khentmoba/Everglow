@@ -250,6 +250,18 @@ class AnimeXWatchPage extends StatefulWidget {
         '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
   }
 
+  /// Builds the MegaPlay (Everglow) player URL via our ad-free resolver.
+  @visibleForTesting
+  static String megaplayProxyUrl({
+    required int anilistId,
+    required int malId,
+    required int episode,
+    required String audio,
+  }) {
+    return '$proxyAnimeBase?source=megaplay'
+        '&anilistId=$anilistId&malId=$malId&ep=$episode&audio=$audio';
+  }
+
   /// Picks the server a visit should open on: the remembered choice
   /// when it is still offered, otherwise Megavid whenever available, then
   /// the first available server. Megavid reports progress and accepts resume.
@@ -276,13 +288,11 @@ class AnimeXWatchPage extends StatefulWidget {
   /// themselves and a working reference site) — the player frame
   /// applies them per host:
   ///
-  /// - Everglow: third-party embed (MegaPlay) keyed on the AniList id
-  ///   (falls back to MAL). Refuses sandboxed iframes ("Remove sandbox
-  ///   to use it") and answers 410 with no Referer, so it plays
-  ///   unsandboxed with the origin sent, ads included. Displayed as
-  ///   "Everglow" in the server selector.
+  /// - Everglow: our ad-free resolver ([proxyAnimeBase]) backed by MegaPlay
+  ///   keyed on the AniList id (falls back to MAL). Sandboxed, in-house
+  ///   HLS player with live progress, seek, and resume support.
   /// - Megavid: our ad-free resolver ([proxyAnimeBase]) keyed on the
-  ///   AniList id (falls back to MAL). Sandboxed, no referrer. A dead
+  ///   AniList id (falls back to MAL). Sandboxed, in-house HLS player. A dead
   ///   episode answers with the failover marker so the probe advances
   ///   to the next server instead of spinning.
   /// - TryEmbed: dedicated anime embed player keyed on AniList (falls
@@ -357,13 +367,15 @@ class AnimeXWatchPage extends StatefulWidget {
     return [
       AnimeServerOption(
         name: 'Everglow',
-        urlBuilder: (ep, audio) {
-          if (hasAni) {
-            return 'https://megaplay.buzz/stream/ani/$aniId/$ep/$audio';
-          }
-          return 'https://megaplay.buzz/stream/mal/$effectiveMal/$ep/$audio';
-        },
+        urlBuilder: (ep, audio) => AnimeXWatchPage.megaplayProxyUrl(
+          anilistId: aniId,
+          malId: effectiveMal,
+          episode: ep,
+          audio: audio,
+        ),
         available: hasSource,
+        supportsSeek: true,
+        supportsResume: true,
       ),
       AnimeServerOption(
         name: 'Megavid',

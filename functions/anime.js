@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const { streamMediaBody } = require('./stream_media_body');
 
 /**
@@ -239,9 +240,14 @@ function hlsPlayerHtml({ src, title, tracks, token, ep }) {
 
 function validateAnimeParams(query) {
   const source = String(query.source || '').toLowerCase();
-  if (source !== 'animepahe' && source !== 'megavid') {
+  if (
+    source !== 'animepahe' &&
+    source !== 'megavid' &&
+    source !== 'megaplay' &&
+    source !== 'everglow'
+  ) {
     return {
-      error: 'source must be animepahe or megavid',
+      error: 'source must be animepahe, megavid, megaplay, or everglow',
     };
   }
   const anilistId = Number.parseInt(String(query.anilistId || '0'), 10) || 0;
@@ -402,7 +408,7 @@ async function resolvePahe(base, titles, year, ep, audio) {
   return { m3u8: urls[0] };
 }
 
-// ─── Megavid stream verification ────────────────────────────────
+// ─── Megavid & MegaPlay stream verification ──────────────────────────
 
 /** Megavid upstream hosts. Restricted allowlist so the HLS proxy below
  *  can never become an open proxy. Playlists are served from Megavid's own
@@ -419,10 +425,31 @@ const MEGAVID_HOSTS = new Set([
 ]);
 const MEGAVID_EXACT_HOSTS = new Set(['cdnx.aniwatchtv.site']);
 
+/** MegaPlay upstream and CDN hosts. MegaPlay serves video playlists from
+ *  its own origin and distributes media chunks/subtitles across rotating
+ *  CDNs (fetch.nexabloom.top, eclipseharbor.world/space, emeralddrift.world/space,
+ *  and qeltrix.top). All hosts require Referer: https://megaplay.buzz/. */
+const MEGAPLAY_HOSTS = new Set([
+  'megaplay.buzz',
+  'nexabloom.top',
+  'qeltrix.top',
+  'eclipseharbor.world',
+  'eclipseharbor.space',
+  'emeralddrift.world',
+  'emeralddrift.space',
+]);
+
 /** Megavid's site origin. Its CDN (megavid.se) only answers for the site's
  *  own origin: the identical request without `Origin` comes back 403, which
  *  killed every episode in late October 2026 while the catalog still worked. */
 const MEGAVID_ORIGIN = 'https://megavid.buzz';
+
+/** MegaPlay's site origin. */
+const MEGAPLAY_ORIGIN = 'https://megaplay.buzz';
+
+const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
+const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
+const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
 
 /** Headers every request on Megavid's behalf must carry. The CDN checks the
  *  origin, the browser cannot set it on a cross-origin fetch, so we set it
@@ -439,12 +466,69 @@ function megavidHeaders(extra) {
   );
 }
 
+function megaplayHeaders(extra) {
+  return Object.assign(
+    {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Referer: `${MEGAPLAY_ORIGIN}/`,
+      Origin: MEGAPLAY_ORIGIN,
+    },
+    extra || {},
+  );
+}
+
 function isMegavidHost(hostname) {
   const h = String(hostname || '').toLowerCase();
   return (
     MEGAVID_EXACT_HOSTS.has(h) ||
     [...MEGAVID_HOSTS].some((a) => h === a || h.endsWith(`.${a}`))
   );
+}
+
+function isMegaPlayHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return [...MEGAPLAY_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
+}
+
+function isAnimeCdnHost(hostname) {
+  return isMegavidHost(hostname) || isMegaPlayHost(hostname);
+}
+
+function padKeyBytes(str, len) {
+  const enc = Buffer.from(str, 'utf8');
+  const out = Buffer.alloc(len, 0);
+  enc.copy(out, 0, 0, Math.min(enc.length, len));
+  return out;
+}
+
+function base64url(buf) {
+  return Buffer.from(buf)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function decryptMegaPlayPayload(encStr) {
+  const key = padKeyBytes(MEGAPLAY_ENC_KEY, 32);
+  const iv = padKeyBytes(MEGAPLAY_ENC_IV, 16);
+  let b64 = String(encStr || '').replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  let decrypted = decipher.update(Buffer.from(b64, 'base64'));
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return JSON.parse(decrypted.toString('utf8'));
+}
+
+function makeMegaPlayToken(path) {
+  const exp = Math.floor(Date.now() / 1000) + 90;
+  const payload = `${exp}|${path}`;
+  const hmac = crypto
+    .createHmac('sha256', MEGAPLAY_HMAC_SECRET)
+    .update(payload)
+    .digest();
+  return `${base64url(Buffer.from(payload))}.${base64url(hmac)}`;
 }
 
 /** Resolves a possibly-relative playlist URI against its playlist URL. */
@@ -485,15 +569,16 @@ function playlistUris(text, base, { variantsOnly = false } = {}) {
  * the browser never touches this URL directly (see proxyMegavidHls,
  * which re-serves everything from our own domain with `*`).
  */
-async function fetchPlaylist(url, timeoutMs, label) {
+async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders()) {
   const res = await fetch(url, {
-    headers: megavidHeaders(),
+    headers,
     signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
+  const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
+  if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
   const text = await res.text();
   if (!text || !text.includes('#EXTM3U')) {
-    throw new Error(`megavid ${label} is not a playlist`);
+    throw new Error(`${prefix} ${label} is not a playlist`);
   }
   return text;
 }
@@ -505,22 +590,24 @@ async function fetchPlaylist(url, timeoutMs, label) {
  * proxyMegavidHls (same-origin + `*`), so upstream headers don't matter.
  * Returns the first chunk for content checks.
  */
-async function fetchSegmentHead(url, timeoutMs, label) {
+async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders()) {
+  const h = Object.assign({}, headers, { Range: 'bytes=0-1023' });
   const res = await fetch(url, {
-    headers: megavidHeaders({ Range: 'bytes=0-1023' }),
+    headers: h,
     signal: AbortSignal.timeout(timeoutMs),
   });
-  if (!res.ok) throw new Error(`megavid ${label} ${res.status}`);
+  const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
+  if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
   if (!res.body || typeof res.body.getReader !== 'function') {
     const buf = await res.arrayBuffer();
-    if (!buf.byteLength) throw new Error(`megavid ${label} is empty`);
+    if (!buf.byteLength) throw new Error(`${prefix} ${label} is empty`);
     return new Uint8Array(buf.slice(0, 1024));
   }
   const reader = res.body.getReader();
   try {
     const { done, value } = await reader.read();
     if (done || !value || !value.byteLength) {
-      throw new Error(`megavid ${label} is empty`);
+      throw new Error(`${prefix} ${label} is empty`);
     }
     return value.slice ? value.slice(0, 1024) : value;
   } finally {
@@ -532,14 +619,18 @@ async function fetchSegmentHead(url, timeoutMs, label) {
 
 /**
  * First segment bytes must look like MPEG-TS (sync byte 0x47) when the URL
- * points at a .ts file. CDNs often answer 200 with an HTML error page for
- * removed files — fetchable, but it can never play. Other containers
- * (fmp4 segments) only need to be non-empty.
+ * points at a .ts file (or MegaPlay .jpg disguised TS segments). CDNs often
+ * answer 200 with an HTML error page for removed files — fetchable, but it
+ * can never play. Other containers (fmp4 segments) only need to be non-empty.
  */
 function assertPlayableHead(chunk, url, label) {
   const path = String(url).split('?')[0].toLowerCase();
+  const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
   if (path.endsWith('.ts') && chunk[0] !== 0x47) {
-    throw new Error(`megavid ${label} is not video data`);
+    throw new Error(`${prefix} ${label} is not video data`);
+  }
+  if (path.endsWith('.jpg') && isMegaPlayHost(new URL(url).hostname) && chunk[0] !== 0x47) {
+    throw new Error(`${prefix} ${label} is not video data`);
   }
 }
 
@@ -563,7 +654,7 @@ function playlistDuration(text) {
 const MIN_MEGAVID_SECONDS = 120;
 
 /**
- * Proves a Megavid stream is actually playable before we serve our player
+ * Proves an HLS stream is actually playable before we serve our player
  * page for it: master playlist, every variant (the player auto-switches
  * quality, so each rendition must work — or the master itself when it
  * already lists segments), encryption key / init map when present, and
@@ -572,15 +663,16 @@ const MIN_MEGAVID_SECONDS = 120;
  * throws, and the endpoint answers with the failover marker so the app
  * advances to the next server instead of stalling on a spinner.
  */
-async function verifyMegavidStream(masterUrl) {
-  const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist');
+async function verifyStream(masterUrl, headers = megavidHeaders()) {
+  const prefix = isMegaPlayHost(new URL(masterUrl).hostname) ? 'megaplay' : 'megavid';
+  const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers);
   const variants = playlistUris(masterText, masterUrl, { variantsOnly: true });
   const medias =
     variants.length > 0
       ? await Promise.all(
           variants.slice(0, 4).map(async (v) => ({
             url: v,
-            text: await fetchPlaylist(v, 8000, 'variant'),
+            text: await fetchPlaylist(v, 8000, 'variant', headers),
           })),
         )
       : [{ url: masterUrl, text: masterText }];
@@ -588,28 +680,36 @@ async function verifyMegavidStream(masterUrl) {
   const keyMatch = first.text.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
   if (keyMatch) {
     const keyUrl = resolvePlaylistUrl(keyMatch[1], first.url);
-    if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key');
+    if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key', headers);
   }
   const mapMatch = first.text.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
   if (mapMatch) {
     const mapUrl = resolvePlaylistUrl(mapMatch[1], first.url);
-    if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map');
+    if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map', headers);
   }
   await Promise.all(
     medias.map(async ({ url: mediaUrl, text: mediaText }) => {
       if (playlistDuration(mediaText) < MIN_MEGAVID_SECONDS) {
-        throw new Error('megavid: playlist too short to be the episode');
+        throw new Error(`${prefix}: playlist too short to be the episode`);
       }
       const segments = playlistUris(mediaText, mediaUrl);
       if (!segments.length) {
-        throw new Error('megavid: playlist has no segments');
+        throw new Error(`${prefix}: playlist has no segments`);
       }
-      const head = await fetchSegmentHead(segments[0], 10000, 'segment');
+      const head = await fetchSegmentHead(segments[0], 10000, 'segment', headers);
       assertPlayableHead(head, segments[0], 'segment');
     }),
   );
   const firstSegments = playlistUris(first.text, first.url);
   return { variantUrl: first.url, segmentUrl: firstSegments[0] };
+}
+
+async function verifyMegavidStream(masterUrl) {
+  return verifyStream(masterUrl, megavidHeaders());
+}
+
+async function verifyMegaPlayStream(masterUrl) {
+  return verifyStream(masterUrl, megaplayHeaders());
 }
 
 // ─── Megavid (Proxied HLS Stream with NO ADS) ─────────────
@@ -720,6 +820,64 @@ async function resolveMegavid(anilistId, malId, ep, audio, req) {
   };
 }
 
+async function resolveMegaPlay(anilistId, malId, ep, audio, req) {
+  const isDub = audio === 'dub' ? 'dub' : 'sub';
+  const pageUrl =
+    anilistId > 0
+      ? `https://megaplay.buzz/stream/ani/${anilistId}/${ep}/${isDub}`
+      : `https://megaplay.buzz/stream/mal/${malId}/${ep}/${isDub}`;
+  const pageRes = await fetch(pageUrl, {
+    headers: megaplayHeaders(),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!pageRes.ok) throw new Error(`megaplay page ${pageRes.status}`);
+  const html = await pageRes.text();
+  const idMatch = html.match(
+    /id=["']megaplay-player["'][^>]*data-id=["']([0-9a-zA-Z_-]+)["']/i,
+  );
+  if (!idMatch) throw new Error('megaplay: data-id not found');
+  const dataId = idMatch[1];
+
+  const sourcesUrl = `https://megaplay.buzz/stream/getSources?id=${dataId}&platform=OTHER`;
+  const sourcesRes = await fetch(sourcesUrl, {
+    headers: megaplayHeaders({ 'X-Requested-With': 'XMLHttpRequest' }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!sourcesRes.ok) throw new Error(`megaplay sources ${sourcesRes.status}`);
+  const data = await sourcesRes.json();
+  if (!data || !data.enc) throw new Error('megaplay: no enc payload');
+
+  const decrypted = decryptMegaPlayPayload(data.enc);
+  if (!decrypted || !decrypted.file) throw new Error('megaplay: decrypted no file');
+
+  const m = decrypted.file.match(/\/anime\/([^/]+\/[^/]+)\/master\.m3u8/);
+  const streamPath = m ? m[1] : '';
+  const token = streamPath ? makeMegaPlayToken(streamPath) : '';
+  const masterUrl = token ? `${decrypted.file}?token=${token}` : decrypted.file;
+
+  await verifyMegaPlayStream(masterUrl);
+
+  const proxyBase = megavidProxyBase(req);
+  const tracks = (Array.isArray(data.tracks) ? data.tracks : [])
+    .filter((t) => t && t.file)
+    .map((t) => ({
+      ...t,
+      file: megavidProxyUrl(proxyBase, t.file),
+    }));
+
+  const userToken = (req && req.query && req.query.token) || '';
+  const src = megavidProxyUrl(proxyBase, masterUrl);
+  return {
+    playerHtml: hlsPlayerHtml({
+      src,
+      tracks,
+      title: `Episode ${ep}`,
+      token: userToken,
+      ep,
+    }),
+  };
+}
+
 // ─── Endpoints ───────────────────────────────────────────
 
 const proxyAnime = cappedHttps(20, async (req, res) => {
@@ -771,6 +929,19 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
       // loader forever on missing episodes (and brings back the popunders
       // the direct-stream path was built to avoid). Fail with the marker
       // instead so the app auto-advances to the next server.
+      sendFail('No stream found — try another server.');
+      return;
+    }
+  }
+
+  if (source === 'megaplay' || source === 'everglow') {
+    try {
+      const out = await resolveMegaPlay(anilistId, malId, ep, audio, req);
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.set('Cache-Control', 'public, max-age=300');
+      res.status(200).send(out.playerHtml);
+      return;
+    } catch (e) {
       sendFail('No stream found — try another server.');
       return;
     }
@@ -861,7 +1032,7 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.status(400).json({ error: 'Invalid url' });
     return;
   }
-  if (parsed.protocol !== 'https:' || !isMegavidHost(parsed.hostname)) {
+  if (parsed.protocol !== 'https:' || !isAnimeCdnHost(parsed.hostname)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
@@ -870,8 +1041,9 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     return;
   }
   try {
-    // Megavid's CDN only ever answers for its own origin.
-    const headers = megavidHeaders();
+    const headers = isMegaPlayHost(parsed.hostname)
+      ? megaplayHeaders()
+      : megavidHeaders();
     const range = req.get('Range') || req.headers.range;
     if (range && typeof range === 'string') headers.Range = range;
     const upstream = await fetch(targetUrl, {
@@ -893,7 +1065,10 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
         // Nested URLs stay token-free (identity rides the header).
-        const rewritten = rewriteMegavidPlaylist(text, targetUrl, proxyBase);
+        const isAllowed = isMegaPlayHost(parsed.hostname)
+          ? isMegaPlayHost
+          : isMegavidHost;
+        const rewritten = rewritePlaylistWithHosts(text, targetUrl, proxyBase, isAllowed);
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
         res.set('Cache-Control', 'public, max-age=30');
         res.status(200).send(rewritten);
@@ -1033,8 +1208,18 @@ module.exports = {
   MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
   isMegavidHost,
+  isMegaPlayHost,
+  isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
   megavidHeaders,
+  megaplayHeaders,
   MEGAVID_ORIGIN,
+  MEGAPLAY_ORIGIN,
+  MEGAPLAY_HOSTS,
+  resolveMegaPlay,
+  decryptMegaPlayPayload,
+  makeMegaPlayToken,
+  verifyMegaPlayStream,
+  verifyStream,
 }
