@@ -23,6 +23,7 @@ import '../../data/services/video_source_service.dart';
 import '../../data/services/video_source_url_builder.dart';
 import '../widgets/embed_webview.dart';
 import '../widgets/netflix/netflix_colors.dart';
+import '../widgets/torrent_download_sheet.dart';
 
 /// Show name only: strips any trailing episode suffix the route may have
 /// carried (`Show: Episode 3`, `Show Episode 3`) so the stepper below is
@@ -725,6 +726,20 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
         ),
         backgroundColor: _playerSurface,
         foregroundColor: _playerText,
+        actions: [
+          IconButton(
+            tooltip: 'Download',
+            icon: const Icon(Icons.download_rounded),
+            onPressed: () => showTorrentDownloadSheet(
+              context,
+              tmdbId: widget.tmdbId,
+              mediaType: widget.mediaType,
+              title: _nativeDisplayTitle(widget.title),
+              season: widget.mediaType == 'tv' ? _currentSeason : null,
+              episode: widget.mediaType == 'tv' ? _currentEpisode : null,
+            ),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),

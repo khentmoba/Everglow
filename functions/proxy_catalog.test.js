@@ -9,7 +9,7 @@ const indexExports = require('./index.js');
 test('proxyCatalog allow-list rejects unknown base', () => {
   assert.throws(
     () => resolveCatalogUpstream('evil', 'search.json?q=x'),
-    /base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, or anizip/,
+    /base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, anizip, or torrentio/,
   );
 });
 
@@ -95,6 +95,23 @@ test('proxyCatalog builds gutendex/archive/anizip URLs server-side', () => {
   assert.equal(a.origin + a.pathname, 'https://archive.org/metadata/dune');
   const z = resolveCatalogUpstream('anizip', 'mappings?mal_id=16498');
   assert.equal(z.origin + z.pathname, 'https://api.ani.zip/mappings');
+});
+
+test('proxyCatalog builds torrentio download-copy URL server-side', () => {
+  const movie = resolveCatalogUpstream('torrentio', 'stream/movie/tt0137523.json');
+  assert.equal(
+    movie.origin + movie.pathname,
+    'https://torrentio.strem.fun/stream/movie/tt0137523.json',
+  );
+  // Series ids carry season and episode as path segments with colons.
+  const episode = resolveCatalogUpstream(
+    'torrentio',
+    'stream/series/tt0944947:1:1.json',
+  );
+  assert.equal(
+    episode.origin + episode.pathname,
+    'https://torrentio.strem.fun/stream/series/tt0944947:1:1.json',
+  );
 });
 
 test('index re-exports proxyCatalog', () => {
