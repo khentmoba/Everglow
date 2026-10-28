@@ -48,6 +48,65 @@ void main() {
     ui_web.debugOverridePlatformViewRegistry(null);
   });
 
+  for (final platform in [
+    TargetPlatform.windows,
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('short $platform window keeps episodes outside theater', (
+      tester,
+    ) async {
+      await _size(tester, const Size(1280, 550));
+      addTearDown(() async {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        await tester.binding.setSurfaceSize(null);
+      });
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthService>.value(
+          value: _DemoAuth(),
+          child: const MaterialApp(
+            home: VideoPlayerScreen(
+              tmdbId: 900004,
+              mediaType: 'tv',
+              title: 'The Midnight Library',
+              season: 1,
+              episode: 1,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(_exitButton, isNull, reason: 'desktop must not open theater');
+      expect(find.text('Episodes').hitTestable(), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Theater mode'));
+      await tester.pump();
+      expect(_exitButton, isNotNull, reason: 'manual theater is available');
+      _exitButton!.click();
+      await tester.pump();
+      await tester.pump();
+      expect(_exitButton, isNull);
+      await tester.tap(find.text('Episodes'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.ensureVisible(find.text('Episode 2'));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Episode 2'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('S1 E2'), findsOneWidget);
+      expect(_exitButton, isNull);
+
+      await _size(tester, const Size(1366, 768));
+      await tester.pump();
+      await _size(tester, const Size(1280, 550));
+      await tester.pump();
+      await tester.pump();
+      expect(_exitButton, isNull, reason: 'resizing is not phone rotation');
+      await tester.pumpWidget(const SizedBox.shrink());
+    }, variant: TargetPlatformVariant({platform}));
+  }
+
   testWidgets('exiting landscape theater leaves the episode selector usable', (
     tester,
   ) async {

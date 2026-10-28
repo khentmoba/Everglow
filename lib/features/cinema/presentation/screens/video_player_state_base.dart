@@ -810,6 +810,12 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// portrait. A manual exit lasts until the next portrait orientation.
   void _maybeAutoFullscreen(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    // A short desktop window is not a phone rotation. Keep theater manual
+    // on desktop even when the viewport's shortest side falls below 600.
+    final isMobilePlatform =
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+    if (!isMobilePlatform) return;
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     if (!isLandscape) _landscapeFullscreenDismissed = false;
