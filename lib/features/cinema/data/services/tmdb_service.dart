@@ -199,6 +199,10 @@ class TMDBService with ConnectivityAware {
   Future<Map<String, dynamic>?> fetchMediaDetails(int id, String mediaType) =>
       _details.fetchMediaDetails(id, mediaType);
 
+  /// IMDB id for a title, used by the cinema download sheet.
+  Future<String?> fetchImdbId(int id, String mediaType) =>
+      _details.fetchImdbId(id, mediaType);
+
   Future<bool> isAnimeByTmdbId(int tmdbId, String mediaType) =>
       _details.isAnimeByTmdbId(tmdbId, mediaType);
 

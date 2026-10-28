@@ -16,6 +16,7 @@ const { cappedHttps, enforceRateLimit, getAdmin } = require('./common.js');
  *   GET /proxyCatalog?base=gutendex&path=books%3Fsearch%3Ddune
  *   GET /proxyCatalog?base=archive&path=advancedsearch.php%3Fq%3D...%26output%3Djson
  *   GET /proxyCatalog?base=anizip&path=mappings%3Fmal_id%3D16498
+ *   GET /proxyCatalog?base=torrentio&path=stream%2Fmovie%2Ftt0137523.json
  *
  * The pure parts (base allow-list, path sanitize, URL build) live in
  * [resolveCatalogUpstream] below so unit tests cover them without
@@ -30,6 +31,10 @@ const _catalogBases = {
   gutendex: 'https://gutendex.com/',
   archive: 'https://archive.org/',
   anizip: 'https://api.ani.zip/',
+  // Cinema download copies. Keyed by IMDB id (`tt…` for movies,
+  // `tt…:season:episode` for series) and returning magnet hashes, so the
+  // client never talks to an index host directly.
+  torrentio: 'https://torrentio.strem.fun/',
 };
 
 // Sessionful upstreams must never edge-cache: OpenTDB hands out a
@@ -39,7 +44,7 @@ const _catalogNoStoreBases = new Set(['opentdb']);
 
 function resolveCatalogUpstream(baseKey, pathParam) {
   const upstreamBase = _catalogBases[String(baseKey || '').toLowerCase()];
-  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, or anizip');
+  if (!upstreamBase) throw new Error('base must be openlibrary, jikan, itunes, aniskip, opentdb, gutendex, archive, anizip, or torrentio');
   if (typeof pathParam !== 'string' || pathParam.length === 0) {
     throw new Error('Missing ?path=<api path> query param');
   }

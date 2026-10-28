@@ -1,84 +1,55 @@
-# Cinema download button — what can actually be built
+# Cinema download button — torrent copies
 
-**Status:** decision needed before code. Nothing here is shipped yet.
+**Decision (Khent, 28 Oct 2026):** torrents. This is what shipped, what it
+does on each device, and the one step still missing for offline on a phone.
 
-Khent's ask: a Download button in the cinema, so when Clair is watching
-something she can just keep it. Torrents were suggested. This note records
-what the code can and cannot hand to her, and the one small thing worth
-building.
+## What the button does
 
-## The fact everything follows from
+```text
+player top bar → Download
+  IMDB id for the title        movie: already on TMDB details
+                               series: one /external_ids call, cached
+  index lookup via proxyCatalog  stream/movie/tt0137523.json
+                                 stream/series/tt0947…:1:1.json
+  sheet lists copies, best seeded first
+    quality · size · seeds · index
+    tap → opens the magnet in a torrent app
+    link icon → copies the magnet
+```
 
-The cinema does not play a file. It plays another site's page inside an
-iframe:
+Every action in the sheet is real. If the device has no torrent app the
+magnet cannot open, so the row copies the link instead of failing quietly.
 
-- Sources are embed pages, not media: `everglow-embed` is our own wrapper
-  (`https://everglow-1c6db.web.app/embed.html`), and the wrapper loads
-  `https://cinesrc.st/embed/movie/<tmdbId>` in an inner iframe
-  (`web/embed.js:9`, `web/embed.js:12`, `web/embed.js:206`).
-- That inner document is a different origin, so Everglow can never read its
-  `<video>` element, its `.m3u8`, or its segments. The browser forbids it,
-  and the wrapper page has no server behind it to ask.
-- The only place Everglow does hold video bytes is the Watch Party HLS path
-  through `proxyWatchStream` (`functions/media_proxy_video.js:22`,
-  `functions/watch_stream_access.js:5`). Cinema never uses that path.
+## Where it lives
 
-So a Download button in the cinema has no file in hand. Everything below is
-about where a file could come from, and what a phone can do with it.
+- `lib/features/cinema/data/services/torrent_index_service.dart` — lookup,
+  magnet building, sorting, dedupe.
+- `lib/features/cinema/presentation/widgets/torrent_download_sheet.dart` —
+  the list and its actions.
+- `functions/media_proxy_catalog.js` — the `torrentio` base. The browser
+  never talks to an index host directly, same rule as TMDB, Jikan, ani.zip.
+- Agent Mode shows three demo copies, so preview builds and proof
+  screenshots never call a real index.
 
-## Why torrents are not the integration
+## What it does not do
 
-- A magnet link is a handoff to an app on the device. iPhone has no torrent
-  app registered for `magnet:` at all, and Android only if one is installed.
-  On Clair's phone and tablet, the button would do nothing. That is the
-  whole feature failing for the person it is for.
-- It cannot hand over "the thing I am watching". A torrent gets you a file
-  found by name, not the stream currently playing, so the season, episode,
-  cut, and subtitles can all differ.
-- Finding that file per title needs a torrent index. That is piracy search
-  plumbing inside a public repo, inside an app family guests use. One-way
-  door, and not needed to give Clair offline movies.
+- **It does not put a file on the phone by itself.** A magnet needs a
+  torrent client. Desktop and most Androids answer; iPhone has no handler,
+  so the link is copied. That gap is a device limit, not a bug in the sheet.
+- **It does not resume, measure progress, or keep a library.** The torrent
+  client owns that once the link leaves the app.
+- **It does not pick a copy for you.** Quality and size are shown; seeding
+  decides the order. A 4K remux is 15–70 GB, so the top row is not always
+  the right tap.
 
-## The three real doors
+## The missing step for Clair's phone
 
-| Door | How it works | Works on Clair's phone | Cost | Risk |
-|---|---|---|---|---|
-| **1. Direct-file handoff** | A source resolves to a single `.mp4`. The player asks the helper for a signed link and lets the browser save it. | Yes. iOS Safari saves a single video file to Downloads, with progress. | Small: one config field, one button, one signed-link call. | Needs a host that serves a single file, not a playlist. |
-| **2. Save the HLS stream** | Fetch the playlist and every segment through `proxyWatchStream`, stitch into one file in the browser. | No. A multi-GB blob cannot be saved reliably on iOS, and there is no save-file picker on mobile. | Large: stitcher, progress, retries, storage. | Multi-GB bodies through request-based functions will not finish inside their limits. |
-| **3. Torrent handoff** | Magnet link plus an index to find one. | No (see above). | Small UI, large legal and plumbing risk. | Piracy index in a public, family-shared app. |
+To make a tap on her phone end with a saved episode, Everglow needs a small
+box that owns the torrent: qBittorrent or Transmission on the same machine
+that hosts the media, reachable from the app. Then the button becomes
+"send to my box" and the file lands there, ready to stream or copy, with
+progress the app can read.
 
-## Recommendation
-
-**Door 1, or nothing.** It is the only version where tapping Download ends
-with a file on Clair's phone, and it keeps piracy search out of the app.
-
-Smallest shape that makes it real:
-
-- Add optional `movieDownloadUrl` / `tvDownloadUrl` templates to
-  `VideoSourceConfig` (`lib/features/cinema/data/models/video_source_config.dart`),
-  read from the same `config/video_sources` document that already drives the
-  source list. No new collection, no new key.
-- The player top bar gets a Download pill beside Theater mode. It is shown
-  only when the active source carries a template, so Clair never sees a dead
-  button.
-- Tap → ask the helper for a short-lived signed link (same signing already
-  used by `proxyWatchStream`), then save it with the existing browser-save
-  helper pattern (`lib/features/books/data/services/book_download_helper_web.dart`).
-- Episodes expand `{season}` / `{episode}`; movies ignore them.
-
-That is a real button the day Khent has one direct-file host. Without such a
-host it stays hidden, which is the correct behaviour.
-
-## The legal fallback, if we want something today
-
-Modern movies do not download from a browser. They download from Netflix,
-Prime, or Apple, on the account that owns them. TMDB already tells us which
-service carries a title, so a Download sheet could open that title in the
-right app — the one place a phone download genuinely works offline. Honest,
-legal, small; not the pirate copy Khent pictured.
-
-## Decision
-
-Which door: 1 (recommended), 2, 3, or the legal fallback? Once that is
-settled the code is a small change, and the proof is a real file saved on a
-phone-width browser.
+That is a second, small change: one setting (box URL + token, stored like
+the watch-party servers, never committed) and one POST. It is worth doing
+only if the box exists — otherwise it is machinery with no water.

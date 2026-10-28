@@ -28,6 +28,7 @@ import '../../data/services/next_episode_service.dart';
 import '../../../anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import '../../../../core/system/web_standalone.dart';
 import '../widgets/episode_navigator.dart';
+import '../widgets/torrent_download_sheet.dart';
 import '../widgets/up_next_overlay.dart';
 import '../widgets/netflix/netflix_colors.dart';
 import '../../../../core/services/auth_service.dart';
@@ -255,6 +256,21 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
             ),
           ),
           const SizedBox(width: 12),
+          Tooltip(
+            message: 'Download',
+            child: compact
+                ? _PlayerIconButton(
+                    icon: Icons.download_rounded,
+                    compact: true,
+                    onTap: _showDownloadSheet,
+                  )
+                : _PlayerPillButton(
+                    icon: Icons.download_rounded,
+                    label: 'Download',
+                    onTap: _showDownloadSheet,
+                  ),
+          ),
+          const SizedBox(width: 8),
           Tooltip(
             message: 'Theater mode',
             child: _PlayerIconButton(
@@ -488,6 +504,24 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
   // ---------------------------------------------------------------------------
   // MORE LIKE THIS
   // ---------------------------------------------------------------------------
+
+  /// Download copies for what is on screen. The inner iframe keeps its
+  /// own scroll, so its pointer events are parked while the sheet is up
+  /// (same deal as the source picker) and handed back on close.
+  void _showDownloadSheet() {
+    _iframe.style.setProperty('pointer-events', 'none');
+    showTorrentDownloadSheet(
+      context,
+      tmdbId: widget.tmdbId,
+      mediaType: widget.mediaType,
+      title: _playerDisplayTitle(widget.title),
+      season: widget.mediaType == 'tv' ? _currentSeason : null,
+      episode: widget.mediaType == 'tv' ? _currentEpisode : null,
+    ).then((_) {
+      if (!mounted) return;
+      _iframe.style.setProperty('pointer-events', 'auto');
+    });
+  }
 
   void _showProviderSheet() {
     _iframe.style.setProperty('pointer-events', 'none');

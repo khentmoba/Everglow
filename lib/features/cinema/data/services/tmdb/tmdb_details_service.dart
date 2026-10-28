@@ -10,6 +10,10 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
   final _detailsCache = <String, Map<String, dynamic>>{};
   final _pendingDetails = <String, Future<Map<String, dynamic>?>>{};
 
+  /// IMDB id per `type:id`, so the download sheet asks TMDB once per
+  /// title instead of on every open. Empty string caches a miss.
+  final _imdbIds = <String, String>{};
+
   /// IDs that 404'd on BOTH movie and tv lookups (stale/dead TMDB ids).
   /// Process-wide so the billboard, hover cards, and episode drawer share
   /// one memory of dead ids instead of re-404ing on every rotation.
@@ -136,6 +140,41 @@ class TMDBDetailsService with TMDBBase, ConnectivityAware {
       Logger.e('TMDB TV Season Episodes Error', error: e);
     }
     return [];
+  }
+
+  /// IMDB id for a title, needed to look up a downloadable copy.
+  ///
+  /// Movies carry `imdb_id` on the details payload the player already
+  /// caches, so this costs nothing there. TV needs one extra
+  /// `/external_ids` call, cached for the session.
+  Future<String?> fetchImdbId(int id, String mediaType) async {
+    if (id <= 0) return null;
+    final key = '$mediaType:$id';
+    final known = _imdbIds[key];
+    if (known != null) return known.isEmpty ? null : known;
+    String value = '';
+    try {
+      if (mediaType == 'movie') {
+        final details = await fetchMediaDetails(id, mediaType);
+        final imdb = details?['imdb_id'];
+        if (imdb is String) value = imdb;
+      } else {
+        final response = await tmdbGet(
+          Uri.parse('$tmdbBaseUrl/$mediaType/$id/external_ids'),
+        );
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          final imdb = data is Map ? data['imdb_id'] : null;
+          if (imdb is String) value = imdb;
+        }
+      }
+    } catch (e) {
+      // A miss is not worth a retry storm: the sheet shows "nothing found".
+      Logger.e('TMDB IMDB id lookup failed for $key', error: e);
+      return null;
+    }
+    _imdbIds[key] = value;
+    return value.isEmpty ? null : value;
   }
 
   /// Fetch Media Item details (for Hero Banner metadata)
