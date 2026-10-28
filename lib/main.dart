@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 
@@ -37,6 +38,12 @@ void main() {
 
 Future<void> _startEverglow() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // On web, disable the native browser context menu so Flutter's SelectionArea
+  // can display its adaptive context menu toolbar ("Copy", "Select all") on
+  // right-click / long-press and copy selected text to the clipboard.
+  if (kIsWeb) {
+    await BrowserContextMenu.disableContextMenu();
+  }
 
   // Web release: prevent opaque grey ErrorWidget from swallowing Together zone.
   // Show transparent fallback with logged error instead of solid grey box.
