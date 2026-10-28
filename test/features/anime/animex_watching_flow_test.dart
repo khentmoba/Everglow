@@ -328,11 +328,15 @@ void main() {
     );
     final ownEmbed = servers.firstWhere((s) => s.name == 'CineSrc');
     final direct = servers.firstWhere((s) => s.name == 'Megavid');
-    final external = servers.firstWhere((s) => s.name == 'Everglow');
+    final everglow = servers.firstWhere((s) => s.name == 'Everglow');
+    final external = servers.firstWhere((s) => s.name == 'TryEmbed');
     expect(ownEmbed.supportsAudioSelection, false);
     expect(ownEmbed.supportsSeek, false);
     expect(direct.supportsAudioSelection, true);
     expect(direct.supportsSeek, true);
+    expect(everglow.supportsAudioSelection, true);
+    expect(everglow.supportsSeek, true);
+    expect(everglow.supportsResume, true);
     expect(
       Uri.parse(direct.urlFor(7, 'dub', startSeconds: 360)).queryParameters,
       containsPair('start', '360'),
@@ -340,6 +344,10 @@ void main() {
     expect(
       Uri.parse(direct.urlFor(7, 'dub', startSeconds: 360)).queryParameters,
       containsPair('audio', 'dub'),
+    );
+    expect(
+      Uri.parse(everglow.urlFor(7, 'sub', startSeconds: 360)).queryParameters,
+      containsPair('start', '360'),
     );
     expect(
       Uri.parse(ownEmbed.urlFor(7, 'sub', startSeconds: 360)).queryParameters,
