@@ -780,8 +780,9 @@ function megavidProxyUrl(proxyBase, absUrl) {
 
 /** Rewrites every Megavid URI inside an HLS playlist to our proxy.
  *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
- *  Non-Megavid URLs are left untouched so a future mixed playlist can't
- *  turn the proxy into an open relay. */
+ *  Unlisted hosts are left untouched so a future mixed playlist can't
+ *  turn the proxy into an open relay — unless [stampKey] is given (MegaPlay
+ *  playlists only), which proxies them with a stamp (see cdnKey). */
 function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
   const rewriteUri = (uri) => {
     const abs = resolvePlaylistUrl(uri, playlistUrl);
