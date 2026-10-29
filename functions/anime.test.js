@@ -22,6 +22,10 @@ const {
   isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
+  rewritePlaylistWithHosts,
+  megaplayProxyUrl,
+  cdnStamp,
+  validCdnStamp,
   megavidHeaders,
   megaplayHeaders,
   MEGAVID_ORIGIN,
@@ -702,6 +706,52 @@ test('rewriteMegavidPlaylist proxies the active ani.watch CDN', () => {
 
   assert.ok(out.includes(`${base}?u=${encodeURIComponent(segment)}`));
   assert.ok(!out.includes(segment));
+});
+
+test('MegaPlay playlists stamp segments on rotating CDN hosts', () => {
+  // Late October 2026: MegaPlay moved segments to throwaway domains like
+  // wintergrove.space. Left un-proxied, the browser got 403 and the
+  // Everglow server buffered forever.
+  const base = 'https://host/proxyMegavidHls';
+  const key = 'a'.repeat(64);
+  const segment = 'https://ywh4n.wintergrove.space/anime/x/y/seg-1-f1-v1-a1.jpg';
+  const playlist = `#EXTM3U\n#EXTINF:9.04,\n${segment}\n`;
+
+  const out = rewritePlaylistWithHosts(
+    playlist,
+    'https://fetch.nexabloom.top/anime/x/y/index-f1-v1-a1.m3u8',
+    base,
+    isMegaPlayHost,
+    key,
+  );
+
+  const line = out.split('\n').find((l) => l.startsWith(base));
+  const url = new URL(line);
+  assert.equal(url.searchParams.get('u'), segment);
+  assert.ok(validCdnStamp(key, segment, url.searchParams.get('s')));
+  // Without a key the old behaviour stays: unlisted hosts are untouched.
+  assert.ok(
+    rewritePlaylistWithHosts(playlist, 'https://fetch.nexabloom.top/a.m3u8', base, isMegaPlayHost)
+      .includes(`\n${segment}\n`),
+  );
+});
+
+test('CDN stamps only vouch for the exact URL they were made for', () => {
+  const key = 'b'.repeat(64);
+  const url = 'https://n7ho4.phantomharbor.space/anime/x/y/seg-1.jpg';
+  const stamp = cdnStamp(key, url);
+  assert.ok(validCdnStamp(key, url, stamp));
+  assert.ok(!validCdnStamp(key, 'https://evil.example/seg-1.jpg', stamp));
+  assert.ok(!validCdnStamp('c'.repeat(64), url, stamp));
+  assert.ok(!validCdnStamp(key, url, 'nope'));
+  assert.ok(!validCdnStamp(null, url, stamp));
+});
+
+test('megaplayProxyUrl leaves listed hosts unstamped', () => {
+  const base = 'https://h/proxyMegavidHls';
+  const listed = 'https://de3bv.eclipseharbor.world/sub.vtt';
+  assert.equal(megaplayProxyUrl(base, listed, 'k'), megavidProxyUrl(base, listed));
+  assert.ok(megaplayProxyUrl(base, 'https://x.goldenanchor.space/s.vtt', 'k').includes('&s='));
 });
 
 test('megavidProxyUrl carries the upstream URL, never a token', () => {
