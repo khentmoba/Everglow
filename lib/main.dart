@@ -32,6 +32,13 @@ import 'shared/widgets/everglow/app_update_prompt.dart';
 /// Global key for SnackBar notifications.
 final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
+/// Never takes focus, so keys like Escape still reach the open dialog.
+/// Ctrl+C still works: the dialog sits inside this area's actions.
+final _popupSelectionFocus = FocusNode(
+  canRequestFocus: false,
+  skipTraversal: true,
+);
+
 void main() {
   runZonedGuarded(_startEverglow, _zoneErrorHandler);
 }
@@ -160,7 +167,19 @@ class EverglowApp extends StatelessWidget {
         scaffoldMessengerKey: _scaffoldMessengerKey,
         builder: (context, child) => PerfMeterOverlay(
           child: AgentHudOverlay(
-            child: AppUpdatePrompt(child: AppRoot(child: child!)),
+            child: AppUpdatePrompt(
+              // Pages get their own SelectionArea (app_router's ShellRoute).
+              // This outer one covers dialogs and sheets, which open above
+              // it; Overlay.wrap gives their Copy menu somewhere to float.
+              child: AppRoot(
+                child: Overlay.wrap(
+                  child: SelectionArea(
+                    focusNode: _popupSelectionFocus,
+                    child: child!,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
