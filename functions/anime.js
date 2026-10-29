@@ -31,7 +31,7 @@ const { streamMediaBody } = require('./stream_media_body');
  * grey box.
  */
 
-const { getAdmin, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = require('./common.js');
+const { getAdmin, getDb, getVerifiedUsername, isPublicDnsHost, enforceRateLimit, cappedHttps } = require('./common.js');
 
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -495,6 +495,61 @@ function isAnimeCdnHost(hostname) {
   return isMegavidHost(hostname) || isMegaPlayHost(hostname);
 }
 
+/** MegaPlay serves segments from rotating throwaway domains
+ *  (wintergrove.space, phantomharbor.space, goldenanchor.space, ...), a new
+ *  one per title, so no allowlist keeps up: an unlisted host left the URL
+ *  un-proxied, the browser got a 403 without MegaPlay's Referer, and the
+ *  player buffered forever. Instead, every URL we read out of a MegaPlay
+ *  playlist (or its subtitle list) is stamped with an HMAC, and the proxy
+ *  accepts an unlisted host only with a valid stamp — nobody can point it
+ *  at a URL MegaPlay didn't hand us. The key is one server-only Firestore
+ *  doc (default-deny rules), read once per instance. */
+let cdnKeyPromise = null;
+function cdnKey() {
+  if (!cdnKeyPromise) {
+    const db = getDb();
+    const ref = db.collection('server_keys').doc('anime_cdn');
+    cdnKeyPromise = db
+      .runTransaction(async (tx) => {
+        const saved = await tx.get(ref);
+        if (saved.exists && saved.data().secret) return saved.data().secret;
+        const secret = crypto.randomBytes(32).toString('hex');
+        tx.set(ref, { secret });
+        return secret;
+      })
+      .catch((e) => {
+        cdnKeyPromise = null;
+        throw e;
+      });
+  }
+  return cdnKeyPromise;
+}
+
+function cdnStamp(key, url) {
+  return crypto.createHmac('sha256', key).update(String(url)).digest('hex');
+}
+
+function validCdnStamp(key, url, stamp) {
+  if (!key || !/^[a-f0-9]{64}$/.test(String(stamp || ''))) return false;
+  return crypto.timingSafeEqual(
+    Buffer.from(cdnStamp(key, url), 'hex'),
+    Buffer.from(stamp, 'hex'),
+  );
+}
+
+/** Proxy URL for a file MegaPlay pointed us at: plain for listed hosts,
+ *  stamped for its rotating CDNs. Without a key it stays plain, which the
+ *  proxy refuses for unlisted hosts (the old behaviour). */
+function megaplayProxyUrl(proxyBase, absUrl, key) {
+  const url = megavidProxyUrl(proxyBase, absUrl);
+  let host = '';
+  try {
+    host = new URL(absUrl).hostname;
+  } catch (_) {}
+  if (!key || isAnimeCdnHost(host)) return url;
+  return `${url}&s=${cdnStamp(key, absUrl)}`;
+}
+
 function padKeyBytes(str, len) {
   const enc = Buffer.from(str, 'utf8');
   const out = Buffer.alloc(len, 0);
@@ -727,12 +782,14 @@ function megavidProxyUrl(proxyBase, absUrl) {
  *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
  *  Non-Megavid URLs are left untouched so a future mixed playlist can't
  *  turn the proxy into an open relay. */
-function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed) {
+function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
   const rewriteUri = (uri) => {
     const abs = resolvePlaylistUrl(uri, playlistUrl);
     if (!abs) return null;
     try {
-      if (!isAllowed(new URL(abs).hostname)) return null;
+      if (!isAllowed(new URL(abs).hostname)) {
+        return stampKey ? megaplayProxyUrl(proxyBase, abs, stampKey) : null;
+      }
     } catch (_) {
       return null;
     }
@@ -858,11 +915,12 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, req) {
   await verifyMegaPlayStream(masterUrl);
 
   const proxyBase = megavidProxyBase(req);
+  const key = await cdnKey().catch(() => null);
   const tracks = (Array.isArray(data.tracks) ? data.tracks : [])
     .filter((t) => t && t.file)
     .map((t) => ({
       ...t,
-      file: megavidProxyUrl(proxyBase, t.file),
+      file: megaplayProxyUrl(proxyBase, t.file, key),
     }));
 
   const userToken = (req && req.query && req.query.token) || '';
@@ -1032,18 +1090,23 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.status(400).json({ error: 'Invalid url' });
     return;
   }
-  if (parsed.protocol !== 'https:' || !isAnimeCdnHost(parsed.hostname)) {
+  // Unlisted hosts pass only with a stamp from a MegaPlay playlist we
+  // rewrote ourselves (see cdnKey), and then travel as MegaPlay.
+  const stamped =
+    !isAnimeCdnHost(parsed.hostname) &&
+    typeof req.query.s === 'string' &&
+    validCdnStamp(await cdnKey().catch(() => null), targetUrl, req.query.s);
+  if (parsed.protocol !== 'https:' || !(isAnimeCdnHost(parsed.hostname) || stamped)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
+  const megaplay = stamped || isMegaPlayHost(parsed.hostname);
   if (!(await isPublicDnsHost(parsed.hostname))) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
   try {
-    const headers = isMegaPlayHost(parsed.hostname)
-      ? megaplayHeaders()
-      : megavidHeaders();
+    const headers = megaplay ? megaplayHeaders() : megavidHeaders();
     const range = req.get('Range') || req.headers.range;
     if (range && typeof range === 'string') headers.Range = range;
     const upstream = await fetch(targetUrl, {
@@ -1065,10 +1128,15 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
         // Nested URLs stay token-free (identity rides the header).
-        const isAllowed = isMegaPlayHost(parsed.hostname)
-          ? isMegaPlayHost
-          : isMegavidHost;
-        const rewritten = rewritePlaylistWithHosts(text, targetUrl, proxyBase, isAllowed);
+        const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
+        const stampKey = megaplay ? await cdnKey().catch(() => null) : null;
+        const rewritten = rewritePlaylistWithHosts(
+          text,
+          targetUrl,
+          proxyBase,
+          isAllowed,
+          stampKey,
+        );
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
         res.set('Cache-Control', 'public, max-age=30');
         res.status(200).send(rewritten);
@@ -1212,6 +1280,10 @@ module.exports = {
   isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
+  rewritePlaylistWithHosts,
+  megaplayProxyUrl,
+  cdnStamp,
+  validCdnStamp,
   megavidHeaders,
   megaplayHeaders,
   MEGAVID_ORIGIN,
