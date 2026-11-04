@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:html_unescape/html_unescape.dart';
 
-import '../../../../core/network/fast_network_cache.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
 import '../models/katana_models.dart';
@@ -126,20 +125,7 @@ class KatanaService {
     String cookie = '',
     bool forceRefresh = false,
   }) async {
-    final cacheKey =
-        'katana:${uri.toString()}${cookie.isNotEmpty ? ':$cookie' : ''}';
-    if (forceRefresh) {
-      final fresh = await _rawFetchHtml(uri, cookie: cookie);
-      if (fresh != null && fresh.isNotEmpty) {
-        FastNetworkCache.instance.putStringDirectly(cacheKey, fresh);
-      }
-      return fresh;
-    }
-    return FastNetworkCache.instance.getOrFetchString(
-      cacheKey,
-      () => _rawFetchHtml(uri, cookie: cookie),
-      ttl: const Duration(minutes: 15),
-    );
+    return _rawFetchHtml(uri, cookie: cookie);
   }
 
   Future<String?> _rawFetchHtml(Uri uri, {String cookie = ''}) async {

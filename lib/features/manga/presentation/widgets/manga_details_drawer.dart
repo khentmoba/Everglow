@@ -68,29 +68,11 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     setState(() => _item = enriched);
   }
 
-  /// In-memory chapter cache so reopening the same manga is instant.
-  /// Shared across drawer opens; entries live for 10 minutes.
-  static final Map<String, _ChapterCacheEntry> _chapterCache = {};
-
   Future<void> _loadChapters({bool forceRefresh = false}) async {
     setState(() {
       _isLoadingChapters = true;
       _chapterError = null;
     });
-
-    final cacheKey = _item.mangaId.isNotEmpty ? _item.mangaId : _item.title;
-    if (!forceRefresh) {
-      final cached = _chapterCache[cacheKey];
-      if (cached != null && DateTime.now().isBefore(cached.expiresAt)) {
-        if (!mounted) return;
-        setState(() {
-          _chapters = cached.chapters;
-          _scanlationSlugs = cached.scanlationSlugs;
-          _isLoadingChapters = false;
-        });
-        return;
-      }
-    }
 
     const timeout = Duration(seconds: 10);
 
@@ -231,11 +213,6 @@ class _MangaDetailsDrawerState extends State<MangaDetailsDrawer> {
     if (!mounted) return;
     if (best.isNotEmpty) {
       final cleaned = _dedupeAndSort(best);
-      _chapterCache[cacheKey] = _ChapterCacheEntry(
-        chapters: cleaned,
-        scanlationSlugs: _scanlationSlugs,
-        expiresAt: DateTime.now().add(const Duration(minutes: 10)),
-      );
       setState(() {
         _chapters = cleaned;
         _isLoadingChapters = false;
@@ -873,17 +850,6 @@ class _LibOption {
   final String label;
   final IconData icon;
   const _LibOption(this.value, this.label, this.icon);
-}
-
-class _ChapterCacheEntry {
-  final List<MangaChapter> chapters;
-  final Map<String, String>? scanlationSlugs;
-  final DateTime expiresAt;
-  const _ChapterCacheEntry({
-    required this.chapters,
-    required this.scanlationSlugs,
-    required this.expiresAt,
-  });
 }
 
 class _DrawerChapterRow extends StatelessWidget {

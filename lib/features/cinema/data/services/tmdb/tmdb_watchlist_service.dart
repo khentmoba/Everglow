@@ -6,16 +6,13 @@ import '../../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../../core/utils/logger.dart';
 import '../../models/media_item.dart';
 import 'tmdb_base.dart';
-import 'tmdb_cache_service.dart';
 
 /// Firestore-backed watchlist CRUD, couple-merge streams, currently-watching
 /// streams, progress tracking, and one-time migration helpers.
 /// Agent sessions return empty lists and skip persistence; drawer selections
 /// remain local to the widget and never touch live or cached couple data.
 class TMDBWatchlistService with TMDBBase, ConnectivityAware {
-  final TMDBCacheService _cacheService;
-
-  TMDBWatchlistService(this._cacheService);
+  TMDBWatchlistService();
 
   // Bounds every live watch-list query below. A couple list stays far
   // under this in practice; the cap keeps Firestore reads finite.
@@ -828,8 +825,6 @@ class TMDBWatchlistService with TMDBBase, ConnectivityAware {
                   .map((doc) => MediaItem.fromFirestore(doc.data(), doc.id))
                   .toList()
                 ..sort((a, b) => b.addedAt.compareTo(a.addedAt));
-          // Side effect: Cache the list locally per user (fire-and-forget).
-          unawaited(_cacheService.cacheWatchList(items, userName));
           return items;
         });
   }

@@ -1,6 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
-import '../../core/network/fast_network_cache.dart';
 
 /// Shared helper for keyless public JSON catalogs (Open Library, Jikan,
 /// iTunes, AniSkip).
@@ -10,8 +9,7 @@ import '../../core/network/fast_network_cache.dart';
 /// directly. Sends the Firebase ID token when signed in; the proxy
 /// validates it when present and still serves anonymous callers.
 class CatalogProxyClient {
-  CatalogProxyClient({http.Client? client})
-    : _client = client ?? http.Client();
+  CatalogProxyClient({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
 
@@ -27,20 +25,13 @@ class CatalogProxyClient {
     final rawQuery = query == null || query.isEmpty
         ? ''
         : '?${Uri(queryParameters: query).query}';
-    final uri = Uri.parse(proxyBase).replace(
-      queryParameters: {'base': base, 'path': '$path$rawQuery'},
-    );
-    return FastNetworkCache.instance.getOrFetchResponse(
-      uri.toString(),
-      () => _getWithOptionalAuth(uri, timeout),
-      ttl: const Duration(minutes: 20),
-    );
+    final uri = Uri.parse(
+      proxyBase,
+    ).replace(queryParameters: {'base': base, 'path': '$path$rawQuery'});
+    return _getWithOptionalAuth(uri, timeout);
   }
 
-  Future<http.Response> _getWithOptionalAuth(
-    Uri uri,
-    Duration timeout,
-  ) async {
+  Future<http.Response> _getWithOptionalAuth(Uri uri, Duration timeout) async {
     String? token;
     try {
       token = await FirebaseAuth.instance.currentUser?.getIdToken();

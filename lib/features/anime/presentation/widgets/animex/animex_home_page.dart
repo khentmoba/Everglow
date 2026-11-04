@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/animex_models.dart';
 import '../../../../cinema/data/models/media_item.dart';
-import '../../../data/services/animex_home_cache.dart';
+
 import '../../../data/services/anilist_service.dart';
 
 import 'animex_badges.dart';
@@ -61,7 +61,6 @@ class AnimeXHomePage extends StatefulWidget {
 
 class _AnimeXHomePageState extends State<AnimeXHomePage> {
   final AniListService _aniList = AniListService();
-  final AnimexHomeCache _cache = AnimexHomeCache.instance;
   final Map<String, _HomeRow> _rows = {};
   bool _allFailed = false;
 
@@ -73,20 +72,6 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
 
   Future<void> _init() async {
     _buildSections();
-    final cached = await _cache.load();
-    for (final entry in cached.entries) {
-      final row = _rows[entry.key];
-      if (row == null) continue;
-      _rows[entry.key] = _HomeRow(
-        id: row.id,
-        title: row.title,
-        icon: row.icon,
-        loading: false,
-        items: entry.value,
-        isHero: row.isHero,
-      );
-    }
-    if (mounted) setState(() {});
     await _load();
   }
 
@@ -190,7 +175,6 @@ class _AnimeXHomePageState extends State<AnimeXHomePage> {
       final page = await (widget.loadRow?.call(id) ?? builder());
       if (!mounted) return false;
       setState(() => _rows[id] = buildRow(page.items, loading: false));
-      unawaited(_cache.saveRow(id, page.items));
       return page.items.isNotEmpty;
     } catch (e, stack) {
       Logger.e('Anime home row $id failed', error: e, stackTrace: stack);

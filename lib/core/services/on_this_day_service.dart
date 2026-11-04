@@ -1,7 +1,7 @@
 import 'dart:async';
 import '../../features/gallery/data/services/gallery_service.dart';
 import '../../features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
-import '../../features/cinema/data/services/tmdb/tmdb_cache_service.dart';
+
 import '../../features/chat/data/services/chat_service.dart';
 import '../utils/logger.dart';
 
@@ -39,7 +39,7 @@ class OnThisDayService {
 
   OnThisDayService()
     : _galleryService = GalleryService(),
-      _cinemaService = TMDBWatchlistService(TMDBCacheService()),
+      _cinemaService = TMDBWatchlistService(),
       _chatService = ChatService();
 
   /// Fetch all "On This Day" memories across all sources in parallel.

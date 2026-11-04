@@ -1,6 +1,6 @@
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/media_item.dart';
-import './tmdb/tmdb_cache_service.dart';
+
 import './tmdb/tmdb_details_service.dart';
 import './tmdb/tmdb_discovery_service.dart';
 import './tmdb/tmdb_poster_service.dart';
@@ -22,7 +22,6 @@ class TMDBService with ConnectivityAware {
   late final TMDBDetailsService _details;
   late final TMDBPosterService _poster;
   late final TMDBWatchlistService _watchlist;
-  late final TMDBCacheService _cache;
   late final TMDBTrailerService _trailer;
 
   // ─── Sub-service getters ───────────────────────────────────────────────────
@@ -32,7 +31,6 @@ class TMDBService with ConnectivityAware {
   TMDBDetailsService get details => _details;
   TMDBPosterService get poster => _poster;
   TMDBWatchlistService get watchlist => _watchlist;
-  TMDBCacheService get cache => _cache;
   TMDBTrailerService get trailer => _trailer;
 
   // ─── Singleton ─────────────────────────────────────────────────────────────
@@ -41,11 +39,10 @@ class TMDBService with ConnectivityAware {
   factory TMDBService() => _instance;
   TMDBService._internal() {
     _details = TMDBDetailsService();
-    _cache = TMDBCacheService();
     _discovery = TMDBDiscoveryService();
     _search = TMDBSearchService();
     _poster = TMDBPosterService(_details);
-    _watchlist = TMDBWatchlistService(_cache);
+    _watchlist = TMDBWatchlistService();
     _trailer = TMDBTrailerService();
   }
 
@@ -380,14 +377,6 @@ class TMDBService with ConnectivityAware {
     timestamp: timestamp,
     durationSeconds: durationSeconds,
   );
-
-  // ─── Cache ─────────────────────────────────────────────────────────────────
-
-  Future<void> cacheWatchList(List<MediaItem> items, String userName) =>
-      _cache.cacheWatchList(items, userName);
-
-  Future<List<MediaItem>> getCachedWatchList(String userName) =>
-      _cache.getCachedWatchList(userName);
 
   // ─── Migration ─────────────────────────────────────────────────────────────
 

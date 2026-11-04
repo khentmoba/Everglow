@@ -122,7 +122,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _optimisticWatchlist.clearAll();
     _optimisticAddedItems.clear();
     if (user.isNotEmpty) {
-      _loadCachedWatchList(user);
       _subscribeToWatchList(user);
     }
     if (mounted) setState(() {});
@@ -133,20 +132,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
     _auth.removeListener(_syncProfile);
     _watchlistSubscription?.cancel();
     super.dispose();
-  }
-
-  Future<void> _loadCachedWatchList(String userName) async {
-    final revision = _listRevision;
-    final cached = await _tmdbService.getCachedWatchList(userName);
-    if (cached.isNotEmpty &&
-        mounted &&
-        userName == _listUser &&
-        revision == _listRevision) {
-      setState(() {
-        _watchlist = cached;
-        _splitWatchlists();
-      });
-    }
   }
 
   void _subscribeToWatchList(String userName) {

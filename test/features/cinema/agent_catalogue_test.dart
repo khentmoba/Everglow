@@ -1,7 +1,7 @@
 import 'package:everglow/core/agent/agent_mode.dart';
 import 'package:everglow/features/cinema/data/services/tmdb/tmdb_details_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb/tmdb_discovery_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_cache_service.dart';
+
 import 'package:everglow/features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
@@ -31,7 +31,7 @@ void main() {
       );
       expect(details?['id'], item.tmdbId);
       expect(details?['overview'], isNotEmpty);
-      final watchlist = TMDBWatchlistService(TMDBCacheService());
+      final watchlist = TMDBWatchlistService();
       // A simulated couple session must not read or write real/cached lists.
       expect(await watchlist.getCoupleWatchListStream().first, isEmpty);
       expect(
@@ -45,7 +45,6 @@ void main() {
       );
       await watchlist.saveToWatchList(item, 'watched-both', 'khentsgdz');
       await watchlist.removeFromWatchList(item, 'khentsgdz');
-      expect(await TMDBCacheService().getCachedWatchList('khentsgdz'), isEmpty);
     },
   );
 }
