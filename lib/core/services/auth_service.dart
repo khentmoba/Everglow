@@ -342,8 +342,8 @@ class AuthService extends ChangeNotifier {
   /// fields the rules no longer allow. Returns true when a repair ran.
   /// The doc only holds identity fields, so recreating it loses nothing.
   Future<bool> _repairStaleUserDoc(FirebaseFirestore db, String myUid) async {
-    final doc = await withGetTimeout(
-      db.collection('users').doc(myUid).get(),
+    final doc = await getDocFast(
+      db.collection('users').doc(myUid),
       label: 'auth stale user-doc check',
     );
     if (!doc.exists) return false;
@@ -393,11 +393,10 @@ class AuthService extends ChangeNotifier {
     try {
       var partnerUser = partnerUsername;
       try {
-        final ownDoc = await withGetTimeout(
+        final ownDoc = await getDocFast(
           FirebaseFirestore.instance
               .collection('users')
-              .doc(_auth.currentUser!.uid)
-              .get(),
+              .doc(_auth.currentUser!.uid),
           label: 'auth own user-doc read',
         );
         final storedPartner = ownDoc.data()?['partnerUsername'] as String?;
@@ -424,12 +423,11 @@ class AuthService extends ChangeNotifier {
         // first. Firestore orders such a query by document id, and stray or
         // re-created docs sort ahead of the real account, which used to point
         // the couple at a doc with no garden / presence / chat data.
-        final query = await withGetTimeout(
+        final query = await getQueryFast(
           db
               .collection('users')
               .where('username', isEqualTo: partnerUser)
-              .limit(10)
-              .get(),
+              .limit(10),
           label: 'auth partner lookup',
         );
 

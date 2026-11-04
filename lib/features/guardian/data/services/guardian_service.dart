@@ -70,8 +70,8 @@ class GuardianService {
 
   Future<void> _initializeOnce(int attempt) async {
     try {
-      final snapshot = await withGetTimeout(
-        _db.collection('guardian_messages').limit(_maxCached).get(),
+      final snapshot = await getQueryFast(
+        _db.collection('guardian_messages').limit(_maxCached),
         label: 'guardian messages init',
       );
       var docs = snapshot.docs;

@@ -26,8 +26,8 @@ class DateIdeaService {
       return;
     }
 
-    final snapshot = await withGetTimeout(
-      _db.collection('date_ideas').limit(limit).get(),
+    final snapshot = await getQueryFast(
+      _db.collection('date_ideas').limit(limit),
       label: 'date ideas load',
     );
 

@@ -132,8 +132,10 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
       _refreshUserTotals(),
     ]);
     if (_disposed) return;
-    _isLoading = false;
-    _safeNotify();
+    if (_isLoading) {
+      _isLoading = false;
+      _safeNotify();
+    }
 
     // Last.fm returns its default placeholder image for tracks without
     // artwork, so fill in real album covers in the background.
@@ -334,6 +336,9 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     destination
       ..clear()
       ..addAll(sorted);
+    if (_isLoading && hasData) {
+      _isLoading = false;
+    }
     _safeNotify();
   }
 
@@ -360,6 +365,9 @@ class MusicStatsProvider extends ChangeNotifier with WidgetsBindingObserver {
     destination
       ..clear()
       ..addAll(tracks);
+    if (_isLoading && hasData) {
+      _isLoading = false;
+    }
     _safeNotify();
   }
 

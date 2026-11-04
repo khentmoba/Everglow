@@ -354,3 +354,35 @@ Future<T> withGetTimeout<T>(
     },
   );
 }
+
+/// Reads a Firestore document from local cache first (0-1ms).
+/// Falls back to the server if not present in the local cache.
+Future<DocumentSnapshot<T>> getDocFast<T>(
+  DocumentReference<T> ref, {
+  Duration duration = const Duration(seconds: 10),
+  String? label,
+}) async {
+  try {
+    final cached = await ref.get(const GetOptions(source: Source.cache));
+    if (cached.exists) return cached;
+  } catch (e) {
+    Logger.d('getDocFast cache miss for ${label ?? 'doc'}: $e');
+  }
+  return withGetTimeout(ref.get(), duration: duration, label: label);
+}
+
+/// Reads a Firestore query from local cache first (0-1ms).
+/// Falls back to the server if not present in the local cache.
+Future<QuerySnapshot<T>> getQueryFast<T>(
+  Query<T> query, {
+  Duration duration = const Duration(seconds: 10),
+  String? label,
+}) async {
+  try {
+    final cached = await query.get(const GetOptions(source: Source.cache));
+    if (cached.docs.isNotEmpty) return cached;
+  } catch (e) {
+    Logger.d('getQueryFast cache miss for ${label ?? 'query'}: $e');
+  }
+  return withGetTimeout(query.get(), duration: duration, label: label);
+}
