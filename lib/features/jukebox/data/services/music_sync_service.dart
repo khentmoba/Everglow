@@ -412,6 +412,43 @@ class MusicSyncService {
     return all;
   }
 
+  /// Fetches [username]'s exact all-time playcount for [artist] via
+  /// Last.fm's `artist.getinfo&artist=...&username=...`.
+  /// Returns 0 if never played, user unknown, or request fails.
+  Future<int> fetchArtistUserPlayCount({
+    required String username,
+    required String artist,
+  }) async {
+    final trimmedArtist = artist.trim();
+    if (username.isEmpty ||
+        trimmedArtist.isEmpty ||
+        _invalidUsers.contains(username)) {
+      return 0;
+    }
+    try {
+      final url = Uri.parse(
+        '$_baseUrl?method=artist.getinfo'
+        '&artist=${Uri.encodeComponent(trimmedArtist)}'
+        '&username=${Uri.encodeComponent(username)}'
+        '&autocorrect=1&format=json',
+      );
+      final response = await _getWithAuth(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final rawCount = data['artist']?['stats']?['userplaycount'];
+        if (rawCount != null) {
+          return int.tryParse(rawCount.toString()) ?? 0;
+        }
+      }
+    } catch (e) {
+      Logger.w(
+        'Jukebox Service: failed to fetch artist user play count ($username, $trimmedArtist)',
+        error: e,
+      );
+    }
+    return 0;
+  }
+
   /// Fetches [username]'s exact all-time playcount for a specific [track]
   /// by [artist] via `track.getinfo&username=...`.
   /// Returns 0 if never played, user unknown, or request fails.

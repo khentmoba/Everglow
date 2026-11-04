@@ -298,36 +298,58 @@ class ArtistShowdownProvider extends ChangeNotifier {
     String cacheKey,
     String artist,
   ) async {
+    final indices = <int>[];
     for (var i = 0; i < _tracks.length; i++) {
-      if (_disposed || request != _requestId) return;
-      final current = _tracks[i];
-      if (current.imageUrl != null) continue;
-      final art = await _sync.fetchTrackArtwork(
-        artist: artist,
-        track: current.trackName,
-        mbid: current.mbid,
-      );
-      if (_disposed || request != _requestId) return;
-      if (art == null || art.isEmpty) continue;
-      final next = List<ShowdownTrack>.from(_tracks);
-      next[i] = ShowdownTrack(
-        trackName: current.trackName,
-        khentPlays: current.khentPlays,
-        clairPlays: current.clairPlays,
-        imageUrl: art,
-        spotifyUrl: current.spotifyUrl,
-        mbid: current.mbid,
-      );
-      _tracks = next;
-      final cached = _cache[cacheKey];
-      if (cached != null) {
-        _cache[cacheKey] = _CachedShowdown(
-          khentTotal: cached.khentTotal,
-          clairTotal: cached.clairTotal,
-          tracks: next,
-        );
+      if (_tracks[i].imageUrl == null || _tracks[i].imageUrl!.isEmpty) {
+        indices.add(i);
       }
-      _safeNotify();
+    }
+    if (indices.isEmpty) return;
+
+    const concurrency = 4;
+    for (var c = 0; c < indices.length; c += concurrency) {
+      if (_disposed || request != _requestId) return;
+      final chunk = indices.skip(c).take(concurrency).toList();
+      final results = await Future.wait(
+        chunk.map((idx) async {
+          final t = _tracks[idx];
+          final art = await _sync.fetchTrackArtwork(
+            artist: artist,
+            track: t.trackName,
+            mbid: t.mbid,
+          );
+          return (idx: idx, art: art);
+        }),
+      );
+      if (_disposed || request != _requestId) return;
+      var changed = false;
+      final next = List<ShowdownTrack>.from(_tracks);
+      for (final r in results) {
+        if (r.art != null && r.art!.isNotEmpty) {
+          final cur = next[r.idx];
+          next[r.idx] = ShowdownTrack(
+            trackName: cur.trackName,
+            khentPlays: cur.khentPlays,
+            clairPlays: cur.clairPlays,
+            imageUrl: r.art,
+            spotifyUrl: cur.spotifyUrl,
+            mbid: cur.mbid,
+          );
+          changed = true;
+        }
+      }
+      if (changed) {
+        _tracks = next;
+        final cached = _cache[cacheKey];
+        if (cached != null) {
+          _cache[cacheKey] = _CachedShowdown(
+            khentTotal: cached.khentTotal,
+            clairTotal: cached.clairTotal,
+            tracks: next,
+          );
+        }
+        _safeNotify();
+      }
     }
   }
 
@@ -367,10 +389,10 @@ class ArtistShowdownProvider extends ChangeNotifier {
           return <List<TopMusicTrack>>[const [], const []];
         });
 
-    // 1. Discover all candidate tracks strictly for this artist.
+    // 1. Discover candidate tracks strictly for this artist in parallel.
     final catalogFuture = _sync
         .fetchArtistCatalogTracksAll(artist, pageSize: 50, maxPages: 2)
-        .timeout(const Duration(seconds: 6), onTimeout: () => const [])
+        .timeout(const Duration(seconds: 4), onTimeout: () => const [])
         .catchError((Object e, StackTrace st) {
           Logger.w('ArtistShowdown: catalog fetch failed for "$artist"', error: e);
           return const <TopMusicTrack>[];
@@ -389,6 +411,8 @@ class ArtistShowdownProvider extends ChangeNotifier {
           Logger.w('ArtistShowdown: recent tracks fetch failed for "$artist"', error: e);
           return const <MusicStatus>[];
         });
+
+    final charts = await chartFuture;
 
     final catalog = await catalogFuture;
     final candidateMap = <String, TopMusicTrack>{};
@@ -431,10 +455,14 @@ class ArtistShowdownProvider extends ChangeNotifier {
             _khentUser,
             artist,
             candidateTracks: candidates,
+            batchSize: 16,
           )
-          .timeout(const Duration(seconds: 8), onTimeout: () => const [])
+          .timeout(const Duration(seconds: 6), onTimeout: () => const [])
           .catchError((Object e, StackTrace st) {
-            Logger.w('ArtistShowdown: user artist tracks fetch failed for "$artist"', error: e);
+            Logger.w(
+              'ArtistShowdown: user artist tracks fetch failed for "$artist"',
+              error: e,
+            );
             return const <TopMusicTrack>[];
           });
       final clairTracksFuture = _sync
@@ -442,26 +470,27 @@ class ArtistShowdownProvider extends ChangeNotifier {
             _clairUser,
             artist,
             candidateTracks: candidates,
+            batchSize: 16,
           )
-          .timeout(const Duration(seconds: 8), onTimeout: () => const [])
+          .timeout(const Duration(seconds: 6), onTimeout: () => const [])
           .catchError((Object e, StackTrace st) {
-            Logger.w('ArtistShowdown: user artist tracks fetch failed for "$artist"', error: e);
+            Logger.w(
+              'ArtistShowdown: user artist tracks fetch failed for "$artist"',
+              error: e,
+            );
             return const <TopMusicTrack>[];
           });
-      final khentTracks = await khentTracksFuture;
-      final clairTracks = await clairTracksFuture;
+      final results = await Future.wait([khentTracksFuture, clairTracksFuture]);
       final charts = await chartFuture;
-      final khent = _unionUserTracks(khentTracks, charts[0]);
-      final clair = _unionUserTracks(clairTracks, charts[1]);
+      final khent = _unionUserTracks(results[0], charts[0]);
+      final clair = _unionUserTracks(results[1], charts[1]);
 
       if (khent.isNotEmpty || clair.isNotEmpty) {
         return _merge(khent, clair);
       }
     }
 
-    // 3. Fallback: if catalog & candidate search returned no plays (e.g. mock test
-    // that only stubs fetchTopTracks, or network error), fall back to top tracks.
-    final charts = await chartFuture;
+    // 3. Fallback: if candidate search found nothing new, return top tracks chart.
     return _merge(charts[0], charts[1]);
   }
 

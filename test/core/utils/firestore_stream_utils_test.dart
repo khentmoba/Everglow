@@ -1,3 +1,4 @@
+// ignore_for_file: subtype_of_sealed_class, must_be_immutable
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -293,4 +294,114 @@ void main() {
       );
     });
   });
+
+  group('getDocFast & getQueryFast', () {
+    test('getDocFast returns cached document when present', () async {
+      final doc = _FakeDoc(hasCache: true, exists: true);
+      final result = await getDocFast(doc, duration: const Duration(seconds: 2));
+      expect(result.exists, isTrue);
+      expect(doc.cacheCalls, 1);
+      expect(doc.serverCalls, 0);
+    });
+
+    test('getDocFast falls back to server when cache misses', () async {
+      final doc = _FakeDoc(hasCache: false, exists: true);
+      final result = await getDocFast(doc, duration: const Duration(seconds: 2));
+      expect(result.exists, isTrue);
+      expect(doc.cacheCalls, 1);
+      expect(doc.serverCalls, 1);
+    });
+
+    test('getQueryFast returns cached query snapshot when present', () async {
+      final query = _FakeQuery(hasCache: true, docCount: 3);
+      final result = await getQueryFast(query, duration: const Duration(seconds: 2));
+      expect(result.docs, hasLength(3));
+      expect(query.cacheCalls, 1);
+      expect(query.serverCalls, 0);
+    });
+
+    test('getQueryFast falls back to server when cache misses or is empty', () async {
+      final query = _FakeQuery(hasCache: false, docCount: 2);
+      final result = await getQueryFast(query, duration: const Duration(seconds: 2));
+      expect(result.docs, hasLength(2));
+      expect(query.cacheCalls, 1);
+      expect(query.serverCalls, 1);
+    });
+  });
+}
+
+class _FakeDoc implements DocumentReference<Map<String, dynamic>> {
+  final bool hasCache;
+  final bool exists;
+  int cacheCalls = 0;
+  int serverCalls = 0;
+
+  _FakeDoc({required this.hasCache, required this.exists});
+
+  @override
+  Future<DocumentSnapshot<Map<String, dynamic>>> get([GetOptions? options]) async {
+    if (options?.source == Source.cache) {
+      cacheCalls++;
+      if (hasCache) {
+        return _FakeDocSnap(exists: exists);
+      }
+      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    }
+    serverCalls++;
+    return _FakeDocSnap(exists: exists);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeDocSnap implements DocumentSnapshot<Map<String, dynamic>> {
+  @override
+  final bool exists;
+  _FakeDocSnap({required this.exists});
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeQuery implements Query<Map<String, dynamic>> {
+  final bool hasCache;
+  final int docCount;
+  int cacheCalls = 0;
+  int serverCalls = 0;
+
+  _FakeQuery({required this.hasCache, required this.docCount});
+
+  @override
+  Future<QuerySnapshot<Map<String, dynamic>>> get([GetOptions? options]) async {
+    if (options?.source == Source.cache) {
+      cacheCalls++;
+      if (hasCache) {
+        return _FakeQuerySnap(docCount: docCount);
+      }
+      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    }
+    serverCalls++;
+    return _FakeQuerySnap(docCount: docCount);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeQuerySnap implements QuerySnapshot<Map<String, dynamic>> {
+  final int docCount;
+  _FakeQuerySnap({required this.docCount});
+
+  @override
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs =>
+      List.generate(docCount, (_) => _FakeQueryDocSnap());
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeQueryDocSnap implements QueryDocumentSnapshot<Map<String, dynamic>> {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -91,41 +91,23 @@ Future<void> _startEverglow() async {
     'Everglow ${AppVersion.current} ready in '
     '${result.elapsed.inMilliseconds}ms',
   );
-  // Dev tooling flags (`?perf=1`, `?dpr=2`, or a previously saved switch).
-  // Before runApp on purpose: the engine caches the view's physical size at
-  // the first frame, so a render-scale override has to land first. The frame
-  // meter also mirrors its numbers to `window.__everglowPerf` on web, which is
-  // how tool/perf/measure_scroll.mjs measures a build instead of eyeballing it.
-  await PerfSettings.load();
-
-  // Agent sandbox mode (`?agent=1`, `?agent=khent`, `?agent=cinema`, or local dev).
-  // Initialized before router and first frame so deep links work without bouncing.
-  await AgentMode.init();
+  // Dev tooling flags, agent mode, and preloaded route/scroll states:
+  // load concurrently in parallel before runApp so startup is not serialized.
+  await Future.wait([
+    PerfSettings.load(),
+    AgentMode.init(),
+    RouteMemory.load(),
+    ScrollMemory.preload(),
+  ]);
   if (AgentMode.isActive.value) {
     authService.enableAgentSession(profile: AgentMode.activeProfile.value);
   }
 
   // Bound the decoded-image cache before the first frame.
-  //
-  // Flutter's default is 1000 images / 100 MB, but that 1000-object count is
-  // the binding limit: with `AppNetworkImage` decoding every poster to ~400 px
-  // (≈0.96 MB each) a long browsing session can hold ~1 GB of decoded
-  // bitmaps, which is more than Clair's phone can give back to the OS. A
-  // byte-based ceiling evicts by real cost instead, and the smaller object
-  // count keeps the pending/keep-alive bookkeeping cheap.
-  //
-  // Low-end devices (<=4 cores or <=4GB RAM) use an even lighter limit (48 MB)
-  // to avoid tab discards and memory pressure.
   final isLowEnd = DeviceCapability.isLowEndDevice;
   PaintingBinding.instance.imageCache
     ..maximumSize = isLowEnd ? 100 : 220
     ..maximumSizeBytes = isLowEnd ? (48 << 20) : (96 << 20);
-  // Remembered page for this device (route_memory.dart): ready before the
-  // router is created so a killed tab/PWA reopens where she left off.
-  await RouteMemory.load();
-  // Saved scroll spots (scroll_memory.dart): ready before the first
-  // frame so long lists open exactly where she left them.
-  await ScrollMemory.preload();
   // Health lands after first frame; log it when it arrives.
   unawaited(
     result.healthFuture.then(

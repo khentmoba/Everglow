@@ -187,9 +187,11 @@ class _CinemaScreenState extends State<CinemaScreen> {
   Future<void> _fetchHomeData() async {
     final request = ++_homeRequest;
     setState(() => _isLoadingHome = true);
-    // Each shelf paints independently; a failed feed leaves the others usable.
     final year = DateTime.now().year;
-    await Future.wait([
+
+    // Above-the-fold content (hero carousel + top 10 today) loads first so
+    // the screen becomes interactive immediately without waiting on off-screen rails.
+    final primaryFutures = [
       _loadRow(
         _tmdbService.fetchTrending(region: 'all', timeWindow: 'week'),
         request,
@@ -216,6 +218,15 @@ class _CinemaScreenState extends State<CinemaScreen> {
           return released == null || released >= year - 1;
         }).toList(),
       ),
+    ];
+
+    await Future.wait(primaryFutures);
+    if (mounted && request == _homeRequest) {
+      setState(() => _isLoadingHome = false);
+    }
+
+    // Off-screen discovery shelves load progressively in the background.
+    final discoveryFutures = [
       for (final shelf in _discoveryShelves)
         _loadRow(
           _tmdbService.discoverMedia(
@@ -230,10 +241,8 @@ class _CinemaScreenState extends State<CinemaScreen> {
           request,
           (items) => _discoveryRows[shelf.title] = items,
         ),
-    ]);
-    if (mounted && request == _homeRequest) {
-      setState(() => _isLoadingHome = false);
-    }
+    ];
+    await Future.wait(discoveryFutures);
   }
 
   Future<void> _loadRow(
