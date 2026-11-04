@@ -35,42 +35,10 @@ class AniZipService with ConnectivityAware {
   factory AniZipService() => _instance;
   AniZipService._internal();
 
-  /// In-memory cache of MAL-id -> full response map. Mappings are
-  /// effectively static (TMDB/IMDB/TVDB ids don't move between
-  /// titles), so we hold each entry for [_cacheTtl] and refetch on
-  /// miss. Bounded by [_cacheMax] to keep the working set small.
-  final Map<int, Map<String, dynamic>> _cache = {};
-  final Map<int, DateTime> _cacheAt = {};
-  static const Duration _cacheTtl = Duration(minutes: 30);
-  static const int _cacheMax = 200;
-
   /// Returns the full ani.zip mapping payload for a MAL id, or null
-  /// on a non-200 / network error. The map looks like:
-  /// ```
-  /// {
-  ///   "titles": {...},
-  ///   "episodes": {
-  ///     "1": { "image": "https://...", "title": {...}, ... },
-  ///     ...
-  ///   },
-  ///   "mappings": {
-  ///     "mal_id": 16498,
-  ///     "themoviedb_id": "1429",
-  ///     "imdb_id": "tt2560140",
-  ///     "thetvdb_id": 267440,
-  ///     ...
-  ///   }
-  /// }
-  /// ```
+  /// on a non-200 / network error.
   Future<Map<String, dynamic>?> fetchMappings(int malId) async {
     if (malId <= 0) return null;
-    final cached = _cache[malId];
-    if (cached != null) {
-      final at = _cacheAt[malId];
-      if (at != null && DateTime.now().difference(at) < _cacheTtl) {
-        return cached;
-      }
-    }
     try {
       final response = await _proxy.get(
         'anizip',
@@ -79,23 +47,12 @@ class AniZipService with ConnectivityAware {
         timeout: const Duration(seconds: 15),
       );
       if (response.statusCode != 200) {
-        Logger.e('ani.zip mappings?mal_id=$malId failed (${response.statusCode})');
+        Logger.e(
+          'ani.zip mappings?mal_id=$malId failed (${response.statusCode})',
+        );
         return null;
       }
-      final body = json.decode(response.body) as Map<String, dynamic>;
-      if (_cache.length >= _cacheMax) {
-        // Drop the oldest entry to keep the cache bounded. A simple
-        // FIFO is fine here because the working set is small and
-        // entries re-populate on next miss.
-        final oldestKey = _cacheAt.entries
-            .reduce((a, b) => a.value.isBefore(b.value) ? a : b)
-            .key;
-        _cache.remove(oldestKey);
-        _cacheAt.remove(oldestKey);
-      }
-      _cache[malId] = body;
-      _cacheAt[malId] = DateTime.now();
-      return body;
+      return json.decode(response.body) as Map<String, dynamic>;
     } catch (e) {
       Logger.e('ani.zip mappings?mal_id=$malId error', error: e);
       return null;
@@ -121,24 +78,7 @@ class AniZipService with ConnectivityAware {
         );
         return null;
       }
-      final body = json.decode(response.body) as Map<String, dynamic>;
-      final mappings = body['mappings'] as Map<String, dynamic>?;
-      final rawMal = mappings?['mal_id'];
-      final malId = rawMal is num
-          ? rawMal.toInt()
-          : int.tryParse('${rawMal ?? ''}');
-      if (malId != null && malId > 0) {
-        if (_cache.length >= _cacheMax) {
-          final oldestKey = _cacheAt.entries
-              .reduce((a, b) => a.value.isBefore(b.value) ? a : b)
-              .key;
-          _cache.remove(oldestKey);
-          _cacheAt.remove(oldestKey);
-        }
-        _cache[malId] = body;
-        _cacheAt[malId] = DateTime.now();
-      }
-      return body;
+      return json.decode(response.body) as Map<String, dynamic>;
     } catch (e) {
       Logger.e('ani.zip mappings?anilist_id=$anilistId error', error: e);
       return null;
@@ -201,11 +141,6 @@ class AniZipService with ConnectivityAware {
     return out;
   }
 
-  /// Bypasses the cache. Used by the episode drawer's pull-to-refresh
-  /// gesture when the user knows the data is stale.
-  Future<Map<String, dynamic>?> fetchMappingsFresh(int malId) async {
-    _cache.remove(malId);
-    _cacheAt.remove(malId);
-    return fetchMappings(malId);
-  }
+  Future<Map<String, dynamic>?> fetchMappingsFresh(int malId) =>
+      fetchMappings(malId);
 }

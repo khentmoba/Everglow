@@ -1,13 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/books/data/services/our_books_service.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_cache_service.dart';
 import 'package:everglow/features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 import '../../support/firestore_test_fakes.dart';
 import '../../support/paged_query_test_fakes.dart';
 
 class _Watchlist extends TMDBWatchlistService {
-  _Watchlist(this.db) : super(TMDBCacheService());
+  _Watchlist(this.db) : super();
   final FirebaseFirestore db;
   @override
   FirebaseFirestore get firestore => db;

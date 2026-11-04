@@ -3,7 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/cinema/data/models/media_item.dart';
-import 'package:everglow/features/cinema/data/services/tmdb/tmdb_cache_service.dart';
+
 import 'package:everglow/features/cinema/data/services/tmdb/tmdb_watchlist_service.dart';
 
 class _Db implements FirebaseFirestore {
@@ -103,7 +103,7 @@ class _Reference implements DocumentReference<Map<String, dynamic>> {
 
 class _Watchlist extends TMDBWatchlistService {
   final _Db db;
-  _Watchlist(this.db) : super(TMDBCacheService());
+  _Watchlist(this.db) : super();
   @override
   FirebaseFirestore get firestore => db;
 }

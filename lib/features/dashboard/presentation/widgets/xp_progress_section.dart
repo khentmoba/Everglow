@@ -31,18 +31,13 @@ class XpProgressSection extends StatefulWidget {
   /// `XPService().watchProgress`, which needs Firestore.
   final Stream<UserProgress?> Function(String uid)? watchProgress;
 
-  const XpProgressSection({
-    super.key,
-    required this.uid,
-    this.watchProgress,
-  });
+  const XpProgressSection({super.key, required this.uid, this.watchProgress});
 
   @override
   State<XpProgressSection> createState() => _XpProgressSectionState();
 }
 
 class _XpProgressSectionState extends State<XpProgressSection> {
-  static final Map<String, UserProgress> _cache = {};
   final XPService _service = XPService();
   StreamSubscription<UserProgress?>? _sub;
   Timer? _retryTimer;
@@ -53,12 +48,12 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   String? _boundUid;
 
   static UserProgress _zero(String uid) => UserProgress(
-        uid: uid,
-        xpTotal: 0,
-        level: 1,
-        streak: 0,
-        lastActivity: DateTime.now(),
-      );
+    uid: uid,
+    xpTotal: 0,
+    level: 1,
+    streak: 0,
+    lastActivity: DateTime.now(),
+  );
 
   @override
   void initState() {
@@ -101,19 +96,8 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       return;
     }
 
-    // Optimistic paint: show cached progress — or a zero-state bar —
-    // synchronously so first paint never waits on Firestore.
-    final cached = _cache[uid];
-    _progress = cached ?? _zero(uid);
+    _progress = _zero(uid);
     if (mounted) setState(() {});
-    // A cache hit paints real data, so it counts — reported post-frame
-    // since notifyListeners must not fire during initState's build pass.
-    // A zero-state paint counts for nothing: the stream below must answer.
-    if (cached != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _reportLoaded();
-      });
-    }
 
     _subscribe(uid);
   }
@@ -121,12 +105,9 @@ class _XpProgressSectionState extends State<XpProgressSection> {
   void _subscribe(String uid) {
     _sub?.cancel();
     _retryTimer?.cancel();
-    final source = widget.watchProgress?.call(uid) ??
-        _service.watchProgress(uid);
-    _sub = source.map((p) {
-      if (p != null) _cache[uid] = p;
-      return p;
-    }).listen(
+    final source =
+        widget.watchProgress?.call(uid) ?? _service.watchProgress(uid);
+    _sub = source.listen(
       (data) {
         if (!mounted || _boundUid != uid) return;
         _retryCount = 0;
@@ -136,10 +117,17 @@ class _XpProgressSectionState extends State<XpProgressSection> {
         if (data == null) {
           // Doc doesn't exist yet — keep the optimistic zero-state visible
           // and seed in the background (fire-and-forget with its own timeout).
-          Logger.w('[XpProgressSection] progress doc null for $uid — seeding in bg');
-          unawaited(_service.initializeProgress(uid).catchError((Object e) {
-            Logger.e('[XpProgressSection] initializeProgress failed', error: e);
-          }));
+          Logger.w(
+            '[XpProgressSection] progress doc null for $uid — seeding in bg',
+          );
+          unawaited(
+            _service.initializeProgress(uid).catchError((Object e) {
+              Logger.e(
+                '[XpProgressSection] initializeProgress failed',
+                error: e,
+              );
+            }),
+          );
           // No setState needed: zero-state already painted in _bind().
           // Only clear a prior error flag.
           if (_hasError && mounted) setState(() => _hasError = false);
@@ -152,7 +140,11 @@ class _XpProgressSectionState extends State<XpProgressSection> {
       },
       onError: (Object e, StackTrace st) {
         if (!mounted || _boundUid != uid) return;
-        Logger.e('[XpProgressSection] watchProgress error (bg retry)', error: e, stackTrace: st);
+        Logger.e(
+          '[XpProgressSection] watchProgress error (bg retry)',
+          error: e,
+          stackTrace: st,
+        );
         _scheduleSilentRetry(uid);
       },
       onDone: () {
@@ -160,7 +152,9 @@ class _XpProgressSectionState extends State<XpProgressSection> {
         // withFirestoreTimeout closes the stream when the first snapshot
         // never arrives (WebChannel hang). Retry silently — the optimistic
         // bar stays on screen, so the user never sees a skeleton.
-        Logger.w('[XpProgressSection] stream closed with no data for $uid — bg retry');
+        Logger.w(
+          '[XpProgressSection] stream closed with no data for $uid — bg retry',
+        );
         _scheduleSilentRetry(uid);
       },
     );
@@ -228,47 +222,72 @@ class _XpProgressSectionState extends State<XpProgressSection> {
         decoration: BoxDecoration(
           color: AppColors.velvet.withValues(alpha: 0.82),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.moonlight.withValues(alpha: 0.10)),
+          border: Border.all(
+            color: AppColors.moonlight.withValues(alpha: 0.10),
+          ),
         ),
         child: Row(
           children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 20, color: AppColors.roseQuartz.withValues(alpha: 0.5)),
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 20,
+              color: AppColors.roseQuartz.withValues(alpha: 0.5),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Couldn't load XP",
-                      style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.petalWhite.withValues(alpha: 0.85),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    "Couldn't load XP",
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppColors.petalWhite.withValues(alpha: 0.85),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text('Check connection and retry',
-                      style: AppTypography.outfitWhite.copyWith(
-                          color: AppColors.petalWhite.withValues(alpha: 0.5), fontSize: 11)),
+                  Text(
+                    'Check connection and retry',
+                    style: AppTypography.outfitWhite.copyWith(
+                      color: AppColors.petalWhite.withValues(alpha: 0.5),
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               ),
             ),
             GestureDetector(
               onTap: _retry,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.deepRose.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: AppColors.deepRose.withValues(alpha: 0.35)),
+                  border: Border.all(
+                    color: AppColors.deepRose.withValues(alpha: 0.35),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.refresh_rounded, size: 14, color: AppColors.petalWhite),
+                    const Icon(
+                      Icons.refresh_rounded,
+                      size: 14,
+                      color: AppColors.petalWhite,
+                    ),
                     const SizedBox(width: 6),
-                    Text('Retry',
-                        style: AppTypography.outfitBold
-                            .copyWith(fontSize: 12, color: AppColors.petalWhite)),
+                    Text(
+                      'Retry',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 12,
+                        color: AppColors.petalWhite,
+                      ),
+                    ),
                   ],
                 ),
               ),
