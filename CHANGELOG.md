@@ -5,6 +5,33 @@ Every Everglow release, newest first. Each version also has a page at
 
 Releases are manual and curated — see "Releases" in `AGENTS.md`.
 
+## [6.3.0] - 2026-11-05 - The Speed & Serenity Update
+
+A massive leap in pure speed and cozy media nights: true sub-second loading without fake caches, in-house ad-free HLS anime streaming with smooth seeking, high-quality Cinema offline downloads, an elegant new Books experience, and effortless text copying across the site.
+
+### Pure Speed & Sub-Second Loading
+
+- **Instant opening** — Everglow now starts in the blink of an eye, even on weak Wi-Fi or mobile data, thanks to parallel app bootstrapping.
+- **Zero fake caching** — removed heavy in-memory cache bloat so the app stays featherweight and buttery smooth on phones and tablets.
+- **Instant music showdowns** — Last.fm artist comparisons and leaderboards now load in a fraction of a second instead of dozens of sequential waits.
+
+### In-House Anime Streaming & Server Resilience
+
+- **Everglow ad-free HLS player** — watch anime with our custom built-in player featuring smooth seeking, progress memory, and AniSkip intro/outro skips.
+- **Buffer-free streaming** — server-side proxying automatically adapts to rotating CDNs so episodes never get stuck in infinite buffering.
+- **Multi-genre anime discovery** — filter shows by multiple genres at once and open titles in new tabs with middle-click.
+
+### Cinema Downloads & Theater Polish
+
+- **Offline download button** — save movies and series for road trips or plane rides with automatic high-quality torrent index resolution.
+- **Clean player controls** — improved theater layout, responsive fullscreen controls, and seamless episode pickers on both desktop and mobile.
+
+### Books & Reading Haven
+
+- **Calm reading shelf** — redesigned Our Books library with serene typography, clear "Read", "Listen", and "Download EPUB" actions, and responsive grids.
+- **Selectable text in popups** — easily select and copy quotes, messages, letters, and notes directly from dialogs and bottom sheets.
+- **PWA viewport stability** — locked mobile Safari zoom behavior to eliminate accidental jumping during rapid scrolling.
+
 ## [6.2.0] - 2026-10-10 - The Together & Wonder Update
 
 A month of shared wonder: Watch Together live sync and Netflix-style Cinema,

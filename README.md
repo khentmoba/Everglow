@@ -16,19 +16,18 @@ Everglow tracks your relationship journey through gamified experiences, shared a
 
 ## Latest Release
 
-> **v6.2.0** — The Together & Wonder Update: Watch Together & Netflix Cinema, MangaCelestia, Anime overhauls, Motchi voice input, Creator Studio, phone polish
-> [View full changelog →](https://github.com/khentmoba/Everglow/blob/main/CHANGELOG.md) · [Release page →](https://github.com/khentmoba/Everglow/releases/tag/v6.2.0)
+> **v6.3.0** — The Speed & Serenity Update: Sub-second loading without fake caches, in-house HLS anime player, Cinema offline downloads, Books overhaul, text copying, mobile polish
+> [View full changelog →](https://github.com/khentmoba/Everglow/blob/main/CHANGELOG.md) · [Release page →](https://github.com/khentmoba/Everglow/releases/tag/v6.3.0)
 
-**v6.2.0 — The Together & Wonder Update:**
+**v6.3.0 — The Speed & Serenity Update:**
 
-1. **Watch Together & Netflix Cinema** — Live synchronized watching, Netflix-style modal drawer, Top 10 rank badges, resume progress, and ad-free streams.
-2. **Anime & MangaCelestia Overhauls** — Interactive episode selector, spotlight trailers, MangaCelestia reader overhaul, and continue-reading shelf.
-3. **Motchi AI Voice & Agnes Flash** — Safari voice input, Agnes Flash model backend, replying glow animation, and vision assistance.
-4. **Creator Studio & Keepsakes** — Rebuilt Creator Studio, wax-sealed love letters, and translucent Time Together keepsake clock.
-5. **Journal & Garden** — Memory date picker, refreshed journal story layout, and dual dashboard garden blooms.
-6. **Silky Smooth on Phones** — iPhone 11 performance tune-up, fast-scroll jank eliminated, and iOS edge & status-bar harmony.
+1. **Pure Speed & Sub-Second Loading** — Concurrent bootstrap, lightweight memory footprint, and instant Last.fm artist showdowns.
+2. **In-House Anime HLS Streaming** — Buffer-free server proxying with dynamic CDN rotation handling, built-in seeking, progress saving, and multi-genre filters.
+3. **Cinema Offline Downloads** — High-quality torrent index resolution and download drawer for offline watch parties.
+4. **Our Books Overhaul** — Serene typography, responsive shelf grids, and direct read, listen, and EPUB download actions.
+5. **Mobile & Web Polish** — Select and copy text from any dialog or sheet, locked PWA viewport zoom, and zero Home Screen insets jank.
 
-_Previous releases: [v6.1.0](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) · [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) · [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.1.0](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
+_Previous releases: [v6.2.0](https://github.com/khentmoba/Everglow/releases/tag/v6.2.0) · [v6.1.0](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) · [v6.0.0](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) · [v5.3.0](https://github.com/khentmoba/Everglow/releases/tag/v5.3.0) · [v5.2.0](https://github.com/khentmoba/Everglow/releases/tag/v5.2.0) · [v5.1.0](https://github.com/khentmoba/Everglow/releases/tag/v5.1.0) · [v5.0.0](https://github.com/khentmoba/Everglow/releases/tag/v5.0.0) · [All releases →](https://github.com/khentmoba/Everglow/releases)_
 
 ---
 
@@ -64,10 +63,10 @@ _Previous releases: [v6.1.0](https://github.com/khentmoba/Everglow/releases/tag/
 
 | Feature | Description | Version |
 |---------|-------------|---------|
-| **Cinema** | Shared movie/anime watchlist powered by TMDB with Netflix modal drawer, Top 10 rankings, and resume progress | 1.0.0 / **6.2.0** |
-| **Anime** | Dedicated anime hub with episode selector, AniSkip reveals, hero trailers, and Anivexa streams | 5.0.0 / **6.2.0** |
-| **Manga** | Full manga library with MangaCelestia reader overhaul, continue reading shelf, and hot updates | 3.4.0 / **6.2.0** |
-| **Books** | Book discovery (Open Library), in-app reader, and shared couple book list | 3.2.0 |
+| **Cinema** | Shared movie/anime watchlist powered by TMDB with Netflix modal drawer, Top 10 rankings, resume progress, and offline downloads | 1.0.0 / **6.3.0** |
+| **Anime** | Dedicated anime hub with in-house HLS player, episode selector, AniSkip reveals, hero trailers, and buffer-free streams | 5.0.0 / **6.3.0** |
+| **Manga** | Full manga library with MangaCelestia reader overhaul, continue reading shelf, and hot updates | 3.4.0 / 6.2.0 |
+| **Books** | Book discovery (Open Library), in-app reader, and shared couple book list | 3.2.0 / **6.3.0** |
 | **Jukebox** | Live music status from Last.fm for both partners | 1.1.0 |
 | **Academy** | Trivia game with 8 categories, solo study, and 1v1 challenges | 1.1.0 |
 | **Canvas** | Collaborative drawing with real-time Firestore sync | 1.1.0 |
@@ -250,6 +249,7 @@ The workflow:
 
 The full release-by-release history lives in [`CHANGELOG.md`](./CHANGELOG.md) and the [releases page](https://github.com/khentmoba/Everglow/releases):
 
+- [**v6.3.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.3.0) — The Speed & Serenity Update: Sub-second loading without fake caches, in-house HLS anime player, Cinema offline downloads, Books overhaul, text copying, mobile polish
 - [**v6.2.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.2.0) — The Together & Wonder Update: Watch Together & Netflix Cinema, MangaCelestia, Anime overhauls, Motchi voice input, Creator Studio, phone polish
 - [**v6.1.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.1.0) — The Glow-Up Update: Journal, 50+ Motchi tools, Cinema polish, XP rewards, phone performance
 - [**v6.0.0**](https://github.com/khentmoba/Everglow/releases/tag/v6.0.0) — The Relationship Hub Update: Bucket List, Calendar, Gallery, Daily Bloom Overhaul, Push Notifications, AI Function Calling
