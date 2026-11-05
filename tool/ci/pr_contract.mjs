@@ -22,6 +22,7 @@ export function checkPrContract({body = '', draft = false, paths = []}, exists =
   for (const label of ['Analysis', 'Tests', 'Guards', 'Browser']) {
     if (!new RegExp(`^${label}:\\s*(passed|N/A\\s*[-—:]\\s*\\S).+`, 'mi').test(body)) errors.push(`Record ${label}: passed (details), or N/A — reason.`);
   }
+  if (!/^Review:\s*(?:independent|self)\s*[-—:]\s*\S/im.test(body)) errors.push('Record Review: independent — reviewer, or self — why no independent review ran.');
   if (/^- \[ \]/m.test(body) || /^(?:Blocked|Unverified):\s*(?!none\b)\S/im.test(body)) errors.push('Incomplete verification belongs in a draft.');
   return errors;
 }

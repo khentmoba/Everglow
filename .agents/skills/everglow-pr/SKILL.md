@@ -161,7 +161,7 @@ that it WORKS. If you claim a tap, a scroll, or a sync works, show the
 steps or say plainly that you only proved the look. No exceptions.
 Inspect each image: it must show the changed screen, not the gateway.
 Record `Analysis:`, `Tests:`, `Guards:`, and `Browser:` as `passed — details`
-or `N/A — reason`. Include commands, counts, and applicable server/manual
+or `N/A — reason`. Record `Review:` as `independent — reviewer` or `self — why no independent review ran`. If a reviewer fails (quota, timeout), write `self` and say so; never delete the line. Include commands, counts, and applicable server/manual
 browser checks. CI validates declarations and pinned files, not their truth.
 
 ### Merge Danger — call it honestly
@@ -214,6 +214,7 @@ rules judge honesty:
   is a hypothesis — call it one.
 - Match the evidence to the claim: a screenshot proves looks, not behavior.
   Interaction claims need the steps actually clicked.
+- A claim that a behavior works app-wide (copy, selection, focus, back) needs a check for each surface it claims: page, dialog, bottom sheet, phone and tablet. One surface passing does not prove the rest. Copy that worked on pages did not prove copy in popups (PR 556 needed PR 558).
 - Copy patterns only after checking they are not obsolete workarounds.
   Frequency is not correctness. Fix the cause, not the symptom.
 - Keep the task's size: a typo fix does not launch the app, a small fix does

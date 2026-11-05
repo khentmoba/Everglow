@@ -12,7 +12,7 @@ import '../../../heartbeat/presentation/widgets/partner_status_indicator.dart';
 import '../../../heartbeat/presentation/widgets/mood_picker.dart';
 import '../widgets/creator_modal.dart';
 import '../widgets/dashboard_actions.dart';
-import 'package:everglow/core/perf/perf_settings.dart';
+import '../../../../core/perf/perf_settings.dart';
 
 /// Geometry of the pinned top-action row (creator / canvas / mood /
 /// chat). The buttons float above the scroll view, so whatever scrolls

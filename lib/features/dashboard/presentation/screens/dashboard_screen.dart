@@ -54,7 +54,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
 import '../widgets/dashboard_motion.dart';
-import 'package:everglow/core/perf/perf_settings.dart';
+import '../../../../core/perf/perf_settings.dart';
 import '../../../../core/perf/device_capability.dart';
 part 'dashboard_screen_sections.dart';
 

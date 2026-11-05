@@ -34,6 +34,7 @@ linter:
     close_sinks: true
     use_key_in_widget_constructors: true
     prefer_const_constructors: true
+    prefer_relative_imports: true
     avoid_unnecessary_containers: true
     sized_box_for_whitespace: true
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule

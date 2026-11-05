@@ -16,6 +16,7 @@ Analysis: passed — clean
 Tests: passed — 1492 tests
 Guards: passed — all guards
 Browser: passed — phone and tablet
+Review: independent — second-model review, no blocking findings
 ## Merge Danger
 **Door:** two-way
 **Blast radius:** demo fixtures only
@@ -70,6 +71,14 @@ test('follow-ups need an explicit answer, not just a heading or template comment
   }
   assert.deepEqual(checkPrContract({...pr, body: body.replace(/None$/,
     'Khent: verify the phone-to-PC handoff after merge.')}), []);
+});
+
+test('every PR records its review, or why no independent review ran', () => {
+  assert.deepEqual(checkPrContract(pr, () => true), []);
+  assert.ok(checkPrContract({...pr, body: body.replace(/^Review:.*\n/m, '')}).some(e => e.includes('Review:')));
+  assert.ok(checkPrContract({...pr, body: body.replace(/^Review:.*$/m, 'Review:')}).length);
+  assert.deepEqual(checkPrContract({...pr, body: body.replace(/^Review:.*$/m,
+    'Review: self — delegate reviewer hit a provider quota (429)')}), []);
 });
 
 test('drafts may report blockers; nonvisual PRs must explain N/A', () => {
