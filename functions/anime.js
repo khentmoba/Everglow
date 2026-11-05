@@ -128,8 +128,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     )
     .join('\n    ');
   const epNum = Number.isSafeInteger(ep) && ep > 0 ? ep : null;
-  const nextEpLabel = epNum ? 'Next: EP ' + (epNum + 1) : 'Next Ep';
-  const isDub = String(audio || 'sub').toLowerCase() === 'dub';
+  const nextEpLabel = epNum ? 'Next: EP ' + (epNum + 1) : 'Next Ep';  const isDub = String(audio || 'sub').toLowerCase() === 'dub';
   const displayTitle = escHtml(title || (epNum ? 'Episode ' + epNum : 'Everglow'));
   return (
     '<!DOCTYPE html><html><head><meta charset="utf-8">' +
@@ -264,7 +263,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     '<div class="h-bot">' +
     '<div class="binge-r">' +
     '<button type="button" class="b-op" id="btn-skip" hidden>Skip OP</button>' +
-    '<button type="button" class="b-next" id="btn-next">' + escHtml(nextEpLabel) + '</button>' +
+    '<button type="button" class="b-next" id="btn-next" hidden>' + escHtml(nextEpLabel) + '</button>' +
     '</div>' +
     '<div id="scrub">' +
     '<div id="s-buf"></div>' +
@@ -337,6 +336,9 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'var subTxt=document.getElementById("sub-txt");' +
     'var episode=' + JSON.stringify(epNum) + ';' +
     'var opRange=null,edRange=null,activeSkipEnd=null,ccOn=true,hlsInst=null;' +
+    // How close to the last frame the Next button appears when the ending
+    // was never marked. 90s covers a typical ED plus the preview card.
+    'var nextLabel=null,NEAR_END_SECONDS=90;' +
     'function fmt(s){if(!Number.isFinite(s)||s<0)return"00:00";' +
     'var m=Math.floor(s/60),sec=Math.floor(s%60);' +
     'return(m<10?"0":"")+m+":"+(sec<10?"0":"")+sec;}' +
@@ -353,17 +355,26 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'sEd.style.left=Math.max(0,edRange[0]/d*100)+"%";' +
     'sEd.style.width=Math.min(100-edRange[0]/d*100,(edRange[1]-edRange[0])/d*100)+"%";' +
     'sEd.hidden=false;}else{sEd.hidden=true;}}}' +
+    // The Skip pill belongs to the opening only. The ending is where the
+    // Next button lives, so a second skip button there would be noise.
     'function updateSkipBtn(){if(!btnSkip)return;var t=v.currentTime;' +
     'if(opRange&&t>=opRange[0]&&t<opRange[1]){activeSkipEnd=opRange[1];' +
     'btnSkip.textContent="Skip OP ("+fmt(opRange[1])+")";btnSkip.hidden=false;return;}' +
-    'if(edRange&&t>=edRange[0]&&t<edRange[1]){activeSkipEnd=edRange[1];' +
-    'btnSkip.textContent="Skip ED ("+fmt(edRange[1])+")";btnSkip.hidden=false;return;}' +
     'activeSkipEnd=null;btnSkip.hidden=true;}' +
+    // Next shows during the ending, or within the last 90s when nobody
+    // marked one. No label means nothing follows, so it stays hidden.
+    'function updateNextBtn(){if(!btnNext)return;' +
+    'if(!nextLabel){btnNext.hidden=true;return;}' +
+    'var t=v.currentTime,d=v.duration;' +
+    'if(!Number.isFinite(t)||!Number.isFinite(d)||d<=0){btnNext.hidden=true;return;}' +
+    'var inEnding=!!edRange&&t>=edRange[0]&&t<edRange[1];' +
+    'var nearEnd=(d-t)<=NEAR_END_SECONDS;' +
+    'btnNext.textContent=nextLabel;btnNext.hidden=!(inEnding||nearEnd);}' +
     'function updateUi(){var p=v.currentTime,d=v.duration;' +
     'if(Number.isFinite(p)&&Number.isFinite(d)&&d>0){' +
     'if(sFill)sFill.style.width=Math.min(100,Math.max(0,p/d*100))+"%";' +
     'if(timeLbl)timeLbl.textContent=fmt(p)+" / "+fmt(d);}' +
-    'updateSkipBtn();}' +
+    'updateSkipBtn();updateNextBtn();}' +
     'function applySeek(){if(!hasMetadata||pendingSeek===null||!Number.isFinite(v.duration)||v.duration<=0){return;}' +
     'try{v.currentTime=Math.min(pendingSeek,v.duration);pendingSeek=null;updateUi();}catch(e){}}' +
     'v.addEventListener("loadedmetadata",function(){hasMetadata=true;applySeek();updateChapters();updateUi();});' +
@@ -381,11 +392,12 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'var d=e.data;if(!d||typeof d!=="object"){return;}' +
     'if(d.type==="animex-seek"&&typeof d.seconds==="number"&&Number.isFinite(d.seconds)&&d.seconds>=0){' +
     'pendingSeek=d.seconds;applySeek();return;}' +
-    'if(d.type==="animex-skip-times"){' +
+    'if(d.type==="animex-player-state"||d.type==="animex-skip-times"){' +
     'opRange=Array.isArray(d.op)&&d.op.length===2&&Number.isFinite(d.op[0])&&Number.isFinite(d.op[1])?d.op:null;' +
     'edRange=Array.isArray(d.ed)&&d.ed.length===2&&Number.isFinite(d.ed[0])&&Number.isFinite(d.ed[1])?d.ed:null;' +
+    'nextLabel=typeof d.next==="string"&&d.next?d.next:null;' +
     'if(d.title&&hudTitle){hudTitle.textContent=String(d.title);}' +
-    'updateChapters();updateSkipBtn();}});' +
+    'updateChapters();updateUi();}});' +
     'function post(data){try{window.parent.postMessage(data,"*");}catch(e){}' +
     'try{if(nativeBridge()){window.EverglowPlayer.postMessage(' +
     'typeof data==="string"?data:JSON.stringify(data));}}catch(e){}}' +

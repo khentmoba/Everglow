@@ -168,6 +168,9 @@ function playerScriptContext(calls, { search = '', native = false, hls = true } 
     tapw: element(),
     tap: element(),
     dead: element(),
+    'btn-skip': element(),
+    'btn-next': element(),
+    'hud-title': element(),
   };
   function Hls() {}
   Hls.isSupported = () => true;
@@ -232,7 +235,21 @@ function runPlayer(options = {}) {
   const html = hlsPlayerHtml({ src: 'https://x/y.m3u8', ep: 3 });
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   new vm.Script(code).runInNewContext(context);
-  return { calls, window: context.window, video: context.elements.v };
+  return {
+    calls,
+    window: context.window,
+    video: context.elements.v,
+    els: context.elements,
+  };
+}
+
+/** Delivers a player-state message the way the app frame does. */
+function sendState(window, state) {
+  window.dispatch('message', {
+    source: window.parent,
+    origin: 'https://everglow-1c6db.web.app',
+    data: { type: 'animex-player-state', ...state },
+  });
 }
 
 test('start seeks on metadata, clamps to duration and never reapplies', () => {
@@ -899,3 +916,88 @@ test('hlsPlayerHtml renders Sakura Broadcast UI with dark rose, wave loading, an
   assert.ok(!html.includes('Gold segments mark'), 'no timeline explanation text clutter');
 });
 
+
+test('skip pill belongs to the opening, next belongs to the ending', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  const at = (t) => {
+    video.currentTime = t;
+    video.dispatch('timeupdate');
+  };
+  // Nothing announced yet: neither button can show.
+  at(60);
+  assert.equal(els['btn-skip'].hidden, true);
+  assert.equal(els['btn-next'].hidden, true);
+
+  sendState(window, { op: [45, 135], ed: [1330, 1423], next: 'Next: EP 20' });
+
+  at(10);
+  assert.equal(els['btn-skip'].hidden, true, 'before the opening');
+  assert.equal(els['btn-next'].hidden, true);
+
+  at(60);
+  assert.equal(els['btn-skip'].hidden, false, 'inside the opening');
+  assert.match(els['btn-skip'].textContent, /Skip OP \(02:15\)/);
+  assert.equal(els['btn-next'].hidden, true, 'next waits for the ending');
+
+  at(600);
+  assert.equal(els['btn-skip'].hidden, true, 'mid episode');
+  assert.equal(els['btn-next'].hidden, true);
+
+  at(1340);
+  assert.equal(els['btn-skip'].hidden, true, 'no second skip button in the ending');
+  assert.equal(els['btn-next'].hidden, false);
+  assert.equal(els['btn-next'].textContent, 'Next: EP 20');
+
+  at(1423);
+  assert.equal(els['btn-next'].hidden, false, 'still offered on the last frame');
+});
+
+test('next appears in the last 90s when nobody marked the ending', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  sendState(window, { next: 'Next: EP 20' });
+  const at = (t) => {
+    video.currentTime = t;
+    video.dispatch('timeupdate');
+  };
+  at(1423 - 120);
+  assert.equal(els['btn-next'].hidden, true, 'two minutes left is too early');
+  at(1423 - 80);
+  assert.equal(els['btn-next'].hidden, false, 'last 90s offers the next episode');
+  at(0);
+  assert.equal(els['btn-next'].hidden, true, 'rewinding hides it again');
+});
+
+test('no next label means no next button, and a later state clears it', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  sendState(window, { ed: [1330, 1423], next: null });
+  video.currentTime = 1400;
+  video.dispatch('timeupdate');
+  assert.equal(els['btn-next'].hidden, true, 'a film or last episode offers nothing');
+
+  sendState(window, { ed: [1330, 1423], next: 'Next: EP 20' });
+  assert.equal(els['btn-next'].hidden, false, 'announcing a next episode shows it');
+
+  sendState(window, { ed: [1330, 1423], next: null });
+  assert.equal(els['btn-next'].hidden, true, 'clearing the label hides it again');
+});
+
+test('the legacy skip-times message still drives the buttons', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  window.dispatch('message', {
+    source: window.parent,
+    origin: 'https://everglow-1c6db.web.app',
+    data: { type: 'animex-skip-times', op: [45, 135], ed: [1330, 1423] },
+  });
+  video.currentTime = 60;
+  video.dispatch('timeupdate');
+  assert.equal(els['btn-skip'].hidden, false);
+  assert.equal(els['btn-next'].hidden, true, 'no label, so no next button');
+});
