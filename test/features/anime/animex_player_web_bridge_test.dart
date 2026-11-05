@@ -6,6 +6,7 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:ui_web' as ui_web;
 
+import 'package:everglow/features/anime/data/services/aniskip_service.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_player_web.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import 'package:flutter/material.dart';
@@ -161,10 +162,15 @@ void main() {
         }).toJS,
       );
       frame.dispatchEvent(web.Event('load'));
-      expect(sent.single, {'type': 'animex-seek', 'seconds': 35});
+      // Load sends the player state first, then the queued seek.
+      List<Object?> seeks() => sent
+          .whereType<Map>()
+          .where((m) => m['type'] == 'animex-seek')
+          .toList();
+      expect(seeks().single, {'type': 'animex-seek', 'seconds': 35});
       await tester.pumpWidget(player(75));
-      expect(sent.last, {'type': 'animex-seek', 'seconds': 75});
-      expect(sent.length, 2);
+      expect(seeks().last, {'type': 'animex-seek', 'seconds': 75});
+      expect(seeks().length, 2);
       expect(targets, everyElement(animeXProxyOrigin));
       expect(
         frame.src,
@@ -176,10 +182,10 @@ void main() {
       await tester.pumpWidget(player(75));
       await tester.pumpWidget(player(-1));
       await tester.pumpWidget(player(null));
-      expect(sent.length, 2);
+      expect(seeks().length, 2);
       await tester.pumpWidget(player(75, request: 1));
       expect(
-        sent.length,
+        seeks().length,
         3,
         reason: 'the same explicit skip can be used after rewinding',
       );
@@ -188,6 +194,48 @@ void main() {
       expect(frame.parentNode, isNull);
     },
   );
+
+  testWidgets('the frame sends the opening, ending and next label on load', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AnimeXPlayerFrame(
+          url: url,
+          skipTimes: AniSkipTimes(
+            opening: AniSkipTime(start: 45, end: 135),
+            ending: AniSkipTime(start: 1330, end: 1423),
+          ),
+          nextToken: 'EP 20',
+        ),
+      ),
+    );
+    final frame = await frameFor(tester);
+    final sent = <Object?>[];
+    frame.contentWindow!.setProperty(
+      'postMessage'.toJS,
+      ((JSAny? data, JSString target) => sent.add(data?.dartify())).toJS,
+    );
+    frame.dispatchEvent(web.Event('load'));
+    final state = sent.whereType<Map>().firstWhere(
+      (m) => m['type'] == 'animex-player-state',
+    );
+    expect(state['op'], [45.0, 135.0]);
+    expect(state['ed'], [1330.0, 1423.0]);
+    expect(state['next'], 'EP 20');
+    expect(state['nextKind'], 'episode');
+
+    // A cleared label reaches the player so it can hide the button.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AnimeXPlayerFrame(url: url, nextToken: null),
+      ),
+    );
+    final cleared = sent.whereType<Map>().last;
+    expect(cleared['type'], 'animex-player-state');
+    expect(cleared['next'], isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('CineSrc does not receive invented seek or progress messages', (
     tester,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import '../../../data/services/anilist_service.dart';
+import '../../../data/services/aniskip_service.dart';
 
 import 'animex_buttons.dart';
 import 'animex_embed_policy.dart';
@@ -20,6 +21,16 @@ class AnimeXPlayerFrame extends StatefulWidget {
   /// In-place seek for our Megavid player; other providers ignore it.
   final int? seekSeconds;
   final int seekRequest;
+  final AniSkipTimes? skipTimes;
+
+  /// Destination token the player prints beside its next action (`EP 20`),
+  /// or null when nothing follows (a film, or the last episode of the last
+  /// season). The player only shows that action during the ending or the
+  /// last 90 seconds. [nextIsSeason] switches the wording to "Next season".
+  final String? nextToken;
+  final bool nextIsSeason;
+  final VoidCallback? onNextEpisode;
+  final ValueChanged<String>? onAudioChanged;
 
   /// Fires when the embed changes episodes on its own (CineSrc
   /// auto-play or its built-in episode picker), reporting the TMDB
@@ -45,6 +56,11 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onProgress,
     this.seekSeconds,
     this.seekRequest = 0,
+    this.skipTimes,
+    this.nextToken,
+    this.nextIsSeason = false,
+    this.onNextEpisode,
+    this.onAudioChanged,
     this.onPlayerEpisodeChanged,
     this.sandbox = true,
   });
@@ -102,6 +118,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (!mounted) return;
       setState(() => _loaded = true);
       _sendSeek();
+      _sendPlayerState();
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
@@ -135,6 +152,18 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       // embed.html wrapper, which already origin-checked the upstream).
       if (raw != null) {
         try {
+          if (obj is Map && obj['type'] == 'animex-action') {
+            final act = obj['action'];
+            if (act == 'next-episode') {
+              widget.onNextEpisode?.call();
+            } else if (act == 'audio') {
+              final audio = obj['audio'];
+              if (audio == 'sub' || audio == 'dub') {
+                widget.onAudioChanged?.call(audio as String);
+              }
+            }
+            return;
+          }
           if (obj is Map && obj['type'] == 'cinesrc:nextepisode') {
             final season = obj['season'];
             final episode = obj['episode'];
@@ -192,9 +221,16 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         _iframe.removeAttribute('sandbox');
       }
       _iframe.src = widget.url;
-    } else if (widget.seekSeconds != oldWidget.seekSeconds ||
-        widget.seekRequest != oldWidget.seekRequest) {
-      _sendSeek();
+    } else {
+      if (widget.seekSeconds != oldWidget.seekSeconds ||
+          widget.seekRequest != oldWidget.seekRequest) {
+        _sendSeek();
+      }
+      if (widget.skipTimes != oldWidget.skipTimes ||
+          widget.nextToken != oldWidget.nextToken ||
+          widget.nextIsSeason != oldWidget.nextIsSeason) {
+        _sendPlayerState();
+      }
     }
   }
 
@@ -208,6 +244,25 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
     _iframe.contentWindow?.postMessage(
       {'type': 'animex-seek', 'seconds': seconds}.jsify(),
+      animeXProxyOrigin.toJS,
+    );
+  }
+
+  /// Sends the opening/ending windows and the next-episode label. Sent on
+  /// load and on every change, even with no skip times, so the player can
+  /// clear a label that no longer applies.
+  void _sendPlayerState() {
+    if (!_loaded || !isAnimeXProxyPlayerUrl(widget.url)) return;
+    final op = widget.skipTimes?.opening;
+    final ed = widget.skipTimes?.ending;
+    _iframe.contentWindow?.postMessage(
+      {
+        'type': 'animex-player-state',
+        if (op != null) 'op': [op.start, op.end],
+        if (ed != null) 'ed': [ed.start, ed.end],
+        'next': widget.nextToken,
+        'nextKind': widget.nextIsSeason ? 'season' : 'episode',
+      }.jsify(),
       animeXProxyOrigin.toJS,
     );
   }

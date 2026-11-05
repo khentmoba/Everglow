@@ -168,6 +168,14 @@ function playerScriptContext(calls, { search = '', native = false, hls = true } 
     tapw: element(),
     tap: element(),
     dead: element(),
+    'btn-skip': element(),
+    'btn-next': element(),
+    'hud-title': element(),
+    'skip-time': element(),
+    'skip-fill': element(),
+    'next-lbl': element(),
+    'next-tok': element(),
+    'next-fill': element(),
   };
   function Hls() {}
   Hls.isSupported = () => true;
@@ -232,7 +240,21 @@ function runPlayer(options = {}) {
   const html = hlsPlayerHtml({ src: 'https://x/y.m3u8', ep: 3 });
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   new vm.Script(code).runInNewContext(context);
-  return { calls, window: context.window, video: context.elements.v };
+  return {
+    calls,
+    window: context.window,
+    video: context.elements.v,
+    els: context.elements,
+  };
+}
+
+/** Delivers a player-state message the way the app frame does. */
+function sendState(window, state) {
+  window.dispatch('message', {
+    source: window.parent,
+    origin: 'https://everglow-1c6db.web.app',
+    data: { type: 'animex-player-state', ...state },
+  });
 }
 
 test('start seeks on metadata, clamps to duration and never reapplies', () => {
@@ -879,4 +901,146 @@ test('hlsPlayerHtml sends the token as a header, not in URLs', () => {
   assert.ok(!html.includes('token='));
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   new vm.Script(code);
+});
+
+test('hlsPlayerHtml renders Sakura Broadcast UI with dark rose, wave loading, and Netflix subtitles', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://h/proxyMegavidHls?u=https%3A%2F%2Fcdn%2Fv.m3u8',
+    title: 'Episode 12',
+    tracks: [{ file: 'https://h/en.vtt', label: 'English' }],
+    ep: 12,
+    audio: 'sub',
+  });
+  assert.ok(html.includes('#c2185b'), 'uses Everglow Anime dark rose');
+  assert.ok(!html.includes('#ff6f91'), 'does not use light pastel pink');
+  assert.ok(html.includes('class="eg-wave"'), 'wave-animated EVERGLOW loading text');
+  assert.ok(html.includes('https://everglow-1c6db.web.app/favicon.png'), 'actual Everglow logo in HUD');
+  assert.ok(html.includes('video::cue{background:transparent!important'), 'Netflix transparent subtitle cue box');
+  assert.ok(html.includes('id="sub-txt"'), 'Netflix subtitle overlay');
+  assert.ok(!html.includes('Opening Theme'), 'no Opening Theme badge clutter');
+  assert.ok(!html.includes('Gold segments mark'), 'no timeline explanation text clutter');
+});
+
+
+test('skip action belongs to the opening, next belongs to the ending', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  const at = (t) => {
+    video.currentTime = t;
+    video.dispatch('timeupdate');
+  };
+  const width = (id) => Number.parseFloat(els[id].style.width);
+  // Nothing announced yet: neither action can show.
+  at(60);
+  assert.equal(els['btn-skip'].hidden, true);
+  assert.equal(els['btn-next'].hidden, true);
+
+  sendState(window, {
+    op: [45, 135],
+    ed: [1330, 1423],
+    next: 'EP 20',
+    nextKind: 'episode',
+  });
+
+  at(10);
+  assert.equal(els['btn-skip'].hidden, true, 'before the opening');
+  assert.equal(els['btn-next'].hidden, true);
+
+  at(60);
+  assert.equal(els['btn-skip'].hidden, false, 'inside the opening');
+  assert.equal(els['skip-time'].textContent, '01:15', 'time left in the opening');
+  const early = width('skip-fill');
+  assert.ok(early > 0 && early < 100, `underline shows progress, got ${early}`);
+  assert.equal(els['btn-next'].hidden, true, 'next waits for the ending');
+
+  at(120);
+  assert.ok(
+    width('skip-fill') < early,
+    'the underline drains as the opening plays',
+  );
+
+  at(600);
+  assert.equal(els['btn-skip'].hidden, true, 'mid episode');
+  assert.equal(els['btn-next'].hidden, true);
+
+  at(1340);
+  assert.equal(els['btn-skip'].hidden, true, 'no second skip in the ending');
+  assert.equal(els['btn-next'].hidden, false);
+  assert.equal(els['next-lbl'].textContent, 'Next episode');
+  assert.equal(els['next-tok'].textContent, 'EP 20');
+  const endingEarly = width('next-fill');
+  assert.ok(
+    endingEarly > 0 && endingEarly < 100,
+    `ending underline shows progress, got ${endingEarly}`,
+  );
+
+  at(1400);
+  assert.ok(
+    width('next-fill') < endingEarly,
+    'the ending underline drains too',
+  );
+
+  at(1423);
+  assert.equal(els['btn-next'].hidden, false, 'still offered on the last frame');
+});
+
+test('a next season says so instead of naming an episode', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  sendState(window, { ed: [1330, 1423], next: '', nextKind: 'season' });
+  video.currentTime = 1400;
+  video.dispatch('timeupdate');
+  assert.equal(els['btn-next'].hidden, false);
+  assert.equal(els['next-lbl'].textContent, 'Next season');
+  assert.equal(els['next-tok'].textContent, '');
+});
+
+test('next appears in the last 90s when nobody marked the ending', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  sendState(window, { next: 'EP 20', nextKind: 'episode' });
+  const at = (t) => {
+    video.currentTime = t;
+    video.dispatch('timeupdate');
+  };
+  at(1423 - 120);
+  assert.equal(els['btn-next'].hidden, true, 'two minutes left is too early');
+  at(1423 - 80);
+  assert.equal(els['btn-next'].hidden, false, 'last 90s offers the next episode');
+  at(0);
+  assert.equal(els['btn-next'].hidden, true, 'rewinding hides it again');
+});
+
+test('no next label means no next button, and a later state clears it', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  sendState(window, { ed: [1330, 1423], next: null });
+  video.currentTime = 1400;
+  video.dispatch('timeupdate');
+  assert.equal(els['btn-next'].hidden, true, 'a film or last episode offers nothing');
+
+  sendState(window, { ed: [1330, 1423], next: 'EP 20', nextKind: 'episode' });
+  assert.equal(els['btn-next'].hidden, false, 'announcing a next episode shows it');
+
+  sendState(window, { ed: [1330, 1423], next: null });
+  assert.equal(els['btn-next'].hidden, true, 'clearing the label hides it again');
+});
+
+test('the legacy skip-times message still drives the buttons', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  window.dispatch('message', {
+    source: window.parent,
+    origin: 'https://everglow-1c6db.web.app',
+    data: { type: 'animex-skip-times', op: [45, 135], ed: [1330, 1423] },
+  });
+  video.currentTime = 60;
+  video.dispatch('timeupdate');
+  assert.equal(els['btn-skip'].hidden, false);
+  assert.equal(els['btn-next'].hidden, true, 'no label, so no next button');
 });

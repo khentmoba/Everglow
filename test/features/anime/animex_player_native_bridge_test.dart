@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 
+import 'package:everglow/features/anime/data/services/aniskip_service.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_player_native.dart';
 import 'package:everglow/features/anime/presentation/widgets/animex/animex_videasy_progress.dart';
 import 'package:flutter/material.dart';
@@ -123,20 +124,23 @@ void main() {
     );
     platform.delegates.single.finished(url);
     await tester.pump();
-    expect(controller.scripts.single, contains('seconds:35'));
-    expect(controller.scripts.single, contains(animeXProxyOrigin));
+    // Load sends the player state first, then the queued seek.
+    Iterable<String> seeks() =>
+        controller.scripts.where((s) => s.contains('animex-seek'));
+    expect(seeks().single, contains('seconds:35'));
+    expect(seeks().single, contains(animeXProxyOrigin));
     await tester.pumpWidget(player(75));
-    expect(controller.scripts.last, contains('seconds:75'));
-    expect(controller.scripts.length, 2);
+    expect(seeks().last, contains('seconds:75'));
+    expect(seeks().length, 2);
     expect(controller.requests.length, 1);
     expect(platform.controllers.length, 1);
     await tester.pumpWidget(player(75));
     await tester.pumpWidget(player(-1));
     await tester.pumpWidget(player(null));
-    expect(controller.scripts.length, 2);
+    expect(seeks().length, 2);
     await tester.pumpWidget(player(75, request: 1));
     expect(
-      controller.scripts.length,
+      seeks().length,
       3,
       reason: 'rewinding and pressing the same Skip action sends another seek',
     );
@@ -218,6 +222,45 @@ void main() {
       2,
       reason: 'retry replaces a dead WebView',
     );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('native sends the opening, ending and next label to the player', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AnimeXPlayerFrame(
+          url: url,
+          skipTimes: AniSkipTimes(
+            opening: AniSkipTime(start: 45, end: 135),
+            ending: AniSkipTime(start: 1330, end: 1423),
+          ),
+          nextToken: 'EP 20',
+        ),
+      ),
+    );
+    await tester.pump();
+    final controller = platform.controllers.single;
+    platform.delegates.single.finished(url);
+    await tester.pump();
+    final state = controller.scripts.firstWhere(
+      (s) => s.contains('animex-player-state'),
+    );
+    expect(state, contains('op:[45.0,135.0]'));
+    expect(state, contains('ed:[1330.0,1423.0]'));
+    expect(state, contains('next:"EP 20"'));
+    expect(state, contains('nextKind:"episode"'));
+    expect(state, contains(animeXProxyOrigin));
+
+    // A cleared label reaches the player so it can hide the button.
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: AnimeXPlayerFrame(url: url, nextToken: null),
+      ),
+    );
+    await tester.pump();
+    expect(controller.scripts.last, contains('next:null'));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

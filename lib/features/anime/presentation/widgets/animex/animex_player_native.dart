@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -8,6 +9,7 @@ import '../../../../../core/utils/logger.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../data/services/anilist_service.dart';
+import '../../../data/services/aniskip_service.dart';
 import '../../../../cinema/presentation/widgets/embed_webview.dart';
 import 'animex_buttons.dart';
 import 'animex_tokens.dart';
@@ -125,6 +127,16 @@ class AnimeXPlayerFrame extends StatefulWidget {
   /// In-place seek for our Megavid player; other providers ignore it.
   final int? seekSeconds;
   final int seekRequest;
+  final AniSkipTimes? skipTimes;
+
+  /// Destination token the player prints beside its next action (`EP 20`),
+  /// or null when nothing follows (a film, or the last episode of the last
+  /// season). The player only shows that action during the ending or the
+  /// last 90 seconds. [nextIsSeason] switches the wording to "Next season".
+  final String? nextToken;
+  final bool nextIsSeason;
+  final VoidCallback? onNextEpisode;
+  final ValueChanged<String>? onAudioChanged;
 
   /// Fires when the embed changes episodes on its own (CineSrc
   /// auto-play or its built-in episode picker), reporting the TMDB
@@ -142,6 +154,11 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.onProgress,
     this.seekSeconds,
     this.seekRequest = 0,
+    this.skipTimes,
+    this.nextToken,
+    this.nextIsSeason = false,
+    this.onNextEpisode,
+    this.onAudioChanged,
     this.onPlayerEpisodeChanged,
   });
 
@@ -182,9 +199,16 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       _loaded = false;
       _failed = false;
       if (isAnimeXProxyPlayerUrl(widget.url)) _loadOwnedPlayer();
-    } else if (widget.seekSeconds != oldWidget.seekSeconds ||
-        widget.seekRequest != oldWidget.seekRequest) {
-      _sendSeek();
+    } else {
+      if (widget.seekSeconds != oldWidget.seekSeconds ||
+          widget.seekRequest != oldWidget.seekRequest) {
+        _sendSeek();
+      }
+      if (widget.skipTimes != oldWidget.skipTimes ||
+          widget.nextToken != oldWidget.nextToken ||
+          widget.nextIsSeason != oldWidget.nextIsSeason) {
+        _sendPlayerState();
+      }
     }
   }
 
@@ -235,6 +259,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
             _loadTimer?.cancel();
             setState(() => _loaded = true);
             _sendSeek();
+            _sendPlayerState();
           },
           onWebResourceError: (error) {
             if (_controller == controller && error.isForMainFrame == true) {
@@ -276,6 +301,34 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       );
     } catch (e) {
       Logger.e('AnimeX native player seek failed', error: e);
+    }
+  }
+
+  /// Sends the opening/ending windows and the next-episode label. Sent on
+  /// load and on every change, even with no skip times, so the player can
+  /// clear a label that no longer applies.
+  Future<void> _sendPlayerState() async {
+    final controller = _controller;
+    if (!_loaded ||
+        _failed ||
+        controller == null ||
+        !isAnimeXProxyPlayerUrl(widget.url)) {
+      return;
+    }
+    final op = widget.skipTimes?.opening;
+    final ed = widget.skipTimes?.ending;
+    final opJson = op != null ? '[${op.start},${op.end}]' : 'null';
+    final edJson = ed != null ? '[${ed.start},${ed.end}]' : 'null';
+    final next = widget.nextToken;
+    final nextJson = next != null ? jsonEncode(next) : 'null';
+    final kind = widget.nextIsSeason ? 'season' : 'episode';
+    try {
+      await controller.runJavaScript(
+        'window.postMessage({type:"animex-player-state",op:$opJson,ed:$edJson,'
+        'next:$nextJson,nextKind:"$kind"},"$animeXProxyOrigin");',
+      );
+    } catch (e) {
+      Logger.e('AnimeX native player state failed', error: e);
     }
   }
 

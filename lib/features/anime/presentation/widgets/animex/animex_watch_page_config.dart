@@ -95,6 +95,28 @@ class AnimeXWatchPage extends StatefulWidget {
         skipVisibleAt(time, observedPosition);
   }
 
+  /// What plays next, or null when nothing does.
+  ///
+  /// [token] is the destination the player prints beside the action
+  /// (`EP 20`), and [isSeason] switches the wording to "Next season".
+  /// The player only draws that action during the ending or the last 90
+  /// seconds, so a value here is permission, not a promise of visibility.
+  /// Films have no next episode, and the last episode of the last season
+  /// has no next season, so the action never appears for them.
+  @visibleForTesting
+  static ({String token, bool isSeason})? nextUp({
+    required bool isFilm,
+    required int selectedEpisode,
+    required int episodeCount,
+    required bool hasNextSeason,
+  }) {
+    if (!isFilm && selectedEpisode < episodeCount) {
+      return (token: 'EP ${selectedEpisode + 1}', isSeason: false);
+    }
+    if (hasNextSeason) return (token: '', isSeason: true);
+    return null;
+  }
+
   /// True when a fetched embed page is the provider's "can't play this"
   /// error instead of a player. Static so the regression tests can pin
   /// every known marker.
