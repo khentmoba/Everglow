@@ -33,10 +33,6 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
         if (_ready) ...[
           const SizedBox(height: 12),
           _buildCurrentEpisodeHeader(context),
-          if (!_showErrorCard && _playerUrl.isNotEmpty && _skipRowVisible) ...[
-            const SizedBox(height: 4),
-            _buildSkipRow(context),
-          ],
         ],
         const SizedBox(height: 10),
         _buildServerAndAudioRow(context),
@@ -138,8 +134,15 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
             url: _playerUrl,
             onContentError: _handleContentError,
             onProgress: _onPlayerProgress,
-            seekSeconds: _seekSeconds,
-            seekRequest: _seekRequest,
+            skipTimes: _skipTimes,
+            onNextEpisode: () {
+              if (_selectedEpisode < _episodes.length) {
+                _stepEpisode(1);
+              } else if (_nextSeason != null) {
+                _openSeason(_nextSeason!);
+              }
+            },
+            onAudioChanged: _setAudio,
             onPlayerEpisodeChanged: _onPlayerEpisodeChanged,
           );
 

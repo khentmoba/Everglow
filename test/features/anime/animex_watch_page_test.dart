@@ -1171,7 +1171,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
     });
 
-    testWidgets('episode info sheet opens and displays episode synopsis and play action',
+    testWidgets('watch page header omits What happened and external skip row clutter',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
@@ -1182,16 +1182,11 @@ void main() {
 
       await tester.pumpWidget(buildTestApp(controller));
       await tester.pump();
-
-      // Tap "What happened" if present or open sheet directly
-      final whatHappenedFinder = find.text('What happened');
-      if (whatHappenedFinder.evaluate().isNotEmpty) {
-        await tester.tap(whatHappenedFinder.first);
-        await tester.pumpAndSettle();
-        expect(find.text('What happened in this episode'), findsOneWidget);
-      }
-
       await tester.pump(const Duration(milliseconds: 500));
+
+      expect(find.text('What happened'), findsNothing);
+      expect(find.textContaining('Skip Opening'), findsNothing);
+      expect(find.textContaining('Skip Ending'), findsNothing);
     });
 
     test('AniListService.mapSeasonsForTesting discovers seasons, excludes novels/manga, and sorts chronologically', () {
