@@ -795,6 +795,106 @@ void main() {
         expect(provider.clairTotal, 20);
       },
     );
+
+    test(
+      'refresh reloads the current artist without using cache',
+      () async {
+        final sync = _FakeSync(
+          byUser: {
+            'khentsgdz': [_track('Strangers', 10)],
+            'clairjassen': [_track('Strangers', 5)],
+          },
+        );
+        final provider = ArtistShowdownProvider(syncService: sync);
+        addTearDown(provider.dispose);
+
+        await _waitFor(() => !provider.isLoading);
+        expect(provider.khentTotal, 10);
+        expect(provider.clairTotal, 5);
+        final initialCalls = sync.calls;
+
+        // Ordinary selectArtist with same name is a no-op due to cache / equality
+        await provider.selectArtist('Ethel Cain');
+        expect(sync.calls, initialCalls);
+
+        // Update backing data
+        sync.byUser['khentsgdz'] = [_track('Strangers', 25)];
+        sync.byUser['clairjassen'] = [_track('Strangers', 30)];
+
+        // refresh() forces an eviction and reload
+        await provider.refresh();
+        await _waitFor(() => !provider.isLoading);
+
+        expect(sync.calls, greaterThan(initialCalls));
+        expect(provider.khentTotal, 25);
+        expect(provider.clairTotal, 30);
+      },
+    );
+
+    test(
+      'refresh on empty showdown reloads when new plays appear',
+      () async {
+        final sync = _FakeSync(byUser: {});
+        final provider = ArtistShowdownProvider(syncService: sync);
+        addTearDown(provider.dispose);
+
+        await _waitFor(() => !provider.isLoading);
+        expect(provider.hasData, isFalse);
+        expect(provider.tracks, isEmpty);
+
+        // Add plays and refresh
+        sync.byUser['khentsgdz'] = [_track('American Teenager', 12)];
+        sync.byUser['clairjassen'] = [_track('American Teenager', 18)];
+
+        await provider.refresh();
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.hasData, isTrue);
+        expect(provider.khentTotal, 12);
+        expect(provider.clairTotal, 18);
+        expect(provider.tracks, hasLength(1));
+        expect(provider.tracks.first.trackName, 'American Teenager');
+      },
+    );
+
+    test(
+      'refresh preserves existing rows while loading until fresh data arrives',
+      () async {
+        final gate = Completer<void>();
+        final sync = _GatedArtistSync(
+          byUser: {
+            'khentsgdz': [_track('Strangers', 10)],
+            'clairjassen': [_track('Strangers', 20)],
+          },
+          gate: gate,
+          gatedArtist: 'Ethel Cain',
+        );
+        final provider = ArtistShowdownProvider(syncService: sync);
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+          provider.dispose();
+        });
+
+        await _waitFor(() => !provider.isLoading);
+        expect(provider.khentTotal, 10);
+        expect(provider.hasData, isTrue);
+
+        // Update data, start refresh while gated
+        sync.byUser['khentsgdz'] = [_track('Strangers', 50)];
+        final refreshFuture = provider.refresh();
+
+        // While in-flight, it should still have previous data
+        expect(provider.isLoading, isTrue);
+        expect(provider.hasData, isTrue);
+        expect(provider.khentTotal, 10);
+
+        gate.complete();
+        await refreshFuture;
+        await _waitFor(() => !provider.isLoading);
+
+        expect(provider.khentTotal, 50);
+      },
+    );
   });
 }
 

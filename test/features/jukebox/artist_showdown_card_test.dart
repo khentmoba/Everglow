@@ -272,6 +272,86 @@ void main() {
 
         expect(find.text('No Ethel Cain plays yet'), findsOneWidget);
         expect(find.text('Play one and take the lead.'), findsOneWidget);
+        expect(find.byIcon(Icons.refresh_rounded), findsWidgets);
+      } finally {
+        showdown.dispose();
+        stats.dispose();
+      }
+    });
+
+    testWidgets(
+      'empty state displays a refresh button and tapping it refreshes',
+      (tester) async {
+        final sync = _ShowdownFakeSync(topTracks: {});
+        final showdown = ArtistShowdownProvider(syncService: sync);
+        final stats = MusicStatsProvider(syncService: sync);
+        try {
+          await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+
+          expect(find.text('No Ethel Cain plays yet'), findsOneWidget);
+          expect(find.text('Play one and take the lead.'), findsOneWidget);
+
+          // Both empty state and header have refresh buttons
+          expect(find.byIcon(Icons.refresh_rounded), findsWidgets);
+          expect(find.text('Refresh'), findsWidgets);
+
+          // Backing sync now has plays
+          sync.topTracks['khentsgdz'] = [
+            _track('Ethel Cain', 'Strangers', 15),
+          ];
+          sync.topTracks['clairjassen'] = [
+            _track('Ethel Cain', 'Strangers', 20),
+          ];
+
+          // Tap the refresh button inside the empty state
+          await tester.tap(find.widgetWithText(InkWell, 'Refresh').last);
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pump(const Duration(seconds: 1));
+
+          expect(find.text('No Ethel Cain plays yet'), findsNothing);
+          expect(find.text('Strangers'), findsOneWidget);
+          expect(find.text('15'), findsOneWidget);
+          expect(find.text('20'), findsOneWidget);
+        } finally {
+          showdown.dispose();
+          stats.dispose();
+        }
+      },
+    );
+
+    testWidgets('header refresh button reloads data when tapped', (
+      tester,
+    ) async {
+      final sync = _ShowdownFakeSync(
+        topTracks: {
+          'khentsgdz': [_track('Ethel Cain', 'Strangers', 10)],
+          'clairjassen': [_track('Ethel Cain', 'Strangers', 5)],
+        },
+      );
+      final showdown = ArtistShowdownProvider(syncService: sync);
+      final stats = MusicStatsProvider(syncService: sync);
+      try {
+        await _pumpCard(tester, sync, showdown: showdown, stats: stats);
+
+        expect(find.text('10'), findsOneWidget);
+        expect(find.text('5'), findsOneWidget);
+
+        sync.topTracks['khentsgdz'] = [
+          _track('Ethel Cain', 'Strangers', 30),
+        ];
+        sync.topTracks['clairjassen'] = [
+          _track('Ethel Cain', 'Strangers', 40),
+        ];
+
+        // Tap the header refresh button (has tooltip 'Refresh showdown')
+        await tester.tap(find.byTooltip('Refresh showdown'));
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(find.text('30'), findsOneWidget);
+        expect(find.text('40'), findsOneWidget);
       } finally {
         showdown.dispose();
         stats.dispose();

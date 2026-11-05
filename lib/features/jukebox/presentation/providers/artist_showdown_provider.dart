@@ -210,12 +210,20 @@ class ArtistShowdownProvider extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> selectArtist(String name) async {
+  Future<void> selectArtist(String name, {bool force = false}) async {
     final artist = name.trim();
     clearSuggestions();
-    if (artist.isEmpty || artist == _artist) return;
+    if (artist.isEmpty) return;
+    final isSameArtist = artist.toLowerCase() == _artist.toLowerCase();
+    if (!force && isSameArtist) return;
     final request = ++_requestId;
     final key = artist.toLowerCase();
+
+    if (force) {
+      _cache.remove(key);
+      _historyCache.remove(key);
+    }
+
     final cachedHist = _historyCache[key];
     if (cachedHist != null) {
       _khentHistory = cachedHist.khentHistory;
@@ -239,9 +247,11 @@ class ArtistShowdownProvider extends ChangeNotifier {
     }
     _artist = artist;
     _isLoading = true;
-    _khentTotal = 0;
-    _clairTotal = 0;
-    _tracks = const [];
+    if (!isSameArtist) {
+      _khentTotal = 0;
+      _clairTotal = 0;
+      _tracks = const [];
+    }
     _safeNotify();
     var timedOut = false;
     (int, int, List<ShowdownTrack>)? localRows;
@@ -261,7 +271,10 @@ class ArtistShowdownProvider extends ChangeNotifier {
         onTimeout: () {
           timedOut = true;
           Logger.w('ArtistShowdown: discovery timed out for "$artist"');
-          return localRows ?? (0, 0, const <ShowdownTrack>[]);
+          return localRows ??
+              (isSameArtist
+                  ? (_khentTotal, _clairTotal, _tracks)
+                  : (0, 0, const <ShowdownTrack>[]));
         },
       );
       // A newer selectArtist won while these reads were in flight — drop them.
@@ -288,6 +301,15 @@ class ArtistShowdownProvider extends ChangeNotifier {
     // back to the music-note tile. Enrich missing artwork in the background
     // (Last.fm track.getinfo, then iTunes) and pop covers in as they land.
     unawaited(_enrichArtwork(request, key, artist));
+  }
+
+  /// Forces a reload of the current artist's showdown, evicting any cached
+  /// result so new scrobbles or network retries are fetched fresh.
+  Future<void> refresh() async {
+    final target = _artist.trim().isNotEmpty
+        ? _artist.trim()
+        : defaultArtist;
+    await selectArtist(target, force: true);
   }
 
   /// Fills in missing covers for the current showdown without blocking the

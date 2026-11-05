@@ -72,6 +72,8 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
             children: [
               _Header(
                 artist: showdown.artist,
+                isLoading: showdown.isLoading,
+                onRefresh: () => showdown.refresh(),
                 onOpenHistory: () => showArtistShowdownHistory(
                   context,
                   showdown: showdown,
@@ -81,7 +83,13 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
               _ArtistSearch(
                 controller: _search,
                 onSubmit: (value) {
-                  showdown.selectArtist(value);
+                  if (value.trim().toLowerCase() ==
+                          showdown.artist.toLowerCase() &&
+                      !showdown.hasData) {
+                    showdown.refresh();
+                  } else {
+                    showdown.selectArtist(value);
+                  }
                   _search.clear();
                   FocusScope.of(context).unfocus();
                 },
@@ -90,13 +98,24 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
               _QuickPicks(
                 artists: _suggestions(stats),
                 selected: showdown.artist,
-                onPick: showdown.selectArtist,
+                onPick: (artist) {
+                  if (artist.toLowerCase() == showdown.artist.toLowerCase() &&
+                      !showdown.hasData) {
+                    showdown.refresh();
+                  } else {
+                    showdown.selectArtist(artist);
+                  }
+                },
               ),
               const SizedBox(height: AppSpacing.lg),
               if (showdown.isLoading && !showdown.hasData)
                 const _ShowdownSkeleton()
               else if (!showdown.hasData)
-                _EmptyShowdown(artist: showdown.artist)
+                _EmptyShowdown(
+                  artist: showdown.artist,
+                  isLoading: showdown.isLoading,
+                  onRefresh: () => showdown.refresh(),
+                )
               else ...[
                 if (showdown.isLoading)
                   const Padding(
@@ -150,90 +169,163 @@ class _ArtistShowdownCardState extends State<ArtistShowdownCard> {
 
 class _Header extends StatelessWidget {
   final String artist;
+  final bool isLoading;
+  final VoidCallback? onRefresh;
   final VoidCallback? onOpenHistory;
-  const _Header({required this.artist, this.onOpenHistory});
+
+  const _Header({
+    required this.artist,
+    this.isLoading = false,
+    this.onRefresh,
+    this.onOpenHistory,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [AppColors.cinemaPink, AppColors.auroraLilac],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 360;
+        return Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [AppColors.cinemaPink, AppColors.auroraLilac],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: const Icon(
+                Icons.leaderboard_rounded,
+                size: 18,
+                color: AppColors.petalWhite,
+              ),
             ),
-          ),
-          child: const Icon(
-            Icons.leaderboard_rounded,
-            size: 18,
-            color: AppColors.petalWhite,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'ARTIST SHOWDOWN',
-                style: AppTypography.outfitBold.copyWith(
-                  fontSize: 10,
-                  letterSpacing: 1.8,
-                  color: AppColors.blushGold,
-                ),
-              ),
-              Text(
-                '$artist • Khent vs Clair',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.outfitMedium.copyWith(
-                  fontSize: 11,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (onOpenHistory != null)
-          InkWell(
-            onTap: onOpenHistory,
-            borderRadius: BorderRadius.circular(99),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(99),
-                color: AppColors.petalWhite.withValues(alpha: 0.08),
-                border: Border.all(
-                  color: AppColors.blushGold.withValues(alpha: 0.35),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.history_rounded,
-                    size: 14,
-                    color: AppColors.blushGold,
-                  ),
-                  const SizedBox(width: 5),
                   Text(
-                    'History',
+                    'ARTIST SHOWDOWN',
                     style: AppTypography.outfitBold.copyWith(
-                      fontSize: 11,
-                      letterSpacing: 0.5,
+                      fontSize: 10,
+                      letterSpacing: 1.8,
                       color: AppColors.blushGold,
+                    ),
+                  ),
+                  Text(
+                    '$artist • Khent vs Clair',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.outfitMedium.copyWith(
+                      fontSize: 11,
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-      ],
+            if (onRefresh != null) ...[
+              Tooltip(
+                message: 'Refresh showdown',
+                child: InkWell(
+                  onTap: isLoading ? null : onRefresh,
+                  borderRadius: BorderRadius.circular(99),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 8 : 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      color: AppColors.petalWhite.withValues(alpha: 0.08),
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isLoading)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.blushGold,
+                            ),
+                          )
+                        else
+                          const Icon(
+                            Icons.refresh_rounded,
+                            size: 14,
+                            color: AppColors.blushGold,
+                          ),
+                        if (!isCompact) ...[
+                          const SizedBox(width: 5),
+                          Text(
+                            'Refresh',
+                            style: AppTypography.outfitBold.copyWith(
+                              fontSize: 11,
+                              letterSpacing: 0.5,
+                              color: AppColors.blushGold,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (onOpenHistory != null)
+              Tooltip(
+                message: 'Showdown history',
+                child: InkWell(
+                  onTap: onOpenHistory,
+                  borderRadius: BorderRadius.circular(99),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(99),
+                      color: AppColors.petalWhite.withValues(alpha: 0.08),
+                      border: Border.all(
+                        color: AppColors.blushGold.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.history_rounded,
+                          size: 14,
+                          color: AppColors.blushGold,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'History',
+                          style: AppTypography.outfitBold.copyWith(
+                            fontSize: 11,
+                            letterSpacing: 0.5,
+                            color: AppColors.blushGold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1035,7 +1127,14 @@ class _MiniCount extends StatelessWidget {
 
 class _EmptyShowdown extends StatelessWidget {
   final String artist;
-  const _EmptyShowdown({required this.artist});
+  final bool isLoading;
+  final VoidCallback? onRefresh;
+
+  const _EmptyShowdown({
+    required this.artist,
+    this.isLoading = false,
+    this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1071,6 +1170,55 @@ class _EmptyShowdown extends StatelessWidget {
               color: AppColors.textMuted,
             ),
           ),
+          if (onRefresh != null) ...[
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: isLoading ? null : onRefresh,
+              borderRadius: BorderRadius.circular(99),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(99),
+                  color: AppColors.petalWhite.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: AppColors.blushGold.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isLoading)
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.blushGold,
+                        ),
+                      )
+                    else
+                      const Icon(
+                        Icons.refresh_rounded,
+                        size: 14,
+                        color: AppColors.blushGold,
+                      ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isLoading ? 'Refreshing...' : 'Refresh',
+                      style: AppTypography.outfitBold.copyWith(
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                        color: AppColors.blushGold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
