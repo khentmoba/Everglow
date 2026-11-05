@@ -15,10 +15,12 @@ Analysis:
 Tests:
 Guards:
 Browser:
+Review:
 
 <!-- For each line, record passed - commands/results, or N/A - reason.
      Include applicable backend/manual browser checks and their results here.
-     Green CI and declarations do not prove interactions; list steps you performed. -->
+     Green CI and declarations do not prove interactions; list steps you performed.
+     Review: independent - reviewer or thread, or self - why no independent review ran. -->
 
 ## Merge Danger
 
