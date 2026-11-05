@@ -78,8 +78,11 @@ ordinary Quality success does not prove that those browser checks passed.
 
 - Save a screenshot of just the changed screen under
   `docs/pr-proof/pr-<number>/` (phone width ~430px, compressed).
-- Repo is public: couple-only screens (chat, gallery, notes, garden,
-  AI memories) use FAKE demo data only — never real couple data.
+- Treat every screenshot as if the repo were public: couple-only screens
+  (chat, gallery, notes, garden, AI memories) use FAKE demo data only —
+  never real couple data. The repo is private today, but a repo can be
+  made public by one settings change, and a leaked photo cannot be
+  un-leaked.
 - **Agent Mode for Proof Screenshots & Verification:**
   - Directly open any destination across the entire site via query parameter: `/?agent=anime`, `/?agent=manga`, `/?agent=books`, `/?agent=cinema`, `/?agent=dashboard`, etc., or by appending `?agent=1` to any deep link.
   - Or click any of the 1-click fast-jump destination chips on the doorway launchpad (Cinema, Anime, Mangacelestia, Books, Dashboard, Sanctuary, Gallery, Journal, Tonight, Play Zone, etc.).
@@ -95,6 +98,13 @@ ordinary Quality success does not prove that those browser checks passed.
 - Embed it in the PR body with a raw URL pinned to the commit SHA
   (branches get deleted, SHAs don't):
   `![what changed](https://raw.githubusercontent.com/khentmoba/Everglow/<sha>/docs/pr-proof/pr-<number>/shot.png)`
+- **That image will not render, because the repo is private.** GitHub's
+  image proxy cannot authenticate, so `raw.githubusercontent.com` answers
+  404 for every file here — the embed shows Khent a broken image. Keep it
+  anyway: `tool/ci/pr_contract.mjs` requires the raw embed and checks the
+  file exists at that SHA. Then put a signed-in link directly under it, so
+  the proof is actually viewable:
+  `If that image does not render: this repo is private, so GitHub's image proxy cannot fetch a raw.githubusercontent.com URL. Open [docs/pr-proof/pr-<number>/shot.png](https://github.com/khentmoba/Everglow/blob/<sha>/docs/pr-proof/pr-<number>/shot.png?raw=true) while signed in to GitHub instead.`
 - Non-UI change (CI, docs, backend-only): honestly mark N/A, or add a
   shot of the preview booting logged-out.
 - Frontend PRs get a preview from the successful web build (alive 12
