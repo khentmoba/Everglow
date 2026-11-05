@@ -126,7 +126,7 @@ async function handleProxyAnime(request, env) {
 
 // ─── /proxyMegavidHls ────────────────────────────────────
 
-async function handleProxyHls(request, env) {
+async function handleProxyHls(request, env, ctx) {
   if (request.method === 'OPTIONS') {
     return new Response('', { status: 204, headers: CORS });
   }
@@ -135,7 +135,22 @@ async function handleProxyHls(request, env) {
   }
 
   const url = new URL(request.url);
-  const target = url.searchParams.get('u');
+  const providerParam = url.searchParams.get('p');
+  const scopeParam = url.searchParams.get('d') || '';
+  const relParam = url.searchParams.get('r') || '';
+  // Scoped URLs carry the scope plus a short relative path; one-off URLs (a
+  // master playlist, a subtitle track) carry the whole upstream URL.
+  let target = url.searchParams.get('u') || '';
+  if (!target && scopeParam && relParam) {
+    if (
+      relParam.startsWith('/') ||
+      relParam.includes('..') ||
+      relParam.includes('://')
+    ) {
+      return jsonResponse({ error: 'Invalid path' }, 400);
+    }
+    target = scopeParam + relParam;
+  }
   if (!target) return jsonResponse({ error: 'Missing ?u=<media url>' }, 400);
 
   let parsed;
@@ -151,10 +166,8 @@ async function handleProxyHls(request, env) {
   // caller cannot widen it to reach a URL we never handed out. Cinema has no
   // host allowlist on purpose — fmov.my runs its own open relay, so listing
   // its host would turn this Worker into an open proxy.
-  const provider = STAMP_PROVIDERS.has(url.searchParams.get('p'))
-    ? url.searchParams.get('p')
-    : null;
-  const scope = url.searchParams.get('d') || '';
+  const provider = STAMP_PROVIDERS.has(providerParam) ? providerParam : null;
+  const scope = scopeParam;
   const stamp = url.searchParams.get('s') || '';
   const key = stamp ? env.CDN_STAMP_KEY || null : null;
   const scoped =
@@ -208,7 +221,7 @@ async function handleProxyHls(request, env) {
         : provider !== null
           ? await rewriteCinemaPlaylist(text, target, base, provider, key)
           : await rewritePlaylistWithHosts(text, target, base, isMegavidHost, null);
-      return new Response(rewritten, {
+      const response = new Response(rewritten, {
         status: 200,
         headers: {
           ...CORS,
@@ -216,6 +229,7 @@ async function handleProxyHls(request, env) {
           'Cache-Control': 'public, max-age=30',
         },
       });
+      return response;
     }
     // Falls through as a plain file when the body isn't a playlist.
   }
@@ -241,10 +255,10 @@ async function handleProxyHls(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const { pathname } = new URL(request.url);
     if (pathname === '/proxyAnime') return handleProxyAnime(request, env);
-    if (pathname === '/proxyMegavidHls') return handleProxyHls(request, env);
+    if (pathname === '/proxyMegavidHls') return handleProxyHls(request, env, ctx);
     if (pathname === '/health') return new Response('ok', { headers: CORS });
     return new Response('Not found', { status: 404, headers: CORS });
   },

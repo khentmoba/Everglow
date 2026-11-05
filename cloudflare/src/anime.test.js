@@ -42,6 +42,15 @@ import { handleProxyHls } from './worker.js';
 const KEY = 'demo-cdn-key';
 const HOST = 'https://everglow-stream.example.workers.dev';
 
+/** The upstream URL a proxy URL points at, in either shape: `u` (one-off) or
+ *  `d` + `r` (scoped, relative to the signed directory). */
+function upstreamOf(proxyUrl) {
+  const u = proxyUrl instanceof URL ? proxyUrl : new URL(proxyUrl);
+  const full = u.searchParams.get('u');
+  if (full) return full;
+  return (u.searchParams.get('d') || '') + (u.searchParams.get('r') || '');
+}
+
 test('validateAnimeParams accepts the sources the app actually offers', () => {
   for (const source of ['megavid', 'megaplay', 'everglow']) {
     const p = validateAnimeParams({ source, anilistId: 21, ep: 1, audio: 'sub' });
@@ -97,7 +106,7 @@ test('headers follow the stamped provider, never the URL host', () => {
 test('Cinema stamps bind provider + scope, and never pass as another provider', async () => {
   const url = 'https://fmov.my/api/proxy?url=https%3A%2F%2Fcdn.example%2Fm.m3u8';
   const proxied = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, url, 'fmov', KEY));
-  assert.equal(proxied.searchParams.get('u'), url);
+  assert.equal(upstreamOf(proxied), url);
   assert.equal(proxied.searchParams.get('p'), 'fmov');
   const scope = proxied.searchParams.get('d');
   const s = proxied.searchParams.get('s');
@@ -134,7 +143,9 @@ test('rewriteCinemaPlaylist stamps a whole playlist with ONE signature', async (
   assert.deepEqual([...scopes], ['https://img.rousav.tech/media/a/']);
   for (const u of urls) {
     assert.equal(u.searchParams.get('p'), 'vidbolt');
-    assert.ok(u.searchParams.get('u').includes('api_key=k1'), 'api_key survives');
+    assert.ok(upstreamOf(u).includes('api_key=k1'), 'api_key survives');
+    assert.ok(u.searchParams.get('r'), 'scoped URLs send a relative path');
+    assert.ok(!u.searchParams.get('u'), 'no full URL when a relative path will do');
   }
   assert.ok(await validCdnStamp(KEY, scopeMessage('vidbolt', 'https://img.rousav.tech/media/a/'), [...stamps][0]));
 });
@@ -351,14 +362,14 @@ test('resolveCinema resolves a movie and stamps the player + subtitles', async (
       return segOk;
     };
     const out = await resolveCinema('movie', 603, 1, 1, `${HOST}/proxyMegavidHls`, KEY);
-    const src = new URL(JSON.parse(out.src.match(/^[^?]+\?u=([^&]+)/) ? `"${out.src}"` : '""'));
+    const src = new URL(out.src);
     assert.equal(src.pathname, '/proxyMegavidHls');
     assert.equal(src.searchParams.get('p'), 'fmov');
     const scope = src.searchParams.get('d');
     const stamp = src.searchParams.get('s');
     assert.equal(scope, 'https://fmov.my/api/');
     assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', scope), stamp));
-    assert.ok(src.searchParams.get('u').startsWith(scope));
+    assert.ok(upstreamOf(src).startsWith(scope));
     assert.equal(out.title, 'Movie');
     assert.equal(out.tracks.length, 1);
     assert.ok(out.tracks[0].file.includes('p=fmov'));
@@ -468,7 +479,7 @@ test('the Worker serves a stamped Cinema playlist with that provider headers', a
     const body = await res.text();
     const child = new URL(body.split('\n').find((l) => l.startsWith('https://')));
     assert.equal(child.searchParams.get('p'), 'fmov');
-    assert.equal(child.searchParams.get('u'), 'https://fmov.my/api/proxy?url=seg1.ts');
+    assert.equal(upstreamOf(child), 'https://fmov.my/api/proxy?url=seg1.ts');
     assert.ok(
       await validCdnStamp(
         KEY,

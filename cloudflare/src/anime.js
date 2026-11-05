@@ -60,13 +60,19 @@ const dec = new TextDecoder();
 
 /** fetch with a hard timeout. Workers have no AbortSignal.timeout on every
  *  compatibility date, and a leaked timer keeps the isolate awake. */
-async function fetchT(url, init, ms) {
+async function fetchT(url, init, ms, outer) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
+  const onAbort = () => ctrl.abort();
+  if (outer) {
+    if (outer.aborted) ctrl.abort();
+    else outer.addEventListener('abort', onAbort, { once: true });
+  }
   try {
     return await fetch(url, { ...(init || {}), signal: ctrl.signal });
   } finally {
     clearTimeout(timer);
+    if (outer) outer.removeEventListener('abort', onAbort);
   }
 }
 
@@ -206,13 +212,18 @@ function streamHostPrefix(url) {
 
 // ─── Stamps ──────────────────────────────────────────────
 
-/** Signs one string. [key] is the CDN_STAMP_KEY Worker secret. */
+/** Signs one string. [key] is the CDN_STAMP_KEY Worker secret.
+ *
+ *  Truncated to 16 hex characters (64 bits): the stamp is repeated once per
+ *  segment, so a full 64-character digest added ~50 KB to every film's
+ *  playlist. 64 bits is ample — forging one means guessing a MAC for a scope
+ *  we never issued, and a wrong guess is simply refused. */
 async function cdnStamp(key, message) {
-  return bytesToHex(await hmacSha256(key, message));
+  return bytesToHex(await hmacSha256(key, message)).slice(0, 16);
 }
 
 async function validCdnStamp(key, message, stamp) {
-  if (!key || !/^[a-f0-9]{64}$/.test(String(stamp || ''))) return false;
+  if (!key || !/^[a-f0-9]{16}$/.test(String(stamp || ''))) return false;
   return safeEqualHex(await cdnStamp(key, message), stamp);
 }
 
@@ -241,6 +252,16 @@ function proxyUrl(proxyBase, absUrl) {
  *  request so the proxy needs one HMAC to check it, not a walk up the tree;
  *  the stamp binds the scope, so a caller cannot widen it. */
 function scopedProxyUrl(proxyBase, absUrl, provider, scope, stamp) {
+  // The upstream URL travels as a path relative to the scope, not in full:
+  // encoding a 443-character URL per segment was most of the rewrite's CPU,
+  // and `seg-1-v1-a1.ts` is a tenth of the bytes.
+  const rel = absUrl.startsWith(scope) ? absUrl.slice(scope.length) : '';
+  if (rel && !rel.startsWith('/') && !rel.includes('..')) {
+    return (
+      `${proxyBase}?p=${provider}&d=${encodeURIComponent(scope)}` +
+      `&r=${encodeURIComponent(rel)}&s=${stamp}`
+    );
+  }
   return (
     `${proxyUrl(proxyBase, absUrl)}&p=${provider}` +
     `&d=${encodeURIComponent(scope)}&s=${stamp}`
@@ -456,46 +477,51 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
     ? await cdnStamp(key, scopeMessage(provider, playlistScope))
     : '';
   const lines = String(text || '').split(/\r?\n/);
-  const map = new Map();
-  const escaped = [];
+  const extraStamps = new Map();
+  let escaped = null;
 
-  const consider = (ref) => {
-    if (map.has(ref)) return;
+  const rewriteRef = (ref) => {
     const abs = resolveWithContext(ctx, ref);
-    if (!abs) return;
+    if (!abs) return null;
     if (isAllowed) {
       let host = '';
       try {
         host = new URL(abs).hostname;
       } catch (_) {
-        return;
+        return null;
       }
-      if (isAllowed(host)) {
-        map.set(ref, proxyUrl(proxyBase, abs));
-        return;
-      }
+      if (isAllowed(host)) return proxyUrl(proxyBase, abs);
     }
     if (abs.startsWith(playlistScope)) {
-      map.set(ref, scopedProxyUrl(proxyBase, abs, provider, playlistScope, mainStamp));
-      return;
+      return scopedProxyUrl(proxyBase, abs, provider, playlistScope, mainStamp);
     }
-    escaped.push({ ref, abs });
+    // Rare: a URI outside the playlist's directory needs its own scope, which
+    // needs its own signature. Collected and resolved after the fast pass.
+    (escaped ||= []).push(ref);
+    return null;
   };
 
-  for (const line of lines) {
+  const out = lines.map((line) => {
     const t = line.trim();
-    if (!t) continue;
-    if (t.startsWith('#')) {
-      if (!t.includes('URI="')) continue;
-      for (const m of t.matchAll(/URI="([^"]+)"/g)) consider(m[1]);
-    } else {
-      consider(t);
+    if (!t) return line;
+    if (t[0] === '#') {
+      if (!t.includes('URI="')) return line;
+      return line.replace(/URI="([^"]+)"/g, (m, uri) => {
+        const r = rewriteRef(uri);
+        return r ? `URI="${r}"` : m;
+      });
     }
-  }
+    const r = rewriteRef(t);
+    return r || line;
+  });
 
-  // Rare: URIs outside the playlist's directory get a stamp for their own.
-  const extraStamps = new Map();
-  for (const { ref, abs } of escaped) {
+  if (!escaped) return out.join('\n');
+
+  // Slow path: sign each escaped directory once, then patch those lines.
+  const patched = new Map();
+  for (const ref of new Set(escaped)) {
+    const abs = resolveWithContext(ctx, ref);
+    if (!abs) continue;
     const scope = urlScope(abs);
     if (!extraStamps.has(scope)) {
       extraStamps.set(
@@ -503,10 +529,25 @@ async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key
         key ? await cdnStamp(key, scopeMessage(provider, scope)) : '',
       );
     }
-    map.set(ref, scopedProxyUrl(proxyBase, abs, provider, scope, extraStamps.get(scope)));
+    patched.set(
+      ref,
+      scopedProxyUrl(proxyBase, abs, provider, scope, extraStamps.get(scope)),
+    );
   }
-
-  return applyReplacements(lines, map);
+  for (let i = 0; i < out.length; i++) {
+    const t = out[i].trim();
+    if (!t) continue;
+    if (t[0] === '#') {
+      if (!t.includes('URI="')) continue;
+      out[i] = out[i].replace(/URI="([^"]+)"/g, (m, uri) => {
+        const r = patched.get(uri);
+        return r ? `URI="${r}"` : m;
+      });
+    } else if (patched.has(t)) {
+      out[i] = patched.get(t);
+    }
+  }
+  return out.join('\n');
 }
 
 /** Cinema playlists: nothing is allowlisted (fmov runs its own open relay),
@@ -530,8 +571,8 @@ function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stamp
 
 // ─── Stream verification ─────────────────────────────────
 
-async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders()) {
-  const res = await fetchT(url, { headers }, timeoutMs);
+async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders(), signal) {
+  const res = await fetchT(url, { headers }, timeoutMs, signal);
   const prefix = streamHostPrefix(url);
   if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
   const text = await res.text();
@@ -543,11 +584,12 @@ async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders()) 
 
 /** Downloads just the first bytes of a segment, key, or init map: proves
  *  the file exists without pulling megabytes when the CDN ignores Range. */
-async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders()) {
+async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(), signal) {
   const res = await fetchT(
     url,
     { headers: { ...headers, Range: 'bytes=0-1023' } },
     timeoutMs,
+    signal,
   );
   const prefix = streamHostPrefix(url);
   if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
@@ -596,7 +638,7 @@ function assertPlayableHead(chunk, url, label) {
 /** One pass over a media playlist for both its duration and its URIs.
  *  verifyStream used to split and scan the same 480 KB playlist twice per
  *  variant, which dominated the resolve's CPU. */
-function parseMediaPlaylist(text) {
+function parseMediaPlaylist(text, { stopAfterSeconds = 0 } = {}) {
   let duration = 0;
   const uris = [];
   for (const line of String(text || '').split(/\r?\n/)) {
@@ -610,50 +652,61 @@ function parseMediaPlaylist(text) {
       continue;
     }
     uris.push(t);
+    // A 1,043-segment film is proven long enough after ~15 lines; scanning
+    // the rest only costs CPU. `duration` is then a lower bound, which is all
+    // the "long enough to be an episode" check needs.
+    if (stopAfterSeconds > 0 && duration >= stopAfterSeconds) break;
   }
   return { duration, uris };
 }
 
 /** Proves an HLS stream is actually playable before we serve our player
- *  page: master playlist, up to two variants, key / init map when present,
+ *  page: master playlist, the first variant, key / init map when present,
  *  and each variant's first segment must fetch with playable bytes. Anything
  *  dead throws, and the endpoint answers with the failover marker so the app
  *  advances to the next server instead of stalling on a spinner. */
-async function verifyStream(masterUrl, headers = megavidHeaders()) {
+async function verifyStream(masterUrl, headers = megavidHeaders(), signal) {
   const prefix = streamHostPrefix(masterUrl);
-  const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers);
+  const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers, signal);
   const variants = playlistUris(masterText, masterUrl, { variantsOnly: true });
   const medias =
     variants.length > 0
       ? await Promise.all(
-          variants.slice(0, 2).map(async (v) => ({
+          variants.slice(0, 1).map(async (v) => ({
             url: v,
-            text: await fetchPlaylist(v, 8000, 'variant', headers),
+            text: await fetchPlaylist(v, 8000, 'variant', headers, signal),
           })),
         )
       : [{ url: masterUrl, text: masterText }];
   const first = medias[0];
-  const firstParsed = parseMediaPlaylist(first.text);
+  const firstParsed = parseMediaPlaylist(first.text, {
+    stopAfterSeconds: MIN_MEGAVID_SECONDS,
+  });
   const keyMatch = first.text.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
   if (keyMatch) {
     const keyUrl = resolvePlaylistUrl(keyMatch[1], first.url);
-    if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key', headers);
+    if (keyUrl) await fetchSegmentHead(keyUrl, 8000, 'key', headers, signal);
   }
   const mapMatch = first.text.match(/#EXT-X-MAP[^\r\n]*URI="([^"]+)"/);
   if (mapMatch) {
     const mapUrl = resolvePlaylistUrl(mapMatch[1], first.url);
-    if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map', headers);
+    if (mapUrl) await fetchSegmentHead(mapUrl, 8000, 'init map', headers, signal);
   }
   await Promise.all(
     medias.map(async ({ url: mediaUrl, text: mediaText }) => {
-      const parsed = mediaText === first.text ? firstParsed : parseMediaPlaylist(mediaText);
+      const parsed =
+        mediaText === first.text
+          ? firstParsed
+          : parseMediaPlaylist(mediaText, {
+              stopAfterSeconds: MIN_MEGAVID_SECONDS,
+            });
       if (parsed.duration < MIN_MEGAVID_SECONDS) {
         throw new Error(`${prefix}: playlist too short to be the episode`);
       }
       if (!parsed.uris.length) throw new Error(`${prefix}: playlist has no segments`);
       const segment = resolvePlaylistUrl(parsed.uris[0], mediaUrl);
       if (!segment) throw new Error(`${prefix}: playlist has no segments`);
-      const head = await fetchSegmentHead(segment, 10000, 'segment', headers);
+      const head = await fetchSegmentHead(segment, 10000, 'segment', headers, signal);
       assertPlayableHead(head, segment, 'segment');
     }),
   );
@@ -671,8 +724,8 @@ function verifyMegaPlayStream(masterUrl) {
   return verifyStream(masterUrl, megaplayHeaders());
 }
 
-function verifyCinemaStream(masterUrl, provider) {
-  return verifyStream(masterUrl, cinemaHeaders(provider));
+function verifyCinemaStream(masterUrl, provider, signal) {
+  return verifyStream(masterUrl, cinemaHeaders(provider), signal);
 }
 
 // ─── Upstream resolvers ──────────────────────────────────
@@ -809,21 +862,22 @@ function hlsCandidates(sources, kindKey, baseOrigin) {
   return out;
 }
 
-async function firstPlayable(masterUrls, provider) {
+async function firstPlayable(masterUrls, provider, signal) {
   for (const masterUrl of masterUrls) {
     try {
-      await verifyCinemaStream(masterUrl, provider);
+      await verifyCinemaStream(masterUrl, provider, signal);
       return masterUrl;
     } catch (_) {}
   }
   throw new Error(`cinema ${provider}: no playable source`);
 }
 
-async function resolveFmov(apiPath, srcKey) {
+async function resolveFmov(apiPath, srcKey, signal) {
   const res = await fetchT(
     `${FMOV_ORIGIN}/api/stream/${apiPath}?source=${srcKey}`,
     { headers: fmovHeaders({ Accept: 'application/json' }) },
     6000,
+    signal,
   );
   if (!res.ok) throw new Error(`fmov ${srcKey} ${res.status}`);
   const data = await res.json();
@@ -834,11 +888,16 @@ async function resolveFmov(apiPath, srcKey) {
       : data.url
         ? [{ url: data.url, type: data.type || 'hls' }]
         : [];
-  const masterUrl = await firstPlayable(hlsCandidates(sources, 'type', FMOV_ORIGIN), 'fmov');
-  return { provider: 'fmov', masterUrl, subtitles: data.subtitles, baseOrigin: FMOV_ORIGIN };
+  return {
+    key: srcKey,
+    provider: 'fmov',
+    masterUrls: hlsCandidates(sources, 'type', FMOV_ORIGIN),
+    subtitles: data.subtitles,
+    baseOrigin: FMOV_ORIGIN,
+  };
 }
 
-async function resolveVidBolt(mediaType, tmdbId, season, ep) {
+async function resolveVidBolt(mediaType, tmdbId, season, ep, signal) {
   const isTv = mediaType === 'tv';
   const query = isTv
     ? `type=tv&id=${tmdbId}&season=${season}&episode=${ep}`
@@ -858,18 +917,16 @@ async function resolveVidBolt(mediaType, tmdbId, season, ep) {
       }),
     },
     6000,
+    signal,
   );
   if (!res.ok) throw new Error(`vidbolt ${res.status}`);
   const data = await res.json();
   const stream = data && data.stream;
   if (!stream) throw new Error('vidbolt miss');
-  const masterUrl = await firstPlayable(
-    hlsCandidates(stream.sources, 'kind', VIDBOLT_ORIGIN),
-    'vidbolt',
-  );
   return {
+    key: 'vidbolt',
     provider: 'vidbolt',
-    masterUrl,
+    masterUrls: hlsCandidates(stream.sources, 'kind', VIDBOLT_ORIGIN),
     subtitles: stream.subtitles,
     baseOrigin: VIDBOLT_ORIGIN,
   };
@@ -887,21 +944,65 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
   const fmovSources = isTv
     ? ['vector', 'core', 'titan', 'valence']
     : ['valence', 'vector', 'core', 'titan'];
-  const attempts = [
-    ...fmovSources.map((srcKey) => resolveFmov(apiPath, srcKey)),
-    resolveVidBolt(mediaType, tmdbId, season, ep),
-  ];
+  // Every provider resolves in parallel (one fetch + one JSON parse each),
+  // then only the winner is verified. Verifying inside each attempt meant
+  // paying for five playlist verifications and using one, which was the
+  // resolve's whole CPU bill; batching them instead doubled wall time.
+  const remaining = [...fmovSources, 'vidbolt'];
   let timer;
   const deadline = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new Error('cinema: timed out')), budgetMs);
   });
-  let hit;
+  // Verification is the slow half, so it gets the same budget: without this a
+  // provider that answers fast but verifies slowly ran past the app's own
+  // 15 s load timer and the work was thrown away.
+  const budgetCtrl = new AbortController();
+  const budgetTimer = setTimeout(() => budgetCtrl.abort(), budgetMs);
+  let hit = null;
+  let masterUrl = null;
+  let lastError = null;
   try {
-    hit = await Promise.race([Promise.any(attempts), deadline]);
+    while (remaining.length > 0) {
+      const losers = new AbortController();
+      const attempts = remaining.slice(0, 5).map((srcKey) =>
+        srcKey === 'vidbolt'
+          ? resolveVidBolt(mediaType, tmdbId, season, ep, losers.signal)
+          : resolveFmov(apiPath, srcKey, losers.signal),
+      );
+      let candidate;
+      try {
+        candidate = await Promise.race([Promise.any(attempts), deadline]);
+      } catch (e) {
+        lastError = e;
+        break;
+      } finally {
+        // The moment one provider answers, the rest are cancelled so their
+        // payloads are never parsed.
+        losers.abort();
+        for (const a of attempts) a.catch(() => {});
+      }
+      // Drop the source that answered, by its source key — not the provider
+      // name, which is shared by all four Fmov sources.
+      const at = remaining.indexOf(candidate.key);
+      if (at >= 0) remaining.splice(at, 1);
+      try {
+        masterUrl = await firstPlayable(
+          candidate.masterUrls,
+          candidate.provider,
+          budgetCtrl.signal,
+        );
+        hit = candidate;
+        break;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (!hit) throw lastError || new Error('cinema: all providers missed');
   } catch (e) {
     throw new Error('cinema: no playable stream', { cause: e });
   } finally {
     clearTimeout(timer);
+    clearTimeout(budgetTimer);
   }
 
   const tracks = await Promise.all(
@@ -913,7 +1014,7 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
       })),
   );
   return {
-    src: await cinemaProxyUrl(proxyBase, hit.masterUrl, hit.provider, key),
+    src: await cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key),
     tracks,
     title: isTv ? `S${season} E${ep}` : 'Movie',
     ep: isTv ? ep : 1,
