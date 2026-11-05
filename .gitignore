@@ -100,3 +100,7 @@ web/table_tennis/index.html.bak
 # pi goal runtime state (local only, never commit)
 .pi/goals/
 .pi/.goals-pool-snapshot.json
+
+# Cloudflare Worker local state
+cloudflare/.dev.vars
+cloudflare/.wrangler/

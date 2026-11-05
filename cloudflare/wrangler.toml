@@ -1,0 +1,11 @@
+name = "everglow-stream"
+main = "src/worker.js"
+compatibility_date = "2026-10-01"
+
+# The streaming proxy: /proxyAnime and /proxyMegavidHls.
+# No bindings needed. One secret:
+#   wrangler secret put CDN_STAMP_KEY
+# Generate it once with: openssl rand -hex 32
+
+[observability]
+enabled = true

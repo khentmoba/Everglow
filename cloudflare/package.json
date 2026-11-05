@@ -1,0 +1,13 @@
+{
+  "name": "everglow-stream",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test src/"
+  },
+  "devDependencies": {
+    "wrangler": "^4.158.0"
+  }
+}
