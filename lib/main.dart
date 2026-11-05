@@ -45,11 +45,19 @@ void main() {
 
 Future<void> _startEverglow() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Bound the decoded-image cache immediately so early decodes follow bounds.
+  final isLowEnd = DeviceCapability.isLowEndDevice;
+  PaintingBinding.instance.imageCache
+    ..maximumSize = isLowEnd ? 100 : 220
+    ..maximumSizeBytes = isLowEnd ? (48 << 20) : (96 << 20);
+
   // On web, disable the native browser context menu so Flutter's SelectionArea
   // can display its adaptive context menu toolbar ("Copy", "Select all") on
   // right-click / long-press and copy selected text to the clipboard.
+  // Non-blocking: never delay first frame for platform menu state.
   if (kIsWeb) {
-    await BrowserContextMenu.disableContextMenu();
+    unawaited(BrowserContextMenu.disableContextMenu());
   }
 
   // Web release: prevent opaque grey ErrorWidget from swallowing Together zone.
@@ -86,28 +94,32 @@ Future<void> _startEverglow() async {
     ).probe(),
   );
 
-  final result = await bootstrap.run();
-  Logger.i(
-    'Everglow ${AppVersion.current} ready in '
-    '${result.elapsed.inMilliseconds}ms',
-  );
   // Dev tooling flags, agent mode, and preloaded route/scroll states:
-  // load concurrently in parallel before runApp so startup is not serialized.
-  await Future.wait([
+  // load concurrently in parallel with bootstrap so startup is not serialized.
+  final preloadsFuture = Future.wait([
     PerfSettings.load(),
     AgentMode.init(),
     RouteMemory.load(),
     ScrollMemory.preload(),
   ]);
+
+  final bootstrapFuture = bootstrap.run();
+
+  final results = await Future.wait([
+    bootstrapFuture,
+    preloadsFuture,
+  ]);
+  final result = results[0] as BootstrapResult;
+
+  Logger.i(
+    'Everglow ${AppVersion.current} ready in '
+    '${result.elapsed.inMilliseconds}ms',
+  );
+
   if (AgentMode.isActive.value) {
     authService.enableAgentSession(profile: AgentMode.activeProfile.value);
   }
 
-  // Bound the decoded-image cache before the first frame.
-  final isLowEnd = DeviceCapability.isLowEndDevice;
-  PaintingBinding.instance.imageCache
-    ..maximumSize = isLowEnd ? 100 : 220
-    ..maximumSizeBytes = isLowEnd ? (48 << 20) : (96 << 20);
   // Health lands after first frame; log it when it arrives.
   unawaited(
     result.healthFuture.then(

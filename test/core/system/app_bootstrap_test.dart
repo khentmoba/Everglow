@@ -77,4 +77,29 @@ void main() {
     final probed = await result.healthFuture;
     expect(probed.status, 'unreachable');
   });
+
+  test('run executes environment load and firebase init concurrently', () async {
+    final events = <String>[];
+    final bootstrap = AppBootstrap(
+      loadEnvironment: () async {
+        events.add('env:start');
+        await Future.delayed(const Duration(milliseconds: 30));
+        events.add('env:end');
+      },
+      initializeFirebase: () async {
+        events.add('firebase:start');
+        await Future.delayed(const Duration(milliseconds: 30));
+        events.add('firebase:end');
+      },
+      configureFirestore: () async {},
+      configureUrlStrategy: () {},
+      initializeNotifications: () async {},
+    );
+
+    final result = await bootstrap.run();
+    expect(result.environmentLoaded, isTrue);
+    // Both must start before either ends (concurrent execution)
+    expect(events.indexOf('env:start'), lessThan(events.indexOf('firebase:end')));
+    expect(events.indexOf('firebase:start'), lessThan(events.indexOf('env:end')));
+  });
 }

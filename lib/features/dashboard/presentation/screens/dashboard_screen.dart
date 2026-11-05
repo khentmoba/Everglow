@@ -55,6 +55,7 @@ import '../../../../shared/widgets/everglow/everglow_background.dart';
 import '../../../../shared/widgets/everglow/everglow_section_header.dart';
 import '../widgets/dashboard_motion.dart';
 import 'package:everglow/core/perf/perf_settings.dart';
+import '../../../../core/perf/device_capability.dart';
 part 'dashboard_screen_sections.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -327,7 +328,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final Widget animated;
     if (!widget.animate || !hero) {
       animated = child;
-    } else if (AppMotion.reduced) {
+    } else if (AppMotion.reduced || DeviceCapability.isLowEndDevice) {
       animated = TweenAnimationBuilder<double>(
         tween: Tween(begin: 0, end: 1),
         duration: const Duration(milliseconds: 150),

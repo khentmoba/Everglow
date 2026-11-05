@@ -1,4 +1,4 @@
-// BUILD=6.2.0+1-e4735d3c
+// BUILD=6.2.0+1-5b32fb1c
 // Everglow service worker: app-shell + asset caching + push.
 //
 // Pairing with firebase.json (last matching header rule wins there):
@@ -21,7 +21,7 @@
 // (firebase-messaging-sw.js) would replace this one and kill offline
 // caching, or vice versa — so that file is just a thin importScripts
 // wrapper around this one, and both behave identically.
-const SHELL="6.2.0+1-e4735d3c-SHELL-v1";
+const SHELL="6.2.0+1-5b32fb1c-SHELL-v1";
 // Stable across builds on purpose: entries rotate by `?v=` query, so a new
 // build misses (fetches fresh) while the previous shell stays cached for
 // offline boots. Only the newest two shells are kept (see trimCore).
@@ -174,7 +174,7 @@ async function warmCoreShell() {
   if (SAVE_DATA) return;
   try {
     const c = await caches.open(CORE);
-    const shellUrl = new URL("main.dart.js?v=6.2.0+1-e4735d3c", self.location.origin).href;
+    const shellUrl = new URL("main.dart.js?v=6.2.0+1-5b32fb1c", self.location.origin).href;
     const already = await c.match(shellUrl);
     if (already) return;
     if (navigator.onLine === false) return;

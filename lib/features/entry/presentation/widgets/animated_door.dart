@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../../../core/perf/device_capability.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -50,8 +51,12 @@ class _AnimatedDoorState extends State<AnimatedDoor>
   @override
   void initState() {
     super.initState();
+    final isLowEnd = DeviceCapability.isLowEndDevice;
+    final entranceDuration = isLowEnd
+        ? const Duration(milliseconds: 500)
+        : const Duration(milliseconds: 1400);
     _entranceController = AnimationController(
-      duration: AppMotion.orZero(const Duration(milliseconds: 1400)),
+      duration: AppMotion.orZero(entranceDuration),
       vsync: this,
     );
     _swingController = AnimationController(
@@ -92,7 +97,7 @@ class _AnimatedDoorState extends State<AnimatedDoor>
     // Some Android emulators/vendors never deliver the animation ticker
     // future reliably. Fall back so the keypad always appears.
     _entranceFallbackTimer = Timer(
-      const Duration(milliseconds: 1800),
+      entranceDuration + const Duration(milliseconds: 400),
       _completeEntrance,
     );
   }
