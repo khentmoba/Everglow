@@ -19,6 +19,9 @@ const {
   NO_SOURCE_MARKER,
   isMegavidHost,
   isMegaPlayHost,
+  isFmovHost,
+  isVidBoltHost,
+  isCinemaHlsHost,
   isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
@@ -28,11 +31,19 @@ const {
   validCdnStamp,
   megavidHeaders,
   megaplayHeaders,
+  fmovHeaders,
+  vidboltHeaders,
+  cinemaHeadersForUrl,
   MEGAVID_ORIGIN,
   MEGAPLAY_ORIGIN,
+  FMOV_ORIGIN,
+  VIDBOLT_ORIGIN,
+  resolveCinema,
+  selectCinemaSubtitleTracks,
   decryptMegaPlayPayload,
   makeMegaPlayToken,
   verifyMegaPlayStream,
+  verifyCinemaStream,
 } = require('./anime');
 
 test('normTitle strips punctuation for fuzzy matching', () => {
@@ -879,4 +890,167 @@ test('hlsPlayerHtml sends the token as a header, not in URLs', () => {
   assert.ok(!html.includes('token='));
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   new vm.Script(code);
+});
+
+test('validateAnimeParams accepts cinema movie and tv sources and rejects bad cinema params', () => {
+  const movie = validateAnimeParams({
+    source: 'cinema',
+    type: 'movie',
+    tmdbId: 603,
+  });
+  assert.equal(movie.error, undefined);
+  assert.equal(movie.source, 'cinema');
+  assert.equal(movie.mediaType, 'movie');
+  assert.equal(movie.tmdbId, 603);
+  assert.equal(movie.season, 1);
+  assert.equal(movie.ep, 1);
+
+  const tv = validateAnimeParams({
+    source: 'cinema',
+    type: 'tv',
+    tmdbId: 1396,
+    s: 2,
+    e: 3,
+  });
+  assert.equal(tv.error, undefined);
+  assert.equal(tv.mediaType, 'tv');
+  assert.equal(tv.tmdbId, 1396);
+  assert.equal(tv.season, 2);
+  assert.equal(tv.ep, 3);
+
+  assert.ok(validateAnimeParams({ source: 'cinema', type: 'ova', tmdbId: 1 }).error);
+  assert.ok(validateAnimeParams({ source: 'cinema', type: 'movie', tmdbId: 0 }).error);
+  assert.ok(validateAnimeParams({ source: 'cinema', type: 'tv', tmdbId: 1, s: 0, e: 1 }).error);
+  assert.ok(validateAnimeParams({ source: 'cinema', type: 'tv', tmdbId: 1, s: 1, e: 0 }).error);
+});
+
+test('Cinema HLS hosts and headers recognize Fmov and VidBolt domains', () => {
+  assert.equal(isFmovHost('fmov.my'), true);
+  assert.equal(isFmovHost('cache.vdrk.site'), true);
+  assert.equal(isFmovHost('evil.com'), false);
+
+  assert.equal(isVidBoltHost('vidbolt.xyz'), true);
+  assert.equal(isVidBoltHost('proxy.vidbolt.xyz'), true);
+  assert.equal(isVidBoltHost('img.rousav.tech'), true);
+  assert.equal(isVidBoltHost('evil.com'), false);
+
+  assert.equal(isCinemaHlsHost('fmov.my'), true);
+  assert.equal(isCinemaHlsHost('img.rousav.tech'), true);
+  assert.equal(isAnimeCdnHost('fmov.my'), true);
+  assert.equal(isAnimeCdnHost('proxy.vidbolt.xyz'), true);
+
+  assert.equal(fmovHeaders().Origin, FMOV_ORIGIN);
+  assert.equal(vidboltHeaders().Origin, VIDBOLT_ORIGIN);
+  assert.equal(cinemaHeadersForUrl('https://fmov.my/api/proxy').Origin, FMOV_ORIGIN);
+  assert.equal(cinemaHeadersForUrl('https://img.rousav.tech/x.m3u8').Origin, VIDBOLT_ORIGIN);
+});
+
+test('resolvePlaylistUrl preserves same-origin api_key without leaking cross-origin', () => {
+  const base = 'https://img.rousav.tech/media/abc/index.m3u8?api_key=secret123';
+  assert.equal(
+    resolvePlaylistUrl('tiles.m3u8', base),
+    'https://img.rousav.tech/media/abc/tiles.m3u8?api_key=secret123',
+  );
+  assert.equal(
+    resolvePlaylistUrl('https://other.example/tiles.m3u8', base),
+    'https://other.example/tiles.m3u8',
+  );
+});
+
+test('selectCinemaSubtitleTracks ranks English first, deduplicates mirrors, and skips srt', () => {
+  const tracks = selectCinemaSubtitleTracks([
+    { label: 'Arabic', file: 'https://cache.vdrk.site/v1/ar.vtt', type: 'vtt' },
+    { label: 'Brazilian2', file: 'https://cache.vdrk.site/v1/br2.vtt', type: 'vtt' },
+    { label: 'Brazilian3', file: 'https://cache.vdrk.site/v1/br3.vtt', type: 'vtt' },
+    { label: 'English Hi3', file: 'https://cache.vdrk.site/v1/en_hi.vtt', type: 'vtt' },
+    { label: 'English', file: 'https://cache.vdrk.site/v1/en.vtt', type: 'vtt' },
+    { label: 'French', file: 'https://cache.vdrk.site/v1/fr.srt', type: 'srt' },
+  ]);
+  assert.equal(tracks.length, 4);
+  assert.equal(tracks[0].label, 'English');
+  assert.equal(tracks[1].label, 'English Hi3');
+  assert.equal(tracks[2].label, 'Arabic');
+  assert.equal(tracks[3].label, 'Brazilian2');
+});
+
+test('resolveCinema resolves movie HLS stream and falls back to VidBolt when Fmov misses', async () => {
+  const realFetch = globalThis.fetch;
+  const segOk = {
+    ok: true,
+    status: 200,
+    headers: new Map(),
+    arrayBuffer: async () => new Uint8Array([0x47, 0, 0, 0]).buffer,
+  };
+  const req = {
+    protocol: 'https',
+    headers: { host: 'us-central1-everglow-1c6db.cloudfunctions.net' },
+    query: {},
+  };
+
+  try {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.startsWith('https://fmov.my/api/stream/movie/603')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            success: true,
+            sources: [{ url: '/api/proxy?url=master.m3u8', type: 'hls' }],
+            subtitles: [{ label: 'English', file: 'https://cache.vdrk.site/en.vtt', type: 'vtt' }],
+          }),
+        };
+      }
+      if (u.includes('master.m3u8')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '#EXTM3U\n#EXTINF:200,\n/api/proxy?url=seg1.ts\n',
+        };
+      }
+      return segOk;
+    };
+
+    const movieOut = await resolveCinema('movie', 603, 1, 1, req);
+    assert.ok(movieOut.playerHtml.includes('proxyMegavidHls'));
+    assert.ok(movieOut.playerHtml.includes('label="English"'));
+
+    // Now simulate Fmov failing and VidBolt succeeding for TV
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.startsWith('https://fmov.my/')) {
+        return { ok: false, status: 502 };
+      }
+      if (u.startsWith('https://vidbolt.xyz/api/resolve')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            stream: {
+              server: 'orion',
+              sources: [{ url: 'https://img.rousav.tech/tv/index.m3u8?api_key=k1', kind: 'hls' }],
+              subtitles: [{ label: 'English', url: 'https://img1.fodcyy.com/en.vtt' }],
+            },
+          }),
+        };
+      }
+      if (u.includes('index.m3u8')) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '#EXTM3U\n#EXTINF:200,\ntiles/00000.png\n',
+        };
+      }
+      return segOk;
+    };
+
+    await assert.doesNotReject(
+      verifyCinemaStream('https://img.rousav.tech/tv/index.m3u8?api_key=k1'),
+    );
+    const tvOut = await resolveCinema('tv', 1396, 2, 3, req);
+    assert.ok(tvOut.playerHtml.includes('S2 E3'));
+    assert.ok(tvOut.playerHtml.includes('img.rousav.tech'));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });

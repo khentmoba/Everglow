@@ -71,14 +71,19 @@ class EmbedWebView extends StatefulWidget {
     }
   }
 
-  /// Parses a trusted CineSrc timeupdate bridged by our wrapper.
+  /// Parses a trusted CineSrc timeupdate or Everglow HLS progress event
+  /// bridged by our owned player page.
   static (int, int)? parsePlayerProgress(String raw) {
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! Map || decoded['type'] != 'cinesrc:timeupdate') {
+      if (decoded is! Map) return null;
+      final type = decoded['type'];
+      if (type != 'cinesrc:timeupdate' && type != 'animex-progress') {
         return null;
       }
-      final position = decoded['currentTime'];
+      final position = type == 'animex-progress'
+          ? decoded['position']
+          : decoded['currentTime'];
       final duration = decoded['duration'];
       if (position is! num ||
           duration is! num ||
@@ -95,15 +100,20 @@ class EmbedWebView extends StatefulWidget {
     }
   }
 
-  /// Failure messages are accepted only from our owned wrapper document.
+  /// Failure messages are accepted only from our owned player documents.
   static bool isOwnedPlayerUrl(String url) {
     final uri = Uri.tryParse(url);
-    return uri?.scheme == 'https' &&
-        uri?.host == 'everglow-1c6db.web.app' &&
-        uri?.path == '/embed.html';
+    if (uri == null || uri.scheme != 'https') return false;
+    if (uri.host == 'everglow-1c6db.web.app' && uri.path == '/embed.html') {
+      return true;
+    }
+    return uri.host == 'us-central1-everglow-1c6db.cloudfunctions.net' &&
+        uri.path == '/proxyAnime' &&
+        uri.queryParameters['source'] == 'cinema';
   }
 
   static bool isPlayerFailure(String raw) {
+    if (raw == 'animex-content-error') return true;
     try {
       final data = jsonDecode(raw);
       return data is Map && data['type'] == 'everglow-embed-failed';

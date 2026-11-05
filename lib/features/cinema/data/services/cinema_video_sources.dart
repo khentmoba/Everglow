@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../models/video_source_config.dart';
 
 /// Cinema-only embed servers verified as playable in live testing.
@@ -7,6 +9,24 @@ import '../models/video_source_config.dart';
 /// while the cinema player merges these into its server picker.
 class CinemaVideoSources {
   CinemaVideoSources._();
+
+  static const String proxyCinemaOrigin =
+      'https://us-central1-everglow-1c6db.cloudfunctions.net';
+  static const String proxyCinemaBase = '$proxyCinemaOrigin/proxyAnime';
+
+  /// Builds the Cinema Everglow HLS player URL via our ad-free resolver.
+  static String cinemaProxyUrl({
+    required String mediaType,
+    required String id,
+    int season = 1,
+    int episode = 1,
+  }) {
+    if (mediaType == 'tv') {
+      return '$proxyCinemaBase?source=cinema'
+          '&type=tv&tmdbId=$id&s=$season&e=$episode';
+    }
+    return '$proxyCinemaBase?source=cinema&type=movie&tmdbId=$id';
+  }
 
   /// CineSrc streaming API (ShuttleTV lineage).
   static const VideoSourceConfig cineSrc = VideoSourceConfig(
@@ -20,18 +40,16 @@ class CinemaVideoSources {
     sandboxSafe: true,
   );
 
-  /// First-party Everglow player page hosted on Firebase Hosting.
-  ///
-  /// Wraps the no-ads upstreams in a double-sandboxed nested iframe with
-  /// popup blocking, served under our own URL:
-  /// `https://everglow-1c6db.web.app/embed.html?tmdbId=..&type=..`.
+  /// First-party Everglow HLS player resolved via our Cloud Function
+  /// (`proxyAnime?source=cinema`) and served inside our sandboxed
+  /// in-house HLS.js player with live progress, seek, and resume support.
   static const VideoSourceConfig everglowEmbed = VideoSourceConfig(
     id: 'everglow-embed',
     name: 'Everglow',
     shortName: 'Everglow',
     desc: 'No ads — Everglow player',
-    movieUrl: 'https://everglow-1c6db.web.app/embed.html',
-    tvUrl: 'https://everglow-1c6db.web.app/embed.html',
+    movieUrl: proxyCinemaBase,
+    tvUrl: proxyCinemaBase,
     isRecommended: true,
     sandboxSafe: true,
   );
@@ -83,6 +101,11 @@ class CinemaVideoSources {
 
     final merged = <VideoSourceConfig>[];
     for (final fluxSource in cinemaOnly) {
+      if (fluxSource.id == 'everglow-embed') {
+        merged.add(everglowEmbed);
+        byId.remove(fluxSource.id);
+        continue;
+      }
       final existing = byId[fluxSource.id];
       merged.add(existing ?? fluxSource);
       byId.remove(fluxSource.id);
@@ -120,6 +143,43 @@ class CinemaVideoSources {
         origin == 'https://everglow-1c6db.web.app';
   }
 
+  /// Parses an `animex-progress` event posted by our in-house Everglow HLS
+  /// player (`proxyAnime?source=cinema`).
+  static (int, int)? parseEverglowHlsProgress(
+    String providerId,
+    String origin,
+    Object? raw, {
+    int? expectedEpisode,
+  }) {
+    if (providerId != 'everglow-embed' || origin != proxyCinemaOrigin) {
+      return null;
+    }
+    try {
+      final decoded = raw is String ? jsonDecode(raw) : raw;
+      if (decoded is! Map || decoded['type'] != 'animex-progress') return null;
+      final position = decoded['position'];
+      final duration = decoded['duration'];
+      final episode = decoded['episode'];
+      if (position is! num ||
+          !position.isFinite ||
+          position < 0 ||
+          duration is! num ||
+          !duration.isFinite ||
+          duration <= 0 ||
+          position > duration) {
+        return null;
+      }
+      if (expectedEpisode != null &&
+          episode is num &&
+          episode.toInt() != expectedEpisode) {
+        return null;
+      }
+      return (position.round(), duration.round());
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Builds the embed URL for a cinema-only server, or `null` when the
   /// provider is not part of the cinema-only registry.
   static String? buildUrl(
@@ -132,10 +192,12 @@ class CinemaVideoSources {
     if (!_cinemaIds.contains(provider.id)) return null;
 
     if (provider.id == 'everglow-embed') {
-      if (mediaType == 'tv') {
-        return '${provider.tvUrl}?tmdbId=$id&type=tv&s=$season&e=$episode';
-      }
-      return '${provider.movieUrl}?tmdbId=$id&type=movie';
+      return cinemaProxyUrl(
+        mediaType: mediaType,
+        id: id,
+        season: season,
+        episode: episode,
+      );
     }
 
     if (mediaType == 'tv') {

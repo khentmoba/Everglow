@@ -445,9 +445,21 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
         if (origin != Uri.parse(_iframe.src).origin) return;
         final wrapperMessage = data.dartify();
         if (_selectedProvider.id == 'everglow-embed' &&
-            wrapperMessage is Map &&
-            wrapperMessage['type'] == 'everglow-embed-failed') {
+            (wrapperMessage == 'animex-content-error' ||
+                (wrapperMessage is Map &&
+                    wrapperMessage['type'] == 'everglow-embed-failed'))) {
           _onIframeLoadError();
+          return;
+        }
+        final hlsProgress = CinemaVideoSources.parseEverglowHlsProgress(
+          _selectedProvider.id,
+          origin,
+          wrapperMessage,
+          expectedEpisode: widget.mediaType == 'tv' ? _currentEpisode : null,
+        );
+        if (hlsProgress != null) {
+          _contentCheckTimer?.cancel();
+          _onPlaybackTick(hlsProgress.$1, hlsProgress.$2);
           return;
         }
 
