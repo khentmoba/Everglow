@@ -95,6 +95,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
   bool _isLoadingHome = true;
   int _homeRequest = 0;
 
+  /// How long saved Home rows are shown before Cinema asks TMDB again.
+  /// Matches the proxy's own 10-minute catalogue cache.
+  static const _homeFreshFor = Duration(minutes: 10);
+
   @override
   void initState() {
     super.initState();
@@ -106,14 +110,23 @@ class _CinemaScreenState extends State<CinemaScreen> {
       _currentIndex = widget.initialTab.clamp(0, 4);
     }
     // Paint the last good rows now when this session has them; otherwise read
-    // the saved copy. The network refresh still runs and wins on arrival.
+    // the saved copy.
     final warm = CinemaHomeCache.session;
     if (warm != null) {
       _applyCachedRows(warm);
     } else {
       unawaited(_restoreHomeCache());
     }
-    if (_currentIndex == 0) _fetchHomeData();
+    if (_currentIndex == 0) {
+      // Recent rows are already on screen. Asking TMDB again would spend
+      // twelve requests to redraw what she is looking at, so leave that to
+      // the pull-to-refresh instead.
+      if (CinemaHomeCache.isFresh(_homeFreshFor)) {
+        _isLoadingHome = false;
+      } else {
+        _fetchHomeData();
+      }
+    }
     _auth = context.read<AuthService>();
     _auth.addListener(_syncProfile);
     _syncProfile();

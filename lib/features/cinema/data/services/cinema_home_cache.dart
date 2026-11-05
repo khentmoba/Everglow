@@ -10,7 +10,7 @@ import '../models/media_item.dart';
 ///
 /// A repeat open paints these while the TMDB refresh runs behind them. The
 /// rows are public catalogue data, the same for every profile, so one copy
-/// serves everyone on the device. Agent demo rows never reach this store.
+/// serves everyone on the device.
 class CinemaHomeCache {
   CinemaHomeCache._();
 
@@ -20,8 +20,20 @@ class CinemaHomeCache {
   /// without awaiting storage, so its first frame already has titles.
   static Map<String, List<MediaItem>>? _session;
 
+  /// When the saved rows were last confirmed against TMDB.
+  static DateTime? _savedAt;
+
   /// Rows usable right now without awaiting storage.
   static Map<String, List<MediaItem>>? get session => _session;
+
+  /// True when the saved rows are recent enough to show without asking TMDB
+  /// again. A cache saved by an older build has no timestamp, so it counts as
+  /// stale and gets refreshed once.
+  static bool isFresh(Duration window) {
+    final savedAt = _savedAt;
+    if (_session == null || savedAt == null) return false;
+    return DateTime.now().difference(savedAt) < window;
+  }
 
   /// Saved rows, or null when nothing usable is stored.
   static Future<Map<String, List<MediaItem>>?> read() async {
@@ -32,8 +44,15 @@ class CinemaHomeCache {
       if (raw == null || raw.isEmpty) return null;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
+
+      // Current shape is {savedAt, rows}. Anything else is an older save
+      // without a timestamp, which is read as stale on purpose.
+      final stored = decoded['rows'];
+      final rowsJson = stored is Map ? stored : decoded;
+      final savedAtMs = decoded['savedAt'];
+
       final rows = <String, List<MediaItem>>{};
-      for (final entry in decoded.entries) {
+      for (final entry in rowsJson.entries) {
         final key = entry.key;
         final value = entry.value;
         if (key is! String || value is! List) continue;
@@ -41,6 +60,9 @@ class CinemaHomeCache {
           for (final item in value)
             if (item is Map<String, dynamic>) MediaItem.fromJson(item),
         ];
+      }
+      if (savedAtMs is int) {
+        _savedAt = DateTime.fromMillisecondsSinceEpoch(savedAtMs);
       }
       return _session ??= rows;
     } catch (e, st) {
@@ -60,13 +82,18 @@ class CinemaHomeCache {
           if (entry.value.isNotEmpty) entry.key: entry.value,
       };
       if (merged.isEmpty) return;
+      final savedAt = DateTime.now();
       _session = merged;
+      _savedAt = savedAt;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         _prefsKey,
         jsonEncode({
-          for (final entry in merged.entries)
-            entry.key: [for (final item in entry.value) item.toJson()],
+          'savedAt': savedAt.millisecondsSinceEpoch,
+          'rows': {
+            for (final entry in merged.entries)
+              entry.key: [for (final item in entry.value) item.toJson()],
+          },
         }),
       );
     } catch (e, st) {
@@ -82,5 +109,15 @@ class CinemaHomeCache {
 
   /// Test helper: forgets the in-session copy, as an app restart would.
   @visibleForTesting
-  static void resetForTests() => _session = null;
+  static void resetForTests() {
+    _session = null;
+    _savedAt = null;
+  }
+
+  /// Test helper: ages the saved rows so the freshness window can be tested
+  /// without waiting ten minutes.
+  @visibleForTesting
+  static void debugAgeRows(Duration age) {
+    _savedAt = DateTime.now().subtract(age);
+  }
 }

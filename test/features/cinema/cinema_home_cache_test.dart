@@ -32,7 +32,14 @@ class _FeedService implements TMDBService {
   final List<MediaItem> items;
   final Completer<List<MediaItem>>? gate;
 
-  Future<List<MediaItem>> _feed() => gate?.future ?? Future.value(items);
+  /// Every Home feed call this service answered, so a test can prove Cinema
+  /// did not ask TMDB again.
+  int calls = 0;
+
+  Future<List<MediaItem>> _feed() {
+    calls++;
+    return gate?.future ?? Future.value(items);
+  }
 
   @override
   Future<List<MediaItem>> fetchTrending({
@@ -152,18 +159,47 @@ void main() {
   });
 
   testWidgets(
-    'repeat open paints saved rows while the network is still pending',
+    'a fresh cache shows rows and does not ask TMDB again',
     (tester) async {
       await _open(tester, _FeedService(items: [_item(1), _item(2, type: 'tv')]));
       await _settleStorage(tester);
       await _close(tester);
 
-      await _open(tester, _FeedService(gate: Completer()));
+      final repeat = _FeedService(gate: Completer());
+      await _open(tester, repeat);
       await tester.pump();
-      expect(_home(tester).isLoadingHome, isTrue);
+
       expect(_ids(_home(tester).trendingGlobal), [1, 2]);
       expect(_ids(_home(tester).popularTVShows), [1, 2]);
+      // Nothing is loading, because nothing was asked for.
+      expect(_home(tester).isLoadingHome, isFalse);
+      expect(repeat.calls, 0);
       expect(tester.takeException(), isNull);
+      await _close(tester);
+    },
+  );
+
+  testWidgets(
+    'a stale cache shows saved rows immediately and still refreshes',
+    (tester) async {
+      await _open(tester, _FeedService(items: [_item(1)]));
+      await _settleStorage(tester);
+      await _close(tester);
+
+      CinemaHomeCache.debugAgeRows(const Duration(minutes: 30));
+      final gate = Completer<List<MediaItem>>();
+      final repeat = _FeedService(gate: gate);
+      await _open(tester, repeat);
+      await tester.pump();
+
+      // Saved rows are on screen before the network answers.
+      expect(_ids(_home(tester).trendingGlobal), [1]);
+      expect(_home(tester).isLoadingHome, isTrue);
+      expect(repeat.calls, greaterThan(0));
+
+      gate.complete([_item(9)]);
+      await _settleStorage(tester);
+      expect(_ids(_home(tester).trendingGlobal), [9]);
       await _close(tester);
     },
   );
@@ -204,6 +240,8 @@ void main() {
     await _settleStorage(tester);
     await _close(tester);
 
+    // Age the rows so the refresh actually runs; a fresh cache would skip it.
+    CinemaHomeCache.debugAgeRows(const Duration(minutes: 30));
     await _open(tester, _FeedService());
     await _settleStorage(tester);
     expect(_ids(_home(tester).trendingGlobal), [1]);

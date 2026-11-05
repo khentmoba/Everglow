@@ -35,8 +35,24 @@ const READ_STATE = `(() => {
   const parts = performance.getEntriesByType('resource')
     .filter(r => /main\\.dart\\.js_\\d+\\.part\\.js$/.test(new URL(r.name).pathname))
     .map(r => new URL(r.name).pathname);
-  return {canvas, text, parts, url: location.pathname};
+  const net = performance.getEntriesByType('resource')
+    .map(r => ({u: r.name, b: r.transferSize || 0}));
+  return {canvas, text, parts, net, url: location.pathname};
 })()`;
+
+/// Groups the requests made during one open by host, so a wasted TMDB fan-out
+/// is visible as a number instead of a guess.
+function summarizeRequests(entries) {
+  const byHost = {};
+  let bytes = 0;
+  for (const e of entries) {
+    let host;
+    try { host = new URL(e.u).host; } catch { host = 'invalid'; }
+    byHost[host] = (byHost[host] || 0) + 1;
+    bytes += e.b || 0;
+  }
+  return { total: entries.length, bytes, byHost };
+}
 
 /// Navigates inside the running app, exactly like a link tap does.
 async function goTo(cdp, path) {
@@ -62,6 +78,7 @@ async function waitUntil(cdp, predicate, timeoutMs) {
 async function openCinema(cdp, { timeoutMs }) {
   const before = await cdp.eval(READ_STATE);
   const beforeParts = new Set(before.parts);
+  const beforeNet = new Set(before.net.map((e) => e.u));
   const t0 = Date.now();
 
   await goTo(cdp, '/cinema');
@@ -83,11 +100,13 @@ async function openCinema(cdp, { timeoutMs }) {
 
   const after = state ?? (await cdp.eval(READ_STATE));
   const newParts = after.parts.filter((p) => !beforeParts.has(p));
+  const newRequests = after.net.filter((e) => !beforeNet.has(e.u));
 
   return {
     skeletonMs,
     rowsMs,
     newChunks: newParts.length,
+    requests: summarizeRequests(newRequests),
     navigated: after.url === '/cinema',
   };
 }
@@ -210,7 +229,12 @@ export async function main(argv = process.argv.slice(2)) {
         : ' on a device with no saved rows (first ever visit).'),
     complete,
     cold: Number.isFinite(cold?.rowsMs)
-      ? { skeletonMs: cold.skeletonMs, rowsMs: cold.rowsMs, newChunks: cold.newChunks }
+      ? {
+          skeletonMs: cold.skeletonMs,
+          rowsMs: cold.rowsMs,
+          newChunks: cold.newChunks,
+          requests: cold.requests,
+        }
       : null,
     warm: complete && warm.length
       ? {
@@ -220,6 +244,8 @@ export async function main(argv = process.argv.slice(2)) {
           medianSkeletonMs: median(
             warm.map((r) => (Number.isFinite(r.skeletonMs) ? r.skeletonMs : r.rowsMs)),
           ),
+          medianRequests: median(warm.map((r) => r.requests.total)),
+          medianRequestBytes: median(warm.map((r) => r.requests.bytes)),
         }
       : null,
     details: rows,
