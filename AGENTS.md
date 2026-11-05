@@ -114,6 +114,7 @@ only on a version bump — a merge with no bump does nothing.
 ## Rules that matter
 
 * Never commit passcodes, keys, or secrets. `assets/env.txt` is local only - do not read it or copy it.
+* Agents never create service-account keys, deploy temporary or diagnostic rules to production, or change IAM, even to fix a live outage. Ask Khent first.
 * Login codes are checked on the server. Do not put them in the file.
 * Keyless public catalogs (Open Library, Jikan) go through `proxyCatalog` with a login token when signed in. No direct third-party fetches from the client except `proxyBookText` candidates and cover/thumbnail `<img>` URLs.
 * For live data use `.snapshots()`. If something fails, leave a `Logger.e` so we can see it in release too (raw `print` is banned by `avoid_print`).
