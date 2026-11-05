@@ -30,11 +30,15 @@ class DeferredRouteLoader extends StatefulWidget {
   /// Short human label used in loading/error UI, e.g. "Chess".
   final String label;
 
+  /// Optional first paint while the chunk loads. Defaults to a spinner.
+  final WidgetBuilder? loadingBuilder;
+
   const DeferredRouteLoader({
     super.key,
     required this.loadLibrary,
     required this.builder,
     required this.label,
+    this.loadingBuilder,
   });
 
   @override
@@ -62,7 +66,8 @@ class _DeferredRouteLoaderState extends State<DeferredRouteLoader> {
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return _LoadingBody(label: widget.label);
+          return widget.loadingBuilder?.call(context) ??
+              _LoadingBody(label: widget.label);
         }
         if (snapshot.hasError) {
           return _ErrorBody(label: widget.label, onRetry: _retry);

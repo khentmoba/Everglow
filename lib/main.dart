@@ -15,6 +15,7 @@ import 'core/perf/perf_hud.dart';
 import 'core/perf/perf_settings.dart';
 import 'core/router/app_router.dart';
 import 'core/router/route_memory.dart';
+import 'features/cinema/data/services/cinema_home_cache.dart';
 import 'shared/utils/scroll_memory.dart';
 import 'core/services/notification_service.dart';
 import 'core/system/app_bootstrap.dart';
@@ -101,6 +102,8 @@ Future<void> _startEverglow() async {
     AgentMode.init(),
     RouteMemory.load(),
     ScrollMemory.preload(),
+    // Cinema paints saved rows on its first frame instead of after a read.
+    CinemaHomeCache.warm(),
   ]);
 
   final bootstrapFuture = bootstrap.run();

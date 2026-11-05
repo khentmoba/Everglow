@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/media_item.dart';
 import '../../data/services/tmdb_service.dart';
+import '../../data/services/cinema_home_cache.dart';
 import '../../data/services/cinema_preferences.dart';
 import '../../../../core/utils/logger.dart';
 import '../../../../core/utils/optimistic_action.dart';
@@ -94,6 +95,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
   bool _isLoadingHome = true;
   int _homeRequest = 0;
 
+  /// How long saved Home rows are shown before Cinema asks TMDB again.
+  /// Matches the proxy's own 10-minute catalogue cache.
+  static const _homeFreshFor = Duration(minutes: 10);
+
   @override
   void initState() {
     super.initState();
@@ -104,7 +109,24 @@ class _CinemaScreenState extends State<CinemaScreen> {
     } else {
       _currentIndex = widget.initialTab.clamp(0, 4);
     }
-    if (_currentIndex == 0) _fetchHomeData();
+    // Paint the last good rows now when this session has them; otherwise read
+    // the saved copy.
+    final warm = CinemaHomeCache.session;
+    if (warm != null) {
+      _applyCachedRows(warm);
+    } else {
+      unawaited(_restoreHomeCache());
+    }
+    if (_currentIndex == 0) {
+      // Recent rows are already on screen. Asking TMDB again would spend
+      // twelve requests to redraw what she is looking at, so leave that to
+      // the pull-to-refresh instead.
+      if (CinemaHomeCache.isFresh(_homeFreshFor)) {
+        _isLoadingHome = false;
+      } else {
+        _fetchHomeData();
+      }
+    }
     _auth = context.read<AuthService>();
     _auth.addListener(_syncProfile);
     _syncProfile();
@@ -184,6 +206,45 @@ class _CinemaScreenState extends State<CinemaScreen> {
       );
   }
 
+  /// Fills Home rows from [rows] only where the network has not filled them,
+  /// so a late storage read never overwrites fresher data.
+  void _applyCachedRows(Map<String, List<MediaItem>> rows) {
+    List<MediaItem> pick(String key, List<MediaItem> live) =>
+        live.isNotEmpty ? live : (rows[key] ?? const []);
+    _trendingGlobal = pick('trendingGlobal', _trendingGlobal);
+    if (_trendingCarousel.isEmpty) {
+      _trendingCarousel = _trendingGlobal.take(5).toList();
+    }
+    _topTenToday = pick('topTenToday', _topTenToday);
+    _popularTVShows = pick('popularTVShows', _popularTVShows);
+    _newlyReleased = pick('newlyReleased', _newlyReleased);
+    for (final shelf in _discoveryShelves) {
+      _discoveryRows[shelf.title] = pick(
+        shelf.title,
+        _discoveryRows[shelf.title] ?? const [],
+      );
+    }
+  }
+
+  Future<void> _restoreHomeCache() async {
+    final rows = await CinemaHomeCache.read();
+    if (!mounted || rows == null) return;
+    setState(() => _applyCachedRows(rows));
+  }
+
+  void _saveHomeCache() {
+    unawaited(
+      CinemaHomeCache.save({
+        'trendingGlobal': _trendingGlobal,
+        'topTenToday': _topTenToday,
+        'popularTVShows': _popularTVShows,
+        'newlyReleased': _newlyReleased,
+        for (final shelf in _discoveryShelves)
+          shelf.title: _discoveryRows[shelf.title] ?? const [],
+      }),
+    );
+  }
+
   Future<void> _fetchHomeData() async {
     final request = ++_homeRequest;
     setState(() => _isLoadingHome = true);
@@ -221,6 +282,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
     ];
 
     await Future.wait(primaryFutures);
+    _saveHomeCache();
     if (mounted && request == _homeRequest) {
       setState(() => _isLoadingHome = false);
     }
@@ -243,6 +305,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
         ),
     ];
     await Future.wait(discoveryFutures);
+    _saveHomeCache();
   }
 
   Future<void> _loadRow(
@@ -254,7 +317,11 @@ class _CinemaScreenState extends State<CinemaScreen> {
       final items = await future;
       if (!mounted || request != _homeRequest) return;
       // Home discovery excludes anime films too; saved history stays untouched.
-      setState(() => apply(items.where((m) => !m.isAnime).toList()));
+      final visible = items.where((m) => !m.isAnime).toList();
+      // A failed fetch comes back empty. Keep what is already on screen (the
+      // saved rows on a repeat open) instead of blanking the row.
+      if (visible.isEmpty) return;
+      setState(() => apply(visible));
     } catch (e, st) {
       Logger.e('Cinema: home rail fetch failed', error: e, stackTrace: st);
     }
