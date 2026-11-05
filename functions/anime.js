@@ -85,7 +85,10 @@ function pickBestMatch(candidates, titles, year) {
   return bestScore > 0 ? best : null;
 }
 
-function failHtml(title, detail) {
+/** [notify] also posts `animex-content-error` to the embedding app. Cinema
+ *  needs it: its player has no dead-server probe reading the marker text,
+ *  so without the message it would sit on this page until its load timer. */
+function failHtml(title, detail, { notify = false } = {}) {
   return (
     '<!DOCTYPE html><html><head><meta charset="utf-8">' +
     '<meta name="viewport" content="width=device-width,initial-scale=1">' +
@@ -96,10 +99,12 @@ function failHtml(title, detail) {
     '<div><p style="font-size:15px;color:#e2e2ea">' + escHtml(title) + '</p>' +
     '<p style="font-size:12px">' + escHtml(detail) + '</p>' +
     '<p style="font-size:12px">' + NO_SOURCE_MARKER + ' — try another server.</p></div>' +
-    '<script>(function(){try{if(window.parent&&window.parent!==window){' +
-    'window.parent.postMessage("animex-content-error","*");}}catch(e){}' +
-    'try{if(window.EverglowPlayer&&window.EverglowPlayer.postMessage){' +
-    'window.EverglowPlayer.postMessage("animex-content-error");}}catch(e){}})();</script>' +
+    (notify
+      ? '<script>(function(){try{if(window.parent&&window.parent!==window){' +
+        'window.parent.postMessage("animex-content-error","*");}}catch(e){}' +
+        'try{if(window.EverglowPlayer&&window.EverglowPlayer.postMessage){' +
+        'window.EverglowPlayer.postMessage("animex-content-error");}}catch(e){}})();</script>'
+      : '') +
     '</body></html>'
   );
 }
@@ -478,18 +483,15 @@ const MEGAVID_ORIGIN = 'https://megavid.buzz';
 /** MegaPlay's site origin. */
 const MEGAPLAY_ORIGIN = 'https://megaplay.buzz';
 
-/** Cinema HLS upstream origins (Fmov & VidBolt). */
+/** Cinema HLS upstreams. Deliberately NOT a host allowlist: fmov.my runs
+ *  its own open `/api/proxy?url=<anything>` relay, so listing its host would
+ *  turn proxyMegavidHls into an open proxy for the whole internet. Every
+ *  Cinema URL must instead carry a stamp for its provider (see
+ *  cinemaProxyUrl), which only resolveCinema and playlists it already
+ *  vouched for can mint. */
 const FMOV_ORIGIN = 'https://fmov.my';
 const VIDBOLT_ORIGIN = 'https://vidbolt.xyz';
-
-const FMOV_HOSTS = new Set(['fmov.my', 'vdrk.site']);
-const VIDBOLT_HOSTS = new Set([
-  'vidbolt.xyz',
-  'rousav.tech',
-  'fodcyy.com',
-  'bhcxy.com',
-  'hakunaymatata.com',
-]);
+const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt']);
 
 const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
@@ -559,26 +561,12 @@ function isMegaPlayHost(hostname) {
   return [...MEGAPLAY_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
 }
 
-function isFmovHost(hostname) {
-  const h = String(hostname || '').toLowerCase();
-  return [...FMOV_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
-}
-
-function isVidBoltHost(hostname) {
-  const h = String(hostname || '').toLowerCase();
-  return [...VIDBOLT_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
-}
-
-function isCinemaHlsHost(hostname) {
-  return isFmovHost(hostname) || isVidBoltHost(hostname);
-}
-
 function isAnimeCdnHost(hostname) {
-  return (
-    isMegavidHost(hostname) ||
-    isMegaPlayHost(hostname) ||
-    isCinemaHlsHost(hostname)
-  );
+  return isMegavidHost(hostname) || isMegaPlayHost(hostname);
+}
+
+function cinemaHeaders(provider, extra) {
+  return provider === 'vidbolt' ? vidboltHeaders(extra) : fmovHeaders(extra);
 }
 
 /** MegaPlay serves segments from rotating throwaway domains
@@ -620,6 +608,22 @@ function validCdnStamp(key, url, stamp) {
   return crypto.timingSafeEqual(
     Buffer.from(cdnStamp(key, url), 'hex'),
     Buffer.from(stamp, 'hex'),
+  );
+}
+
+/** What a Cinema stamp signs. The provider is part of the message, so a
+ *  MegaPlay stamp (which signs the bare URL) can never pass as a Cinema
+ *  one, and a VidBolt stamp can never switch a URL to Fmov's headers. */
+function cinemaStampMessage(provider, url) {
+  return `cinema:${provider}|${url}`;
+}
+
+/** Proxy URL for a file a Cinema provider pointed us at. Always stamped:
+ *  Cinema has no host allowlist, so an unstamped URL is refused. */
+function cinemaProxyUrl(proxyBase, absUrl, provider, key) {
+  return (
+    `${megavidProxyUrl(proxyBase, absUrl)}&p=${provider}` +
+    `&s=${cdnStamp(key, cinemaStampMessage(provider, absUrl))}`
   );
 }
 
@@ -727,9 +731,7 @@ function playlistUris(text, base, { variantsOnly = false } = {}) {
  */
 function streamHostPrefix(url) {
   try {
-    const h = new URL(url).hostname;
-    if (isCinemaHlsHost(h)) return 'cinema';
-    if (isMegaPlayHost(h)) return 'megaplay';
+    if (isMegaPlayHost(new URL(url).hostname)) return 'megaplay';
   } catch (_) {}
   return 'megavid';
 }
@@ -798,7 +800,8 @@ function assertPlayableHead(chunk, url, label) {
   if (path.endsWith('.jpg') && isMegaPlayHost(hostname) && chunk[0] !== 0x47) {
     throw new Error(`${prefix} ${label} is not video data`);
   }
-  if (path.endsWith('.png') && isVidBoltHost(hostname) && chunk[0] !== 0x47) {
+  // VidBolt names TS segments `.png`; a segment is never a real image.
+  if (path.endsWith('.png') && chunk[0] !== 0x47) {
     throw new Error(`${prefix} ${label} is not video data`);
   }
 }
@@ -881,15 +884,8 @@ async function verifyMegaPlayStream(masterUrl) {
   return verifyStream(masterUrl, megaplayHeaders());
 }
 
-function cinemaHeadersForUrl(url) {
-  try {
-    if (isVidBoltHost(new URL(url).hostname)) return vidboltHeaders();
-  } catch (_) {}
-  return fmovHeaders();
-}
-
-async function verifyCinemaStream(masterUrl) {
-  return verifyStream(masterUrl, cinemaHeadersForUrl(masterUrl));
+async function verifyCinemaStream(masterUrl, provider) {
+  return verifyStream(masterUrl, cinemaHeaders(provider));
 }
 
 // ─── Megavid (Proxied HLS Stream with NO ADS) ─────────────
@@ -903,48 +899,12 @@ function megavidProxyUrl(proxyBase, absUrl) {
   return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
 }
 
-function playlistNeedsStamp(text, playlistUrl, isAllowed) {
-  for (const line of String(text || '').split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    if (trimmed.startsWith('#')) {
-      for (const m of trimmed.matchAll(/URI="([^"]+)"/g)) {
-        const abs = resolvePlaylistUrl(m[1], playlistUrl);
-        if (abs) {
-          try {
-            if (!isAllowed(new URL(abs).hostname)) return true;
-          } catch (_) {}
-        }
-      }
-      continue;
-    }
-    const abs = resolvePlaylistUrl(trimmed, playlistUrl);
-    if (abs) {
-      try {
-        if (!isAllowed(new URL(abs).hostname)) return true;
-      } catch (_) {}
-    }
-  }
-  return false;
-}
-
-/** Rewrites every Megavid URI inside an HLS playlist to our proxy.
- *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
- *  Unlisted hosts are left untouched so a future mixed playlist can't
- *  turn the proxy into an open relay — unless [stampKey] is given (MegaPlay
- *  playlists only), which proxies them with a stamp (see cdnKey). */
-function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
+/** Maps every URI in an HLS playlist (bare URI lines plus `URI="..."` tag
+ *  attributes) through [rewriteAbs]; a null result leaves it untouched. */
+function mapPlaylistUris(text, playlistUrl, rewriteAbs) {
   const rewriteUri = (uri) => {
     const abs = resolvePlaylistUrl(uri, playlistUrl);
-    if (!abs) return null;
-    try {
-      if (!isAllowed(new URL(abs).hostname)) {
-        return stampKey ? megaplayProxyUrl(proxyBase, abs, stampKey) : null;
-      }
-    } catch (_) {
-      return null;
-    }
-    return megavidProxyUrl(proxyBase, abs);
+    return abs ? rewriteAbs(abs) : null;
   };
   return String(text || '')
     .split(/\r?\n/)
@@ -962,6 +922,35 @@ function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stamp
       return out || line;
     })
     .join('\n');
+}
+
+/** Rewrites every URI in a Cinema playlist to a stamped proxy URL for the
+ *  same provider. Everything it points at came from a playlist we already
+ *  vouched for, so the stamp chain never reaches a URL a caller chose. */
+function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key) {
+  return mapPlaylistUris(text, playlistUrl, (abs) =>
+    abs.startsWith('https://')
+      ? cinemaProxyUrl(proxyBase, abs, provider, key)
+      : null,
+  );
+}
+
+/** Rewrites every Megavid URI inside an HLS playlist to our proxy.
+ *  Pure: bare URI lines plus `URI="..."` tag attributes (KEY/MAP/MEDIA).
+ *  Unlisted hosts are left untouched so a future mixed playlist can't
+ *  turn the proxy into an open relay — unless [stampKey] is given (MegaPlay
+ *  playlists only), which proxies them with a stamp (see cdnKey). */
+function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
+  return mapPlaylistUris(text, playlistUrl, (abs) => {
+    try {
+      if (!isAllowed(new URL(abs).hostname)) {
+        return stampKey ? megaplayProxyUrl(proxyBase, abs, stampKey) : null;
+      }
+    } catch (_) {
+      return null;
+    }
+    return megavidProxyUrl(proxyBase, abs);
+  });
 }
 
 function rewriteMegavidPlaylist(text, playlistUrl, proxyBase) {
@@ -1130,124 +1119,133 @@ function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
   return out;
 }
 
-async function resolveCinema(mediaType, tmdbId, season, ep, req) {
-  const isTv = mediaType === 'tv';
-  const fmovSources = isTv
-    ? ['vector', 'core', 'titan', 'valence']
-    : ['valence', 'vector', 'core', 'titan'];
-  const proxyBase = megavidProxyBase(req);
-  const userToken = (req && req.query && req.query.token) || '';
-  const title = isTv ? `S${season} E${ep}` : 'Movie';
-  const epNum = isTv ? ep : 1;
+/** Hard ceiling for one Cinema resolve. The app treats a player page that
+ *  has not loaded in 15 s as dead and moves to CineSrc, so a slow-but-healthy
+ *  answer after that is wasted. Every source races inside this budget. */
+const CINEMA_BUDGET_MS = 10000;
 
-  const proxySubtitleTracks = async (rawSubtitles, baseOrigin) => {
-    const selected = selectCinemaSubtitleTracks(rawSubtitles, baseOrigin);
-    const needsStamp = selected.some((t) => {
-      try {
-        return !isAnimeCdnHost(new URL(t.file).hostname);
-      } catch (_) {
-        return false;
-      }
-    });
-    const key = needsStamp ? await cdnKey().catch(() => null) : null;
-    return selected.map((t) => ({
-      ...t,
-      file: megaplayProxyUrl(proxyBase, t.file, key),
-    }));
-  };
+function hlsCandidates(sources, kindKey, baseOrigin) {
+  const out = [];
+  for (const s of Array.isArray(sources) ? sources : []) {
+    if (!s || !s.url) continue;
+    const kind = String(s[kindKey] || 'hls').toLowerCase();
+    if (kind !== 'hls' && !String(s.url).includes('.m3u8')) continue;
+    const abs = resolvePlaylistUrl(s.url, baseOrigin);
+    if (abs && abs.startsWith('https://')) out.push(abs);
+  }
+  return out;
+}
 
-  for (const srcKey of fmovSources) {
+async function firstPlayable(masterUrls, provider) {
+  for (const masterUrl of masterUrls) {
     try {
-      const apiPath = isTv
-        ? `tv/${tmdbId}/${season}/${ep}`
-        : `movie/${tmdbId}`;
-      const url = `${FMOV_ORIGIN}/api/stream/${apiPath}?source=${srcKey}`;
-      const res = await fetch(url, {
-        headers: fmovHeaders({ Accept: 'application/json' }),
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (!data || !data.success) continue;
-      const rawSources = Array.isArray(data.sources) && data.sources.length > 0
-        ? data.sources
-        : data.url
-          ? [{ url: data.url, type: data.type || 'hls' }]
-          : [];
-      for (const s of rawSources) {
-        if (!s || !s.url) continue;
-        const kind = String(s.type || 'hls').toLowerCase();
-        if (kind !== 'hls' && !String(s.url).includes('.m3u8')) continue;
-        const masterUrl = resolvePlaylistUrl(s.url, FMOV_ORIGIN);
-        if (!masterUrl) continue;
-        try {
-          await verifyCinemaStream(masterUrl);
-          const tracks = await proxySubtitleTracks(data.subtitles, FMOV_ORIGIN);
-          const src = megavidProxyUrl(proxyBase, masterUrl);
-          return {
-            playerHtml: hlsPlayerHtml({
-              src,
-              tracks,
-              title,
-              token: userToken,
-              ep: epNum,
-            }),
-          };
-        } catch (_) {}
-      }
+      await verifyCinemaStream(masterUrl, provider);
+      return masterUrl;
     } catch (_) {}
   }
+  throw new Error(`cinema ${provider}: no playable source`);
+}
 
-  // Fallback: VidBolt direct HLS resolver.
-  const vbQuery = isTv
+async function resolveFmov(apiPath, srcKey) {
+  const res = await fetch(`${FMOV_ORIGIN}/api/stream/${apiPath}?source=${srcKey}`, {
+    headers: fmovHeaders({ Accept: 'application/json' }),
+    signal: AbortSignal.timeout(6000),
+  });
+  if (!res.ok) throw new Error(`fmov ${srcKey} ${res.status}`);
+  const data = await res.json();
+  if (!data || !data.success) throw new Error(`fmov ${srcKey} miss`);
+  const sources = Array.isArray(data.sources) && data.sources.length > 0
+    ? data.sources
+    : data.url
+      ? [{ url: data.url, type: data.type || 'hls' }]
+      : [];
+  const masterUrl = await firstPlayable(
+    hlsCandidates(sources, 'type', FMOV_ORIGIN),
+    'fmov',
+  );
+  return { provider: 'fmov', masterUrl, subtitles: data.subtitles, baseOrigin: FMOV_ORIGIN };
+}
+
+async function resolveVidBolt(mediaType, tmdbId, season, ep) {
+  const isTv = mediaType === 'tv';
+  const query = isTv
     ? `type=tv&id=${tmdbId}&season=${season}&episode=${ep}`
     : `type=movie&id=${tmdbId}`;
-  const vbReferer = isTv
+  const referer = isTv
     ? `${VIDBOLT_ORIGIN}/tv/${tmdbId}/${season}/${ep}`
     : `${VIDBOLT_ORIGIN}/movie/${tmdbId}`;
-  const vbRes = await fetch(`${VIDBOLT_ORIGIN}/api/resolve?${vbQuery}`, {
+  const res = await fetch(`${VIDBOLT_ORIGIN}/api/resolve?${query}`, {
     headers: vidboltHeaders({
       Accept: 'application/json',
-      Referer: vbReferer,
+      Referer: referer,
       'Sec-Fetch-Dest': 'empty',
       'Sec-Fetch-Mode': 'cors',
       'Sec-Fetch-Site': 'same-origin',
     }),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(6000),
   });
-  if (vbRes.ok) {
-    const vbData = await vbRes.json();
-    const stream = vbData && vbData.stream;
-    const vbSources = Array.isArray(stream && stream.sources)
-      ? stream.sources
-      : [];
-    for (const s of vbSources) {
-      if (!s || !s.url) continue;
-      const kind = String(s.kind || '').toLowerCase();
-      if (kind !== 'hls' && !String(s.url).includes('.m3u8')) continue;
-      const masterUrl = resolvePlaylistUrl(s.url, VIDBOLT_ORIGIN);
-      if (!masterUrl) continue;
-      try {
-        await verifyCinemaStream(masterUrl);
-        const tracks = await proxySubtitleTracks(
-          stream.subtitles,
-          VIDBOLT_ORIGIN,
-        );
-        const src = megavidProxyUrl(proxyBase, masterUrl);
-        return {
-          playerHtml: hlsPlayerHtml({
-            src,
-            tracks,
-            title,
-            token: userToken,
-            ep: epNum,
-          }),
-        };
-      } catch (_) {}
-    }
+  if (!res.ok) throw new Error(`vidbolt ${res.status}`);
+  const data = await res.json();
+  const stream = data && data.stream;
+  if (!stream) throw new Error('vidbolt miss');
+  const masterUrl = await firstPlayable(
+    hlsCandidates(stream.sources, 'kind', VIDBOLT_ORIGIN),
+    'vidbolt',
+  );
+  return {
+    provider: 'vidbolt',
+    masterUrl,
+    subtitles: stream.subtitles,
+    baseOrigin: VIDBOLT_ORIGIN,
+  };
+}
+
+/** Resolves a TMDB movie or episode to our ad-free HLS player page.
+ *  Fmov's sources and VidBolt race in parallel; the first verified stream
+ *  wins. Throws (so the app moves on to CineSrc) when nothing verifies within
+ *  the budget or the stamp key is unavailable. `opts` is for tests only. */
+async function resolveCinema(mediaType, tmdbId, season, ep, req, opts = {}) {
+  const isTv = mediaType === 'tv';
+  const budgetMs = opts.budgetMs || CINEMA_BUDGET_MS;
+  const key = opts.key || (await cdnKey());
+  if (!key) throw new Error('cinema: stamp key unavailable');
+  const apiPath = isTv ? `tv/${tmdbId}/${season}/${ep}` : `movie/${tmdbId}`;
+  const fmovSources = isTv
+    ? ['vector', 'core', 'titan', 'valence']
+    : ['valence', 'vector', 'core', 'titan'];
+  const attempts = [
+    ...fmovSources.map((srcKey) => resolveFmov(apiPath, srcKey)),
+    resolveVidBolt(mediaType, tmdbId, season, ep),
+  ];
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('cinema: timed out')), budgetMs);
+  });
+  let hit;
+  try {
+    hit = await Promise.race([Promise.any(attempts), deadline]);
+  } catch (e) {
+    throw new Error('cinema: no playable stream', { cause: e });
+  } finally {
+    clearTimeout(timer);
   }
 
-  throw new Error('cinema: no playable stream');
+  const proxyBase = megavidProxyBase(req);
+  const tracks = selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
+    .filter((t) => t.file.startsWith('https://'))
+    .map((t) => ({
+      ...t,
+      file: cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
+    }));
+  return {
+    playerHtml: hlsPlayerHtml({
+      src: cinemaProxyUrl(proxyBase, hit.masterUrl, hit.provider, key),
+      tracks,
+      title: isTv ? `S${season} E${ep}` : 'Movie',
+      token: (req && req.query && req.query.token) || '',
+      ep: isTv ? ep : 1,
+    }),
+  };
 }
 
 // ─── Endpoints ───────────────────────────────────────────
@@ -1276,15 +1274,16 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
   }
 
   const params = validateAnimeParams(req.query || {});
+  const notify = String((req.query && req.query.source) || '').toLowerCase() === 'cinema';
   if (params.error) {
-    res.status(400).send(failHtml('Bad request', params.error));
+    res.status(400).send(failHtml('Bad request', params.error, { notify }));
     return;
   }
   const { source, anilistId, malId, ep, audio } = params;
 
   const sendFail = (msg) => {
     console.warn(`[proxyAnime] ${source} ep=${ep}: ${msg}`);
-    res.status(502).send(failHtml('Episode unavailable', msg));
+    res.status(502).send(failHtml('Episode unavailable', msg, { notify }));
   };
 
   if (source === 'megavid') {
@@ -1423,25 +1422,32 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     res.status(400).json({ error: 'Invalid url' });
     return;
   }
-  // Unlisted hosts pass only with a stamp from a MegaPlay playlist we
-  // rewrote ourselves (see cdnKey), and then travel as MegaPlay.
+  // Unlisted hosts pass only with a stamp we minted ourselves (see cdnKey):
+  // MegaPlay stamps sign the bare URL; Cinema stamps (`p=fmov|vidbolt`)
+  // sign provider + URL and are the ONLY way a Cinema URL gets through.
+  const provider = CINEMA_PROVIDERS.has(req.query.p) ? req.query.p : null;
+  const stamp = typeof req.query.s === 'string' ? req.query.s : '';
+  const key = stamp ? await cdnKey().catch(() => null) : null;
+  const cinema =
+    provider !== null &&
+    validCdnStamp(key, cinemaStampMessage(provider, targetUrl), stamp);
   const stamped =
+    provider === null &&
     !isAnimeCdnHost(parsed.hostname) &&
-    typeof req.query.s === 'string' &&
-    validCdnStamp(await cdnKey().catch(() => null), targetUrl, req.query.s);
-  if (parsed.protocol !== 'https:' || !(isAnimeCdnHost(parsed.hostname) || stamped)) {
+    validCdnStamp(key, targetUrl, stamp);
+  const listed = provider === null && isAnimeCdnHost(parsed.hostname);
+  if (parsed.protocol !== 'https:' || !(cinema || stamped || listed)) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
   const megaplay = stamped || isMegaPlayHost(parsed.hostname);
-  const cinema = isCinemaHlsHost(parsed.hostname);
   if (!(await isPublicDnsHost(parsed.hostname))) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
   try {
     const headers = cinema
-      ? cinemaHeadersForUrl(targetUrl)
+      ? cinemaHeaders(provider)
       : megaplay
         ? megaplayHeaders()
         : megavidHeaders();
@@ -1468,22 +1474,17 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
         // Nested URLs stay token-free (identity rides the header).
-        const isAllowed = cinema
-          ? isCinemaHlsHost
-          : megaplay
-            ? isMegaPlayHost
-            : isMegavidHost;
-        const stampKey =
-          (megaplay || cinema) && playlistNeedsStamp(text, targetUrl, isAllowed)
-            ? await cdnKey().catch(() => null)
-            : null;
-        const rewritten = rewritePlaylistWithHosts(
-          text,
-          targetUrl,
-          proxyBase,
-          isAllowed,
-          stampKey,
-        );
+        const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
+        const stampKey = megaplay ? await cdnKey().catch(() => null) : null;
+        const rewritten = cinema
+          ? rewriteCinemaPlaylist(text, targetUrl, proxyBase, provider, key)
+          : rewritePlaylistWithHosts(
+              text,
+              targetUrl,
+              proxyBase,
+              isAllowed,
+              stampKey,
+            );
         res.set('Content-Type', 'application/vnd.apple.mpegurl');
         res.set('Cache-Control', 'public, max-age=30');
         res.status(200).send(rewritten);
@@ -1624,9 +1625,6 @@ module.exports = {
   NO_SOURCE_MARKER,
   isMegavidHost,
   isMegaPlayHost,
-  isFmovHost,
-  isVidBoltHost,
-  isCinemaHlsHost,
   isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
@@ -1638,14 +1636,16 @@ module.exports = {
   megaplayHeaders,
   fmovHeaders,
   vidboltHeaders,
-  cinemaHeadersForUrl,
+  cinemaHeaders,
+  cinemaProxyUrl,
+  cinemaStampMessage,
+  rewriteCinemaPlaylist,
   MEGAVID_ORIGIN,
   MEGAPLAY_ORIGIN,
   FMOV_ORIGIN,
   VIDBOLT_ORIGIN,
   MEGAPLAY_HOSTS,
-  FMOV_HOSTS,
-  VIDBOLT_HOSTS,
+  CINEMA_PROVIDERS,
   resolveMegaPlay,
   resolveCinema,
   selectCinemaSubtitleTracks,

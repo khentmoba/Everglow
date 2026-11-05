@@ -3,6 +3,19 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const vm = require('node:vm');
+const { Writable } = require('node:stream');
+const common = require('./common.js');
+
+// Stub Firestore (stamp key), DNS and rate limits BEFORE anime.js loads:
+// it destructures these from common.js at require time.
+const TEST_CDN_KEY = 'demo-cdn-key';
+common.getDb = () => ({
+  collection: () => ({ doc: () => ({}) }),
+  runTransaction: async (fn) =>
+    fn({ get: async () => ({ exists: true, data: () => ({ secret: TEST_CDN_KEY }) }), set() {} }),
+});
+common.isPublicDnsHost = async () => true;
+common.enforceRateLimit = () => false;
 const {
   normTitle,
   pickBestMatch,
@@ -19,9 +32,6 @@ const {
   NO_SOURCE_MARKER,
   isMegavidHost,
   isMegaPlayHost,
-  isFmovHost,
-  isVidBoltHost,
-  isCinemaHlsHost,
   isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
@@ -33,7 +43,12 @@ const {
   megaplayHeaders,
   fmovHeaders,
   vidboltHeaders,
-  cinemaHeadersForUrl,
+  cinemaHeaders,
+  cinemaProxyUrl,
+  cinemaStampMessage,
+  rewriteCinemaPlaylist,
+  CINEMA_PROVIDERS,
+  proxyMegavidHls,
   MEGAVID_ORIGIN,
   MEGAPLAY_ORIGIN,
   FMOV_ORIGIN,
@@ -924,27 +939,6 @@ test('validateAnimeParams accepts cinema movie and tv sources and rejects bad ci
   assert.ok(validateAnimeParams({ source: 'cinema', type: 'tv', tmdbId: 1, s: 1, e: 0 }).error);
 });
 
-test('Cinema HLS hosts and headers recognize Fmov and VidBolt domains', () => {
-  assert.equal(isFmovHost('fmov.my'), true);
-  assert.equal(isFmovHost('cache.vdrk.site'), true);
-  assert.equal(isFmovHost('evil.com'), false);
-
-  assert.equal(isVidBoltHost('vidbolt.xyz'), true);
-  assert.equal(isVidBoltHost('proxy.vidbolt.xyz'), true);
-  assert.equal(isVidBoltHost('img.rousav.tech'), true);
-  assert.equal(isVidBoltHost('evil.com'), false);
-
-  assert.equal(isCinemaHlsHost('fmov.my'), true);
-  assert.equal(isCinemaHlsHost('img.rousav.tech'), true);
-  assert.equal(isAnimeCdnHost('fmov.my'), true);
-  assert.equal(isAnimeCdnHost('proxy.vidbolt.xyz'), true);
-
-  assert.equal(fmovHeaders().Origin, FMOV_ORIGIN);
-  assert.equal(vidboltHeaders().Origin, VIDBOLT_ORIGIN);
-  assert.equal(cinemaHeadersForUrl('https://fmov.my/api/proxy').Origin, FMOV_ORIGIN);
-  assert.equal(cinemaHeadersForUrl('https://img.rousav.tech/x.m3u8').Origin, VIDBOLT_ORIGIN);
-});
-
 test('resolvePlaylistUrl preserves same-origin api_key without leaking cross-origin', () => {
   const base = 'https://img.rousav.tech/media/abc/index.m3u8?api_key=secret123';
   assert.equal(
@@ -973,6 +967,140 @@ test('selectCinemaSubtitleTracks ranks English first, deduplicates mirrors, and 
   assert.equal(tracks[3].label, 'Brazilian2');
 });
 
+test('Cinema headers follow the stamped provider, never the URL host', () => {
+  assert.equal(fmovHeaders().Origin, FMOV_ORIGIN);
+  assert.equal(vidboltHeaders().Origin, VIDBOLT_ORIGIN);
+  assert.equal(cinemaHeaders('fmov').Origin, FMOV_ORIGIN);
+  assert.equal(cinemaHeaders('vidbolt').Origin, VIDBOLT_ORIGIN);
+  assert.deepEqual([...CINEMA_PROVIDERS].sort(), ['fmov', 'vidbolt']);
+  // Cinema hosts are deliberately NOT on the open allowlist (fmov runs its
+  // own open relay), so only a stamp lets them through.
+  assert.equal(isAnimeCdnHost('fmov.my'), false);
+  assert.equal(isAnimeCdnHost('proxy.vidbolt.xyz'), false);
+});
+
+test('Cinema stamps are bound to provider + exact URL and never equal a MegaPlay stamp', () => {
+  const key = 'demo-key';
+  const url = 'https://fmov.my/api/proxy?url=https%3A%2F%2Fcdn.example%2Fm.m3u8';
+  const proxied = new URL(cinemaProxyUrl('https://h/proxyMegavidHls', url, 'fmov', key));
+  assert.equal(proxied.searchParams.get('u'), url);
+  assert.equal(proxied.searchParams.get('p'), 'fmov');
+  const s = proxied.searchParams.get('s');
+  assert.ok(validCdnStamp(key, cinemaStampMessage('fmov', url), s));
+  assert.equal(validCdnStamp(key, cinemaStampMessage('vidbolt', url), s), false);
+  assert.equal(validCdnStamp(key, url, s), false, 'not usable as a MegaPlay stamp');
+  assert.notEqual(s, cdnStamp(key, url));
+});
+
+test('rewriteCinemaPlaylist stamps every nested URI for the same provider', () => {
+  const key = 'demo-key';
+  const base = 'https://img.rousav.tech/media/a/index.m3u8?api_key=k1';
+  const out = rewriteCinemaPlaylist(
+    '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="track_en.m3u8"\n#EXT-X-STREAM-INF:BANDWIDTH=1\nvideo_720p.m3u8\n',
+    base,
+    'https://h/proxyMegavidHls',
+    'vidbolt',
+    key,
+  );
+  const urls = [...out.matchAll(/https:\/\/h\/proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
+  assert.equal(urls.length, 2);
+  for (const u of urls) {
+    assert.equal(u.searchParams.get('p'), 'vidbolt');
+    assert.ok(validCdnStamp(key, cinemaStampMessage('vidbolt', u.searchParams.get('u')), u.searchParams.get('s')));
+    assert.ok(u.searchParams.get('u').includes('api_key=k1'));
+  }
+});
+
+class ResponseSink extends Writable {
+  constructor() { super(); this.headers = {}; this.code = 200; this.chunks = []; }
+  _write(chunk, _, done) { this.chunks.push(chunk); done(); }
+  set(name, value) { this.headers[name.toLowerCase()] = value; return this; }
+  status(code) { this.code = code; return this; }
+  json(body) { this.body = body; }
+  send(body) { this.body = body; }
+}
+
+async function callHlsProxy(query) {
+  const req = {
+    method: 'GET',
+    protocol: 'https',
+    query,
+    headers: { host: 'h' },
+    get: (name) => (String(name).toLowerCase() === 'host' ? 'h' : undefined),
+  };
+  const res = new ResponseSink();
+  await proxyMegavidHls(req, res);
+  return res;
+}
+
+test('proxyMegavidHls refuses to relay fmov URLs it did not stamp (no open proxy)', async () => {
+  const realFetch = globalThis.fetch;
+  const fetched = [];
+  globalThis.fetch = async (url) => {
+    fetched.push(String(url));
+    return { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/html' }), text: async () => '' };
+  };
+  try {
+    // fmov's own relay pointed at an arbitrary site: the exploit path.
+    const relay = `https://fmov.my/api/proxy?url=${encodeURIComponent('https://example.com/')}`;
+    for (const query of [
+      { u: relay },
+      { u: relay, p: 'fmov' },
+      { u: relay, p: 'fmov', s: 'f'.repeat(64) },
+      { u: relay, s: cdnStamp(TEST_CDN_KEY, cinemaStampMessage('fmov', relay)) }, // Cinema stamp, p= stripped
+      { u: relay, p: 'vidbolt', s: cdnStamp(TEST_CDN_KEY, cinemaStampMessage('fmov', relay)) },
+      { u: relay, p: 'other', s: cdnStamp(TEST_CDN_KEY, cinemaStampMessage('other', relay)) },
+      { u: 'https://img.rousav.tech/media/a/index.m3u8' },
+      { u: 'https://proxy.vidbolt.xyz/m/abc' },
+    ]) {
+      const res = await callHlsProxy(query);
+      assert.equal(res.code, 400, JSON.stringify(query));
+    }
+    assert.deepEqual(fetched, [], 'nothing reached upstream');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('proxyMegavidHls serves a stamped Cinema playlist with its provider headers', async () => {
+  const realFetch = globalThis.fetch;
+  let seen;
+  globalThis.fetch = async (url, init) => {
+    seen = { url: String(url), headers: init.headers };
+    return {
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/vnd.apple.mpegurl' }),
+      text: async () => '#EXTM3U\n#EXTINF:8,\n/api/proxy?url=seg1.ts\n',
+    };
+  };
+  try {
+    const master = 'https://fmov.my/api/proxy?url=https%3A%2F%2Fcdn.example%2Fmaster.m3u8';
+    const signed = new URL(cinemaProxyUrl('https://h/proxyMegavidHls', master, 'fmov', TEST_CDN_KEY));
+    const res = await callHlsProxy(Object.fromEntries(signed.searchParams));
+    assert.equal(res.code, 200);
+    assert.equal(seen.url, master);
+    assert.equal(seen.headers.Origin, FMOV_ORIGIN);
+    const child = new URL(String(res.body).split('\n').find((l) => l.startsWith('https://')));
+    assert.equal(child.searchParams.get('p'), 'fmov');
+    assert.equal(child.searchParams.get('u'), 'https://fmov.my/api/proxy?url=seg1.ts');
+    assert.ok(validCdnStamp(TEST_CDN_KEY, cinemaStampMessage('fmov', child.searchParams.get('u')), child.searchParams.get('s')));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('failHtml only notifies the embedding app when asked (Cinema), Anime page unchanged', () => {
+  const plain = failHtml('Episode unavailable', 'No stream found');
+  assert.ok(!plain.includes('<script'));
+  const cinema = failHtml('Episode unavailable', 'No stream found', { notify: true });
+  assert.ok(cinema.includes('animex-content-error'));
+  assert.ok(cinema.includes(NO_SOURCE_MARKER));
+  for (const code of [...cinema.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1])) {
+    new vm.Script(code);
+  }
+});
+
 test('resolveCinema resolves movie HLS stream and falls back to VidBolt when Fmov misses', async () => {
   const realFetch = globalThis.fetch;
   const segOk = {
@@ -986,6 +1114,7 @@ test('resolveCinema resolves movie HLS stream and falls back to VidBolt when Fmo
     headers: { host: 'us-central1-everglow-1c6db.cloudfunctions.net' },
     query: {},
   };
+  const srcOf = (html) => new URL(JSON.parse(html.match(/var src=("[^"]+")/)[1]));
 
   try {
     globalThis.fetch = async (url) => {
@@ -1008,19 +1137,22 @@ test('resolveCinema resolves movie HLS stream and falls back to VidBolt when Fmo
           text: async () => '#EXTM3U\n#EXTINF:200,\n/api/proxy?url=seg1.ts\n',
         };
       }
+      if (u.startsWith('https://vidbolt.xyz/')) return { ok: false, status: 502 };
       return segOk;
     };
 
     const movieOut = await resolveCinema('movie', 603, 1, 1, req);
-    assert.ok(movieOut.playerHtml.includes('proxyMegavidHls'));
+    const movieSrc = srcOf(movieOut.playerHtml);
+    assert.equal(movieSrc.pathname, '/proxyMegavidHls');
+    assert.equal(movieSrc.searchParams.get('p'), 'fmov');
+    assert.ok(validCdnStamp(TEST_CDN_KEY, cinemaStampMessage('fmov', movieSrc.searchParams.get('u')), movieSrc.searchParams.get('s')));
     assert.ok(movieOut.playerHtml.includes('label="English"'));
+    assert.ok(movieOut.playerHtml.includes('p=fmov&amp;s='), 'subtitle tracks are stamped too');
 
-    // Now simulate Fmov failing and VidBolt succeeding for TV
+    // Fmov fails, VidBolt succeeds for TV.
     globalThis.fetch = async (url) => {
       const u = String(url);
-      if (u.startsWith('https://fmov.my/')) {
-        return { ok: false, status: 502 };
-      }
+      if (u.startsWith('https://fmov.my/')) return { ok: false, status: 502 };
       if (u.startsWith('https://vidbolt.xyz/api/resolve')) {
         return {
           ok: true,
@@ -1035,22 +1167,38 @@ test('resolveCinema resolves movie HLS stream and falls back to VidBolt when Fmo
         };
       }
       if (u.includes('index.m3u8')) {
-        return {
-          ok: true,
-          status: 200,
-          text: async () => '#EXTM3U\n#EXTINF:200,\ntiles/00000.png\n',
-        };
+        return { ok: true, status: 200, text: async () => '#EXTM3U\n#EXTINF:200,\ntiles/00000.png\n' };
       }
       return segOk;
     };
 
     await assert.doesNotReject(
-      verifyCinemaStream('https://img.rousav.tech/tv/index.m3u8?api_key=k1'),
+      verifyCinemaStream('https://img.rousav.tech/tv/index.m3u8?api_key=k1', 'vidbolt'),
     );
     const tvOut = await resolveCinema('tv', 1396, 2, 3, req);
     assert.ok(tvOut.playerHtml.includes('S2 E3'));
-    assert.ok(tvOut.playerHtml.includes('img.rousav.tech'));
+    const tvSrc = srcOf(tvOut.playerHtml);
+    assert.equal(tvSrc.searchParams.get('p'), 'vidbolt');
+    assert.equal(tvSrc.searchParams.get('u'), 'https://img.rousav.tech/tv/index.m3u8?api_key=k1');
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('resolveCinema gives up inside its budget so the app can fail over to CineSrc', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => new Promise(() => {}); // every upstream hangs
+  const req = { protocol: 'https', headers: { host: 'h' }, query: {} };
+  try {
+    const started = Date.now();
+    await assert.rejects(resolveCinema('movie', 603, 1, 1, req, { budgetMs: 50 }), /no playable stream/);
+    assert.ok(Date.now() - started < 1000);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('assertPlayableHead rejects .png segments that are real images', () => {
+  assert.doesNotThrow(() => assertPlayableHead(new Uint8Array([0x47]), 'https://x.example/tiles/0.png', 'segment'));
+  assert.throws(() => assertPlayableHead(new Uint8Array([0x89, 0x50]), 'https://x.example/tiles/0.png', 'segment'));
 });

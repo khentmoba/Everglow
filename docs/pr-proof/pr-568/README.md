@@ -1,14 +1,44 @@
 # In-house HLS Player for Cinema Everglow Server
 
-Previously, Cinema's primary `Everglow` server (`everglow-embed`) wrapped `cinesrc.st` inside `web/embed.html`, while Anime's `Everglow` server used our in-house HLS.js player (`hlsPlayerHtml`) via `/proxyAnime` and `/proxyMegavidHls`.
+Cinema's `Everglow` server used to wrap a third-party iframe (`cinesrc.st`)
+inside `web/embed.html`, while Anime's `Everglow` already ran on our own
+ad-free HLS.js player. Now both use the same player and proxy.
 
-## Solution
+## How it works
 
-We upgraded Cinema's `Everglow` server (`CinemaVideoSources.everglowEmbed`) to run on the same in-house HLS player and Cloud Function proxy architecture (`proxyAnime?source=cinema`) as Anime:
-
-- **Server-side Cinema HLS resolution (`functions/anime.js`)**: `resolveCinema` resolves `.m3u8` HLS streams and WebVTT subtitle tracks for TMDB movies and TV episodes across Fmov (`valence`, `vector`, `core`, `titan`) with automatic fallback to VidBolt (`orion`, `vega`, `callisto`), verifies stream playability (`verifyCinemaStream`), prioritizes English WebVTT subtitles (`selectCinemaSubtitleTracks`), rewrites playlists/segments through `/proxyMegavidHls`, and serves `hlsPlayerHtml`.
-- **Client integration (`lib/features/cinema/`)**: `CinemaVideoSources.everglowEmbed` builds `/proxyAnime?source=cinema` URLs with `?start=` resume support, parses `animex-progress` events for Continue Watching and Up Next, and auto-advances to `CineSrc` (`flux-cinesrc`) on `animex-content-error` if a title has no HLS stream.
+- `resolveCinema` (`functions/anime.js`) resolves a TMDB movie or episode to a
+  verified `.m3u8`. Fmov's four sources and VidBolt race in parallel; the first
+  stream that passes `verifyCinemaStream` wins. The whole resolve is capped at
+  10 s so the app's 15 s load timer never expires first.
+- Every Cinema URL is proxied through `/proxyMegavidHls` with a signed stamp
+  (`p=fmov|vidbolt`, `s=<hmac>`). Cinema hosts are deliberately **not** on the
+  open allowlist: `fmov.my` runs its own open `/api/proxy?url=…` relay, so
+  listing its host would turn our function into an open proxy.
+- The player reports `animex-progress` (Continue Watching, Up Next) and, on a
+  dead title, `animex-content-error` so the app moves to `CineSrc` immediately.
 
 ## Proof
 
-- `cinema-everglow-hls-phone.png` — Release web build at 430px phone viewport in Agent Mode with HUD collapsed, showing `Fight Club` loaded in the in-house Everglow HLS player (`0:00 / 2:19:00`) with `Server: Everglow` active.
+`cinema-everglow-hls-playing-phone.png` — release web build at 430×932 in
+Agent Mode, HUD collapsed. Fight Club playing a real frame with subtitles,
+`Server: Everglow` selected, resumed at `start=600` (playback at 615 s).
+
+Measured in the same session:
+
+| Check | Result |
+| --- | --- |
+| `resolveCinema` movie (550) | 200, 1586 ms |
+| `resolveCinema` TV (1396 S1E1) | 200, 1339 ms |
+| Playback | 1920×1080, duration 8353 s, `t` advanced 0 → 12 s, not paused |
+| Progress events to the app | 3 `animex-progress` messages, last position 28.9 s |
+| Dead title failover | switched to `cinesrc.st` after 5523 ms |
+| Open-relay attempt (`fmov.my/api/proxy?url=example.com`) | 400, no upstream fetch |
+
+The old code, run against the same request, answered **200** and fetched the
+URL. Captured before/after in the PR body.
+
+## Known cost
+
+Movies now stream through our Cloud Function like anime already did: roughly
+1–3 GB per two-hour film. That is the price of ad-free playback and it is worth
+watching on the Firebase bill.
