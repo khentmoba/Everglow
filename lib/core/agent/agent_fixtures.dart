@@ -3,6 +3,7 @@ import '../../features/books/data/models/our_books_item.dart';
 import '../../features/money/data/models/money_entry.dart';
 import '../../features/subs/data/models/subscription.dart';
 import '../../features/trip_kit/data/models/trip.dart';
+import '../../features/xp/domain/models/user_progress.dart';
 import '../../features/calendar/domain/models/calendar_event.dart';
 import '../../features/chat/domain/models/chat_message.dart';
 import '../../features/daily_bloom/data/models/garden_stats.dart';
@@ -25,6 +26,14 @@ import '../../features/tonight/data/models/tonight_option.dart';
 /// leaking private couple memories.
 class AgentFixtures {
   AgentFixtures._();
+
+  static UserProgress demoProgress(String uid) => UserProgress(
+    uid: uid,
+    xpTotal: 420,
+    level: 3,
+    streak: 4,
+    lastActivity: DateTime(2026, 11, 4),
+  );
 
   static final demoBooks = [
     OurBooksItem(

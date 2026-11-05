@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/agent/agent_fixtures.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/audio/audio_service.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
 import '../../../../core/utils/logger.dart';
@@ -52,6 +54,9 @@ class XPService {
   FirebaseFirestore get _firestore =>
       _customFirestore ?? FirebaseFirestore.instance;
 
+  // Agent demo must never read or write live XP progress.
+  bool get _demo => AgentMode.isActive.value && AgentMode.useDemoData.value;
+
   /// Serializes progress writes so concurrent awards on boot (e.g. listen
   /// + garden) execute in FIFO order without contending on Firestore
   /// locks. Cross-device safety (Clair's phone + tablet) comes from the
@@ -82,6 +87,7 @@ class XPService {
   static String todayKey([DateTime? date]) => _todayKey(date);
 
   Stream<UserProgress?> watchProgress(String uid) {
+    if (_demo) return Stream.value(AgentFixtures.demoProgress(uid));
     return withFirestoreTimeout(
       _firestore
           .collection('users')
@@ -102,6 +108,7 @@ class XPService {
   }
 
   Future<void> _addUncapped(String uid, int amount) {
+    if (_demo) return Future.value();
     return _enqueue(() async {
       final docRef = _firestore
           .collection('users')
@@ -192,6 +199,7 @@ class XPService {
   }
 
   Future<bool> awardDaily(String uid, String action, XpAward award) {
+    if (_demo) return Future.value(false);
     return _enqueue(() async {
       final docRef = _firestore
           .collection('users')
@@ -274,6 +282,7 @@ class XPService {
       awardDaily(uid, 'dedicate', XPService.dedicateAward);
 
   Future<void> initializeProgress(String uid) async {
+    if (_demo) return;
     final docRef = _firestore
         .collection('users')
         .doc(uid)

@@ -51,6 +51,8 @@ class TmdbImages {
   static String _resolve(String? path, String base) {
     if (!isUsablePath(path)) return '';
     final trimmed = path!.trim();
+    // Bundled artwork (agent demo fixtures) is a local asset, not a TMDB path.
+    if (trimmed.startsWith('assets/')) return trimmed;
     // Normalize existing TMDB full URLs so adaptive sizing reaches mapped items.
     final tmdbMatch = _tmdbUrlPattern.firstMatch(trimmed);
     if (tmdbMatch != null) {
