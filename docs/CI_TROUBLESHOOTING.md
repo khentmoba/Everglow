@@ -172,5 +172,27 @@ Both `RenderRepaintBoundary.toImage` and `Image.toByteData` run inside
 Use a bounded animation pump: the recommendation loader can keep animating,
 so `pumpAndSettle` is not a suitable screenshot readiness condition here.
 
+## Windows `flutter test --platform chrome` never loads the suite
+
+On Windows, `flutter test --platform chrome <file>` can print `Running test suite`
+and then report nothing, even for a one-line test. It can also end with
+`Connection closed before test suite loaded`.
+
+Cause, verified on Flutter 3.47.7 (Dart 3.13.5), Windows 11, Chrome 157. The test
+page requests CanvasKit from `/canvaskit/chromium/canvaskit.js` and
+`canvaskit.wasm`. Both return 404, the app fails to start, and the runner never
+receives "loaded". In `flutter_tools` (`lib/src/test/flutter_web_platform.dart`,
+`_localCanvasKitHandler`), `path.fromUri` returns `canvaskit\chromium\canvaskit.js`
+on Windows, which never matches the `canvaskit/` prefix. Linux is not affected.
+Upstream: flutter/flutter#193505 (open).
+
+To confirm, attach DevTools to the test Chrome and look for 404s on
+`canvaskit/chromium/canvaskit.*`.
+
+Treat a local Windows browser-suite run as not run. The browser-only files in
+Quality's `flutter` job are verified on Linux, and that result is authoritative
+when the diff selects the browser step. `flutter test -d chrome` is not a
+substitute: it runs on the Flutter tester, not in a browser.
+
 Inspect the PNG before using it as proof. Label it as a widget render in the
 PR, rather than claiming it proves the browser interaction or live data flow.
