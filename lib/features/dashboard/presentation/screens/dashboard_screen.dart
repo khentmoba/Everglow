@@ -20,6 +20,7 @@ import '../../../daily_bloom/presentation/providers/garden_provider.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/presence_service.dart';
 import '../widgets/cinema_preview.dart';
+import '../../../cinema/presentation/routes/cinema_routes.dart' show warmCinemaLibrary;
 import '../widgets/anime_preview.dart';
 import '../widgets/books_preview.dart';
 import '../widgets/manga_preview.dart';
@@ -160,6 +161,12 @@ class _DashboardScreenState extends State<DashboardScreen>
               context.read<GuardianService>().initialize().catchError((Object e) {
                 Logger.e('Guardian init failed', error: e);
               });
+            });
+            Future.delayed(const Duration(milliseconds: 900), () {
+              if (!mounted) return;
+              // Cinema's code chunk is the one thing between her tap and the
+              // screen. Fetch it while she is still reading the dashboard.
+              unawaited(warmCinemaLibrary());
             });
             Future.delayed(const Duration(milliseconds: 1200), () {
               if (!mounted) return;
