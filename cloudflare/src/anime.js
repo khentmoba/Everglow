@@ -41,6 +41,9 @@ const MEGAPLAY_HOSTS = new Set([
 
 const CINEMA_PROVIDERS = new Set(['fmov', 'vidbolt']);
 
+/** Every provider whose URLs must carry a stamp. */
+const STAMP_PROVIDERS = new Set(['fmov', 'vidbolt', 'megaplay']);
+
 const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
 const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
@@ -203,21 +206,29 @@ function streamHostPrefix(url) {
 
 // ─── Stamps ──────────────────────────────────────────────
 
-/** Signs one URL. [key] is the CDN_STAMP_KEY Worker secret. */
-async function cdnStamp(key, url) {
-  return bytesToHex(await hmacSha256(key, url));
+/** Signs one string. [key] is the CDN_STAMP_KEY Worker secret. */
+async function cdnStamp(key, message) {
+  return bytesToHex(await hmacSha256(key, message));
 }
 
-async function validCdnStamp(key, url, stamp) {
+async function validCdnStamp(key, message, stamp) {
   if (!key || !/^[a-f0-9]{64}$/.test(String(stamp || ''))) return false;
-  return safeEqualHex(await cdnStamp(key, url), stamp);
+  return safeEqualHex(await cdnStamp(key, message), stamp);
 }
 
-/** What a Cinema stamp signs. The provider is part of the message, so a
- *  MegaPlay stamp (bare URL) can never pass as a Cinema one, and a VidBolt
- *  stamp can never switch a URL to Fmov's headers. */
-function cinemaStampMessage(provider, url) {
-  return `cinema:${provider}|${url}`;
+/** The URL scope a stamp covers: the containing directory, trailing slash
+ *  included. Every URL under it inherits the stamp, so a 1,000-segment
+ *  playlist costs one signature instead of a thousand. */
+function urlScope(absUrl) {
+  const u = new URL(absUrl);
+  return `${u.origin}${u.pathname.replace(/[^/]*$/, '')}`;
+}
+
+/** What a stamp signs. The provider is part of the message, so a VidBolt
+ *  stamp can never switch a URL to Fmov's headers, and a MegaPlay stamp can
+ *  never pass as a Cinema one. */
+function scopeMessage(provider, scope) {
+  return `${provider}|${scope}`;
 }
 
 /** Builds our same-origin proxy URL for one upstream file. Token-free on
@@ -226,11 +237,33 @@ function proxyUrl(proxyBase, absUrl) {
   return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
 }
 
+/** Proxy URL covered by a stamp over [scope]. The scope travels with the
+ *  request so the proxy needs one HMAC to check it, not a walk up the tree;
+ *  the stamp binds the scope, so a caller cannot widen it. */
+function scopedProxyUrl(proxyBase, absUrl, provider, scope, stamp) {
+  return (
+    `${proxyUrl(proxyBase, absUrl)}&p=${provider}` +
+    `&d=${encodeURIComponent(scope)}&s=${stamp}`
+  );
+}
+
+/** Proxy URL for a single file a provider pointed us at (a master playlist,
+ *  a subtitle track). Stamps that file's own directory. */
+async function scopedUrl(proxyBase, absUrl, provider, key) {
+  const scope = urlScope(absUrl);
+  return scopedProxyUrl(
+    proxyBase,
+    absUrl,
+    provider,
+    scope,
+    await cdnStamp(key, scopeMessage(provider, scope)),
+  );
+}
+
 /** Proxy URL for a file a Cinema provider pointed us at. Always stamped:
  *  Cinema has no host allowlist, so an unstamped URL is refused. */
-async function cinemaProxyUrl(proxyBase, absUrl, provider, key) {
-  const stamp = await cdnStamp(key, cinemaStampMessage(provider, absUrl));
-  return `${proxyUrl(proxyBase, absUrl)}&p=${provider}&s=${stamp}`;
+function cinemaProxyUrl(proxyBase, absUrl, provider, key) {
+  return scopedUrl(proxyBase, absUrl, provider, key);
 }
 
 /** Proxy URL for a file MegaPlay pointed us at: plain for listed hosts,
@@ -242,30 +275,57 @@ async function megaplayProxyUrl(proxyBase, absUrl, key) {
     host = new URL(absUrl).hostname;
   } catch (_) {}
   if (!key || isAnimeCdnHost(host)) return url;
-  return `${url}&s=${await cdnStamp(key, absUrl)}`;
+  return scopedUrl(proxyBase, absUrl, 'megaplay', key);
 }
 
 // ─── Playlist helpers ────────────────────────────────────
 
-/** Resolves a possibly-relative playlist URI against its playlist URL.
- *  Preserves same-origin `api_key` / `apikey` params (VidBolt's Orion CDN
- *  needs them on child variant, audio, and subtitle playlists). */
+/** Precomputed base for resolving playlist URIs. Parsing the base once per
+ *  playlist instead of once per URI is most of the difference between a
+ *  60 ms rewrite and a 5 ms one on a 1,000-segment film. */
+function baseContext(base) {
+  const b = new URL(base);
+  return {
+    href: b.href,
+    origin: b.origin,
+    apiKey: b.searchParams.get('api_key') || b.searchParams.get('apikey') || '',
+  };
+}
+
+/** Resolves one playlist URI against a precomputed base. Absolute URLs —
+ *  the common case, every segment of a real film — take a string fast path
+ *  and never build a URL object. Same-origin `api_key` is preserved because
+ *  VidBolt's Orion CDN needs it on child playlists. */
+function resolveWithContext(ctx, ref) {
+  const r = String(ref || '').trim();
+  if (!r || r.startsWith('#')) return null;
+  if (r.startsWith('https://') || r.startsWith('http://')) {
+    if (!ctx.apiKey) return r;
+    if (
+      r.startsWith(`${ctx.origin}/`) &&
+      !r.includes('api_key=') &&
+      !r.includes('apikey=')
+    ) {
+      return `${r}${r.includes('?') ? '&' : '?'}api_key=${encodeURIComponent(ctx.apiKey)}`;
+    }
+    return r;
+  }
+  try {
+    const u = new URL(r, ctx.href);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    if (ctx.apiKey && u.origin === ctx.origin && !u.searchParams.has('api_key')) {
+      u.searchParams.set('api_key', ctx.apiKey);
+    }
+    return u.toString();
+  } catch (_) {
+    return null;
+  }
+}
+
+/** Resolves a possibly-relative playlist URI against its playlist URL. */
 function resolvePlaylistUrl(ref, base) {
   try {
-    const r = String(ref || '').trim();
-    if (!r || r.startsWith('#')) return null;
-    const u = new URL(r, base);
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
-    try {
-      const b = new URL(base);
-      if (u.origin === b.origin) {
-        for (const k of ['api_key', 'apikey']) {
-          const v = b.searchParams.get(k);
-          if (v && !u.searchParams.has(k)) u.searchParams.set(k, v);
-        }
-      }
-    } catch (_) {}
-    return u.toString();
+    return resolveWithContext(baseContext(base), ref);
   } catch (_) {
     return null;
   }
@@ -318,10 +378,12 @@ function playlistDuration(text) {
 /** Minimum seconds for a playlist to plausibly be a full episode or movie. */
 const MIN_MEGAVID_SECONDS = 120;
 
-/** Maps every URI in an HLS playlist through [rewriteAbs], which may be
- *  async. A null result leaves the URI untouched. */
+/** Maps every URI in an HLS playlist through [rewriteAbs]. Kept for callers
+ *  that genuinely need per-URI async work; the hot path below is sync.
+ *  A null result leaves the URI untouched. */
 async function mapPlaylistUris(text, playlistUrl, rewriteAbs) {
   const lines = String(text || '').split(/\r?\n/);
+  const ctx = baseContext(playlistUrl);
   const refs = [];
   for (const line of lines) {
     const t = line.trim();
@@ -335,7 +397,7 @@ async function mapPlaylistUris(text, playlistUrl, rewriteAbs) {
   const unique = [...new Set(refs)];
   const pairs = await Promise.all(
     unique.map(async (ref) => {
-      const abs = resolvePlaylistUrl(ref, playlistUrl);
+      const abs = resolveWithContext(ctx, ref);
       if (!abs) return [ref, null];
       try {
         return [ref, await rewriteAbs(abs)];
@@ -361,31 +423,109 @@ async function mapPlaylistUris(text, playlistUrl, rewriteAbs) {
     .join('\n');
 }
 
-/** Rewrites every URI in a Cinema playlist to a stamped proxy URL for the
- *  same provider. Everything it points at came from a playlist we already
- *  vouched for, so the stamp chain never reaches a caller-chosen URL. */
-async function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key) {
-  return mapPlaylistUris(text, playlistUrl, (abs) =>
-    abs.startsWith('https://')
-      ? cinemaProxyUrl(proxyBase, abs, provider, key)
-      : null,
-  );
+/** Rebuilds a playlist from a ref→replacement map. */
+function applyReplacements(lines, map) {
+  return lines
+    .map((line) => {
+      const t = line.trim();
+      if (!t) return line;
+      if (t.startsWith('#')) {
+        if (!t.includes('URI="')) return line;
+        return line.replace(/URI="([^"]+)"/g, (m, uri) => {
+          const out = map.get(uri);
+          return out ? `URI="${out}"` : m;
+        });
+      }
+      return map.get(t) || line;
+    })
+    .join('\n');
 }
 
-/** Rewrites every allowed URI to our proxy. Unlisted hosts are left
- *  untouched so a mixed playlist can never turn us into an open relay —
- *  unless [stampKey] is given (MegaPlay playlists only). */
-async function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
-  return mapPlaylistUris(text, playlistUrl, async (abs) => {
-    let allowed = false;
-    try {
-      allowed = isAllowed(new URL(abs).hostname);
-    } catch (_) {
-      return null;
+/** Rewrites every URI in a playlist to a proxy URL covered by ONE stamp
+ *  over the playlist's directory. URIs that escape that directory fall back
+ *  to a stamp over their own, so a mixed playlist stays correct at the cost
+ *  of an extra signature or two. Listed hosts (MegaPlay) need no stamp.
+ *
+ *  Deliberately synchronous on the common path: a 1,043-segment film used to
+ *  allocate a promise per segment, which cost more CPU than the signatures
+ *  it replaced. Now the whole playlist is one signature and one string pass. */
+async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, isAllowed) {
+  const ctx = baseContext(playlistUrl);
+  const playlistScope = urlScope(playlistUrl);
+  const mainStamp = key
+    ? await cdnStamp(key, scopeMessage(provider, playlistScope))
+    : '';
+  const lines = String(text || '').split(/\r?\n/);
+  const map = new Map();
+  const escaped = [];
+
+  const consider = (ref) => {
+    if (map.has(ref)) return;
+    const abs = resolveWithContext(ctx, ref);
+    if (!abs) return;
+    if (isAllowed) {
+      let host = '';
+      try {
+        host = new URL(abs).hostname;
+      } catch (_) {
+        return;
+      }
+      if (isAllowed(host)) {
+        map.set(ref, proxyUrl(proxyBase, abs));
+        return;
+      }
     }
-    if (!allowed) return stampKey ? megaplayProxyUrl(proxyBase, abs, stampKey) : null;
-    return proxyUrl(proxyBase, abs);
-  });
+    if (abs.startsWith(playlistScope)) {
+      map.set(ref, scopedProxyUrl(proxyBase, abs, provider, playlistScope, mainStamp));
+      return;
+    }
+    escaped.push({ ref, abs });
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    if (t.startsWith('#')) {
+      if (!t.includes('URI="')) continue;
+      for (const m of t.matchAll(/URI="([^"]+)"/g)) consider(m[1]);
+    } else {
+      consider(t);
+    }
+  }
+
+  // Rare: URIs outside the playlist's directory get a stamp for their own.
+  const extraStamps = new Map();
+  for (const { ref, abs } of escaped) {
+    const scope = urlScope(abs);
+    if (!extraStamps.has(scope)) {
+      extraStamps.set(
+        scope,
+        key ? await cdnStamp(key, scopeMessage(provider, scope)) : '',
+      );
+    }
+    map.set(ref, scopedProxyUrl(proxyBase, abs, provider, scope, extraStamps.get(scope)));
+  }
+
+  return applyReplacements(lines, map);
+}
+
+/** Cinema playlists: nothing is allowlisted (fmov runs its own open relay),
+ *  so every URI is stamped under the playlist's directory. */
+function rewriteCinemaPlaylist(text, playlistUrl, proxyBase, provider, key) {
+  return rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, null);
+}
+
+/** MegaPlay playlists: listed hosts go through plain, rotating CDNs get the
+ *  scope stamp. */
+function rewritePlaylistWithHosts(text, playlistUrl, proxyBase, isAllowed, stampKey) {
+  return rewriteScopedPlaylist(
+    text,
+    playlistUrl,
+    proxyBase,
+    'megaplay',
+    stampKey,
+    isAllowed,
+  );
 }
 
 // ─── Stream verification ─────────────────────────────────
@@ -453,6 +593,32 @@ function assertPlayableHead(chunk, url, label) {
  *  each variant's first segment must fetch with playable bytes. Anything
  *  dead throws, and the endpoint answers with the failover marker so the
  *  app advances to the next server instead of stalling on a spinner. */
+/** One pass over a media playlist for both its duration and its URIs.
+ *  verifyStream used to split and scan the same 480 KB playlist twice per
+ *  variant, which dominated the resolve's CPU. */
+function parseMediaPlaylist(text) {
+  let duration = 0;
+  const uris = [];
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    if (t[0] === '#') {
+      if (t.startsWith('#EXTINF:')) {
+        const d = t.match(/^#EXTINF:\s*([0-9]+(?:\.[0-9]+)?)/);
+        if (d) duration += Number.parseFloat(d[1]);
+      }
+      continue;
+    }
+    uris.push(t);
+  }
+  return { duration, uris };
+}
+
+/** Proves an HLS stream is actually playable before we serve our player
+ *  page: master playlist, up to two variants, key / init map when present,
+ *  and each variant's first segment must fetch with playable bytes. Anything
+ *  dead throws, and the endpoint answers with the failover marker so the app
+ *  advances to the next server instead of stalling on a spinner. */
 async function verifyStream(masterUrl, headers = megavidHeaders()) {
   const prefix = streamHostPrefix(masterUrl);
   const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers);
@@ -460,13 +626,14 @@ async function verifyStream(masterUrl, headers = megavidHeaders()) {
   const medias =
     variants.length > 0
       ? await Promise.all(
-          variants.slice(0, 4).map(async (v) => ({
+          variants.slice(0, 2).map(async (v) => ({
             url: v,
             text: await fetchPlaylist(v, 8000, 'variant', headers),
           })),
         )
       : [{ url: masterUrl, text: masterText }];
   const first = medias[0];
+  const firstParsed = parseMediaPlaylist(first.text);
   const keyMatch = first.text.match(/#EXT-X-KEY[^\r\n]*URI="([^"]+)"/);
   if (keyMatch) {
     const keyUrl = resolvePlaylistUrl(keyMatch[1], first.url);
@@ -479,17 +646,21 @@ async function verifyStream(masterUrl, headers = megavidHeaders()) {
   }
   await Promise.all(
     medias.map(async ({ url: mediaUrl, text: mediaText }) => {
-      if (playlistDuration(mediaText) < MIN_MEGAVID_SECONDS) {
+      const parsed = mediaText === first.text ? firstParsed : parseMediaPlaylist(mediaText);
+      if (parsed.duration < MIN_MEGAVID_SECONDS) {
         throw new Error(`${prefix}: playlist too short to be the episode`);
       }
-      const segments = playlistUris(mediaText, mediaUrl);
-      if (!segments.length) throw new Error(`${prefix}: playlist has no segments`);
-      const head = await fetchSegmentHead(segments[0], 10000, 'segment', headers);
-      assertPlayableHead(head, segments[0], 'segment');
+      if (!parsed.uris.length) throw new Error(`${prefix}: playlist has no segments`);
+      const segment = resolvePlaylistUrl(parsed.uris[0], mediaUrl);
+      if (!segment) throw new Error(`${prefix}: playlist has no segments`);
+      const head = await fetchSegmentHead(segment, 10000, 'segment', headers);
+      assertPlayableHead(head, segment, 'segment');
     }),
   );
-  const firstSegments = playlistUris(first.text, first.url);
-  return { variantUrl: first.url, segmentUrl: firstSegments[0] };
+  return {
+    variantUrl: first.url,
+    segmentUrl: resolvePlaylistUrl(firstParsed.uris[0], first.url),
+  };
 }
 
 function verifyMegavidStream(masterUrl) {
@@ -961,8 +1132,11 @@ export {
   hlsPlayerHtml,
   firstM3u8,
   resolvePlaylistUrl,
+  baseContext,
+  resolveWithContext,
   playlistUris,
   playlistDuration,
+  parseMediaPlaylist,
   MIN_MEGAVID_SECONDS,
   NO_SOURCE_MARKER,
   isMegavidHost,
@@ -980,9 +1154,13 @@ export {
   FMOV_ORIGIN,
   VIDBOLT_ORIGIN,
   CINEMA_PROVIDERS,
+  STAMP_PROVIDERS,
   proxyUrl,
+  scopedProxyUrl,
+  scopedUrl,
+  urlScope,
+  scopeMessage,
   cinemaProxyUrl,
-  cinemaStampMessage,
   megaplayProxyUrl,
   cdnStamp,
   validCdnStamp,

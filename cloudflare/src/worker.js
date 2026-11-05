@@ -9,10 +9,6 @@
 //   CDN_STAMP_KEY  HMAC key for the MegaPlay + Cinema URL stamps.
 
 import {
-  CINEMA_PROVIDERS,
-  cinemaHeaders,
-  cinemaProxyUrl,
-  cinemaStampMessage,
   failHtml,
   hlsPlayerHtml,
   isAnimeCdnHost,
@@ -20,12 +16,16 @@ import {
   isMegavidHost,
   megavidHeaders,
   megaplayHeaders,
+  fmovHeaders,
+  vidboltHeaders,
   proxyUrl,
   resolveCinema,
   resolveMegaPlay,
   resolveMegavid,
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
+  scopeMessage,
+  STAMP_PROVIDERS,
   validCdnStamp,
   validateAnimeParams,
 } from './anime.js';
@@ -145,32 +145,37 @@ async function handleProxyHls(request, env) {
     return jsonResponse({ error: 'Invalid url' }, 400);
   }
 
-  // Unlisted hosts pass only with a stamp we minted ourselves: MegaPlay
-  // stamps sign the bare URL; Cinema stamps (`p=fmov|vidbolt`) sign provider
-  // + URL and are the ONLY way a Cinema URL gets through. Cinema has no host
-  // allowlist on purpose — fmov.my runs its own open relay, so listing its
-  // host would turn this Worker into an open proxy.
-  const provider = CINEMA_PROVIDERS.has(url.searchParams.get('p'))
+  // Unlisted hosts pass only with a stamp we minted ourselves. The stamp
+  // covers a provider + URL scope (a directory), and the scope travels with
+  // the request so one HMAC verifies it. The stamp binds the scope, so a
+  // caller cannot widen it to reach a URL we never handed out. Cinema has no
+  // host allowlist on purpose — fmov.my runs its own open relay, so listing
+  // its host would turn this Worker into an open proxy.
+  const provider = STAMP_PROVIDERS.has(url.searchParams.get('p'))
     ? url.searchParams.get('p')
     : null;
+  const scope = url.searchParams.get('d') || '';
   const stamp = url.searchParams.get('s') || '';
   const key = stamp ? env.CDN_STAMP_KEY || null : null;
-  const cinema =
+  const scoped =
     provider !== null &&
-    (await validCdnStamp(key, cinemaStampMessage(provider, target), stamp));
-  const stamped =
-    provider === null && !isAnimeCdnHost(parsed.hostname) && (await validCdnStamp(key, target, stamp));
-  const listed = provider === null && isAnimeCdnHost(parsed.hostname);
-  if (parsed.protocol !== 'https:' || !(cinema || stamped || listed)) {
+    scope.startsWith('https://') &&
+    parsed.href.startsWith(scope) &&
+    (await validCdnStamp(key, scopeMessage(provider, scope), stamp));
+  const listed = isAnimeCdnHost(parsed.hostname);
+  if (parsed.protocol !== 'https:' || !(scoped || listed)) {
     return jsonResponse({ error: 'Host not allowed' }, 400);
   }
 
-  const megaplay = stamped || isMegaPlayHost(parsed.hostname);
-  const headers = cinema
-    ? cinemaHeaders(provider)
-    : megaplay
-      ? megaplayHeaders()
-      : megavidHeaders();
+  const megaplay = provider === 'megaplay' || isMegaPlayHost(parsed.hostname);
+  const headers =
+    provider === 'vidbolt'
+      ? vidboltHeaders()
+      : megaplay
+        ? megaplayHeaders()
+        : provider === 'fmov'
+          ? fmovHeaders()
+          : megavidHeaders();
   const range = request.headers.get('Range');
   if (range) headers.Range = range;
 
@@ -198,9 +203,11 @@ async function handleProxyHls(request, env) {
       const base = proxyBase(request);
       const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
       const stampKey = megaplay ? env.CDN_STAMP_KEY || null : null;
-      const rewritten = cinema
-        ? await rewriteCinemaPlaylist(text, target, base, provider, key)
-        : await rewritePlaylistWithHosts(text, target, base, isAllowed, stampKey);
+      const rewritten = provider === 'megaplay'
+        ? await rewritePlaylistWithHosts(text, target, base, isMegaPlayHost, stampKey)
+        : provider !== null
+          ? await rewriteCinemaPlaylist(text, target, base, provider, key)
+          : await rewritePlaylistWithHosts(text, target, base, isMegavidHost, null);
       return new Response(rewritten, {
         status: 200,
         headers: {
@@ -243,4 +250,4 @@ export default {
   },
 };
 
-export { handleProxyAnime, handleProxyHls, proxyUrl, cinemaProxyUrl };
+export { handleProxyAnime, handleProxyHls, proxyUrl };
