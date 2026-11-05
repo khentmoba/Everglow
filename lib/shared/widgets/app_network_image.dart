@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/perf/perf_settings.dart';
 
 /// Shared network image with web-performance defaults.
@@ -294,19 +295,22 @@ class _AppNetworkImageState extends State<AppNetworkImage> {
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           if (widget.placeholder != null) return widget.placeholder!;
+          final reduceMotion = AppMotion.reduceAmbientMotion(context);
           return Container(
             width: widget.width,
             height: widget.height,
             color: widget.placeholderColor,
             alignment: Alignment.center,
-            child: const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.roseQuartz,
-              ),
-            ),
+            child: reduceMotion
+                ? const SizedBox.shrink()
+                : const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.roseQuartz,
+                    ),
+                  ),
           );
         },
         errorBuilder: (context, _, _) {

@@ -59,6 +59,23 @@ These changes do not close the real-device targets above.
   it was not a documented comprehensive Safari audit. A 512→108 bitmap has about
   22× fewer pixels; this is arithmetic, not measured whole-app RAM/GPU savings.
 - Carousel hold is 20 seconds, a pacing choice rather than a measured speed win.
+- Startup concurrency (`lib/core/system/app_bootstrap.dart`, `lib/main.dart`):
+  environment loading and Firebase initialization run concurrently rather than
+  awaiting serial network fetches on slow lines. Main bootstrap runs in parallel
+  with preloaded preference and memory states (`PerfSettings`, `AgentMode`,
+  `RouteMemory`, `ScrollMemory`), image cache bounds apply immediately, and web
+  context menu disable runs non-blocking.
+- Phone image loading (`lib/shared/widgets/app_network_image.dart`):
+  `AppNetworkImage` honors `AppMotion.reduceAmbientMotion` during web loading,
+  suppressing continuous spinning progress tickers across multi-card shelves.
+- Entry door responsiveness (`lib/features/entry/presentation/widgets/animated_door.dart`):
+  constrained devices (`DeviceCapability.isLowEndDevice`) shorten the doorway
+  entrance duration to 500ms so keypad input becomes responsive quickly.
+- Dashboard hero entrance (`lib/features/dashboard/presentation/screens/dashboard_screen.dart`):
+  low-end devices use 150ms opacity fade rather than heavy 700ms `FadeInDown`
+  translation during card mounts.
+- Early DNS resolution (`web/index.html`): prefetches Google identity and
+  securetoken auth origins during HTML parsing.
 
 ### Listening timeline requests (candidate)
 

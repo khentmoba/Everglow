@@ -74,17 +74,21 @@ class AppBootstrap {
     WidgetsFlutterBinding.ensureInitialized();
     (_configureUrlStrategy ?? usePathUrlStrategy)();
 
-    var environmentLoaded = false;
-    try {
-      await (_loadEnvironment ?? () async {})();
-      environmentLoaded = true;
-    } catch (e) {
-      Logger.w('Environment load failed: $e');
-    }
+    final envTask = () async {
+      try {
+        await (_loadEnvironment ?? () async {})();
+        return true;
+      } catch (e) {
+        Logger.w('Environment load failed: $e');
+        return false;
+      }
+    }();
 
     await _initializeFirebase();
 
     await (_configureFirestore ?? _defaultFirestoreSettings)();
+
+    final environmentLoaded = await envTask;
 
     final messengerKey = scaffoldMessengerKey;
     if (messengerKey != null) {
