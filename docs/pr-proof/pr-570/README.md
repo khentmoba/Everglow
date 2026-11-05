@@ -25,6 +25,11 @@ with no hand-swapping. The player reported 26 `animex-progress` events, all
 from the Worker origin, position 0 → 27 s — so the app accepted the stream as
 its own.
 
+`preview-hosted.png` — the same check on the **hosted PR preview**
+(`everglow-1c6db--pr-570-n55k5bd3.web.app`), not localhost: 16 progress events,
+all from the Worker origin, position 600 → 615 s, `Server: Everglow`. This is
+the deployed build talking to the deployed Worker over the real internet.
+
 | Check | Result |
 | --- | --- |
 | `wrangler deploy` | uploaded, 37.25 KiB / 10.98 KiB gzip, 2 ms startup |
