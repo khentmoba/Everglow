@@ -95,6 +95,25 @@ class AnimeXWatchPage extends StatefulWidget {
         skipVisibleAt(time, observedPosition);
   }
 
+  /// Label for the in-player next button, or null when nothing follows.
+  ///
+  /// The player only draws that button during the ending or the last 90
+  /// seconds, so a label here is permission, not a promise of visibility.
+  /// Films have no next episode, and the last episode of the last season
+  /// has no next season, so the button never appears for them.
+  @visibleForTesting
+  static String? nextEpisodeLabel({
+    required bool isFilm,
+    required int selectedEpisode,
+    required int episodeCount,
+    required bool hasNextSeason,
+  }) {
+    if (!isFilm && selectedEpisode < episodeCount) {
+      return 'Next: EP ${selectedEpisode + 1}';
+    }
+    return hasNextSeason ? 'Next Season' : null;
+  }
+
   /// True when a fetched embed page is the provider's "can't play this"
   /// error instead of a player. Static so the regression tests can pin
   /// every known marker.

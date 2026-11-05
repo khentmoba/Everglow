@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -127,6 +128,11 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final int? seekSeconds;
   final int seekRequest;
   final AniSkipTimes? skipTimes;
+
+  /// Label for the in-player next-episode button, or null when nothing
+  /// follows (a film, or the last episode of the last season). The player
+  /// only shows the button during the ending or the last 90 seconds.
+  final String? nextEpisodeLabel;
   final VoidCallback? onNextEpisode;
   final ValueChanged<String>? onAudioChanged;
 
@@ -147,6 +153,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.seekSeconds,
     this.seekRequest = 0,
     this.skipTimes,
+    this.nextEpisodeLabel,
     this.onNextEpisode,
     this.onAudioChanged,
     this.onPlayerEpisodeChanged,
@@ -194,8 +201,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
           widget.seekRequest != oldWidget.seekRequest) {
         _sendSeek();
       }
-      if (widget.skipTimes != oldWidget.skipTimes) {
-        _sendSkipTimes();
+      if (widget.skipTimes != oldWidget.skipTimes ||
+          widget.nextEpisodeLabel != oldWidget.nextEpisodeLabel) {
+        _sendPlayerState();
       }
     }
   }
@@ -247,7 +255,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
             _loadTimer?.cancel();
             setState(() => _loaded = true);
             _sendSeek();
-            _sendSkipTimes();
+            _sendPlayerState();
           },
           onWebResourceError: (error) {
             if (_controller == controller && error.isForMainFrame == true) {
@@ -292,28 +300,30 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     }
   }
 
-  Future<void> _sendSkipTimes() async {
-    final times = widget.skipTimes;
+  /// Sends the opening/ending windows and the next-episode label. Sent on
+  /// load and on every change, even with no skip times, so the player can
+  /// clear a label that no longer applies.
+  Future<void> _sendPlayerState() async {
     final controller = _controller;
     if (!_loaded ||
         _failed ||
         controller == null ||
-        times == null ||
-        times.isEmpty ||
         !isAnimeXProxyPlayerUrl(widget.url)) {
       return;
     }
-    final op = times.opening;
-    final ed = times.ending;
+    final op = widget.skipTimes?.opening;
+    final ed = widget.skipTimes?.ending;
     final opJson = op != null ? '[${op.start},${op.end}]' : 'null';
     final edJson = ed != null ? '[${ed.start},${ed.end}]' : 'null';
+    final next = widget.nextEpisodeLabel;
+    final nextJson = next != null ? jsonEncode(next) : 'null';
     try {
       await controller.runJavaScript(
-        'window.postMessage({type:"animex-skip-times",op:$opJson,ed:$edJson},'
-        '"$animeXProxyOrigin");',
+        'window.postMessage({type:"animex-player-state",op:$opJson,ed:$edJson,'
+        'next:$nextJson},"$animeXProxyOrigin");',
       );
     } catch (e) {
-      Logger.e('AnimeX native player skip-times failed', error: e);
+      Logger.e('AnimeX native player state failed', error: e);
     }
   }
 

@@ -135,6 +135,7 @@ extension _AnimeXWatchPageSections on _AnimeXWatchPageState {
             onContentError: _handleContentError,
             onProgress: _onPlayerProgress,
             skipTimes: _skipTimes,
+            nextEpisodeLabel: _nextEpisodeLabel,
             onNextEpisode: () {
               if (_selectedEpisode < _episodes.length) {
                 _stepEpisode(1);

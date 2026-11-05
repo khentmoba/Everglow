@@ -320,6 +320,30 @@ void main() {
     }, () => MockClient((_) async => http.Response('{}', 200))),
   );
 
+  test('the in-player next button has a label only when something follows', () {
+    String? label({
+      bool isFilm = false,
+      int episode = 1,
+      int count = 12,
+      bool nextSeason = false,
+    }) => AnimeXWatchPage.nextEpisodeLabel(
+      isFilm: isFilm,
+      selectedEpisode: episode,
+      episodeCount: count,
+      hasNextSeason: nextSeason,
+    );
+
+    expect(label(), 'Next: EP 2');
+    expect(label(episode: 11), 'Next: EP 12');
+    // Last episode of the last season: nothing follows, so no button.
+    expect(label(episode: 12), isNull);
+    // A later season is the next thing to watch.
+    expect(label(episode: 12, nextSeason: true), 'Next Season');
+    // Films never offer a next episode, and a next season still wins.
+    expect(label(isFilm: true), isNull);
+    expect(label(isFilm: true, nextSeason: true), 'Next Season');
+  });
+
   test('only servers with implemented capabilities offer controls', () {
     final servers = AnimeXWatchPage.buildServers(
       anilistId: 120,

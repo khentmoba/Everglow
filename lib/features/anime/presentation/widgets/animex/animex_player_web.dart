@@ -22,6 +22,11 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final int? seekSeconds;
   final int seekRequest;
   final AniSkipTimes? skipTimes;
+
+  /// Label for the in-player next-episode button, or null when nothing
+  /// follows (a film, or the last episode of the last season). The player
+  /// only shows the button during the ending or the last 90 seconds.
+  final String? nextEpisodeLabel;
   final VoidCallback? onNextEpisode;
   final ValueChanged<String>? onAudioChanged;
 
@@ -50,6 +55,7 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.seekSeconds,
     this.seekRequest = 0,
     this.skipTimes,
+    this.nextEpisodeLabel,
     this.onNextEpisode,
     this.onAudioChanged,
     this.onPlayerEpisodeChanged,
@@ -109,7 +115,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (!mounted) return;
       setState(() => _loaded = true);
       _sendSeek();
-      _sendSkipTimes();
+      _sendPlayerState();
     }).toJS;
     _iframe.addEventListener('load', _onLoad);
 
@@ -217,8 +223,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
           widget.seekRequest != oldWidget.seekRequest) {
         _sendSeek();
       }
-      if (widget.skipTimes != oldWidget.skipTimes) {
-        _sendSkipTimes();
+      if (widget.skipTimes != oldWidget.skipTimes ||
+          widget.nextEpisodeLabel != oldWidget.nextEpisodeLabel) {
+        _sendPlayerState();
       }
     }
   }
@@ -237,21 +244,19 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     );
   }
 
-  void _sendSkipTimes() {
-    final times = widget.skipTimes;
-    if (!_loaded ||
-        times == null ||
-        times.isEmpty ||
-        !isAnimeXProxyPlayerUrl(widget.url)) {
-      return;
-    }
-    final op = times.opening;
-    final ed = times.ending;
+  /// Sends the opening/ending windows and the next-episode label. Sent on
+  /// load and on every change, even with no skip times, so the player can
+  /// clear a label that no longer applies.
+  void _sendPlayerState() {
+    if (!_loaded || !isAnimeXProxyPlayerUrl(widget.url)) return;
+    final op = widget.skipTimes?.opening;
+    final ed = widget.skipTimes?.ending;
     _iframe.contentWindow?.postMessage(
       {
-        'type': 'animex-skip-times',
+        'type': 'animex-player-state',
         if (op != null) 'op': [op.start, op.end],
         if (ed != null) 'ed': [ed.start, ed.end],
+        'next': widget.nextEpisodeLabel,
       }.jsify(),
       animeXProxyOrigin.toJS,
     );

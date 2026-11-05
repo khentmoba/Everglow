@@ -365,6 +365,13 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _scheduleProgressSave();
   }
 
+  String? get _nextEpisodeLabel => AnimeXWatchPage.nextEpisodeLabel(
+    isFilm: _isFilm,
+    selectedEpisode: _selectedEpisode,
+    episodeCount: _episodes.length,
+    hasNextSeason: _nextSeason != null,
+  );
+
   void _setAudio(String a) {
     if (!_ready || (a != 'sub' && a != 'dub') || a == _audio) return;
     setState(() {
