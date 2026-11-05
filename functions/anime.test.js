@@ -880,3 +880,22 @@ test('hlsPlayerHtml sends the token as a header, not in URLs', () => {
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
   new vm.Script(code);
 });
+
+test('hlsPlayerHtml renders Sakura Broadcast UI with dark rose, wave loading, and Netflix subtitles', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://h/proxyMegavidHls?u=https%3A%2F%2Fcdn%2Fv.m3u8',
+    title: 'Episode 12',
+    tracks: [{ file: 'https://h/en.vtt', label: 'English' }],
+    ep: 12,
+    audio: 'sub',
+  });
+  assert.ok(html.includes('#c2185b'), 'uses Everglow Anime dark rose');
+  assert.ok(!html.includes('#ff6f91'), 'does not use light pastel pink');
+  assert.ok(html.includes('class="eg-wave"'), 'wave-animated EVERGLOW loading text');
+  assert.ok(html.includes('https://everglow-1c6db.web.app/favicon.png'), 'actual Everglow logo in HUD');
+  assert.ok(html.includes('video::cue{background:transparent!important'), 'Netflix transparent subtitle cue box');
+  assert.ok(html.includes('id="sub-txt"'), 'Netflix subtitle overlay');
+  assert.ok(!html.includes('Opening Theme'), 'no Opening Theme badge clutter');
+  assert.ok(!html.includes('Gold segments mark'), 'no timeline explanation text clutter');
+});
+
