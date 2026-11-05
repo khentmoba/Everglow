@@ -128,7 +128,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     )
     .join('\n    ');
   const epNum = Number.isSafeInteger(ep) && ep > 0 ? ep : null;
-  const nextEpLabel = epNum ? 'Next: EP ' + (epNum + 1) : 'Next Ep';  const isDub = String(audio || 'sub').toLowerCase() === 'dub';
+  const isDub = String(audio || 'sub').toLowerCase() === 'dub';
   const displayTitle = escHtml(title || (epNum ? 'Episode ' + epNum : 'Everglow'));
   return (
     '<!DOCTYPE html><html><head><meta charset="utf-8">' +
@@ -198,14 +198,31 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'border-radius:4px;color:#d5adb9;cursor:pointer;font-family:inherit}' +
     '.sd-b.on{background:#c2185b;color:#fff5f5}' +
     '.h-bot{padding:0 20px 14px;display:flex;flex-direction:column;gap:9px}' +
-    '.binge-r{display:flex;justify-content:flex-end;align-items:center;gap:8px;min-height:28px}' +
-    '.b-op{background:rgba(16,11,24,.85);backdrop-filter:blur(10px);border:1px solid #f5c97b;' +
-    'color:#f5c97b;padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:800;' +
-    'display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-family:inherit}' +
-    '.b-next{background:#c2185b;border:0;color:#fff5f5;padding:6px 12px;border-radius:6px;' +
-    'font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;gap:5px;' +
-    'cursor:pointer;font-family:inherit;transition:background .15s ease}' +
-    '.b-next:hover{background:#a0154a}' +
+    '.binge-r{position:relative;display:flex;justify-content:flex-end;align-items:center;' +
+    'min-height:34px}' +
+    // A soft scrim keeps the words readable over a bright frame. It is a
+    // legibility wash, not a card: no edge, no border, no fill of its own.
+    '.b-scrim{position:absolute;right:-20px;bottom:-14px;width:340px;height:120px;' +
+    'pointer-events:none;background:radial-gradient(ellipse at 78% 62%,' +
+    'rgba(8,5,14,.82) 0%,rgba(8,5,14,.5) 45%,transparent 72%)}' +
+    '.b-act{position:relative;display:inline-flex;align-items:center;gap:8px;' +
+    'padding:6px 2px 9px;border:0;background:transparent;font-family:inherit;' +
+    'font-size:14px;font-weight:800;letter-spacing:.01em;color:#fff5f5;cursor:pointer;' +
+    'text-shadow:0 2px 6px rgba(0,0,0,.9),0 4px 16px rgba(0,0,0,.7);' +
+    'transition:color .15s ease}' +
+    '.b-act:hover{color:#fff}' +
+    '.b-ico{display:inline-flex}' +
+    '.b-skip .b-ico{color:#f5c97b}' +
+    '.b-next .b-ico{color:#ff8caf}' +
+    '.b-t{color:#f5c97b;font-variant-numeric:tabular-nums;font-weight:800}' +
+    '.b-next .b-t{color:rgba(255,245,245,.72)}' +
+    // The underline drains with the stretch it belongs to, so the word and
+    // the time left are the same reading.
+    '.b-u{position:absolute;left:2px;right:2px;bottom:3px;height:2px;border-radius:2px;' +
+    'overflow:hidden;background:rgba(255,255,255,.14)}' +
+    '.b-u i{display:block;height:100%;width:100%;transition:width .2s linear}' +
+    '.b-skip .b-u i{background:#f5c97b}' +
+    '.b-next .b-u i{background:#c2185b}' +
     '#scrub{position:relative;height:6px;border-radius:4px;background:rgba(240,230,255,.22);' +
     'cursor:pointer;overflow:hidden}' +
     '#s-buf{position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(240,230,255,.32)}' +
@@ -262,8 +279,24 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     '</div></div>' +
     '<div class="h-bot">' +
     '<div class="binge-r">' +
-    '<button type="button" class="b-op" id="btn-skip" hidden>Skip OP</button>' +
-    '<button type="button" class="b-next" id="btn-next" hidden>' + escHtml(nextEpLabel) + '</button>' +
+    '<div class="b-scrim"></div>' +
+    '<button type="button" class="b-act b-skip" id="btn-skip" hidden>' +
+    '<span class="b-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+    '<polygon points="4 4.5 11.5 10 4 15.5 4 4.5" fill="currentColor" stroke="none"/>' +
+    '<line x1="15.5" y1="4.5" x2="15.5" y2="15.5"/></svg></span>' +
+    '<span id="skip-lbl">Skip opening</span>' +
+    '<span class="b-t" id="skip-time"></span>' +
+    '<span class="b-u"><i id="skip-fill"></i></span>' +
+    '</button>' +
+    '<button type="button" class="b-act b-next" id="btn-next" hidden>' +
+    '<span class="b-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" ' +
+    'stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
+    '<polygon points="5 4.5 13 10 5 15.5 5 4.5" fill="currentColor" stroke="none"/></svg></span>' +
+    '<span id="next-lbl">Next episode</span>' +
+    '<span class="b-t" id="next-tok"></span>' +
+    '<span class="b-u"><i id="next-fill"></i></span>' +
+    '</button>' +
     '</div>' +
     '<div id="scrub">' +
     '<div id="s-buf"></div>' +
@@ -334,11 +367,16 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'var btnDub=document.getElementById("btn-dub");' +
     'var btnEps=document.getElementById("btn-eps");' +
     'var subTxt=document.getElementById("sub-txt");' +
+    'var skipTime=document.getElementById("skip-time");' +
+    'var skipFill=document.getElementById("skip-fill");' +
+    'var nextLbl=document.getElementById("next-lbl");' +
+    'var nextTok=document.getElementById("next-tok");' +
+    'var nextFill=document.getElementById("next-fill");' +
     'var episode=' + JSON.stringify(epNum) + ';' +
     'var opRange=null,edRange=null,activeSkipEnd=null,ccOn=true,hlsInst=null;' +
     // How close to the last frame the Next button appears when the ending
     // was never marked. 90s covers a typical ED plus the preview card.
-    'var nextLabel=null,NEAR_END_SECONDS=90;' +
+    'var nextToken=null,nextKind="episode",NEAR_END_SECONDS=90;' +
     'function fmt(s){if(!Number.isFinite(s)||s<0)return"00:00";' +
     'var m=Math.floor(s/60),sec=Math.floor(s%60);' +
     'return(m<10?"0":"")+m+":"+(sec<10?"0":"")+sec;}' +
@@ -355,21 +393,34 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'sEd.style.left=Math.max(0,edRange[0]/d*100)+"%";' +
     'sEd.style.width=Math.min(100-edRange[0]/d*100,(edRange[1]-edRange[0])/d*100)+"%";' +
     'sEd.hidden=false;}else{sEd.hidden=true;}}}' +
-    // The Skip pill belongs to the opening only. The ending is where the
-    // Next button lives, so a second skip button there would be noise.
+    // How far through a stretch the playhead is, 0..1. Null when the
+    // stretch is missing or has no length.
+    'function through(range,t){if(!range)return null;var span=range[1]-range[0];' +
+    'if(!(span>0))return null;var p=(t-range[0])/span;' +
+    'return Math.min(1,Math.max(0,p));}' +
+    // The Skip action belongs to the opening only. The ending is where the
+    // Next action lives, so a second skip there would be noise.
     'function updateSkipBtn(){if(!btnSkip)return;var t=v.currentTime;' +
     'if(opRange&&t>=opRange[0]&&t<opRange[1]){activeSkipEnd=opRange[1];' +
-    'btnSkip.textContent="Skip OP ("+fmt(opRange[1])+")";btnSkip.hidden=false;return;}' +
+    'if(skipTime)skipTime.textContent=fmt(Math.max(0,opRange[1]-t));' +
+    'var p=through(opRange,t);if(skipFill&&p!==null)skipFill.style.width=((1-p)*100)+"%";' +
+    'btnSkip.hidden=false;return;}' +
     'activeSkipEnd=null;btnSkip.hidden=true;}' +
     // Next shows during the ending, or within the last 90s when nobody
-    // marked one. No label means nothing follows, so it stays hidden.
+    // marked one. No token means nothing follows, so it stays hidden.
     'function updateNextBtn(){if(!btnNext)return;' +
-    'if(!nextLabel){btnNext.hidden=true;return;}' +
+    'if(!nextToken&&nextKind!=="season"){btnNext.hidden=true;return;}' +
     'var t=v.currentTime,d=v.duration;' +
     'if(!Number.isFinite(t)||!Number.isFinite(d)||d<=0){btnNext.hidden=true;return;}' +
     'var inEnding=!!edRange&&t>=edRange[0]&&t<edRange[1];' +
     'var nearEnd=(d-t)<=NEAR_END_SECONDS;' +
-    'btnNext.textContent=nextLabel;btnNext.hidden=!(inEnding||nearEnd);}' +
+    'if(!(inEnding||nearEnd)){btnNext.hidden=true;return;}' +
+    'if(nextLbl)nextLbl.textContent=nextKind==="season"?"Next season":"Next episode";' +
+    'if(nextTok)nextTok.textContent=nextToken||"";' +
+    'var p=inEnding?through(edRange,t):null;' +
+    'if(p===null)p=1-Math.min(1,Math.max(0,(d-t)/NEAR_END_SECONDS));' +
+    'if(nextFill)nextFill.style.width=((1-p)*100)+"%";' +
+    'btnNext.hidden=false;}' +
     'function updateUi(){var p=v.currentTime,d=v.duration;' +
     'if(Number.isFinite(p)&&Number.isFinite(d)&&d>0){' +
     'if(sFill)sFill.style.width=Math.min(100,Math.max(0,p/d*100))+"%";' +
@@ -395,7 +446,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'if(d.type==="animex-player-state"||d.type==="animex-skip-times"){' +
     'opRange=Array.isArray(d.op)&&d.op.length===2&&Number.isFinite(d.op[0])&&Number.isFinite(d.op[1])?d.op:null;' +
     'edRange=Array.isArray(d.ed)&&d.ed.length===2&&Number.isFinite(d.ed[0])&&Number.isFinite(d.ed[1])?d.ed:null;' +
-    'nextLabel=typeof d.next==="string"&&d.next?d.next:null;' +
+    'nextToken=typeof d.next==="string"&&d.next?d.next:null;' +
+    'nextKind=d.nextKind==="season"?"season":"episode";' +
     'if(d.title&&hudTitle){hudTitle.textContent=String(d.title);}' +
     'updateChapters();updateUi();}});' +
     'function post(data){try{window.parent.postMessage(data,"*");}catch(e){}' +

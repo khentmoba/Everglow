@@ -171,6 +171,11 @@ function playerScriptContext(calls, { search = '', native = false, hls = true } 
     'btn-skip': element(),
     'btn-next': element(),
     'hud-title': element(),
+    'skip-time': element(),
+    'skip-fill': element(),
+    'next-lbl': element(),
+    'next-tok': element(),
+    'next-fill': element(),
   };
   function Hls() {}
   Hls.isSupported = () => true;
@@ -917,7 +922,7 @@ test('hlsPlayerHtml renders Sakura Broadcast UI with dark rose, wave loading, an
 });
 
 
-test('skip pill belongs to the opening, next belongs to the ending', () => {
+test('skip action belongs to the opening, next belongs to the ending', () => {
   const { window, video, els } = runPlayer();
   video.duration = 1423;
   video.dispatch('loadedmetadata');
@@ -925,12 +930,18 @@ test('skip pill belongs to the opening, next belongs to the ending', () => {
     video.currentTime = t;
     video.dispatch('timeupdate');
   };
-  // Nothing announced yet: neither button can show.
+  const width = (id) => Number.parseFloat(els[id].style.width);
+  // Nothing announced yet: neither action can show.
   at(60);
   assert.equal(els['btn-skip'].hidden, true);
   assert.equal(els['btn-next'].hidden, true);
 
-  sendState(window, { op: [45, 135], ed: [1330, 1423], next: 'Next: EP 20' });
+  sendState(window, {
+    op: [45, 135],
+    ed: [1330, 1423],
+    next: 'EP 20',
+    nextKind: 'episode',
+  });
 
   at(10);
   assert.equal(els['btn-skip'].hidden, true, 'before the opening');
@@ -938,27 +949,59 @@ test('skip pill belongs to the opening, next belongs to the ending', () => {
 
   at(60);
   assert.equal(els['btn-skip'].hidden, false, 'inside the opening');
-  assert.match(els['btn-skip'].textContent, /Skip OP \(02:15\)/);
+  assert.equal(els['skip-time'].textContent, '01:15', 'time left in the opening');
+  const early = width('skip-fill');
+  assert.ok(early > 0 && early < 100, `underline shows progress, got ${early}`);
   assert.equal(els['btn-next'].hidden, true, 'next waits for the ending');
+
+  at(120);
+  assert.ok(
+    width('skip-fill') < early,
+    'the underline drains as the opening plays',
+  );
 
   at(600);
   assert.equal(els['btn-skip'].hidden, true, 'mid episode');
   assert.equal(els['btn-next'].hidden, true);
 
   at(1340);
-  assert.equal(els['btn-skip'].hidden, true, 'no second skip button in the ending');
+  assert.equal(els['btn-skip'].hidden, true, 'no second skip in the ending');
   assert.equal(els['btn-next'].hidden, false);
-  assert.equal(els['btn-next'].textContent, 'Next: EP 20');
+  assert.equal(els['next-lbl'].textContent, 'Next episode');
+  assert.equal(els['next-tok'].textContent, 'EP 20');
+  const endingEarly = width('next-fill');
+  assert.ok(
+    endingEarly > 0 && endingEarly < 100,
+    `ending underline shows progress, got ${endingEarly}`,
+  );
+
+  at(1400);
+  assert.ok(
+    width('next-fill') < endingEarly,
+    'the ending underline drains too',
+  );
 
   at(1423);
   assert.equal(els['btn-next'].hidden, false, 'still offered on the last frame');
+});
+
+test('a next season says so instead of naming an episode', () => {
+  const { window, video, els } = runPlayer();
+  video.duration = 1423;
+  video.dispatch('loadedmetadata');
+  sendState(window, { ed: [1330, 1423], next: '', nextKind: 'season' });
+  video.currentTime = 1400;
+  video.dispatch('timeupdate');
+  assert.equal(els['btn-next'].hidden, false);
+  assert.equal(els['next-lbl'].textContent, 'Next season');
+  assert.equal(els['next-tok'].textContent, '');
 });
 
 test('next appears in the last 90s when nobody marked the ending', () => {
   const { window, video, els } = runPlayer();
   video.duration = 1423;
   video.dispatch('loadedmetadata');
-  sendState(window, { next: 'Next: EP 20' });
+  sendState(window, { next: 'EP 20', nextKind: 'episode' });
   const at = (t) => {
     video.currentTime = t;
     video.dispatch('timeupdate');
@@ -980,7 +1023,7 @@ test('no next label means no next button, and a later state clears it', () => {
   video.dispatch('timeupdate');
   assert.equal(els['btn-next'].hidden, true, 'a film or last episode offers nothing');
 
-  sendState(window, { ed: [1330, 1423], next: 'Next: EP 20' });
+  sendState(window, { ed: [1330, 1423], next: 'EP 20', nextKind: 'episode' });
   assert.equal(els['btn-next'].hidden, false, 'announcing a next episode shows it');
 
   sendState(window, { ed: [1330, 1423], next: null });
