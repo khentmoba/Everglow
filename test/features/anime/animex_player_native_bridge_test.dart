@@ -236,7 +236,7 @@ void main() {
             opening: AniSkipTime(start: 45, end: 135),
             ending: AniSkipTime(start: 1330, end: 1423),
           ),
-          nextEpisodeLabel: 'Next: EP 20',
+          nextToken: 'EP 20',
         ),
       ),
     );
@@ -249,13 +249,14 @@ void main() {
     );
     expect(state, contains('op:[45.0,135.0]'));
     expect(state, contains('ed:[1330.0,1423.0]'));
-    expect(state, contains('next:"Next: EP 20"'));
+    expect(state, contains('next:"EP 20"'));
+    expect(state, contains('nextKind:"episode"'));
     expect(state, contains(animeXProxyOrigin));
 
     // A cleared label reaches the player so it can hide the button.
     await tester.pumpWidget(
       const MaterialApp(
-        home: AnimeXPlayerFrame(url: url, nextEpisodeLabel: null),
+        home: AnimeXPlayerFrame(url: url, nextToken: null),
       ),
     );
     await tester.pump();

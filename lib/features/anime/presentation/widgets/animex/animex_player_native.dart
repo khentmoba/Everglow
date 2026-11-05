@@ -129,10 +129,12 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final int seekRequest;
   final AniSkipTimes? skipTimes;
 
-  /// Label for the in-player next-episode button, or null when nothing
-  /// follows (a film, or the last episode of the last season). The player
-  /// only shows the button during the ending or the last 90 seconds.
-  final String? nextEpisodeLabel;
+  /// Destination token the player prints beside its next action (`EP 20`),
+  /// or null when nothing follows (a film, or the last episode of the last
+  /// season). The player only shows that action during the ending or the
+  /// last 90 seconds. [nextIsSeason] switches the wording to "Next season".
+  final String? nextToken;
+  final bool nextIsSeason;
   final VoidCallback? onNextEpisode;
   final ValueChanged<String>? onAudioChanged;
 
@@ -153,7 +155,8 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.seekSeconds,
     this.seekRequest = 0,
     this.skipTimes,
-    this.nextEpisodeLabel,
+    this.nextToken,
+    this.nextIsSeason = false,
     this.onNextEpisode,
     this.onAudioChanged,
     this.onPlayerEpisodeChanged,
@@ -202,7 +205,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         _sendSeek();
       }
       if (widget.skipTimes != oldWidget.skipTimes ||
-          widget.nextEpisodeLabel != oldWidget.nextEpisodeLabel) {
+          widget.nextToken != oldWidget.nextToken ||
+          widget.nextIsSeason != oldWidget.nextIsSeason) {
         _sendPlayerState();
       }
     }
@@ -315,12 +319,13 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     final ed = widget.skipTimes?.ending;
     final opJson = op != null ? '[${op.start},${op.end}]' : 'null';
     final edJson = ed != null ? '[${ed.start},${ed.end}]' : 'null';
-    final next = widget.nextEpisodeLabel;
+    final next = widget.nextToken;
     final nextJson = next != null ? jsonEncode(next) : 'null';
+    final kind = widget.nextIsSeason ? 'season' : 'episode';
     try {
       await controller.runJavaScript(
         'window.postMessage({type:"animex-player-state",op:$opJson,ed:$edJson,'
-        'next:$nextJson},"$animeXProxyOrigin");',
+        'next:$nextJson,nextKind:"$kind"},"$animeXProxyOrigin");',
       );
     } catch (e) {
       Logger.e('AnimeX native player state failed', error: e);

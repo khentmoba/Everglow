@@ -23,10 +23,12 @@ class AnimeXPlayerFrame extends StatefulWidget {
   final int seekRequest;
   final AniSkipTimes? skipTimes;
 
-  /// Label for the in-player next-episode button, or null when nothing
-  /// follows (a film, or the last episode of the last season). The player
-  /// only shows the button during the ending or the last 90 seconds.
-  final String? nextEpisodeLabel;
+  /// Destination token the player prints beside its next action (`EP 20`),
+  /// or null when nothing follows (a film, or the last episode of the last
+  /// season). The player only shows that action during the ending or the
+  /// last 90 seconds. [nextIsSeason] switches the wording to "Next season".
+  final String? nextToken;
+  final bool nextIsSeason;
   final VoidCallback? onNextEpisode;
   final ValueChanged<String>? onAudioChanged;
 
@@ -55,7 +57,8 @@ class AnimeXPlayerFrame extends StatefulWidget {
     this.seekSeconds,
     this.seekRequest = 0,
     this.skipTimes,
-    this.nextEpisodeLabel,
+    this.nextToken,
+    this.nextIsSeason = false,
     this.onNextEpisode,
     this.onAudioChanged,
     this.onPlayerEpisodeChanged,
@@ -224,7 +227,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         _sendSeek();
       }
       if (widget.skipTimes != oldWidget.skipTimes ||
-          widget.nextEpisodeLabel != oldWidget.nextEpisodeLabel) {
+          widget.nextToken != oldWidget.nextToken ||
+          widget.nextIsSeason != oldWidget.nextIsSeason) {
         _sendPlayerState();
       }
     }
@@ -256,7 +260,8 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
         'type': 'animex-player-state',
         if (op != null) 'op': [op.start, op.end],
         if (ed != null) 'ed': [ed.start, ed.end],
-        'next': widget.nextEpisodeLabel,
+        'next': widget.nextToken,
+        'nextKind': widget.nextIsSeason ? 'season' : 'episode',
       }.jsify(),
       animeXProxyOrigin.toJS,
     );
