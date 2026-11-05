@@ -84,6 +84,19 @@ function verifySignals(command: string): string[] {
 export default function (pi: ExtensionAPI) {
 	let state: GateState | null = null;
 
+	// Proof shots usually come from a browser or bash, not edit/write, so also
+	// accept images that git sees on this branch (committed, staged, or untracked).
+	async function branchHasProof(ctx: ExtensionContext): Promise<boolean> {
+		const isImage = (p: string) => /^docs\/pr-proof\/.+\.(png|jpe?g|webp|gif)$/i.test(p.trim());
+		const git = async (args: string[]) => {
+			const r = await pi.exec("git", ["-C", ctx.cwd, ...args], { timeout: 5_000 });
+			return r.code === 0 ? r.stdout.split("\n") : [];
+		};
+		const committed = await git(["diff", "--name-only", "origin/main...HEAD", "--", "docs/pr-proof"]);
+		const pending = (await git(["status", "--porcelain", "--untracked-files=all", "--", "docs/pr-proof"])).map((l) => l.slice(3));
+		return [...committed, ...pending].some(isImage);
+	}
+
 	function freshState(): GateState {
 		return { edited: new Set(), verified: new Set(), proofs: new Set() };
 	}
@@ -125,8 +138,9 @@ export default function (pi: ExtensionAPI) {
 		const s = getState(ctx);
 
 		if (isToolCallEventType("edit", event) || isToolCallEventType("write", event)) {
-			const path = event.input.path;
-			const rel = path.startsWith(ctx.cwd + "/") ? path.slice(ctx.cwd.length + 1) : path;
+			const path = event.input.path.replace(/\\/g, "/");
+			const cwd = ctx.cwd.replace(/\\/g, "/");
+			const rel = path.toLowerCase().startsWith(cwd.toLowerCase() + "/") ? path.slice(cwd.length + 1) : path;
 			if (rel && !s.edited.has(rel) && !path.includes("/.pi/")) {
 				record(ctx, { kind: "edit", path: rel });
 			}
@@ -177,7 +191,7 @@ export default function (pi: ExtensionAPI) {
 			const opensPr = leadingCommands(command).some((c) => /^gh\s+pr\s+(create|ready)\b/.test(c));
 			if (opensPr) {
 				if (/#\s*verify-gate\s+allow/i.test(command)) return undefined;
-				if (s.proofs.size === 0) {
+				if (s.proofs.size === 0 && !(await branchHasProof(ctx))) {
 					const msg =
 						`verify-gate: every PR shows proof — save a screenshot of the changed screen under ` +
 						`docs/pr-proof/pr-<N>/shot-<name>.png first (fake demo data only; see the everglow-pr skill), ` +
