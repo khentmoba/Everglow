@@ -19,10 +19,14 @@ outside the player.
   OP/ED segments, play, -10s, +10s, volume, time, the Everglow badge, CC,
   quality, fullscreen. The HUD fades out after 2.8 s of playback and
   returns on mouse or touch.
-- **One button per moment.** The Skip pill belongs to the opening only.
-  The Next episode button belongs to the ending, or to the last 90 seconds
-  when nobody marked one. They never show together, and Next stays hidden
-  when nothing follows (a film, or the last episode of the last season).
+- **One action per moment.** Skip belongs to the opening only. Next belongs
+  to the ending, or to the last 90 seconds when nobody marked one. They never
+  show together, and Next stays hidden when nothing follows (a film, or the
+  last episode of the last season).
+- **The action has no box.** It is a word with an icon, a time, and an
+  underline that drains as the stretch plays, sitting on a soft scrim so it
+  stays readable over a bright frame. The old pair were two rounded chips
+  told apart only by fill and outline.
 - **Skip controls moved inside the player.** The watch page no longer
   draws a Skip Opening / Skip Ending row or a "What happened" link under
   the video. The episode list already carries each synopsis, so the link
@@ -45,9 +49,9 @@ Chrome over http so the app's own `postMessage` path runs, with a stubbed
 - `player-loading-wave-phone.png` — the `EVERGLOW` wave while the stream
   boots.
 - `player-opening-skip-phone.png` — 430 px at 1:00, inside the opening:
-  `Skip OP (02:15)` is offered and no Next button exists.
+  `Skip opening 01:15` with its underline 83% full, and no Next action.
 - `player-ending-next-phone.png` — 430 px at 22:30, inside the ending:
-  `Next: EP 20` is offered and the Skip pill is gone.
+  `Next episode EP 20` with its underline draining, and Skip gone.
 - `player-hud-tablet.png` — 1024 px at 1:00: the same opening state with
   the volume button back.
 
