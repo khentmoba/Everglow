@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../agent/agent_mode.dart';
 import '../models/presence_status.dart';
 import '../utils/logger.dart';
 
@@ -24,6 +25,9 @@ class PresenceService {
   // --- session tracking ---
   String? _activeSessionId;
 
+  // Agent demo must never read or write live presence documents.
+  bool get _demo => AgentMode.isActive.value && AgentMode.useDemoData.value;
+
   DocumentReference _doc(String uid) => _db.collection(_collection).doc(uid);
   DocumentReference _sessionDoc(String id) =>
       _db.collection(_sessionsCollection).doc(id);
@@ -31,6 +35,7 @@ class PresenceService {
   /// Streams the presence document for [uid]. Emits a default-empty
   /// [PresenceStatus] when the document does not exist yet.
   Stream<PresenceStatus> watchPresence(String uid) {
+    if (_demo) return Stream.value(PresenceStatus.empty(uid));
     return _doc(uid)
         .snapshots()
         .map((snapshot) {
@@ -47,7 +52,7 @@ class PresenceService {
   /// Starts a periodic heartbeat for [uid] marking them online. Safe to call
   /// repeatedly with the same uid; the previous timer is cancelled.
   void startHeartbeat({required String uid, required String username}) {
-    if (uid.isEmpty) return;
+    if (uid.isEmpty || _demo) return;
     if (_currentUid == uid && _heartbeatTimer != null) return;
 
     // close previous session if switching user without explicit stopHeartbeat
@@ -156,7 +161,7 @@ class PresenceService {
     required String uid,
     required String username,
   }) async {
-    if (uid.isEmpty) return;
+    if (uid.isEmpty || _demo) return;
     try {
       await _doc(uid).set({
         'isOnline': true,
@@ -175,7 +180,7 @@ class PresenceService {
   /// Marks [uid] as offline but keeps the lastSeen timestamp so we can still
   /// compute "active X ago" on the partner's side.
   Future<void> setOffline(String uid) async {
-    if (uid.isEmpty) return;
+    if (uid.isEmpty || _demo) return;
     // A hidden app must not mark itself online again on the next heartbeat.
     // Keep its session so returning resumes it instead of creating an orphan.
     if (_currentUid == uid) _stopHeartbeat();
@@ -195,7 +200,7 @@ class PresenceService {
   /// every pan-update is safe. Also starts an idle timer that automatically
   /// clears the doodling flag if no further touches arrive.
   Future<void> markDoodling(String uid) async {
-    if (uid.isEmpty) return;
+    if (uid.isEmpty || _demo) return;
     _doodlingUid = uid;
     try {
       await _doc(uid).set({
@@ -218,7 +223,7 @@ class PresenceService {
   /// Clears the doodling flag for [uid]. Should be called when the user
   /// leaves the canvas screen, or after the idle window expires.
   Future<void> clearDoodling(String uid) async {
-    if (uid.isEmpty) return;
+    if (uid.isEmpty || _demo) return;
     if (_doodlingUid != uid) {
       _doodleIdleTimer?.cancel();
       _doodleIdleTimer = null;

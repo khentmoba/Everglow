@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/utils/connectivity_aware.dart';
 import '../models/manga_item.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
@@ -30,6 +31,10 @@ class MangaKakalotService with ConnectivityAware {
       'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyFetchHtml';
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Agent demo has no manga fixtures and must not read the live library.
+  bool get _demoData =>
+      AgentMode.isActive.value && AgentMode.useDemoData.value;
 
   static final MangaKakalotService _instance = MangaKakalotService._internal();
   factory MangaKakalotService() => _instance;
@@ -450,6 +455,7 @@ class MangaKakalotService with ConnectivityAware {
   }
 
   Stream<List<MangaItem>> getLibraryStream(String userName) {
+    if (_demoData) return Stream.value(const <MangaItem>[]);
     return _firestore
         .collection('manga_library')
         .where('userName', isEqualTo: userName)
@@ -483,7 +489,9 @@ class MangaKakalotService with ConnectivityAware {
     String userName, {
     int limit = 24,
   }) {
-    if (userName.isEmpty) return Stream.value(const <MangaItem>[]);
+    if (userName.isEmpty || _demoData) {
+      return Stream.value(const <MangaItem>[]);
+    }
     return _firestore
         .collection('manga_library')
         .where('userName', isEqualTo: userName)
@@ -520,6 +528,7 @@ class MangaKakalotService with ConnectivityAware {
     String userB = 'clairjassen',
     int limit = 24,
   }) {
+    if (_demoData) return Stream.value(const <MangaItem>[]);
     final controller = StreamController<List<MangaItem>>.broadcast();
     List<MangaItem> itemsA = const [];
     List<MangaItem> itemsB = const [];

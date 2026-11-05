@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../agent/agent_mode.dart';
 import 'system_status.dart';
 
 typedef ConnectivityCheck = bool Function();
@@ -39,6 +40,10 @@ class HealthService {
   Future<SystemStatus> probe({
     Duration timeout = const Duration(seconds: 5),
   }) async {
+    // Agent demo must not call the production backend from a local build.
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      return const SystemStatus(status: 'ok');
+    }
     final online = _isOnline();
     try {
       final response = await _client.get(_endpoint).timeout(timeout);
