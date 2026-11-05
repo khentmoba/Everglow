@@ -24,7 +24,7 @@ import '../../../../ai/domain/motchi_reply_details.dart';
 import '../../../../ai/presentation/widgets/motchi_reply_details_card.dart';
 import '../../../../ai/presentation/widgets/motchi_web_bridge.dart';
 import 'animex_controller.dart';
-import 'package:everglow/core/perf/perf_settings.dart';
+import '../../../../../core/perf/perf_settings.dart';
 
 enum AnimeMotchiDeepThink { auto, on, off }
 

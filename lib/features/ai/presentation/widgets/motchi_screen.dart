@@ -34,7 +34,7 @@ import 'motchi_web_bridge.dart';
 import 'motchi_voice_waveform.dart';
 import 'motchi_sidebar.dart';
 import 'study_artifact_sheet.dart';
-import 'package:everglow/core/perf/perf_settings.dart';
+import '../../../../core/perf/perf_settings.dart';
 part 'motchi_widgets.dart';
 part 'motchi_widgets_streaming.dart';
 part 'motchi_widgets_extra.dart';
