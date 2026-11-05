@@ -96,6 +96,10 @@ function failHtml(title, detail) {
     '<div><p style="font-size:15px;color:#e2e2ea">' + escHtml(title) + '</p>' +
     '<p style="font-size:12px">' + escHtml(detail) + '</p>' +
     '<p style="font-size:12px">' + NO_SOURCE_MARKER + ' — try another server.</p></div>' +
+    '<script>(function(){try{if(window.parent&&window.parent!==window){' +
+    'window.parent.postMessage("animex-content-error","*");}}catch(e){}' +
+    'try{if(window.EverglowPlayer&&window.EverglowPlayer.postMessage){' +
+    'window.EverglowPlayer.postMessage("animex-content-error");}}catch(e){}})();</script>' +
     '</body></html>'
   );
 }
@@ -538,11 +542,38 @@ function validateAnimeParams(query) {
     source !== 'animepahe' &&
     source !== 'megavid' &&
     source !== 'megaplay' &&
-    source !== 'everglow'
+    source !== 'everglow' &&
+    source !== 'cinema'
   ) {
     return {
-      error: 'source must be animepahe, megavid, megaplay, or everglow',
+      error: 'source must be animepahe, megavid, megaplay, everglow, or cinema',
     };
+  }
+  if (source === 'cinema') {
+    const mediaType = String(query.type || 'movie').toLowerCase();
+    if (mediaType !== 'movie' && mediaType !== 'tv') {
+      return { error: 'type must be movie or tv' };
+    }
+    const tmdbId = Number.parseInt(String(query.tmdbId || '0'), 10) || 0;
+    if (tmdbId <= 0 || tmdbId > 100000000) {
+      return { error: 'tmdbId is required' };
+    }
+    const rawS = query.s == null || query.s === '' ? '1' : String(query.s);
+    const season = mediaType === 'tv' ? Number.parseInt(rawS, 10) : 1;
+    if (!Number.isFinite(season) || season < 1 || season > 500) {
+      return { error: 's must be 1..500' };
+    }
+    const rawEp =
+      query.e != null && query.e !== ''
+        ? String(query.e)
+        : query.ep == null || query.ep === ''
+          ? '1'
+          : String(query.ep);
+    const ep = mediaType === 'tv' ? Number.parseInt(rawEp, 10) : 1;
+    if (!Number.isFinite(ep) || ep < 1 || ep > 5000) {
+      return { error: 'e must be 1..5000' };
+    }
+    return { source, mediaType, tmdbId, season, ep };
   }
   const anilistId = Number.parseInt(String(query.anilistId || '0'), 10) || 0;
   const malId = Number.parseInt(String(query.malId || '0'), 10) || 0;
@@ -741,6 +772,19 @@ const MEGAVID_ORIGIN = 'https://megavid.buzz';
 /** MegaPlay's site origin. */
 const MEGAPLAY_ORIGIN = 'https://megaplay.buzz';
 
+/** Cinema HLS upstream origins (Fmov & VidBolt). */
+const FMOV_ORIGIN = 'https://fmov.my';
+const VIDBOLT_ORIGIN = 'https://vidbolt.xyz';
+
+const FMOV_HOSTS = new Set(['fmov.my', 'vdrk.site']);
+const VIDBOLT_HOSTS = new Set([
+  'vidbolt.xyz',
+  'rousav.tech',
+  'fodcyy.com',
+  'bhcxy.com',
+  'hakunaymatata.com',
+]);
+
 const MEGAPLAY_ENC_KEY = 'i?LMTAx0Q6,:}50U';
 const MEGAPLAY_ENC_IV = "W0;27ToaUpl_P%'c";
 const MEGAPLAY_HMAC_SECRET = 'MpCdnT0k3n!9f2K#xQ7vL5mR8wN1pY4s';
@@ -772,6 +816,30 @@ function megaplayHeaders(extra) {
   );
 }
 
+function fmovHeaders(extra) {
+  return Object.assign(
+    {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Referer: `${FMOV_ORIGIN}/`,
+      Origin: FMOV_ORIGIN,
+    },
+    extra || {},
+  );
+}
+
+function vidboltHeaders(extra) {
+  return Object.assign(
+    {
+      'User-Agent': DESKTOP_UA,
+      Accept: '*/*',
+      Referer: `${VIDBOLT_ORIGIN}/`,
+      Origin: VIDBOLT_ORIGIN,
+    },
+    extra || {},
+  );
+}
+
 function isMegavidHost(hostname) {
   const h = String(hostname || '').toLowerCase();
   return (
@@ -785,8 +853,26 @@ function isMegaPlayHost(hostname) {
   return [...MEGAPLAY_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
 }
 
+function isFmovHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return [...FMOV_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
+}
+
+function isVidBoltHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return [...VIDBOLT_HOSTS].some((a) => h === a || h.endsWith(`.${a}`));
+}
+
+function isCinemaHlsHost(hostname) {
+  return isFmovHost(hostname) || isVidBoltHost(hostname);
+}
+
 function isAnimeCdnHost(hostname) {
-  return isMegavidHost(hostname) || isMegaPlayHost(hostname);
+  return (
+    isMegavidHost(hostname) ||
+    isMegaPlayHost(hostname) ||
+    isCinemaHlsHost(hostname)
+  );
 }
 
 /** MegaPlay serves segments from rotating throwaway domains
@@ -880,12 +966,27 @@ function makeMegaPlayToken(path) {
   return `${base64url(Buffer.from(payload))}.${base64url(hmac)}`;
 }
 
-/** Resolves a possibly-relative playlist URI against its playlist URL. */
+/** Resolves a possibly-relative playlist URI against its playlist URL.
+ *  Preserves same-origin `api_key` / `apikey` query params (required by
+ *  VidBolt's Orion CDN for child variant, audio, and subtitle playlists). */
 function resolvePlaylistUrl(ref, base) {
   try {
-    const abs = new URL(String(ref || '').trim(), base).toString();
-    if (abs.startsWith('https://') || abs.startsWith('http://')) return abs;
-    return null;
+    const r = String(ref || '').trim();
+    if (!r || r.startsWith('#')) return null;
+    const u = new URL(r, base);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    try {
+      const b = new URL(base);
+      if (u.origin === b.origin) {
+        for (const k of ['api_key', 'apikey']) {
+          const v = b.searchParams.get(k);
+          if (v && !u.searchParams.has(k)) {
+            u.searchParams.set(k, v);
+          }
+        }
+      }
+    } catch (_) {}
+    return u.toString();
   } catch (_) {
     return null;
   }
@@ -918,12 +1019,21 @@ function playlistUris(text, base, { variantsOnly = false } = {}) {
  * the browser never touches this URL directly (see proxyMegavidHls,
  * which re-serves everything from our own domain with `*`).
  */
+function streamHostPrefix(url) {
+  try {
+    const h = new URL(url).hostname;
+    if (isCinemaHlsHost(h)) return 'cinema';
+    if (isMegaPlayHost(h)) return 'megaplay';
+  } catch (_) {}
+  return 'megavid';
+}
+
 async function fetchPlaylist(url, timeoutMs, label, headers = megavidHeaders()) {
   const res = await fetch(url, {
     headers,
     signal: AbortSignal.timeout(timeoutMs),
   });
-  const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
+  const prefix = streamHostPrefix(url);
   if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
   const text = await res.text();
   if (!text || !text.includes('#EXTM3U')) {
@@ -945,7 +1055,7 @@ async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(
     headers: h,
     signal: AbortSignal.timeout(timeoutMs),
   });
-  const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
+  const prefix = streamHostPrefix(url);
   if (!res.ok) throw new Error(`${prefix} ${label} ${res.status}`);
   if (!res.body || typeof res.body.getReader !== 'function') {
     const buf = await res.arrayBuffer();
@@ -968,17 +1078,21 @@ async function fetchSegmentHead(url, timeoutMs, label, headers = megavidHeaders(
 
 /**
  * First segment bytes must look like MPEG-TS (sync byte 0x47) when the URL
- * points at a .ts file (or MegaPlay .jpg disguised TS segments). CDNs often
- * answer 200 with an HTML error page for removed files — fetchable, but it
- * can never play. Other containers (fmp4 segments) only need to be non-empty.
+ * points at a .ts file (or MegaPlay .jpg / VidBolt .png disguised TS segments).
+ * CDNs often answer 200 with an HTML error page for removed files — fetchable,
+ * but it can never play. Other containers (fmp4 segments) only need to be non-empty.
  */
 function assertPlayableHead(chunk, url, label) {
   const path = String(url).split('?')[0].toLowerCase();
-  const prefix = isMegaPlayHost(new URL(url).hostname) ? 'megaplay' : 'megavid';
+  const hostname = new URL(url).hostname;
+  const prefix = streamHostPrefix(url);
   if (path.endsWith('.ts') && chunk[0] !== 0x47) {
     throw new Error(`${prefix} ${label} is not video data`);
   }
-  if (path.endsWith('.jpg') && isMegaPlayHost(new URL(url).hostname) && chunk[0] !== 0x47) {
+  if (path.endsWith('.jpg') && isMegaPlayHost(hostname) && chunk[0] !== 0x47) {
+    throw new Error(`${prefix} ${label} is not video data`);
+  }
+  if (path.endsWith('.png') && isVidBoltHost(hostname) && chunk[0] !== 0x47) {
     throw new Error(`${prefix} ${label} is not video data`);
   }
 }
@@ -1013,7 +1127,7 @@ const MIN_MEGAVID_SECONDS = 120;
  * advances to the next server instead of stalling on a spinner.
  */
 async function verifyStream(masterUrl, headers = megavidHeaders()) {
-  const prefix = isMegaPlayHost(new URL(masterUrl).hostname) ? 'megaplay' : 'megavid';
+  const prefix = streamHostPrefix(masterUrl);
   const masterText = await fetchPlaylist(masterUrl, 8000, 'playlist', headers);
   const variants = playlistUris(masterText, masterUrl, { variantsOnly: true });
   const medias =
@@ -1061,6 +1175,17 @@ async function verifyMegaPlayStream(masterUrl) {
   return verifyStream(masterUrl, megaplayHeaders());
 }
 
+function cinemaHeadersForUrl(url) {
+  try {
+    if (isVidBoltHost(new URL(url).hostname)) return vidboltHeaders();
+  } catch (_) {}
+  return fmovHeaders();
+}
+
+async function verifyCinemaStream(masterUrl) {
+  return verifyStream(masterUrl, cinemaHeadersForUrl(masterUrl));
+}
+
 // ─── Megavid (Proxied HLS Stream with NO ADS) ─────────────
 
 /** Builds our same-origin proxy URL for one upstream Megavid file.
@@ -1070,6 +1195,31 @@ function megavidProxyUrl(proxyBase, absUrl) {
   // carry the viewer's login token (history + logs). The player sends
   // identity as an Authorization header instead (see hlsPlayerHtml).
   return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
+}
+
+function playlistNeedsStamp(text, playlistUrl, isAllowed) {
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('#')) {
+      for (const m of trimmed.matchAll(/URI="([^"]+)"/g)) {
+        const abs = resolvePlaylistUrl(m[1], playlistUrl);
+        if (abs) {
+          try {
+            if (!isAllowed(new URL(abs).hostname)) return true;
+          } catch (_) {}
+        }
+      }
+      continue;
+    }
+    const abs = resolvePlaylistUrl(trimmed, playlistUrl);
+    if (abs) {
+      try {
+        if (!isAllowed(new URL(abs).hostname)) return true;
+      } catch (_) {}
+    }
+  }
+  return false;
 }
 
 /** Rewrites every Megavid URI inside an HLS playlist to our proxy.
@@ -1233,6 +1383,169 @@ async function resolveMegaPlay(anilistId, malId, ep, audio, req) {
   };
 }
 
+/**
+ * Picks up to 8 WebVTT subtitle tracks for Cinema HLS playback, ordering
+ * clean English captions first and deduplicating numbered mirrors
+ * (`English`, `English 2`, `Brazilian2`, ...) so English never gets
+ * pushed off the 8-track cap by alphabetical lists.
+ */
+function selectCinemaSubtitleTracks(rawTracks, baseOrigin = FMOV_ORIGIN) {
+  if (!Array.isArray(rawTracks)) return [];
+  const candidates = [];
+  for (const t of rawTracks) {
+    if (!t) continue;
+    const rawFile = t.file || t.url || t.src || '';
+    const abs = resolvePlaylistUrl(rawFile, baseOrigin);
+    if (!abs) continue;
+    const type = String(t.type || '').toLowerCase();
+    const path = abs.split('?')[0].toLowerCase();
+    if (type && type !== 'vtt' && !path.endsWith('.vtt')) continue;
+    if (path.endsWith('.srt') || path.endsWith('.ass') || path.endsWith('.ssa')) {
+      continue;
+    }
+    const rawLabel = String(t.label || t.lang || t.language || 'Subtitles').trim();
+    const norm = rawLabel.toLowerCase();
+    let rank = 2;
+    if (norm === 'english' || norm === 'en') rank = 0;
+    else if (/^english\b|^en[-_]/i.test(norm)) rank = 1;
+    const dedupeKey = norm
+      .replace(/\s*\d+$/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    candidates.push({ file: abs, label: rawLabel, rank, dedupeKey });
+  }
+  candidates.sort((a, b) => a.rank - b.rank);
+  const seen = new Set();
+  const out = [];
+  for (const c of candidates) {
+    if (seen.has(c.dedupeKey)) continue;
+    seen.add(c.dedupeKey);
+    out.push({ file: c.file, label: c.label });
+    if (out.length >= 8) break;
+  }
+  return out;
+}
+
+async function resolveCinema(mediaType, tmdbId, season, ep, req) {
+  const isTv = mediaType === 'tv';
+  const fmovSources = isTv
+    ? ['vector', 'core', 'titan', 'valence']
+    : ['valence', 'vector', 'core', 'titan'];
+  const proxyBase = megavidProxyBase(req);
+  const userToken = (req && req.query && req.query.token) || '';
+  const title = isTv ? `S${season} E${ep}` : 'Movie';
+  const epNum = isTv ? ep : 1;
+
+  const proxySubtitleTracks = async (rawSubtitles, baseOrigin) => {
+    const selected = selectCinemaSubtitleTracks(rawSubtitles, baseOrigin);
+    const needsStamp = selected.some((t) => {
+      try {
+        return !isAnimeCdnHost(new URL(t.file).hostname);
+      } catch (_) {
+        return false;
+      }
+    });
+    const key = needsStamp ? await cdnKey().catch(() => null) : null;
+    return selected.map((t) => ({
+      ...t,
+      file: megaplayProxyUrl(proxyBase, t.file, key),
+    }));
+  };
+
+  for (const srcKey of fmovSources) {
+    try {
+      const apiPath = isTv
+        ? `tv/${tmdbId}/${season}/${ep}`
+        : `movie/${tmdbId}`;
+      const url = `${FMOV_ORIGIN}/api/stream/${apiPath}?source=${srcKey}`;
+      const res = await fetch(url, {
+        headers: fmovHeaders({ Accept: 'application/json' }),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!data || !data.success) continue;
+      const rawSources = Array.isArray(data.sources) && data.sources.length > 0
+        ? data.sources
+        : data.url
+          ? [{ url: data.url, type: data.type || 'hls' }]
+          : [];
+      for (const s of rawSources) {
+        if (!s || !s.url) continue;
+        const kind = String(s.type || 'hls').toLowerCase();
+        if (kind !== 'hls' && !String(s.url).includes('.m3u8')) continue;
+        const masterUrl = resolvePlaylistUrl(s.url, FMOV_ORIGIN);
+        if (!masterUrl) continue;
+        try {
+          await verifyCinemaStream(masterUrl);
+          const tracks = await proxySubtitleTracks(data.subtitles, FMOV_ORIGIN);
+          const src = megavidProxyUrl(proxyBase, masterUrl);
+          return {
+            playerHtml: hlsPlayerHtml({
+              src,
+              tracks,
+              title,
+              token: userToken,
+              ep: epNum,
+            }),
+          };
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  // Fallback: VidBolt direct HLS resolver.
+  const vbQuery = isTv
+    ? `type=tv&id=${tmdbId}&season=${season}&episode=${ep}`
+    : `type=movie&id=${tmdbId}`;
+  const vbReferer = isTv
+    ? `${VIDBOLT_ORIGIN}/tv/${tmdbId}/${season}/${ep}`
+    : `${VIDBOLT_ORIGIN}/movie/${tmdbId}`;
+  const vbRes = await fetch(`${VIDBOLT_ORIGIN}/api/resolve?${vbQuery}`, {
+    headers: vidboltHeaders({
+      Accept: 'application/json',
+      Referer: vbReferer,
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Site': 'same-origin',
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (vbRes.ok) {
+    const vbData = await vbRes.json();
+    const stream = vbData && vbData.stream;
+    const vbSources = Array.isArray(stream && stream.sources)
+      ? stream.sources
+      : [];
+    for (const s of vbSources) {
+      if (!s || !s.url) continue;
+      const kind = String(s.kind || '').toLowerCase();
+      if (kind !== 'hls' && !String(s.url).includes('.m3u8')) continue;
+      const masterUrl = resolvePlaylistUrl(s.url, VIDBOLT_ORIGIN);
+      if (!masterUrl) continue;
+      try {
+        await verifyCinemaStream(masterUrl);
+        const tracks = await proxySubtitleTracks(
+          stream.subtitles,
+          VIDBOLT_ORIGIN,
+        );
+        const src = megavidProxyUrl(proxyBase, masterUrl);
+        return {
+          playerHtml: hlsPlayerHtml({
+            src,
+            tracks,
+            title,
+            token: userToken,
+            ep: epNum,
+          }),
+        };
+      } catch (_) {}
+    }
+  }
+
+  throw new Error('cinema: no playable stream');
+}
+
 // ─── Endpoints ───────────────────────────────────────────
 
 const proxyAnime = cappedHttps(20, async (req, res) => {
@@ -1292,6 +1605,25 @@ const proxyAnime = cappedHttps(20, async (req, res) => {
   if (source === 'megaplay' || source === 'everglow') {
     try {
       const out = await resolveMegaPlay(anilistId, malId, ep, audio, req);
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.set('Cache-Control', 'public, max-age=300');
+      res.status(200).send(out.playerHtml);
+      return;
+    } catch (e) {
+      sendFail('No stream found — try another server.');
+      return;
+    }
+  }
+
+  if (source === 'cinema') {
+    try {
+      const out = await resolveCinema(
+        params.mediaType,
+        params.tmdbId,
+        params.season,
+        params.ep,
+        req,
+      );
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.set('Cache-Control', 'public, max-age=300');
       res.status(200).send(out.playerHtml);
@@ -1398,12 +1730,17 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     return;
   }
   const megaplay = stamped || isMegaPlayHost(parsed.hostname);
+  const cinema = isCinemaHlsHost(parsed.hostname);
   if (!(await isPublicDnsHost(parsed.hostname))) {
     res.status(400).json({ error: 'Host not allowed' });
     return;
   }
   try {
-    const headers = megaplay ? megaplayHeaders() : megavidHeaders();
+    const headers = cinema
+      ? cinemaHeadersForUrl(targetUrl)
+      : megaplay
+        ? megaplayHeaders()
+        : megavidHeaders();
     const range = req.get('Range') || req.headers.range;
     if (range && typeof range === 'string') headers.Range = range;
     const upstream = await fetch(targetUrl, {
@@ -1419,14 +1756,23 @@ const proxyMegavidHls = cappedHttps(30, async (req, res) => {
     const looksLikePlaylist =
       upstreamCt.includes('mpegurl') ||
       upstreamCt.includes('x-mpegurl') ||
-      parsed.pathname.toLowerCase().includes('.m3u8');
+      parsed.pathname.toLowerCase().includes('.m3u8') ||
+      (parsed.search.toLowerCase().includes('.m3u8') &&
+        !upstreamCt.includes('video/'));
     if (looksLikePlaylist) {
       const text = await upstream.text();
       if (text && text.includes('#EXTM3U')) {
         const proxyBase = megavidProxyBase(req);
         // Nested URLs stay token-free (identity rides the header).
-        const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
-        const stampKey = megaplay ? await cdnKey().catch(() => null) : null;
+        const isAllowed = cinema
+          ? isCinemaHlsHost
+          : megaplay
+            ? isMegaPlayHost
+            : isMegavidHost;
+        const stampKey =
+          (megaplay || cinema) && playlistNeedsStamp(text, targetUrl, isAllowed)
+            ? await cdnKey().catch(() => null)
+            : null;
         const rewritten = rewritePlaylistWithHosts(
           text,
           targetUrl,
@@ -1574,6 +1920,9 @@ module.exports = {
   NO_SOURCE_MARKER,
   isMegavidHost,
   isMegaPlayHost,
+  isFmovHost,
+  isVidBoltHost,
+  isCinemaHlsHost,
   isAnimeCdnHost,
   megavidProxyUrl,
   rewriteMegavidPlaylist,
@@ -1583,12 +1932,22 @@ module.exports = {
   validCdnStamp,
   megavidHeaders,
   megaplayHeaders,
+  fmovHeaders,
+  vidboltHeaders,
+  cinemaHeadersForUrl,
   MEGAVID_ORIGIN,
   MEGAPLAY_ORIGIN,
+  FMOV_ORIGIN,
+  VIDBOLT_ORIGIN,
   MEGAPLAY_HOSTS,
+  FMOV_HOSTS,
+  VIDBOLT_HOSTS,
   resolveMegaPlay,
+  resolveCinema,
+  selectCinemaSubtitleTracks,
   decryptMegaPlayPayload,
   makeMegaPlayToken,
   verifyMegaPlayStream,
+  verifyCinemaStream,
   verifyStream,
-}
+};

@@ -97,7 +97,7 @@ void main() {
       );
     });
 
-    test('builds Everglow embed movie URLs with start passthrough', () {
+    test('builds Everglow HLS movie URLs with start passthrough', () {
       expect(
         buildVideoSourceUrl(
           CinemaVideoSources.everglowEmbed,
@@ -107,11 +107,12 @@ void main() {
           episode: 1,
           startSeconds: 90,
         ),
-        'https://everglow-1c6db.web.app/embed.html?tmdbId=603&type=movie&start=90',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=cinema&type=movie&tmdbId=603&start=90',
       );
     });
 
-    test('builds Everglow embed TV URLs with season and episode', () {
+    test('builds Everglow HLS TV URLs with season and episode', () {
       expect(
         buildVideoSourceUrl(
           CinemaVideoSources.everglowEmbed,
@@ -120,7 +121,8 @@ void main() {
           season: 2,
           episode: 3,
         ),
-        'https://everglow-1c6db.web.app/embed.html?tmdbId=1399&type=tv&s=2&e=3',
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        '?source=cinema&type=tv&tmdbId=1399&s=2&e=3',
       );
     });
   });

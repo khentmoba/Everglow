@@ -9,10 +9,17 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      EmbedWebView.isOwnedPlayerUrl(
+        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime?source=cinema&type=movie&tmdbId=603',
+      ),
+      isTrue,
+    );
     for (final url in [
       'http://everglow-1c6db.web.app/embed.html',
       'https://evil.test/embed.html',
       'https://everglow-1c6db.web.app/other',
+      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime?source=megaplay',
     ]) {
       expect(EmbedWebView.isOwnedPlayerUrl(url), isFalse);
     }
@@ -21,10 +28,20 @@ void main() {
       isTrue,
     );
     expect(
+      EmbedWebView.isPlayerFailure('animex-content-error'),
+      isTrue,
+    );
+    expect(
       EmbedWebView.isPlayerFailure('{"type":"cinesrc:nextepisode"}'),
       isFalse,
     );
     expect(EmbedWebView.isPlayerFailure('invalid json'), isFalse);
+    expect(
+      EmbedWebView.parsePlayerProgress(
+        '{"type":"animex-progress","position":45.6,"duration":120.2}',
+      ),
+      (46, 120),
+    );
   });
 
   group('EmbedWebView.parsePlayerEpisode', () {
