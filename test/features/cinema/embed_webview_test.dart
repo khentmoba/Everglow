@@ -11,7 +11,7 @@ void main() {
     );
     expect(
       EmbedWebView.isOwnedPlayerUrl(
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime?source=cinema&type=movie&tmdbId=603',
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime?source=cinema&type=movie&tmdbId=603',
       ),
       isTrue,
     );
@@ -19,7 +19,7 @@ void main() {
       'http://everglow-1c6db.web.app/embed.html',
       'https://evil.test/embed.html',
       'https://everglow-1c6db.web.app/other',
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime?source=megaplay',
+      'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime?source=megaplay',
     ]) {
       expect(EmbedWebView.isOwnedPlayerUrl(url), isFalse);
     }

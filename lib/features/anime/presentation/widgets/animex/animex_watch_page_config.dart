@@ -258,7 +258,7 @@ class AnimeXWatchPage extends StatefulWidget {
   /// Clair's phone — and a missing episode answers with the failover
   /// marker (HTTP 502) instead of spinning its loader forever.
   static const String proxyAnimeBase =
-      'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime';
+      'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime';
 
   /// Builds the Megavid player URL via our ad-free resolver.
   @visibleForTesting

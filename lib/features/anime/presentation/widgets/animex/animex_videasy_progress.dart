@@ -55,7 +55,7 @@ VideasyProgress? parseVideasyProgress(String origin, String data) {
 }
 
 const animeXProxyOrigin =
-    'https://us-central1-everglow-1c6db.cloudfunctions.net';
+    'https://everglow-stream.khentplaysmoba.workers.dev';
 
 /// Our Megavid and MegaPlay (Everglow) HTML implements the seek/progress protocol.
 bool isAnimeXProxyPlayerUrl(String url) {

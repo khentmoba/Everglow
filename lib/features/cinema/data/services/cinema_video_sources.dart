@@ -11,7 +11,7 @@ class CinemaVideoSources {
   CinemaVideoSources._();
 
   static const String proxyCinemaOrigin =
-      'https://us-central1-everglow-1c6db.cloudfunctions.net';
+      'https://everglow-stream.khentplaysmoba.workers.dev';
   static const String proxyCinemaBase = '$proxyCinemaOrigin/proxyAnime';
 
   /// Builds the Cinema Everglow HLS player URL via our ad-free resolver.

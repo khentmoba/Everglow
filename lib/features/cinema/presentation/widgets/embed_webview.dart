@@ -107,7 +107,7 @@ class EmbedWebView extends StatefulWidget {
     if (uri.host == 'everglow-1c6db.web.app' && uri.path == '/embed.html') {
       return true;
     }
-    return uri.host == 'us-central1-everglow-1c6db.cloudfunctions.net' &&
+    return uri.host == 'everglow-stream.khentplaysmoba.workers.dev' &&
         uri.path == '/proxyAnime' &&
         uri.queryParameters['source'] == 'cinema';
   }

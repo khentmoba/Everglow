@@ -109,7 +109,7 @@ void main() {
           season: 1,
           episode: 1,
         ),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=cinema&type=movie&tmdbId=603',
       );
     });
@@ -123,7 +123,7 @@ void main() {
           season: 2,
           episode: 3,
         ),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=cinema&type=tv&tmdbId=1399&s=2&e=3',
       );
     });
@@ -202,7 +202,7 @@ void main() {
   });
 
   group('CinemaVideoSources.parseEverglowHlsProgress', () {
-    const origin = 'https://us-central1-everglow-1c6db.cloudfunctions.net';
+    const origin = 'https://everglow-stream.khentplaysmoba.workers.dev';
 
     test('parses valid animex-progress messages from our HLS player', () {
       expect(

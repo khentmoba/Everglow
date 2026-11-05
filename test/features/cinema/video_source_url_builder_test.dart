@@ -107,7 +107,7 @@ void main() {
           episode: 1,
           startSeconds: 90,
         ),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=cinema&type=movie&tmdbId=603&start=90',
       );
     });
@@ -121,7 +121,7 @@ void main() {
           season: 2,
           episode: 3,
         ),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=cinema&type=tv&tmdbId=1399&s=2&e=3',
       );
     });
