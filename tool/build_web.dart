@@ -49,6 +49,84 @@ Future<void> main(List<String> args) async {
     print("[build_web] CanvasKit served from $canvaskitUrl");
   }
   _stampCoreShell();
+  _stampFirebasePreload();
+}
+
+/// Emits `<link rel="modulepreload">` for the Firebase JS SDK modules into the
+/// built index.html, so their ~500KB is fetched while the shell is still
+/// downloading instead of after `main.dart.js` has evaluated.
+///
+/// `firebase_core_web` injects these from `_initializeCore()`, which only runs
+/// inside `Firebase.initializeApp()` — measured at ~1230ms into a cold load,
+/// strictly serial behind the 1.3MB shell. They are ES modules, so a
+/// modulepreload lands in the module map that the later `import()` reuses.
+///
+/// The version comes from the resolved `firebase_core_web` package, never a
+/// hand-written constant, so a dependency bump cannot leave a stale preload
+/// downloading a module nothing imports. Fails the build when the placeholder
+/// or the version is missing: silently skipping would quietly restore the
+/// serial load this exists to remove.
+void _stampFirebasePreload() {
+  const startMarker = "<!-- EVERGLOW_FIREBASE_PRELOAD_START -->";
+  const endMarker = "<!-- EVERGLOW_FIREBASE_PRELOAD_END -->";
+  final index = File("build/web/index.html");
+  if (!index.existsSync()) {
+    throw StateError("[build_web] missing build/web/index.html; cannot stamp Firebase preload.");
+  }
+  final version = _firebaseJsSdkVersion();
+  final links = [
+    for (final service in ["app", "auth", "firestore", "messaging", "storage"])
+      "  <link rel=\"modulepreload\" crossorigin=\"anonymous\" "
+          "href=\"https://www.gstatic.com/firebasejs/$version/firebase-$service.js\">",
+  ].join("\n");
+  final src = index.readAsStringSync();
+  final start = src.indexOf(startMarker);
+  final end = src.indexOf(endMarker);
+  if (start < 0 || end < start) {
+    throw StateError(
+      "[build_web] index.html is missing the Firebase preload markers; "
+      "update _stampFirebasePreload.",
+    );
+  }
+  final updated = src.replaceRange(start, end + endMarker.length, links);
+  index.writeAsStringSync(updated);
+  print("[build_web] Firebase SDK preloaded at $version (5 modules)");
+}
+
+/// Reads `supportedFirebaseJsSdkVersion` from the resolved `firebase_core_web`
+/// package, i.e. the exact version `firebase_core` will import at runtime.
+String _firebaseJsSdkVersion() {
+  final config = File(".dart_tool/package_config.json");
+  if (!config.existsSync()) {
+    throw StateError("[build_web] missing .dart_tool/package_config.json; run flutter pub get.");
+  }
+  final decoded = jsonDecode(config.readAsStringSync()) as Map<String, dynamic>;
+  final packages = (decoded["packages"] as List).cast<Map<String, dynamic>>();
+  final entry = packages.firstWhere(
+    (p) => p["name"] == "firebase_core_web",
+    orElse: () => throw StateError(
+      "[build_web] firebase_core_web is not resolved; cannot stamp the Firebase preload.",
+    ),
+  );
+  final rootUri = entry["rootUri"] as String;
+  final root = rootUri.startsWith("file:")
+      ? Uri.parse(rootUri).toFilePath()
+      : rootUri;
+  final versionFile = File("$root/lib/src/firebase_sdk_version.dart");
+  if (!versionFile.existsSync()) {
+    throw StateError(
+      "[build_web] ${versionFile.path} is missing; firebase_core_web layout changed.",
+    );
+  }
+  final match = RegExp(
+    r'''supportedFirebaseJsSdkVersion\s*=\s*['"]([^'"]+)['"]''',
+  ).firstMatch(versionFile.readAsStringSync());
+  if (match == null) {
+    throw StateError(
+      "[build_web] could not read supportedFirebaseJsSdkVersion from ${versionFile.path}.",
+    );
+  }
+  return match.group(1)!;
 }
 
 /// Rewrites the core-shell URL to `main.dart.js?v=<build stamp>` in the

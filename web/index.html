@@ -61,6 +61,17 @@
   <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
   <link rel="dns-prefetch" href="https://securetoken.googleapis.com">
 
+  <!-- Firebase SDK, fetched while the shell is still downloading.
+       firebase_core_web injects these five modules from _initializeCore(),
+       which only runs after main.dart.js has evaluated — measured at ~1230ms
+       into a cold load, i.e. strictly serial behind the 1.3MB shell. They are
+       ES modules, so modulepreload fetches and compiles them into the module
+       map that the later import() then hits. Version is stamped by
+       tool/build_web.dart from the resolved firebase_core_web package, so it
+       can never drift from what the app actually imports. -->
+  <!-- EVERGLOW_FIREBASE_PRELOAD_START -->
+  <!-- EVERGLOW_FIREBASE_PRELOAD_END -->
+
   <!-- Bootstrap is the critical script: preload it at high priority. -->
   <link rel="preload" href="flutter_bootstrap.js" as="script" fetchpriority="high">
   <!-- main.dart.js is deliberately NOT preloaded. Our service worker (sw.js)
