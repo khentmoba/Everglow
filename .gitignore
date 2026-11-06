@@ -104,3 +104,6 @@ web/table_tennis/index.html.bak
 # Cloudflare Worker local state
 cloudflare/.dev.vars
 cloudflare/.wrangler/
+
+# Local performance scratch (measurement logs, throwaway builds)
+.perfwork/

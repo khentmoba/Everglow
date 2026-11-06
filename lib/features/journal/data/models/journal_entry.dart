@@ -177,6 +177,23 @@ class JournalEntry {
     };
   }
 
+  /// JSON shape for the on-device preview cache.
+  ///
+  /// Timestamps become ISO-8601 strings rather than epoch millis: [fromMap]
+  /// reads both through [_parseTs], but only the string form keeps the
+  /// original zone, so a cached entry round-trips to an identical DateTime
+  /// instead of silently becoming local time. Every other field is already
+  /// JSON-safe. A cached entry and a live one therefore parse through the same
+  /// code path, which is what keeps the first painted frame identical to the
+  /// revalidated one.
+  Map<String, dynamic> toCacheJson() {
+    return {
+      ...toFirestore(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
   static String _monthDay(DateTime d) =>
       '${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
