@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:convert';
 import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/agent/agent_fixtures.dart';
 import '../../../../core/utils/firestore_stream_utils.dart';
@@ -20,13 +22,91 @@ class JournalService {
   factory JournalService({FirebaseFirestore? db}) => db == null
       ? _instance ??= JournalService._internal()
       : JournalService._internal(db);
-  JournalService._internal([this._customDb]);
+  JournalService._internal([this._customDb]) {
+    // Warm the preview cache off the critical path so the dashboard rail can
+    // paint on its first frame. Skipped for injected test databases, which
+    // must not touch device storage.
+    if (_customDb == null) unawaited(loadPreviewCache());
+  }
 
   final FirebaseFirestore? _customDb;
   FirebaseFirestore get _db => _customDb ?? FirebaseFirestore.instance;
   final String _collection = 'journal_entries';
   final Map<String, JournalEntry> _demoMemories = {};
   final _demoChanges = StreamController<void>.broadcast();
+
+  /// Last preview painted on this device, kept so a cold dashboard shows
+  /// entries instead of a skeleton while the live stream revalidates.
+  static const _previewCacheKey = 'journal_preview_cache_v1';
+  List<JournalEntry> _cachedPreview = const [];
+
+  /// Entries already on disk, usable before any Firestore round trip.
+  List<JournalEntry> get cachedPreview => _cachedPreview;
+
+  /// Reads the on-device preview cache. Safe to call repeatedly: the first
+  /// successful read wins and later calls return immediately.
+  Future<List<JournalEntry>> loadPreviewCache() async {
+    if (_cachedPreview.isNotEmpty) return _cachedPreview;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_previewCacheKey);
+      if (raw == null || raw.isEmpty) return _cachedPreview;
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return _cachedPreview;
+      final entries = <JournalEntry>[];
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        try {
+          entries.add(
+            JournalEntry.fromMap(
+              Map<String, dynamic>.from(item),
+              item['id']?.toString() ?? '',
+            ),
+          );
+        } catch (e) {
+          Logger.w('Journal: skipping malformed cached entry', error: e);
+        }
+      }
+      if (entries.isNotEmpty && _cachedPreview.isEmpty) {
+        _cachedPreview = List.unmodifiable(entries);
+      }
+    } catch (e) {
+      Logger.w('Journal: failed to load preview cache: $e');
+    }
+    return _cachedPreview;
+  }
+
+  Future<void> _savePreviewCache(List<JournalEntry> entries) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _previewCacheKey,
+        jsonEncode([
+          for (final e in entries) {...e.toCacheJson(), 'id': e.id},
+        ]),
+      );
+    } catch (e) {
+      Logger.w('Journal: failed to save preview cache: $e');
+    }
+  }
+
+  /// Emits what is already on disk, then the live stream.
+  ///
+  /// Stale-while-revalidate: the rail paints from cache in the first frame
+  /// instead of waiting a WebChannel round trip for data the device already
+  /// has. The live snapshot still replaces it moments later, so nothing here
+  /// can show stale content for longer than the revalidation takes.
+  ///
+  /// [live] is a factory, not a stream, so the query is only created once the
+  /// cached frame has been handed to the widget. That keeps the first paint
+  /// independent of Firestore being reachable at all.
+  Stream<List<JournalEntry>> _cachedFirst(
+    Stream<List<JournalEntry>> Function() live,
+  ) async* {
+    final cached = _cachedPreview;
+    if (cached.isNotEmpty) yield cached;
+    yield* live();
+  }
 
   Stream<JournalEntry?> watchEntry(JournalEntry initial) {
     if (AgentMode.isActive.value) return _watchDemoEntry(initial);
@@ -298,14 +378,20 @@ class JournalService {
           .orderBy('createdAt', descending: true)
           .limit(limit)
           .snapshots()
-          .map(
-            (snap) =>
-                snap.docs.map((d) => JournalEntry.fromFirestore(d)).toList(),
-          );
+          .map((snap) {
+            final entries = snap.docs
+                .map((d) => JournalEntry.fromFirestore(d))
+                .toList();
+            if (entries.isNotEmpty) {
+              _cachedPreview = List.unmodifiable(entries);
+              unawaited(_savePreviewCache(_cachedPreview));
+            }
+            return entries;
+          });
     }
 
     return withFirestoreTimeout(
-      subscribe(),
+      _cachedFirst(subscribe),
       resubscribe: subscribe,
       label: 'journal-preview',
       duration: const Duration(seconds: 12),
