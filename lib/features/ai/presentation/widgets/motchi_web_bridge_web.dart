@@ -237,8 +237,11 @@ class MotchiWebBridge {
   }
 
   bool get isSpeechSupported {
-    if (globalContext.has('webkitSpeechRecognition')) return true;
-    if (globalContext.has('SpeechRecognition')) return true;
+    // Deliberately a value check, not `has()`. A page can define these globals
+    // and set them to null to mean "unsupported", which `has()` would read as
+    // supported. This matches the previous `js.context[...] != null` behaviour.
+    if (globalContext['webkitSpeechRecognition'] != null) return true;
+    if (globalContext['SpeechRecognition'] != null) return true;
     return false;
   }
 
