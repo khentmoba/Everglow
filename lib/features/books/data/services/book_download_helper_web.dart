@@ -1,14 +1,17 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
+import 'package:web/web.dart' as web;
 
 /// Trigger a browser download for a public-domain file URL.
 /// Works only on web (the app's only target). On other platforms
 /// this is a no-op; callers should fall back to [url_launcher].
+///
+/// Uses `package:web` rather than `dart:html` so this file also compiles for
+/// the WebAssembly renderer, where `dart:html` is unavailable.
 void downloadUrl(String url, {String? filename}) {
   if (!kIsWeb || url.isEmpty) return;
   try {
-    final anchor = html.AnchorElement(href: url)
+    final anchor = web.HTMLAnchorElement()
+      ..href = url
       ..target = '_blank'
       ..rel = 'noopener';
     if (filename != null && filename.isNotEmpty) {
@@ -17,6 +20,6 @@ void downloadUrl(String url, {String? filename}) {
     anchor.click();
   } catch (e) {
     // Fall back to a plain window open if the anchor trick fails.
-    html.window.open(url, '_blank');
+    web.window.open(url, '_blank');
   }
 }

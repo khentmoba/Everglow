@@ -1,9 +1,9 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:async';
-import 'dart:html' as html;
-import 'dart:js' as js;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:web/web.dart' as web;
 
 import '../../../../core/utils/logger.dart';
 
@@ -12,66 +12,84 @@ import '../../../../core/utils/logger.dart';
 /// Clipboard paste and canvas-based image resizing only exist in the
 /// browser; the native twin keeps the same surface as safe no-ops /
 /// codec-based resizing.
+///
+/// Uses `package:web` + `dart:js_interop` rather than the legacy `dart:html`
+/// and `dart:js` libraries so this file also compiles for the WebAssembly
+/// renderer, where both are unavailable. Behaviour is unchanged: the same
+/// browser APIs are called with the same arguments.
 class MotchiWebBridge {
-  html.EventListener? _pasteListener;
-  html.EventListener? _voiceVisibilityListener;
-  js.JsObject? _recognition;
+  web.EventListener? _pasteListener;
+  web.EventListener? _voiceVisibilityListener;
+  JSObject? _recognition;
   Completer<String?>? _speech;
   Timer? _speechTimeout;
   String? _speechTranscript;
-  js.JsObject? _audioContext;
-  js.JsObject? _audioSource;
-  html.MediaStream? _meterStream;
+  JSObject? _audioContext;
+  JSObject? _audioSource;
+  web.MediaStream? _meterStream;
   Timer? _meterTimer;
 
-  String get speechLanguage =>
-      (html.window.navigator.languages ?? const <String>[]).firstWhere(
-        (language) =>
-            language.toLowerCase().startsWith('en-') || language == 'en',
-        orElse: () => 'en-US',
-      );
+  String get speechLanguage {
+    final languages = web.window.navigator.languages.toDart.map(
+      (language) => language.toDart,
+    );
+    return languages.firstWhere(
+      (language) =>
+          language.toLowerCase().startsWith('en-') || language == 'en',
+      orElse: () => 'en-US',
+    );
+  }
 
   Future<void> _startAudioMeter(
-    js.JsObject recognition,
+    JSObject recognition,
     ValueChanged<double> onLevel,
   ) async {
     try {
-      final devices = html.window.navigator.mediaDevices;
-      if (devices == null) return;
+      final devices = web.window.navigator.mediaDevices;
       final ctor =
-          js.context['AudioContext'] ?? js.context['webkitAudioContext'];
+          globalContext['AudioContext'] ?? globalContext['webkitAudioContext'];
       if (ctor == null) return;
-      final context = js.JsObject(ctor);
+      final context = (ctor as JSFunction).callAsConstructorVarArgs<JSObject>();
       _audioContext = context;
       // Resume in the tap, before awaiting microphone permission on Safari.
       _audioAction(context, 'resume');
-      final stream = await devices.getUserMedia({
-        'audio': {
-          'echoCancellation': true,
-          'noiseSuppression': true,
-          'autoGainControl': true,
-        },
-        'video': false,
-      });
+      final audioConstraints = <String, Object>{
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+      }.jsify()!;
+      final stream = await devices
+          .getUserMedia(
+            web.MediaStreamConstraints(
+              audio: audioConstraints,
+              video: false.toJS,
+            ),
+          )
+          .toDart;
       if (!identical(_recognition, recognition) ||
           !identical(_audioContext, context)) {
-        for (final track in stream.getTracks()) {
+        for (final track in stream.getTracks().toDart) {
           track.stop();
         }
         return;
       }
       _meterStream = stream;
-      final source =
-          context.callMethod('createMediaStreamSource', [stream])
-              as js.JsObject;
+      final source = context.callMethodVarArgs<JSObject>(
+        'createMediaStreamSource'.toJS,
+        [stream],
+      );
       _audioSource = source;
-      final analyser = context.callMethod('createAnalyser') as js.JsObject;
-      analyser['fftSize'] = 256;
-      source.callMethod('connect', [analyser]);
+      final analyser = context.callMethodVarArgs<JSObject>(
+        'createAnalyser'.toJS,
+      );
+      analyser['fftSize'] = 256.toJS;
+      source.callMethodVarArgs('connect'.toJS, [analyser]);
       final samples = Uint8List(256);
       // Only measure locally; never record, upload, or connect to speakers.
       _meterTimer = Timer.periodic(const Duration(milliseconds: 80), (_) {
-        analyser.callMethod('getByteTimeDomainData', [samples]);
+        analyser.callMethodVarArgs('getByteTimeDomainData'.toJS, [
+          samples.toJS,
+        ]);
         var energy = 0.0;
         for (final sample in samples) {
           final amplitude = (sample - 128) / 128;
@@ -85,13 +103,13 @@ class MotchiWebBridge {
     }
   }
 
-  void _audioAction(js.JsObject context, String method) {
+  void _audioAction(JSObject context, String method) {
     try {
-      final pending = context.callMethod(method) as js.JsObject;
-      pending.callMethod('catch', [
-        (dynamic error) {
+      final pending = context.callMethodVarArgs<JSObject>(method.toJS);
+      pending.callMethodVarArgs('catch'.toJS, [
+        ((JSAny? error) {
           Logger.e('Motchi audio $method failed', error: error);
-        },
+        }).toJS,
       ]);
     } catch (error) {
       Logger.e('Motchi audio $method failed', error: error);
@@ -101,10 +119,10 @@ class MotchiWebBridge {
   void _stopAudioMeter() {
     _meterTimer?.cancel();
     _meterTimer = null;
-    _audioSource?.callMethod('disconnect');
+    _audioSource?.callMethodVarArgs('disconnect'.toJS);
     _audioSource = null;
     for (final track
-        in _meterStream?.getTracks() ?? <html.MediaStreamTrack>[]) {
+        in _meterStream?.getTracks().toDart ?? <web.MediaStreamTrack>[]) {
       track.stop();
     }
     _meterStream = null;
@@ -120,7 +138,7 @@ class MotchiWebBridge {
     _finishSpeech(null);
     if (rec != null) {
       try {
-        rec.callMethod('abort');
+        rec.callMethodVarArgs('abort'.toJS);
       } catch (error) {
         Logger.e('Motchi microphone could not close', error: error);
       }
@@ -130,7 +148,7 @@ class MotchiWebBridge {
   void stopRecognition() {
     _stopAudioMeter();
     try {
-      _recognition?.callMethod('stop');
+      _recognition?.callMethodVarArgs('stop'.toJS);
       if (_speech != null) {
         _speechTimeout?.cancel();
         _speechTimeout = Timer(const Duration(seconds: 3), () {
@@ -151,11 +169,9 @@ class MotchiWebBridge {
     final rec = _recognition;
     _recognition = null;
     _stopAudioMeter();
-    if (_voiceVisibilityListener != null) {
-      html.document.removeEventListener(
-        'visibilitychange',
-        _voiceVisibilityListener,
-      );
+    final visibilityListener = _voiceVisibilityListener;
+    if (visibilityListener != null) {
+      web.document.removeEventListener('visibilitychange', visibilityListener);
       _voiceVisibilityListener = null;
     }
     if (rec != null) {
@@ -164,7 +180,7 @@ class MotchiWebBridge {
       rec['onend'] = null;
       if (error != null || abort) {
         try {
-          rec.callMethod('abort');
+          rec.callMethodVarArgs('abort'.toJS);
         } catch (abortError) {
           Logger.e('Motchi microphone could not close', error: abortError);
         }
@@ -180,43 +196,49 @@ class MotchiWebBridge {
 
   void installPasteListener(ValueChanged<String> onPasteDataUri) {
     uninstallPasteListener();
-    _pasteListener = (html.Event event) {
-      final e = event as html.ClipboardEvent;
-      final items = e.clipboardData?.items;
+    _pasteListener = ((web.ClipboardEvent event) {
+      final items = event.clipboardData?.items;
       if (items == null) return;
-      final length = items.length ?? 0;
+      final length = items.length;
       for (int i = 0; i < length; i++) {
         final item = items[i];
-        if (item.type?.startsWith('image/') == true) {
+        if (item.type.startsWith('image/')) {
           final file = item.getAsFile();
           if (file != null) {
-            final reader = html.FileReader();
-            reader.onLoadEnd.listen((_) {
-              final result = reader.result as String?;
-              if (result != null && result.contains(',')) {
-                final base64Data = result.split(',').last;
-                final ext = item.type?.split('/').last ?? 'png';
-                onPasteDataUri('data:image/$ext;base64,$base64Data');
-              }
-            });
-            reader.readAsDataUrl(file);
+            final reader = web.FileReader();
+            reader.addEventListener(
+              'loadend',
+              ((web.Event _) {
+                final result = reader.result;
+                final text = result.isA<JSString>()
+                    ? (result as JSString).toDart
+                    : null;
+                if (text != null && text.contains(',')) {
+                  final base64Data = text.split(',').last;
+                  final ext = item.type.split('/').last;
+                  onPasteDataUri('data:image/$ext;base64,$base64Data');
+                }
+              }).toJS,
+            );
+            reader.readAsDataURL(file);
           }
           break;
         }
       }
-    };
-    html.window.addEventListener('paste', _pasteListener);
+    }).toJS;
+    web.window.addEventListener('paste', _pasteListener);
   }
 
   void uninstallPasteListener() {
-    if (_pasteListener == null) return;
-    html.window.removeEventListener('paste', _pasteListener);
+    final listener = _pasteListener;
+    if (listener == null) return;
+    web.window.removeEventListener('paste', listener);
     _pasteListener = null;
   }
 
   bool get isSpeechSupported {
-    if (js.context['webkitSpeechRecognition'] != null) return true;
-    if (js.context['SpeechRecognition'] != null) return true;
+    if (globalContext.has('webkitSpeechRecognition')) return true;
+    if (globalContext.has('SpeechRecognition')) return true;
     return false;
   }
 
@@ -227,42 +249,42 @@ class MotchiWebBridge {
   }) {
     cancelRecognition();
     final ctor =
-        js.context['webkitSpeechRecognition'] ??
-        js.context['SpeechRecognition'];
+        globalContext['webkitSpeechRecognition'] ??
+        globalContext['SpeechRecognition'];
     if (ctor == null) return Future.value(null);
     final pending = Completer<String?>();
     _speech = pending;
-    final rec = js.JsObject(ctor);
+    final rec = (ctor as JSFunction).callAsConstructorVarArgs<JSObject>();
     _recognition = rec;
-    _voiceVisibilityListener = (_) {
-      if (html.document.hidden == true) {
+    _voiceVisibilityListener = ((web.Event _) {
+      if (web.document.hidden) {
         _finishSpeech(_speechTranscript, abort: true);
       }
-    };
-    html.document.addEventListener(
+    }).toJS;
+    web.document.addEventListener(
       'visibilitychange',
       _voiceVisibilityListener,
     );
-    rec['lang'] = lang ?? speechLanguage;
-    rec['interimResults'] = true;
-    rec['maxAlternatives'] = 1;
-    rec['continuous'] = true;
-    rec['onresult'] = (dynamic event) {
+    rec['lang'] = (lang ?? speechLanguage).toJS;
+    rec['interimResults'] = true.toJS;
+    rec['maxAlternatives'] = 1.toJS;
+    rec['continuous'] = true.toJS;
+    rec['onresult'] = ((JSAny? event) {
       if (!identical(_recognition, rec)) return;
       try {
         // Keep the latest full result list: interim words can be revised, and
         // mobile browsers may end listening without sending a final result.
-        // DOM events arrive as dart:html Events, not indexable JsObjects.
-        final browserEvent = event is js.JsObject
-            ? event
-            : js.JsObject.fromBrowserObject(event);
-        final results = browserEvent['results'] as js.JsObject;
+        final browserEvent = event as JSObject;
+        final results = browserEvent.getProperty<JSObject>('results'.toJS);
         final words = <String>[];
-        final length = results['length'] as int;
+        final length = (results.getProperty<JSNumber>('length'.toJS)).toDartInt;
         for (var i = 0; i < length; i++) {
-          final result = results[i] as js.JsObject;
-          final alternative = result[0] as js.JsObject;
-          final text = alternative['transcript']?.toString().trim();
+          final result = results.getProperty<JSObject>(i.toJS);
+          final alternative = result.getProperty<JSObject>(0.toJS);
+          final transcript = alternative['transcript'];
+          final text = transcript.isA<JSString>()
+              ? (transcript as JSString).toDart.trim()
+              : null;
           if (text != null && text.isNotEmpty) words.add(text);
         }
         _speechTranscript = words.isEmpty ? null : words.join(' ');
@@ -270,25 +292,23 @@ class MotchiWebBridge {
       } catch (error) {
         _finishSpeech(null, error: error);
       }
-    };
-    rec['onerror'] = (dynamic event) {
+    }).toJS;
+    rec['onerror'] = ((JSAny? event) {
       if (!identical(_recognition, rec)) return;
-      final browserEvent = event is js.JsObject
-          ? event
-          : js.JsObject.fromBrowserObject(event);
-      final code = browserEvent['error']?.toString() ?? 'unknown';
+      final browserEvent = event as JSObject;
+      final code = browserEvent['error']?.dartify()?.toString() ?? 'unknown';
       if (code == 'no-speech') {
         _finishSpeech(_speechTranscript, abort: true);
       } else {
         _finishSpeech(null, error: StateError(code));
       }
-    };
-    rec['onend'] = (dynamic _) {
+    }).toJS;
+    rec['onend'] = ((JSAny? _) {
       if (identical(_recognition, rec)) _finishSpeech(_speechTranscript);
-    };
+    }).toJS;
     // Start directly in the mic tap so Safari retains user activation.
     try {
-      rec.callMethod('start');
+      rec.callMethodVarArgs('start'.toJS);
       if (_speech != null) {
         _speechTimeout = Timer(const Duration(minutes: 2), stopRecognition);
         if (onAudioLevel != null) {
@@ -306,49 +326,61 @@ class MotchiWebBridge {
     Uint8List bytes, {
     int maxDim = 1280,
   }) async {
-    final blob = html.Blob([bytes]);
-    final objectUrl = html.Url.createObjectUrlFromBlob(blob);
+    final blob = web.Blob([bytes.toJS].toJS);
+    final objectUrl = web.URL.createObjectURL(blob);
     final completer = Completer<String>();
     try {
-      final img = html.ImageElement();
-      img.onLoad.listen((_) async {
-        try {
-          final scale = math.min(
-            1.0,
-            maxDim / math.max(img.naturalWidth, img.naturalHeight),
-          );
-          final w = (img.naturalWidth * scale).round().clamp(1, 4096);
-          final h = (img.naturalHeight * scale).round().clamp(1, 4096);
-          final canvas = html.CanvasElement(width: w, height: h);
-          final ctx = canvas.context2D;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'medium';
-          ctx.drawImage(img, 0, 0);
-          final isPng =
-              bytes.length > 8 &&
-              bytes[0] == 0x89 &&
-              bytes[1] == 0x50 &&
-              bytes[2] == 0x4E &&
-              bytes[3] == 0x47;
-          final mime = isPng ? 'image/png' : 'image/jpeg';
-          final quality = isPng ? null : 0.82;
-          completer.complete(canvas.toDataUrl(mime, quality));
-        } catch (e) {
-          completer.completeError(e);
-        } finally {
-          html.Url.revokeObjectUrl(objectUrl);
-        }
-      });
-      img.onError.listen((_) {
-        html.Url.revokeObjectUrl(objectUrl);
-        if (!completer.isCompleted) {
-          completer.completeError(Exception('Image could not be loaded'));
-        }
-      });
+      final img = web.HTMLImageElement();
+      img.addEventListener(
+        'load',
+        ((web.Event _) {
+          // A JS callback cannot be an async function (its Future return type
+          // has no JS equivalent), so the async work is detached here.
+          unawaited(() async {
+          try {
+            final scale = math.min(
+              1.0,
+              maxDim / math.max(img.naturalWidth, img.naturalHeight),
+            );
+            final w = (img.naturalWidth * scale).round().clamp(1, 4096);
+            final h = (img.naturalHeight * scale).round().clamp(1, 4096);
+            final canvas = web.HTMLCanvasElement()
+              ..width = w
+              ..height = h;
+            final ctx = canvas.getContext('2d') as web.CanvasRenderingContext2D;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'medium';
+            ctx.drawImage(img, 0, 0);
+            final isPng =
+                bytes.length > 8 &&
+                bytes[0] == 0x89 &&
+                bytes[1] == 0x50 &&
+                bytes[2] == 0x4E &&
+                bytes[3] == 0x47;
+            final mime = isPng ? 'image/png' : 'image/jpeg';
+            final quality = isPng ? null : 0.82;
+            completer.complete(canvas.toDataURL(mime, quality?.toJS));
+          } catch (e) {
+            completer.completeError(e);
+          } finally {
+            web.URL.revokeObjectURL(objectUrl);
+          }
+          }());
+        }).toJS,
+      );
+      img.addEventListener(
+        'error',
+        ((web.Event _) {
+          web.URL.revokeObjectURL(objectUrl);
+          if (!completer.isCompleted) {
+            completer.completeError(Exception('Image could not be loaded'));
+          }
+        }).toJS,
+      );
       img.src = objectUrl;
       await completer.future;
     } catch (e) {
-      html.Url.revokeObjectUrl(objectUrl);
+      web.URL.revokeObjectURL(objectUrl);
       if (!completer.isCompleted) {
         completer.completeError(e);
       }

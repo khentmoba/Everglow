@@ -11,7 +11,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
   int _currentChapter = 0;
   double _fontSize = 17.0;
   BookReaderMode _readerMode = BookReaderMode.text;
-  html.IFrameElement? _embedIframe;
+  web.HTMLIFrameElement? _embedIframe;
   ReaderTheme _theme = ReaderTheme.dark;
 
   // Persisted state keys
@@ -205,7 +205,7 @@ abstract class _ReaderScreenStateBase extends State<ReaderScreen> {
 
   void _registerIframe(String iaId) {
     try {
-      _embedIframe = html.IFrameElement()
+      _embedIframe = web.HTMLIFrameElement()
         ..src = 'https://archive.org/stream/$iaId?ui=embed'
         ..style.width = '100%'
         ..style.height = '100%'
