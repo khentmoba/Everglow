@@ -45,8 +45,8 @@ class AgentMode {
     'money': '/money',
     'jukebox': '/jukebox',
     'music': '/jukebox',
-    'watch-party': '/cinema?tab=4',
-    'watchparty': '/cinema?tab=4',
+    'watch-party': '/watch-party',
+    'watchparty': '/watch-party',
   };
 
   /// Whether Agent Mode is currently enabled.

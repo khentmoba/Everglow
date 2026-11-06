@@ -8,6 +8,9 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       isScrollControlled: true,
       builder: (_) => WatchPartyMediaPickerSheet(
         currentTitle: _room.title,
+        initialCategory: _room.isAnime
+            ? WatchPartyPickerCategory.anime
+            : WatchPartyPickerCategory.cinema,
         onSelect: _applyMedia,
       ),
     );
@@ -24,6 +27,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       isAnime: media.isAnime,
       season: media.season,
       episode: media.episode,
+      episodeCount: media.episodeCount,
       title: media.title,
       posterPath: media.posterPath,
       updatedBy: uid,
@@ -31,35 +35,155 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     if (!mounted) return;
     setState(() {
       _room = _room
-          .copyWith(
+          .copyWithMedia(
             mediaType: media.mediaType,
             tmdbId: media.tmdbId,
             malId: media.malId,
             isAnime: media.isAnime,
             season: media.season,
             episode: media.episode,
+            episodeCount: media.episodeCount,
             title: media.title,
             posterPath: media.posterPath,
             state: 'paused',
             currentTime: 0.0,
+            positionAt: DateTime.now(),
           )
-          .copyWithServer();
+          .copyWithServer(
+            serverType: 'everglow',
+            serverName: 'Everglow',
+            serverHost: 'everglow',
+          );
       _hostExplicitlyPaused = true;
       _cinesrcReady = false;
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
+      _everglowStreamUrl = null;
+      _availableSubtitles = const [];
+      _captionsOn = true;
     });
-    if (media.isAnime) {
+    if (_isEverglowServer) {
+      unawaited(_resolveEverglowStream(startSeconds: 0));
+    } else if (media.isAnime) {
       _bootstrapAnime();
     } else if (_usesIframe) {
       _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
     }
   }
 
+  /// Open the episode picker for the current series. Picking an episode
+  /// writes it to the room, so the other client reloads the same episode
+  /// without either side needing to tell the other.
+  Future<void> _showEpisodePicker() async {
+    if (!_room.isSeries) return;
+    final maxEpisodes = _room.episodeCount ?? (_room.isAnime ? 100 : 24);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (sheetContext) => WatchPartyEpisodePickerSheet(
+        title: _room.title,
+        isAnime: _room.isAnime,
+        initialSeason: _room.season ?? 1,
+        initialEpisode: _room.episode ?? 1,
+        maxEpisodes: maxEpisodes,
+        onConfirm: (season, episode) {
+          Navigator.of(sheetContext).pop();
+          unawaited(_applyEpisode(season, episode));
+        },
+      ),
+    );
+  }
+
+  Future<void> _applyEpisode(int season, int episode) async {
+    final roomId = _room.id;
+    final uid = _myUid;
+    await _service.updateEpisode(
+      roomId: roomId,
+      season: season,
+      episode: episode,
+      updatedBy: uid,
+    );
+    if (!mounted) return;
+    setState(() {
+      _room = _room.copyWith(
+        season: season,
+        episode: episode,
+        state: 'paused',
+        currentTime: 0.0,
+        positionAt: DateTime.now(),
+      );
+      _hostExplicitlyPaused = true;
+      _hlsReady = false;
+      _hlsFailed = false;
+      _hlsError = null;
+      _everglowStreamUrl = null;
+      _availableSubtitles = const [];
+    });
+    if (_isEverglowServer) {
+      unawaited(_resolveEverglowStream(startSeconds: 0));
+    } else if (_isHlsServer) {
+      _reloadHlsAt(0);
+    } else if (_usesIframe) {
+      _rebuildAt(0);
+    }
+  }
+
+  /// Caption picker for HLS rooms. The chosen track is written to the
+  /// room, so turning captions on, off, or to another language happens
+  /// on both screens at once.
+  Future<void> _showCaptionPicker() async {
+    if (!_isHlsServer) return;
+    final tracks = _availableSubtitles;
+    if (tracks.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No captions are available for this title.'),
+        ),
+      );
+      return;
+    }
+    final chosen = _room.subtitleUrl ??
+        (_captionsOn && _availableSubtitles.isNotEmpty
+            ? _availableSubtitles.first.url
+            : null);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _CaptionPickerSheet(
+        tracks: tracks,
+        selectedUrl: chosen,
+        captionsOn: _captionsOn,
+        onSelect: (url) {
+          Navigator.of(sheetContext).pop();
+          unawaited(_applyCaptions(url));
+        },
+      ),
+    );
+  }
+
+  Future<void> _applyCaptions(String? url) async {
+    final on = url != null;
+    await _service.updateCaptions(
+      roomId: _room.id,
+      subtitleUrl: url,
+      captionsOn: on,
+      updatedBy: _myUid,
+    );
+    if (!mounted) return;
+    setState(() {
+      _captionsOn = on;
+      _room = _room.copyWithServer(subtitleUrl: url);
+    });
+    _hlsController.setCaptions(on);
+  }
+
   Future<void> _showServerPicker() async {
     final serverService = WatchPartyServerService();
-    final current = _room.streamUrl == null
+    final current = _isEverglowServer
+        ? WatchPartyServer.everglow
+        : _room.streamUrl == null
         ? null
         : WatchPartyServer.fromRoom(
             serverType: _room.serverType ?? 'embed',
@@ -69,12 +193,16 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
             subtitleUrl: _room.subtitleUrl,
             proxyEnabled: _room.proxyEnabled,
           );
+    final servers = [
+      WatchPartyServer.everglow,
+      ...serverService.servers.where((s) => s.id != WatchPartyServer.everglow.id),
+    ];
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) => ServerPickerSheet(
-        servers: serverService.servers,
+        servers: servers,
         selected: current,
         onSelect: _applyServer,
       ),
@@ -89,43 +217,59 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       if (!mounted) return;
       setState(() {
         _room = _room
-            .copyWith(state: 'paused', currentTime: 0.0)
+            .copyWith(
+              state: 'paused',
+              currentTime: 0.0,
+              positionAt: DateTime.now(),
+            )
             .copyWithServer();
         _hostExplicitlyPaused = true;
         _hlsReady = false;
         _hlsFailed = false;
         _hlsError = null;
+        _everglowStreamUrl = null;
+        _availableSubtitles = const [];
       });
       return;
     }
+    final isEverglow = server.id == WatchPartyServer.everglow.id;
     await _service.updateServer(
       roomId: roomId,
-      serverType: server.type,
-      serverName: server.name,
-      serverHost: server.host,
-      streamUrl: server.streamUrl,
-      subtitleUrl: server.subtitleUrl,
-      proxyEnabled: server.proxyEnabled,
+      serverType: isEverglow ? 'everglow' : server.type,
+      serverName: isEverglow ? 'Everglow' : server.name,
+      serverHost: isEverglow ? 'everglow' : server.host,
+      streamUrl: isEverglow ? null : server.streamUrl,
+      subtitleUrl: isEverglow ? null : server.subtitleUrl,
+      proxyEnabled: isEverglow ? false : server.proxyEnabled,
       updatedBy: uid,
     );
     if (!mounted) return;
     setState(() {
       _room = _room
-          .copyWith(state: 'paused', currentTime: 0.0)
+          .copyWith(
+            state: 'paused',
+            currentTime: 0.0,
+            positionAt: DateTime.now(),
+          )
           .copyWithServer(
-            serverType: server.type,
-            serverName: server.name,
-            serverHost: server.host,
-            streamUrl: server.streamUrl,
-            subtitleUrl: server.subtitleUrl,
-            proxyEnabled: server.proxyEnabled,
+            serverType: isEverglow ? 'everglow' : server.type,
+            serverName: isEverglow ? 'Everglow' : server.name,
+            serverHost: isEverglow ? 'everglow' : server.host,
+            streamUrl: isEverglow ? null : server.streamUrl,
+            subtitleUrl: isEverglow ? null : server.subtitleUrl,
+            proxyEnabled: isEverglow ? false : server.proxyEnabled,
           );
       _hostExplicitlyPaused = true;
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
+      _everglowStreamUrl = null;
+      _availableSubtitles = const [];
+      _captionsOn = true;
     });
-    if (server.isHls) {
+    if (isEverglow) {
+      unawaited(_resolveEverglowStream(startSeconds: 0));
+    } else if (server.isHls) {
       _reloadHlsAt(0);
     } else if (_usesIframe) {
       _cinesrcReady = false;
@@ -195,17 +339,19 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
             const Icon(Icons.dns_rounded, color: _cDeepRose, size: 48),
             const SizedBox(height: 12),
             Text(
-              'This server could not start playback.',
+              _isEverglowServer
+                  ? 'Everglow could not start this title.'
+                  : 'This server could not start playback.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitHeading.copyWith(
                 color: AppColors.petalWhite,
                 fontSize: 15,
               ),
             ),
-            if (_hlsError != null) ...[
+            if ((_streamResolveError ?? _hlsError) != null) ...[
               const SizedBox(height: 6),
               Text(
-                _hlsError!,
+                _streamResolveError ?? _hlsError!,
                 textAlign: TextAlign.center,
                 style: AppTypography.outfitMuted.copyWith(
                   color: AppColors.petalWhite.withValues(alpha: 0.60),
@@ -223,7 +369,13 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
                   label: 'Retry',
                   icon: Icons.refresh_rounded,
                   color: _cDeepRose,
-                  onTap: () => _reloadHlsAt(_localStartHint()),
+                  onTap: () {
+                    if (_isEverglowServer) {
+                      unawaited(_resolveEverglowStream());
+                    } else {
+                      _reloadHlsAt(_localStartHint());
+                    }
+                  },
                 ),
                 _errorAction(
                   label: 'Switch server',

@@ -17,6 +17,7 @@ import '../../features/journal/data/models/journal_entry.dart';
 import '../../features/starlight_jar/domain/models/star_note.dart';
 import '../../features/tonight/data/models/tonight_decision.dart';
 import '../../features/tonight/data/models/tonight_option.dart';
+import '../../features/watch_party/data/models/watch_party_room.dart';
 
 /// Pre-populated, privacy-safe demo fixtures for Everglow couple surfaces.
 ///
@@ -423,4 +424,65 @@ class AgentFixtures {
       createdAt: DateTime.now(),
     ),
   ];
+
+  /// Fake watch-party rooms for Agent Mode. Nothing here touches Firestore
+  /// or a real couple's history; the titles are demo-only.
+  static List<WatchPartyRoom> demoWatchPartyRooms({
+    required String myUid,
+    required String partnerUid,
+  }) {
+    final now = DateTime.now();
+    return [
+      WatchPartyRoom(
+        id: 'demo_movie_night',
+        name: 'Movie Night',
+        hostUid: myUid,
+        hostName: 'Khent',
+        partnerUid: partnerUid,
+        partnerName: 'Clair',
+        mediaType: 'movie',
+        tmdbId: 550,
+        isAnime: false,
+        title: 'Demo Movie Night',
+        posterPath: 'assets/images/demo/poster-1.jpg',
+        serverType: 'everglow',
+        serverName: 'Everglow',
+        serverHost: 'everglow',
+        state: 'paused',
+        currentTime: 0,
+        positionAt: now,
+        updatedAt: now,
+        updatedBy: myUid,
+        createdAt: now,
+        active: true,
+      ),
+      WatchPartyRoom(
+        id: 'demo_anime_night',
+        name: 'Anime Night',
+        hostUid: partnerUid,
+        hostName: 'Clair',
+        partnerUid: myUid,
+        partnerName: 'Khent',
+        mediaType: 'tv',
+        tmdbId: 21,
+        malId: 21,
+        isAnime: true,
+        season: 1,
+        episode: 3,
+        episodeCount: 1000,
+        title: 'Demo Anime Night',
+        posterPath: 'assets/images/demo/poster-3.jpg',
+        serverType: 'everglow',
+        serverName: 'Everglow',
+        serverHost: 'everglow',
+        state: 'paused',
+        currentTime: 0,
+        positionAt: now.subtract(const Duration(hours: 2)),
+        updatedAt: now.subtract(const Duration(hours: 2)),
+        updatedBy: partnerUid,
+        createdAt: now.subtract(const Duration(days: 1)),
+        active: false,
+      ),
+    ];
+  }
 }

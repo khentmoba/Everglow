@@ -33,7 +33,7 @@ class WatchPartyCard extends StatelessWidget {
         children: [
           const _WatchPartyHeader(),
           const SizedBox(height: 14),
-          _WatchTogetherTicket(onTap: () => context.go('/cinema?tab=4')),
+          _WatchTogetherTicket(onTap: () => context.go('/watch-party')),
         ],
       ),
     );

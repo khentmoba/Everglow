@@ -74,12 +74,15 @@ void main() {
         title: 'Demo movie',
         posterPath: '',
       );
-      expect(db.room, started.toFirestore());
-      expect(db.room['serverType'], isNull);
+      expect(db.room['serverType'], 'everglow');
+      expect(db.room['serverName'], 'Everglow');
       expect(db.room['streamUrl'], isNull);
       expect(db.room['subtitleUrl'], isNull);
       expect(db.room['episode'], isNull);
       expect(db.room['active'], isTrue);
+      expect(db.room['updatedAt'], FieldValue.serverTimestamp());
+      expect(db.room['positionAt'], FieldValue.serverTimestamp());
+      expect(started.serverType, 'everglow');
     },
   );
 
@@ -105,6 +108,78 @@ void main() {
       expect(db.room['title'], 'Demo movie');
       expect(db.room['state'], 'paused');
       expect(db.room['currentTime'], 0.0);
+      expect(db.room['positionAt'], FieldValue.serverTimestamp());
     },
   );
+
+  test('a heartbeat keeps the room alive without moving the video', () async {
+    final db = _Db()
+      ..room = {
+        'state': 'playing',
+        'currentTime': 120.0,
+        'positionAt': Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12)),
+      };
+    await WatchPartyService(db: db).heartbeat(
+      roomId: 'demo',
+      currentTime: 999.0,
+      beatBy: 'clair-demo',
+    );
+    expect(db.room['currentTime'], 120.0);
+    expect(db.room['positionAt'], isA<Timestamp>());
+    expect(db.room['beatBy'], 'clair-demo');
+    expect(db.room['updatedAt'], FieldValue.serverTimestamp());
+  });
+
+  test('changing episode resets playback and re-anchors the server clock',
+      () async {
+    final db = _Db()
+      ..room = {
+        'season': 1,
+        'episode': 2,
+        'state': 'playing',
+        'currentTime': 300.0,
+      };
+    await WatchPartyService(db: db).updateEpisode(
+      roomId: 'demo',
+      season: 2,
+      episode: 4,
+      updatedBy: 'khent-demo',
+    );
+    expect(db.room['season'], 2);
+    expect(db.room['episode'], 4);
+    expect(db.room['state'], 'paused');
+    expect(db.room['currentTime'], 0.0);
+    expect(db.room['positionAt'], FieldValue.serverTimestamp());
+    expect(db.room['updatedAt'], FieldValue.serverTimestamp());
+    expect(db.room['updatedBy'], 'khent-demo');
+  });
+
+  test('caption choice is written with its on/off flag', () async {
+    final db = _Db()..room = {'title': 'Demo'};
+    await WatchPartyService(db: db).updateCaptions(
+      roomId: 'demo',
+      subtitleUrl: 'https://example/en.vtt',
+      captionsOn: true,
+      updatedBy: 'clair-demo',
+    );
+    expect(db.room['subtitleUrl'], 'https://example/en.vtt');
+    expect(db.room['captionsOn'], isTrue);
+    expect(db.room['updatedAt'], FieldValue.serverTimestamp());
+  });
+
+  test('turning captions off deletes the track', () async {
+    final db = _Db()
+      ..room = {
+        'subtitleUrl': 'https://example/en.vtt',
+        'captionsOn': true,
+      };
+    await WatchPartyService(db: db).updateCaptions(
+      roomId: 'demo',
+      subtitleUrl: null,
+      captionsOn: false,
+      updatedBy: 'clair-demo',
+    );
+    expect(db.room.containsKey('subtitleUrl'), isFalse);
+    expect(db.room['captionsOn'], isFalse);
+  });
 }

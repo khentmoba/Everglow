@@ -92,4 +92,132 @@ void main() {
       expect(preserved.currentTime, 42.0);
     });
   });
+
+  group('WatchPartyRoom.livePositionAt', () {
+    WatchPartyRoom room({
+      required String state,
+      required double currentTime,
+      DateTime? positionAt,
+      DateTime? updatedAt,
+    }) {
+      final anchor = updatedAt ?? DateTime.utc(2026, 1, 1, 12);
+      return WatchPartyRoom(
+        id: 'a_b',
+        hostUid: 'a',
+        hostName: 'khentsgdz',
+        partnerUid: 'b',
+        partnerName: 'clairjassen',
+        mediaType: 'movie',
+        tmdbId: 1,
+        isAnime: false,
+        title: 'Test night',
+        posterPath: '',
+        state: state,
+        currentTime: currentTime,
+        positionAt: positionAt,
+        updatedAt: anchor,
+        updatedBy: 'a',
+        createdAt: anchor,
+        active: true,
+      );
+    }
+
+    test('adds elapsed server time while playing', () {
+      final anchor = DateTime.utc(2026, 1, 1, 12);
+      final r = room(
+        state: 'playing',
+        currentTime: 10,
+        positionAt: anchor,
+      );
+      expect(
+        r.livePositionAt(anchor.add(const Duration(seconds: 5))),
+        closeTo(15, 0.001),
+      );
+    });
+
+    test('stays at the anchor while paused', () {
+      final anchor = DateTime.utc(2026, 1, 1, 12);
+      final r = room(
+        state: 'paused',
+        currentTime: 10,
+        positionAt: anchor,
+      );
+      expect(
+        r.livePositionAt(anchor.add(const Duration(minutes: 5))),
+        10,
+      );
+    });
+
+    test('falls back to updatedAt for rooms written before positionAt', () {
+      final anchor = DateTime.utc(2026, 1, 1, 12);
+      final r = room(state: 'playing', currentTime: 10, updatedAt: anchor);
+      expect(
+        r.livePositionAt(anchor.add(const Duration(seconds: 3))),
+        closeTo(13, 0.001),
+      );
+    });
+
+    test('never runs backwards when the server clock is behind', () {
+      final anchor = DateTime.utc(2026, 1, 1, 12);
+      final r = room(
+        state: 'playing',
+        currentTime: 10,
+        positionAt: anchor,
+      );
+      expect(
+        r.livePositionAt(anchor.subtract(const Duration(seconds: 5))),
+        10,
+      );
+    });
+  });
+
+  group('WatchPartyRoom media and captions', () {
+    test('copyWithMedia clears a stale anime id and episode', () {
+      final r = _room(active: true, updatedAt: DateTime.now()).copyWith(
+        malId: 21,
+        isAnime: true,
+        season: 2,
+        episode: 5,
+      );
+      final movie = r.copyWithMedia(
+        mediaType: 'movie',
+        tmdbId: 550,
+        isAnime: false,
+        title: 'Fight Club',
+        posterPath: '',
+        state: 'paused',
+        currentTime: 0,
+      );
+      expect(movie.malId, isNull);
+      expect(movie.isAnime, isFalse);
+      expect(movie.season, isNull);
+      expect(movie.episode, isNull);
+      expect(movie.tmdbId, 550);
+    });
+
+    test('captions default on and survive a server copy', () {
+      final r = _room(active: true, updatedAt: DateTime.now());
+      expect(r.captionsOn, isTrue);
+      final withTrack = r.copyWithServer(
+        serverType: 'everglow',
+        subtitleUrl: 'https://example/en.vtt',
+      );
+      expect(withTrack.captionsOn, isTrue);
+      expect(withTrack.subtitleUrl, 'https://example/en.vtt');
+    });
+
+    test('hasMedia is false for a freshly created room', () {
+      final empty = _room(
+        active: true,
+        updatedAt: DateTime.now(),
+      ).copyWithMedia(
+        mediaType: 'movie',
+        tmdbId: 0,
+        isAnime: false,
+        title: '',
+        posterPath: '',
+      );
+      expect(empty.hasMedia, isFalse);
+    });
+  });
 }

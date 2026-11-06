@@ -227,3 +227,125 @@ class _WatchPartyCinematicLoaderState extends State<_WatchPartyCinematicLoader>
     );
   }
 }
+
+/// Caption picker for HLS rooms. "Off" writes a null track, so the
+/// partner's CC button flips off too.
+class _CaptionPickerSheet extends StatelessWidget {
+  final List<WatchPartySubtitle> tracks;
+  final String? selectedUrl;
+  final bool captionsOn;
+  final ValueChanged<String?> onSelect;
+
+  const _CaptionPickerSheet({
+    required this.tracks,
+    required this.selectedUrl,
+    required this.captionsOn,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      decoration: BoxDecoration(
+        color: AppColors.inkDeep,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(
+            color: AppColors.moonlight.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 44,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.petalWhite.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Captions',
+            style: AppTypography.outfitHeading.copyWith(
+              color: AppColors.petalWhite,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Whatever you pick here changes on both screens.',
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _row(
+            label: 'Off',
+            active: !captionsOn || selectedUrl == null,
+            onTap: () => onSelect(null),
+          ),
+          for (final track in tracks) ...[
+            const SizedBox(height: 8),
+            _row(
+              label: track.label,
+              active: captionsOn && selectedUrl == track.url,
+              onTap: () => onSelect(track.url),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _row({
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.deepRose.withValues(alpha: 0.22)
+              : AppColors.shimmerBase,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+          border: Border.all(
+            color: active
+                ? AppColors.roseQuartz
+                : AppColors.moonlight.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              active ? Icons.check_circle_rounded : Icons.circle_outlined,
+              color: active ? AppColors.roseQuartz : AppColors.textMuted,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.outfitWhite.copyWith(
+                  color: AppColors.petalWhite,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

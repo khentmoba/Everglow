@@ -112,6 +112,27 @@ async function handleProxyAnime(request, env) {
     const title = isCinema && named
       ? params.mediaType === 'tv' ? `${named} · ${out.title}` : named
       : out.title;
+    // The watch party plays the stream in its own <video> (so play/pause/seek
+    // and captions are real), and asks for the resolved URLs instead of the
+    // player page. Same resolver, same stamps — only the response shape differs.
+    if (String(query.format || '').toLowerCase() === 'json') {
+      return new Response(
+        JSON.stringify({
+          src: out.src,
+          tracks: Array.isArray(out.tracks) ? out.tracks : [],
+          title,
+          ep: out.ep,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'public, max-age=300',
+          },
+        },
+      );
+    }
     const page = hlsPlayerHtml({
       src: out.src,
       tracks: out.tracks,

@@ -7,6 +7,7 @@ class MediaRef {
   final bool isAnime;
   final int? season;
   final int? episode;
+  final int? episodeCount;
   final String title;
   final String posterPath;
 
@@ -17,6 +18,7 @@ class MediaRef {
     this.isAnime = false,
     this.season,
     this.episode,
+    this.episodeCount,
     required this.title,
     this.posterPath = '',
   });

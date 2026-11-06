@@ -23,101 +23,116 @@ export '../../data/models/media_ref.dart';
 /// the tab used to have its own private copy of this logic, which is how
 /// it ended up unable to start a party from a searched title.
 ///
-/// If a party is already live and [media] is a different title, the room
-/// is switched in place so the partner's client follows. Otherwise a new
-/// room is created and the conversation starts clean.
+/// If a room is already live and [media] is a different title, the room
+/// is switched in place so the partner's client follows. Otherwise the
+/// most recent room is reused, or a new named room is created.
 Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   final auth = context.read<AuthService>();
   final myUid = auth.uid;
   final partnerUid = auth.partnerUid;
   if (myUid == null || partnerUid == null) return;
 
+  if (media.tmdbId == 0) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Browse a title first to start a party.',
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.petalWhite,
+          ),
+        ),
+        backgroundColor: AppColors.deepRose,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+    return;
+  }
+
   final service = WatchPartyService();
-  final roomId = WatchPartyRoom.buildRoomId(myUid, partnerUid);
-  final existing = await service.getRoom(roomId);
-  final hasParty = existing != null && existing.active;
+  final rooms = await service.getRooms(myUid);
+  final live = rooms.where((room) => room.active).toList();
+  final existing = live.isNotEmpty
+      ? live.first
+      : (rooms.isNotEmpty ? rooms.first : null);
 
   WatchPartyRoom toOpen;
   bool isHost;
   bool freshChat = false;
 
-  if (hasParty) {
-    final room = existing;
+  if (existing != null) {
     final mediaChanged =
-        room.tmdbId != media.tmdbId ||
-        room.season != media.season ||
-        room.episode != media.episode;
+        existing.tmdbId != media.tmdbId ||
+        existing.malId != media.malId ||
+        existing.isAnime != media.isAnime ||
+        existing.season != media.season ||
+        existing.episode != media.episode;
     if (mediaChanged) {
       freshChat = true;
       await service.updateMedia(
-        roomId: room.id,
+        roomId: existing.id,
         mediaType: media.mediaType,
         tmdbId: media.tmdbId,
         malId: media.malId,
         isAnime: media.isAnime,
         season: media.season,
         episode: media.episode,
+        episodeCount: media.episodeCount,
         title: media.title,
         posterPath: media.posterPath,
         updatedBy: myUid,
       );
-      toOpen = WatchPartyRoom(
-        id: room.id,
-        hostUid: room.hostUid,
-        hostName: room.hostName,
-        partnerUid: room.partnerUid,
-        partnerName: room.partnerName,
-        mediaType: media.mediaType,
-        tmdbId: media.tmdbId,
-        malId: media.malId,
-        isAnime: media.isAnime,
-        season: media.season,
-        episode: media.episode,
-        title: media.title,
-        posterPath: media.posterPath,
-        state: 'paused',
-        currentTime: 0.0,
-        updatedAt: DateTime.now(),
-        updatedBy: myUid,
-        createdAt: room.createdAt,
-        active: true,
-      );
-      isHost = room.hostUid == myUid;
+      toOpen = existing
+          .copyWithMedia(
+            mediaType: media.mediaType,
+            tmdbId: media.tmdbId,
+            malId: media.malId,
+            isAnime: media.isAnime,
+            season: media.season,
+            episode: media.episode,
+            episodeCount: media.episodeCount,
+            title: media.title,
+            posterPath: media.posterPath,
+            state: 'paused',
+            currentTime: 0.0,
+            positionAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            updatedBy: myUid,
+            active: true,
+          )
+          .copyWithServer(
+            serverType: 'everglow',
+            serverName: 'Everglow',
+            serverHost: 'everglow',
+          );
     } else {
-      toOpen = room;
-      isHost = room.hostUid == myUid;
+      toOpen = existing;
+      if (!existing.active) {
+        await service.reopenRoom(roomId: existing.id, updatedBy: myUid);
+        toOpen = existing.copyWith(
+          active: true,
+          state: 'paused',
+          updatedAt: DateTime.now(),
+          updatedBy: myUid,
+        );
+      }
     }
+    isHost = existing.hostUid == myUid;
   } else {
-    if (media.tmdbId == 0) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Browse a title first to start a party.',
-            style: AppTypography.outfitWhite.copyWith(
-              color: AppColors.petalWhite,
-            ),
-          ),
-          backgroundColor: AppColors.deepRose,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-      return;
-    }
-    toOpen = await service.startRoom(
+    toOpen = await service.createRoom(
       hostUid: myUid,
       hostName: auth.currentUser ?? '',
       partnerUid: partnerUid,
       partnerName: auth.partnerName,
+      name: media.isAnime ? 'Anime Night' : 'Movie Night',
       mediaType: media.mediaType,
       tmdbId: media.tmdbId,
       malId: media.malId,
       isAnime: media.isAnime,
       season: media.season,
       episode: media.episode,
+      episodeCount: media.episodeCount,
       title: media.title,
       posterPath: media.posterPath,
     );
@@ -204,7 +219,7 @@ enum WatchPartyButtonVariant { pill, card, icon }
 
 class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
   late final WatchPartyService _service;
-  Stream<WatchPartyRoom?>? _activeStream;
+  Stream<List<WatchPartyRoom>>? _roomsStream;
 
   @override
   void initState() {
@@ -219,8 +234,7 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     final myUid = auth.uid;
     final partnerUid = auth.partnerUid;
     if (myUid != null && partnerUid != null) {
-      final roomId = WatchPartyRoom.buildRoomId(myUid, partnerUid);
-      _activeStream = _service.getRoomStream(roomId);
+      _roomsStream = _service.getRoomsStream(myUid);
     }
   }
 
@@ -232,14 +246,23 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
       // Cinema-only profiles (Breyan, Octagram) can't host a party.
       return const SizedBox.shrink();
     }
-    return StreamBuilder<WatchPartyRoom?>(
-      stream: _activeStream,
+    return StreamBuilder<List<WatchPartyRoom>>(
+      stream: _roomsStream,
       builder: (context, snap) {
-        final room = snap.data;
-        final hasActiveParty = room != null && room.active;
+        final rooms = snap.data ?? const <WatchPartyRoom>[];
+        WatchPartyRoom? room;
+        for (final candidate in rooms) {
+          if (candidate.active) {
+            room = candidate;
+            break;
+          }
+        }
+        final hasActiveParty = room != null;
         final mediaDiffers =
             hasActiveParty &&
             (room.tmdbId != widget.media.tmdbId ||
+                room.malId != widget.media.malId ||
+                room.isAnime != widget.media.isAnime ||
                 room.season != widget.media.season ||
                 room.episode != widget.media.episode);
         switch (widget.variant) {

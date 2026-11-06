@@ -87,6 +87,11 @@ class HlsServerPlayerController {
     _state?._setMuted(muted);
   }
 
+  /// Show or hide the attached subtitle track without reloading.
+  void setCaptions(bool on) {
+    _state?._setCaptions(on);
+  }
+
   bool get isMuted => _muted;
 
   /// Local volume level (0..1). Applied to the element whenever it is
@@ -109,6 +114,10 @@ class HlsServerPlayer extends StatefulWidget {
   /// the real `<video>` element so sidecar/embedded subtitles render
   /// natively in the browser.
   final String? subtitleUrl;
+
+  /// Whether the subtitle track should be visible. Synced through the
+  /// room, so one tap on CC flips both screens.
+  final bool captionsOn;
 
   /// Unique platform view id. Keep it stable for the same room so the
   /// same `<video>` element survives rebuilds and remote sync updates.
@@ -136,6 +145,7 @@ class HlsServerPlayer extends StatefulWidget {
     required this.controller,
     this.initialVolume = 1.0,
     this.subtitleUrl,
+    this.captionsOn = true,
     this.onReady,
     this.onTimeUpdate,
     this.onPlay,
@@ -192,6 +202,9 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     if (oldWidget.subtitleUrl != widget.subtitleUrl) {
       _attachSubtitle();
     }
+    if (oldWidget.captionsOn != widget.captionsOn) {
+      _setCaptions(widget.captionsOn);
+    }
     if (oldWidget.initialVolume != widget.initialVolume) {
       _setVolume(widget.initialVolume);
     }
@@ -217,9 +230,10 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
         ..label = 'Subtitles'
         ..srclang = 'en'
         ..src = url
-        ..default_ = true;
+        ..default_ = widget.captionsOn;
       video.appendChild(track);
       _subtitleTrack = track;
+      _setCaptions(widget.captionsOn);
     } catch (e) {
       debugPrint('[HlsServerPlayer] Could not attach subtitles: $e');
     }
@@ -227,12 +241,18 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
 
   /// Forces any attached text tracks to show once the media is ready.
   void _showSubtitles() {
+    _setCaptions(widget.captionsOn);
+  }
+
+  /// Shows or hides every text track. Called on first load and whenever
+  /// the room's caption choice changes.
+  void _setCaptions(bool on) {
     final video = _video;
     if (video == null || _destroyed) return;
     try {
       final tracks = video.textTracks;
       for (var i = 0; i < tracks.length; i++) {
-        tracks[i].mode = 'showing';
+        tracks[i].mode = on ? 'showing' : 'disabled';
       }
     } catch (_) {
       // Some browsers expose textTracks as a live list without settable

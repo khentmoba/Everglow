@@ -6,10 +6,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// is right now. The other client subscribes via
 /// [WatchPartyService.getRoomStream] and reacts in real time.
 class WatchPartyRoom {
-  /// The Firestore document id. Both users compute the same id by sorting
-  /// their uids lexicographically and joining with `_`, so they always
-  /// land on the same document without needing to negotiate one.
+  /// The Firestore document id. Older rooms use the deterministic
+  /// sorted-uid join; newer rooms use an auto id so the couple can keep
+  /// several named rooms ("Movie Night", "Anime Night") side by side.
   final String id;
+
+  /// Human name of the room. Shown in the room picker. Empty on rooms
+  /// created before rooms had names; the UI falls back to "Our room".
+  final String name;
 
   /// Firebase Auth uid of whoever started the party. Useful for "host"
   /// UI affordances (the host gets the Play button, the partner gets
@@ -78,6 +82,15 @@ class WatchPartyRoom {
   /// Optional subtitle track for the active HLS server.
   final String? subtitleUrl;
 
+  /// Whether the selected subtitle track is visible. Synced so one tap
+  /// on CC turns captions on or off for both of you.
+  final bool captionsOn;
+
+  /// Total episodes in the series, when the picker knew it. Lets the
+  /// in-party episode picker stop at the real last episode instead of
+  /// guessing.
+  final int? episodeCount;
+
   /// Whether the stream should be routed through `proxyWatchStream`.
   final bool proxyEnabled;
 
@@ -95,6 +108,14 @@ class WatchPartyRoom {
   /// keep an internal clock and reconcile whenever one of them writes
   /// a new value here.
   final double currentTime;
+
+  /// Server time at which [currentTime] was true. This is the clock the
+  /// couple shares: while [state] is `playing`, both clients add the
+  /// elapsed server time to [currentTime]. Nothing depends on the
+  /// host's browser ticking a heartbeat, so neither side runs ahead.
+  /// Null on rooms written before this field existed; those fall back
+  /// to [updatedAt].
+  final DateTime? positionAt;
 
   /// Server timestamp of the last state change. The other client
   /// uses `DateTime.now().difference(updatedAt)` to decide whether a
@@ -126,6 +147,7 @@ class WatchPartyRoom {
 
   const WatchPartyRoom({
     required this.id,
+    this.name = '',
     required this.hostUid,
     required this.hostName,
     required this.partnerUid,
@@ -136,6 +158,7 @@ class WatchPartyRoom {
     required this.isAnime,
     this.season,
     this.episode,
+    this.episodeCount,
     required this.title,
     required this.posterPath,
     this.serverType,
@@ -143,15 +166,25 @@ class WatchPartyRoom {
     this.serverHost,
     this.streamUrl,
     this.subtitleUrl,
+    this.captionsOn = true,
     this.proxyEnabled = false,
     required this.state,
     required this.currentTime,
+    this.positionAt,
     required this.updatedAt,
     required this.updatedBy,
     this.beatBy,
     required this.createdAt,
     required this.active,
   });
+
+  /// True when the room has a title to play. A freshly created room is
+  /// empty until one of you picks something.
+  bool get hasMedia => tmdbId > 0 || title.isNotEmpty;
+
+  /// True when the room is a series, so the episode picker belongs on
+  /// screen. Anime films and cinema movies answer false.
+  bool get isSeries => mediaType == 'tv';
 
   bool get isHost =>
       updatedBy.isNotEmpty; // not used as a getter; see isUserHost helper
@@ -167,6 +200,18 @@ class WatchPartyRoom {
   /// room is never offered for rejoin.
   bool isLive({Duration staleAfter = const Duration(minutes: 15)}) =>
       active && DateTime.now().difference(updatedAt) < staleAfter;
+
+  /// The position this room would be at if the server clock read
+  /// [serverNow]. While playing, every client adds the same elapsed
+  /// server time to the same anchor, so neither side is the source of
+  /// truth and neither side drifts ahead of the other.
+  double livePositionAt(DateTime serverNow) {
+    if (state != 'playing') return currentTime;
+    final anchor = positionAt ?? updatedAt;
+    final elapsedMs = serverNow.difference(anchor).inMilliseconds;
+    if (elapsedMs <= 0) return currentTime;
+    return currentTime + elapsedMs / 1000.0;
+  }
 
   /// Pretty "0:23" / "1:02:45" rendering for the sync overlay.
   String get formattedCurrentTime =>
@@ -196,6 +241,7 @@ class WatchPartyRoom {
     final data = doc.data() ?? const <String, dynamic>{};
     return WatchPartyRoom(
       id: doc.id,
+      name: (data['name'] as String?) ?? '',
       hostUid: (data['hostUid'] as String?) ?? '',
       hostName: (data['hostName'] as String?) ?? '',
       partnerUid: (data['partnerUid'] as String?) ?? '',
@@ -208,6 +254,9 @@ class WatchPartyRoom {
       episode: (data['episode'] is num)
           ? (data['episode'] as num).toInt()
           : null,
+      episodeCount: (data['episodeCount'] is num)
+          ? (data['episodeCount'] as num).toInt()
+          : null,
       title: (data['title'] as String?) ?? '',
       posterPath: (data['posterPath'] as String?) ?? '',
       serverType: data['serverType'] as String?,
@@ -215,9 +264,11 @@ class WatchPartyRoom {
       serverHost: data['serverHost'] as String?,
       streamUrl: data['streamUrl'] as String?,
       subtitleUrl: data['subtitleUrl'] as String?,
+      captionsOn: data['captionsOn'] != false,
       proxyEnabled: data['proxyEnabled'] == true,
       state: (data['state'] as String?) ?? 'paused',
       currentTime: (data['currentTime'] as num?)?.toDouble() ?? 0.0,
+      positionAt: _parseDateTime(data['positionAt']),
       updatedAt: _parseDateTime(data['updatedAt']) ?? DateTime.now(),
       updatedBy: (data['updatedBy'] as String?) ?? '',
       beatBy: data['beatBy'] as String?,
@@ -228,6 +279,7 @@ class WatchPartyRoom {
 
   Map<String, dynamic> toFirestore() {
     return {
+      if (name.isNotEmpty) 'name': name,
       'hostUid': hostUid,
       'hostName': hostName,
       'partnerUid': partnerUid,
@@ -238,6 +290,7 @@ class WatchPartyRoom {
       'isAnime': isAnime,
       if (season != null) 'season': season,
       if (episode != null) 'episode': episode,
+      if (episodeCount != null) 'episodeCount': episodeCount,
       'title': title,
       'posterPath': posterPath,
       if (serverType != null) 'serverType': serverType,
@@ -245,9 +298,11 @@ class WatchPartyRoom {
       if (serverHost != null) 'serverHost': serverHost,
       if (streamUrl != null) 'streamUrl': streamUrl,
       if (subtitleUrl != null) 'subtitleUrl': subtitleUrl,
+      'captionsOn': captionsOn,
       'proxyEnabled': proxyEnabled,
       'state': state,
       'currentTime': currentTime,
+      if (positionAt != null) 'positionAt': Timestamp.fromDate(positionAt!),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'updatedBy': updatedBy,
       if (beatBy != null) 'beatBy': beatBy,
@@ -257,16 +312,19 @@ class WatchPartyRoom {
   }
 
   WatchPartyRoom copyWith({
+    String? name,
     String? mediaType,
     int? tmdbId,
     int? malId,
     bool? isAnime,
     int? season,
     int? episode,
+    int? episodeCount,
     String? title,
     String? posterPath,
     String? state,
     double? currentTime,
+    DateTime? positionAt,
     DateTime? updatedAt,
     String? updatedBy,
     String? beatBy,
@@ -274,6 +332,7 @@ class WatchPartyRoom {
   }) {
     return WatchPartyRoom(
       id: id,
+      name: name ?? this.name,
       hostUid: hostUid,
       hostName: hostName,
       partnerUid: partnerUid,
@@ -284,6 +343,7 @@ class WatchPartyRoom {
       isAnime: isAnime ?? this.isAnime,
       season: season ?? this.season,
       episode: episode ?? this.episode,
+      episodeCount: episodeCount ?? this.episodeCount,
       title: title ?? this.title,
       posterPath: posterPath ?? this.posterPath,
       serverType: serverType,
@@ -291,12 +351,68 @@ class WatchPartyRoom {
       serverHost: serverHost,
       streamUrl: streamUrl,
       subtitleUrl: subtitleUrl,
+      captionsOn: captionsOn,
       proxyEnabled: proxyEnabled,
       state: state ?? this.state,
       currentTime: currentTime ?? this.currentTime,
+      positionAt: positionAt ?? this.positionAt,
       updatedAt: updatedAt ?? this.updatedAt,
       updatedBy: updatedBy ?? this.updatedBy,
       beatBy: beatBy ?? this.beatBy,
+      createdAt: createdAt,
+      active: active ?? this.active,
+    );
+  }
+
+  /// Replace the room's title/episode in one step. Unlike [copyWith],
+  /// nullable fields are taken literally, so switching from an anime
+  /// series to a movie really clears the old MAL id and episode.
+  WatchPartyRoom copyWithMedia({
+    required String mediaType,
+    required int tmdbId,
+    int? malId,
+    required bool isAnime,
+    int? season,
+    int? episode,
+    int? episodeCount,
+    required String title,
+    required String posterPath,
+    String? state,
+    double? currentTime,
+    DateTime? positionAt,
+    DateTime? updatedAt,
+    String? updatedBy,
+    bool? active,
+  }) {
+    return WatchPartyRoom(
+      id: id,
+      name: name,
+      hostUid: hostUid,
+      hostName: hostName,
+      partnerUid: partnerUid,
+      partnerName: partnerName,
+      mediaType: mediaType,
+      tmdbId: tmdbId,
+      malId: malId,
+      isAnime: isAnime,
+      season: season,
+      episode: episode,
+      episodeCount: episodeCount,
+      title: title,
+      posterPath: posterPath,
+      serverType: serverType,
+      serverName: serverName,
+      serverHost: serverHost,
+      streamUrl: streamUrl,
+      subtitleUrl: subtitleUrl,
+      captionsOn: captionsOn,
+      proxyEnabled: proxyEnabled,
+      state: state ?? this.state,
+      currentTime: currentTime ?? this.currentTime,
+      positionAt: positionAt ?? this.positionAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      updatedBy: updatedBy ?? this.updatedBy,
+      beatBy: beatBy,
       createdAt: createdAt,
       active: active ?? this.active,
     );
@@ -314,6 +430,7 @@ class WatchPartyRoom {
   }) {
     return WatchPartyRoom(
       id: id,
+      name: name,
       hostUid: hostUid,
       hostName: hostName,
       partnerUid: partnerUid,
@@ -324,6 +441,7 @@ class WatchPartyRoom {
       isAnime: isAnime,
       season: season,
       episode: episode,
+      episodeCount: episodeCount,
       title: title,
       posterPath: posterPath,
       serverType: serverType,
@@ -331,9 +449,11 @@ class WatchPartyRoom {
       serverHost: serverHost,
       streamUrl: streamUrl,
       subtitleUrl: subtitleUrl,
+      captionsOn: captionsOn,
       proxyEnabled: proxyEnabled ?? false,
       state: state,
       currentTime: currentTime,
+      positionAt: positionAt,
       updatedAt: updatedAt,
       updatedBy: updatedBy,
       beatBy: beatBy,
