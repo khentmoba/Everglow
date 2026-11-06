@@ -230,7 +230,7 @@ void main() {
       expect(servers[0].supportsResume, isTrue);
       expect(
         servers[0].urlBuilder(1, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megaplay&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
@@ -240,7 +240,7 @@ void main() {
       expect(servers[1].available, isTrue);
       expect(
         servers[1].urlBuilder(1, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megavid&anilistId=21&malId=21&ep=1&audio=sub',
       );
 
@@ -290,7 +290,7 @@ void main() {
       // Episode and dub ride the query string the function validates.
       expect(
         servers[1].urlBuilder(2, 'dub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megavid&anilistId=21&malId=21&ep=2&audio=dub',
       );
     });
@@ -306,14 +306,14 @@ void main() {
       expect(servers[0].name, 'Everglow');
       expect(
         servers[0].urlBuilder(3, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megaplay&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
       expect(servers[1].name, 'Megavid');
       expect(
         servers[1].urlBuilder(3, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megavid&anilistId=0&malId=52991&ep=3&audio=sub',
       );
 
@@ -1649,7 +1649,7 @@ void main() {
       );
       expect(
         servers.first.urlBuilder(1, 'sub'),
-        'https://us-central1-everglow-1c6db.cloudfunctions.net/proxyAnime'
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
         '?source=megaplay&anilistId=127720&malId=45576&ep=1&audio=sub',
       );
       expect(

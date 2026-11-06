@@ -176,7 +176,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     'megavid.buzz',
     'everglow-1c6db.web.app',
     'cinesrc.st',
-    'us-central1-everglow-1c6db.cloudfunctions.net',
+    'everglow-stream.khentplaysmoba.workers.dev',
   };
 
   WebViewController? _controller;

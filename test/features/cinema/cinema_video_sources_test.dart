@@ -100,7 +100,7 @@ void main() {
       );
     });
 
-    test('builds Everglow embed movie URLs with tmdbId query', () {
+    test('builds Everglow HLS movie URLs with tmdbId query', () {
       expect(
         CinemaVideoSources.buildUrl(
           CinemaVideoSources.everglowEmbed,
@@ -109,11 +109,12 @@ void main() {
           season: 1,
           episode: 1,
         ),
-        'https://everglow-1c6db.web.app/embed.html?tmdbId=603&type=movie',
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
+        '?source=cinema&type=movie&tmdbId=603',
       );
     });
 
-    test('builds Everglow embed TV URLs with season and episode', () {
+    test('builds Everglow HLS TV URLs with season and episode', () {
       expect(
         CinemaVideoSources.buildUrl(
           CinemaVideoSources.everglowEmbed,
@@ -122,7 +123,8 @@ void main() {
           season: 2,
           episode: 3,
         ),
-        'https://everglow-1c6db.web.app/embed.html?tmdbId=1399&type=tv&s=2&e=3',
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
+        '?source=cinema&type=tv&tmdbId=1399&s=2&e=3',
       );
     });
 
@@ -195,6 +197,58 @@ void main() {
       expect(
         CinemaVideoSources.trustsCinesrcEpisodeEvent('unknown', 'null'),
         isFalse,
+      );
+    });
+  });
+
+  group('CinemaVideoSources.parseEverglowHlsProgress', () {
+    const origin = 'https://everglow-stream.khentplaysmoba.workers.dev';
+
+    test('parses valid animex-progress messages from our HLS player', () {
+      expect(
+        CinemaVideoSources.parseEverglowHlsProgress(
+          'everglow-embed',
+          origin,
+          {'type': 'animex-progress', 'position': 42.4, 'duration': 120.2, 'episode': 1},
+        ),
+        (42, 120),
+      );
+      expect(
+        CinemaVideoSources.parseEverglowHlsProgress(
+          'everglow-embed',
+          origin,
+          '{"type":"animex-progress","position":10,"duration":300,"episode":3}',
+          expectedEpisode: 3,
+        ),
+        (10, 300),
+      );
+    });
+
+    test('rejects foreign origins, other providers, and mismatched episodes', () {
+      expect(
+        CinemaVideoSources.parseEverglowHlsProgress(
+          'everglow-embed',
+          'https://evil.example',
+          {'type': 'animex-progress', 'position': 10, 'duration': 100},
+        ),
+        isNull,
+      );
+      expect(
+        CinemaVideoSources.parseEverglowHlsProgress(
+          'flux-cinesrc',
+          origin,
+          {'type': 'animex-progress', 'position': 10, 'duration': 100},
+        ),
+        isNull,
+      );
+      expect(
+        CinemaVideoSources.parseEverglowHlsProgress(
+          'everglow-embed',
+          origin,
+          {'type': 'animex-progress', 'position': 10, 'duration': 100, 'episode': 2},
+          expectedEpisode: 3,
+        ),
+        isNull,
       );
     });
   });

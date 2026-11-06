@@ -463,6 +463,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen>
       season: _playerSeason,
       episode: _playerEpisode,
       startSeconds: _startSeconds,
+      title: _nativeDisplayTitle(widget.title),
     );
   }
 

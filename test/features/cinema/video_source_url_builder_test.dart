@@ -97,7 +97,7 @@ void main() {
       );
     });
 
-    test('builds Everglow embed movie URLs with start passthrough', () {
+    test('builds Everglow HLS movie URLs with start passthrough', () {
       expect(
         buildVideoSourceUrl(
           CinemaVideoSources.everglowEmbed,
@@ -107,11 +107,30 @@ void main() {
           episode: 1,
           startSeconds: 90,
         ),
-        'https://everglow-1c6db.web.app/embed.html?tmdbId=603&type=movie&start=90',
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
+        '?source=cinema&type=movie&tmdbId=603&start=90',
       );
     });
 
-    test('builds Everglow embed TV URLs with season and episode', () {
+    test('passes the display title through to the Everglow HLS player', () {
+      final url = Uri.parse(
+        buildVideoSourceUrl(
+          CinemaVideoSources.everglowEmbed,
+          mediaType: 'tv',
+          id: '1396',
+          season: 1,
+          episode: 2,
+          startSeconds: 30,
+          title: 'Breaking Bad & Co',
+        ),
+      );
+      expect(url.queryParameters['title'], 'Breaking Bad & Co');
+      expect(url.queryParameters['s'], '1');
+      expect(url.queryParameters['e'], '2');
+      expect(url.queryParameters['start'], '30');
+    });
+
+    test('builds Everglow HLS TV URLs with season and episode', () {
       expect(
         buildVideoSourceUrl(
           CinemaVideoSources.everglowEmbed,
@@ -120,7 +139,8 @@ void main() {
           season: 2,
           episode: 3,
         ),
-        'https://everglow-1c6db.web.app/embed.html?tmdbId=1399&type=tv&s=2&e=3',
+        'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime'
+        '?source=cinema&type=tv&tmdbId=1399&s=2&e=3',
       );
     });
   });
