@@ -94,7 +94,7 @@ class _WatchPartyLobbyState extends State<WatchPartyLobby> {
     });
     try {
       var toOpen = room;
-      if (!room.active) {
+      if (!room.isLive()) {
         await _service.reopenRoom(roomId: room.id, updatedBy: uid);
         toOpen = room.copyWith(
           active: true,

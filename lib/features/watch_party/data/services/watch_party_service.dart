@@ -353,26 +353,39 @@ class WatchPartyService {
     }
   }
 
-  /// Cheap "I'm still here" tick, written every few seconds by the
-  /// host. It only carries the playback position (and keeps the room
-  /// looking alive). It deliberately does NOT write `state`: if Clair
-  /// pauses a moment before a tick lands, the tick must not flip the
-  /// room back to "playing".
+  /// Cheap "I'm still here" tick, written every few seconds. While
+  /// playing it also refreshes [currentTime] + [positionAt] together,
+  /// so a tab closed mid-film resumes near where it stopped. It never
+  /// writes `state`: if Clair pauses a moment before a tick lands, the
+  /// tick must not flip the room back to "playing".
   Future<void> heartbeat({
     required String roomId,
     required String beatBy,
+    double? currentTime,
   }) async {
     if (_isDemo) {
       final room = _demoRooms[roomId];
       if (room == null) return;
-      _putDemo(room.copyWith(beatBy: beatBy, updatedAt: DateTime.now()));
+      _putDemo(
+        room.copyWith(
+          currentTime: currentTime,
+          positionAt: currentTime == null ? null : DateTime.now(),
+          beatBy: beatBy,
+          updatedAt: DateTime.now(),
+        ),
+      );
       return;
     }
     try {
-      await _db.collection(_collection).doc(roomId).update({
+      final data = <String, dynamic>{
         'updatedAt': FieldValue.serverTimestamp(),
         'beatBy': beatBy,
-      });
+      };
+      if (currentTime != null) {
+        data['currentTime'] = currentTime;
+        data['positionAt'] = FieldValue.serverTimestamp();
+      }
+      await _db.collection(_collection).doc(roomId).update(data);
     } catch (e, st) {
       Logger.e(
         'WatchParty: heartbeat write failed for $roomId',

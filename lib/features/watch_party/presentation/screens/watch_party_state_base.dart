@@ -523,6 +523,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         await _service.heartbeat(
           roomId: _room.id,
           beatBy: _myUid,
+          currentTime: _hostExplicitlyPaused ? null : _estimatedLocalTime(),
         );
       },
     );
@@ -589,7 +590,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
 
-    if (_lastRemoteUpdate != null &&
+    final looksPending =
+        incoming.updatedAt.difference(DateTime.now()).abs() <
+        const Duration(seconds: 1);
+    if (!looksPending &&
+        _lastRemoteUpdate != null &&
         incoming.updatedAt.isBefore(_lastRemoteUpdate!)) {
       debugPrint(
         'WatchPartyScreen _onRoomUpdate: discarding out-of-order update (updatedAt=${incoming.updatedAt} < last=$_lastRemoteUpdate)',
@@ -1253,6 +1258,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
           _room.season != season ||
           _room.episode != episode ||
           _room.serverType != serverType) {
+        setState(() => _resolvingStream = false);
         return;
       }
       setState(() {

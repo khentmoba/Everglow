@@ -129,9 +129,9 @@ class WatchPartyRoom {
   final String updatedBy;
 
   /// Uid of whoever sent the latest heartbeat, or null if none yet.
-  /// Heartbeats only refresh [currentTime] and [updatedAt]; they never
-  /// touch [state] or [updatedBy], so a tick can't undo a pause that
-  /// the other person just made.
+  /// Heartbeats refresh [currentTime] + [positionAt] while playing and
+  /// always refresh [updatedAt]; they never touch [state] or [updatedBy],
+  /// so a tick can't undo a pause that the other person just made.
   final String? beatBy;
 
   // ─── Lifecycle ─────────────────────────────────────────────────────

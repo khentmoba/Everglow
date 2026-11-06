@@ -52,7 +52,7 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
 
   final service = WatchPartyService();
   final rooms = await service.getRooms(myUid);
-  final live = rooms.where((room) => room.active).toList();
+  final live = rooms.where((room) => room.isLive()).toList();
   final existing = live.isNotEmpty
       ? live.first
       : (rooms.isNotEmpty ? rooms.first : null);
@@ -108,7 +108,7 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
           );
     } else {
       toOpen = existing;
-      if (!existing.active) {
+      if (!existing.isLive()) {
         await service.reopenRoom(roomId: existing.id, updatedBy: myUid);
         toOpen = existing.copyWith(
           active: true,

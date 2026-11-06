@@ -115,7 +115,8 @@ void main() {
     },
   );
 
-  test('a heartbeat keeps the room alive without moving the video', () async {
+  test('a paused heartbeat keeps the room alive without moving the video',
+      () async {
     final db = _Db()
       ..room = {
         'state': 'playing',
@@ -130,6 +131,38 @@ void main() {
     expect(db.room['positionAt'], isA<Timestamp>());
     expect(db.room['beatBy'], 'clair-demo');
     expect(db.room['updatedAt'], FieldValue.serverTimestamp());
+  });
+
+  test('a playing heartbeat refreshes the anchor with the position', () async {
+    final db = _Db()
+      ..room = {
+        'state': 'playing',
+        'currentTime': 120.0,
+      };
+    await WatchPartyService(db: db).heartbeat(
+      roomId: 'demo',
+      beatBy: 'clair-demo',
+      currentTime: 125.0,
+    );
+    expect(db.room['currentTime'], 125.0);
+    expect(db.room['positionAt'], FieldValue.serverTimestamp());
+    expect(db.room['beatBy'], 'clair-demo');
+  });
+
+  test('reopening an idle room pauses it and refreshes the anchor', () async {
+    final db = _Db()
+      ..room = {
+        'active': true,
+        'state': 'playing',
+        'currentTime': 120.0,
+      };
+    await WatchPartyService(db: db).reopenRoom(
+      roomId: 'demo',
+      updatedBy: 'clair-demo',
+    );
+    expect(db.room['active'], isTrue);
+    expect(db.room['state'], 'paused');
+    expect(db.room['positionAt'], FieldValue.serverTimestamp());
   });
 
   test('changing episode resets playback and re-anchors the server clock',

@@ -409,20 +409,21 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
                   color: _cAmber,
                   onTap: _showServerPicker,
                 ),
-                _errorAction(
-                  label: 'Open in browser',
-                  icon: Icons.open_in_new_rounded,
-                  color: _cGreen,
-                  onTap: () async {
-                    final uri = Uri.parse(_externalOpenUrl());
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
-                ),
+                if (!_isEverglowServer)
+                  _errorAction(
+                    label: 'Open in browser',
+                    icon: Icons.open_in_new_rounded,
+                    color: _cGreen,
+                    onTap: () async {
+                      final uri = Uri.parse(_externalOpenUrl());
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    },
+                  ),
               ],
             ),
           ],
