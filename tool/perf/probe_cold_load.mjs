@@ -99,7 +99,8 @@ async function main(argv = process.argv.slice(2)) {
   const root = resolve(flag('--web-root', 'build/web'));
   if (!existsSync(`${root}/index.html`)) throw new Error(`no web artifact at ${root}`);
   const server = await serve(root, Number(flag('--port', 8977)));
-  const url = `http://127.0.0.1:${server.address().port}/`;
+  const path = flag('--path', '/');
+  const url = `http://127.0.0.1:${server.address().port}${path}`;
   const rows = [];
   try {
     for (let i = 1; i <= options.runs; i++) {
@@ -114,6 +115,7 @@ async function main(argv = process.argv.slice(2)) {
   const report = {
     profile: options.profile,
     webRoot: root,
+    path,
     runs: rows.length,
     okRuns: ok.length,
     medianFirstFlutterFrameMs: ok.length ? median(ok.map(r => r.firstFlutterFrameMs)) : null,
