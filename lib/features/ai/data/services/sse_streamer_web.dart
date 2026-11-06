@@ -1,14 +1,14 @@
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 // Web-only SSE streaming client.
 //
 // Primary path: `fetch` + `ReadableStream` (incremental chunks in every
 // modern browser). Fallback path: XHR responseText polling, which keeps
 // streaming working in older browsers and embedded webviews where fetch
-// body streams are buffered until the response completes. The XHR path uses
-// dart:html, so this file must only be compiled for dart2js web builds.
+// body streams are buffered until the response completes.
+//
+// Uses `package:web` rather than `dart:html` so this file also compiles for
+// the WebAssembly renderer, where `dart:html` is unavailable.
 import 'dart:async';
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:js_interop';
 
 import 'package:web/web.dart' as web;
@@ -67,9 +67,18 @@ Future<String> streamSseResponse({
     return false;
   }
 
-  StreamSubscription? visSub;
+  web.EventListener? visibilityListener;
+
+  /// Stops listening for the tab returning to the foreground.
+  void detachVisibilityListener() {
+    final listener = visibilityListener;
+    if (listener == null) return;
+    visibilityListener = null;
+    web.document.removeEventListener('visibilitychange', listener);
+  }
+
   void completeRequest() {
-    visSub?.cancel();
+    detachVisibilityListener();
     if (!completer.isCompleted) {
       completer.complete(fullResponse.toString());
     }
@@ -114,7 +123,7 @@ Future<String> streamSseResponse({
   void startDrain() {
     // In background tabs, browsers pause requestAnimationFrame. Drain immediately
     // so incoming chunks don't pile up or hang until the user refocuses the tab.
-    if (html.window.document.hidden == true) {
+    if (web.document.hidden) {
       drainScheduled = false;
       drainAll();
       if (streamDone) completeRequest();
@@ -134,11 +143,13 @@ Future<String> streamSseResponse({
     // hard while the app's animations run, which made reply bursts appear
     // all at once. Frame callbacks run on the same clock as the app's own
     // animations, so the queue drains at a steady visible pace.
-    html.window.requestAnimationFrame((_) {
-      drainScheduled = false;
-      drain();
-      if (pending.isNotEmpty) startDrain();
-    });
+    web.window.requestAnimationFrame(
+      ((num _) {
+        drainScheduled = false;
+        drain();
+        if (pending.isNotEmpty) startDrain();
+      }).toJS,
+    );
   }
 
   void processText(String text) {
@@ -162,7 +173,7 @@ Future<String> streamSseResponse({
       }
     }
     lineBuffer = '';
-    if (pending.isEmpty || html.window.document.hidden == true) {
+    if (pending.isEmpty || web.document.hidden) {
       drainAll();
       completeRequest();
     } else {
@@ -184,11 +195,13 @@ Future<String> streamSseResponse({
   }
 
   Future<String> responseFuture = completer.future;
-  visSub = html.document.on['visibilitychange'].listen((_) {
-    if (html.document.hidden != true && pending.isNotEmpty) {
+  // Re-drains a queued reply when the tab returns to the foreground.
+  visibilityListener = ((web.Event _) {
+    if (!web.document.hidden && pending.isNotEmpty) {
       startDrain();
     }
-  });
+  }).toJS;
+  web.document.addEventListener('visibilitychange', visibilityListener);
   try {
     final ac = web.AbortController();
     cancellation?.attach(() {
@@ -274,7 +287,7 @@ Future<String> streamSseResponse({
       responseFuture = completer.future;
     }
   } catch (e) {
-    visSub.cancel();
+    detachVisibilityListener();
     timeoutTimer?.cancel();
     if (!completer.isCompleted) {
       completer.completeError(e);
@@ -284,7 +297,7 @@ Future<String> streamSseResponse({
     return await responseFuture;
   } finally {
     timeoutTimer?.cancel();
-    visSub.cancel();
+    detachVisibilityListener();
     cancellation?.attach(null);
   }
 }
@@ -301,7 +314,7 @@ void _streamViaXhr(
   Completer<String> completer,
   SseCancellation? cancellation,
 ) {
-  final xhr = html.HttpRequest();
+  final xhr = web.XMLHttpRequest();
   xhr.open('POST', url);
   headers.forEach((key, value) => xhr.setRequestHeader(key, value));
 
@@ -312,12 +325,12 @@ void _streamViaXhr(
       timer.cancel();
       return;
     }
-    final currentText = xhr.responseText ?? '';
+    final currentText = xhr.responseText;
     if (currentText.length > previousText.length) {
       processText(currentText.substring(previousText.length));
       previousText = currentText;
     }
-    if (xhr.readyState != 4) return;
+    if (xhr.readyState != web.XMLHttpRequest.DONE) return;
     finished = true;
     timer.cancel();
     if (xhr.status == 200) {
@@ -326,8 +339,7 @@ void _streamViaXhr(
     }
     String errorMsg;
     try {
-      final errorData =
-          jsonDecode(xhr.responseText ?? '{}') as Map<String, dynamic>;
+      final errorData = jsonDecode(xhr.responseText) as Map<String, dynamic>;
       errorMsg = errorData['error'] as String? ?? 'Unknown error';
     } catch (_) {
       errorMsg = 'AI service returned ${xhr.status}';
@@ -347,7 +359,7 @@ void _streamViaXhr(
   });
 
   try {
-    xhr.send(body);
+    xhr.send(body.toJS);
   } catch (e) {
     poll.cancel();
     finished = true;

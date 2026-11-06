@@ -1,11 +1,10 @@
 import 'dart:async';
-// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
-import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:web/web.dart' as web;
 
 import '../../../../core/theme/app_theme.dart';
 import '../../data/models/book_item.dart';
@@ -394,7 +393,7 @@ class _ReaderScreenState extends _ReaderScreenStateBase {
             tagName: 'div',
             onElementCreated: (element) {
               final iframe = _embedIframe;
-              if (iframe != null) (element as html.Element).append(iframe);
+              if (iframe != null) (element as web.Element).append(iframe);
             },
           ),
         ),
