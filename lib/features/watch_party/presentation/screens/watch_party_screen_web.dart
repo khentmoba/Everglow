@@ -514,11 +514,15 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildCinemaServerSelector() {
-    final isHls = _room.serverType == 'hls';
-    final serverName = _room.streamUrl == null
+    final isHls = _isEverglowServer || _room.serverType == 'hls';
+    final serverName = _isEverglowServer
+        ? 'Everglow'
+        : _room.streamUrl == null
         ? _selectedProvider.name
         : (_room.serverName ?? 'Server');
-    final desc = _room.streamUrl == null
+    final desc = _isEverglowServer
+        ? 'Everglow server · real play/pause/seek sync'
+        : _room.streamUrl == null
         ? _selectedProvider.desc
         : isHls
         ? 'Self-hosted HLS stream · real play/pause/seek sync'
@@ -735,6 +739,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               ),
             ),
             const SizedBox(width: 10),
+            if (_isHlsServer) ...[
+              _buildVolumeControl(),
+              const SizedBox(width: 8),
+            ],
             Semantics(
               label: _hostExplicitlyPaused ? 'Play video' : 'Pause video',
               button: true,
@@ -893,6 +901,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                   activeColor: AppColors.roseQuartz,
                   onChanged: (v) {
                     setState(() => _hlsVolume = v);
+                    _hlsController.setMuted(false);
                     _hlsController.setVolume(v);
                   },
                   onChangeEnd: _persistHlsVolume,
@@ -906,11 +915,17 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildServerChip({bool compact = false}) {
-    final active = _room.streamUrl != null;
-    final color = active
+    final active = _isEverglowServer || _room.streamUrl != null;
+    final color = _isEverglowServer
+        ? _cGreen
+        : active
         ? (_room.serverType == 'hls' ? _cGreen : _cAmber)
         : _cMuted;
-    final label = active ? (_room.serverName ?? 'Server') : 'Auto';
+    final label = _isEverglowServer
+        ? 'Everglow'
+        : active
+        ? (_room.serverName ?? 'Server')
+        : 'Auto';
     return Semantics(
       label: 'Choose playback server',
       button: true,

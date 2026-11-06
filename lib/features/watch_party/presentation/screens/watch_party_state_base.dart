@@ -113,7 +113,7 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   // servers play in a real <video> element via hls.js so the couple
   // gets precise play/pause/seek sync; embed servers use the iframe.
   final HlsServerPlayerController _hlsController = HlsServerPlayerController();
-  late final String _hlsViewType;
+  late String _hlsViewType;
   bool _hlsFailed = false;
   bool _hlsReady = false;
   String? _hlsError;
@@ -144,6 +144,11 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
 
   /// One-shot guard for rooms written before `positionAt` existed.
   bool _seededLegacyAnchor = false;
+
+  void _regenerateHlsViewType() {
+    _hlsViewType =
+        'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
+  }
 
   String get _hlsVolumeKey => PlayerMemoryService.watchPartyKey(_room.id);
 
@@ -638,6 +643,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _anchorEpoch = DateTime.now();
       _anchorTime = 0.0;
       if (_isEverglowServer) {
+        _regenerateHlsViewType();
+        _hlsReady = false;
+        _isResyncing = true;
         _everglowStreamUrl = null;
         _availableSubtitles = const [];
         unawaited(_resolveEverglowStream(startSeconds: 0));
@@ -1256,10 +1264,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   void _applyHlsState(WatchPartyRoom incoming) {
     _isResyncing = false;
     if (incoming.state == 'playing') {
-      // Remote play may lack a user gesture; keep it muted so the
-      // browser allows autoplay.
-      _hlsController.setMuted(true);
-      _hlsController.play();
+      // Remote play may lack a user gesture. Try sound first, then fall
+      // back to muted autoplay so the picture still moves.
+      _hlsController.playWithSoundFallback();
     } else {
       _hlsController.pause();
     }

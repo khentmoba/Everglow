@@ -55,7 +55,7 @@ class _Room implements DocumentReference<Map<String, dynamic>> {
 
 void main() {
   test(
-    'a new movie night removes the old stream, subtitles and episode',
+    'a new title removes the old stream, subtitles and episode',
     () async {
       final db = _Db()
         ..room = {
@@ -70,16 +70,13 @@ void main() {
           'beatBy': 'old-host',
           'active': false,
         };
-      final service = WatchPartyService(db: db);
-      final started = await service.startRoom(
-        hostUid: 'khent-demo',
-        hostName: 'Khent',
-        partnerUid: 'clair-demo',
-        partnerName: 'Clair',
+      await WatchPartyService(db: db).updateMedia(
+        roomId: 'demo',
         mediaType: 'movie',
         tmdbId: 123,
         title: 'Demo movie',
         posterPath: '',
+        updatedBy: 'khent-demo',
       );
       expect(db.room['serverType'], 'everglow');
       expect(db.room['serverName'], 'Everglow');
@@ -89,7 +86,6 @@ void main() {
       expect(db.room['active'], isTrue);
       expect(db.room['updatedAt'], FieldValue.serverTimestamp());
       expect(db.room['positionAt'], FieldValue.serverTimestamp());
-      expect(started.serverType, 'everglow');
     },
   );
 

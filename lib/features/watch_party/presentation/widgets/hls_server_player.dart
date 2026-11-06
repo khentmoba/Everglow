@@ -74,6 +74,13 @@ class HlsServerPlayerController {
     _state?._play();
   }
 
+  /// Play with sound when the browser allows it, and fall back to muted
+  /// autoplay when it does not. Used for remote play/join, where there is
+  /// no user gesture on this device.
+  void playWithSoundFallback() {
+    _state?._playWithSoundFallback();
+  }
+
   void pause() {
     _state?._pause();
   }
@@ -458,8 +465,24 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     }
     widget.onReady?.call();
     if (_pendingAutoplay) {
-      _setMuted(true);
-      _play();
+      _playWithSoundFallback();
+    }
+  }
+
+  Future<void> _playWithSoundFallback() async {
+    final video = _video;
+    if (video == null || _destroyed) return;
+    try {
+      video.muted = false;
+      video.volume = _volume;
+      await video.play().toDart;
+    } catch (_) {
+      try {
+        video.muted = true;
+        await video.play().toDart;
+      } catch (e) {
+        debugPrint('[HlsServerPlayer] play() rejected: $e');
+      }
     }
   }
 

@@ -53,12 +53,14 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
             serverType: 'everglow',
             serverName: 'Everglow',
             serverHost: 'everglow',
-          );
+          )
+          .copyWithCaptions(subtitleUrl: null, captionsOn: true);
       _hostExplicitlyPaused = true;
       _cinesrcReady = false;
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
+      _regenerateHlsViewType();
       _everglowStreamUrl = null;
       _availableSubtitles = const [];
       _captionsOn = true;
@@ -120,6 +122,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
+      _regenerateHlsViewType();
       _everglowStreamUrl = null;
       _availableSubtitles = const [];
     });
@@ -229,9 +232,11 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
         _hlsReady = false;
         _hlsFailed = false;
         _hlsError = null;
+        _regenerateHlsViewType();
         _everglowStreamUrl = null;
         _availableSubtitles = const [];
       });
+      _rebuildAt(_localStartHint());
       return;
     }
     final isEverglow = server.id == WatchPartyServer.everglow.id;
@@ -265,6 +270,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
+      _regenerateHlsViewType();
       _everglowStreamUrl = null;
       _availableSubtitles = const [];
       _captionsOn = true;

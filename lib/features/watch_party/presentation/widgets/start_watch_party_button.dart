@@ -141,9 +141,10 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   }
 
   if (freshChat) {
-    // Each movie night starts with a clean conversation. Both the
-    // in-player chat and the Watch Together temporary chat share the
-    // couple's room id, so clearing here refreshes both surfaces.
+    // Each movie night starts with a clean conversation. The in-player
+    // chat is scoped to the room (now an auto id); the Watch Together
+    // temporary chat keeps the couple's deterministic id so it survives
+    // room changes.
     try {
       await WatchPartyChatService().clearMessages(toOpen.id);
     } catch (e) {
@@ -151,12 +152,13 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
     }
     try {
       final tempService = TemporaryChatService();
+      final tempRoomId = WatchPartyRoom.buildRoomId(myUid, partnerUid);
       await tempService.ensureRoom(
-        roomId: toOpen.id,
+        roomId: tempRoomId,
         myUid: myUid,
         partnerUid: partnerUid,
       );
-      await tempService.clearMessages(toOpen.id);
+      await tempService.clearMessages(tempRoomId);
     } catch (e) {
       debugPrint('SWP clear temporary chat failed: $e');
     }
