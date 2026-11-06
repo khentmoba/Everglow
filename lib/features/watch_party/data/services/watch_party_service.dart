@@ -487,6 +487,7 @@ class WatchPartyService {
           positionAt: DateTime.now(),
           updatedAt: DateTime.now(),
           updatedBy: updatedBy,
+          active: true,
         ).copyWithServer(
           serverType: 'everglow',
           serverName: 'Everglow',
@@ -518,6 +519,7 @@ class WatchPartyService {
         'positionAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
         'updatedBy': updatedBy,
+        'active': true,
       });
     } catch (e, st) {
       Logger.e(
@@ -542,15 +544,17 @@ class WatchPartyService {
       final room = _demoRooms[roomId];
       if (room == null) return;
       _putDemo(
-        room.copyWith(
-          season: season,
-          episode: episode,
-          state: 'paused',
-          currentTime: 0.0,
-          positionAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          updatedBy: updatedBy,
-        ),
+        room
+            .copyWith(
+              season: season,
+              episode: episode,
+              state: 'paused',
+              currentTime: 0.0,
+              positionAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              updatedBy: updatedBy,
+            )
+            .copyWithCaptions(subtitleUrl: null, captionsOn: true),
       );
       return;
     }
@@ -558,6 +562,8 @@ class WatchPartyService {
       await _db.collection(_collection).doc(roomId).update({
         'season': season,
         'episode': episode,
+        'subtitleUrl': FieldValue.delete(),
+        'captionsOn': true,
         'state': 'paused',
         'currentTime': 0.0,
         'positionAt': FieldValue.serverTimestamp(),

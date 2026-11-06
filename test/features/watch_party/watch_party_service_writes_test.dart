@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _Db implements FirebaseFirestore {
   Map<String, dynamic> room = {};
+  bool deleted = false;
   @override
   CollectionReference<Map<String, dynamic>> collection(String path) =>
       _Rooms(this);
@@ -40,6 +41,12 @@ class _Room implements DocumentReference<Map<String, dynamic>> {
         db.room[entry.key as String] = entry.value;
       }
     }
+  }
+
+  @override
+  Future<void> delete() async {
+    db.deleted = true;
+    db.room.clear();
   }
 
   @override
@@ -180,5 +187,12 @@ void main() {
     );
     expect(db.room.containsKey('subtitleUrl'), isFalse);
     expect(db.room['captionsOn'], isFalse);
+  });
+
+  test('deleting a room removes its document', () async {
+    final db = _Db()..room = {'title': 'Demo'};
+    await WatchPartyService(db: db).deleteRoom('demo');
+    expect(db.deleted, isTrue);
+    expect(db.room, isEmpty);
   });
 }

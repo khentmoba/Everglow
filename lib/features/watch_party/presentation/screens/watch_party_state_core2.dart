@@ -107,13 +107,15 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     );
     if (!mounted) return;
     setState(() {
-      _room = _room.copyWith(
-        season: season,
-        episode: episode,
-        state: 'paused',
-        currentTime: 0.0,
-        positionAt: DateTime.now(),
-      );
+      _room = _room
+          .copyWith(
+            season: season,
+            episode: episode,
+            state: 'paused',
+            currentTime: 0.0,
+            positionAt: DateTime.now(),
+          )
+          .copyWithCaptions(subtitleUrl: null, captionsOn: true);
       _hostExplicitlyPaused = true;
       _hlsReady = false;
       _hlsFailed = false;

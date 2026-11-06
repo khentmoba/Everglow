@@ -47,10 +47,6 @@ class WatchPartyClock {
     _sampledAt = received;
   }
 
-  /// Seconds to add to a local playback position before writing it as the
-  /// room's new anchor, so the anchor matches the server commit time.
-  double get offsetSeconds => _offset.inMilliseconds / 1000.0;
-
   static Duration _clamp(Duration value) {
     if (value > maxOffset) return maxOffset;
     if (value < -maxOffset) return -maxOffset;

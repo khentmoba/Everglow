@@ -41,12 +41,5 @@ void main() {
       clock.observe(local.add(const Duration(hours: 2)));
       expect(clock.offset, WatchPartyClock.maxOffset);
     });
-
-    test('offsetSeconds mirrors the offset', () {
-      var local = DateTime.utc(2026, 1, 1, 12);
-      final clock = WatchPartyClock(now: () => local);
-      clock.observe(local.add(const Duration(milliseconds: 1500)));
-      expect(clock.offsetSeconds, closeTo(1.5, 0.001));
-    });
   });
 }

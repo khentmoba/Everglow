@@ -134,7 +134,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               fit: StackFit.expand,
               children: [
                 const ColoredBox(color: Colors.black),
-                if (_isHlsServer)
+                if (_isHlsServer && _hlsStreamUrl.isNotEmpty)
                   HlsServerPlayer(
                     streamUrl: _hlsStreamUrl,
                     subtitleUrl: _effectiveSubtitleUrl,

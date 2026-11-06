@@ -132,7 +132,7 @@ class _WatchPartyLobbyState extends State<WatchPartyLobby> {
           ),
         ),
         content: Text(
-          'This removes the room and its chat. It cannot be undone.',
+          'This removes the room. It cannot be undone.',
           style: AppTypography.outfitWhite.copyWith(
             color: AppColors.textMedium,
             fontSize: 13,
