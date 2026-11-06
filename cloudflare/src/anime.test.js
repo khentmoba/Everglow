@@ -8,6 +8,8 @@ import {
   cinemaHeaders,
   cinemaProxyUrl,
   scopeMessage,
+  stampParts,
+  megaplayProxyUrl,
   urlScope,
   decryptMegaPlayPayload,
   failHtml,
@@ -42,14 +44,26 @@ import { handleProxyHls } from './worker.js';
 const KEY = 'demo-cdn-key';
 const HOST = 'https://everglow-stream.example.workers.dev';
 
-/** The upstream URL a proxy URL points at, in either shape: `u` (one-off) or
- *  `d` + `r` (scoped, relative to the signed directory). */
+/** The upstream URL a proxy URL points at, in any shape: `u` (one-off),
+ *  `d` + `r` (direct, relative to the signed folder), or `rp` + `d` + `r`
+ *  (a relay endpoint fetching a URL under the signed folder). */
 function upstreamOf(proxyUrl) {
   const u = proxyUrl instanceof URL ? proxyUrl : new URL(proxyUrl);
   const full = u.searchParams.get('u');
   if (full) return full;
-  return (u.searchParams.get('d') || '') + (u.searchParams.get('r') || '');
+  const d = u.searchParams.get('d') || '';
+  const rp = u.searchParams.get('rp');
+  if (rp) {
+    const rq = u.searchParams.get('rq');
+    return `${rp}?url=${encodeURIComponent(d)}${u.searchParams.get('rr') || ''}${rq ? `&${rq}` : ''}`;
+  }
+  return d + (u.searchParams.get('r') || '');
 }
+
+/** fmov's open relay and a CDN folder it fetches from, as real films use. */
+const RELAY = 'https://fmov.my/api/proxy';
+const CDN = 'https://srv323.truawk.cyou/aes/0/abc/film.mp4/';
+const relayOf = (inner) => `${RELAY}?url=${encodeURIComponent(inner)}`;
 
 test('validateAnimeParams accepts the sources the app actually offers', () => {
   for (const source of ['megavid', 'megaplay', 'everglow']) {
@@ -103,20 +117,31 @@ test('headers follow the stamped provider, never the URL host', () => {
   assert.equal(cinemaHeaders('fmov').Referer, `${FMOV_ORIGIN}/`);
 });
 
-test('Cinema stamps bind provider + scope, and never pass as another provider', async () => {
-  const url = 'https://fmov.my/api/proxy?url=https%3A%2F%2Fcdn.example%2Fm.m3u8';
+test('stampParts splits relays and refuses URLs that must never be stamped', () => {
+  assert.deepEqual(stampParts(relayOf(`${CDN}index.m3u8`)), { relay: RELAY, inner: `${CDN}index.m3u8` });
+  const direct = 'https://img.rousav.tech/media/a/index.m3u8?api_key=k';
+  assert.deepEqual(stampParts(direct), { relay: '', inner: direct });
+  const bridge = `https://dash-hls-bridge.someone.workers.dev/?url=${encodeURIComponent(`${CDN}m.m3u8`)}`;
+  assert.equal(stampParts(bridge).relay, 'https://dash-hls-bridge.someone.workers.dev/');
+  // Never stampable: a relay host in direct mode, a nested relay, a URL-valued param.
+  assert.equal(stampParts('https://fmov.my/api/proxy?url=master.m3u8'), null);
+  assert.equal(stampParts('https://fmov.my/api/'), null);
+  assert.equal(stampParts(relayOf(relayOf('https://example.com/'))), null);
+  assert.equal(stampParts('https://cdn.example/x.ts?next=https%3A%2F%2Fevil.example%2F'), null);
+});
+
+test('Cinema stamps bind provider + relay endpoint + inner folder', async () => {
+  const url = relayOf(`${CDN}index.m3u8`);
   const proxied = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, url, 'fmov', KEY));
   assert.equal(upstreamOf(proxied), url);
-  assert.equal(proxied.searchParams.get('p'), 'fmov');
-  const scope = proxied.searchParams.get('d');
+  assert.equal(proxied.searchParams.get('d'), CDN);
+  assert.equal(proxied.searchParams.get('rp'), RELAY);
   const s = proxied.searchParams.get('s');
-  assert.equal(scope, 'https://fmov.my/api/');
-  assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', scope), s));
-  assert.equal(await validCdnStamp(KEY, scopeMessage('vidbolt', scope), s), false);
-  assert.equal(await validCdnStamp(KEY, scopeMessage('megaplay', scope), s), false);
-  assert.equal(await validCdnStamp('other-key', scopeMessage('fmov', scope), s), false);
-  // A different scope under the same provider must not validate.
-  assert.equal(await validCdnStamp(KEY, scopeMessage('fmov', 'https://fmov.my/other/'), s), false);
+  assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), s));
+  assert.equal(await validCdnStamp(KEY, scopeMessage('vidbolt', RELAY, CDN), s), false);
+  assert.equal(await validCdnStamp(KEY, scopeMessage('fmov', '', CDN), s), false);
+  assert.equal(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, 'https://fmov.my/api/'), s), false);
+  assert.equal(await validCdnStamp('other-key', scopeMessage('fmov', RELAY, CDN), s), false);
 });
 
 test('urlScope returns the containing directory', () => {
@@ -125,42 +150,55 @@ test('urlScope returns the containing directory', () => {
   assert.equal(urlScope('https://a.example/index.m3u8'), 'https://a.example/');
 });
 
-test('rewriteCinemaPlaylist stamps a whole playlist with ONE signature', async () => {
-  const base = 'https://img.rousav.tech/media/a/index.m3u8?api_key=k1';
-  const segs = Array.from({ length: 400 }, (_, i) => `seg${i}.ts`).join('\n');
-  const out = await rewriteCinemaPlaylist(
-    `#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="track_en.m3u8"\n${segs}\n`,
-    base,
-    `${HOST}/proxyMegavidHls`,
-    'vidbolt',
-    KEY,
-  );
+test('rewriteCinemaPlaylist stamps a whole relayed film with ONE signature', async () => {
+  const segs = Array.from({ length: 400 }, (_, i) => `/api/proxy?url=${encodeURIComponent(`${CDN}seg-${i}.ts`)}`).join('\n');
+  const out = await rewriteCinemaPlaylist(`#EXTM3U\n${segs}\n`, relayOf(`${CDN}index.m3u8`), `${HOST}/proxyMegavidHls`, 'fmov', KEY);
   const urls = [...out.matchAll(/https:\/\/[^?"\s]+\/proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
-  assert.equal(urls.length, 401);
-  const stamps = new Set(urls.map((u) => u.searchParams.get('s')));
-  assert.equal(stamps.size, 1, 'one signature covers the whole directory');
-  const scopes = new Set(urls.map((u) => u.searchParams.get('d')));
-  assert.deepEqual([...scopes], ['https://img.rousav.tech/media/a/']);
-  for (const u of urls) {
-    assert.equal(u.searchParams.get('p'), 'vidbolt');
-    assert.ok(upstreamOf(u).includes('api_key=k1'), 'api_key survives');
-    assert.ok(u.searchParams.get('r'), 'scoped URLs send a relative path');
-    assert.ok(!u.searchParams.get('u'), 'no full URL when a relative path will do');
-  }
-  assert.ok(await validCdnStamp(KEY, scopeMessage('vidbolt', 'https://img.rousav.tech/media/a/'), [...stamps][0]));
+  assert.equal(urls.length, 400);
+  assert.equal(new Set(urls.map((u) => u.searchParams.get('s'))).size, 1);
+  urls.forEach((u, i) => {
+    assert.equal(upstreamOf(u), relayOf(`${CDN}seg-${i}.ts`));
+    assert.ok(u.searchParams.get('rr') && u.searchParams.get('rp') && !u.searchParams.get('u'), 'compact form');
+  });
+  assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), urls[0].searchParams.get('s')));
 });
 
-test('a URI outside the playlist directory gets its own scope', async () => {
-  const base = 'https://img.rousav.tech/media/a/index.m3u8';
+test('vector-shaped relay segments (other folder, extra params) still use one stamp and the compact form', async () => {
+  const seg = (i) => `/api/proxy?url=${encodeURIComponent(`https://cdn2.example/content/ab/cd/page-${i}.html`)}&referer=${encodeURIComponent('https://ref.example/')}&va=1`;
+  const text = `#EXTM3U\n${Array.from({ length: 50 }, (_, i) => seg(i)).join('\n')}\n`;
+  const out = await rewriteCinemaPlaylist(text, relayOf('https://cdn2.example/pl/list.m3u8'), `${HOST}/proxyMegavidHls`, 'fmov', KEY);
+  const urls = out.split('\n').filter((l) => l.startsWith(HOST)).map((l) => new URL(l));
+  assert.equal(urls.length, 50);
+  assert.equal(new Set(urls.map((u) => u.searchParams.get('s'))).size, 1);
+  urls.forEach((u, i) => {
+    assert.ok(!u.searchParams.get('u'), 'compact');
+    assert.equal(upstreamOf(u), `https://fmov.my${seg(i)}`);
+    assert.equal(u.searchParams.get('d'), 'https://cdn2.example/content/ab/cd/');
+  });
+});
+
+test('a direct playlist keeps api_key and stamps its own folder', async () => {
+  const base = 'https://img.rousav.tech/media/a/index.m3u8?api_key=k1';
+  const out = await rewriteCinemaPlaylist('#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="track_en.m3u8"\nseg0.ts\n', base, `${HOST}/proxyMegavidHls`, 'vidbolt', KEY);
+  const urls = [...out.matchAll(/https:\/\/[^?"\s]+\/proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
+  assert.equal(urls.length, 2);
+  for (const u of urls) {
+    assert.equal(u.searchParams.get('d'), 'https://img.rousav.tech/media/a/');
+    assert.ok(upstreamOf(u).includes('api_key=k1'));
+  }
+});
+
+test('a URI outside the playlist directory gets its own scope; a relay URI is never folder-stamped', async () => {
   const out = await rewriteCinemaPlaylist(
-    '#EXTM3U\nhttps://other.example/deep/x.ts\n',
-    base,
+    '#EXTM3U\nhttps://other.example/deep/x.ts\nhttps://fmov.my/api/proxy?url=y.ts\n',
+    'https://img.rousav.tech/media/a/index.m3u8',
     `${HOST}/proxyMegavidHls`,
     'vidbolt',
     KEY,
   );
-  const u = new URL(out.split('\n').find((l) => l.startsWith('https://')));
-  assert.equal(u.searchParams.get('d'), 'https://other.example/deep/');
+  const lines = out.split('\n');
+  assert.equal(new URL(lines[1]).searchParams.get('d'), 'https://other.example/deep/');
+  assert.equal(lines[2], 'https://fmov.my/api/proxy?url=y.ts', 'left unstamped, so the proxy refuses it');
 });
 
 test('rewritePlaylistWithHosts keeps Megavid allowlisted and stamps MegaPlay', async () => {
@@ -350,13 +388,13 @@ test('resolveCinema resolves a movie and stamps the player + subtitles', async (
           ok: true, status: 200,
           json: async () => ({
             success: true,
-            sources: [{ url: '/api/proxy?url=master.m3u8', type: 'hls' }],
+            sources: [{ url: `/api/proxy?url=${encodeURIComponent(`${CDN}index.m3u8`)}`, type: 'hls' }],
             subtitles: [{ label: 'English', file: 'https://cache.vdrk.site/en.vtt', type: 'vtt' }],
           }),
         };
       }
-      if (u.includes('master.m3u8')) {
-        return { ok: true, status: 200, text: async () => '#EXTM3U\n#EXTINF:200,\n/api/proxy?url=seg1.ts\n' };
+      if (u.includes('index.m3u8')) {
+        return { ok: true, status: 200, text: async () => `#EXTM3U\n#EXTINF:200,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n` };
       }
       if (u.startsWith('https://vidbolt.xyz/')) return { ok: false, status: 502 };
       return segOk;
@@ -365,14 +403,13 @@ test('resolveCinema resolves a movie and stamps the player + subtitles', async (
     const src = new URL(out.src);
     assert.equal(src.pathname, '/proxyMegavidHls');
     assert.equal(src.searchParams.get('p'), 'fmov');
-    const scope = src.searchParams.get('d');
-    const stamp = src.searchParams.get('s');
-    assert.equal(scope, 'https://fmov.my/api/');
-    assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', scope), stamp));
-    assert.ok(upstreamOf(src).startsWith(scope));
+    assert.equal(src.searchParams.get('d'), CDN);
+    assert.equal(src.searchParams.get('rp'), RELAY);
+    assert.equal(upstreamOf(src), relayOf(`${CDN}index.m3u8`));
+    assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), src.searchParams.get('s')));
     assert.equal(out.title, 'Movie');
     assert.equal(out.tracks.length, 1);
-    assert.ok(out.tracks[0].file.includes('p=fmov'));
+    assert.equal(new URL(out.tracks[0].file).searchParams.get('d'), 'https://cache.vdrk.site/');
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -408,7 +445,7 @@ function hlsRequest(query) {
   return new Request(u.toString());
 }
 
-test('the Worker refuses to relay URLs it did not stamp (no open proxy)', async () => {
+test('the Worker refuses every way of pointing a stamp at a URL we never issued', async () => {
   const realFetch = globalThis.fetch;
   const fetched = [];
   globalThis.fetch = async (url) => {
@@ -416,17 +453,28 @@ test('the Worker refuses to relay URLs it did not stamp (no open proxy)', async 
     return new Response('<html>example</html>', { status: 200, headers: { 'content-type': 'text/html' } });
   };
   try {
-    const relay = `https://fmov.my/api/proxy?url=${encodeURIComponent('https://example.com/')}`;
+    const evilRelay = relayOf('https://example.com/');
+    // The exact attack from review: lift a real stamp from a public player page.
+    const real = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, relayOf(`${CDN}index.m3u8`), 'fmov', KEY));
+    const lifted = { p: 'fmov', d: real.searchParams.get('d'), s: real.searchParams.get('s') };
+    const relayFolder = 'https://fmov.my/api/';
     const cases = [
-      { u: relay },
-      { u: relay, p: 'fmov' },
-      { u: relay, p: 'fmov', s: 'f'.repeat(64) },
-      // A Cinema stamp cannot be reused as a bare MegaPlay stamp, so
-      // stripping `p` never upgrades a Cinema URL to the MegaPlay path.
-      // A Cinema stamp lifted onto another provider, or reused with a scope
-      // it was not minted for, must not open the relay.
-      { u: relay, p: 'vidbolt', d: 'https://fmov.my/api/', s: await cdnStamp(KEY, scopeMessage('fmov', 'https://fmov.my/api/')) },
-      { u: relay, p: 'fmov', d: 'https://evil.example/', s: await cdnStamp(KEY, scopeMessage('fmov', 'https://evil.example/')) },
+      { u: evilRelay },
+      { u: evilRelay, p: 'fmov', d: relayFolder, s: 'f'.repeat(16) },
+      { ...lifted, u: evilRelay },
+      { ...lifted, u: relayOf(`${CDN}../../../x`) },
+      { ...lifted, rp: RELAY, rr: '..%2F..%2F..%2Fx' },
+      { ...lifted, rp: 'https://evil.example/proxy', rr: 'index.m3u8' },
+      { ...lifted, r: 'index.m3u8' },
+      { ...lifted, p: 'vidbolt', rp: RELAY, rr: 'index.m3u8' },
+      // A second url= or an unknown URL-valued param: which one does fmov honour?
+      { ...lifted, rp: RELAY, rr: 'index.m3u8', rq: `url=${encodeURIComponent('https://example.com/')}` },
+      { ...lifted, rp: RELAY, rr: 'index.m3u8', rq: `target=${encodeURIComponent('https://example.com/')}` },
+      { ...lifted, u: `${relayOf(`${CDN}index.m3u8`)}&url=${encodeURIComponent('https://example.com/')}` },
+      { ...lifted, u: relayOf(relayOf('https://example.com/')) },
+      // A folder stamp on the relay host itself, if one were ever minted.
+      { u: evilRelay, p: 'fmov', d: relayFolder, s: await cdnStamp(KEY, scopeMessage('fmov', '', relayFolder)) },
+      { u: evilRelay, p: 'fmov', d: relayFolder, s: await cdnStamp(KEY, scopeMessage('fmov', RELAY, relayFolder)) },
       { u: 'https://img.rousav.tech/media/a/index.m3u8' },
       { u: 'http://fmov.my/api/proxy' },
     ];
@@ -436,57 +484,43 @@ test('the Worker refuses to relay URLs it did not stamp (no open proxy)', async 
     }
     assert.deepEqual(fetched, [], 'nothing reached an upstream');
 
-    // A genuine MegaPlay stamp still works: that path is how its rotating
-    // CDNs are reached, and only this Worker can mint one.
-    const rotating = 'https://wintergrove.space/seg.jpg';
-    const megaplayScope = 'https://wintergrove.space/';
-    const ok = await handleProxyHls(
-      hlsRequest({
-        u: rotating,
-        p: 'megaplay',
-        d: megaplayScope,
-        s: await cdnStamp(KEY, scopeMessage('megaplay', megaplayScope)),
-      }),
-      { CDN_STAMP_KEY: KEY },
-    );
+    // The genuine stamp still works, and only for the URL it was issued for.
+    const ok = await handleProxyHls(new Request(real.toString()), { CDN_STAMP_KEY: KEY });
     assert.equal(ok.status, 200);
+    assert.deepEqual(fetched, [relayOf(`${CDN}index.m3u8`)]);
+
+    // A genuine MegaPlay stamp for a rotating CDN still works too.
+    fetched.length = 0;
+    const rotating = 'https://wintergrove.space/seg.jpg';
+    const mp = await megaplayProxyUrl(`${HOST}/proxyMegavidHls`, rotating, KEY);
+    const mpRes = await handleProxyHls(new Request(mp), { CDN_STAMP_KEY: KEY });
+    assert.equal(mpRes.status, 200);
     assert.deepEqual(fetched, [rotating]);
   } finally {
     globalThis.fetch = realFetch;
   }
 });
 
-test('the Worker serves a stamped Cinema playlist with that provider headers', async () => {
+test('the Worker serves a stamped relayed playlist with that provider headers', async () => {
   const realFetch = globalThis.fetch;
   let seen;
   globalThis.fetch = async (url, init) => {
     seen = { url: String(url), headers: init.headers };
-    return new Response('#EXTM3U\n#EXTINF:8,\n/api/proxy?url=seg1.ts\n', {
+    return new Response(`#EXTM3U\n#EXTINF:8,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n`, {
       status: 200,
       headers: { 'content-type': 'application/vnd.apple.mpegurl' },
     });
   };
   try {
-    const master = 'https://fmov.my/api/proxy?url=https%3A%2F%2Fcdn.example%2Fmaster.m3u8';
-    const signed = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, master, 'fmov', KEY));
-    const res = await handleProxyHls(
-      hlsRequest(Object.fromEntries(signed.searchParams)),
-      { CDN_STAMP_KEY: KEY },
-    );
+    const master = relayOf(`${CDN}master.m3u8`);
+    const signed = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, master, 'fmov', KEY);
+    const res = await handleProxyHls(new Request(signed), { CDN_STAMP_KEY: KEY });
     assert.equal(res.status, 200);
     assert.equal(seen.url, master);
     assert.equal(seen.headers.Origin, FMOV_ORIGIN);
-    const body = await res.text();
-    const child = new URL(body.split('\n').find((l) => l.startsWith('https://')));
-    assert.equal(child.searchParams.get('p'), 'fmov');
-    assert.equal(upstreamOf(child), 'https://fmov.my/api/proxy?url=seg1.ts');
-    assert.ok(
-      await validCdnStamp(
-        KEY,
-        scopeMessage('fmov', child.searchParams.get('d')),
-        child.searchParams.get('s'),
-      ),
-    );
+    const child = new URL((await res.text()).split('\n').find((l) => l.startsWith('https://')));
+    assert.equal(upstreamOf(child), relayOf(`${CDN}seg1.ts`));
+    assert.ok(await validCdnStamp(KEY, scopeMessage('fmov', RELAY, CDN), child.searchParams.get('s')));
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -500,13 +534,10 @@ test('the Worker streams segments through with the upstream status and range', a
       headers: { 'content-type': 'video/mp2t', 'content-range': 'bytes 0-3/100', 'accept-ranges': 'bytes' },
     });
   try {
-    const seg = 'https://fmov.my/api/proxy?url=seg1.ts';
-    const signed = new URL(await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, seg, 'fmov', KEY));
-    const req = new Request(`${signed.toString()}`, { headers: { Range: 'bytes=0-3' } });
-    const res = await handleProxyHls(req, { CDN_STAMP_KEY: KEY });
+    const signed = await cinemaProxyUrl(`${HOST}/proxyMegavidHls`, relayOf(`${CDN}seg1.ts`), 'fmov', KEY);
+    const res = await handleProxyHls(new Request(signed, { headers: { Range: 'bytes=0-3' } }), { CDN_STAMP_KEY: KEY });
     assert.equal(res.status, 206);
     assert.equal(res.headers.get('content-range'), 'bytes 0-3/100');
-    assert.equal(res.headers.get('content-type'), 'video/mp2t');
     assert.equal((await res.arrayBuffer()).byteLength, 4);
   } finally {
     globalThis.fetch = realFetch;

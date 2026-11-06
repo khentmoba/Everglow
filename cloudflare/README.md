@@ -15,6 +15,23 @@ egress; on Firebase that is ~$0.76 per movie, here it is $0.
 | `/proxyMegavidHls?u=<url>[&p=fmov\|vidbolt][&s=<stamp>]` | Streams playlists (rewritten), segments, keys, subtitles |
 | `/health` | `ok` |
 
+## How stamps work (read before touching them)
+
+A stamp signs `provider | relay endpoint | folder`, not a single URL, so a
+1,043-segment film costs one HMAC. Two upstreams run open "fetch anything"
+relays (`fmov.my/api/proxy?url=…`, VidBolt's `*.workers.dev` bridges). A stamp
+over a relay's own folder would vouch for every URL on the internet — that
+shipped once and was caught in review. So:
+
+- Relay URLs are stamped over the relay's exact endpoint plus the folder of the
+  URL it fetches. Exactly one `url=`; only `referer`/`origin` may carry other URLs.
+- Relay hosts never get a plain folder stamp.
+- The Worker re-derives and checks every target itself (`scopedTarget` +
+  `stampParts`); the playlist rewriter only shapes URLs.
+
+The player page is `functions/hls_player.js`, shared with Firebase. Change it
+there, never copy it.
+
 ## Deliberately not ported
 
 - **AnimePahe** and `proxyAnimeSegment` — they need a self-hosted API base the
@@ -61,10 +78,11 @@ cd cloudflare
 node --test "src/**/*.test.js"
 ```
 
-23 tests: parameter validation, host allowlists, stamp binding, playlist
+28 tests: parameter validation, host allowlists, stamp binding, playlist
 rewriting, stream verification, the Cinema race and its budget, the MegaPlay
 AES/HMAC port (pinned against the Firebase ciphertext), and the two Worker
-handlers — including that an unstamped `fmov.my/api/proxy?url=…` is refused.
+handlers — including that a real stamp lifted from a public player page can
+not point fmov's relay anywhere else.
 
 ## After deploying
 

@@ -14,6 +14,10 @@
 //     host allowlists already pin every URL to one we handed out)
 //   - per-IP rate limiting (two viewers; add Durable Objects if that changes)
 
+// The player page is shared with the Firebase functions so the two cannot
+// drift (they already did once: #571 landed on Firebase only).
+import { hlsPlayerHtml } from '../../functions/hls_player.js';
+
 const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -235,11 +239,75 @@ function urlScope(absUrl) {
   return `${u.origin}${u.pathname.replace(/[^/]*$/, '')}`;
 }
 
+/** Hosts that run an open "fetch anything" relay. A folder stamp on them
+ *  would vouch for every URL on the internet, so they are only ever reached
+ *  in relay mode, where the stamp covers the relay's exact endpoint and the
+ *  folder of the URL it fetches. */
+function isRelayHost(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  return h === 'fmov.my' || h.endsWith('.fmov.my') || h.endsWith('.workers.dev');
+}
+
+/** True when any query parameter carries a URL — the signature of a relay. */
+function hasUrlParam(absUrl) {
+  const q = absUrl.indexOf('?');
+  return q >= 0 && /(?:^|&)[^=&#]*=(?:https?:|https?%3a)/i.test(absUrl.slice(q + 1));
+}
+
+/** Splits an upstream URL into the relay endpoint and the URL it fetches.
+ *
+ *  fmov.my/api/proxy?url=… and VidBolt's dash-hls-bridge Workers fetch
+ *  whatever `url=` says. A stamp over the relay's folder reopened the open
+ *  proxy (any public player page handed one out), so in relay mode the stamp
+ *  covers `relay endpoint | folder of the inner URL` instead. Returns null for
+ *  a URL we must never stamp: a nested relay, or a direct URL on a relay host
+ *  or carrying a URL-valued parameter. */
+function stampParts(absUrl) {
+  const clean = String(absUrl || '').split('#')[0];
+  const q = clean.indexOf('?');
+  if (q >= 0) {
+    const query = clean.slice(q + 1);
+    const pairs = query.split('&');
+    const urls = pairs.filter((kv) => /^url=/i.test(kv));
+    let inner = null;
+    if (urls.length === 1) {
+      try {
+        inner = decodeURIComponent(urls[0].slice(4));
+      } catch (_) {
+        return null;
+      }
+    }
+    if (inner !== null && /^https?:\/\//i.test(inner)) {
+      // Relay mode. A second `url=` (which value does the relay honour?) or
+      // any other URL-valued parameter besides the header hints it takes
+      // could aim the relay somewhere the stamp never covered.
+      for (const kv of pairs) {
+        if (/^url=/i.test(kv)) continue;
+        const eq = kv.indexOf('=');
+        const name = (eq < 0 ? kv : kv.slice(0, eq)).toLowerCase();
+        const value = eq < 0 ? '' : kv.slice(eq + 1);
+        if (/^https?(:|%3a)/i.test(value) && name !== 'referer' && name !== 'origin') return null;
+      }
+      if (hasUrlParam(inner)) return null;
+      return { relay: clean.slice(0, q), inner };
+    }
+    if (urls.length > 1) return null;
+  }
+  let host = '';
+  try {
+    host = new URL(clean).hostname;
+  } catch (_) {
+    return null;
+  }
+  if (isRelayHost(host) || hasUrlParam(clean)) return null;
+  return { relay: '', inner: clean };
+}
+
 /** What a stamp signs. The provider is part of the message, so a VidBolt
- *  stamp can never switch a URL to Fmov's headers, and a MegaPlay stamp can
- *  never pass as a Cinema one. */
-function scopeMessage(provider, scope) {
-  return `${provider}|${scope}`;
+ *  stamp can never switch a URL to Fmov's headers, and the relay endpoint is
+ *  part of it, so a stamp for one relay can never be replayed on another. */
+function scopeMessage(provider, relay, scope) {
+  return `${provider}|${relay}|${scope}`;
 }
 
 /** Builds our same-origin proxy URL for one upstream file. Token-free on
@@ -248,37 +316,37 @@ function proxyUrl(proxyBase, absUrl) {
   return `${proxyBase}?u=${encodeURIComponent(absUrl)}`;
 }
 
-/** Proxy URL covered by a stamp over [scope]. The scope travels with the
- *  request so the proxy needs one HMAC to check it, not a walk up the tree;
- *  the stamp binds the scope, so a caller cannot widen it. */
-function scopedProxyUrl(proxyBase, absUrl, provider, scope, stamp) {
-  // The upstream URL travels as a path relative to the scope, not in full:
-  // encoding a 443-character URL per segment was most of the rewrite's CPU,
-  // and `seg-1-v1-a1.ts` is a tenth of the bytes.
-  const rel = absUrl.startsWith(scope) ? absUrl.slice(scope.length) : '';
-  if (rel && !rel.startsWith('/') && !rel.includes('..')) {
-    return (
-      `${proxyBase}?p=${provider}&d=${encodeURIComponent(scope)}` +
-      `&r=${encodeURIComponent(rel)}&s=${stamp}`
-    );
+/** Proxy URL covered by a stamp over [scope] (the inner URL's folder) and
+ *  [parts.relay]. Compact form when lossless: the inner URL travels as a path
+ *  relative to the scope (`r`) plus the relay endpoint (`rp`), not as a full
+ *  443-character URL; otherwise the whole upstream URL goes in `u`. */
+function scopedProxyUrl(proxyBase, absUrl, parts, provider, scope, stamp) {
+  const tail = `&p=${provider}&d=${encodeURIComponent(scope)}&s=${stamp}`;
+  const rel = parts.inner.startsWith(scope) ? parts.inner.slice(scope.length) : '';
+  const relOk = rel && rel[0] !== '/' && !rel.includes('..');
+  if (relOk && !parts.relay && parts.inner === absUrl) {
+    return `${proxyBase}?r=${encodeURIComponent(rel)}${tail}`;
   }
-  return (
-    `${proxyUrl(proxyBase, absUrl)}&p=${provider}` +
-    `&d=${encodeURIComponent(scope)}&s=${stamp}`
-  );
+  if (relOk && parts.relay) {
+    const sp = splitForTransport(absUrl);
+    if (sp && sp.relay === parts.relay && sp.lossless && decodeURIComponent(sp.encFolder) === scope) {
+      return (
+        `${proxyBase}?rp=${encodeURIComponent(sp.relay)}&rr=${encodeURIComponent(sp.rr)}` +
+        `${sp.rq ? `&rq=${encodeURIComponent(sp.rq)}` : ''}${tail}`
+      );
+    }
+  }
+  return `${proxyUrl(proxyBase, absUrl)}${tail}`;
 }
 
 /** Proxy URL for a single file a provider pointed us at (a master playlist,
- *  a subtitle track). Stamps that file's own directory. */
+ *  a subtitle track). Null when the URL may never be stamped. */
 async function scopedUrl(proxyBase, absUrl, provider, key) {
-  const scope = urlScope(absUrl);
-  return scopedProxyUrl(
-    proxyBase,
-    absUrl,
-    provider,
-    scope,
-    await cdnStamp(key, scopeMessage(provider, scope)),
-  );
+  const parts = stampParts(absUrl);
+  if (!parts) return null;
+  const scope = urlScope(parts.inner);
+  const stamp = await cdnStamp(key, scopeMessage(provider, parts.relay, scope));
+  return scopedProxyUrl(proxyBase, absUrl, parts, provider, scope, stamp);
 }
 
 /** Proxy URL for a file a Cinema provider pointed us at. Always stamped:
@@ -296,7 +364,41 @@ async function megaplayProxyUrl(proxyBase, absUrl, key) {
     host = new URL(absUrl).hostname;
   } catch (_) {}
   if (!key || isAnimeCdnHost(host)) return url;
-  return scopedUrl(proxyBase, absUrl, 'megaplay', key);
+  return (await scopedUrl(proxyBase, absUrl, 'megaplay', key)) || url;
+}
+
+/** Reconstructs the upstream URL a proxy request names, and checks it is
+ *  covered by the scope the stamp signs. Returns the target, or null. The
+ *  caller still verifies the stamp over scopeMessage(provider, relay, scope). */
+function scopedTarget(params) {
+  const scope = params.get('d') || '';
+  if (!scope.startsWith('https://') || !scope.endsWith('/')) return null;
+  let target = params.get('u') || '';
+  if (!target) {
+    const rp = params.get('rp') || '';
+    if (rp) {
+      // Relay form: the inner URL keeps the relay's own encoding, so only the
+      // part after the (encoded) scope travels, plus any extra query params.
+      const rr = params.get('rr') || '';
+      const rq = params.get('rq') || '';
+      if (!rr) return null;
+      target = `${rp}?url=${encodeURIComponent(scope)}${rr}${rq ? `&${rq}` : ''}`;
+    } else {
+      const rel = params.get('r') || '';
+      if (!rel || rel[0] === '/' || rel.includes('..') || rel.includes('://')) return null;
+      target = scope + rel;
+    }
+  }
+  const parts = stampParts(target);
+  if (!parts) return null;
+  let innerHref;
+  try {
+    innerHref = new URL(parts.inner).href;
+  } catch (_) {
+    return null;
+  }
+  if (!innerHref.startsWith(scope)) return null;
+  return { target, relay: parts.relay, scope };
 }
 
 // ─── Playlist helpers ────────────────────────────────────
@@ -470,84 +572,135 @@ function applyReplacements(lines, map) {
  *  Deliberately synchronous on the common path: a 1,043-segment film used to
  *  allocate a promise per segment, which cost more CPU than the signatures
  *  it replaced. Now the whole playlist is one signature and one string pass. */
+/** Splits one absolute playlist URI for transport, with string operations
+ *  only (this runs once per segment). Returns the stamp group it belongs to
+ *  and how to rebuild it, or null to leave the URI untouched.
+ *
+ *  This is not the security check: a stamp signs only (provider, relay,
+ *  folder), and the Worker re-derives and validates every target itself
+ *  (scopedTarget + stampParts). A wrong split here can only break playback. */
+function splitForTransport(abs) {
+  const hash = abs.indexOf('#');
+  const clean = hash < 0 ? abs : abs.slice(0, hash);
+  const q = clean.indexOf('?');
+  if (q >= 0) {
+    const query = clean.slice(q + 1);
+    const at = query.startsWith('url=') ? 0 : query.indexOf('&url=') + 1;
+    if (at > 0 || query.startsWith('url=')) {
+      const start = at + 4;
+      const amp = query.indexOf('&', start);
+      const raw = amp < 0 ? query.slice(start) : query.slice(start, amp);
+      if (/^https?%3A%2F%2F/i.test(raw)) {
+        const rest = amp < 0 ? '' : query.slice(amp + 1);
+        const rawPath = raw.split(/%3F/i)[0];
+        const cut = rawPath.toUpperCase().lastIndexOf('%2F');
+        if (cut < 0) return null;
+        const encFolder = raw.slice(0, cut + 3);
+        // Only rest that comes AFTER url= can be rebuilt; anything before it
+        // falls back to the full form.
+        const before = at > 0 ? query.slice(0, at - 1) : '';
+        return {
+          relay: clean.slice(0, q),
+          group: `${clean.slice(0, q)}|${encFolder}`,
+          encFolder,
+          rr: raw.slice(encFolder.length),
+          rq: rest,
+          lossless: !before && hash < 0,
+        };
+      }
+    }
+  }
+  const path = q < 0 ? clean : clean.slice(0, q);
+  const slash = path.lastIndexOf('/');
+  if (slash < 8) return null;
+  const hostEnd = clean.indexOf('/', 8);
+  if (isRelayHost(clean.slice(8, hostEnd < 0 ? undefined : hostEnd).split(':')[0])) return null;
+  const folder = clean.slice(0, slash + 1);
+  return { relay: '', group: `|${folder}`, folder, r: clean.slice(slash + 1), lossless: hash < 0 };
+}
+
+/** Rewrites every URI in a playlist to a stamped proxy URL. One signature
+ *  per (relay endpoint, folder): a 1,043-segment film is one HMAC. */
 async function rewriteScopedPlaylist(text, playlistUrl, proxyBase, provider, key, isAllowed) {
   const ctx = baseContext(playlistUrl);
-  const playlistScope = urlScope(playlistUrl);
-  const mainStamp = key
-    ? await cdnStamp(key, scopeMessage(provider, playlistScope))
-    : '';
   const lines = String(text || '').split(/\r?\n/);
-  const extraStamps = new Map();
-  let escaped = null;
-
-  const rewriteRef = (ref) => {
-    const abs = resolveWithContext(ctx, ref);
-    if (!abs) return null;
-    if (isAllowed) {
-      let host = '';
-      try {
-        host = new URL(abs).hostname;
-      } catch (_) {
-        return null;
-      }
-      if (isAllowed(host)) return proxyUrl(proxyBase, abs);
-    }
-    if (abs.startsWith(playlistScope)) {
-      return scopedProxyUrl(proxyBase, abs, provider, playlistScope, mainStamp);
-    }
-    // Rare: a URI outside the playlist's directory needs its own scope, which
-    // needs its own signature. Collected and resolved after the fast pass.
-    (escaped ||= []).push(ref);
-    return null;
+  const hostOf = (abs) => {
+    const end = abs.indexOf('/', 8);
+    return (end < 0 ? abs.slice(8) : abs.slice(8, end)).split(':')[0].toLowerCase();
   };
 
-  const out = lines.map((line) => {
-    const t = line.trim();
-    if (!t) return line;
-    if (t[0] === '#') {
-      if (!t.includes('URI="')) return line;
-      return line.replace(/URI="([^"]+)"/g, (m, uri) => {
-        const r = rewriteRef(uri);
-        return r ? `URI="${r}"` : m;
-      });
-    }
-    const r = rewriteRef(t);
-    return r || line;
-  });
-
-  if (!escaped) return out.join('\n');
-
-  // Slow path: sign each escaped directory once, then patch those lines.
-  const patched = new Map();
-  for (const ref of new Set(escaped)) {
+  // Pass 1: resolve every URI once and collect its stamp group.
+  const items = new Map();
+  const consider = (ref) => {
+    if (items.has(ref)) return;
     const abs = resolveWithContext(ctx, ref);
-    if (!abs) continue;
-    const scope = urlScope(abs);
-    if (!extraStamps.has(scope)) {
-      extraStamps.set(
-        scope,
-        key ? await cdnStamp(key, scopeMessage(provider, scope)) : '',
-      );
+    if (!abs || !abs.startsWith('https://')) return items.set(ref, null);
+    if (isAllowed && isAllowed(hostOf(abs))) {
+      return items.set(ref, { plain: proxyUrl(proxyBase, abs) });
     }
-    patched.set(
-      ref,
-      scopedProxyUrl(proxyBase, abs, provider, scope, extraStamps.get(scope)),
-    );
-  }
-  for (let i = 0; i < out.length; i++) {
-    const t = out[i].trim();
+    const split = splitForTransport(abs);
+    items.set(ref, split ? { abs, split } : null);
+  };
+  for (const line of lines) {
+    const t = line.trim();
     if (!t) continue;
     if (t[0] === '#') {
-      if (!t.includes('URI="')) continue;
-      out[i] = out[i].replace(/URI="([^"]+)"/g, (m, uri) => {
-        const r = patched.get(uri);
-        return r ? `URI="${r}"` : m;
-      });
-    } else if (patched.has(t)) {
-      out[i] = patched.get(t);
+      if (t.includes('URI="')) for (const m of t.matchAll(/URI="([^"]+)"/g)) consider(m[1]);
+    } else {
+      consider(t);
     }
   }
-  return out.join('\n');
+
+  // Sign each group once.
+  const groups = new Map();
+  for (const item of items.values()) {
+    if (!item || item.plain || groups.has(item.split.group)) continue;
+    const sp = item.split;
+    let scope;
+    try {
+      scope = sp.relay ? decodeURIComponent(sp.encFolder) : sp.folder;
+    } catch (_) {
+      groups.set(sp.group, null);
+      continue;
+    }
+    const stamp = key ? await cdnStamp(key, scopeMessage(provider, sp.relay, scope)) : '';
+    groups.set(sp.group, {
+      tail: `&p=${provider}&d=${encodeURIComponent(scope)}&s=${stamp}`,
+      rp: sp.relay ? `?rp=${encodeURIComponent(sp.relay)}` : '',
+    });
+  }
+
+  // Pass 2: emit.
+  const emit = (ref) => {
+    const item = items.get(ref);
+    if (!item) return null;
+    if (item.plain) return item.plain;
+    const g = groups.get(item.split.group);
+    if (!g) return null;
+    const sp = item.split;
+    if (!sp.lossless) return `${proxyUrl(proxyBase, item.abs)}${g.tail}`;
+    if (sp.relay) {
+      return (
+        `${proxyBase}${g.rp}&rr=${encodeURIComponent(sp.rr)}` +
+        `${sp.rq ? `&rq=${encodeURIComponent(sp.rq)}` : ''}${g.tail}`
+      );
+    }
+    return `${proxyBase}?r=${encodeURIComponent(sp.r)}${g.tail}`;
+  };
+  return lines
+    .map((line) => {
+      const t = line.trim();
+      if (!t) return line;
+      if (t[0] === '#') {
+        if (!t.includes('URI="')) return line;
+        return line.replace(/URI="([^"]+)"/g, (m, uri) => {
+          const r = emit(uri);
+          return r ? `URI="${r}"` : m;
+        });
+      }
+      return emit(t) || line;
+    })
+    .join('\n');
 }
 
 /** Cinema playlists: nothing is allowlisted (fmov runs its own open relay),
@@ -1005,16 +1158,20 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
     clearTimeout(budgetTimer);
   }
 
-  const tracks = await Promise.all(
-    selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
-      .filter((t) => t.file.startsWith('https://'))
-      .map(async (t) => ({
-        ...t,
-        file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
-      })),
-  );
+  const tracks = (
+    await Promise.all(
+      selectCinemaSubtitleTracks(hit.subtitles, hit.baseOrigin)
+        .filter((t) => t.file.startsWith('https://'))
+        .map(async (t) => ({
+          ...t,
+          file: await cinemaProxyUrl(proxyBase, t.file, hit.provider, key),
+        })),
+    )
+  ).filter((t) => t.file);
+  const src = await cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key);
+  if (!src) throw new Error('cinema: master URL cannot be stamped');
   return {
-    src: await cinemaProxyUrl(proxyBase, masterUrl, hit.provider, key),
+    src,
     tracks,
     title: isTv ? `S${season} E${ep}` : 'Movie',
     ep: isTv ? ep : 1,
@@ -1022,131 +1179,6 @@ async function resolveCinema(mediaType, tmdbId, season, ep, proxyBase, key, opts
 }
 
 // ─── Player page ─────────────────────────────────────────
-
-/** Ad-free HLS player with recovery. The video URL must already be playable
- *  from a browser (proxied through us when the upstream needs headers).
- *  Starts playback once the manifest is ready, retries transient failures,
- *  and after repeated fatal errors shows a retry card instead of spinning.
- *  The card deliberately avoids the failover marker text, so the app's
- *  server probe never mistakes a healthy player for a dead one. */
-function hlsPlayerHtml({ src, title, tracks, token, ep }) {
-  const trackTags = (Array.isArray(tracks) ? tracks : [])
-    .filter((t) => t && t.file)
-    .slice(0, 8)
-    .map(
-      (t) =>
-        '<track kind="captions" src="' + escHtml(t.file) + '"' +
-        (t.label ? ' label="' + escHtml(t.label) + '"' : '') +
-        '>',
-    )
-    .join('\n    ');
-  return (
-    '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<meta name="referrer" content="no-referrer">' +
-    '<title>' + escHtml(title || 'Everglow') + '</title>' +
-    '<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}' +
-    'video{width:100%;height:100%;background:#000}' +
-    '.ov{position:fixed;inset:0;display:flex;align-items:center;' +
-    'justify-content:center;background:rgba(0,0,0,.72);z-index:5}' +
-    '.ov[hidden]{display:none!important}' +
-    '.spin{width:44px;height:44px;border:4px solid rgba(255,255,255,.2);' +
-    'border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite}' +
-    '@keyframes sp{to{transform:rotate(360deg)}}' +
-    '#tap{cursor:pointer;border:0;border-radius:999px;padding:14px 26px;' +
-    'font-size:16px;font-weight:700;color:#fff;background:#ff2e63}' +
-    '#dead{flex-direction:column;text-align:center;color:#e2e2ea;' +
-    'font-family:sans-serif;padding:0 28px}' +
-    '#dead button{margin-top:14px;cursor:pointer;border:1px solid #ff2e63;' +
-    'border-radius:999px;padding:10px 24px;font-size:14px;color:#fff;' +
-    'background:transparent}' +
-    '</style></head><body>' +
-    '<video id="v" controls playsinline autoplay preload="auto" ' +
-    'crossorigin="anonymous">' +
-    (trackTags ? '\n    ' + trackTags : '') +
-    '</video>\n' +
-    '<div class="ov" id="boot"><div class="spin"></div></div>\n' +
-    '<div class="ov" id="tapw" hidden>' +
-    '<button id="tap">&#9654; Tap to play</button></div>\n' +
-    '<div class="ov" id="dead" hidden>' +
-    '<p style="font-size:15px;margin:0 0 6px">This stream stalled.</p>' +
-    '<p style="font-size:12px;color:#8b8b9e;margin:0">' +
-    'Try another server below — or retry here.</p>' +
-    '<button onclick="location.reload()">Retry</button></div>\n' +
-    '<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>\n' +
-    '<script>(function(){var src=' + JSON.stringify(src) + ';var v=' +
-    'document.getElementById("v");' +
-    'var boot=document.getElementById("boot");' +
-    'var tapw=document.getElementById("tapw");' +
-    'var tap=document.getElementById("tap");' +
-    'var dead=document.getElementById("dead");' +
-    'var episode=' + JSON.stringify(Number.isSafeInteger(ep) && ep > 0 ? ep : null) + ';' +
-    'var start=new URLSearchParams(window.location.search).get("start");' +
-    'var pendingSeek=start!==null&&/^\\d+(?:\\.\\d+)?$/.test(start)?Number(start):null;' +
-    'if(!Number.isFinite(pendingSeek)){pendingSeek=null;}' +
-    'var hasMetadata=false;' +
-    'function applySeek(){if(!hasMetadata||pendingSeek===null||!Number.isFinite(v.duration)||v.duration<=0){return;}' +
-    'try{v.currentTime=Math.min(pendingSeek,v.duration);pendingSeek=null;}catch(e){}}' +
-    'v.addEventListener("loadedmetadata",function(){hasMetadata=true;applySeek();});' +
-    'v.addEventListener("durationchange",applySeek);' +
-    'function trustedParent(origin){return origin==="https://everglow-1c6db.web.app"||' +
-    'origin==="https://everglow-1c6db.firebaseapp.com"||' +
-    '/^https:\\/\\/everglow-1c6db--[a-z0-9-]+\\.web\\.app$/.test(origin)||' +
-    '/^https?:\\/\\/(?:localhost|127\\.0\\.0\\.1|\\[::1\\])(?::[0-9]+)?$/.test(origin);}' +
-    'function nativeBridge(){return window.parent===window&&window.EverglowPlayer&&' +
-    'window.location.protocol==="https:"&&' +
-    'window.location.pathname==="/proxyAnime";}' +
-    'window.addEventListener("message",function(e){' +
-    'if(e.source!==window.parent||(!trustedParent(e.origin)&&' +
-    '!(nativeBridge()&&e.origin===window.location.origin))){return;}' +
-    'var d=e.data;if(!d||d.type!=="animex-seek"||typeof d.seconds!=="number"||' +
-    '!Number.isFinite(d.seconds)||d.seconds<0){return;}' +
-    'pendingSeek=d.seconds;applySeek();});' +
-    'function post(data){try{window.parent.postMessage(data,"*");}catch(e){}' +
-    'try{if(nativeBridge()){window.EverglowPlayer.postMessage(' +
-    'typeof data==="string"?data:JSON.stringify(data));}}catch(e){}}' +
-    'var lastProgress=null;' +
-    'function progress(force){var position=v.currentTime,duration=v.duration;' +
-    'if(!Number.isFinite(position)||position<0||!Number.isFinite(duration)||' +
-    'duration<=0||position>duration){return;}' +
-    'var now=Date.now();if(!force&&lastProgress!==null&&now-lastProgress<1000){return;}' +
-    'lastProgress=now;post({type:"animex-progress",position:position,duration:duration,episode:episode});}' +
-    'v.addEventListener("timeupdate",function(){progress(false);});' +
-    'v.addEventListener("pause",function(){progress(true);});' +
-    'v.addEventListener("ended",function(){progress(true);});' +
-    'function hideBoot(){boot.style.display="none";}' +
-    'function showTap(){tapw.hidden=false;}' +
-    'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
-    'if(p&&p.catch){p.catch(function(){showTap();});}}' +
-    'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
-    'post("animex-content-error");}' +
-    'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
-    'v.addEventListener("playing",function(){hideBoot();tapw.hidden=true;});' +
-    'v.addEventListener("waiting",function(){' +
-    'if(dead.hidden){boot.style.display="flex";}});' +
-    'if(window.Hls&&Hls.isSupported()){' +
-    (token
-      ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});var fatal=0;'
-      : 'var h=new Hls({maxBufferLength:30});var fatal=0;') +
-    'h.on(Hls.Events.ERROR,function(ev,data){' +
-    'if(!data||!data.fatal){return;}fatal++;' +
-    'if(fatal>3){try{h.destroy();}catch(e){}giveUp();return;}' +
-    'var ET=Hls.ErrorTypes||{};' +
-    'try{' +
-    'if(data.type===ET.NETWORK_ERROR){h.startLoad();}' +
-    'else if(data.type===ET.MEDIA_ERROR){h.recoverMediaError();}' +
-    'else if(fatal<3){h.startLoad();}' +
-    'else{h.destroy();giveUp();}' +
-    '}catch(e){giveUp();}});' +
-    'h.on(Hls.Events.MANIFEST_PARSED,function(){tryPlay();});' +
-    'h.loadSource(src);h.attachMedia(v);' +
-    '}else{' +
-    'v.src=src;' +
-    'v.addEventListener("loadedmetadata",function(){tryPlay();});' +
-    'v.addEventListener("error",function(){giveUp();});' +
-    '}})();</' + 'script></body></html>'
-  );
-}
 
 /** [notify] also posts `animex-content-error` to the embedding app. Cinema
  *  needs it: its player has no dead-server probe reading the marker text, so
@@ -1261,6 +1293,9 @@ export {
   scopedUrl,
   urlScope,
   scopeMessage,
+  stampParts,
+  scopedTarget,
+  isRelayHost,
   cinemaProxyUrl,
   megaplayProxyUrl,
   cdnStamp,

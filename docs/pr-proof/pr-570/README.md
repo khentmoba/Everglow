@@ -40,7 +40,7 @@ the deployed build talking to the deployed Worker over the real internet.
 | Resume | `start=600` → progress starts at 600 |
 | Open-relay attempt | 400, nothing fetched |
 | Throughput vs direct | 1.8 Mbps through the Worker vs 1.9 Mbps direct — no overhead |
-| Unit tests | 23 passed, 0 failed |
+| Unit tests | 28 passed, 0 failed |
 
 The thin buffer seen in the screenshot is the upstream, not the proxy: Fmov's
 source delivers ~1.9 Mbps from here while the stream needs 2.4 Mbps. Direct

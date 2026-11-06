@@ -25,6 +25,7 @@ import {
   rewriteCinemaPlaylist,
   rewritePlaylistWithHosts,
   scopeMessage,
+  scopedTarget,
   STAMP_PROVIDERS,
   validCdnStamp,
   validateAnimeParams,
@@ -110,6 +111,7 @@ async function handleProxyAnime(request, env) {
       title: out.title,
       token: query.token || '',
       ep: out.ep,
+      audio: params.audio,
     });
     return new Response(page, {
       status: 200,
@@ -136,21 +138,11 @@ async function handleProxyHls(request, env, ctx) {
 
   const url = new URL(request.url);
   const providerParam = url.searchParams.get('p');
-  const scopeParam = url.searchParams.get('d') || '';
-  const relParam = url.searchParams.get('r') || '';
-  // Scoped URLs carry the scope plus a short relative path; one-off URLs (a
-  // master playlist, a subtitle track) carry the whole upstream URL.
-  let target = url.searchParams.get('u') || '';
-  if (!target && scopeParam && relParam) {
-    if (
-      relParam.startsWith('/') ||
-      relParam.includes('..') ||
-      relParam.includes('://')
-    ) {
-      return jsonResponse({ error: 'Invalid path' }, 400);
-    }
-    target = scopeParam + relParam;
-  }
+  const provider = STAMP_PROVIDERS.has(providerParam) ? providerParam : null;
+  // Stamped requests name their target through the signed scope (see
+  // scopedTarget); unstamped ones may only name an allowlisted anime CDN.
+  const scoped = provider !== null ? scopedTarget(url.searchParams) : null;
+  const target = scoped ? scoped.target : url.searchParams.get('u') || '';
   if (!target) return jsonResponse({ error: 'Missing ?u=<media url>' }, 400);
 
   let parsed;
@@ -160,23 +152,17 @@ async function handleProxyHls(request, env, ctx) {
     return jsonResponse({ error: 'Invalid url' }, 400);
   }
 
-  // Unlisted hosts pass only with a stamp we minted ourselves. The stamp
-  // covers a provider + URL scope (a directory), and the scope travels with
-  // the request so one HMAC verifies it. The stamp binds the scope, so a
-  // caller cannot widen it to reach a URL we never handed out. Cinema has no
-  // host allowlist on purpose — fmov.my runs its own open relay, so listing
-  // its host would turn this Worker into an open proxy.
-  const provider = STAMP_PROVIDERS.has(providerParam) ? providerParam : null;
-  const scope = scopeParam;
+  // Unlisted hosts pass only with a stamp we minted ourselves, over
+  // `provider | relay endpoint | folder of the URL actually fetched`. A relay
+  // (fmov.my/api/proxy?url=…) is never covered by a folder stamp, so one stamp
+  // lifted from a public player page cannot point the relay anywhere else.
   const stamp = url.searchParams.get('s') || '';
   const key = stamp ? env.CDN_STAMP_KEY || null : null;
-  const scoped =
-    provider !== null &&
-    scope.startsWith('https://') &&
-    parsed.href.startsWith(scope) &&
-    (await validCdnStamp(key, scopeMessage(provider, scope), stamp));
-  const listed = isAnimeCdnHost(parsed.hostname);
-  if (parsed.protocol !== 'https:' || !(scoped || listed)) {
+  const stamped =
+    scoped !== null &&
+    (await validCdnStamp(key, scopeMessage(provider, scoped.relay, scoped.scope), stamp));
+  const listed = !scoped && isAnimeCdnHost(parsed.hostname);
+  if (parsed.protocol !== 'https:' || !(stamped || listed)) {
     return jsonResponse({ error: 'Host not allowed' }, 400);
   }
 
@@ -210,6 +196,9 @@ async function handleProxyHls(request, env, ctx) {
     parsed.pathname.toLowerCase().includes('.m3u8') ||
     (parsed.search.toLowerCase().includes('.m3u8') && !upstreamCt.includes('video/'));
 
+  // Set when the body was already read as text and turned out not to be a
+  // playlist; the stream is spent, so the text itself is sent instead.
+  let consumed = null;
   if (looksLikePlaylist) {
     const text = await upstream.text();
     if (text && text.includes('#EXTM3U')) {
@@ -232,6 +221,7 @@ async function handleProxyHls(request, env, ctx) {
       return response;
     }
     // Falls through as a plain file when the body isn't a playlist.
+    consumed = text;
   }
 
   const outHeaders = { ...CORS };
@@ -241,6 +231,7 @@ async function handleProxyHls(request, env, ctx) {
     const v = upstream.headers.get(h);
     if (v) outHeaders[h.replace(/(^|-)([a-z])/g, (m, a, b) => a + b.toUpperCase())] = v;
   }
+  if (consumed !== null) delete outHeaders['Content-Length'];
 
   if (request.method === 'HEAD') {
     return new Response(null, { status: upstream.status === 206 ? 206 : 200, headers: outHeaders });
@@ -248,7 +239,7 @@ async function handleProxyHls(request, env, ctx) {
 
   // Pass the upstream body straight through: Workers apply backpressure to
   // the client for us, so no manual reader loop is needed.
-  return new Response(upstream.body, {
+  return new Response(consumed !== null ? consumed : upstream.body, {
     status: upstream.status === 206 ? 206 : 200,
     headers: outHeaders,
   });
