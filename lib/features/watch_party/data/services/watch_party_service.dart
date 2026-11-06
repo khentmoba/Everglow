@@ -462,8 +462,8 @@ class WatchPartyService {
 
   /// Move the room to another episode without ending the party. The
   /// partner follows on the next snapshot. Playback restarts at 0 so you
-  /// both land on the same frame; the stream is rebuilt from the room's
-  /// media identity (Everglow) or cleared for a fixed-URL server.
+  /// both land on the same frame. Everglow rebuilds the stream from the
+  /// room's media identity; a fixed-URL HLS server reloads in place.
   Future<void> updateEpisode({
     required String roomId,
     required int season,

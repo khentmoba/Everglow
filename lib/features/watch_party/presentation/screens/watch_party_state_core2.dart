@@ -33,6 +33,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       updatedBy: uid,
     );
     if (!mounted) return;
+    final wasHlsMounted = _isHlsMounted;
     setState(() {
       _room = _room
           .copyWithMedia(
@@ -60,18 +61,14 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
-      _regenerateHlsViewType();
       _everglowStreamUrl = null;
+      if (!(wasHlsMounted && _isHlsMounted)) {
+        _regenerateHlsViewType();
+      }
       _availableSubtitles = const [];
       _captionsOn = true;
     });
-    if (_isEverglowServer) {
-      unawaited(_resolveEverglowStream(startSeconds: 0));
-    } else if (media.isAnime) {
-      _bootstrapAnime();
-    } else if (_usesIframe) {
-      _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
-    }
+    unawaited(_resolveEverglowStream(startSeconds: 0));
   }
 
   /// Open the episode picker for the current series. Picking an episode
@@ -108,6 +105,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       updatedBy: uid,
     );
     if (!mounted) return;
+    final wasHlsMounted = _isHlsMounted;
     setState(() {
       _room = _room
           .copyWith(
@@ -122,9 +120,12 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
-      _regenerateHlsViewType();
       _everglowStreamUrl = null;
+      if (!(wasHlsMounted && _isHlsMounted)) {
+        _regenerateHlsViewType();
+      }
       _availableSubtitles = const [];
+      _captionsOn = true;
     });
     if (_isEverglowServer) {
       unawaited(_resolveEverglowStream(startSeconds: 0));
@@ -220,6 +221,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     if (server == null) {
       await _service.clearServer(roomId: roomId, updatedBy: uid);
       if (!mounted) return;
+      final wasHlsMounted = _isHlsMounted;
       setState(() {
         _room = _room
             .copyWith(
@@ -232,8 +234,10 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
         _hlsReady = false;
         _hlsFailed = false;
         _hlsError = null;
-        _regenerateHlsViewType();
         _everglowStreamUrl = null;
+        if (!(wasHlsMounted && _isHlsMounted)) {
+          _regenerateHlsViewType();
+        }
         _availableSubtitles = const [];
       });
       _rebuildAt(_localStartHint());
@@ -251,6 +255,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       updatedBy: uid,
     );
     if (!mounted) return;
+    final wasHlsMounted = _isHlsMounted;
     setState(() {
       _room = _room
           .copyWith(
@@ -270,8 +275,10 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
-      _regenerateHlsViewType();
       _everglowStreamUrl = null;
+      if (!(wasHlsMounted && _isHlsMounted)) {
+        _regenerateHlsViewType();
+      }
       _availableSubtitles = const [];
       _captionsOn = true;
     });

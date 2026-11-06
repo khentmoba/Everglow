@@ -179,6 +179,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// Whether the legacy embed-provider iframe path is in use.
   bool get _usesIframe => !_isHlsServer;
 
+  /// True while the real `<video>` platform view is on screen. Used to
+  /// decide whether a view-type change would remount it.
+  bool get _isHlsMounted => _isHlsServer && _hlsStreamUrl.isNotEmpty;
+
   /// The subtitle track the player should show. A null room track means
   /// "use the first track the resolver found", which is how the normal
   /// cinema/anime players start with English captions on.
@@ -620,6 +624,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
     _captionsOn = incoming.captionsOn;
+    final wasHlsMounted = _isHlsMounted;
 
     // A room created before `positionAt` existed still has a live
     // `currentTime` from the old heartbeat. Seed the anchor once so the
@@ -643,7 +648,6 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _anchorEpoch = DateTime.now();
       _anchorTime = 0.0;
       if (_isEverglowServer) {
-        _regenerateHlsViewType();
         _hlsReady = false;
         _isResyncing = true;
         _everglowStreamUrl = null;
@@ -659,6 +663,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       } else {
         _cinesrcReady = false;
         _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
+      }
+      if (!(wasHlsMounted && _isHlsMounted)) {
+        _regenerateHlsViewType();
       }
       setState(() {});
       return;

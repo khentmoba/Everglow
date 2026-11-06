@@ -6,10 +6,10 @@ import '../../../../core/utils/firestore_stream_utils.dart';
 
 /// Persists and streams Watch Together chat messages.
 ///
-/// The chat is scoped to a watch party `roomId` (the deterministic
-/// sorted-joined uids; see `WatchPartyRoom.buildRoomId`), so the
-/// history is tied to the couple rather than the movie. Switching
-/// titles in an ongoing watch party keeps the chat alive.
+/// The chat is scoped to a watch party `roomId` (the room document id;
+/// named rooms use auto ids, the legacy room uses the sorted-joined
+/// uids), so the history is tied to the room. Switching titles in an
+/// ongoing watch party keeps the chat alive.
 ///
 /// Firestore path: `watch_party_chats/{roomId}/messages/{messageId}`.
 ///
