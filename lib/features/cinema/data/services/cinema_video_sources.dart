@@ -15,17 +15,23 @@ class CinemaVideoSources {
   static const String proxyCinemaBase = '$proxyCinemaOrigin/proxyAnime';
 
   /// Builds the Cinema Everglow HLS player URL via our ad-free resolver.
+  /// [title] is shown in the player's top bar; the Worker has no catalog to
+  /// look it up, so without it the player can only say "Movie".
   static String cinemaProxyUrl({
     required String mediaType,
     required String id,
     int season = 1,
     int episode = 1,
+    String? title,
   }) {
+    final name = (title ?? '').trim();
+    final titleParam =
+        name.isEmpty ? '' : '&title=${Uri.encodeQueryComponent(name)}';
     if (mediaType == 'tv') {
       return '$proxyCinemaBase?source=cinema'
-          '&type=tv&tmdbId=$id&s=$season&e=$episode';
+          '&type=tv&tmdbId=$id&s=$season&e=$episode$titleParam';
     }
-    return '$proxyCinemaBase?source=cinema&type=movie&tmdbId=$id';
+    return '$proxyCinemaBase?source=cinema&type=movie&tmdbId=$id$titleParam';
   }
 
   /// CineSrc streaming API (ShuttleTV lineage).
@@ -188,6 +194,7 @@ class CinemaVideoSources {
     required String id,
     required int season,
     required int episode,
+    String? title,
   }) {
     if (!_cinemaIds.contains(provider.id)) return null;
 
@@ -197,6 +204,7 @@ class CinemaVideoSources {
         id: id,
         season: season,
         episode: episode,
+        title: title,
       );
     }
 

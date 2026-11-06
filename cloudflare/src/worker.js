@@ -105,10 +105,18 @@ async function handleProxyAnime(request, env) {
         key,
       );
     }
+    // Cinema passes the real title (the Worker has no catalog to look it up);
+    // it is display text only, escaped by the player and length-capped here.
+    const isCinema = params.source === 'cinema';
+    const named = String(query.title || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    const title = isCinema && named
+      ? params.mediaType === 'tv' ? `${named} · ${out.title}` : named
+      : out.title;
     const page = hlsPlayerHtml({
       src: out.src,
       tracks: out.tracks,
-      title: out.title,
+      title,
+      kind: isCinema ? 'cinema' : 'anime',
       token: query.token || '',
       ep: out.ep,
       audio: params.audio,

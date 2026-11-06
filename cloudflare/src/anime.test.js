@@ -568,3 +568,49 @@ test('an unstamped MegaPlay master (allowlisted host) rewrites to playable links
     globalThis.fetch = realFetch;
   }
 });
+
+test('Cinema player drops SUB/DUB and Episodes; anime keeps them', () => {
+  const cinema = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Fight Club', kind: 'cinema' });
+  const anime = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Episode 1', ep: 1 });
+  for (const id of ['btn-sub', 'btn-dub', 'btn-eps']) {
+    assert.ok(!cinema.includes(`id="${id}"`), `cinema has no ${id}`);
+    assert.ok(anime.includes(`id="${id}"`), `anime keeps ${id}`);
+  }
+  assert.ok(cinema.includes('<span id="hud-title">Fight Club</span>'));
+  const code = [...cinema.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  for (const c of code) new vm.Script(c);
+});
+
+test('only the default subtitle track drives the captions (no random language)', () => {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Movie',
+    kind: 'cinema',
+    tracks: [{ file: 'https://x/en.vtt', label: 'English' }, { file: 'https://x/is.vtt', label: 'Icelandic' }],
+  });
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).pop();
+  const el = () => ({ style: {}, hidden: true, classList: { add() {}, remove() {}, toggle() {} }, listeners: {},
+    addEventListener(e, h) { (this.listeners[e] ||= []).push(h); }, textContent: '' });
+  const tracks = [{ mode: 'showing' }, { mode: 'showing' }];
+  const trackEls = [{ hasAttribute: (a) => a === 'default' }, { hasAttribute: () => false }];
+  const v = Object.assign(el(), { currentTime: 0, duration: NaN, paused: true, textTracks: tracks,
+    querySelectorAll: () => trackEls, play() { return Promise.resolve(); } });
+  const subTxt = el();
+  const els = { v, 'sub-txt': subTxt, boot: el(), tapw: el(), tap: el(), dead: el() };
+  function Hls() {}
+  Hls.isSupported = () => true;
+  Hls.Events = { ERROR: 'e', MANIFEST_PARSED: 'm' };
+  Hls.ErrorTypes = {};
+  Hls.prototype.on = () => {};
+  Hls.prototype.loadSource = () => {};
+  Hls.prototype.attachMedia = () => {};
+  const win = el();
+  Object.assign(win, { Hls, location: { search: '', origin: 'https://w.example', pathname: '/proxyAnime' }, parent: { postMessage() {} } });
+  const ctx = { window: win, Hls, URLSearchParams, Date, document: { getElementById: (id) => els[id] || null, body: el() } };
+  vm.createContext(ctx);
+  new vm.Script(code).runInContext(ctx);
+  for (const h of v.listeners.loadedmetadata || []) h();
+  assert.deepEqual(tracks.map((t) => t.mode), ['hidden', 'disabled']);
+  assert.equal(typeof tracks[0].oncuechange, 'function');
+  assert.equal(tracks[1].oncuechange, null, 'Icelandic can no longer overwrite English');
+});

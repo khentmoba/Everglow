@@ -1284,6 +1284,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       season: _currentSeason,
       episode: _currentEpisode,
       startSeconds: _resolvedStartSeconds,
+      title: _playerDisplayTitle(widget.title),
     );
   }
 

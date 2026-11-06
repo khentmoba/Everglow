@@ -14,6 +14,7 @@ String buildVideoSourceUrl(
   required int season,
   required int episode,
   int? startSeconds,
+  String? title,
 }) {
   final cinemaUrl = CinemaVideoSources.buildUrl(
     provider,
@@ -21,6 +22,7 @@ String buildVideoSourceUrl(
     id: id,
     season: season,
     episode: episode,
+    title: title,
   );
   if (cinemaUrl != null) {
     return _withStartSeconds(cinemaUrl, startSeconds);

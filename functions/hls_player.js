@@ -23,7 +23,10 @@ function escHtml(s) {
  *  instead of spinning forever. The card deliberately avoids the failover
  *  marker text, so the app's server probe never mistakes a healthy player
  *  page for a dead one. */
-function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
+/** [kind] is 'anime' (default) or 'cinema'. Cinema has no sub/dub choice and
+ *  no episode drawer of ours, so those controls are left out entirely. */
+function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
+  const isCinema = kind === 'cinema';
   // When the page was loaded with a login token, hls.js sends it back as
   // an Authorization header — never inside media URLs (which land in
   // browser history and request logs). Native-HLS Safari keeps using the
@@ -183,11 +186,13 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     '<div class="h-top">' +
     '<span id="hud-title">' + displayTitle + '</span>' +
     '<div class="h-top-r">' +
-    '<div class="sd-box">' +
-    '<button type="button" class="sd-b' + (isDub ? '' : ' on') + '" id="btn-sub">SUB</button>' +
-    '<button type="button" class="sd-b' + (isDub ? ' on' : '') + '" id="btn-dub">DUB</button>' +
-    '</div>' +
-    '<button type="button" class="chip" id="btn-eps">Episodes</button>' +
+    (isCinema
+      ? ''
+      : '<div class="sd-box">' +
+        '<button type="button" class="sd-b' + (isDub ? '' : ' on') + '" id="btn-sub">SUB</button>' +
+        '<button type="button" class="sd-b' + (isDub ? ' on' : '') + '" id="btn-dub">DUB</button>' +
+        '</div>' +
+        '<button type="button" class="chip" id="btn-eps">Episodes</button>') +
     '</div></div>' +
     '<div class="h-bot">' +
     '<div class="binge-r">' +
@@ -403,8 +408,12 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio }) {
     'else if(root.requestFullscreen){root.requestFullscreen();}' +
     'else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}});' +
     'if(btnQ&&qMenu)btnQ.addEventListener("click",function(){qMenu.hidden=!qMenu.hidden;});' +
-    'function syncCues(){if(!subTxt||!v.textTracks)return;for(var i=0;i<v.textTracks.length;i++){' +
-    'var tr=v.textTracks[i];tr.mode="hidden";tr.oncuechange=function(){' +
+    'function syncCues(){if(!subTxt||!v.textTracks)return;var pick=0;' +
+    'var els=v.querySelectorAll?v.querySelectorAll("track"):[];' +
+    'for(var k=0;k<els.length;k++){if(els[k].hasAttribute&&els[k].hasAttribute("default")){pick=k;break;}}' +
+    'for(var i=0;i<v.textTracks.length;i++){' +
+    'var tr=v.textTracks[i];if(i!==pick){tr.mode="disabled";tr.oncuechange=null;continue;}' +
+    'tr.mode="hidden";tr.oncuechange=function(){' +
     'if(!ccOn){subTxt.textContent="";return;}var lines=[];' +
     'var ac=this.activeCues;if(ac){for(var j=0;j<ac.length;j++){if(ac[j]&&ac[j].text)lines.push(ac[j].text.replace(/<[^>]+>/g,""));}}' +
     'subTxt.textContent=lines.join("\\n");};}}' +
