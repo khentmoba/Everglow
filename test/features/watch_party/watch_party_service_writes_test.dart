@@ -128,7 +128,10 @@ void main() {
       beatBy: 'clair-demo',
     );
     expect(db.room['currentTime'], 120.0);
-    expect(db.room['positionAt'], isA<Timestamp>());
+    expect(
+      db.room['positionAt'],
+      Timestamp.fromDate(DateTime.utc(2026, 1, 1, 12)),
+    );
     expect(db.room['beatBy'], 'clair-demo');
     expect(db.room['updatedAt'], FieldValue.serverTimestamp());
   });

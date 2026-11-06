@@ -16,13 +16,12 @@ import '../models/watch_party_room.dart';
 /// [getRoomStream] so the partner's player reacts in real time.
 ///
 /// Concurrency model:
-///   * The host writes `state` + `currentTime` whenever they change
-///     something, and additionally ticks a heartbeat every 5s with
-///     the latest known playback position so the partner's local
-///     estimate stays fresh.
-///   * The partner writes nothing except on user actions (resync,
-///     end) — they read the snapshot and reload their iframe with
-///     a new `?start=` hint when the host changes things.
+///   * Either side writes `state` + `currentTime` when they change
+///     something, and both tick a heartbeat every 5s. While playing,
+///     the heartbeat refreshes `currentTime` + `positionAt` together so
+///     the shared anchor stays fresh.
+///   * Both sides read the same snapshot and derive the live position
+///     from the server timestamp; neither side is the clock.
 class WatchPartyService {
   static const String _collection = 'watch_party_rooms';
 

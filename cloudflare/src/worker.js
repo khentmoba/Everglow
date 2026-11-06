@@ -120,7 +120,7 @@ async function handleProxyAnime(request, env) {
     // The watch party plays the stream in its own <video> (so play/pause/seek
     // and captions are real), and asks for the resolved URLs instead of the
     // player page. Same resolver, same stamps — only the response shape differs.
-    if (String(query.format || '').toLowerCase() === 'json') {
+    if (wantsJson) {
       return new Response(
         JSON.stringify({
           src: out.src,

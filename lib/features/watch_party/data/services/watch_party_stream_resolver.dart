@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../cinema/data/services/cinema_video_sources.dart';
 import '../models/watch_party_room.dart';
 
 /// One subtitle track returned by the Everglow stream resolver.
@@ -39,7 +40,7 @@ class WatchPartyStreamResolver {
   final Duration timeout;
 
   static const String workerBase =
-      'https://everglow-stream.khentplaysmoba.workers.dev/proxyAnime';
+      '${CinemaVideoSources.proxyCinemaOrigin}/proxyAnime';
 
   /// The request the room turns into. Kept pure so it can be asserted
   /// without the network.

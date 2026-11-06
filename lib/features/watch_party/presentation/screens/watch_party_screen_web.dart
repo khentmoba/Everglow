@@ -91,27 +91,40 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildCinemaTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _pageScrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildCinemaPlayerStage(),
-                    _buildCinemaMetadata(),
-                    _buildCinemaServerSelector(),
-                    const SizedBox(height: AppSpacing.x3),
-                  ],
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                _buildCinemaTopBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _pageScrollController,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildCinemaPlayerStage(),
+                        _buildCinemaMetadata(),
+                        _buildCinemaServerSelector(),
+                        const SizedBox(height: AppSpacing.x3),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                _buildBottomBar(),
+              ],
             ),
-            _buildBottomBar(),
-          ],
-        ),
+          ),
+          VoiceChatOverlay(
+            service: _voiceChat,
+            partnerName: _partnerName,
+          ),
+          Positioned.fill(
+            child: WatchPartyChatDrawer(roomId: _room.id),
+          ),
+          if (_showEndDialog)
+            Positioned.fill(child: _buildEndDialog()),
+        ],
       ),
     );
   }
@@ -192,12 +205,6 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                   right: 12,
                   child: _buildSyncOverlay(),
                 ),
-                VoiceChatOverlay(
-                  service: _voiceChat,
-                  partnerName: _partnerName,
-                ),
-                WatchPartyChatDrawer(roomId: _room.id),
-                if (_showEndDialog) _buildEndDialog(),
               ],
             ),
           ),

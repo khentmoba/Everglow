@@ -270,8 +270,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _autoplay = !_hostExplicitlyPaused;
 
     _selectedProvider = _sourceService.defaultSource;
-    _hlsViewType =
-        'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
+    _regenerateHlsViewType();
     _restoreHlsVolume();
 
     // Listen for provider list updates from Firestore. If the iframe
@@ -397,9 +396,9 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     });
 
     _startClockTicker();
-    // Both sides keep the room alive. The heartbeat no longer carries
-    // the playback position — that lives on the server timestamp — so a
-    // late tick can never move the video.
+    // Both sides keep the room alive. While playing, the heartbeat
+    // re-anchors the position with a server timestamp; a late tick can
+    // only refresh the anchor, never flip the state.
     _startHeartbeat();
 
     _initVoiceChat();

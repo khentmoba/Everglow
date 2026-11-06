@@ -208,9 +208,12 @@ class WatchPartyRoom {
   double livePositionAt(DateTime serverNow) {
     if (state != 'playing') return currentTime;
     final anchor = positionAt ?? updatedAt;
-    final elapsedMs = serverNow.difference(anchor).inMilliseconds;
-    if (elapsedMs <= 0) return currentTime;
-    return currentTime + elapsedMs / 1000.0;
+    final elapsed = serverNow.difference(anchor);
+    if (elapsed <= Duration.zero) return currentTime;
+    // A live heartbeat is at most ~5s old. Anything older means the tab
+    // closed mid-film; extrapolating would skip the idle time.
+    if (elapsed > const Duration(seconds: 30)) return currentTime;
+    return currentTime + elapsed.inMilliseconds / 1000.0;
   }
 
   /// Pretty "0:23" / "1:02:45" rendering for the sync overlay.

@@ -169,6 +169,19 @@ void main() {
         10,
       );
     });
+
+    test('a stale anchor does not skip the idle time', () {
+      final anchor = DateTime.utc(2026, 1, 1, 12);
+      final r = room(
+        state: 'playing',
+        currentTime: 10,
+        positionAt: anchor,
+      );
+      expect(
+        r.livePositionAt(anchor.add(const Duration(minutes: 5))),
+        10,
+      );
+    });
   });
 
   group('WatchPartyRoom media and captions', () {
