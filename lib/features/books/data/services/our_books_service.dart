@@ -28,8 +28,8 @@ class OurBooksService {
     if (AgentMode.isActive.value) {
       return Stream.value(AgentFixtures.demoBooks.take(limit).toList());
     }
-    return withFirestoreTimeout(
-      _firestore
+    Stream<List<OurBooksItem>> subscribe() {
+      return _firestore
           .collection(_collection)
           .orderBy('addedAt', descending: true)
           .limit(limit)
@@ -41,9 +41,42 @@ class OurBooksService {
             items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
             _writeCache(items);
             return items;
-          }),
+          });
+    }
+
+    return withFirestoreTimeout(
+      _cachedFirst(subscribe, limit: limit),
+      resubscribe: subscribe,
       label: 'our-books',
     );
+  }
+
+  /// Emits the shelf already on this device, then the live stream.
+  ///
+  /// Same shape as `JournalService._cachedFirst`: the dashboard rail paints
+  /// from disk instead of waiting a WebChannel round trip for books the phone
+  /// already has. [live] is a factory, not a stream, so the Firestore query is
+  /// only created once the cached frame is handed over — the first paint then
+  /// does not depend on Firestore being reachable at all.
+  ///
+  /// A cache read that throws is swallowed: showing live data late is better
+  /// than showing nothing, so the live stream still runs.
+  Stream<List<OurBooksItem>> _cachedFirst(
+    Stream<List<OurBooksItem>> Function() live, {
+    bool Function(OurBooksItem)? where,
+    int? limit,
+  }) async* {
+    try {
+      var cached = await getCachedOurBooks();
+      if (where != null) cached = cached.where(where).toList();
+      if (limit != null && cached.length > limit) {
+        cached = cached.take(limit).toList();
+      }
+      if (cached.isNotEmpty) yield cached;
+    } catch (e) {
+      Logger.w('our-books: cache read failed, using live only: $e');
+    }
+    yield* live();
   }
 
   // Capped count for the dashboard header: it only shows the badge
@@ -74,8 +107,8 @@ class OurBooksService {
             .toList(),
       );
     }
-    return withFirestoreTimeout(
-      _firestore
+    Stream<List<OurBooksItem>> subscribe() {
+      return _firestore
           .collection(_collection)
           .where('addedBy', isEqualTo: adder)
           .orderBy('addedAt', descending: true)
@@ -87,7 +120,16 @@ class OurBooksService {
                 .toList();
             items.sort((a, b) => b.addedAt.compareTo(a.addedAt));
             return items;
-          }),
+          });
+    }
+
+    return withFirestoreTimeout(
+      _cachedFirst(
+        subscribe,
+        where: (b) => b.addedBy == adder,
+        limit: limit,
+      ),
+      resubscribe: subscribe,
       label: 'our-books-preview-$adder',
     );
   }
