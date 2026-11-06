@@ -543,3 +543,28 @@ test('the Worker streams segments through with the upstream status and range', a
     globalThis.fetch = realFetch;
   }
 });
+
+test('an unstamped MegaPlay master (allowlisted host) rewrites to playable links', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      '#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nindex-f1-v1-a1.m3u8\n#EXT-X-I-FRAME-STREAM-INF:URI="iframes.m3u8"\nhttps://wintergrove.space/seg.jpg\n',
+      { status: 200, headers: { 'content-type': 'application/vnd.apple.mpegurl' } },
+    );
+  try {
+    const master = 'https://fetch.nexabloom.top/anime/a/b/master.m3u8?token=t';
+    const res = await handleProxyHls(hlsRequest({ u: master }), { CDN_STAMP_KEY: KEY });
+    assert.equal(res.status, 200);
+    const links = [...(await res.text()).matchAll(/https:\/\/[^"\s]+proxyMegavidHls\?[^"\s]+/g)].map((m) => new URL(m[0]));
+    assert.equal(links.length, 3);
+    // Allowlisted MegaPlay hosts: plain links, no stamp needed.
+    assert.equal(links[0].searchParams.get('u'), 'https://fetch.nexabloom.top/anime/a/b/index-f1-v1-a1.m3u8');
+    assert.equal(links[0].searchParams.get('s'), null);
+    // A rotating CDN: stamped as MegaPlay, and the stamp is real.
+    const rot = links[2];
+    assert.equal(rot.searchParams.get('p'), 'megaplay');
+    assert.ok(await validCdnStamp(KEY, scopeMessage('megaplay', '', 'https://wintergrove.space/'), rot.searchParams.get('s')));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

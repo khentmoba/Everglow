@@ -203,10 +203,12 @@ async function handleProxyHls(request, env, ctx) {
     const text = await upstream.text();
     if (text && text.includes('#EXTM3U')) {
       const base = proxyBase(request);
-      const isAllowed = megaplay ? isMegaPlayHost : isMegavidHost;
-      const stampKey = megaplay ? env.CDN_STAMP_KEY || null : null;
-      const rewritten = provider === 'megaplay'
-        ? await rewritePlaylistWithHosts(text, target, base, isMegaPlayHost, stampKey)
+      // MegaPlay is chosen by host OR stamp: its masters live on allowlisted
+      // hosts and arrive unstamped. Routing them by `provider` alone sent them
+      // to the Megavid rewriter, which has no key, so every variant came out
+      // with an empty stamp and Everglow-server anime could not play.
+      const rewritten = megaplay
+        ? await rewritePlaylistWithHosts(text, target, base, isMegaPlayHost, env.CDN_STAMP_KEY || null)
         : provider !== null
           ? await rewriteCinemaPlaylist(text, target, base, provider, key)
           : await rewritePlaylistWithHosts(text, target, base, isMegavidHost, null);
