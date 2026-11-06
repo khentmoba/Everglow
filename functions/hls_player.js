@@ -163,13 +163,15 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '.eg-w{font-family:"Bebas Neue",Impact,sans-serif;font-size:16px;letter-spacing:.06em;line-height:1}' +
     '.eg-w b{color:#f8f8f8;font-weight:400}' +
     '.eg-w i{color:#c2185b;font-style:normal;text-shadow:0 2px 10px rgba(194,24,91,.65)}' +
-    '#q-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
+    '#q-menu,#cc-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
     'backdrop-filter:blur(18px);border:1px solid rgba(240,230,255,.18);border-radius:10px;' +
     'padding:6px;z-index:12;box-shadow:0 14px 32px rgba(0,0,0,.65)}' +
     '.qi{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;' +
     'background:transparent;color:#f1cbd2;padding:6px 8px;border-radius:6px;font-size:11.5px;' +
     'font-weight:600;cursor:pointer;font-family:inherit;text-align:left}' +
     '.qi.on{background:rgba(194,24,91,.28);color:#fff5f5}' +
+    '#cc-menu{max-height:44vh;overflow-y:auto}' +
+    '.chip[hidden]{display:none}' +
     // Phones keep the Everglow badge (Clair watches here); the volume
     // button and wide gaps give up their room instead.
     '@media (max-width:520px){.h-top{padding:10px 14px}.h-bot{padding:0 14px 10px}' +
@@ -238,12 +240,16 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '<img class="eg-cat" src="https://everglow-1c6db.web.app/favicon.png" alt="">' +
     '<span class="eg-w"><b>EVER</b><i>GLOW</i></span>' +
     '</div>' +
-    '<button type="button" class="chip on" id="btn-cc">CC</button>' +
+    '<button type="button" class="chip on" id="btn-cc"' +
+    (trackTags ? '' : ' hidden') + '>CC</button>' +
+    '<button type="button" class="chip" id="btn-cc-lang" hidden' +
+    ' aria-label="Subtitle language">&#9662;</button>' +
     '<button type="button" class="chip" id="btn-q">Auto</button>' +
     '<button type="button" class="ib" id="btn-fs" aria-label="Fullscreen">' +
     '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
     '</div></div></div></div>\n' +
     '<div id="q-menu" hidden></div>\n' +
+    '<div id="cc-menu" hidden></div>\n' +
     '<div class="ov" id="boot"><div class="eg-wave" aria-label="Everglow loading">' +
     '<span class="wc e">E</span><span class="wc e">V</span><span class="wc e">E</span><span class="wc e">R</span>' +
     '<span class="wc g">G</span><span class="wc g">L</span><span class="wc g">O</span><span class="wc g">W</span>' +
@@ -275,6 +281,8 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var btnFf=document.getElementById("btn-ff");' +
     'var btnVol=document.getElementById("btn-vol");' +
     'var btnCc=document.getElementById("btn-cc");' +
+    'var btnCcLang=document.getElementById("btn-cc-lang");' +
+    'var ccMenu=document.getElementById("cc-menu");' +
     'var btnQ=document.getElementById("btn-q");' +
     'var qMenu=document.getElementById("q-menu");' +
     'var btnFs=document.getElementById("btn-fs");' +
@@ -290,7 +298,7 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var nextTok=document.getElementById("next-tok");' +
     'var nextFill=document.getElementById("next-fill");' +
     'var episode=' + JSON.stringify(epNum) + ';' +
-    'var opRange=null,edRange=null,activeSkipEnd=null,ccOn=true,hlsInst=null;' +
+    'var opRange=null,edRange=null,activeSkipEnd=null,ccOn=true,hlsInst=null,subPick=0;' +
     // How close to the last frame the Next button appears when the ending
     // was never marked. 90s covers a typical ED plus the preview card.
     'var nextToken=null,nextKind="episode",NEAR_END_SECONDS=90;' +
@@ -403,21 +411,36 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'if(btnDub)btnDub.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"dub"});});' +
     'if(btnEps)btnEps.addEventListener("click",function(){post({type:"animex-action",action:"episodes"});});' +
     'if(btnCc)btnCc.addEventListener("click",function(){ccOn=!ccOn;btnCc.classList.toggle("on",ccOn);if(subTxt&&!ccOn)subTxt.textContent="";});' +
+    'if(btnCcLang&&ccMenu)btnCcLang.addEventListener("click",function(){ccMenu.hidden=!ccMenu.hidden;if(!ccMenu.hidden&&qMenu)qMenu.hidden=true;});' +
     'if(btnFs)btnFs.addEventListener("click",function(){var doc=document;var root=doc.documentElement||v;' +
     'if(doc.fullscreenElement){if(doc.exitFullscreen)doc.exitFullscreen();}' +
     'else if(root.requestFullscreen){root.requestFullscreen();}' +
     'else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}});' +
-    'if(btnQ&&qMenu)btnQ.addEventListener("click",function(){qMenu.hidden=!qMenu.hidden;});' +
-    'function syncCues(){if(!subTxt||!v.textTracks)return;var pick=0;' +
-    'var els=v.querySelectorAll?v.querySelectorAll("track"):[];' +
-    'for(var k=0;k<els.length;k++){if(els[k].hasAttribute&&els[k].hasAttribute("default")){pick=k;break;}}' +
+    'if(btnQ&&qMenu)btnQ.addEventListener("click",function(){qMenu.hidden=!qMenu.hidden;if(!qMenu.hidden&&ccMenu)ccMenu.hidden=true;});' +
+    'function trackEls(){return v.querySelectorAll?v.querySelectorAll("track"):[];}' +
+    'function trackCount(){var n=v.textTracks?v.textTracks.length:0;var e=trackEls();return e.length>n?e.length:n;}' +
+    'function trackLabel(i){var tt=v.textTracks&&v.textTracks[i];if(tt&&tt.label)return tt.label;' +
+    'var el=trackEls()[i];var lb=el&&(el.label||(el.getAttribute&&el.getAttribute("label")));return lb||("Track "+(i+1));}' +
+    'function buildCcMenu(){var n=trackCount();' +
+    'if(btnCc)btnCc.hidden=n===0;' +
+    'if(btnCcLang)btnCcLang.hidden=n<2;' +
+    'if(n===0){if(ccMenu)ccMenu.hidden=true;return;}' +
+    'if(subPick>=n)subPick=0;' +
+    'if(!ccMenu)return;ccMenu.innerHTML="";' +
+    'for(var i=0;i<n;i++){(function(idx){var b=document.createElement("button");' +
+    'b.className="qi"+(idx===subPick?" on":"");b.textContent=trackLabel(idx);' +
+    'b.onclick=function(){subPick=idx;ccOn=true;if(btnCc)btnCc.classList.add("on");' +
+    'ccMenu.hidden=true;syncCues();buildCcMenu();};ccMenu.appendChild(b);})(i);}}' +
+    'function syncCues(){if(!subTxt||!v.textTracks)return;var pick=subPick;' +
+    'if(pick<0||pick>=v.textTracks.length)pick=0;' +
     'for(var i=0;i<v.textTracks.length;i++){' +
     'var tr=v.textTracks[i];if(i!==pick){tr.mode="disabled";tr.oncuechange=null;continue;}' +
     'tr.mode="hidden";tr.oncuechange=function(){' +
     'if(!ccOn){subTxt.textContent="";return;}var lines=[];' +
     'var ac=this.activeCues;if(ac){for(var j=0;j<ac.length;j++){if(ac[j]&&ac[j].text)lines.push(ac[j].text.replace(/<[^>]+>/g,""));}}' +
     'subTxt.textContent=lines.join("\\n");};}}' +
-    'v.addEventListener("loadedmetadata",syncCues);' +
+    'v.addEventListener("loadedmetadata",function(){buildCcMenu();syncCues();});' +
+    'if(v.textTracks&&v.textTracks.addEventListener)v.textTracks.addEventListener("addtrack",buildCcMenu);' +
     'var idleT=null;function wakeHud(){if(document.body&&document.body.classList){document.body.classList.remove("idle");}' +
     'if(typeof clearTimeout==="function"&&idleT)clearTimeout(idleT);' +
     'if(typeof setTimeout==="function"){idleT=setTimeout(function(){if(!v.paused&&document.body&&document.body.classList){document.body.classList.add("idle");if(qMenu)qMenu.hidden=true;}},2800);}}' +

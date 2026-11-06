@@ -614,3 +614,82 @@ test('only the default subtitle track drives the captions (no random language)',
   assert.equal(typeof tracks[0].oncuechange, 'function');
   assert.equal(tracks[1].oncuechange, null, 'Icelandic can no longer overwrite English');
 });
+
+/** Runs the player script in a fake DOM and returns the handles it built. */
+function runPlayerDom({ tracks = [], trackEls = [] } = {}) {
+  const html = hlsPlayerHtml({
+    src: 'https://x/y.m3u8',
+    title: 'Movie',
+    kind: 'cinema',
+    tracks: tracks.map((t) => ({ file: `https://x/${t}.vtt`, label: t })),
+  });
+  const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).pop();
+  const el = () => ({
+    style: {}, hidden: false, textContent: '', innerHTML: '', children: [],
+    classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+    listeners: {}, addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
+    appendChild(c) { this.children.push(c); },
+    getBoundingClientRect: () => ({ x: 0, y: 0, width: 100, height: 10, left: 0 }),
+    setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
+  });
+  const textTracks = tracks.map((label) => ({ label, mode: 'showing', oncuechange: null }));
+  textTracks.addEventListener = () => {};
+  const v = Object.assign(el(), {
+    currentTime: 0, duration: 100, paused: true, textTracks,
+    querySelectorAll: () => trackEls,
+    play: () => Promise.resolve(),
+  });
+  const els = { v, 'sub-txt': el(), boot: el(), tapw: el(), tap: el(), dead: el(),
+    'btn-cc': el(), 'btn-cc-lang': el(), 'cc-menu': el() };
+  function Hls() {}
+  Hls.isSupported = () => true;
+  Hls.Events = { ERROR: 'e', MANIFEST_PARSED: 'm' };
+  Hls.ErrorTypes = {};
+  Hls.prototype.on = () => {};
+  Hls.prototype.loadSource = () => {};
+  Hls.prototype.attachMedia = () => {};
+  const win = el();
+  Object.assign(win, { Hls, location: { search: '', origin: 'https://w.example', pathname: '/proxyAnime' }, parent: { postMessage() {} } });
+  const doc = { getElementById: (id) => els[id] || null, body: el(), createElement: () => el() };
+  const ctx = { window: win, Hls, URLSearchParams, Date, document: doc };
+  vm.createContext(ctx);
+  new vm.Script(code).runInContext(ctx);
+  for (const h of v.listeners.loadedmetadata || []) h();
+  return { els, v, html };
+}
+
+test('CC is hidden when the source has no subtitles', () => {
+  const none = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
+  assert.match(none, /id="btn-cc" hidden/, 'no tracks, so no CC button');
+  const some = hlsPlayerHtml({
+    src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema',
+    tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
+  });
+  assert.doesNotMatch(some, /id="btn-cc" hidden/);
+  // And the script hides it at runtime too, for sources that add tracks late.
+  const { els } = runPlayerDom({ tracks: [], trackEls: [] });
+  assert.equal(els['btn-cc'].hidden, true);
+  assert.equal(els['btn-cc-lang'].hidden, true);
+});
+
+test('the language caret lists every subtitle track and switches between them', () => {
+  const trackEls = [{ label: 'English' }, { label: 'Icelandic' }, { label: 'Czech' }];
+  const { els, v } = runPlayerDom({ tracks: ['English', 'Icelandic', 'Czech'], trackEls });
+  const caret = els['btn-cc-lang'];
+  const menu = els['cc-menu'];
+  assert.equal(caret.hidden, false, 'two or more tracks shows the caret');
+  assert.equal(menu.children.length, 3);
+  assert.deepEqual(menu.children.map((b) => b.textContent), ['English', 'Icelandic', 'Czech']);
+  assert.ok(menu.children[0].className.includes('on'), 'English is the default');
+  assert.ok(!menu.children[1].className.includes('on'));
+
+  // Pick Czech.
+  menu.children[2].onclick();
+  assert.deepEqual(v.textTracks.map((t) => t.mode), ['disabled', 'disabled', 'hidden']);
+  assert.equal(menu.hidden, true, 'menu closes after choosing');
+
+  // One track only: no caret, but CC still works.
+  const single = runPlayerDom({ tracks: ['English'], trackEls: [{ label: 'English' }] });
+  assert.equal(single.els['btn-cc-lang'].hidden, true);
+  assert.equal(single.els['btn-cc'].hidden, false);
+});
