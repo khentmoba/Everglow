@@ -185,7 +185,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                 if (_isLoading && !_iframeFailed && !_isHlsServer)
                   _WatchPartyCinematicLoader(serverName: _activeServerLabel),
                 if (_hlsFailed) _buildHlsErrorCard(),
-                if (_iframeFailed) _buildErrorCard(),
+                if (_iframeFailed && !_isHlsServer) _buildErrorCard(),
                 Positioned(
                   top: 12,
                   left: 12,

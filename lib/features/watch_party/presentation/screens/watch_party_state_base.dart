@@ -621,10 +621,10 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _room = incoming;
       return;
     }
+    final wasHlsMounted = _isHlsMounted;
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
     _captionsOn = incoming.captionsOn;
-    final wasHlsMounted = _isHlsMounted;
 
     // A room created before `positionAt` existed still has a live
     // `currentTime` from the old heartbeat. Seed the anchor once so the
@@ -1232,6 +1232,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   /// host who joined late never blocks the partner.
   Future<void> _resolveEverglowStream({double? startSeconds}) async {
     if (!mounted || !_room.hasMedia) return;
+    final tmdbId = _room.tmdbId;
+    final malId = _room.malId;
+    final season = _room.season;
+    final episode = _room.episode;
+    final serverType = _room.serverType;
     setState(() {
       _resolvingStream = true;
       _streamResolveError = null;
@@ -1241,6 +1246,15 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     try {
       final stream = await _streamResolver.resolve(_room);
       if (!mounted) return;
+      // A second title pick may have landed while this resolve was in
+      // flight; its result belongs to the old room identity.
+      if (_room.tmdbId != tmdbId ||
+          _room.malId != malId ||
+          _room.season != season ||
+          _room.episode != episode ||
+          _room.serverType != serverType) {
+        return;
+      }
       setState(() {
         _everglowStreamUrl = stream.src;
         _availableSubtitles = stream.subtitles;

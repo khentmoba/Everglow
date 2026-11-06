@@ -458,6 +458,18 @@ test('the Worker answers format=json with the resolved stream for the watch part
   }
 });
 
+test('the Worker answers format=json errors as JSON', async () => {
+  const u = new URL(`${HOST}/proxyAnime`);
+  u.searchParams.set('source', 'cinema');
+  u.searchParams.set('format', 'json');
+  // Missing tmdbId: validateAnimeParams returns an error before any fetch.
+  const res = await handleProxyAnime(new Request(u.toString()), { CDN_STAMP_KEY: KEY });
+  assert.equal(res.status, 400);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+  const body = await res.json();
+  assert.ok(body.error);
+});
+
 test('resolveCinema gives up inside its budget so the app can fall back to CineSrc', async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = () => new Promise(() => {});

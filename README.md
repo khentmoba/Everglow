@@ -83,7 +83,7 @@ _Previous releases: [v6.2.0](https://github.com/khentmoba/Everglow/releases/tag/
 | Feature | Description | Version |
 |---------|-------------|---------|
 | **Motchi AI** | AI assistant with Safari voice input, Agnes Flash power, vision, and 50+ callable tools | 5.0.0 / **6.2.0** |
-| **Watch Party** | Named rooms, live episode/caption sync, server-anchored playback on the Everglow stream, and WebRTC voice chat | **6.4.0** |
+| **Watch Party** | Named rooms, live episode/caption sync, server-anchored playback on the Everglow stream, and WebRTC voice chat | **6.3.0** |
 | **Push Notifications** | FCM-powered notifications with topic subscriptions and in-app toasts | **6.0.0** |
 
 ### UI / UX

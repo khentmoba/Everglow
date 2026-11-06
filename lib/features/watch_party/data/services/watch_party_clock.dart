@@ -23,6 +23,12 @@ class WatchPartyClock {
   /// How long a sample stays trustworthy.
   static const Duration maxSampleAge = Duration(minutes: 10);
 
+  /// A near-zero sample is usually a pending local write whose
+  /// `serverTimestamp` has not resolved yet (`fromFirestore` falls back
+  /// to `DateTime.now()`). It would beat every real, slightly negative
+  /// sample and pin the offset to zero, so ignore it.
+  static const Duration _pendingEpsilon = Duration(milliseconds: 100);
+
   Duration _offset = Duration.zero;
   DateTime? _sampledAt;
 
@@ -37,6 +43,7 @@ class WatchPartyClock {
   void observe(DateTime serverTime, {DateTime? receivedAt}) {
     final received = receivedAt ?? _now();
     final sample = serverTime.difference(received);
+    if (sample.abs() <= _pendingEpsilon) return;
     final stale =
         _sampledAt == null ||
         received.difference(_sampledAt!) > maxSampleAge;

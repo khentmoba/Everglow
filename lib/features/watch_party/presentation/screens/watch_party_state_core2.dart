@@ -132,7 +132,11 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     } else if (_isHlsServer) {
       _reloadHlsAt(0);
     } else if (_usesIframe) {
-      _rebuildAt(0);
+      if (_room.isAnime) {
+        _bootstrapAnime();
+      } else {
+        _rebuildAt(0);
+      }
     }
   }
 
@@ -141,7 +145,12 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
   /// on both screens at once.
   Future<void> _showCaptionPicker() async {
     if (!_isHlsServer) return;
-    final tracks = _availableSubtitles;
+    var tracks = _availableSubtitles;
+    if (tracks.isEmpty && (_room.subtitleUrl ?? '').isNotEmpty) {
+      tracks = [
+        WatchPartySubtitle(url: _room.subtitleUrl!, label: 'Current track'),
+      ];
+    }
     if (tracks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,9 +160,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       return;
     }
     final chosen = _room.subtitleUrl ??
-        (_captionsOn && _availableSubtitles.isNotEmpty
-            ? _availableSubtitles.first.url
-            : null);
+        (_captionsOn && tracks.isNotEmpty ? tracks.first.url : null);
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -240,7 +247,11 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
         }
         _availableSubtitles = const [];
       });
-      _rebuildAt(_localStartHint());
+      if (_room.isAnime) {
+        _bootstrapAnime();
+      } else {
+        _rebuildAt(_localStartHint());
+      }
       return;
     }
     final isEverglow = server.id == WatchPartyServer.everglow.id;
