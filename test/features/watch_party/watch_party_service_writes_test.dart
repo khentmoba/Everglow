@@ -121,7 +121,6 @@ void main() {
       };
     await WatchPartyService(db: db).heartbeat(
       roomId: 'demo',
-      currentTime: 999.0,
       beatBy: 'clair-demo',
     );
     expect(db.room['currentTime'], 120.0);

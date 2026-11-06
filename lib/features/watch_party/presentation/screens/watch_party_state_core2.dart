@@ -174,7 +174,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     if (!mounted) return;
     setState(() {
       _captionsOn = on;
-      _room = _room.copyWithServer(subtitleUrl: url);
+      _room = _room.copyWithCaptions(subtitleUrl: url, captionsOn: on);
     });
     _hlsController.setCaptions(on);
   }

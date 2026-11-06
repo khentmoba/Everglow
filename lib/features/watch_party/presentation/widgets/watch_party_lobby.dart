@@ -119,6 +119,41 @@ class _WatchPartyLobbyState extends State<WatchPartyLobby> {
     }
   }
 
+  Future<void> _deleteRoom(WatchPartyRoom room) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.inkDeep,
+        title: Text(
+          'Delete "${room.name.isEmpty ? 'Our room' : room.name}"?',
+          style: AppTypography.outfitHeading.copyWith(
+            color: AppColors.petalWhite,
+            fontSize: 17,
+          ),
+        ),
+        content: Text(
+          'This removes the room and its chat. It cannot be undone.',
+          style: AppTypography.outfitWhite.copyWith(
+            color: AppColors.textMedium,
+            fontSize: 13,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _service.deleteRoom(room.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
@@ -174,6 +209,7 @@ class _WatchPartyLobbyState extends State<WatchPartyLobby> {
                   room: room,
                   myUid: _uid ?? '',
                   onTap: () => _openRoom(room),
+                  onLongPress: () => _deleteRoom(room),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -266,12 +302,14 @@ class WatchPartyRoomCard extends StatelessWidget {
   final WatchPartyRoom room;
   final String myUid;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const WatchPartyRoomCard({
     super.key,
     required this.room,
     required this.myUid,
     required this.onTap,
+    this.onLongPress,
   });
 
   String get _posterUrl {
@@ -299,6 +337,7 @@ class WatchPartyRoomCard extends StatelessWidget {
       label: '${room.name.isEmpty ? 'Our room' : room.name}, $_subtitle',
       child: GestureDetector(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(

@@ -430,7 +430,6 @@ class WatchPartyService {
   /// room back to "playing".
   Future<void> heartbeat({
     required String roomId,
-    required double currentTime,
     required String beatBy,
   }) async {
     if (_isDemo) {
@@ -585,10 +584,12 @@ class WatchPartyService {
       final room = _demoRooms[roomId];
       if (room == null) return;
       _putDemo(
-        room.copyWith(
-          updatedAt: DateTime.now(),
-          updatedBy: updatedBy,
-        ).copyWithServer(subtitleUrl: subtitleUrl),
+        room
+            .copyWithCaptions(
+              subtitleUrl: subtitleUrl,
+              captionsOn: captionsOn,
+            )
+            .copyWith(updatedAt: DateTime.now(), updatedBy: updatedBy),
       );
       return;
     }

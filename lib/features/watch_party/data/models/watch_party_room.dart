@@ -418,6 +418,46 @@ class WatchPartyRoom {
     );
   }
 
+  /// Copy only the caption choice. Server fields are passed through
+  /// unchanged, so tapping CC never tears down the HLS player.
+  WatchPartyRoom copyWithCaptions({
+    String? subtitleUrl,
+    bool? captionsOn,
+  }) {
+    return WatchPartyRoom(
+      id: id,
+      name: name,
+      hostUid: hostUid,
+      hostName: hostName,
+      partnerUid: partnerUid,
+      partnerName: partnerName,
+      mediaType: mediaType,
+      tmdbId: tmdbId,
+      malId: malId,
+      isAnime: isAnime,
+      season: season,
+      episode: episode,
+      episodeCount: episodeCount,
+      title: title,
+      posterPath: posterPath,
+      serverType: serverType,
+      serverName: serverName,
+      serverHost: serverHost,
+      streamUrl: streamUrl,
+      subtitleUrl: subtitleUrl,
+      captionsOn: captionsOn ?? this.captionsOn,
+      proxyEnabled: proxyEnabled,
+      state: state,
+      currentTime: currentTime,
+      positionAt: positionAt,
+      updatedAt: updatedAt,
+      updatedBy: updatedBy,
+      beatBy: beatBy,
+      createdAt: createdAt,
+      active: active,
+    );
+  }
+
   /// Copy with a new active server. Passing null fields clears the
   /// server selection and returns to the default embed providers.
   WatchPartyRoom copyWithServer({

@@ -142,6 +142,9 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// mirrors it so the CC button reacts immediately.
   bool _captionsOn = true;
 
+  /// One-shot guard for rooms written before `positionAt` existed.
+  bool _seededLegacyAnchor = false;
+
   String get _hlsVolumeKey => PlayerMemoryService.watchPartyKey(_room.id);
 
   Future<void> _restoreHlsVolume() async {
@@ -433,6 +436,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     _roomSub?.cancel();
+    _streamResolver.dispose();
     _voiceChat.dispose();
     if (_serviceListener != null) {
       _sourceService.removeListener(_serviceListener!);
@@ -478,14 +482,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     return _anchorTime + elapsed;
   }
 
-  /// The position to write as the room's new anchor. While playing we
-  /// add the server-clock offset so the anchor matches the moment the
-  /// server stamps it, not the moment the tap happened on this device.
-  double _positionForWrite() {
-    final local = _estimatedLocalTime();
-    if (_hostExplicitlyPaused) return local;
-    return local + _clock.offsetSeconds;
-  }
+  /// The position to write as the room's new anchor. This is a media
+  /// position, not a wall-clock time: the server timestamp on the same
+  /// write supplies the time. Adding the device/server skew here would
+  /// double-count it and skip the video forward.
+  double _positionForWrite() => _estimatedLocalTime();
 
   /// The hint we wrote into the player URL the last time we built
   /// the iframe. Uses the live server position so a joiner lands on
@@ -510,10 +511,8 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _WatchPartyScreenStateBase._heartbeatInterval,
       (_) async {
         if (!mounted) return;
-        final t = _estimatedLocalTime();
         await _service.heartbeat(
           roomId: _room.id,
-          currentTime: t,
           beatBy: _myUid,
         );
       },
@@ -589,7 +588,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
     _lastRemoteUpdate = incoming.updatedAt;
-    _clock.observe(incoming.positionAt ?? incoming.updatedAt);
+    // `updatedAt` is refreshed by the heartbeat every 5s, so it is a
+    // fresh server stamp. `positionAt` is the playback anchor and can be
+    // minutes old; feeding it here would estimate a negative offset and
+    // rewind the joiner.
+    _clock.observe(incoming.updatedAt);
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
     final captionsChanged =
@@ -612,6 +615,23 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
     _captionsOn = incoming.captionsOn;
+
+    // A room created before `positionAt` existed still has a live
+    // `currentTime` from the old heartbeat. Seed the anchor once so the
+    // next heartbeat cannot make the fallback look stale.
+    if (!_seededLegacyAnchor &&
+        incoming.positionAt == null &&
+        incoming.state == 'playing') {
+      _seededLegacyAnchor = true;
+      unawaited(
+        _service.updatePlayback(
+          roomId: incoming.id,
+          state: 'playing',
+          currentTime: incoming.livePositionAt(_clock.serverNow),
+          updatedBy: _myUid,
+        ),
+      );
+    }
 
     if (mediaChanged) {
       _autoplay = true;
@@ -639,7 +659,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     if (captionsChanged) {
       _hlsController.setCaptions(_captionsOn);
       setState(() {});
-      return;
+      // Do not return: a coalesced snapshot can also carry a pause.
     }
 
     // When the host toggles play/pause, the remote side must also
@@ -1077,7 +1097,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _service.updatePlayback(
         roomId: _room.id,
         state: paused ? 'paused' : 'playing',
-        currentTime: paused ? t : t + _clock.offsetSeconds,
+        currentTime: t,
         updatedBy: _myUid,
       ),
     );

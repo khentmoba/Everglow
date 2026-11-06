@@ -206,6 +206,25 @@ void main() {
       expect(withTrack.subtitleUrl, 'https://example/en.vtt');
     });
 
+    test('copyWithCaptions keeps the active server intact', () {
+      final r = _room(active: true, updatedAt: DateTime.now())
+          .copyWithServer(
+            serverType: 'everglow',
+            serverName: 'Everglow',
+            serverHost: 'everglow',
+            streamUrl: 'https://example/master.m3u8',
+          );
+      final captioned = r.copyWithCaptions(
+        subtitleUrl: 'https://example/en.vtt',
+        captionsOn: true,
+      );
+      expect(captioned.serverType, 'everglow');
+      expect(captioned.serverName, 'Everglow');
+      expect(captioned.streamUrl, 'https://example/master.m3u8');
+      expect(captioned.subtitleUrl, 'https://example/en.vtt');
+      expect(captioned.captionsOn, isTrue);
+    });
+
     test('hasMedia is false for a freshly created room', () {
       final empty = _room(
         active: true,

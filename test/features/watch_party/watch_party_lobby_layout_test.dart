@@ -94,4 +94,27 @@ void main() {
     expect(find.text('IDLE'), findsOneWidget);
     expect(find.text('You are hosting'), findsOneWidget);
   });
+
+  testWidgets('long press asks to delete the room', (tester) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    var longPressed = false;
+    await tester.pumpWidget(
+      _wrap(
+        WatchPartyRoomCard(
+          room: _room(active: false),
+          myUid: 'a',
+          onTap: () {},
+          onLongPress: () => longPressed = true,
+        ),
+        const Size(430, 932),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.byType(WatchPartyRoomCard));
+    expect(longPressed, isTrue);
+  });
 }
