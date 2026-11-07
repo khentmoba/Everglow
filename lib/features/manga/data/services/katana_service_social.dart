@@ -7,7 +7,15 @@ extension KatanaServiceSocial on KatanaService {
   CollectionReference<Map<String, dynamic>> get _bookmarks =>
       _firestore.collection('katana_bookmarks');
 
-  Stream<List<KatanaBookmark>> bookmarkStream(String userName) {
+  /// Bookmarks for [userName].
+  ///
+  /// [bookmarkedOnly] is for the bookmarks shelf. The reading surfaces also
+  /// read this stream for progress, and an unbookmarked series must keep
+  /// its "Ch. X • Page Y" there, so they leave it false.
+  Stream<List<KatanaBookmark>> bookmarkStream(
+    String userName, {
+    bool bookmarkedOnly = false,
+  }) {
     if (userName.isEmpty) return Stream.value(const []);
     return _bookmarks
         .where('userName', isEqualTo: userName)
@@ -17,10 +25,7 @@ extension KatanaServiceSocial on KatanaService {
           (snap) =>
               snap.docs
                   .map((d) => KatanaBookmark.fromFirestore(d.data(), d.id))
-                  // Unbookmarked series keep their document so reading
-                  // progress and read marks survive; they just leave the
-                  // shelf.
-                  .where((bookmark) => bookmark.isBookmarked)
+                  .where((bookmark) => !bookmarkedOnly || bookmark.isBookmarked)
                   .toList()
                 ..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
         );

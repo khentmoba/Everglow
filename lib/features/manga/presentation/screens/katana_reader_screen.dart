@@ -146,6 +146,14 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   /// caching that height would drag every later estimate with it.
   final Set<int> _loadedPages = {};
 
+  /// Page a cold open is trying to land on, while its real height is still
+  /// unknown. Cleared once we land or Clair scrolls herself.
+  int? _pendingResumePage;
+
+  /// Offset our own last jump moved to, so the scroll listener can tell it
+  /// apart from a user scroll.
+  double? _lastJumpOffset;
+
   /// Set once this chapter has been marked read for the current user.
   bool _markedRead = false;
 
@@ -389,8 +397,12 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (_tracker.pageCount != pages.length) {
       _tracker.reset(pages.length);
       _pageKeys.clear();
-      _loadedPages.clear();
     }
+    // The images remount on every load, so their loaded flags are stale
+    // even when the page count is unchanged. The measured heights are what
+    // must survive a same-chapter reload.
+    _loadedPages.clear();
+    _pendingResumePage = null;
 
     // Opening a chapter counts as reading it: pin target page at once so
     // the series lands in Currently Reading before the first turn.
@@ -420,27 +432,44 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     });
   }
 
-  /// Scrolls the webtoon strip to [page] using the heights measured so
-  /// far. Pages ahead of the viewport are still estimates, so it jumps,
-  /// lets the list lay those pages out, then re-checks and corrects — a
-  /// few frames at most, and it stops as soon as the page is right.
+  /// Scrolls the webtoon strip to [page].
+  ///
+  /// On a reload the heights are already known, so this is one exact jump.
+  /// On a cold open nothing has reported a height yet: the tracker would
+  /// assume the default for every page and the list's extent is built from
+  /// loading slots, so an exact jump is meaningless. Instead it splits the
+  /// current extent evenly to land in the right region, remembers the page,
+  /// and [onPageLoaded] lands exactly once that page's real height exists.
   Future<void> _resumeToWebtoonPage(int page) async {
+    if (!mounted || !_scrollController.hasClients) return;
     final target = page.clamp(1, _pages.length) - 1;
-    for (var attempt = 0; attempt < 4; attempt++) {
-      if (!mounted || !_scrollController.hasClients) return;
-      _measureBuiltPages();
-      final position = _scrollController.position;
-      _scrollController.jumpTo(
-        _tracker
-            .offsetForPage(target)
-            .clamp(position.minScrollExtent, position.maxScrollExtent)
-            .toDouble(),
-      );
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted || !_scrollController.hasClients) return;
-      _measureBuiltPages();
-      if (_tracker.pageAtOffset(_scrollController.offset) == target) return;
+    if (_tracker.measuredCount > 0) {
+      _jumpWebtoonTo(target);
+      return;
     }
+    _pendingResumePage = target;
+    final position = _scrollController.position;
+    final proportional =
+        target * position.maxScrollExtent / math.max(1, _pages.length - 1);
+    _jumpWebtoonToOffset(proportional);
+  }
+
+  /// Jumps to the exact top of page [target] using measured heights.
+  void _jumpWebtoonTo(int target) {
+    if (!_scrollController.hasClients) return;
+    _jumpWebtoonToOffset(_tracker.offsetForPage(target));
+  }
+
+  void _jumpWebtoonToOffset(double offset) {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final target = offset
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    // Recorded before the jump so the scroll listener can tell our own
+    // move from Clair taking over.
+    _lastJumpOffset = target;
+    _scrollController.jumpTo(target);
   }
 
   void _preloadUpcoming(int currentIndex) {
@@ -457,6 +486,14 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
   void _onWebtoonScroll() {
     if (!_scrollController.hasClients || _pages.isEmpty) return;
+    // A pending resume correction is only worth applying before Clair
+    // starts moving; after that it would yank her back.
+    final lastJump = _lastJumpOffset;
+    if (_pendingResumePage != null &&
+        lastJump != null &&
+        (_scrollController.offset - lastJump).abs() > 1) {
+      _pendingResumePage = null;
+    }
     _measureBuiltPages();
     final page = _tracker.pageAtOffset(_scrollController.offset) + 1;
     if (page != _currentPage) {
@@ -505,6 +542,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (!mounted || index >= _pages.length) return;
     _loadedPages.add(index);
     _measurePage(index);
+    final pending = _pendingResumePage;
+    if (pending == null || index != pending) return;
+    // The page we were resuming to now has a real height: land exactly.
+    _pendingResumePage = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _jumpWebtoonTo(pending);
+    });
   }
 
   /// Whether the paged viewer is showing two pages per item. One rule for
@@ -686,8 +730,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     setState(() => _bookmarked = next);
     // Bookmark the real series record. Building a stub here used to save
     // `status: ongoing` plus the current chapter as "latest" for every
-    // title, so the bookmarks shelf showed wrong metadata.
-    final manga = widget.manga ?? await _service.fetchMangaDetail(widget.slug);
+    // title, so the bookmarks shelf showed wrong metadata. Removing only
+    // needs the slug, so it must never wait on — or fail with — a fetch.
+    final manga = next
+        ? (widget.manga ?? await _service.fetchMangaDetail(widget.slug))
+        : widget.manga ??
+              KatanaManga(
+                slug: widget.slug,
+                id: widget.slug,
+                title: widget.mangaTitle,
+                coverUrl: widget.coverUrl,
+              );
     if (manga == null) {
       if (mounted) setState(() => _bookmarked = !next);
       _showSnack('Could not update the bookmark. Try again.');

@@ -189,6 +189,12 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
           if (useTwoPage) {
             final firstPageIndex = pageIndex * 2;
             _onPageChanged(math.min(firstPageIndex, _pages.length - 1));
+            // The spread shows two pages but the callback reports the
+            // first, so reaching the spread that holds the last page has
+            // to count as finishing the chapter.
+            if (firstPageIndex + 1 >= _pages.length - 1) {
+              _markChapterRead();
+            }
           } else {
             if (pageIndex < _pages.length) {
               _onPageChanged(pageIndex);
