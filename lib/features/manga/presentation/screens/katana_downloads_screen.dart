@@ -105,18 +105,6 @@ class KatanaDownloadsScreen extends StatelessWidget {
             ],
           ),
         ),
-                child: Text(
-                  '$count',
-                  style: AppTypography.outfitHeading.copyWith(
-                    color: KatanaColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
         if (count > 0)
           TextButton.icon(
             onPressed: () => _confirmClearAll(context, service),
