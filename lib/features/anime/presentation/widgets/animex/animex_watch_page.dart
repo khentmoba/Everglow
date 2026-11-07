@@ -14,6 +14,9 @@ import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../../cinema/data/services/player_memory_service.dart';
 import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
+import '../../../../../core/services/offline_media/offline_media_item.dart';
+import '../../../../../core/services/offline_media/offline_media_service.dart';
+import '../../../../../core/services/offline_media/offline_media_storage.dart';
 import '../../../../watch_party/presentation/widgets/start_watch_party_button.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/tmdb_anime_details.dart';
@@ -49,6 +52,7 @@ Widget buildDesktopEpisodesSidebarForTesting({
   List<AniListSeason> seasons = const [],
   ValueChanged<AniListSeason>? onSelectSeason,
   AniListSeason? nextSeason,
+  int animeId = 0,
 }) {
   return _DesktopEpisodesSidebar(
     episodes: episodes,
@@ -60,6 +64,7 @@ Widget buildDesktopEpisodesSidebarForTesting({
     seasons: seasons,
     onSelectSeason: onSelectSeason,
     nextSeason: nextSeason,
+    animeId: animeId,
   );
 }
 
@@ -74,6 +79,7 @@ Widget buildMobileEpisodesSectionForTesting({
   List<AniListSeason> seasons = const [],
   ValueChanged<AniListSeason>? onSelectSeason,
   AniListSeason? nextSeason,
+  int animeId = 0,
 }) {
   return _MobileEpisodesSection(
     episodes: episodes,
@@ -85,6 +91,7 @@ Widget buildMobileEpisodesSectionForTesting({
     seasons: seasons,
     onSelectSeason: onSelectSeason,
     nextSeason: nextSeason,
+    animeId: animeId,
   );
 }
 
@@ -254,6 +261,35 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _initialize();
   }
 
+  String? _offlineBlobUrl;
+
+  Future<void> _checkOfflinePlayback() async {
+    final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
+    var offlineItem = OfflineMediaService.instance
+        .getItem(OfflineMediaService.animeEpisodeId(animeId, _playerEpisode));
+    if (offlineItem == null && _watchItem.tmdbId > 0) {
+      offlineItem = OfflineMediaService.instance.getItem(
+        OfflineMediaService.animeEpisodeId(_watchItem.tmdbId, _playerEpisode),
+      );
+    }
+    if (offlineItem != null && offlineItem.isCompleted) {
+      final url = await OfflineMediaService.instance.getPlayableUrl(offlineItem);
+      if (mounted && url != null && url.isNotEmpty) {
+        if (_offlineBlobUrl != null && _offlineBlobUrl != url) {
+          unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+        }
+        setState(() => _offlineBlobUrl = url);
+        return;
+      }
+    }
+    if (_offlineBlobUrl != null) {
+      unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+      if (mounted) {
+        setState(() => _offlineBlobUrl = null);
+      }
+    }
+  }
+
   Future<void> _initialize() async {
     try {
       await Future.wait([_load(), _restoreMemory()]);
@@ -261,6 +297,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       Logger.e('AnimeX: watch initialization failed', error: e, stackTrace: st);
     }
     if (!mounted) return;
+    await _checkOfflinePlayback();
     if (_episodes.isNotEmpty) {
       final knownCount = _detail?.episodeCount ?? _item.episodeCount;
       final episode = knownCount != null && knownCount > 0
@@ -527,6 +564,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _progressThrottler?.cancel();
+    if (_offlineBlobUrl != null) {
+      unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+    }
     if (_ready) _saveWatchProgress();
     _scrollCtrl.dispose();
     super.dispose();
@@ -793,6 +833,10 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   String get _playerUrl {
+    if (_offlineBlobUrl != null && _offlineBlobUrl!.isNotEmpty) {
+      return _offlineBlobUrl!;
+    }
+
     if (!_ready || _servers.isEmpty) return '';
     AnimeServerOption? current;
     if (_serverIndex >= 0 &&
@@ -959,6 +1003,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _lastKnownPosition = null;
     _playbackDuration = null;
     _progressThrottler?.cancel();
+    unawaited(_checkOfflinePlayback());
   }
 
   /// The top bar is also built in widget tests without an AuthService

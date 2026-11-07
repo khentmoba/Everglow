@@ -71,6 +71,17 @@ class AnimeXPlayerFrame extends StatefulWidget {
 
 class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   late final web.HTMLIFrameElement _iframe;
+  web.HTMLVideoElement? _videoElement;
+  JSFunction? _videoLoadedListener;
+  JSFunction? _videoTimeUpdateListener;
+  JSFunction? _videoEndedListener;
+  JSFunction? _videoErrorListener;
+
+  bool get _isDirectVideo =>
+      widget.url.endsWith('.mp4') ||
+      widget.url.endsWith('.webm') ||
+      widget.url.startsWith('blob:') ||
+      widget.url.startsWith('offline:');
 
   @visibleForTesting
   web.HTMLIFrameElement get debugIframe => _iframe;
@@ -208,19 +219,24 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     if (widget.url != oldWidget.url) {
       _loaded = false;
       _contentError = false;
-      _iframe.setAttribute(
-        'referrerpolicy',
-        AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy),
-      );
-      if (widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url)) {
-        _iframe.setAttribute(
-          'sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
-        );
+      if (_isDirectVideo && _videoElement != null) {
+        _videoElement!.src = widget.url;
+        _videoElement!.play();
       } else {
-        _iframe.removeAttribute('sandbox');
+        _iframe.setAttribute(
+          'referrerpolicy',
+          AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy),
+        );
+        if (widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url)) {
+          _iframe.setAttribute(
+            'sandbox',
+            'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
+          );
+        } else {
+          _iframe.removeAttribute('sandbox');
+        }
+        _iframe.src = widget.url;
       }
-      _iframe.src = widget.url;
     } else {
       if (widget.seekSeconds != oldWidget.seekSeconds ||
           widget.seekRequest != oldWidget.seekRequest) {
@@ -269,6 +285,22 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
 
   @override
   void dispose() {
+    if (_videoElement != null) {
+      _videoElement!.pause();
+      if (_videoLoadedListener != null) {
+        _videoElement!.removeEventListener('loadeddata', _videoLoadedListener);
+      }
+      if (_videoTimeUpdateListener != null) {
+        _videoElement!.removeEventListener('timeupdate', _videoTimeUpdateListener);
+      }
+      if (_videoEndedListener != null) {
+        _videoElement!.removeEventListener('ended', _videoEndedListener);
+      }
+      if (_videoErrorListener != null) {
+        _videoElement!.removeEventListener('error', _videoErrorListener);
+      }
+      _videoElement = null;
+    }
     if (_onLoad != null) {
       _iframe.removeEventListener('load', _onLoad!);
     }
@@ -295,7 +327,54 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
             HtmlElementView.fromTagName(
               tagName: 'div',
               onElementCreated: (element) {
-                (element as web.HTMLElement).appendChild(_iframe);
+                final host = element as web.HTMLElement;
+                if (_isDirectVideo) {
+                  _videoElement = web.HTMLVideoElement()
+                    ..controls = true
+                    ..autoplay = true
+                    ..style.border = 'none'
+                    ..style.width = '100%'
+                    ..style.height = '100%'
+                    ..style.backgroundColor = '#000'
+                    ..setAttribute('playsinline', 'true')
+                    ..setAttribute('webkit-playsinline', 'true');
+                  _videoElement!.src = widget.url;
+
+                  _videoLoadedListener = ((web.Event _) {
+                    if (mounted) setState(() => _loaded = true);
+                  }).toJS;
+                  _videoTimeUpdateListener = ((web.Event _) {
+                    if (!mounted || _videoElement == null) return;
+                    widget.onProgress?.call(
+                      VideasyProgress(
+                        positionSeconds: _videoElement!.currentTime,
+                        durationSeconds: _videoElement!.duration.isFinite
+                            ? _videoElement!.duration
+                            : 0,
+                      ),
+                    );
+                  }).toJS;
+                  _videoEndedListener = ((web.Event _) {
+                    if (mounted) widget.onNextEpisode?.call();
+                  }).toJS;
+                  _videoErrorListener = ((web.Event _) {
+                    if (mounted) {
+                      setState(() {
+                        _loaded = true;
+                        _contentError = true;
+                      });
+                      widget.onContentError?.call();
+                    }
+                  }).toJS;
+
+                  _videoElement!.addEventListener('loadeddata', _videoLoadedListener);
+                  _videoElement!.addEventListener('timeupdate', _videoTimeUpdateListener);
+                  _videoElement!.addEventListener('ended', _videoEndedListener);
+                  _videoElement!.addEventListener('error', _videoErrorListener);
+                  host.appendChild(_videoElement!);
+                } else {
+                  host.appendChild(_iframe);
+                }
               },
             ),
             if (!_loaded)

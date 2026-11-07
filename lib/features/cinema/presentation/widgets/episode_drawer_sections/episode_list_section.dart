@@ -347,6 +347,7 @@ class EpisodeTile extends StatefulWidget {
   final String durationStr;
   final double progress;
   final bool netflixStyle;
+  final Widget? trailing;
 
   const EpisodeTile({
     super.key,
@@ -361,6 +362,7 @@ class EpisodeTile extends StatefulWidget {
     this.durationStr = '',
     this.progress = 0.0,
     this.netflixStyle = false,
+    this.trailing,
   });
 
   @override
@@ -504,6 +506,10 @@ class _EpisodeTileState extends State<EpisodeTile> {
                     ),
                   ),
                   const SizedBox(width: 6),
+                  if (widget.trailing != null) ...[
+                    widget.trailing!,
+                    const SizedBox(width: 4),
+                  ],
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -724,6 +730,10 @@ class _EpisodeTileState extends State<EpisodeTile> {
                   ],
                 ),
               ),
+              if (widget.trailing != null) ...[
+                const SizedBox(width: 8),
+                widget.trailing!,
+              ],
             ],
           ),
         ),

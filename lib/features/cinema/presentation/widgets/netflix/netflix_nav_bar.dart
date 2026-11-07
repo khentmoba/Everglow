@@ -63,76 +63,95 @@ class NetflixMobileItem {
 /// Together is couple-only and would only show them a locked screen, while
 /// Anime would otherwise be unreachable for them on mobile — they have no
 /// dashboard and the floating corner button is their logout.
-List<NetflixMobileItem> cinemaMobileNavItems({required bool isCinemaOnlyUser}) {
-  if (isCinemaOnlyUser) {
-    return const [
-      NetflixMobileItem(
-        label: 'Home',
-        icon: Icons.home_outlined,
-        activeIcon: Icons.home_rounded,
-        tab: 0,
-      ),
-      NetflixMobileItem(
-        label: 'New & Popular',
-        icon: Icons.local_fire_department_outlined,
-        activeIcon: Icons.local_fire_department_rounded,
-        tab: 2,
-        browseOptionId: 'collection-new',
-      ),
-      NetflixMobileItem(
-        label: 'My List',
-        icon: Icons.bookmark_border_rounded,
-        activeIcon: Icons.bookmark_rounded,
-        tab: 3,
-      ),
-      NetflixMobileItem(
-        label: 'Search',
-        icon: Icons.search_rounded,
-        activeIcon: Icons.search_rounded,
-        tab: 1,
-      ),
-      NetflixMobileItem(
-        label: 'Anime',
-        icon: Icons.animation_outlined,
-        activeIcon: Icons.animation_rounded,
-        tab: 0,
-        isAnimeLink: true,
-      ),
-    ];
+List<NetflixMobileItem> cinemaMobileNavItems({
+  required bool isCinemaOnlyUser,
+  bool showDownloads = true,
+}) {
+  final allItems = isCinemaOnlyUser
+      ? const [
+          NetflixMobileItem(
+            label: 'Home',
+            icon: Icons.home_outlined,
+            activeIcon: Icons.home_rounded,
+            tab: 0,
+          ),
+          NetflixMobileItem(
+            label: 'Popular',
+            icon: Icons.local_fire_department_outlined,
+            activeIcon: Icons.local_fire_department_rounded,
+            tab: 2,
+            browseOptionId: 'collection-new',
+          ),
+          NetflixMobileItem(
+            label: 'My List',
+            icon: Icons.bookmark_border_rounded,
+            activeIcon: Icons.bookmark_rounded,
+            tab: 3,
+          ),
+          NetflixMobileItem(
+            label: 'Downloads',
+            icon: Icons.download_for_offline_outlined,
+            activeIcon: Icons.download_for_offline_rounded,
+            tab: 5,
+          ),
+          NetflixMobileItem(
+            label: 'Search',
+            icon: Icons.search_rounded,
+            activeIcon: Icons.search_rounded,
+            tab: 1,
+          ),
+          NetflixMobileItem(
+            label: 'Anime',
+            icon: Icons.animation_outlined,
+            activeIcon: Icons.animation_rounded,
+            tab: 0,
+            isAnimeLink: true,
+          ),
+        ]
+      : const [
+          NetflixMobileItem(
+            label: 'Home',
+            icon: Icons.home_outlined,
+            activeIcon: Icons.home_rounded,
+            tab: 0,
+          ),
+          NetflixMobileItem(
+            label: 'Popular',
+            icon: Icons.local_fire_department_outlined,
+            activeIcon: Icons.local_fire_department_rounded,
+            tab: 2,
+            browseOptionId: 'collection-new',
+          ),
+          NetflixMobileItem(
+            label: 'My List',
+            icon: Icons.bookmark_border_rounded,
+            activeIcon: Icons.bookmark_rounded,
+            tab: 3,
+          ),
+          NetflixMobileItem(
+            label: 'Downloads',
+            icon: Icons.download_for_offline_outlined,
+            activeIcon: Icons.download_for_offline_rounded,
+            tab: 5,
+          ),
+          NetflixMobileItem(
+            label: 'Search',
+            icon: Icons.search_rounded,
+            activeIcon: Icons.search_rounded,
+            tab: 1,
+          ),
+          NetflixMobileItem(
+            label: 'Together',
+            icon: Icons.favorite_outline_rounded,
+            activeIcon: Icons.favorite_rounded,
+            tab: 4,
+          ),
+        ];
+
+  if (!showDownloads) {
+    return allItems.where((i) => i.tab != 5).toList();
   }
-  return const [
-    NetflixMobileItem(
-      label: 'Home',
-      icon: Icons.home_outlined,
-      activeIcon: Icons.home_rounded,
-      tab: 0,
-    ),
-    NetflixMobileItem(
-      label: 'New & Popular',
-      icon: Icons.local_fire_department_outlined,
-      activeIcon: Icons.local_fire_department_rounded,
-      tab: 2,
-      browseOptionId: 'collection-new',
-    ),
-    NetflixMobileItem(
-      label: 'My List',
-      icon: Icons.bookmark_border_rounded,
-      activeIcon: Icons.bookmark_rounded,
-      tab: 3,
-    ),
-    NetflixMobileItem(
-      label: 'Search',
-      icon: Icons.search_rounded,
-      activeIcon: Icons.search_rounded,
-      tab: 1,
-    ),
-    NetflixMobileItem(
-      label: 'Together',
-      icon: Icons.favorite_outline_rounded,
-      activeIcon: Icons.favorite_rounded,
-      tab: 4,
-    ),
-  ];
+  return allItems;
 }
 
 /// Netflix-style cinema navigation.
@@ -184,7 +203,7 @@ class NetflixNavBar extends StatelessWidget {
               tab: 0,
             ),
             NetflixMobileItem(
-              label: 'New & Popular',
+              label: 'Popular',
               icon: Icons.local_fire_department_outlined,
               activeIcon: Icons.local_fire_department_rounded,
               tab: 2,

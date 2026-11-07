@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/offline_media/offline_media_service.dart';
+import '../../../../core/services/offline_media/offline_media_storage.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -232,8 +234,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
+  void _revokeCurrentPageBlobs() {
+    for (final p in _pages) {
+      if (p.startsWith('blob:')) {
+        unawaited(OfflineMediaStorage.instance.revokeBlobUrl(p));
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _revokeCurrentPageBlobs();
     _pagePillTimer?.cancel();
     _scrollController.removeListener(_onWebtoonScroll);
     _scrollController.dispose();
@@ -365,6 +376,30 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _markedRead = false;
     });
 
+    final offlineId =
+        OfflineMediaService.mangaChapterId(widget.slug, _chapter.id);
+    final offlineItem = OfflineMediaService.instance.getItem(offlineId);
+    if (offlineItem != null &&
+        offlineItem.isCompleted &&
+        offlineItem.pageUrls.isNotEmpty) {
+      final resolvedPages = <String>[];
+      for (var i = 1; i <= offlineItem.pageUrls.length; i++) {
+        final blob = await OfflineMediaService.instance.getMangaPageUrl(
+          offlineId,
+          i,
+        );
+        resolvedPages.add(blob ?? offlineItem.pageUrls[i - 1]);
+      }
+      if (!mounted) return;
+      _revokeCurrentPageBlobs();
+      setState(() {
+        _pages = resolvedPages;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
     // fetchChapterPages already tries the requested server first and
     // then the other two, so one call covers every CDN.
     var pages = await _service.fetchChapterPages(
@@ -400,6 +435,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
     final targetPage = resumePage.clamp(1, pages.length);
 
+    _revokeCurrentPageBlobs();
     setState(() {
       _pages = pages;
       _loading = false;

@@ -32,6 +32,9 @@ import '../widgets/torrent_download_sheet.dart';
 import '../widgets/up_next_overlay.dart';
 import '../widgets/netflix/netflix_colors.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/offline_media/offline_media_item.dart';
+import '../../../../core/services/offline_media/offline_media_service.dart';
+import '../../../../core/services/offline_media/offline_media_storage.dart';
 import '../../../../core/theme/app_typography.dart';
 part 'video_player_widgets.dart';
 part 'video_player_state_base.dart';
@@ -117,6 +120,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                           tmdbId: widget.tmdbId,
                           initialSeason: _currentSeason,
                           initialEpisode: _currentEpisode,
+                          title: widget.title,
                           positionSeconds: _playbackPositionSeconds,
                           durationSeconds: _playbackDurationSeconds,
                           allEpisodesWatched: widget.allEpisodesWatched,
@@ -182,7 +186,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                           host.style
                             ..width = '100%'
                             ..height = '100%';
-                          host.appendChild(_iframe);
+                          _mountPlayerHost(host);
                         },
                       ),
                     ),

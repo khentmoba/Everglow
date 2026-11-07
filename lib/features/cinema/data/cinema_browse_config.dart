@@ -78,7 +78,7 @@ final List<BrowseCategoryOption> cinemaBrowseOptions = [
   ),
   const BrowseCategoryOption(
     id: 'collection-new',
-    label: 'New & Popular',
+    label: 'Popular',
     icon: Icons.local_fire_department_rounded,
     color: AppColors.warmAmber,
     group: BrowseCategoryGroup.collection,

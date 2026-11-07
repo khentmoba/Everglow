@@ -12,7 +12,7 @@ import './katana_theme.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../shared/widgets/shelf/media_section_menu.dart';
 
-enum KatanaNav { home, latest, directory, newManga, genres, reading }
+enum KatanaNav { home, latest, directory, newManga, genres, reading, downloads }
 
 /// The Manga Katana style header: logo, top navigation, a search bar
 /// with live suggestions and the signed-in user / bookmarks entry.
@@ -285,6 +285,11 @@ class _KatanaHeaderState extends State<KatanaHeader> {
                         'Currently Reading',
                         () => pushCurrentlyReading(context),
                       ),
+                    _navItem(
+                      KatanaNav.downloads,
+                      'Downloads',
+                      () => pushDownloads(context),
+                    ),
                     if (!desktop && showBack) ...[
                       const SizedBox(width: 8),
                       _navItem(null, 'Bookmarks', () => pushBookmarks(context)),

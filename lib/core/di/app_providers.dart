@@ -17,6 +17,7 @@ import '../../features/jukebox/presentation/providers/artist_showdown_provider.d
 import '../../features/jukebox/presentation/providers/jukebox_provider.dart';
 import '../../features/jukebox/presentation/providers/music_stats_provider.dart';
 import '../services/auth_service.dart';
+import '../services/offline_media/offline_media_service.dart';
 import '../services/presence_service.dart';
 
 /// Eager: the router (`app_router.dart`) uses this synchronously as its
@@ -80,4 +81,5 @@ final List<SingleChildWidget> appProviders = [
   ),
   ChangeNotifierProvider(create: (_) => MusicStatsProvider(surfaceActive: false)),
   ChangeNotifierProvider(create: (_) => ArtistShowdownProvider()),
+  ChangeNotifierProvider.value(value: OfflineMediaService.instance),
 ];

@@ -13,7 +13,8 @@ void main() {
       // no dashboard, and the floating corner button is their logout.
       expect(labels, contains('Anime'));
       expect(labels, isNot(contains('Together')));
-      expect(items.length, 5);
+      expect(labels, contains('Downloads'));
+      expect(items.length, 6);
       expect(
         items.where((i) => i.isAnimeLink).map((i) => i.label),
         ['Anime'],
@@ -26,8 +27,25 @@ void main() {
 
       expect(labels, contains('Together'));
       expect(labels, isNot(contains('Anime')));
-      expect(items.length, 5);
+      expect(labels, contains('Downloads'));
+      expect(items.length, 6);
       expect(items.any((i) => i.isAnimeLink), isFalse);
+    });
+
+    test('showDownloads: false omits Downloads from mobile nav items', () {
+      final guest = cinemaMobileNavItems(
+        isCinemaOnlyUser: true,
+        showDownloads: false,
+      );
+      final couple = cinemaMobileNavItems(
+        isCinemaOnlyUser: false,
+        showDownloads: false,
+      );
+
+      expect(guest.any((i) => i.label == 'Downloads'), isFalse);
+      expect(couple.any((i) => i.label == 'Downloads'), isFalse);
+      expect(guest.length, 5);
+      expect(couple.length, 5);
     });
 
     test('both sets share the same core tabs', () {
@@ -38,7 +56,13 @@ void main() {
         final labels = items.map((i) => i.label).toList();
         expect(
           labels,
-          containsAll(['Home', 'New & Popular', 'My List', 'Search']),
+          containsAll([
+            'Home',
+            'Popular',
+            'My List',
+            'Downloads',
+            'Search',
+          ]),
         );
       }
     });

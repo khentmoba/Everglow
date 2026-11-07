@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/services/offline_media/offline_media_item.dart';
+import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 
 import '../../data/services/tmdb_service.dart';
@@ -18,6 +21,7 @@ class EpisodeNavigator extends StatefulWidget {
   final int durationSeconds;
   final bool allEpisodesWatched;
   final bool currentEpisodeCompleted;
+  final String? title;
   final ValueChanged<int> onSeasonChanged;
   final ValueChanged<int> onEpisodeChanged;
   final CinemaPreferences? preferences;
@@ -32,6 +36,7 @@ class EpisodeNavigator extends StatefulWidget {
     this.durationSeconds = 0,
     this.allEpisodesWatched = false,
     this.currentEpisodeCompleted = false,
+    this.title,
     required this.onSeasonChanged,
     required this.onEpisodeChanged,
     this.preferences,
@@ -306,12 +311,84 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                         : null,
                     selected: epNum == _selectedEpisode,
                     onTap: () => _selectEpisode(epNum),
+                    trailing: _buildDownloadAction(epNum, name, stillPath),
                   );
                 },
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDownloadAction(int epNum, String name, String? stillPath) {
+    final offline = context.watch<OfflineMediaService?>();
+    if (offline == null) return const SizedBox.shrink();
+
+    final id = OfflineMediaService.cinemaEpisodeId(
+      widget.tmdbId,
+      _selectedSeason,
+      epNum,
+    );
+    final isDone = offline.isDownloaded(id);
+    final isDownloading = offline.isDownloading(id);
+
+    if (isDone) {
+      return Tooltip(
+        message: 'Downloaded for offline viewing',
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: NetflixColors.accent.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.offline_pin_rounded,
+            color: NetflixColors.accent,
+            size: 20,
+          ),
+        ),
+      );
+    }
+
+    if (isDownloading) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: NetflixColors.accent,
+        ),
+      );
+    }
+
+    return IconButton(
+      icon: const Icon(
+        Icons.download_for_offline_outlined,
+        color: NetflixColors.textMuted,
+        size: 22,
+      ),
+      tooltip: 'Download episode',
+      onPressed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloading S$_selectedSeason E$epNum • $name...'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        offline.startDownloadMedia(
+          id: id,
+          type: OfflineMediaType.tv,
+          mediaId: widget.tmdbId.toString(),
+          title: widget.title ?? 'TV Series',
+          subtitle: 'S$_selectedSeason E$epNum • $name',
+          season: _selectedSeason,
+          episode: epNum,
+          coverUrl: (stillPath != null && stillPath.isNotEmpty)
+              ? TmdbImages.stillFor(stillPath)
+              : '',
+        );
+      },
     );
   }
 

@@ -19,6 +19,7 @@ enum AnimexPage {
   myList,
   playlists,
   seasonal,
+  downloads,
 }
 
 /// Navigation + shared state for the anime section shell. Top-level pages

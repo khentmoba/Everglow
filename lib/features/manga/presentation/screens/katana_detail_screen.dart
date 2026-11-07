@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -869,6 +870,9 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                   for (int i = 0; i < chapters.length; i++)
                     _ChapterRow(
                       chapter: chapters[i],
+                      slug: widget.slug,
+                      mangaTitle: manga.title,
+                      coverUrl: manga.coverUrl,
                       isNew: chapters[i].isNew,
                       isRead: _readChapterIds.contains(chapters[i].id),
                       onTap: () => _openReader(chapters[i]),
@@ -885,6 +889,9 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
 
 class _ChapterRow extends StatelessWidget {
   final KatanaChapter chapter;
+  final String slug;
+  final String mangaTitle;
+  final String coverUrl;
   final bool isNew;
   final bool isRead;
   final bool highlight;
@@ -892,6 +899,9 @@ class _ChapterRow extends StatelessWidget {
 
   const _ChapterRow({
     required this.chapter,
+    this.slug = '',
+    this.mangaTitle = '',
+    this.coverUrl = '',
     required this.isNew,
     required this.isRead,
     required this.highlight,
@@ -953,6 +963,8 @@ class _ChapterRow extends StatelessWidget {
                 style: KatanaType.small.copyWith(fontSize: 11.5),
               ),
             const SizedBox(width: 8),
+            _buildDownloadButton(context),
+            const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
               size: 18,
@@ -960,6 +972,108 @@ class _ChapterRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadButton(BuildContext context) {
+    if (slug.isEmpty) return const SizedBox.shrink();
+    final offline = context.watch<OfflineMediaService?>();
+    if (offline == null) return const SizedBox.shrink();
+
+    final downloadId = OfflineMediaService.mangaChapterId(slug, chapter.id);
+    final isDone = offline.isDownloaded(downloadId);
+    final isDownloading = offline.isDownloading(downloadId);
+
+    if (isDone) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 4),
+        child: Tooltip(
+          message: 'Downloaded for offline reading',
+          child: Icon(
+            Icons.offline_pin_rounded,
+            color: KatanaColors.green,
+            size: 18,
+          ),
+        ),
+      );
+    }
+
+    if (isDownloading) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 4),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: KatanaColors.accent,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        icon: const Icon(
+          Icons.download_for_offline_outlined,
+          color: KatanaColors.textLight,
+          size: 18,
+        ),
+        tooltip: 'Download chapter',
+        onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Downloading ${chapter.displayTitle}...'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          final realPages = await KatanaService().fetchChapterPages(
+            slug,
+            chapter.path,
+          );
+          if (realPages.isNotEmpty) {
+            await offline.startDownloadMangaChapter(
+              slug: slug,
+              mangaTitle: mangaTitle,
+              coverUrl: coverUrl,
+              chapterId: chapter.id,
+              chapterTitle: chapter.displayTitle,
+              pageUrls: realPages,
+            );
+            final item = offline.getItem(
+              OfflineMediaService.mangaChapterId(slug, chapter.id),
+            );
+            if (item != null && item.isCompleted) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Downloaded ${chapter.displayTitle} for offline reading!'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Failed to download ${chapter.displayTitle}. Please check connection.'),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          } else {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Could not fetch chapter pages to download. Please try again.',
+                ),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        },
       ),
     );
   }

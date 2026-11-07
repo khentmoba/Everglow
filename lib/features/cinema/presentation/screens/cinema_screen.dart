@@ -21,6 +21,7 @@ import '../widgets/tabs/cinema_home_tab.dart' show CinemaHomeTab;
 import '../widgets/tabs/cinema_search_tab.dart' show CinemaSearchTab;
 import '../widgets/tabs/cinema_browse_tab.dart' show CinemaBrowseTab;
 import '../widgets/tabs/cinema_library_tab.dart' show CinemaLibraryTab;
+import '../widgets/tabs/cinema_downloads_tab.dart' show CinemaDownloadsTab;
 import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 import '../../../../shared/widgets/shelf/media_section_menu.dart';
@@ -107,7 +108,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
       _currentIndex = 2;
       _browseSeed = 1;
     } else {
-      _currentIndex = widget.initialTab.clamp(0, 4);
+      _currentIndex = widget.initialTab.clamp(0, 5);
     }
     // Paint the last good rows now when this session has them; otherwise read
     // the saved copy.
@@ -767,6 +768,14 @@ class _CinemaScreenState extends State<CinemaScreen> {
     final isCinemaOnlyUser = context.select<AuthService, bool>(
       (a) => a.isCinemaOnlyUser,
     );
+
+    const navLinks = [
+      NetflixNavLink('Home', 0),
+      NetflixNavLink('Popular', 2, 'collection-new'),
+      NetflixNavLink('My List', 3),
+      NetflixNavLink('Downloads', 5),
+      NetflixNavLink('Search', 1),
+    ];
     final userName = context.select<AuthService, String>(
       (a) => a.currentUser ?? '',
     );
@@ -842,6 +851,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   watchlist: _watchlist,
                   onMediaTap: _showMediaDetails,
                   onSwitchTab: _switchTab,
+                ),
+                CinemaDownloadsTab(
+                  onPlayMedia: _playMedia,
+                  onBrowseCinema: () => _switchTab(0),
                 ),
               ],
             ),
@@ -971,12 +984,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                 },
                 userName: userName,
                 showAnime: isCinemaOnlyUser,
-                links: const [
-                  NetflixNavLink('Home', 0),
-                  NetflixNavLink('New & Popular', 2, 'collection-new'),
-                  NetflixNavLink('My List', 3),
-                  NetflixNavLink('Search', 1),
-                ],
+                links: navLinks,
               ),
             ),
           ],
@@ -992,16 +1000,13 @@ class _CinemaScreenState extends State<CinemaScreen> {
       bottomNavigationBar: NetflixNavBar(
         scrolled: false,
         currentIndex: _currentIndex,
-        links: const [
-          NetflixNavLink('Home', 0),
-          NetflixNavLink('New & Popular', 2, 'collection-new'),
-          NetflixNavLink('My List', 3),
-          NetflixNavLink('Search', 1),
-        ],
+        links: navLinks,
         // Cinema-only profiles get Anime instead of Together here — it is
         // their only ride to `/anime` on mobile (no dashboard, and the
         // floating button is their logout).
-        mobileItems: cinemaMobileNavItems(isCinemaOnlyUser: isCinemaOnlyUser),
+        mobileItems: cinemaMobileNavItems(
+          isCinemaOnlyUser: isCinemaOnlyUser,
+        ),
         onSelect: _onNavSelect,
         onAnimeTap: () => GoRouter.of(context).go('/anime'),
       ),
