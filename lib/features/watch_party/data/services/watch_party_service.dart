@@ -434,7 +434,7 @@ class WatchPartyService {
           serverType: 'everglow',
           serverName: 'Everglow',
           serverHost: 'everglow',
-        ),
+        ).copyWithCaptions(subtitleUrl: null, captionsOn: true),
       );
       return;
     }

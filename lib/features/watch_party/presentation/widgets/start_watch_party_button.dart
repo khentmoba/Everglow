@@ -51,7 +51,18 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   }
 
   final service = WatchPartyService();
-  final rooms = await service.getRooms(myUid);
+  List<WatchPartyRoom> rooms;
+  try {
+    rooms = await service.getRooms(myUid);
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Could not load your rooms. Try again in a moment.'),
+      ),
+    );
+    return;
+  }
   final live = rooms.where((room) => room.isLive()).toList();
   final existing = live.isNotEmpty
       ? live.first

@@ -478,7 +478,10 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   /// just return the anchor (the iframe keeps playing, but we lie
   /// about it in the UI so the user can see "paused" badges).
   double _estimatedLocalTime() {
-    if (_isHlsServer && _hlsController.isAttached) {
+    // The controller attaches in initState, before the manifest sets the
+    // start position. Until `_hlsReady`, `currentTime` is 0; the anchor
+    // fallback below is the truthful position.
+    if (_isHlsServer && _hlsController.isAttached && _hlsReady) {
       return _hlsController.currentTime;
     }
     if (_anchorEpoch == null) {

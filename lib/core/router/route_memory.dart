@@ -37,7 +37,6 @@ class RouteMemory {
     '/books/list',
     '/books/category',
     '/manga/reader',
-    '/watch-party',
   };
 
   /// The remembered page to boot into, loaded by [load] before `runApp`.

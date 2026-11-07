@@ -197,11 +197,16 @@ class _WatchPartyMediaPickerSheetState
 
   void _pickMovie(MediaItem item) {
     HapticFeedback.mediumImpact();
+    final isAnime =
+        item.isAnime || _category == WatchPartyPickerCategory.anime;
     widget.onSelect(
       MediaRef(
         tmdbId: item.tmdbId,
+        malId: isAnime
+            ? (item.tmdbId > 0 ? item.tmdbId : item.anilistId)
+            : null,
         mediaType: 'movie',
-        isAnime: false,
+        isAnime: isAnime,
         title: item.title,
         posterPath: item.posterPath,
       ),

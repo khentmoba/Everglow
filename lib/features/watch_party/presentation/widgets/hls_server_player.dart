@@ -482,6 +482,8 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
       try {
         video.muted = true;
         await video.play().toDart;
+        _muted = true;
+        widget.controller._muted = true;
       } catch (e) {
         debugPrint('[HlsServerPlayer] play() rejected: $e');
       }
