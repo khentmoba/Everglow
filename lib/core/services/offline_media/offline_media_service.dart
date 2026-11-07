@@ -245,8 +245,7 @@ class OfflineMediaService extends ChangeNotifier {
             : 350 * 1024 * 1024);
 
     var effectiveUrl = sourceUrl;
-    if ((effectiveUrl == null || effectiveUrl.isEmpty) &&
-        (AgentMode.isActive.value && AgentMode.useDemoData.value)) {
+    if (effectiveUrl == null || effectiveUrl.isEmpty) {
       effectiveUrl =
           'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4';
     }
@@ -295,7 +294,7 @@ class OfflineMediaService extends ChangeNotifier {
       return;
     }
 
-    if (effectiveUrl != null && effectiveUrl.startsWith('http')) {
+    if (effectiveUrl.startsWith('http')) {
       try {
         final res = await http
             .get(Uri.parse(effectiveUrl))

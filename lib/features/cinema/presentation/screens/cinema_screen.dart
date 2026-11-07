@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart' hide FilterChip;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../core/agent/agent_mode.dart';
-import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../data/models/media_item.dart';
 import '../../data/services/tmdb_service.dart';
 import '../../data/services/cinema_home_cache.dart';
@@ -771,17 +768,13 @@ class _CinemaScreenState extends State<CinemaScreen> {
     final isCinemaOnlyUser = context.select<AuthService, bool>(
       (a) => a.isCinemaOnlyUser,
     );
-    final offline = context.watch<OfflineMediaService?>();
-    final showDownloads = AgentMode.isActive.value ||
-        kDebugMode ||
-        (offline?.cinemaItems.isNotEmpty ?? false);
 
-    final navLinks = [
-      const NetflixNavLink('Home', 0),
-      const NetflixNavLink('Popular', 2, 'collection-new'),
-      const NetflixNavLink('My List', 3),
-      if (showDownloads) const NetflixNavLink('Downloads', 5),
-      const NetflixNavLink('Search', 1),
+    const navLinks = [
+      NetflixNavLink('Home', 0),
+      NetflixNavLink('Popular', 2, 'collection-new'),
+      NetflixNavLink('My List', 3),
+      NetflixNavLink('Downloads', 5),
+      NetflixNavLink('Search', 1),
     ];
     final userName = context.select<AuthService, String>(
       (a) => a.currentUser ?? '',
@@ -1013,7 +1006,6 @@ class _CinemaScreenState extends State<CinemaScreen> {
         // floating button is their logout).
         mobileItems: cinemaMobileNavItems(
           isCinemaOnlyUser: isCinemaOnlyUser,
-          showDownloads: showDownloads,
         ),
         onSelect: _onNavSelect,
         onAnimeTap: () => GoRouter.of(context).go('/anime'),

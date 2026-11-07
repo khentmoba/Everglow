@@ -1,7 +1,5 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/services/offline_media/offline_media_item.dart';
 import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../shared/utils/tmdb_images.dart';
@@ -324,7 +322,6 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
   }
 
   Widget _buildDownloadAction(int epNum, String name, String? stillPath) {
-    if (!AgentMode.isActive.value && !kDebugMode) return const SizedBox.shrink();
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 
@@ -373,17 +370,12 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
       ),
       tooltip: 'Download episode',
       onPressed: () {
-        if (!AgentMode.isActive.value) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Direct offline download is unavailable for this episode (streaming embed only).',
-              ),
-              duration: Duration(seconds: 3),
-            ),
-          );
-          return;
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Downloading S$_selectedSeason E$epNum • $name...'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
         offline.startDownloadMedia(
           id: id,
           type: OfflineMediaType.tv,

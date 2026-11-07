@@ -221,7 +221,6 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
   }
 
   Widget _buildDownloadButton(BuildContext context) {
-    if (!AgentMode.isActive.value && !kDebugMode) return const SizedBox.shrink();
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 
@@ -270,17 +269,12 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
         ),
         tooltip: 'Download episode',
         onPressed: () {
-          if (!AgentMode.isActive.value) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Direct offline download is unavailable for this anime server (external embed only).',
-                ),
-                duration: Duration(seconds: 3),
-              ),
-            );
-            return;
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Downloading Episode ${widget.episode.number}...'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
           offline.startDownloadMedia(
             id: downloadId,
             type: OfflineMediaType.anime,

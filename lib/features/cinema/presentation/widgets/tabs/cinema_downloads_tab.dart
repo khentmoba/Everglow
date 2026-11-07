@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../core/agent/agent_mode.dart';
 import '../../../../../core/services/offline_media/offline_media_item.dart';
 import '../../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -548,9 +547,7 @@ class CinemaDownloadsTab extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              AgentMode.isActive.value
-                  ? 'In Agent mode, download demo videos to test offline playback.'
-                  : 'Downloaded movies and episodes will appear here for offline playback.',
+              'Download movies and TV episodes to watch offline anytime on your phone or tablet.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitHeading.copyWith(
                 color: NetflixColors.textSecondary,

@@ -1,10 +1,7 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../../core/agent/agent_mode.dart';
-import '../../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../data/services/animex_stores.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../core/theme/app_colors.dart';
@@ -42,20 +39,13 @@ class AnimeXTopHeader extends StatelessWidget {
     );
     final isDesktop =
         MediaQuery.sizeOf(context).width >= AnimeXTokens.desktopNavBreakpoint;
-    final offline = context.watch<OfflineMediaService?>();
-    final showDownloads = AgentMode.isActive.value ||
-        kDebugMode ||
-        (offline?.animeItems.isNotEmpty ?? false);
-    final rawItems = const [
+    final items = const [
       (AnimexPage.home, 'Home', Icons.house_outlined),
       (AnimexPage.schedule, 'Schedule', Icons.calendar_month_outlined),
       (AnimexPage.browse, 'Browse', Icons.explore_outlined),
       (AnimexPage.downloads, 'Downloads', Icons.download_for_offline_outlined),
       (AnimexPage.history, 'History', Icons.history_rounded),
     ];
-    final items = showDownloads
-        ? rawItems
-        : rawItems.where((i) => i.$1 != AnimexPage.downloads).toList();
 
     return Container(
       height: AnimeXTokens.headerHeight,
@@ -259,11 +249,7 @@ class AnimeXMobileBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final offline = context.watch<OfflineMediaService?>();
-    final showDownloads = AgentMode.isActive.value ||
-        kDebugMode ||
-        (offline?.animeItems.isNotEmpty ?? false);
-    final rawItems = <(AnimexPage, String, IconData, IconData)>[
+    final items = <(AnimexPage, String, IconData, IconData)>[
       (AnimexPage.home, 'Home', Icons.home_outlined, Icons.home_rounded),
       (
         AnimexPage.browse,
@@ -297,9 +283,6 @@ class AnimeXMobileBottomNav extends StatelessWidget {
         Icons.history_rounded,
       ),
     ];
-    final items = showDownloads
-        ? rawItems
-        : rawItems.where((i) => i.$1 != AnimexPage.downloads).toList();
 
     return ColoredBox(
       color: AnimeXTokens.surface,
