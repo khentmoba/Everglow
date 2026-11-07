@@ -36,7 +36,9 @@ class OfflineMediaService extends ChangeNotifier {
 
   bool get isInitialized => _initialized;
 
-  List<OfflineMediaItem> get allItems => _items.values.toList()
+  List<OfflineMediaItem> get allItems => _items.values
+      .where((i) => i.isCompleted || i.isDownloading)
+      .toList()
     ..sort((a, b) => b.downloadedAt.compareTo(a.downloadedAt));
 
   List<OfflineMediaItem> get cinemaItems =>
@@ -49,9 +51,8 @@ class OfflineMediaService extends ChangeNotifier {
       allItems.where((i) => i.isManga).toList();
 
   int get totalStorageBytes {
-    return _items.values.fold(0, (sum, item) {
-      final b = item.totalBytes > 0 ? item.totalBytes : item.downloadedBytes;
-      return sum + b;
+    return allItems.fold(0, (sum, item) {
+      return sum + item.downloadedBytes;
     });
   }
 
@@ -99,6 +100,10 @@ class OfflineMediaService extends ChangeNotifier {
   }
 
   Future<void> _saveToStorage() async {
+    if (AgentMode.isActive.value && AgentMode.useDemoData.value) {
+      // In-memory only in demo mode: do not pollute user storage
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final list = _items.values.map((e) => e.toJson()).toList();
@@ -113,12 +118,13 @@ class OfflineMediaService extends ChangeNotifier {
     for (final item in _demoItems) {
       _items[item.id] = item;
     }
-    unawaited(_saveToStorage());
   }
 
   bool isDownloaded(String id) {
     final item = _items[id];
-    return item != null && item.status == OfflineDownloadStatus.completed;
+    return item != null &&
+        item.status == OfflineDownloadStatus.completed &&
+        item.downloadedBytes > 0;
   }
 
   bool isDownloading(String id) {
@@ -169,6 +175,13 @@ class OfflineMediaService extends ChangeNotifier {
       return;
     }
 
+    var effectiveUrl = sourceUrl;
+    if ((effectiveUrl == null || effectiveUrl.isEmpty) &&
+        (AgentMode.isActive.value && AgentMode.useDemoData.value)) {
+      effectiveUrl =
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    }
+
     final isCompletedDirect = directBytes != null;
     final initial = OfflineMediaItem(
       id: id,
@@ -179,7 +192,7 @@ class OfflineMediaService extends ChangeNotifier {
       season: season,
       episode: episode,
       coverUrl: coverUrl,
-      sourceUrl: sourceUrl,
+      sourceUrl: effectiveUrl,
       status: isCompletedDirect
           ? OfflineDownloadStatus.completed
           : OfflineDownloadStatus.downloading,
@@ -203,9 +216,9 @@ class OfflineMediaService extends ChangeNotifier {
       return;
     }
 
-    if (sourceUrl != null && sourceUrl.startsWith('http')) {
+    if (effectiveUrl != null && effectiveUrl.startsWith('http')) {
       try {
-        final res = await http.get(Uri.parse(sourceUrl));
+        final res = await http.get(Uri.parse(effectiveUrl));
         if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
           await _storage.saveMediaBlob(id, res.bodyBytes);
           _items[id] = initial.copyWith(
@@ -445,9 +458,9 @@ class OfflineMediaService extends ChangeNotifier {
   Future<String?> getPlayableUrl(OfflineMediaItem item) async {
     if (item.blobKey != null) {
       final url = await _storage.getBlobUrl(item.blobKey!, isManga: item.isManga);
-      if (url != null) return url;
+      if (url != null && url.isNotEmpty) return url;
     }
-    return item.sourceUrl;
+    return null;
   }
 
   Future<String?> getMangaPageUrl(String itemId, int pageNumber) async {

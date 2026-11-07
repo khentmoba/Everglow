@@ -33,6 +33,16 @@ void main() {
     AgentMode.isActive.value = false;
     AgentMode.useDemoData.value = false;
 
+    final icons = FontLoader('MaterialIcons');
+    icons.addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    await tester.runAsync(icons.load);
+
+    for (final font in ['Outfit', 'CormorantGaramond']) {
+      final loader = FontLoader(font == 'Outfit' ? font : 'Cormorant Garamond');
+      loader.addFont(rootBundle.load('assets/google_fonts/$font-SemiBold.ttf'));
+      await tester.runAsync(loader.load);
+    }
+
     final storage = OfflineMediaStorage.instance;
     final service = OfflineMediaService(storage: storage);
 
@@ -129,16 +139,15 @@ void main() {
       );
       image.dispose();
 
-      if (Platform.environment['GENERATE_PR_PROOF'] == 'true') {
-        final proofFile = File('docs/pr-proof/pr-579/shot.png');
-        if (!await proofFile.parent.exists()) {
-          await proofFile.parent.create(recursive: true);
-        }
-        await proofFile.writeAsBytes(output);
+      final proofFile = File('docs/pr-proof/pr-579/shot.png');
+      if (!await proofFile.parent.exists()) {
+        await proofFile.parent.create(recursive: true);
       }
+      await proofFile.writeAsBytes(output);
       return output;
     });
 
     expect(png, isNotNull);
+    expect(File('docs/pr-proof/pr-579/shot.png').existsSync(), isTrue);
   });
 }

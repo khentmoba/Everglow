@@ -86,7 +86,10 @@ class OfflineMediaItem {
   bool get isDownloading => status == OfflineDownloadStatus.downloading;
 
   String get formattedSize {
-    final bytes = totalBytes > 0 ? totalBytes : downloadedBytes;
+    if (!isCompleted && !isDownloading) return '0 MB';
+    final bytes = downloadedBytes > 0
+        ? downloadedBytes
+        : (isCompleted ? totalBytes : 0);
     if (bytes <= 0) return '0 MB';
     if (bytes < 1024 * 1024) {
       return '${(bytes / 1024).toStringAsFixed(1)} KB';
