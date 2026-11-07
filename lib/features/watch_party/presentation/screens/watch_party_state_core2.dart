@@ -76,7 +76,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
   /// without either side needing to tell the other.
   Future<void> _showEpisodePicker() async {
     if (!_room.isSeries) return;
-    final maxEpisodes = _room.episodeCount ?? (_room.isAnime ? 100 : 24);
+    final maxEpisodes = _room.episodeCount ?? 100;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -241,6 +241,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
         _hlsReady = false;
         _hlsFailed = false;
         _hlsError = null;
+        _streamResolveError = null;
         _everglowStreamUrl = null;
         if (!(wasHlsMounted && _isHlsMounted)) {
           _regenerateHlsViewType();
@@ -286,6 +287,7 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
       _hlsReady = false;
       _hlsFailed = false;
       _hlsError = null;
+      _streamResolveError = null;
       _everglowStreamUrl = null;
       if (!(wasHlsMounted && _isHlsMounted)) {
         _regenerateHlsViewType();

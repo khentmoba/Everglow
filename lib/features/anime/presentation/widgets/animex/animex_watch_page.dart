@@ -1163,7 +1163,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
               ),
             ),
             const SizedBox(width: 8),
-            if (_canWatchTogether) ...[
+            if (_canWatchTogether && _malId > 0) ...[
               GestureDetector(
                 onTap: _startAnimeWatchParty,
                 child: MouseRegion(

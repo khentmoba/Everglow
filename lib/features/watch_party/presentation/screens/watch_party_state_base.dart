@@ -145,6 +145,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// One-shot guard for rooms written before `positionAt` existed.
   bool _seededLegacyAnchor = false;
 
+  /// The platform-view registry has no unregister call, so each remount
+  /// leaves one factory behind for the session. That is bounded by the
+  /// number of title/episode/server changes in one visit and is the
+  /// price of a fresh `<video>` after a remount.
   void _regenerateHlsViewType() {
     _hlsViewType =
         'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
@@ -522,10 +526,15 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _WatchPartyScreenStateBase._heartbeatInterval,
       (_) async {
         if (!mounted) return;
+        final publishing = _isHlsServer
+            ? (_hlsController.isAttached &&
+                _hlsReady &&
+                _hlsController.isPlaying)
+            : !_hostExplicitlyPaused;
         await _service.heartbeat(
           roomId: _room.id,
           beatBy: _myUid,
-          currentTime: _hostExplicitlyPaused ? null : _estimatedLocalTime(),
+          currentTime: publishing ? _estimatedLocalTime() : null,
         );
       },
     );
@@ -1279,11 +1288,14 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         stackTrace: st,
       );
       if (!mounted) return;
+      final message = e is StateError && e.message.isNotEmpty
+          ? e.message
+          : 'Could not reach the Everglow server.';
       setState(() {
         _resolvingStream = false;
         _hlsFailed = true;
-        _streamResolveError = 'Could not reach the Everglow server.';
-        _hlsError = _streamResolveError;
+        _streamResolveError = message;
+        _hlsError = message;
       });
     }
   }

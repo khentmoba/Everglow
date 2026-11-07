@@ -77,7 +77,16 @@ class WatchPartyStreamResolver {
     final uri = uriFor(room);
     final response = await _client.get(uri).timeout(timeout);
     if (response.statusCode != 200) {
-      throw StateError('Stream resolver answered ${response.statusCode}');
+      var detail = 'Stream resolver answered ${response.statusCode}';
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map && body['error'] is String) {
+          detail = body['error'] as String;
+        }
+      } catch (_) {
+        // Keep the status line when the body is not JSON.
+      }
+      throw StateError(detail);
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
