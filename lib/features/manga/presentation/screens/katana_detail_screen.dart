@@ -1024,19 +1024,28 @@ class _ChapterRow extends StatelessWidget {
           size: 18,
         ),
         tooltip: 'Download chapter',
-        onPressed: () {
-          offline.startDownloadMangaChapter(
-            slug: slug,
-            mangaTitle: mangaTitle,
-            coverUrl: coverUrl,
-            chapterId: chapter.id,
-            chapterTitle: chapter.displayTitle,
-            pageUrls: const [
-              'assets/images/demo/poster-1.jpg',
-              'assets/images/demo/poster-2.jpg',
-              'assets/images/demo/poster-3.jpg',
-            ],
+        onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Downloading ${chapter.displayTitle}...'),
+              duration: const Duration(seconds: 2),
+            ),
           );
+          final realPages = await KatanaService().fetchChapterPages(
+            slug,
+            chapter.path,
+          );
+          if (realPages.isNotEmpty) {
+            await offline.startDownloadMangaChapter(
+              slug: slug,
+              mangaTitle: mangaTitle,
+              coverUrl: coverUrl,
+              chapterId: chapter.id,
+              chapterTitle: chapter.displayTitle,
+              pageUrls: realPages,
+            );
+          }
         },
       ),
     );

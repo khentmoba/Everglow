@@ -371,9 +371,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (offlineItem != null &&
         offlineItem.isCompleted &&
         offlineItem.pageUrls.isNotEmpty) {
+      final resolvedPages = <String>[];
+      for (var i = 1; i <= offlineItem.pageUrls.length; i++) {
+        final blob = await OfflineMediaService.instance.getMangaPageUrl(
+          offlineId,
+          i,
+        );
+        resolvedPages.add(blob ?? offlineItem.pageUrls[i - 1]);
+      }
       if (!mounted) return;
       setState(() {
-        _pages = offlineItem.pageUrls;
+        _pages = resolvedPages;
         _loading = false;
         _error = null;
       });

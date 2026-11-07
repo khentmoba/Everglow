@@ -119,6 +119,7 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
                           tmdbId: widget.tmdbId,
                           initialSeason: _currentSeason,
                           initialEpisode: _currentEpisode,
+                          title: widget.title,
                           positionSeconds: _playbackPositionSeconds,
                           durationSeconds: _playbackDurationSeconds,
                           allEpisodesWatched: widget.allEpisodesWatched,

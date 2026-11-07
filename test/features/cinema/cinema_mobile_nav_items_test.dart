@@ -13,7 +13,8 @@ void main() {
       // no dashboard, and the floating corner button is their logout.
       expect(labels, contains('Anime'));
       expect(labels, isNot(contains('Together')));
-      expect(items.length, 5);
+      expect(labels, contains('Downloads'));
+      expect(items.length, 6);
       expect(
         items.where((i) => i.isAnimeLink).map((i) => i.label),
         ['Anime'],
@@ -26,7 +27,8 @@ void main() {
 
       expect(labels, contains('Together'));
       expect(labels, isNot(contains('Anime')));
-      expect(items.length, 5);
+      expect(labels, contains('Downloads'));
+      expect(items.length, 6);
       expect(items.any((i) => i.isAnimeLink), isFalse);
     });
 
@@ -38,7 +40,13 @@ void main() {
         final labels = items.map((i) => i.label).toList();
         expect(
           labels,
-          containsAll(['Home', 'New & Popular', 'My List', 'Search']),
+          containsAll([
+            'Home',
+            'New & Popular',
+            'My List',
+            'Downloads',
+            'Search',
+          ]),
         );
       }
     });

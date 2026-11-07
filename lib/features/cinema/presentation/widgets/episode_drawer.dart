@@ -28,6 +28,8 @@ import 'episode_drawer_sections/extra_tabs.dart';
 import 'episode_drawer_sections/trailer_section.dart';
 import '../../../../core/theme/app_typography.dart';
 import 'episode_drawer_sections/cinema/cinema_hero.dart';
+import '../../../../core/services/offline_media/offline_media_service.dart';
+import '../../../../core/services/offline_media/offline_media_item.dart';
 import 'episode_drawer_sections/cinema/cinema_cast_section.dart';
 import 'episode_drawer_sections/cinema/cinema_reviews_section.dart';
 import 'episode_drawer_sections/cinema/cinema_similar_section.dart';
@@ -560,6 +562,86 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   // HELPERS
   // ═══════════════════════════════════════════════════════════════
 
+  Widget _buildMovieDownloadAction(BuildContext context) {
+    final offline = context.watch<OfflineMediaService?>();
+    if (offline == null) return const SizedBox.shrink();
+
+    final downloadId = 'cinema_movie_${widget.item.tmdbId}';
+    final isDone = offline.isDownloaded(downloadId);
+    final isDownloading = offline.isDownloading(downloadId);
+
+    if (isDone) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: NetflixColors.accent.withValues(alpha: 0.2),
+          border: Border.all(color: NetflixColors.accent, width: 1.5),
+        ),
+        child: const Tooltip(
+          message: 'Downloaded for offline viewing',
+          child: Icon(
+            Icons.offline_pin_rounded,
+            color: NetflixColors.accent,
+            size: 20,
+          ),
+        ),
+      );
+    }
+
+    if (isDownloading) {
+      return Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        child: const SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: NetflixColors.accent,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: 0.5),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      child: Tooltip(
+        message: 'Download movie for offline',
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          icon: const Icon(
+            Icons.download_for_offline_outlined,
+            color: Colors.white,
+            size: 20,
+          ),
+          onPressed: () {
+            offline.startDownloadMedia(
+              id: downloadId,
+              type: OfflineMediaType.movie,
+              mediaId: widget.item.tmdbId.toString(),
+              title: widget.item.title,
+              subtitle: 'Movie',
+              coverUrl: widget.item.posterPath,
+              durationSeconds: widget.item.durationSeconds,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   // ──────────────────────────────────────────────────────────────
   // CINEMA ENHANCED VARIANT
   // ──────────────────────────────────────────────────────────────
@@ -626,6 +708,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
                 ? () => _shareToDiscord(season: _selectedSeasonNumber)
                 : null,
             onToggleMute: _toggleTrailerMute,
+            downloadAction: _isFilm ? _buildMovieDownloadAction(context) : null,
             onClose: () => Navigator.pop(context),
             onToggleTrailer: () => setState(() {
               _isPlayingTrailer = true;

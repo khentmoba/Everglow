@@ -51,6 +51,7 @@ Widget buildDesktopEpisodesSidebarForTesting({
   List<AniListSeason> seasons = const [],
   ValueChanged<AniListSeason>? onSelectSeason,
   AniListSeason? nextSeason,
+  int animeId = 0,
 }) {
   return _DesktopEpisodesSidebar(
     episodes: episodes,
@@ -62,6 +63,7 @@ Widget buildDesktopEpisodesSidebarForTesting({
     seasons: seasons,
     onSelectSeason: onSelectSeason,
     nextSeason: nextSeason,
+    animeId: animeId,
   );
 }
 
@@ -76,6 +78,7 @@ Widget buildMobileEpisodesSectionForTesting({
   List<AniListSeason> seasons = const [],
   ValueChanged<AniListSeason>? onSelectSeason,
   AniListSeason? nextSeason,
+  int animeId = 0,
 }) {
   return _MobileEpisodesSection(
     episodes: episodes,
@@ -87,6 +90,7 @@ Widget buildMobileEpisodesSectionForTesting({
     seasons: seasons,
     onSelectSeason: onSelectSeason,
     nextSeason: nextSeason,
+    animeId: animeId,
   );
 }
 

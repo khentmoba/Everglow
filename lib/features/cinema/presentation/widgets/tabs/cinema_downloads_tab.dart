@@ -195,7 +195,7 @@ class CinemaDownloadsTab extends StatelessWidget {
 
     for (final item in items) {
       if (item.type == OfflineMediaType.tv) {
-        shows.putIfAbsent(item.title, () => []).add(item);
+        shows.putIfAbsent(item.mediaId, () => []).add(item);
       } else {
         movies.add(item);
       }
@@ -220,7 +220,12 @@ class CinemaDownloadsTab extends StatelessWidget {
       );
 
       for (final entry in shows.entries) {
-        widgets.add(_buildSeriesGroup(context, service, entry.key, entry.value));
+        widgets.add(_buildSeriesGroup(
+          context,
+          service,
+          entry.value.first.title,
+          entry.value,
+        ));
         widgets.add(const SizedBox(height: 16));
       }
     }

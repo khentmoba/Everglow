@@ -316,24 +316,6 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  if (url.pathname.startsWith("/offline-media/")) {
-    e.respondWith(
-      caches.open(OFFLINE_MEDIA)
-        .then((c) => c.match(e.request))
-        .catch(() => undefined)
-        .then((hit) => hit || fetch(e.request)),
-    );
-    return;
-  }
-  if (url.pathname.startsWith("/offline-manga/")) {
-    e.respondWith(
-      caches.open(OFFLINE_MANGA)
-        .then((c) => c.match(e.request))
-        .catch(() => undefined)
-        .then((hit) => hit || fetch(e.request)),
-    );
-    return;
-  }
   // Only handle same-origin and pinned immutable engine/CDN libraries.
   // Third-party media (TMDB, Spotify, YouTube, etc.) keeps its own HTTP-cache behavior.
   const isGstatic = url.origin === "https://www.gstatic.com" &&

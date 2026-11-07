@@ -21,6 +21,7 @@ class EpisodeNavigator extends StatefulWidget {
   final int durationSeconds;
   final bool allEpisodesWatched;
   final bool currentEpisodeCompleted;
+  final String? title;
   final ValueChanged<int> onSeasonChanged;
   final ValueChanged<int> onEpisodeChanged;
   final CinemaPreferences? preferences;
@@ -35,6 +36,7 @@ class EpisodeNavigator extends StatefulWidget {
     this.durationSeconds = 0,
     this.allEpisodesWatched = false,
     this.currentEpisodeCompleted = false,
+    this.title,
     required this.onSeasonChanged,
     required this.onEpisodeChanged,
     this.preferences,
@@ -368,7 +370,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
           id: id,
           type: OfflineMediaType.tv,
           mediaId: widget.tmdbId.toString(),
-          title: 'TV Series',
+          title: widget.title ?? 'TV Series',
           subtitle: 'S$_selectedSeason E$epNum • $name',
           season: _selectedSeason,
           episode: epNum,

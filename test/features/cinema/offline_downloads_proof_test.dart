@@ -129,15 +129,16 @@ void main() {
       );
       image.dispose();
 
-      final proofFile = File('docs/pr-proof/pr-579/shot.png');
-      if (!await proofFile.parent.exists()) {
-        await proofFile.parent.create(recursive: true);
+      if (Platform.environment['GENERATE_PR_PROOF'] == 'true') {
+        final proofFile = File('docs/pr-proof/pr-579/shot.png');
+        if (!await proofFile.parent.exists()) {
+          await proofFile.parent.create(recursive: true);
+        }
+        await proofFile.writeAsBytes(output);
       }
-      await proofFile.writeAsBytes(output);
       return output;
     });
 
     expect(png, isNotNull);
-    expect(File('docs/pr-proof/pr-579/shot.png').existsSync(), isTrue);
   });
 }

@@ -36,6 +36,7 @@ class CinemaHero extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback? onToggleTrailer;
   final VoidCallback? onCloseTrailer;
+  final Widget? downloadAction;
   final bool isDetailsLoading;
   final bool trailerUserInitiated;
   final String year;
@@ -67,6 +68,7 @@ class CinemaHero extends StatelessWidget {
     required this.onClose,
     this.onToggleTrailer,
     this.onCloseTrailer,
+    this.downloadAction,
     this.isDetailsLoading = false,
     this.trailerUserInitiated = false,
     this.year = '',
@@ -350,6 +352,7 @@ class CinemaHero extends StatelessWidget {
                   onTap: onShareDiscord!,
                 ),
               ],
+              ?downloadAction,
             ],
           ),
         ],

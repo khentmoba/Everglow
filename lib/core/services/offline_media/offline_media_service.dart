@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../agent/agent_mode.dart';
@@ -70,7 +72,7 @@ class OfflineMediaService extends ChangeNotifier {
     await _storage.init();
     await _loadFromStorage();
     if (_items.isEmpty &&
-        (AgentMode.isActive.value || AgentMode.useDemoData.value)) {
+        (AgentMode.isActive.value && AgentMode.useDemoData.value)) {
       _seedDemoData();
     }
     _initialized = true;
@@ -86,7 +88,9 @@ class OfflineMediaService extends ChangeNotifier {
         for (final entry in list) {
           if (entry is Map<String, dynamic>) {
             final item = OfflineMediaItem.fromJson(entry);
-            _items[item.id] = item;
+            _items[item.id] = item.status == OfflineDownloadStatus.downloading
+                ? item.copyWith(status: OfflineDownloadStatus.paused)
+                : item;
           }
         }
       }
@@ -200,6 +204,26 @@ class OfflineMediaService extends ChangeNotifier {
       return;
     }
 
+    if (sourceUrl != null && sourceUrl.startsWith('http')) {
+      try {
+        final res = await http.get(Uri.parse(sourceUrl));
+        if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+          await _storage.saveMediaBlob(id, res.bodyBytes);
+          _items[id] = initial.copyWith(
+            status: OfflineDownloadStatus.completed,
+            progress: 1.0,
+            downloadedBytes: res.bodyBytes.lengthInBytes,
+            totalBytes: res.bodyBytes.lengthInBytes,
+          );
+          notifyListeners();
+          await _saveToStorage();
+          return;
+        }
+      } catch (e) {
+        Logger.e('Offline download failed for $id', error: e);
+      }
+    }
+
     // Simulate progressive download chunks if not given directly
     _simulateProgress(id, estimatedBytes);
   }
@@ -264,6 +288,43 @@ class OfflineMediaService extends ChangeNotifier {
       notifyListeners();
       await _saveToStorage();
       return;
+    }
+
+    if (pageUrls.isNotEmpty) {
+      try {
+        var saved = 0;
+        for (var i = 0; i < pageUrls.length; i++) {
+          final pUrl = pageUrls[i];
+          final pageKey = '${id}_p_${i + 1}';
+          if (pUrl.startsWith('http')) {
+            final res = await http.get(Uri.parse(pUrl));
+            if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
+              await _storage.saveMangaPage(pageKey, res.bodyBytes);
+              saved++;
+            }
+          } else if (pUrl.startsWith('assets/')) {
+            final data = await rootBundle.load(pUrl);
+            await _storage.saveMangaPage(pageKey, data.buffer.asUint8List());
+            saved++;
+          }
+          final progress = (saved / pageUrls.length).clamp(0.0, 1.0);
+          _items[id] = _items[id]!.copyWith(
+            progress: progress,
+            downloadedBytes: (estimatedBytes * progress).round(),
+          );
+          notifyListeners();
+        }
+        _items[id] = _items[id]!.copyWith(
+          status: OfflineDownloadStatus.completed,
+          progress: 1.0,
+          downloadedBytes: estimatedBytes,
+        );
+        notifyListeners();
+        await _saveToStorage();
+        return;
+      } catch (e) {
+        Logger.e('Manga chapter download failed for $id', error: e);
+      }
     }
 
     _simulateProgress(id, estimatedBytes);
@@ -361,16 +422,37 @@ class OfflineMediaService extends ChangeNotifier {
         if (item?.blobKey != null) {
           await _storage.deleteBlob(item!.blobKey!, isManga: item.isManga);
         }
+        if (item != null && item.isManga) {
+          for (var i = 1; i <= item.pageUrls.length; i++) {
+            await _storage.deleteBlob('${item.id}_p_$i', isManga: true);
+          }
+        }
       }
     }
     notifyListeners();
     await _saveToStorage();
   }
 
-  Future<void> updatePlaybackPosition(String id, int positionSeconds) async {
+  DateTime? _lastPositionSave;
+
+  Future<void> updatePlaybackPosition(
+    String id,
+    int positionSeconds, {
+    bool immediate = false,
+  }) async {
     final item = _items[id];
     if (item == null) return;
     _items[id] = item.copyWith(lastPositionSeconds: positionSeconds);
+    final now = DateTime.now();
+    if (immediate ||
+        _lastPositionSave == null ||
+        now.difference(_lastPositionSave!).inSeconds >= 10) {
+      _lastPositionSave = now;
+      await _saveToStorage();
+    }
+  }
+
+  Future<void> flushPlaybackPosition() async {
     await _saveToStorage();
   }
 
@@ -379,9 +461,7 @@ class OfflineMediaService extends ChangeNotifier {
       final url = await _storage.getBlobUrl(item.blobKey!, isManga: item.isManga);
       if (url != null) return url;
     }
-    // Return sample playable demo video or sourceUrl if blob not populated
-    return item.sourceUrl ??
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    return item.sourceUrl;
   }
 
   Future<String?> getMangaPageUrl(String itemId, int pageNumber) async {

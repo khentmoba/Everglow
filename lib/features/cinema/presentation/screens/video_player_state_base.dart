@@ -112,6 +112,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   JSFunction? _videoLoadedListener;
   JSFunction? _videoTimeUpdateListener;
   JSFunction? _videoEndedListener;
+  JSFunction? _videoErrorListener;
   web.HTMLElement? _theaterPlatformView;
   String? _platformViewStyles;
   JSFunction? _onFullscreenExitListener;
@@ -178,24 +179,54 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
           _playNextEpisode();
         }
       }).toJS;
+      _videoErrorListener = ((web.Event _) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _iframeFailed = true;
+          });
+        }
+      }).toJS;
 
       _videoElement!.addEventListener('loadeddata', _videoLoadedListener);
       _videoElement!.addEventListener('timeupdate', _videoTimeUpdateListener);
       _videoElement!.addEventListener('ended', _videoEndedListener);
+      _videoElement!.addEventListener('error', _videoErrorListener);
     }
 
     OfflineMediaService.instance.getPlayableUrl(item).then((url) {
       if (!mounted || _videoElement == null) return;
       if (url != null && url.isNotEmpty) {
         _videoElement!.src = url;
-        if (_resolvedStartSeconds != null && _resolvedStartSeconds! > 0) {
-          _videoElement!.currentTime = _resolvedStartSeconds!.toDouble();
+        final startSec = _resolvedStartSeconds ?? item.lastPositionSeconds ?? 0;
+        if (startSec > 0) {
+          _videoElement!.currentTime = startSec.toDouble();
         }
         _videoElement!.play();
       }
     });
 
     host.replaceChildren([_videoElement!].toJS);
+  }
+
+  bool _tryPlayOfflineEpisode(int season, int episode) {
+    final nextDownloadId = widget.isAnime
+        ? 'anime_${widget.malId ?? widget.tmdbId}_s${season}_e$episode'
+        : 'cinema_tv_${widget.tmdbId}_s${season}_e$episode';
+    final nextOfflineItem = OfflineMediaService.instance.getItem(nextDownloadId);
+    if (nextOfflineItem != null &&
+        nextOfflineItem.isCompleted &&
+        _playerHost != null) {
+      _currentSeason = season;
+      _currentEpisode = episode;
+      _mountOfflineVideo(_playerHost!, nextOfflineItem);
+      _resolveNextEpisode();
+      _persistPlayerMemory(resetPosition: true);
+      return true;
+    } else if (_isOfflinePlayback && _playerHost != null) {
+      _mountOnlineIframe(_playerHost!);
+    }
+    return false;
   }
 
   void _mountOnlineIframe(web.HTMLDivElement host) {
@@ -394,19 +425,8 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
 
-    final nextDownloadId = widget.isAnime
-        ? 'anime_${widget.malId ?? widget.tmdbId}_s${_currentSeason}_e$episode'
-        : 'cinema_tv_${widget.tmdbId}_s${_currentSeason}_e$episode';
-    final nextOfflineItem = OfflineMediaService.instance.getItem(nextDownloadId);
-    if (nextOfflineItem != null &&
-        nextOfflineItem.isCompleted &&
-        _playerHost != null) {
-      _mountOfflineVideo(_playerHost!, nextOfflineItem);
-      _resolveNextEpisode();
-      _persistPlayerMemory(resetPosition: true);
+    if (_tryPlayOfflineEpisode(_currentSeason, episode)) {
       return;
-    } else if (_isOfflinePlayback && _playerHost != null) {
-      _mountOnlineIframe(_playerHost!);
     }
 
     _loadTimer = Timer(_loadTimeout, () {
@@ -437,6 +457,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _failedProviderIds.clear();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+
+    if (_tryPlayOfflineEpisode(season, 1)) {
+      return;
+    }
+
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
@@ -904,6 +929,11 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _failedProviderIds.clear();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+
+    if (_tryPlayOfflineEpisode(next.season, next.episode)) {
+      return;
+    }
+
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
@@ -1352,6 +1382,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
     _setBodyOverflowHidden(false);
     _hideFullscreenExitButton();
+    unawaited(OfflineMediaService.instance.flushPlaybackPosition());
     if (_videoElement != null) {
       _videoElement!.pause();
       if (_videoLoadedListener != null) {
@@ -1362,6 +1393,9 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
       }
       if (_videoEndedListener != null) {
         _videoElement!.removeEventListener('ended', _videoEndedListener);
+      }
+      if (_videoErrorListener != null) {
+        _videoElement!.removeEventListener('error', _videoErrorListener);
       }
       _videoElement = null;
     }

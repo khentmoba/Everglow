@@ -5,6 +5,7 @@ class _MobileEpisodeCard extends StatefulWidget {
   final AniListEpisode episode;
   final String fallbackPoster;
   final String animeTitle;
+  final int animeId;
   final bool isPlaying;
   final bool hideSpoilers;
   final VoidCallback onTap;
@@ -14,6 +15,7 @@ class _MobileEpisodeCard extends StatefulWidget {
     required this.episode,
     required this.fallbackPoster,
     required this.animeTitle,
+    this.animeId = 0,
     required this.isPlaying,
     required this.hideSpoilers,
     required this.onTap,
@@ -223,7 +225,7 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
     if (offline == null) return const SizedBox.shrink();
 
     final downloadId =
-        'anime_${widget.animeTitle}_s1_e${widget.episode.number}';
+        'anime_${widget.animeId}_s1_e${widget.episode.number}';
     final isDone = offline.isDownloaded(downloadId);
     final isDownloading = offline.isDownloading(downloadId);
 
@@ -270,7 +272,7 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
           offline.startDownloadMedia(
             id: downloadId,
             type: OfflineMediaType.anime,
-            mediaId: widget.episode.number.toString(),
+            mediaId: widget.animeId.toString(),
             title: widget.animeTitle,
             subtitle:
                 'Episode ${widget.episode.number} • ${widget.episode.title ?? ""}',
@@ -289,6 +291,7 @@ class _MobileEpisodesSection extends StatefulWidget {
   final List<AniListEpisode> episodes;
   final int selectedEpisode;
   final String animeTitle;
+  final int animeId;
   final String fallbackPoster;
   final ValueChanged<int> onSelectEpisode;
   final void Function(AniListEpisode) onShowInfo;
@@ -300,6 +303,7 @@ class _MobileEpisodesSection extends StatefulWidget {
     required this.episodes,
     required this.selectedEpisode,
     required this.animeTitle,
+    this.animeId = 0,
     required this.fallbackPoster,
     required this.onSelectEpisode,
     required this.onShowInfo,
@@ -622,6 +626,7 @@ class _MobileEpisodesSectionState extends State<_MobileEpisodesSection> {
                   episode: ep,
                   fallbackPoster: widget.fallbackPoster,
                   animeTitle: widget.animeTitle,
+                  animeId: widget.animeId,
                   isPlaying: active,
                   hideSpoilers:
                       hideSpoilers && ep.number >= widget.selectedEpisode,

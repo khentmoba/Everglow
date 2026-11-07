@@ -218,19 +218,24 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
     if (widget.url != oldWidget.url) {
       _loaded = false;
       _contentError = false;
-      _iframe.setAttribute(
-        'referrerpolicy',
-        AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy),
-      );
-      if (widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url)) {
-        _iframe.setAttribute(
-          'sandbox',
-          'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
-        );
+      if (_isDirectVideo && _videoElement != null) {
+        _videoElement!.src = widget.url;
+        _videoElement!.play();
       } else {
-        _iframe.removeAttribute('sandbox');
+        _iframe.setAttribute(
+          'referrerpolicy',
+          AnimeXEmbedPolicy.referrerFor(widget.url, widget.referrerPolicy),
+        );
+        if (widget.sandbox && AnimeXEmbedPolicy.sandboxAllowed(widget.url)) {
+          _iframe.setAttribute(
+            'sandbox',
+            'allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock',
+          );
+        } else {
+          _iframe.removeAttribute('sandbox');
+        }
+        _iframe.src = widget.url;
       }
-      _iframe.src = widget.url;
     } else {
       if (widget.seekSeconds != oldWidget.seekSeconds ||
           widget.seekRequest != oldWidget.seekRequest) {
