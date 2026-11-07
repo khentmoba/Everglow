@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../../core/agent/agent_mode.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/logger.dart';
@@ -627,6 +628,17 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
             size: 20,
           ),
           onPressed: () {
+            if (!AgentMode.isActive.value) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Direct offline download is unavailable for this movie (streaming embed only).',
+                  ),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+              return;
+            }
             offline.startDownloadMedia(
               id: downloadId,
               type: OfflineMediaType.movie,

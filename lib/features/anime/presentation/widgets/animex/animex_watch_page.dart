@@ -13,6 +13,7 @@ import '../../../../cinema/data/models/media_item.dart';
 import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../../cinema/data/services/player_memory_service.dart';
 import '../../../../cinema/data/services/tmdb_service.dart';
+import '../../../../../core/agent/agent_mode.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../core/services/offline_media/offline_media_item.dart';
 import '../../../../../core/services/offline_media/offline_media_service.dart';

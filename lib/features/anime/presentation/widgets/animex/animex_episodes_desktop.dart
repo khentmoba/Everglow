@@ -299,6 +299,17 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
         ),
         tooltip: 'Download episode',
         onPressed: () {
+          if (!AgentMode.isActive.value) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Direct offline download is unavailable for this anime server (external embed only).',
+                ),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
           offline.startDownloadMedia(
             id: downloadId,
             type: OfflineMediaType.anime,

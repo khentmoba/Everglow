@@ -1045,6 +1045,15 @@ class _ChapterRow extends StatelessWidget {
               chapterTitle: chapter.displayTitle,
               pageUrls: realPages,
             );
+          } else {
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Could not fetch chapter pages to download. Please try again.',
+                ),
+                duration: Duration(seconds: 3),
+              ),
+            );
           }
         },
       ),
