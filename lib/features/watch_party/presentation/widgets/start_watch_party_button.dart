@@ -188,47 +188,19 @@ Future<void> startWatchParty(BuildContext context, MediaRef media) async {
   );
 }
 
-const _cDeepRose = AppColors.deepRose;
-const _cGold = AppColors.animeGold;
-const _cAmber = AppColors.warmAmber;
-const _cVelvet = AppColors.deepBlack;
-const _cWhite = AppColors.petalWhite;
-
-/// Compact "Watch Together" button. Tap to start (or join) a watch
-/// party. Renders differently depending on whether a party is already
-/// active for this couple — gold "Resume" pill instead of the default
-/// rose "Start" button.
-///
-/// Used in three places:
-///   * Episode drawer — movie: a secondary CTA next to the play button.
-///   * Episode drawer — TV: an overlay icon on the episode tile.
-///   * Dashboard — the "Watch Together" shelf card.
+/// Compact "Watch Together" button used on poster tiles. Tap to start
+/// (or join) a watch party. Gold "Resume" when a party is already live
+/// for this couple; rose "Start" otherwise.
 class StartWatchPartyButton extends StatefulWidget {
   /// The media this button represents. Required for "Start" — we
   /// need to know which movie/episode to open when the host taps.
   final MediaRef media;
 
-  /// Visual variant. 'pill' for in-line placement on a drawer/episode
-  /// tile, 'card' for the dashboard tile, 'icon' for a minimal
-  /// floating action.
-  final WatchPartyButtonVariant variant;
-
-  /// Compact label override. `null` picks a sensible default based on
-  /// the variant.
-  final String? labelOverride;
-
-  const StartWatchPartyButton({
-    super.key,
-    required this.media,
-    this.variant = WatchPartyButtonVariant.pill,
-    this.labelOverride,
-  });
+  const StartWatchPartyButton({super.key, required this.media});
 
   @override
   State<StartWatchPartyButton> createState() => _StartWatchPartyButtonState();
 }
-
-enum WatchPartyButtonVariant { pill, card, icon }
 
 class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
   late final WatchPartyService _service;
@@ -278,212 +250,8 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
                 room.isAnime != widget.media.isAnime ||
                 room.season != widget.media.season ||
                 room.episode != widget.media.episode);
-        switch (widget.variant) {
-          case WatchPartyButtonVariant.pill:
-            return _buildPill(context, hasActiveParty, mediaDiffers, room);
-          case WatchPartyButtonVariant.card:
-            return _buildCard(context, hasActiveParty, mediaDiffers, room);
-          case WatchPartyButtonVariant.icon:
-            return _buildIcon(context, hasActiveParty, mediaDiffers, room);
-        }
+        return _buildIcon(context, hasActiveParty, mediaDiffers);
       },
-    );
-  }
-
-  // ─── Variants ─────────────────────────────────────────────────────
-
-  Widget _buildPill(
-    BuildContext context,
-    bool hasParty,
-    bool mediaDiffers,
-    WatchPartyRoom? room,
-  ) {
-    final label =
-        widget.labelOverride ??
-        (mediaDiffers
-            ? 'Switch to this'
-            : hasParty
-            ? 'Resume Night'
-            : 'Watch Together');
-    return GestureDetector(
-      onTap: () => _onTap(context, hasParty, room),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: hasParty
-              ? _cGold.withValues(alpha: 0.18)
-              : _cDeepRose.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: hasParty
-                ? _cGold.withValues(alpha: 0.6)
-                : _cDeepRose.withValues(alpha: 0.6),
-            width: 1.2,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              mediaDiffers
-                  ? Icons.swap_horiz_rounded
-                  : hasParty
-                  ? Icons.replay_rounded
-                  : Icons.favorite_rounded,
-              color: mediaDiffers
-                  ? _cAmber
-                  : hasParty
-                  ? _cGold
-                  : _cDeepRose,
-              size: 16,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppTypography.outfitWhite.copyWith(
-                color: _cWhite,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard(
-    BuildContext context,
-    bool hasParty,
-    bool mediaDiffers,
-    WatchPartyRoom? room,
-  ) {
-    final iconColor = mediaDiffers
-        ? _cAmber
-        : hasParty
-        ? _cGold
-        : _cDeepRose;
-    final label = mediaDiffers
-        ? 'Switch'
-        : hasParty
-        ? 'Resume'
-        : 'Start';
-    return GestureDetector(
-      onTap: () => _onTap(context, hasParty, room),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: hasParty
-                ? [
-                    iconColor.withValues(alpha: 0.20),
-                    _cDeepRose.withValues(alpha: 0.12),
-                  ]
-                : [
-                    _cDeepRose.withValues(alpha: 0.18),
-                    _cVelvet.withValues(alpha: 0.6),
-                  ],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: iconColor.withValues(alpha: 0.6),
-            width: 1.2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [_cDeepRose, AppColors.rosePressed],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: _cDeepRose.withValues(alpha: 0.4),
-                    blurRadius: 14,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Icon(
-                mediaDiffers
-                    ? Icons.swap_horiz_rounded
-                    : hasParty
-                    ? Icons.movie_filter_rounded
-                    : Icons.favorite_rounded,
-                color: AppColors.petalWhite,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    mediaDiffers
-                        ? 'Switch movie'
-                        : hasParty
-                        ? 'Watching now'
-                        : 'Movie Night',
-                    style: AppTypography.cormorantExtraBold.copyWith(
-                      fontSize: 18,
-                      color: _cWhite,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    mediaDiffers
-                        ? 'Tap to switch to ${widget.media.title}'
-                        : hasParty
-                        ? (room?.title ?? 'Resuming your party…')
-                        : 'Watch a film in real time with your love',
-                    style: AppTypography.outfitWhite.copyWith(
-                      color: _cWhite.withValues(alpha: 0.7),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: iconColor, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: AppTypography.outfitWhite.copyWith(
-                      color: iconColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_forward_rounded, color: iconColor, size: 14),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -491,15 +259,14 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     BuildContext context,
     bool hasParty,
     bool mediaDiffers,
-    WatchPartyRoom? room,
   ) {
     final iconColor = mediaDiffers
-        ? _cAmber
+        ? AppColors.warmAmber
         : hasParty
-        ? _cGold
-        : _cDeepRose;
+        ? AppColors.animeGold
+        : AppColors.deepRose;
     return GestureDetector(
-      onTap: () => _onTap(context, hasParty, room),
+      onTap: () => _onTap(context),
       child: Container(
         width: 36,
         height: 36,
@@ -521,13 +288,8 @@ class _StartWatchPartyButtonState extends State<StartWatchPartyButton> {
     );
   }
 
-  // ─── Tap handler ──────────────────────────────────────────────────
-
-  Future<void> _onTap(BuildContext context, bool hasParty, WatchPartyRoom? room) async {
+  Future<void> _onTap(BuildContext context) async {
     HapticFeedback.selectionClick();
-    // A dummy id means the button was built without a real title (the
-    // dashboard card). Never let it overwrite a live room.
-    if (hasParty && widget.media.tmdbId == 0) return;
     return startWatchParty(context, widget.media);
   }
 }

@@ -354,6 +354,25 @@ abstract class _WatchPartyScreenStateCore2 extends _WatchPartyScreenStateCore {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
+  /// Seek the shared room to [seconds]. The local `<video>` moves now;
+  /// the partner follows on the next snapshot through the drift check.
+  void _seekTo(double seconds) {
+    final duration = _hlsController.duration;
+    final target = duration > 0 ? seconds.clamp(0.0, duration) : seconds;
+    _hlsController.seek(target);
+    _anchorTime = target;
+    _anchorEpoch = DateTime.now();
+    setState(() => _displayedTime = target);
+    unawaited(
+      _service.updatePlayback(
+        roomId: _room.id,
+        state: _hostExplicitlyPaused ? 'paused' : 'playing',
+        currentTime: target,
+        updatedBy: _myUid,
+      ),
+    );
+  }
+
   Widget _buildHlsErrorCard() {
     return Container(
       color: Colors.black,

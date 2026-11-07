@@ -219,6 +219,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   Timer? _clockTicker;
   double _displayedTime = 0.0;
 
+  /// True while the seek slider is being dragged, so the one-second
+  /// clock tick does not fight the thumb.
+  bool _seeking = false;
+
   // ─── Sync tunables ────────────────────────────────────────────────
 
   /// When the partner's reported time diverges from our local estimate
@@ -511,7 +515,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   void _startClockTicker() {
     _clockTicker?.cancel();
     _clockTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted || _seeking) return;
       setState(() {
         _displayedTime = _estimatedLocalTime();
       });

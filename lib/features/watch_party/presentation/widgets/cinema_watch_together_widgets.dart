@@ -16,7 +16,6 @@ class _WatchTogetherPoster extends StatelessWidget {
           right: 6,
           bottom: 6,
           child: StartWatchPartyButton(
-            variant: WatchPartyButtonVariant.icon,
             media: MediaRef(
               tmdbId: item.tmdbId,
               malId: item.isAnime ? item.tmdbId : null,

@@ -62,6 +62,18 @@ class HlsServerPlayerController {
     }
   }
 
+  /// Duration of the loaded stream in seconds, or 0 until metadata lands.
+  double get duration {
+    final state = _state;
+    if (state == null || state._video == null || state._destroyed) return 0;
+    try {
+      final value = state._video!.duration;
+      return value.isFinite && value > 0 ? value : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   void load({
     required String url,
     required double startSeconds,

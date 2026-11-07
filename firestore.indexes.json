@@ -1,33 +1,63 @@
 {
   "indexes": [
     {
-      "collectionGroup": "our_books", "queryScope": "COLLECTION",
+      "collectionGroup": "our_books",
+      "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "addedBy", "order": "ASCENDING"},
-        {"fieldPath": "addedAt", "order": "DESCENDING"}
+        {
+          "fieldPath": "addedBy",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "addedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "watch_list", "queryScope": "COLLECTION",
+      "collectionGroup": "watch_list",
+      "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "userName", "order": "ASCENDING"},
-        {"fieldPath": "addedAt", "order": "DESCENDING"}
+        {
+          "fieldPath": "userName",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "addedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "watch_list", "queryScope": "COLLECTION",
+      "collectionGroup": "watch_list",
+      "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "userName", "order": "ASCENDING"},
-        {"fieldPath": "isAnime", "order": "ASCENDING"},
-        {"fieldPath": "addedAt", "order": "DESCENDING"}
+        {
+          "fieldPath": "userName",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isAnime",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "addedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "calendar_events",
       "queryScope": "COLLECTION",
       "fields": [
-        {"fieldPath": "recurring", "order": "ASCENDING"},
-        {"fieldPath": "date", "order": "ASCENDING"}
+        {
+          "fieldPath": "recurring",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
@@ -153,34 +183,6 @@
         {
           "fieldPath": "timestamp",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "watch_party_rooms",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "active",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "hostUid",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "watch_party_rooms",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "active",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "partnerUid",
-          "order": "ASCENDING"
         }
       ]
     },

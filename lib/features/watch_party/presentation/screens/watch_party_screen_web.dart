@@ -104,6 +104,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildCinemaPlayerStage(),
+                        _buildSeekBar(),
                         _buildCinemaMetadata(),
                         _buildCinemaServerSelector(),
                         const SizedBox(height: AppSpacing.x3),
@@ -397,6 +398,62 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             compact: compact,
             accent: true,
             onTap: _endParty,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Seek bar for the real `<video>` path. Embeds don't expose a
+  /// timeline, so this only appears for Everglow/HLS rooms.
+  Widget _buildSeekBar() {
+    if (!_isHlsServer || !_room.hasMedia) return const SizedBox.shrink();
+    final duration = _hlsController.duration;
+    if (duration <= 0) return const SizedBox.shrink();
+    final value = _displayedTime.clamp(0.0, duration);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.sm,
+        AppSpacing.xl,
+        0,
+      ),
+      child: Row(
+        children: [
+          Text(
+            _formatT(value),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                value: value,
+                max: duration,
+                activeColor: AppColors.roseQuartz,
+                inactiveColor: AppColors.moonlight.withValues(alpha: 0.2),
+                onChangeStart: (_) => setState(() => _seeking = true),
+                onChanged: (next) => setState(() => _displayedTime = next),
+                onChangeEnd: (next) {
+                  setState(() => _seeking = false);
+                  _seekTo(next);
+                },
+              ),
+            ),
+          ),
+          Text(
+            _formatT(duration),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
           ),
         ],
       ),
