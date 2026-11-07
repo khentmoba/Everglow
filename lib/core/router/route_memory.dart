@@ -17,8 +17,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Only reload-safe pages are kept: the gateway itself (login has its own
 /// `?from=` return flow) and routes that need an in-memory `extra` payload
-/// (reader, game boards, watch party) are never saved — reopening those
-/// would land on the error page instead.
+/// (reader, game boards) are never saved — reopening those would land on
+/// the error page instead. Watch party is saved because its lobby route
+/// works without `extra`.
 class RouteMemory {
   RouteMemory._();
 

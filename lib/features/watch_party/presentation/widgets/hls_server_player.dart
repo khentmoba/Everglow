@@ -485,12 +485,17 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
         _muted = true;
         widget.controller._muted = true;
       } catch (e) {
+        _pendingAutoplay = true;
         debugPrint('[HlsServerPlayer] play() rejected: $e');
       }
     }
   }
 
   void _play() {
+    if (!_ready) {
+      _pendingAutoplay = true;
+      return;
+    }
     final video = _video;
     if (video == null || _destroyed) return;
     try {
@@ -505,6 +510,7 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   }
 
   void _pause() {
+    _pendingAutoplay = false;
     try {
       _video?.pause();
     } catch (_) {}

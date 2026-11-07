@@ -13,9 +13,9 @@ import '../../../../core/theme/app_typography.dart';
 /// Toggleable right-side chat drawer for the Watch Party screen.
 ///
 /// Persists messages to `watch_party_chats/{roomId}/messages/`.
-/// The roomId is the deterministic sorted-joined uids of the
-/// couple, so the chat history is tied to the relationship and
-/// survives media switches and re-joins.
+/// The roomId is the watch-party room document id (auto id for named
+/// rooms), so the chat history is tied to the room and survives media
+/// switches and re-joins.
 ///
 /// Sits as a `Stack` overlay above the watch party iframe. When
 /// closed, only a small chat icon in the screen header is visible.

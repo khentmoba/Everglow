@@ -173,7 +173,9 @@ class _ServerPickerSheetState extends State<ServerPickerSheet> {
               _buildServerRow(
                 id: server.id,
                 label: server.isRecommended ? '★ ${server.name}' : server.name,
-                subtitle: '${server.host} · ${server.streamUrl}',
+                subtitle: [server.host, server.streamUrl]
+                    .where((part) => part.isNotEmpty)
+                    .join(' · '),
                 host: server.host,
                 badge: server.isHls ? 'HLS' : 'EMBED',
                 badgeColor: server.isHls ? _cGreen : _cAmber,

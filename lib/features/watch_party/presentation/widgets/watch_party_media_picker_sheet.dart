@@ -202,9 +202,7 @@ class _WatchPartyMediaPickerSheetState
     widget.onSelect(
       MediaRef(
         tmdbId: item.tmdbId,
-        malId: isAnime
-            ? (item.tmdbId > 0 ? item.tmdbId : item.anilistId)
-            : null,
+        malId: isAnime && item.tmdbId > 0 ? item.tmdbId : null,
         mediaType: 'movie',
         isAnime: isAnime,
         title: item.title,
@@ -229,9 +227,7 @@ class _WatchPartyMediaPickerSheetState
           widget.onSelect(
             MediaRef(
               tmdbId: item.tmdbId,
-              malId: isAnime
-                  ? (item.tmdbId > 0 ? item.tmdbId : item.anilistId)
-                  : null,
+              malId: isAnime && item.tmdbId > 0 ? item.tmdbId : null,
               mediaType: (isAnime && item.format.toLowerCase() == 'movie')
                   ? 'movie'
                   : 'tv',

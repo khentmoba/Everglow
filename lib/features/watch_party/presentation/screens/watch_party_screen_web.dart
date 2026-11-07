@@ -311,7 +311,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildCinemaTopBar() {
-    final compact = MediaQuery.sizeOf(context).width < 560;
+    final compact = MediaQuery.sizeOf(context).width < 700;
     return Container(
       height: 56,
       padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: 8),
