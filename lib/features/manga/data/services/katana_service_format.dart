@@ -53,6 +53,33 @@ List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
   return sorted;
 }
 
+/// The chapter "Continue" should open. Null for a series with no chapters.
+///
+/// [lastReadChapterId] is the anchor: continuing never goes back before the
+/// chapter she last opened. Without that anchor, finishing a chapter made it
+/// "read", so the first unread chapter became chapter 1 and Continue jumped
+/// backwards — and the reader then overwrote her real resume point with it.
+/// Records written before read marks existed rely on the anchor entirely.
+KatanaChapter? nextUnreadChapter(
+  List<KatanaChapter> chapters,
+  Set<String> readChapterIds, {
+  String lastReadChapterId = '',
+}) {
+  final ascending = sortChaptersAscending(chapters);
+  if (ascending.isEmpty) return null;
+  final anchor = ascending.indexWhere((c) => c.id == lastReadChapterId);
+  if (anchor >= 0) {
+    for (var i = anchor; i < ascending.length; i++) {
+      if (!readChapterIds.contains(ascending[i].id)) return ascending[i];
+    }
+    return ascending.last;
+  }
+  for (final chapter in ascending) {
+    if (!readChapterIds.contains(chapter.id)) return chapter;
+  }
+  return ascending.last;
+}
+
 String katanaTextFromHtml(String html) {
   return html
       .replaceAll(RegExp(r'<[^>]+>'), ' ')

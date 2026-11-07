@@ -23,4 +23,99 @@ void main() {
     final again = sortChaptersAscending(scraped);
     expect(again.map((c) => c.id).toList(), asc.map((c) => c.id).toList());
   });
+
+  group('nextUnreadChapter', () {
+    final chapters = [
+      const KatanaChapter(id: 'c1', num: '1', title: 'Chapter 1'),
+      const KatanaChapter(id: 'c2', num: '2', title: 'Chapter 2'),
+      const KatanaChapter(id: 'c3', num: '3', title: 'Chapter 3'),
+    ];
+
+    test('a fresh series continues from the first chapter', () {
+      expect(nextUnreadChapter(chapters, const {})?.id, 'c1');
+    });
+
+    test('continues from the first unfinished chapter', () {
+      expect(nextUnreadChapter(chapters, const {'c1'})?.id, 'c2');
+      expect(nextUnreadChapter(chapters, const {'c1', 'c2'})?.id, 'c3');
+    });
+
+    test('a gap left by jumping around is the continue target', () {
+      // Read 1 and 3 out of order: chapter 2 is still the one left.
+      expect(nextUnreadChapter(chapters, const {'c1', 'c3'})?.id, 'c2');
+    });
+
+    test('a fully read series falls back to the last chapter', () {
+      expect(
+        nextUnreadChapter(chapters, const {'c1', 'c2', 'c3'})?.id,
+        'c3',
+      );
+    });
+
+    test('an empty series has no continue target', () {
+      expect(nextUnreadChapter(const [], const {}), isNull);
+    });
+
+    test('a record without read marks falls back to the last read chapter', () {
+      // Bookmarks written before read marks existed have an empty set but
+      // do know where she stopped. Continuing from chapter 1 would open the
+      // wrong chapter and overwrite that resume point.
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {},
+          lastReadChapterId: 'c2',
+        )?.id,
+        'c2',
+      );
+    });
+
+    test('read marks win over the last read chapter', () {
+      // The anchor is c3, so continuing never goes back to c2.
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {'c1'},
+          lastReadChapterId: 'c3',
+        )?.id,
+        'c3',
+      );
+    });
+
+    test('finishing the last read chapter continues forward', () {
+      // The blocker: once c2 was finished, readChapterIds was non-empty, so
+      // the old fallback stopped applying and Continue went back to c1 —
+      // overwriting the real resume point.
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {'c2'},
+          lastReadChapterId: 'c2',
+        )?.id,
+        'c3',
+      );
+    });
+
+    test('a gap before the anchor is not reopened', () {
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {'c3'},
+          lastReadChapterId: 'c3',
+        )?.id,
+        'c3',
+      );
+    });
+
+    test('an unknown last read chapter falls back to the first', () {
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {},
+          lastReadChapterId: 'gone',
+        )?.id,
+        'c1',
+      );
+    });
+  });
 }

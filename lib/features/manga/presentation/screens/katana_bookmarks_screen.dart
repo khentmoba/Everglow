@@ -31,7 +31,7 @@ class _KatanaBookmarksScreenState extends State<KatanaBookmarksScreen> {
 
   void _subscribe() {
     final user = context.read<AuthService>().currentUser ?? '';
-    _service.bookmarkStream(user).listen((items) {
+    _service.bookmarkStream(user, bookmarkedOnly: true).listen((items) {
       if (mounted) {
         setState(() {
           _bookmarks = items;

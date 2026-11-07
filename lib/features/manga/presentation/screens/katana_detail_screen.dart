@@ -34,6 +34,16 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   KatanaBookmark? _partnerProgress;
   KatanaBookmark? _recommendation;
 
+  /// This user's bookmark record for the series: which chapters are
+  /// finished, and where they last stopped.
+  KatanaBookmark? _myBookmark;
+
+  Set<String> get _readChapterIds => _myBookmark?.readChapterIds ?? const {};
+
+  /// True once there is a chapter to resume, so "Continue" can reopen it at
+  /// her page instead of restarting it.
+  bool get _hasProgress => _myBookmark?.hasProgress ?? false;
+
   String get _user => context.read<AuthService>().currentUser ?? '';
 
   @override
@@ -42,6 +52,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     _manga = widget.preview;
     _load();
     _loadReading();
+    _loadReadState();
     _loadCoupleData();
   }
 
@@ -270,6 +281,12 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     }
   }
 
+  Future<void> _loadReadState() async {
+    final bookmark = await _service.fetchBookmark(widget.slug, _user);
+    if (!mounted) return;
+    setState(() => _myBookmark = bookmark);
+  }
+
   /// "Khent Reading" for Khent, "Claire Reading" for Clair, and nothing
   /// for Breyan / Octagram so the couple-only feature stays private.
   String? get _readingButtonLabel {
@@ -317,7 +334,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     return _reversed ? ascending.reversed.toList() : ascending;
   }
 
-  void _openReader(KatanaChapter chapter) {
+  void _openReader(KatanaChapter chapter, {int initialPage = 1}) {
     final manga = _manga;
     if (manga == null) return;
     pushReader(
@@ -327,8 +344,32 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       chapters: manga.chapters,
       mangaTitle: manga.title,
       coverUrl: manga.coverUrl,
-    );
+      initialPage: initialPage,
+      manga: manga,
+    ).then((_) => _loadReadState());
   }
+
+  /// "Continue" opens the first chapter Clair has not finished, so it
+  /// stops re-opening chapter 1 on a series she is 40 chapters into. When
+  /// that chapter is the one she stopped in, it reopens at her page
+  /// instead of restarting it.
+  void _openContinue() {
+    final bookmark = _myBookmark;
+    final next = nextUnreadChapter(
+      _manga?.chapters ?? const <KatanaChapter>[],
+      _readChapterIds,
+      lastReadChapterId: bookmark?.lastReadChapterId ?? '',
+    );
+    if (next == null) return;
+    final resumePage = bookmark != null && bookmark.lastReadChapterId == next.id
+        ? bookmark.lastReadPage
+        : 1;
+    _openReader(next, initialPage: resumePage);
+  }
+
+  /// True once the user has opened this series at all, so "First Chapter"
+  /// becomes "Continue" even mid-way through chapter 1.
+  bool get _hasStartedSeries => _hasProgress || _readChapterIds.isNotEmpty;
 
   void _openFirstChapter() {
     final chapters = _manga?.chapters ?? const <KatanaChapter>[];
@@ -533,9 +574,11 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
           runSpacing: 8,
           children: [
             KatanaButton(
-              label: 'First Chapter',
-              icon: Icons.play_arrow_rounded,
-              onTap: _openFirstChapter,
+              label: _hasStartedSeries ? 'Continue' : 'First Chapter',
+              icon: _hasStartedSeries
+                  ? Icons.play_circle_fill_rounded
+                  : Icons.play_arrow_rounded,
+              onTap: _hasStartedSeries ? _openContinue : _openFirstChapter,
             ),
             KatanaButton(
               label: 'Read offline',
@@ -640,9 +683,13 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                   runSpacing: 8,
                   children: [
                     KatanaButton(
-                      label: 'First Chapter',
-                      icon: Icons.play_arrow_rounded,
-                      onTap: _openFirstChapter,
+                      label: _hasStartedSeries ? 'Continue' : 'First Chapter',
+                      icon: _hasStartedSeries
+                          ? Icons.play_circle_fill_rounded
+                          : Icons.play_arrow_rounded,
+                      onTap: _hasStartedSeries
+                          ? _openContinue
+                          : _openFirstChapter,
                     ),
                     KatanaButton(
                       label: 'Read offline',
@@ -823,6 +870,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                     _ChapterRow(
                       chapter: chapters[i],
                       isNew: chapters[i].isNew,
+                      isRead: _readChapterIds.contains(chapters[i].id),
                       onTap: () => _openReader(chapters[i]),
                       highlight: i % 2 == 1,
                     ),
@@ -838,12 +886,14 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
 class _ChapterRow extends StatelessWidget {
   final KatanaChapter chapter;
   final bool isNew;
+  final bool isRead;
   final bool highlight;
   final VoidCallback onTap;
 
   const _ChapterRow({
     required this.chapter,
     required this.isNew,
+    required this.isRead,
     required this.highlight,
     required this.onTap,
   });
@@ -857,10 +907,12 @@ class _ChapterRow extends StatelessWidget {
         color: highlight ? KatanaColors.surfaceAlt : KatanaColors.surface,
         child: Row(
           children: [
-            const Icon(
-              Icons.menu_book_rounded,
+            Icon(
+              isRead
+                  ? Icons.check_circle_rounded
+                  : Icons.menu_book_rounded,
               size: 16,
-              color: KatanaColors.textLight,
+              color: isRead ? KatanaColors.green : KatanaColors.textLight,
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -869,7 +921,9 @@ class _ChapterRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: KatanaColors.link,
+                  color: isRead
+                      ? KatanaColors.textLight
+                      : KatanaColors.link,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),

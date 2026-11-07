@@ -138,14 +138,16 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   }
 
   Widget _buildWebtoonImage(int index) {
-    return _readerPage(index, fit: BoxFit.fitWidth, height: null);
+    return KeyedSubtree(
+      key: _pageKey(index),
+      child: _readerPage(index, fit: BoxFit.fitWidth, height: null),
+    );
   }
 
   // ── Paged Mode (RTL for Manga, LTR for Western) ───────────────────
   Widget _buildPagedViewer() {
     final isRTL = _mode == ReaderMode.pagedRTL;
-    final width = MediaQuery.sizeOf(context).width;
-    final useTwoPage = _twoPage && width >= 840;
+    final useTwoPage = _useTwoPage;
 
     final totalItems = useTwoPage
         ? (_pages.length / 2).ceil() + 1
@@ -184,9 +186,19 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
         physics: const BouncingScrollPhysics(),
         itemCount: totalItems,
         onPageChanged: (pageIndex) {
+          // The controller is built with a page index before the two-page
+          // preference is known, so ignore its first report until the
+          // starting spread has actually been applied.
+          if (!_pagedInitialJumpDone) return;
           if (useTwoPage) {
             final firstPageIndex = pageIndex * 2;
             _onPageChanged(math.min(firstPageIndex, _pages.length - 1));
+            // The spread shows two pages but the callback reports the
+            // first, so reaching the spread that holds the last page has
+            // to count as finishing the chapter.
+            if (firstPageIndex + 1 >= _pages.length - 1) {
+              _markChapterRead();
+            }
           } else {
             if (pageIndex < _pages.length) {
               _onPageChanged(pageIndex);
@@ -256,6 +268,7 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
       accentColor: KatanaColors.accent,
       mutedColor: KatanaColors.textMuted,
       onError: () => _onReaderPageError(index),
+      onLoaded: () => _onPageLoaded(index),
       secondaryAction: KatanaButton(
         label: 'Try another server',
         icon: Icons.dns_rounded,
@@ -268,7 +281,11 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     if (!_pageController.hasClients) return;
     final current = _pageController.page?.round() ?? 0;
     final target = current + delta;
-    if (target >= 0 && target <= _pages.length) {
+    // Two-page mode packs two pages into one PageView item, so the last
+    // reachable item is ceil(pages / 2), not pages.length — the old bound
+    // let the reader scroll past the end into blank space.
+    final lastItem = lastPagedItem(_pages.length, twoPage: _useTwoPage);
+    if (target >= 0 && target <= lastItem) {
       _pageController.animateToPage(
         target,
         duration: const Duration(milliseconds: 240),
@@ -318,6 +335,10 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   /// — like the site's own refresh — the URLs are fetched fresh once
   /// instead of leaving Clair with a broken chapter.
   void _notePageFailed(int index) {
+    // A resume target that will never load must not freeze the reader on its
+    // pending correction: the scroll listener skips tracking while one is
+    // set. Give it up so the pill and progress keep working.
+    if (_pendingResumePage == index) _pendingResumePage = null;
     if (!_failedPages.add(index)) return;
     _maybeRefreshTokens();
   }

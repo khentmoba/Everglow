@@ -67,6 +67,73 @@ void main() {
       expect(bookmark.hasProgress, isFalse);
       expect(bookmark.isRecommended, isFalse);
     });
+
+    test('fromFirestore reads finished chapters', () {
+      final bookmark = KatanaBookmark.fromFirestore({
+        'slug': 'eleceed',
+        'addedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 8)),
+        'readChapterIds': ['c1', 'c2', 'c3'],
+      }, 'eleceed');
+
+      expect(bookmark.readChapterIds, {'c1', 'c2', 'c3'});
+      expect(bookmark.readChapterIds.contains('c2'), isTrue);
+      expect(bookmark.readChapterIds.contains('c9'), isFalse);
+    });
+
+    test('fromFirestore treats a missing bookmarked flag as bookmarked', () {
+      // Records written before the flag existed were saved because the
+      // user bookmarked them, so they must stay on the shelf.
+      final legacy = KatanaBookmark.fromFirestore({
+        'slug': 'eleceed',
+        'addedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 8)),
+      }, 'eleceed');
+      expect(legacy.isBookmarked, isTrue);
+
+      final cleared = KatanaBookmark.fromFirestore({
+        'slug': 'eleceed',
+        'addedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 8)),
+        'bookmarked': false,
+        'readChapterIds': ['c1'],
+      }, 'eleceed');
+      expect(cleared.isBookmarked, isFalse);
+      // Unbookmarking must not take the read history with it.
+      expect(cleared.readChapterIds, {'c1'});
+    });
+
+    test('fromFirestore drops junk out of readChapterIds', () {
+      final bookmark = KatanaBookmark.fromFirestore({
+        'slug': 'eleceed',
+        'addedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 8)),
+        'readChapterIds': ['c1', 7, null, '', 'c2'],
+      }, 'eleceed');
+
+      expect(bookmark.readChapterIds, {'c1', 'c2'});
+    });
+
+    test('a bookmark saved before read tracking has no finished chapters', () {
+      final bookmark = KatanaBookmark.fromFirestore({
+        'slug': 'eleceed',
+        'addedAt': Timestamp.fromDate(DateTime.utc(2026, 9, 8)),
+        'lastReadChapterId': 'c400',
+        'lastReadPage': 12,
+      }, 'eleceed');
+
+      expect(bookmark.readChapterIds, isEmpty);
+      expect(bookmark.hasProgress, isTrue);
+    });
+
+    test('toFirestore round-trips finished chapters', () {
+      final saved = KatanaBookmark(
+        slug: 'eleceed',
+        title: 'Eleceed',
+        coverUrl: 'https://img/eleceed.jpg',
+        addedAt: DateTime.utc(2026, 9, 8),
+        readChapterIds: const {'c1', 'c2'},
+      ).toFirestore();
+
+      final restored = KatanaBookmark.fromFirestore(saved, 'eleceed');
+      expect(restored.readChapterIds, {'c1', 'c2'});
+    });
   });
 
   group('katanaLanguageForGenres', () {

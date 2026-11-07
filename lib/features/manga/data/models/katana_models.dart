@@ -175,6 +175,18 @@ class KatanaBookmark {
   final String recommendedBy;
   final String recommendationNote;
 
+  /// Chapter ids this user has finished. Drives the read/unread marks in
+  /// the chapter list and makes "continue reading" pick the first
+  /// chapter actually left unread instead of guessing from the last one
+  /// opened.
+  final Set<String> readChapterIds;
+
+  /// Whether this series is still on the bookmarks shelf. Unbookmarking
+  /// clears this instead of deleting the document, because the same
+  /// document carries reading progress and [readChapterIds] — deleting it
+  /// used to wipe both. Absent in older records, which count as bookmarked.
+  final bool bookmarked;
+
   const KatanaBookmark({
     required this.slug,
     required this.title,
@@ -187,15 +199,19 @@ class KatanaBookmark {
     this.latestChapterTitle = '',
     this.recommendedBy = '',
     this.recommendationNote = '',
+    this.readChapterIds = const {},
+    this.bookmarked = true,
   });
 
   bool get hasProgress => lastReadChapterId.isNotEmpty;
   bool get isRecommended => recommendedBy.isNotEmpty;
+  bool get isBookmarked => bookmarked;
 
   factory KatanaBookmark.fromFirestore(
     Map<String, dynamic> data,
     String documentId,
   ) {
+    final read = data['readChapterIds'];
     return KatanaBookmark(
       slug: _toStr(data['slug'], fallback: documentId),
       title: _toStr(data['title']),
@@ -208,6 +224,12 @@ class KatanaBookmark {
       latestChapterTitle: _toStr(data['latestChapterTitle']),
       recommendedBy: _toStr(data['recommendedBy']),
       recommendationNote: _toStr(data['recommendationNote']),
+      readChapterIds: read is List
+          ? {for (final id in read) if (id is String && id.isNotEmpty) id}
+          : const {},
+      // Missing means a record written before this flag existed, which was
+      // saved because the user bookmarked it.
+      bookmarked: data['bookmarked'] != false,
     );
   }
 
@@ -229,6 +251,8 @@ class KatanaBookmark {
       'latestChapterTitle': latestChapterTitle,
       'recommendedBy': recommendedBy,
       'recommendationNote': recommendationNote,
+      'readChapterIds': readChapterIds.toList(),
+      'bookmarked': bookmarked,
     };
   }
 

@@ -7,7 +7,15 @@ extension KatanaServiceSocial on KatanaService {
   CollectionReference<Map<String, dynamic>> get _bookmarks =>
       _firestore.collection('katana_bookmarks');
 
-  Stream<List<KatanaBookmark>> bookmarkStream(String userName) {
+  /// Bookmarks for [userName].
+  ///
+  /// [bookmarkedOnly] is for the bookmarks shelf. The reading surfaces also
+  /// read this stream for progress, and an unbookmarked series must keep
+  /// its "Ch. X • Page Y" there, so they leave it false.
+  Stream<List<KatanaBookmark>> bookmarkStream(
+    String userName, {
+    bool bookmarkedOnly = false,
+  }) {
     if (userName.isEmpty) return Stream.value(const []);
     return _bookmarks
         .where('userName', isEqualTo: userName)
@@ -17,22 +25,67 @@ extension KatanaServiceSocial on KatanaService {
           (snap) =>
               snap.docs
                   .map((d) => KatanaBookmark.fromFirestore(d.data(), d.id))
+                  .where((bookmark) => !bookmarkedOnly || bookmark.isBookmarked)
                   .toList()
                 ..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
         );
   }
 
-  Future<bool> isBookmarked(String slug, String userName) async {
-    if (userName.isEmpty || slug.isEmpty) return false;
+  /// The signed-in user's own bookmark record for [slug], including which
+  /// chapters they have finished. Null when they have never read it.
+  Future<KatanaBookmark?> fetchBookmark(String slug, String userName) async {
+    if (userName.isEmpty || slug.isEmpty) return null;
     try {
       final doc = await withGetTimeout(
         _bookmarks.doc('$userName|$slug').get(),
-        label: 'katana bookmark check',
+        label: 'katana bookmark fetch',
       );
-      return doc.exists;
-    } catch (e) {
-      Logger.e('isBookmarked error', error: e);
-      return false;
+      final data = doc.data();
+      if (!doc.exists || data == null) return null;
+      return KatanaBookmark.fromFirestore(data, doc.id);
+    } catch (e, st) {
+      Logger.e(
+        'KatanaService: failed to fetch bookmark for $slug',
+        error: e,
+        stackTrace: st,
+      );
+      return null;
+    }
+  }
+
+  /// Records that [chapterId] has been finished. Read state lives on the
+  /// same per-user bookmark document as progress, so it needs no extra
+  /// collection and no extra rules.
+  ///
+  /// [title] and [coverUrl] are written too: a read mark must never be
+  /// the first write for a series, or the bookmarks shelf would gain a
+  /// card with a blank title.
+  Future<void> markChapterRead(
+    String slug,
+    String userName,
+    String chapterId, {
+    String title = '',
+    String coverUrl = '',
+  }) async {
+    if (userName.isEmpty || slug.isEmpty || chapterId.isEmpty) return;
+    try {
+      final data = <String, dynamic>{
+        'slug': slug,
+        'userName': userName,
+        'readChapterIds': FieldValue.arrayUnion([chapterId]),
+      };
+      if (title.isNotEmpty) data['title'] = title;
+      if (coverUrl.isNotEmpty) data['coverUrl'] = coverUrl;
+      await _bookmarks.doc('$userName|$slug').set(
+        data,
+        SetOptions(merge: true),
+      );
+    } catch (e, st) {
+      Logger.e(
+        'KatanaService: failed to mark $chapterId read for $slug',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -45,7 +98,13 @@ extension KatanaServiceSocial on KatanaService {
     try {
       final ref = _bookmarks.doc('$userName|${manga.slug}');
       if (!bookmarked) {
-        await ref.delete();
+        // Clear the flag instead of deleting the document: it also holds
+        // reading progress and the chapters already finished, and deleting
+        // it threw all of that away.
+        await ref.set({
+          'bookmarked': false,
+          'userName': userName,
+        }, SetOptions(merge: true));
         return;
       }
       final data = KatanaBookmark(
@@ -57,6 +116,10 @@ extension KatanaServiceSocial on KatanaService {
         latestChapterTitle: manga.latestChapter?.displayTitle ?? '',
       ).toFirestore();
       data['userName'] = userName;
+      // Never write readChapterIds from here. A fresh KatanaBookmark has
+      // an empty set, and merging that would wipe the chapters already
+      // finished every time the bookmark was re-added.
+      data.remove('readChapterIds');
       await ref.set(data, SetOptions(merge: true));
     } catch (e) {
       Logger.e('setBookmark error', error: e);
@@ -266,6 +329,10 @@ extension KatanaServiceSocial on KatanaService {
       data['coverUrl'] = manga.coverUrl;
       data['userName'] = partner;
       data['recommendedBy'] = fromUser;
+      // Recommending a series the partner previously unbookmarked must put
+      // it back on their shelf; copying their old doc would carry the
+      // cleared flag across and the recommendation would vanish.
+      data['bookmarked'] = true;
       data['recommendationNote'] = note.trim();
       data['recommendedAt'] = Timestamp.now();
       await ref.set(data, SetOptions(merge: true));
