@@ -55,5 +55,41 @@ void main() {
     test('an empty series has no continue target', () {
       expect(nextUnreadChapter(const [], const {}), isNull);
     });
+
+    test('a record without read marks falls back to the last read chapter', () {
+      // Bookmarks written before read marks existed have an empty set but
+      // do know where she stopped. Continuing from chapter 1 would open the
+      // wrong chapter and overwrite that resume point.
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {},
+          lastReadChapterId: 'c2',
+        )?.id,
+        'c2',
+      );
+    });
+
+    test('read marks win over the last read chapter', () {
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {'c1'},
+          lastReadChapterId: 'c3',
+        )?.id,
+        'c2',
+      );
+    });
+
+    test('an unknown last read chapter falls back to the first', () {
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {},
+          lastReadChapterId: 'gone',
+        )?.id,
+        'c1',
+      );
+    });
   });
 }

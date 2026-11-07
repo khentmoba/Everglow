@@ -63,6 +63,20 @@ int pagedItemForPage(int page, {required bool twoPage}) {
 int lastPagedItem(int pageCount, {required bool twoPage}) =>
     twoPage ? (pageCount / 2).ceil() : pageCount;
 
+/// Offset to land on while page heights are still unknown: split the
+/// current extent evenly. The extent is extrapolated from loading slots, but
+/// it is proportional, so this lands in the right region for the exact
+/// correction that follows once the target page reports its real height.
+@visibleForTesting
+double proportionalResumeOffset(
+  int target,
+  int pageCount,
+  double maxScrollExtent,
+) {
+  if (pageCount <= 1) return 0;
+  return target * maxScrollExtent / (pageCount - 1);
+}
+
 class KatanaReaderScreen extends StatefulWidget {
   @visibleForTesting
   static bool isDesktopWeb({
@@ -434,24 +448,24 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
   /// Scrolls the webtoon strip to [page].
   ///
-  /// On a reload the heights are already known, so this is one exact jump.
-  /// On a cold open nothing has reported a height yet: the tracker would
-  /// assume the default for every page and the list's extent is built from
-  /// loading slots, so an exact jump is meaningless. Instead it splits the
-  /// current extent evenly to land in the right region, remembers the page,
-  /// and [onPageLoaded] lands exactly once that page's real height exists.
-  Future<void> _resumeToWebtoonPage(int page) async {
+  /// `_loadPages` unmounts the list, so at this moment every page is laying
+  /// out its fixed-size loading slot and `maxScrollExtent` is extrapolated
+  /// from those slots — while the tracker may still hold real heights from
+  /// before a reload. Mixing those two coordinate spaces is what made a
+  /// resume land at the bottom of the strip. So this always lands
+  /// proportionally first, then corrects exactly once the target page
+  /// reports its real height.
+  void _resumeToWebtoonPage(int page) {
     if (!mounted || !_scrollController.hasClients) return;
     final target = page.clamp(1, _pages.length) - 1;
-    if (_tracker.measuredCount > 0) {
-      _jumpWebtoonTo(target);
-      return;
-    }
     _pendingResumePage = target;
-    final position = _scrollController.position;
-    final proportional =
-        target * position.maxScrollExtent / math.max(1, _pages.length - 1);
-    _jumpWebtoonToOffset(proportional);
+    _jumpWebtoonToOffset(
+      proportionalResumeOffset(
+        target,
+        _pages.length,
+        _scrollController.position.maxScrollExtent,
+      ),
+    );
   }
 
   /// Jumps to the exact top of page [target] using measured heights.
@@ -494,6 +508,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         (_scrollController.offset - lastJump).abs() > 1) {
       _pendingResumePage = null;
     }
+    // Our own resume jump must not derive or persist a page from the
+    // placeholder extent — that wrote the wrong lastReadPage. Wait for the
+    // correction to land; a user scroll clears the pending page first.
+    if (_pendingResumePage != null) return;
     _measureBuiltPages();
     final page = _tracker.pageAtOffset(_scrollController.offset) + 1;
     if (page != _currentPage) {

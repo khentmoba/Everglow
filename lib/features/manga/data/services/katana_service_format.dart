@@ -60,12 +60,23 @@ List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
 /// Guessing from "the chapter after the last one opened" re-opened
 /// already-read chapters whenever Clair jumped around, so the read set is
 /// the source of truth instead.
+///
+/// [lastReadChapterId] covers records written before read marks existed:
+/// they have no finished chapters but do know where she stopped. Without
+/// this fallback "Continue" would open chapter 1 and overwrite that
+/// resume point.
 KatanaChapter? nextUnreadChapter(
   List<KatanaChapter> chapters,
-  Set<String> readChapterIds,
-) {
+  Set<String> readChapterIds, {
+  String lastReadChapterId = '',
+}) {
   final ascending = sortChaptersAscending(chapters);
   if (ascending.isEmpty) return null;
+  if (readChapterIds.isEmpty && lastReadChapterId.isNotEmpty) {
+    for (final chapter in ascending) {
+      if (chapter.id == lastReadChapterId) return chapter;
+    }
+  }
   for (final chapter in ascending) {
     if (!readChapterIds.contains(chapter.id)) return chapter;
   }

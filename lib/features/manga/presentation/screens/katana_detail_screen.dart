@@ -354,12 +354,13 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   /// that chapter is the one she stopped in, it reopens at her page
   /// instead of restarting it.
   void _openContinue() {
+    final bookmark = _myBookmark;
     final next = nextUnreadChapter(
       _manga?.chapters ?? const <KatanaChapter>[],
       _readChapterIds,
+      lastReadChapterId: bookmark?.lastReadChapterId ?? '',
     );
     if (next == null) return;
-    final bookmark = _myBookmark;
     final resumePage = bookmark != null && bookmark.lastReadChapterId == next.id
         ? bookmark.lastReadPage
         : 1;

@@ -170,4 +170,18 @@ void main() {
       expect(lastPagedItem(1, twoPage: true), 1);
     });
   });
+
+  group('proportionalResumeOffset', () {
+    test('splits the extent evenly across the pages', () {
+      // 11 pages, target index 5 of 10 gaps -> halfway down the extent.
+      expect(proportionalResumeOffset(5, 11, 1000), 500);
+      expect(proportionalResumeOffset(0, 11, 1000), 0);
+      expect(proportionalResumeOffset(10, 11, 1000), 1000);
+    });
+
+    test('never divides by zero on a single-page chapter', () {
+      expect(proportionalResumeOffset(0, 1, 500), 0);
+      expect(proportionalResumeOffset(0, 0, 500), 0);
+    });
+  });
 }
