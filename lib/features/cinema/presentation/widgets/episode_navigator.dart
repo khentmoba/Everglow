@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/agent/agent_mode.dart';
@@ -323,6 +324,7 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
   }
 
   Widget _buildDownloadAction(int epNum, String name, String? stillPath) {
+    if (!AgentMode.isActive.value && !kDebugMode) return const SizedBox.shrink();
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 

@@ -12,16 +12,25 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:everglow/core/agent/agent_mode.dart';
-import 'package:everglow/core/services/offline_media/offline_media_item.dart';
 import 'package:everglow/core/services/offline_media/offline_media_service.dart';
 import 'package:everglow/core/services/offline_media/offline_media_storage.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_downloads_tab.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   testWidgets('captures offline downloads section for PR proof', (
     tester,
   ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.flutter.io/path_provider'),
+      (MethodCall methodCall) async {
+        return '.';
+      },
+    );
+
     tester.view.physicalSize = const Size(430, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -49,52 +58,7 @@ void main() {
     await tester.runAsync(() async {
       await storage.clearAll();
       await service.clearAll();
-      await service.startDownloadMedia(
-        id: 'cinema_movie_157336',
-        type: OfflineMediaType.movie,
-        mediaId: '157336',
-        title: 'Interstellar',
-        subtitle: 'Movie • 2014',
-        durationSeconds: 10140,
-        directByteCount: 1520000000,
-        directBytes: Uint8List.fromList([1, 2]),
-      );
-      await service.startDownloadMedia(
-        id: 'cinema_tv_66732_s1_e1',
-        type: OfflineMediaType.tv,
-        mediaId: '66732',
-        title: 'Stranger Things',
-        subtitle: 'S1 E1 • Chapter One: The Vanishing of Will Byers',
-        season: 1,
-        episode: 1,
-        durationSeconds: 2940,
-        directByteCount: 740000000,
-        directBytes: Uint8List.fromList([3, 4]),
-      );
-      await service.startDownloadMedia(
-        id: 'cinema_tv_66732_s1_e2',
-        type: OfflineMediaType.tv,
-        mediaId: '66732',
-        title: 'Stranger Things',
-        subtitle: 'S1 E2 • Chapter Two: The Weirdo on Maple Street',
-        season: 1,
-        episode: 2,
-        durationSeconds: 3300,
-        directByteCount: 710000000,
-        directBytes: Uint8List.fromList([5, 6]),
-      );
-      await service.startDownloadMedia(
-        id: 'cinema_tv_66732_s2_e1',
-        type: OfflineMediaType.tv,
-        mediaId: '66732',
-        title: 'Stranger Things',
-        subtitle: 'S2 E1 • Chapter One: MADMAX',
-        season: 2,
-        episode: 1,
-        durationSeconds: 2880,
-        directByteCount: 780000000,
-        directBytes: Uint8List.fromList([7, 8]),
-      );
+      service.seedDemoData();
     });
 
     await tester.pumpWidget(

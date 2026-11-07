@@ -251,6 +251,7 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
   }
 
   Widget _buildDownloadButton(BuildContext context) {
+    if (!AgentMode.isActive.value && !kDebugMode) return const SizedBox.shrink();
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 

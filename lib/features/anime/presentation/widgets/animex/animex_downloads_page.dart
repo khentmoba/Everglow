@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../../core/agent/agent_mode.dart';
 import '../../../../../core/services/offline_media/offline_media_item.dart';
 import '../../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../../core/theme/app_radius.dart';
@@ -413,7 +414,9 @@ class AnimeXDownloadsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Download anime episodes and seasons to watch them offline anytime on your phone or tablet.',
+              AgentMode.isActive.value
+                  ? 'In Agent mode, download demo episodes to test offline anime playback.'
+                  : 'Downloaded anime episodes will appear here for offline playback.',
               textAlign: TextAlign.center,
               style: AppTypography.outfitHeading.copyWith(
                 color: AnimeXTokens.textSecondary,

@@ -21,7 +21,8 @@ class KatanaDownloadsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final offlineService = context.watch<OfflineMediaService>();
-    final mangaDownloads = offlineService.mangaItems;
+    final mangaDownloads =
+        offlineService.mangaItems.where((i) => i.isCompleted).toList();
 
     final content = ColoredBox(
       color: KatanaColors.background,

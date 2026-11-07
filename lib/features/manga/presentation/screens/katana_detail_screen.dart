@@ -1045,6 +1045,22 @@ class _ChapterRow extends StatelessWidget {
               chapterTitle: chapter.displayTitle,
               pageUrls: realPages,
             );
+            final item = offline.getItem('manga_${slug}_ch${chapter.id}');
+            if (item != null && item.isCompleted) {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Downloaded ${chapter.displayTitle} for offline reading!'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else {
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('Failed to download ${chapter.displayTitle}. Please check connection.'),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
           } else {
             messenger.showSnackBar(
               const SnackBar(

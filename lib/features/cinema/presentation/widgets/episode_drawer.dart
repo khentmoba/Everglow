@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -564,6 +565,7 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildMovieDownloadAction(BuildContext context) {
+    if (!AgentMode.isActive.value && !kDebugMode) return const SizedBox.shrink();
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 

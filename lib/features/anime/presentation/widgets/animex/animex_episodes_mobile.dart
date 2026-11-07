@@ -221,6 +221,7 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
   }
 
   Widget _buildDownloadButton(BuildContext context) {
+    if (!AgentMode.isActive.value && !kDebugMode) return const SizedBox.shrink();
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 

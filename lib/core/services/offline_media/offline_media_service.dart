@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../agent/agent_mode.dart';
 import '../../utils/logger.dart';
+import '../../../features/manga/data/services/katana_service.dart';
 import 'offline_media_item.dart';
 import 'offline_media_storage.dart';
 
@@ -120,6 +121,12 @@ class OfflineMediaService extends ChangeNotifier {
     }
   }
 
+  /// Exposes demo seeding directly for testing fixtures.
+  @visibleForTesting
+  void seedDemoData() {
+    _seedDemoData();
+  }
+
   bool isDownloaded(String id) {
     final item = _items[id];
     return item != null &&
@@ -168,13 +175,18 @@ class OfflineMediaService extends ChangeNotifier {
     int? durationSeconds,
     int estimatedBytes = 0,
     Uint8List? directBytes,
-    int? directByteCount,
   }) async {
     final existing = _items[id];
     if (existing != null &&
         existing.status == OfflineDownloadStatus.completed) {
       return;
     }
+
+    final resolvedEstimated = estimatedBytes > 0
+        ? estimatedBytes
+        : (type == OfflineMediaType.movie
+            ? 1400 * 1024 * 1024
+            : 350 * 1024 * 1024);
 
     var effectiveUrl = sourceUrl;
     if ((effectiveUrl == null || effectiveUrl.isEmpty) &&
@@ -198,11 +210,12 @@ class OfflineMediaService extends ChangeNotifier {
           ? OfflineDownloadStatus.completed
           : OfflineDownloadStatus.downloading,
       progress: isCompletedDirect ? 1.0 : 0.05,
-      totalBytes:
-          isCompletedDirect ? directBytes.lengthInBytes : estimatedBytes,
+      totalBytes: isCompletedDirect
+          ? directBytes.lengthInBytes
+          : resolvedEstimated,
       downloadedBytes: isCompletedDirect
           ? directBytes.lengthInBytes
-          : (estimatedBytes * 0.05).round(),
+          : (resolvedEstimated * 0.05).round(),
       downloadedAt: DateTime.now(),
       durationSeconds: durationSeconds,
       blobKey: id,
@@ -214,7 +227,7 @@ class OfflineMediaService extends ChangeNotifier {
 
     if (directBytes != null) {
       await _storage.saveMediaBlob(id, directBytes);
-      final finalBytes = directByteCount ?? directBytes.lengthInBytes;
+      final finalBytes = directBytes.lengthInBytes;
       _items[id] = initial.copyWith(
         status: OfflineDownloadStatus.completed,
         progress: 1.0,
@@ -321,41 +334,56 @@ class OfflineMediaService extends ChangeNotifier {
     if (pageUrls.isNotEmpty) {
       try {
         var saved = 0;
+        var totalBytes = 0;
         for (var i = 0; i < pageUrls.length; i++) {
-          final pUrl = pageUrls[i];
+          final rawUrl = pageUrls[i];
           final pageKey = '${id}_p_${i + 1}';
-          if (pUrl.startsWith('http')) {
-            final res = await http.get(Uri.parse(pUrl));
+          if (rawUrl.startsWith('http')) {
+            final proxied = KatanaService.proxyImageUrl(rawUrl);
+            final res = await http.get(Uri.parse(proxied));
             if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
               await _storage.saveMangaPage(pageKey, res.bodyBytes);
               saved++;
+              totalBytes += res.bodyBytes.length;
+            } else {
+              Logger.e('Failed to fetch manga page $i ($proxied): status ${res.statusCode}');
             }
-          } else if (pUrl.startsWith('assets/')) {
-            final data = await rootBundle.load(pUrl);
-            await _storage.saveMangaPage(pageKey, data.buffer.asUint8List());
+          } else if (rawUrl.startsWith('assets/')) {
+            final data = await rootBundle.load(rawUrl);
+            final bytes = data.buffer.asUint8List();
+            await _storage.saveMangaPage(pageKey, bytes);
             saved++;
+            totalBytes += bytes.length;
           }
           final progress = (saved / pageUrls.length).clamp(0.0, 1.0);
           _items[id] = _items[id]!.copyWith(
             progress: progress,
-            downloadedBytes: (estimatedBytes * progress).round(),
+            downloadedBytes: totalBytes > 0
+                ? totalBytes
+                : (estimatedBytes * progress).round(),
           );
           notifyListeners();
         }
-        _items[id] = _items[id]!.copyWith(
-          status: OfflineDownloadStatus.completed,
-          progress: 1.0,
-          downloadedBytes: estimatedBytes,
-        );
-        notifyListeners();
-        await _saveToStorage();
-        return;
+        if (saved == pageUrls.length && saved > 0) {
+          _items[id] = _items[id]!.copyWith(
+            status: OfflineDownloadStatus.completed,
+            progress: 1.0,
+            downloadedBytes: totalBytes > 0 ? totalBytes : estimatedBytes,
+            totalBytes: totalBytes > 0 ? totalBytes : estimatedBytes,
+          );
+          notifyListeners();
+          await _saveToStorage();
+          return;
+        }
       } catch (e) {
         Logger.e('Manga chapter download failed for $id', error: e);
       }
     }
 
-    // If manga pages cannot be completed, mark failed
+    // If manga pages cannot be completed, clean up and mark failed
+    for (var i = 1; i <= pageUrls.length; i++) {
+      await _storage.deleteBlob('${id}_p_$i', isManga: true);
+    }
     _items[id] = initial.copyWith(
       status: OfflineDownloadStatus.failed,
       progress: 0.0,
