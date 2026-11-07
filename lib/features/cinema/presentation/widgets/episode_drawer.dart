@@ -569,7 +569,8 @@ class _EpisodeDrawerState extends _EpisodeDrawerStateCore2 {
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 
-    final downloadId = 'cinema_movie_${widget.item.tmdbId}';
+    final downloadId =
+        OfflineMediaService.cinemaMovieId(widget.item.tmdbId);
     final isDone = offline.isDownloaded(downloadId);
     final isDownloading = offline.isDownloading(downloadId);
 

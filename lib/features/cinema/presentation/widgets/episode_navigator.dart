@@ -328,7 +328,11 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 
-    final id = 'cinema_tv_${widget.tmdbId}_s${_selectedSeason}_e$epNum';
+    final id = OfflineMediaService.cinemaEpisodeId(
+      widget.tmdbId,
+      _selectedSeason,
+      epNum,
+    );
     final isDone = offline.isDownloaded(id);
     final isDownloading = offline.isDownloading(id);
 
