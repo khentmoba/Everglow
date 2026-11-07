@@ -14,6 +14,8 @@ import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../../cinema/data/services/player_memory_service.dart';
 import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
+import '../../../../../core/services/offline_media/offline_media_item.dart';
+import '../../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../watch_party/presentation/widgets/start_watch_party_button.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/tmdb_anime_details.dart';
@@ -793,6 +795,14 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   String get _playerUrl {
+    final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
+    final offlineId = 'anime_${animeId}_s1_e$_playerEpisode';
+    final offlineItem = OfflineMediaService.instance.getItem(offlineId);
+    if (offlineItem != null && offlineItem.isCompleted) {
+      return offlineItem.sourceUrl ??
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    }
+
     if (!_ready || _servers.isEmpty) return '';
     AnimeServerOption? current;
     if (_serverIndex >= 0 &&

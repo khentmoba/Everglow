@@ -86,6 +86,12 @@ List<NetflixMobileItem> cinemaMobileNavItems({required bool isCinemaOnlyUser}) {
         tab: 3,
       ),
       NetflixMobileItem(
+        label: 'Downloads',
+        icon: Icons.download_for_offline_outlined,
+        activeIcon: Icons.download_for_offline_rounded,
+        tab: 5,
+      ),
+      NetflixMobileItem(
         label: 'Search',
         icon: Icons.search_rounded,
         activeIcon: Icons.search_rounded,
@@ -119,6 +125,12 @@ List<NetflixMobileItem> cinemaMobileNavItems({required bool isCinemaOnlyUser}) {
       icon: Icons.bookmark_border_rounded,
       activeIcon: Icons.bookmark_rounded,
       tab: 3,
+    ),
+    NetflixMobileItem(
+      label: 'Downloads',
+      icon: Icons.download_for_offline_outlined,
+      activeIcon: Icons.download_for_offline_rounded,
+      tab: 5,
     ),
     NetflixMobileItem(
       label: 'Search',

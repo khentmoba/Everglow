@@ -10,6 +10,7 @@ import '../../../data/services/animex_stores.dart';
 import 'animex_browse_page.dart';
 import 'animex_controller.dart';
 import 'animex_dmca_page.dart';
+import 'animex_downloads_page.dart';
 import 'animex_history_page.dart';
 import 'animex_home_page.dart';
 import 'animex_motchi_sidebar.dart';
@@ -163,6 +164,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
             AnimeXMyListPage(controller: _controller),
             AnimeXPlaylistsPage(controller: _controller),
             AnimeXSeasonalPage(controller: _controller),
+            AnimeXDownloadsPage(controller: _controller),
           ];
           final detailChild = _controller.watchItem != null
               ? AnimeXWatchPage(

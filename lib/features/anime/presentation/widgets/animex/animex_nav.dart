@@ -43,6 +43,7 @@ class AnimeXTopHeader extends StatelessWidget {
       (AnimexPage.home, 'Home', Icons.house_outlined),
       (AnimexPage.schedule, 'Schedule', Icons.calendar_month_outlined),
       (AnimexPage.browse, 'Browse', Icons.explore_outlined),
+      (AnimexPage.downloads, 'Downloads', Icons.download_for_offline_outlined),
       (AnimexPage.history, 'History', Icons.history_rounded),
     ];
 
@@ -268,6 +269,12 @@ class AnimeXMobileBottomNav extends StatelessWidget {
         'My List',
         Icons.bookmark_add_outlined,
         Icons.bookmark_add_rounded,
+      ),
+      (
+        AnimexPage.downloads,
+        'Downloads',
+        Icons.download_for_offline_outlined,
+        Icons.download_for_offline_rounded,
       ),
       (
         AnimexPage.history,

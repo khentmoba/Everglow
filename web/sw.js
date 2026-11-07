@@ -29,6 +29,9 @@ const CORE="everglow-core-v1";
 // Gallery thumbnails kept on purpose ("Keep on this phone"); the page fills
 // and clears it (offline_photos_web.dart). Never purged by an update.
 const OFFLINE_PHOTOS="everglow-offline-photos-v1";
+// Offline downloaded cinema/anime videos and manga pages (never purged by an update).
+const OFFLINE_MEDIA="everglow-offline-media-v1";
+const OFFLINE_MANGA="everglow-offline-manga-v1";
 // Immutable bytes keyed by engine revision, not by app build: CanvasKit
 // filenames are STABLE across Flutter builds, so a per-build purge would
 // force a ~7MB re-download on every deploy even when the engine did not
@@ -259,7 +262,7 @@ self.addEventListener("activate", (e) => {
       .then((ks) => Promise.all(
         // Keep previous versioned loaders/chunks until their core rotates
         // out. Activation can precede the new build's first complete boot.
-        ks.filter((k) => !k.endsWith("-SHELL-v1") && k !== IMMUTABLE && k !== CORE && k !== OFFLINE_PHOTOS).map((k) => caches.delete(k)),
+        ks.filter((k) => !k.endsWith("-SHELL-v1") && k !== IMMUTABLE && k !== CORE && k !== OFFLINE_PHOTOS && k !== OFFLINE_MEDIA && k !== OFFLINE_MANGA).map((k) => caches.delete(k)),
       ))
       .then(async () => {
         try {
@@ -290,6 +293,24 @@ self.addEventListener("fetch", (e) => {
   if (url.pathname.endsWith("/proxyGalleryImage")) {
     e.respondWith(
       caches.open(OFFLINE_PHOTOS)
+        .then((c) => c.match(e.request))
+        .catch(() => undefined)
+        .then((hit) => hit || fetch(e.request)),
+    );
+    return;
+  }
+  if (url.pathname.startsWith("/offline-media/")) {
+    e.respondWith(
+      caches.open(OFFLINE_MEDIA)
+        .then((c) => c.match(e.request))
+        .catch(() => undefined)
+        .then((hit) => hit || fetch(e.request)),
+    );
+    return;
+  }
+  if (url.pathname.startsWith("/offline-manga/")) {
+    e.respondWith(
+      caches.open(OFFLINE_MANGA)
         .then((c) => c.match(e.request))
         .catch(() => undefined)
         .then((hit) => hit || fetch(e.request)),

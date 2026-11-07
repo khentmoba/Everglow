@@ -240,9 +240,75 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
                   ],
                 ),
               ),
+              _buildDownloadButton(context),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadButton(BuildContext context) {
+    final offline = context.watch<OfflineMediaService?>();
+    if (offline == null) return const SizedBox.shrink();
+
+    final downloadId =
+        'anime_${widget.animeTitle}_s1_e${widget.episode.number}';
+    final isDone = offline.isDownloaded(downloadId);
+    final isDownloading = offline.isDownloading(downloadId);
+
+    if (isDone) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 6, top: 2),
+        child: Tooltip(
+          message: 'Downloaded for offline viewing',
+          child: Icon(
+            Icons.offline_pin_rounded,
+            color: AnimeXTokens.accent,
+            size: 18,
+          ),
+        ),
+      );
+    }
+
+    if (isDownloading) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 6, top: 2),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AnimeXTokens.accent,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        icon: const Icon(
+          Icons.download_for_offline_outlined,
+          color: AnimeXTokens.textMuted,
+          size: 18,
+        ),
+        tooltip: 'Download episode',
+        onPressed: () {
+          offline.startDownloadMedia(
+            id: downloadId,
+            type: OfflineMediaType.anime,
+            mediaId: widget.episode.number.toString(),
+            title: widget.animeTitle,
+            subtitle:
+                'Episode ${widget.episode.number} • ${widget.episode.title ?? ""}',
+            season: 1,
+            episode: widget.episode.number,
+            coverUrl: widget.episode.thumbnail ?? widget.fallbackPoster,
+          );
+        },
       ),
     );
   }

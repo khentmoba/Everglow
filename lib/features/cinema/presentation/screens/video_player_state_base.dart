@@ -107,9 +107,102 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// DOM exit chip shown above the Flutter platform view in theater mode.
   web.HTMLButtonElement? _fullscreenExitButton;
   web.HTMLDivElement? _playerHost;
+  web.HTMLVideoElement? _videoElement;
+  bool _isOfflinePlayback = false;
+  JSFunction? _videoLoadedListener;
+  JSFunction? _videoTimeUpdateListener;
+  JSFunction? _videoEndedListener;
   web.HTMLElement? _theaterPlatformView;
   String? _platformViewStyles;
   JSFunction? _onFullscreenExitListener;
+
+  String get _currentDownloadId {
+    if (widget.isAnime) {
+      final malId = widget.malId ?? widget.tmdbId;
+      return 'anime_${malId}_s${_currentSeason}_e$_currentEpisode';
+    }
+    if (widget.mediaType == 'tv') {
+      return 'cinema_tv_${widget.tmdbId}_s${_currentSeason}_e$_currentEpisode';
+    }
+    return 'cinema_movie_${widget.tmdbId}';
+  }
+
+  OfflineMediaItem? get _currentOfflineItem =>
+      OfflineMediaService.instance.getItem(_currentDownloadId);
+
+  bool get _isCurrentOfflineDownloaded =>
+      _currentOfflineItem != null && _currentOfflineItem!.isCompleted;
+
+  void _mountPlayerHost(web.HTMLDivElement host) {
+    _playerHost = host;
+    if (_isCurrentOfflineDownloaded) {
+      _mountOfflineVideo(host, _currentOfflineItem!);
+    } else {
+      _mountOnlineIframe(host);
+    }
+  }
+
+  void _mountOfflineVideo(web.HTMLDivElement host, OfflineMediaItem item) {
+    _loadTimer?.cancel();
+    _contentCheckTimer?.cancel();
+    _isOfflinePlayback = true;
+
+    if (_videoElement == null) {
+      _videoElement = web.HTMLVideoElement()
+        ..controls = true
+        ..autoplay = true
+        ..style.width = '100%'
+        ..style.height = '100%'
+        ..style.backgroundColor = '#000'
+        ..setAttribute('playsinline', 'true')
+        ..setAttribute('webkit-playsinline', 'true');
+
+      _videoLoadedListener = ((web.Event _) {
+        if (mounted) setState(() => _isLoading = false);
+        _saveWatchProgress();
+      }).toJS;
+      _videoTimeUpdateListener = ((web.Event _) {
+        if (!mounted || _videoElement == null) return;
+        final pos = _videoElement!.currentTime.round();
+        final dur = _videoElement!.duration.isFinite
+            ? _videoElement!.duration.round()
+            : 0;
+        _playbackPositionSeconds = pos;
+        if (dur > 0) _playbackDurationSeconds = dur;
+        OfflineMediaService.instance.updatePlaybackPosition(item.id, pos);
+        _saveWatchProgress();
+      }).toJS;
+      _videoEndedListener = ((web.Event _) {
+        if (!mounted) return;
+        if (widget.mediaType == 'tv' && _nextEpisode != null) {
+          _playNextEpisode();
+        }
+      }).toJS;
+
+      _videoElement!.addEventListener('loadeddata', _videoLoadedListener);
+      _videoElement!.addEventListener('timeupdate', _videoTimeUpdateListener);
+      _videoElement!.addEventListener('ended', _videoEndedListener);
+    }
+
+    OfflineMediaService.instance.getPlayableUrl(item).then((url) {
+      if (!mounted || _videoElement == null) return;
+      if (url != null && url.isNotEmpty) {
+        _videoElement!.src = url;
+        if (_resolvedStartSeconds != null && _resolvedStartSeconds! > 0) {
+          _videoElement!.currentTime = _resolvedStartSeconds!.toDouble();
+        }
+        _videoElement!.play();
+      }
+    });
+
+    host.replaceChildren([_videoElement!].toJS);
+  }
+
+  void _mountOnlineIframe(web.HTMLDivElement host) {
+    _isOfflinePlayback = false;
+    _videoElement?.pause();
+    host.replaceChildren([_iframe].toJS);
+  }
 
   /// Shared embed-provider service. Sources are loaded from Firestore
   /// with a hardcoded fallback.
@@ -300,6 +393,22 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     _failedProviderIds.clear();
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
+
+    final nextDownloadId = widget.isAnime
+        ? 'anime_${widget.malId ?? widget.tmdbId}_s${_currentSeason}_e$episode'
+        : 'cinema_tv_${widget.tmdbId}_s${_currentSeason}_e$episode';
+    final nextOfflineItem = OfflineMediaService.instance.getItem(nextDownloadId);
+    if (nextOfflineItem != null &&
+        nextOfflineItem.isCompleted &&
+        _playerHost != null) {
+      _mountOfflineVideo(_playerHost!, nextOfflineItem);
+      _resolveNextEpisode();
+      _persistPlayerMemory(resetPosition: true);
+      return;
+    } else if (_isOfflinePlayback && _playerHost != null) {
+      _mountOnlineIframe(_playerHost!);
+    }
+
     _loadTimer = Timer(_loadTimeout, () {
       if (!mounted) return;
       if (_isLoading) _onIframeLoadError();
@@ -1243,6 +1352,19 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
     _setBodyOverflowHidden(false);
     _hideFullscreenExitButton();
+    if (_videoElement != null) {
+      _videoElement!.pause();
+      if (_videoLoadedListener != null) {
+        _videoElement!.removeEventListener('loadeddata', _videoLoadedListener);
+      }
+      if (_videoTimeUpdateListener != null) {
+        _videoElement!.removeEventListener('timeupdate', _videoTimeUpdateListener);
+      }
+      if (_videoEndedListener != null) {
+        _videoElement!.removeEventListener('ended', _videoEndedListener);
+      }
+      _videoElement = null;
+    }
     _iframe.src = 'about:blank';
     _iframe.remove();
     _scrollController.dispose();

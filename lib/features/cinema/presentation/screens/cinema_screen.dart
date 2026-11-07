@@ -21,6 +21,7 @@ import '../widgets/tabs/cinema_home_tab.dart' show CinemaHomeTab;
 import '../widgets/tabs/cinema_search_tab.dart' show CinemaSearchTab;
 import '../widgets/tabs/cinema_browse_tab.dart' show CinemaBrowseTab;
 import '../widgets/tabs/cinema_library_tab.dart' show CinemaLibraryTab;
+import '../widgets/tabs/cinema_downloads_tab.dart' show CinemaDownloadsTab;
 import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 import '../../../../shared/widgets/shelf/media_section_menu.dart';
@@ -107,7 +108,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
       _currentIndex = 2;
       _browseSeed = 1;
     } else {
-      _currentIndex = widget.initialTab.clamp(0, 4);
+      _currentIndex = widget.initialTab.clamp(0, 5);
     }
     // Paint the last good rows now when this session has them; otherwise read
     // the saved copy.
@@ -843,6 +844,10 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   onMediaTap: _showMediaDetails,
                   onSwitchTab: _switchTab,
                 ),
+                CinemaDownloadsTab(
+                  onPlayMedia: _playMedia,
+                  onBrowseCinema: () => _switchTab(0),
+                ),
               ],
             ),
             // Floating back button (mobile/tablet): couple users return to
@@ -975,6 +980,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   NetflixNavLink('Home', 0),
                   NetflixNavLink('New & Popular', 2, 'collection-new'),
                   NetflixNavLink('My List', 3),
+                  NetflixNavLink('Downloads', 5),
                   NetflixNavLink('Search', 1),
                 ],
               ),
@@ -996,6 +1002,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
           NetflixNavLink('Home', 0),
           NetflixNavLink('New & Popular', 2, 'collection-new'),
           NetflixNavLink('My List', 3),
+          NetflixNavLink('Downloads', 5),
           NetflixNavLink('Search', 1),
         ],
         // Cinema-only profiles get Anime instead of Together here — it is

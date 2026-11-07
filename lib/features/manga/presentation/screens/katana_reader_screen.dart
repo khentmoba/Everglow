@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/auth_service.dart';
+import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -364,6 +365,20 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _tokenRefreshed = false;
       _markedRead = false;
     });
+
+    final offlineId = 'manga_${widget.slug}_ch_${_chapter.id}';
+    final offlineItem = OfflineMediaService.instance.getItem(offlineId);
+    if (offlineItem != null &&
+        offlineItem.isCompleted &&
+        offlineItem.pageUrls.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _pages = offlineItem.pageUrls;
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
 
     // fetchChapterPages already tries the requested server first and
     // then the other two, so one call covers every CDN.

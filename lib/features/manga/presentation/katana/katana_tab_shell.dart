@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/katana_currently_reading_screen.dart';
 import '../screens/katana_directory_screen.dart';
+import '../screens/katana_downloads_screen.dart';
 import '../screens/katana_genres_screen.dart';
 import '../screens/katana_home_screen.dart';
 import './katana_header.dart';
@@ -126,6 +127,8 @@ class KatanaTabShellState extends State<KatanaTabShell> {
 
   void showReading() => _show(KatanaNav.reading, '', '', '');
 
+  void showDownloads() => _show(KatanaNav.downloads, '', '', '');
+
   void showTab(
     KatanaNav tab, {
     String mode = 'directory',
@@ -146,6 +149,8 @@ class KatanaTabShellState extends State<KatanaTabShell> {
         return showCatalog(mode: mode, slug: slug, title: title);
       case KatanaNav.reading:
         return showReading();
+      case KatanaNav.downloads:
+        return showDownloads();
     }
   }
 
@@ -237,6 +242,8 @@ class KatanaTabShellState extends State<KatanaTabShell> {
         return const KatanaGenresScreen(embed: true);
       case KatanaNav.reading:
         return const KatanaCurrentlyReadingScreen(embed: true);
+      case KatanaNav.downloads:
+        return const KatanaDownloadsScreen(embed: true);
     }
   }
 }

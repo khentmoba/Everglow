@@ -6,6 +6,7 @@ import '../screens/katana_bookmarks_screen.dart';
 import '../screens/katana_currently_reading_screen.dart';
 import '../screens/katana_detail_screen.dart';
 import '../screens/katana_directory_screen.dart';
+import '../screens/katana_downloads_screen.dart';
 import '../screens/katana_genres_screen.dart';
 import '../screens/katana_reader_screen.dart';
 import '../screens/katana_search_results_screen.dart';
@@ -118,6 +119,18 @@ void pushBookmarks(BuildContext context) {
   Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => const KatanaBookmarksScreen()));
+}
+
+void pushDownloads(BuildContext context) {
+  final shell = KatanaTabShell.maybeOf(context);
+  if (shell != null) {
+    shell.showDownloads();
+    return;
+  }
+  if (KatanaTabShell.popToShell(context, tab: KatanaNav.downloads)) return;
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => const KatanaDownloadsScreen()),
+  );
 }
 
 void pushCurrentlyReading(BuildContext context) {

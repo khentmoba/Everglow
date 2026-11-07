@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../core/services/offline_media/offline_media_item.dart';
+import '../../../../core/services/offline_media/offline_media_service.dart';
 import '../../../../shared/utils/tmdb_images.dart';
 
 import '../../data/services/tmdb_service.dart';
@@ -306,12 +309,74 @@ class _EpisodeNavigatorState extends State<EpisodeNavigator> {
                         : null,
                     selected: epNum == _selectedEpisode,
                     onTap: () => _selectEpisode(epNum),
+                    trailing: _buildDownloadAction(epNum, name, stillPath),
                   );
                 },
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDownloadAction(int epNum, String name, String? stillPath) {
+    final offline = context.watch<OfflineMediaService?>();
+    if (offline == null) return const SizedBox.shrink();
+
+    final id = 'cinema_tv_${widget.tmdbId}_s${_selectedSeason}_e$epNum';
+    final isDone = offline.isDownloaded(id);
+    final isDownloading = offline.isDownloading(id);
+
+    if (isDone) {
+      return Tooltip(
+        message: 'Downloaded for offline viewing',
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: NetflixColors.accent.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.offline_pin_rounded,
+            color: NetflixColors.accent,
+            size: 20,
+          ),
+        ),
+      );
+    }
+
+    if (isDownloading) {
+      return const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: NetflixColors.accent,
+        ),
+      );
+    }
+
+    return IconButton(
+      icon: const Icon(
+        Icons.download_for_offline_outlined,
+        color: NetflixColors.textMuted,
+        size: 22,
+      ),
+      tooltip: 'Download episode',
+      onPressed: () {
+        offline.startDownloadMedia(
+          id: id,
+          type: OfflineMediaType.tv,
+          mediaId: widget.tmdbId.toString(),
+          title: 'TV Series',
+          subtitle: 'S$_selectedSeason E$epNum • $name',
+          season: _selectedSeason,
+          episode: epNum,
+          coverUrl: (stillPath != null && stillPath.isNotEmpty)
+              ? TmdbImages.stillFor(stillPath)
+              : '',
+        );
+      },
     );
   }
 

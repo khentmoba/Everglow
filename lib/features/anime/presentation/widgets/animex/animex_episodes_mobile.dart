@@ -96,28 +96,41 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: dmSansStyle(
-                        size: 13,
-                        color: isPlaying
-                            ? AnimeXTokens.accentWarm
-                            : AnimeXTokens.textPrimary,
-                        weight: FontWeight.w700,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      animeTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: dmSansStyle(
-                        size: 11,
-                        color: AnimeXTokens.textSecondary,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: dmSansStyle(
+                                  size: 13,
+                                  color: isPlaying
+                                      ? AnimeXTokens.accentWarm
+                                      : AnimeXTokens.textPrimary,
+                                  weight: FontWeight.w700,
+                                  height: 1.25,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                animeTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: dmSansStyle(
+                                  size: 11,
+                                  color: AnimeXTokens.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildDownloadButton(context),
+                      ],
                     ),
                     const SizedBox(height: 6),
                     if (hidden)
@@ -191,7 +204,7 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
                       Text(
                         'Aired: ${ep.airedAt!.year}-${ep.airedAt!.month.toString().padLeft(2, '0')}-${ep.airedAt!.day.toString().padLeft(2, '0')}',
                         style: dmSansStyle(
-                          size: 11,
+                          size: 10,
                           color: AnimeXTokens.textMuted,
                         ),
                       ),
@@ -201,6 +214,71 @@ class _MobileEpisodeCardState extends State<_MobileEpisodeCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadButton(BuildContext context) {
+    final offline = context.watch<OfflineMediaService?>();
+    if (offline == null) return const SizedBox.shrink();
+
+    final downloadId =
+        'anime_${widget.animeTitle}_s1_e${widget.episode.number}';
+    final isDone = offline.isDownloaded(downloadId);
+    final isDownloading = offline.isDownloading(downloadId);
+
+    if (isDone) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 6),
+        child: Tooltip(
+          message: 'Downloaded for offline viewing',
+          child: Icon(
+            Icons.offline_pin_rounded,
+            color: AnimeXTokens.accent,
+            size: 18,
+          ),
+        ),
+      );
+    }
+
+    if (isDownloading) {
+      return const Padding(
+        padding: EdgeInsets.only(left: 6),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AnimeXTokens.accent,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+        icon: const Icon(
+          Icons.download_for_offline_outlined,
+          color: AnimeXTokens.textMuted,
+          size: 18,
+        ),
+        tooltip: 'Download episode',
+        onPressed: () {
+          offline.startDownloadMedia(
+            id: downloadId,
+            type: OfflineMediaType.anime,
+            mediaId: widget.episode.number.toString(),
+            title: widget.animeTitle,
+            subtitle:
+                'Episode ${widget.episode.number} • ${widget.episode.title ?? ""}',
+            season: 1,
+            episode: widget.episode.number,
+            coverUrl: widget.episode.thumbnail ?? widget.fallbackPoster,
+          );
+        },
       ),
     );
   }
