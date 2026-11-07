@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/services/offline_media/offline_media_service.dart';
+import '../../../../core/services/offline_media/offline_media_storage.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -235,6 +236,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
   @override
   void dispose() {
+    for (final p in _pages) {
+      if (p.startsWith('blob:')) {
+        unawaited(OfflineMediaStorage.instance.revokeBlobUrl(p));
+      }
+    }
     _pagePillTimer?.cancel();
     _scrollController.removeListener(_onWebtoonScroll);
     _scrollController.dispose();

@@ -33,7 +33,6 @@ class OfflineMediaService extends ChangeNotifier {
 
   final Map<String, OfflineMediaItem> _items = {};
   bool _initialized = false;
-  final Map<String, Timer> _activeDownloadSimulators = {};
 
   bool get isInitialized => _initialized;
 
@@ -224,8 +223,14 @@ class OfflineMediaService extends ChangeNotifier {
       }
     }
 
-    // Simulate progressive download chunks if not given directly
-    _simulateProgress(id, estimatedBytes);
+    // If download cannot be completed, mark failed
+    _items[id] = initial.copyWith(
+      status: OfflineDownloadStatus.failed,
+      progress: 0.0,
+      downloadedBytes: 0,
+    );
+    notifyListeners();
+    await _saveToStorage();
   }
 
   /// Starts downloading a manga chapter with its pages.
@@ -327,53 +332,19 @@ class OfflineMediaService extends ChangeNotifier {
       }
     }
 
-    _simulateProgress(id, estimatedBytes);
-  }
-
-  void _simulateProgress(String id, int totalBytes) {
-    _activeDownloadSimulators[id]?.cancel();
-    var step = 1;
-    const totalSteps = 10;
-    _activeDownloadSimulators[id] = Timer.periodic(
-      const Duration(milliseconds: 300),
-      (timer) async {
-        final current = _items[id];
-        if (current == null ||
-            current.status == OfflineDownloadStatus.paused) {
-          timer.cancel();
-          _activeDownloadSimulators.remove(id);
-          return;
-        }
-
-        step++;
-        final progress = (step / totalSteps).clamp(0.0, 1.0);
-        final downloaded = (totalBytes * progress).round();
-
-        if (step >= totalSteps) {
-          timer.cancel();
-          _activeDownloadSimulators.remove(id);
-          _items[id] = current.copyWith(
-            status: OfflineDownloadStatus.completed,
-            progress: 1.0,
-            downloadedBytes: totalBytes,
-          );
-        } else {
-          _items[id] = current.copyWith(
-            progress: progress,
-            downloadedBytes: downloaded,
-          );
-        }
-        notifyListeners();
-        await _saveToStorage();
-      },
+    // If manga pages cannot be completed, mark failed
+    _items[id] = initial.copyWith(
+      status: OfflineDownloadStatus.failed,
+      progress: 0.0,
+      downloadedBytes: 0,
     );
+    notifyListeners();
+    await _saveToStorage();
   }
 
   Future<void> pauseDownload(String id) async {
     final item = _items[id];
     if (item == null) return;
-    _activeDownloadSimulators[id]?.cancel();
-    _activeDownloadSimulators.remove(id);
     _items[id] = item.copyWith(status: OfflineDownloadStatus.paused);
     notifyListeners();
     await _saveToStorage();
@@ -382,15 +353,32 @@ class OfflineMediaService extends ChangeNotifier {
   Future<void> resumeDownload(String id) async {
     final item = _items[id];
     if (item == null) return;
-    _items[id] = item.copyWith(status: OfflineDownloadStatus.downloading);
-    notifyListeners();
-    await _saveToStorage();
-    _simulateProgress(id, item.totalBytes > 0 ? item.totalBytes : 350 * 1024 * 1024);
+    if (item.sourceUrl != null && item.sourceUrl!.isNotEmpty) {
+      await startDownloadMedia(
+        id: item.id,
+        type: item.type,
+        mediaId: item.mediaId,
+        title: item.title,
+        subtitle: item.subtitle,
+        season: item.season,
+        episode: item.episode,
+        coverUrl: item.coverUrl,
+        sourceUrl: item.sourceUrl,
+        durationSeconds: item.durationSeconds,
+      );
+    } else if (item.isManga && item.pageUrls.isNotEmpty) {
+      await startDownloadMangaChapter(
+        slug: item.mediaId,
+        mangaTitle: item.title,
+        coverUrl: item.coverUrl,
+        chapterId: item.chapterId ?? '1',
+        chapterTitle: item.subtitle,
+        pageUrls: item.pageUrls,
+      );
+    }
   }
 
   Future<void> deleteDownload(String id) async {
-    _activeDownloadSimulators[id]?.cancel();
-    _activeDownloadSimulators.remove(id);
     final item = _items.remove(id);
     if (item != null) {
       if (item.blobKey != null) {
@@ -407,16 +395,14 @@ class OfflineMediaService extends ChangeNotifier {
   }
 
   Future<void> clearAll({OfflineMediaType? type}) async {
-    for (final timer in _activeDownloadSimulators.values) {
-      timer.cancel();
-    }
-    _activeDownloadSimulators.clear();
-
     if (type == null) {
       _items.clear();
       await _storage.clearAll();
     } else {
-      final toRemove = _items.values.where((i) => i.type == type).map((i) => i.id).toList();
+      final toRemove = _items.values
+          .where((i) => i.type == type)
+          .map((i) => i.id)
+          .toList();
       for (final id in toRemove) {
         final item = _items.remove(id);
         if (item?.blobKey != null) {

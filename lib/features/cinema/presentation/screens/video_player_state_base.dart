@@ -108,6 +108,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   web.HTMLButtonElement? _fullscreenExitButton;
   web.HTMLDivElement? _playerHost;
   web.HTMLVideoElement? _videoElement;
+  String? _currentMountedBlobUrl;
   bool _isOfflinePlayback = false;
   JSFunction? _videoLoadedListener;
   JSFunction? _videoTimeUpdateListener;
@@ -120,7 +121,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   String get _currentDownloadId {
     if (widget.isAnime) {
       final malId = widget.malId ?? widget.tmdbId;
-      return 'anime_${malId}_s${_currentSeason}_e$_currentEpisode';
+      return 'anime_${malId}_s1_e$_currentEpisode';
     }
     if (widget.mediaType == 'tv') {
       return 'cinema_tv_${widget.tmdbId}_s${_currentSeason}_e$_currentEpisode';
@@ -195,14 +196,20 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
 
     OfflineMediaService.instance.getPlayableUrl(item).then((url) {
-      if (!mounted || _videoElement == null) return;
-      if (url != null && url.isNotEmpty) {
+      if (!mounted) return;
+      if (url != null && url.isNotEmpty && _videoElement != null) {
+        if (_currentMountedBlobUrl != null && _currentMountedBlobUrl != url) {
+          unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_currentMountedBlobUrl!));
+        }
+        _currentMountedBlobUrl = url;
         _videoElement!.src = url;
         final startSec = _resolvedStartSeconds ?? item.lastPositionSeconds ?? 0;
         if (startSec > 0) {
           _videoElement!.currentTime = startSec.toDouble();
         }
         _videoElement!.play();
+      } else {
+        _mountOnlineIframe(host);
       }
     });
 
@@ -211,7 +218,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
   bool _tryPlayOfflineEpisode(int season, int episode) {
     final nextDownloadId = widget.isAnime
-        ? 'anime_${widget.malId ?? widget.tmdbId}_s${season}_e$episode'
+        ? 'anime_${widget.malId ?? widget.tmdbId}_s1_e$episode'
         : 'cinema_tv_${widget.tmdbId}_s${season}_e$episode';
     final nextOfflineItem = OfflineMediaService.instance.getItem(nextDownloadId);
     if (nextOfflineItem != null &&
@@ -1382,6 +1389,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
     _setBodyOverflowHidden(false);
     _hideFullscreenExitButton();
+    if (_currentMountedBlobUrl != null) {
+      unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_currentMountedBlobUrl!));
+      _currentMountedBlobUrl = null;
+    }
     unawaited(OfflineMediaService.instance.flushPlaybackPosition());
     if (_videoElement != null) {
       _videoElement!.pause();

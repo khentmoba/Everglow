@@ -16,6 +16,7 @@ import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../core/services/offline_media/offline_media_item.dart';
 import '../../../../../core/services/offline_media/offline_media_service.dart';
+import '../../../../../core/services/offline_media/offline_media_storage.dart';
 import '../../../../watch_party/presentation/widgets/start_watch_party_button.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/tmdb_anime_details.dart';
@@ -260,6 +261,24 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _initialize();
   }
 
+  String? _offlineBlobUrl;
+
+  Future<void> _checkOfflinePlayback() async {
+    final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
+    final offlineId = 'anime_${animeId}_s1_e$_playerEpisode';
+    final offlineItem = OfflineMediaService.instance.getItem(offlineId);
+    if (offlineItem != null && offlineItem.isCompleted) {
+      final url = await OfflineMediaService.instance.getPlayableUrl(offlineItem);
+      if (mounted && url != null && url.isNotEmpty) {
+        setState(() => _offlineBlobUrl = url);
+        return;
+      }
+    }
+    if (_offlineBlobUrl != null && mounted) {
+      setState(() => _offlineBlobUrl = null);
+    }
+  }
+
   Future<void> _initialize() async {
     try {
       await Future.wait([_load(), _restoreMemory()]);
@@ -267,6 +286,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
       Logger.e('AnimeX: watch initialization failed', error: e, stackTrace: st);
     }
     if (!mounted) return;
+    await _checkOfflinePlayback();
     if (_episodes.isNotEmpty) {
       final knownCount = _detail?.episodeCount ?? _item.episodeCount;
       final episode = knownCount != null && knownCount > 0
@@ -533,6 +553,9 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _progressThrottler?.cancel();
+    if (_offlineBlobUrl != null) {
+      unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+    }
     if (_ready) _saveWatchProgress();
     _scrollCtrl.dispose();
     super.dispose();
@@ -799,12 +822,8 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
   }
 
   String get _playerUrl {
-    final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
-    final offlineId = 'anime_${animeId}_s1_e$_playerEpisode';
-    final offlineItem = OfflineMediaService.instance.getItem(offlineId);
-    if (offlineItem != null && offlineItem.isCompleted) {
-      return offlineItem.sourceUrl ??
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    if (_offlineBlobUrl != null && _offlineBlobUrl!.isNotEmpty) {
+      return _offlineBlobUrl!;
     }
 
     if (!_ready || _servers.isEmpty) return '';
@@ -973,6 +992,7 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _lastKnownPosition = null;
     _playbackDuration = null;
     _progressThrottler?.cancel();
+    unawaited(_checkOfflinePlayback());
   }
 
   /// The top bar is also built in widget tests without an AuthService

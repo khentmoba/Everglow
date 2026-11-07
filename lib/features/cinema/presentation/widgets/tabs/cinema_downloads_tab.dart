@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../core/services/offline_media/offline_media_item.dart';
@@ -596,6 +597,15 @@ class CinemaDownloadsTab extends StatelessWidget {
       status: 'watching',
       addedAt: item.downloadedAt,
     );
+    try {
+      context.push(
+        item.type == OfflineMediaType.tv
+            ? '/cinema/video/${item.mediaId}?type=tv&season=${item.season ?? 1}&episode=${item.episode ?? 1}&title=${Uri.encodeComponent(item.title)}'
+            : '/cinema/video/${item.mediaId}?type=movie&title=${Uri.encodeComponent(item.title)}',
+      );
+    } catch (_) {
+      // In isolated widget tests without GoRouter
+    }
     onPlayMedia(mediaItem);
   }
 

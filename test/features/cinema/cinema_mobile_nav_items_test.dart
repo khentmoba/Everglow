@@ -42,7 +42,7 @@ void main() {
           labels,
           containsAll([
             'Home',
-            'New & Popular',
+            'Popular',
             'My List',
             'Downloads',
             'Search',

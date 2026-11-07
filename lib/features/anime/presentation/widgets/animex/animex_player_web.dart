@@ -75,6 +75,7 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
   JSFunction? _videoLoadedListener;
   JSFunction? _videoTimeUpdateListener;
   JSFunction? _videoEndedListener;
+  JSFunction? _videoErrorListener;
 
   bool get _isDirectVideo =>
       widget.url.endsWith('.mp4') ||
@@ -295,6 +296,9 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
       if (_videoEndedListener != null) {
         _videoElement!.removeEventListener('ended', _videoEndedListener);
       }
+      if (_videoErrorListener != null) {
+        _videoElement!.removeEventListener('error', _videoErrorListener);
+      }
       _videoElement = null;
     }
     if (_onLoad != null) {
@@ -353,10 +357,20 @@ class _AnimeXPlayerFrameState extends State<AnimeXPlayerFrame> {
                   _videoEndedListener = ((web.Event _) {
                     if (mounted) widget.onNextEpisode?.call();
                   }).toJS;
+                  _videoErrorListener = ((web.Event _) {
+                    if (mounted) {
+                      setState(() {
+                        _loaded = true;
+                        _contentError = true;
+                      });
+                      widget.onContentError?.call();
+                    }
+                  }).toJS;
 
                   _videoElement!.addEventListener('loadeddata', _videoLoadedListener);
                   _videoElement!.addEventListener('timeupdate', _videoTimeUpdateListener);
                   _videoElement!.addEventListener('ended', _videoEndedListener);
+                  _videoElement!.addEventListener('error', _videoErrorListener);
                   host.appendChild(_videoElement!);
                 } else {
                   host.appendChild(_iframe);
