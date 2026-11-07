@@ -1045,7 +1045,7 @@ class _ChapterRow extends StatelessWidget {
               chapterTitle: chapter.displayTitle,
               pageUrls: realPages,
             );
-            final item = offline.getItem('manga_${slug}_ch${chapter.id}');
+            final item = offline.getItem('manga_${slug}_ch_${chapter.id}');
             if (item != null && item.isCompleted) {
               messenger.showSnackBar(
                 SnackBar(

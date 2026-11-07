@@ -153,6 +153,24 @@ void main() {
       expect(pageUrl, isNotNull);
     });
 
+    test('downloads manga chapter via pageUrls and asserts consistent ID', () async {
+      await service.startDownloadMangaChapter(
+        slug: 'one-piece',
+        mangaTitle: 'One Piece',
+        coverUrl: 'https://example.com/cover.jpg',
+        chapterId: '1000',
+        chapterTitle: 'Chapter 1000',
+        pageUrls: ['assets/data/guardian_messages_seed.json'],
+      );
+
+      final expectedId = 'manga_one-piece_ch_1000';
+      final item = service.getItem(expectedId);
+      expect(item, isNotNull);
+      expect(item!.isCompleted, isTrue);
+      expect(service.isDownloaded(expectedId), isTrue);
+      expect(item.progress, 1.0);
+    });
+
     test('deleting download clears storage and registry', () async {
       final bytes = Uint8List.fromList([1, 2]);
       await service.startDownloadMedia(

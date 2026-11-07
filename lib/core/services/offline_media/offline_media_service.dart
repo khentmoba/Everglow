@@ -241,7 +241,9 @@ class OfflineMediaService extends ChangeNotifier {
 
     if (effectiveUrl != null && effectiveUrl.startsWith('http')) {
       try {
-        final res = await http.get(Uri.parse(effectiveUrl));
+        final res = await http
+            .get(Uri.parse(effectiveUrl))
+            .timeout(const Duration(seconds: 20));
         if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
           await _storage.saveMediaBlob(id, res.bodyBytes);
           _items[id] = initial.copyWith(
@@ -340,7 +342,9 @@ class OfflineMediaService extends ChangeNotifier {
           final pageKey = '${id}_p_${i + 1}';
           if (rawUrl.startsWith('http')) {
             final proxied = KatanaService.proxyImageUrl(rawUrl);
-            final res = await http.get(Uri.parse(proxied));
+            final res = await http
+                .get(Uri.parse(proxied))
+                .timeout(const Duration(seconds: 15));
             if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
               await _storage.saveMangaPage(pageKey, res.bodyBytes);
               saved++;

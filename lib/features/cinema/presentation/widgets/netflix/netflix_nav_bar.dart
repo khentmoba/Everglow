@@ -203,7 +203,7 @@ class NetflixNavBar extends StatelessWidget {
               tab: 0,
             ),
             NetflixMobileItem(
-              label: 'New & Popular',
+              label: 'Popular',
               icon: Icons.local_fire_department_outlined,
               activeIcon: Icons.local_fire_department_rounded,
               tab: 2,

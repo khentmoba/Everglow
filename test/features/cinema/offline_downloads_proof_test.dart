@@ -16,6 +16,7 @@ import 'package:everglow/core/services/offline_media/offline_media_service.dart'
 import 'package:everglow/core/services/offline_media/offline_media_storage.dart';
 import 'package:everglow/core/theme/app_theme.dart';
 import 'package:everglow/features/cinema/presentation/widgets/tabs/cinema_downloads_tab.dart';
+import 'package:everglow/features/manga/presentation/screens/katana_downloads_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +32,7 @@ void main() {
       },
     );
 
-    tester.view.physicalSize = const Size(430, 932);
+    tester.view.physicalSize = const Size(860, 932);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
       tester.view.resetPhysicalSize();
@@ -59,6 +60,24 @@ void main() {
       await storage.clearAll();
       await service.clearAll();
       service.seedDemoData();
+      await service.startDownloadMangaChapter(
+        slug: 'solo-leveling',
+        mangaTitle: 'Solo Leveling',
+        coverUrl: '',
+        chapterId: '1',
+        chapterTitle: 'Chapter 1: The Weakest Hunter',
+        pageUrls: const ['p1.jpg', 'p2.jpg'],
+        pageBytesList: [Uint8List(512 * 1024), Uint8List(512 * 1024)],
+      );
+      await service.startDownloadMangaChapter(
+        slug: 'solo-leveling',
+        mangaTitle: 'Solo Leveling',
+        coverUrl: '',
+        chapterId: '2',
+        chapterTitle: 'Chapter 2: The Double Dungeon',
+        pageUrls: const ['p1.jpg', 'p2.jpg'],
+        pageBytesList: [Uint8List(620 * 1024), Uint8List(620 * 1024)],
+      );
     });
 
     await tester.pumpWidget(
@@ -70,9 +89,19 @@ void main() {
             backgroundColor: Colors.black,
             body: RepaintBoundary(
               key: const ValueKey('downloads_screen'),
-              child: CinemaDownloadsTab(
-                onPlayMedia: (_) {},
-                onBrowseCinema: () {},
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CinemaDownloadsTab(
+                      onPlayMedia: (_) {},
+                      onBrowseCinema: () {},
+                    ),
+                  ),
+                  Container(width: 2, color: Colors.white12),
+                  const Expanded(
+                    child: KatanaDownloadsScreen(embed: true),
+                  ),
+                ],
               ),
             ),
           ),
@@ -83,11 +112,12 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Downloads'), findsOneWidget);
-    expect(find.text('Offline Ready'), findsOneWidget);
+    expect(find.text('Downloads'), findsNWidgets(2));
+    expect(find.text('Offline Ready'), findsNWidgets(2));
     expect(find.text('TV Shows & Series'), findsOneWidget);
     expect(find.text('Stranger Things'), findsOneWidget);
     expect(find.text('Interstellar'), findsOneWidget);
+    expect(find.text('Solo Leveling'), findsOneWidget);
 
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find.byKey(const ValueKey('downloads_screen')),
