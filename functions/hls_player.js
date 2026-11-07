@@ -64,10 +64,14 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.94),1.5px -1.5px 0 rgba(0,0,0,.94),' +
     '-1.5px 1.5px 0 rgba(0,0,0,.94),1.5px 1.5px 0 rgba(0,0,0,.94),' +
     '0 2px 5px rgba(0,0,0,.95),0 4px 12px rgba(0,0,0,.8)}' +
-    '#sub-box{position:fixed;left:50%;transform:translateX(-50%);bottom:88px;width:88%;' +
+    '#sub-box{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + var(--sub-lift,0px));width:88%;' +
     'text-align:center;z-index:4;pointer-events:none;transition:bottom .24s cubic-bezier(.22,1,.36,1)}' +
     'body.idle #sub-box{bottom:30px}' +
-    '#sub-txt{display:inline;background:transparent;color:#fff;font-size:clamp(15px,2.4vw,22px);' +
+    // 2.4vw tracks the picture, not the window: 22px was the old ceiling and
+    // it left the captions tiny on a fullscreen laptop or tablet. The cap only
+    // stops an ultra-wide monitor from turning them into billboards.
+    '#sub-txt{display:inline;background:transparent;color:#fff;' +
+    'font-size:calc(clamp(15px,2.4vw,52px)*var(--sub-scale,1));' +
     'font-weight:800;line-height:1.35;letter-spacing:.01em;white-space:pre-line;' +
     'text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.94),1.5px -1.5px 0 rgba(0,0,0,.94),' +
     '-1.5px 1.5px 0 rgba(0,0,0,.94),1.5px 1.5px 0 rgba(0,0,0,.94),' +
@@ -100,8 +104,13 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     // Sakura Broadcast HUD
     '#hud{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;' +
     'background:linear-gradient(180deg,rgba(10,8,16,.78) 0%,transparent 22%,transparent 62%,rgba(10,8,16,.94) 100%);' +
-    'z-index:5;transition:opacity .26s cubic-bezier(.22,1,.36,1)}' +
+    'z-index:5;transition:opacity .26s cubic-bezier(.22,1,.36,1);pointer-events:none}' +
+    // The gradient sheet covers the whole frame. Without this every tap on
+    // the picture lands on the HUD instead of the video, so click-to-pause
+    // looks dead. Only the two control bands take pointers back.
+    '.h-top,.h-bot{pointer-events:auto}' +
     'body.idle #hud{opacity:0;pointer-events:none}' +
+    'body.idle .h-top,body.idle .h-bot{pointer-events:none}' +
     'body.idle{cursor:none}' +
     '.h-top{padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}' +
     '#hud-title{font-size:15px;font-weight:800;letter-spacing:.02em;color:#fff5f5;' +
@@ -113,13 +122,19 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'border-radius:4px;color:#d5adb9;cursor:pointer;font-family:inherit}' +
     '.sd-b.on{background:#c2185b;color:#fff5f5}' +
     '.h-bot{padding:0 20px 14px;display:flex;flex-direction:column;gap:9px}' +
-    '.binge-r{position:relative;display:flex;justify-content:flex-end;align-items:center;' +
-    'min-height:34px}' +
+    // Skip/Next sit outside the HUD on purpose: reaching the opening or the
+    // ending is exactly when nobody is touching the mouse, so the action has
+    // to survive the controls fading out.
+    '#binge{position:fixed;left:0;right:0;bottom:104px;padding:0 20px;z-index:7;' +
+    'display:flex;justify-content:flex-end;align-items:center;min-height:34px;' +
+    'pointer-events:none}' +
+    '#binge .b-act{pointer-events:auto}' +
     // A soft scrim keeps the words readable over a bright frame. It is a
     // legibility wash, not a card: no edge, no border, no fill of its own.
     '.b-scrim{position:absolute;right:-20px;bottom:-14px;width:340px;height:120px;' +
     'pointer-events:none;background:radial-gradient(ellipse at 78% 62%,' +
     'rgba(8,5,14,.82) 0%,rgba(8,5,14,.5) 45%,transparent 72%)}' +
+    '#b-scrim[hidden]{display:none!important}' +
     '.b-act{position:relative;display:inline-flex;align-items:center;gap:8px;' +
     'padding:6px 2px 9px;border:0;background:transparent;font-family:inherit;' +
     'font-size:14px;font-weight:800;letter-spacing:.01em;color:#fff5f5;cursor:pointer;' +
@@ -139,9 +154,13 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '.b-skip .b-u i{background:#f5c97b}' +
     '.b-next .b-u i{background:#c2185b}' +
     '#scrub{position:relative;height:6px;border-radius:4px;background:rgba(240,230,255,.22);' +
-    'cursor:pointer;overflow:hidden}' +
-    '#s-buf{position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(240,230,255,.32)}' +
-    '#s-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:#c2185b;z-index:2}' +
+    'cursor:pointer;outline:none}' +
+    // A 6px bar is impossible to grab on a phone. This invisible band
+    // widens the hit area without touching the painted bar.
+    '#scrub::before{content:"";position:absolute;left:0;right:0;top:-7px;bottom:-7px}' +
+    '#scrub:focus-visible{box-shadow:0 0 0 3px rgba(194,24,91,.55)}' +
+    '#s-buf{position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(240,230,255,.32);border-radius:4px}' +
+    '#s-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:#c2185b;z-index:2;border-radius:4px}' +
     '.s-chap{position:absolute;top:0;bottom:0;background:rgba(245,201,123,.55);' +
     'border-left:1px solid #f5c97b;border-right:1px solid #f5c97b;z-index:3;pointer-events:none}' +
     '.ctrl-r{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#f1cbd2}' +
@@ -150,6 +169,19 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'justify-content:center;cursor:pointer;padding:2px;opacity:.92}' +
     '.ib:hover{opacity:1;color:#c2185b}' +
     '.ib.rose{color:#c2185b}' +
+    '#vol-wrap{display:flex;align-items:center;gap:7px}' +
+    '#vol-range{width:72px;height:16px;margin:0;padding:0;accent-color:#c2185b;' +
+    'background:transparent;cursor:pointer}' +
+    // Hardware volume buttons are the right control on a phone; a slider
+    // there is a row of pixels nobody can hit.
+    '@media (hover:none),(pointer:coarse){#vol-range{display:none}}' +
+    '#btn-speed{min-width:36px}' +
+    '#buf{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
+    'z-index:6;pointer-events:none}' +
+    '.buf-ring{width:38px;height:38px;border-radius:50%;' +
+    'border:3px solid rgba(255,245,245,.18);border-top-color:#c2185b;' +
+    'animation:egspin .85s linear infinite}' +
+    '@keyframes egspin{to{transform:rotate(360deg)}}' +
     '#time-lbl{font-variant-numeric:tabular-nums;font-weight:600;color:#fff5f5;font-size:12px}' +
     '.chip{border:1px solid rgba(240,230,255,.16);background:rgba(240,230,255,.09);color:#fff5f5;' +
     'border-radius:6px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;' +
@@ -163,22 +195,27 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '.eg-w{font-family:"Bebas Neue",Impact,sans-serif;font-size:16px;letter-spacing:.06em;line-height:1}' +
     '.eg-w b{color:#f8f8f8;font-weight:400}' +
     '.eg-w i{color:#c2185b;font-style:normal;text-shadow:0 2px 10px rgba(194,24,91,.65)}' +
-    '#q-menu,#cc-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
+    '#q-menu,#cc-menu,#sp-menu{position:fixed;right:20px;bottom:58px;width:164px;background:rgba(18,13,26,.95);' +
     'backdrop-filter:blur(18px);border:1px solid rgba(240,230,255,.18);border-radius:10px;' +
     'padding:6px;z-index:12;box-shadow:0 14px 32px rgba(0,0,0,.65)}' +
     '.qi{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;' +
     'background:transparent;color:#f1cbd2;padding:6px 8px;border-radius:6px;font-size:11.5px;' +
     'font-weight:600;cursor:pointer;font-family:inherit;text-align:left}' +
     '.qi.on{background:rgba(194,24,91,.28);color:#fff5f5}' +
-    '#cc-menu{max-height:44vh;overflow-y:auto}' +
+    '#cc-menu{width:238px;max-height:56vh;overflow-y:auto}' +
+    '.cc-h{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;' +
+    'color:#b795a2;padding:8px 8px 3px}' +
+    '.cc-row{display:flex;gap:4px;align-items:center;padding:0 4px 4px}' +
+    '.cc-row .qi{flex:1;justify-content:center;padding:5px 4px;text-align:center}' +
     '.chip[hidden]{display:none}' +
-    // Phones keep the Everglow badge (Clair watches here); the volume
-    // button and wide gaps give up their room instead.
+    // Phones keep the Everglow badge (Clair watches here) and volume button;
+    // the volume slider, speed chip, and PiP button give up their room so
+    // fullscreen is never clipped off the right edge.
     '@media (max-width:520px){.h-top{padding:10px 14px}.h-bot{padding:0 14px 10px}' +
-    '.ctrl-l,.ctrl-rt{gap:8px}#btn-vol{display:none}' +
-    '.eg-badge{padding:2px 7px 2px 3px;gap:5px}.eg-cat{width:17px;height:17px}' +
-    '.eg-w{font-size:14px}.chip{padding:3px 7px;font-size:10.5px}' +
-    '#time-lbl{font-size:11px}#hud-title{font-size:13px}}' +
+    '.ctrl-l,.ctrl-rt{gap:6px}.ctrl-r{gap:6px}#vol-range{display:none}#btn-speed{display:none}#btn-pip{display:none}' +
+    '#time-lbl{white-space:nowrap;font-size:11px}#binge{padding:0 14px;bottom:96px}' +
+    '.eg-w{display:none}.eg-badge{padding:2px;border-radius:50%}.eg-cat{width:17px;height:17px}' +
+    '.chip{padding:3px 7px;font-size:10.5px}#hud-title{font-size:13px}}' +
     '</style></head><body>' +
     '<video id="v" playsinline autoplay preload="auto" crossorigin="anonymous">' +
     (trackTags ? '\n    ' + trackTags : '') +
@@ -197,8 +234,43 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
         '<button type="button" class="chip" id="btn-eps">Episodes</button>') +
     '</div></div>' +
     '<div class="h-bot">' +
-    '<div class="binge-r">' +
-    '<div class="b-scrim"></div>' +
+    '<div id="scrub">' +
+    '<div id="s-buf"></div>' +
+    '<div id="s-fill"></div>' +
+    '<div class="s-chap" id="s-op" hidden></div>' +
+    '<div class="s-chap" id="s-ed" hidden></div>' +
+    '</div>' +
+    '<div class="ctrl-r">' +
+    '<div class="ctrl-l">' +
+    '<button type="button" class="ib rose" id="btn-play" aria-label="Play or pause">' +
+    '<svg width="17" height="17" viewBox="0 0 20 20"><path id="play-p" fill="currentColor" d="M4 3h3.5v14H4zM12.5 3H16v14h-3.5z"/></svg></button>' +
+    '<button type="button" class="ib" id="btn-rew" aria-label="Rewind 10 seconds">' +
+    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9a7 7 0 1 0 2-4.9"/><polyline points="3.5 2 3.5 5.5 7 5.5"/></svg></button>' +
+    '<button type="button" class="ib" id="btn-ff" aria-label="Forward 10 seconds">' +
+    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9a7 7 0 1 1-2-4.9"/><polyline points="16.5 2 16.5 5.5 13 5.5"/></svg></button>' +
+    '<span id="vol-wrap">' +
+    '<button type="button" class="ib" id="btn-vol" aria-label="Mute or unmute">' +
+    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="9 4 5 7.5 2 7.5 2 12.5 5 12.5 9 16 9 4" fill="currentColor"/><path id="vol-w" d="M12.5 7a4 4 0 0 1 0 6M15 4.8a7.2 7.2 0 0 1 0 10.4"/></svg></button>' +
+    '<input type="range" id="vol-range" min="0" max="1" step="0.01" value="1" aria-label="Volume">' +
+    '</span>' +
+    '<span id="time-lbl">00:00 / 00:00</span>' +
+    '</div>' +
+    '<div class="ctrl-rt">' +
+    '<div class="eg-badge">' +
+    '<img class="eg-cat" src="https://everglow-1c6db.web.app/favicon.png" alt="">' +
+    '<span class="eg-w"><b>EVER</b><i>GLOW</i></span>' +
+    '</div>' +
+    '<button type="button" class="chip on" id="btn-cc" aria-haspopup="true"' +
+    (trackTags ? '' : ' hidden') + '>CC</button>' +
+    '<button type="button" class="chip" id="btn-speed" aria-haspopup="true">1x</button>' +
+    '<button type="button" class="chip" id="btn-q">Auto</button>' +
+    '<button type="button" class="ib" id="btn-pip" aria-label="Picture in picture">' +
+    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="2"/><rect x="10.2" y="9.4" width="6" height="4.8" rx="1" fill="currentColor" stroke="none"/></svg></button>' +
+    '<button type="button" class="ib" id="btn-fs" aria-label="Fullscreen">' +
+    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
+    '</div></div></div></div>\n' +
+    '<div id="binge">' +
+    '<div class="b-scrim" id="b-scrim" hidden></div>' +
     '<button type="button" class="b-act b-skip" id="btn-skip" hidden>' +
     '<span class="b-ico"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" ' +
     'stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
@@ -216,40 +288,11 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     '<span class="b-t" id="next-tok"></span>' +
     '<span class="b-u"><i id="next-fill"></i></span>' +
     '</button>' +
-    '</div>' +
-    '<div id="scrub">' +
-    '<div id="s-buf"></div>' +
-    '<div id="s-fill"></div>' +
-    '<div class="s-chap" id="s-op" hidden></div>' +
-    '<div class="s-chap" id="s-ed" hidden></div>' +
-    '</div>' +
-    '<div class="ctrl-r">' +
-    '<div class="ctrl-l">' +
-    '<button type="button" class="ib rose" id="btn-play" aria-label="Play or pause">' +
-    '<svg width="17" height="17" viewBox="0 0 20 20"><path id="play-p" fill="currentColor" d="M4 3h3.5v14H4zM12.5 3H16v14h-3.5z"/></svg></button>' +
-    '<button type="button" class="ib" id="btn-rew" aria-label="Rewind 10 seconds">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9a7 7 0 1 0 2-4.9"/><polyline points="3.5 2 3.5 5.5 7 5.5"/></svg></button>' +
-    '<button type="button" class="ib" id="btn-ff" aria-label="Forward 10 seconds">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 9a7 7 0 1 1-2-4.9"/><polyline points="16.5 2 16.5 5.5 13 5.5"/></svg></button>' +
-    '<button type="button" class="ib" id="btn-vol" aria-label="Mute or unmute">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="9 4 5 7.5 2 7.5 2 12.5 5 12.5 9 16 9 4" fill="currentColor"/><path id="vol-w" d="M12.5 7a4 4 0 0 1 0 6M15 4.8a7.2 7.2 0 0 1 0 10.4"/></svg></button>' +
-    '<span id="time-lbl">00:00 / 00:00</span>' +
-    '</div>' +
-    '<div class="ctrl-rt">' +
-    '<div class="eg-badge">' +
-    '<img class="eg-cat" src="https://everglow-1c6db.web.app/favicon.png" alt="">' +
-    '<span class="eg-w"><b>EVER</b><i>GLOW</i></span>' +
-    '</div>' +
-    '<button type="button" class="chip on" id="btn-cc"' +
-    (trackTags ? '' : ' hidden') + '>CC</button>' +
-    '<button type="button" class="chip" id="btn-cc-lang" hidden' +
-    ' aria-label="Subtitle language">&#9662;</button>' +
-    '<button type="button" class="chip" id="btn-q">Auto</button>' +
-    '<button type="button" class="ib" id="btn-fs" aria-label="Fullscreen">' +
-    '<svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M17 7V3h-4M3 13v4h4M17 13v4h-4"/></svg></button>' +
-    '</div></div></div></div>\n' +
+    '</div>\n' +
     '<div id="q-menu" hidden></div>\n' +
     '<div id="cc-menu" hidden></div>\n' +
+    '<div id="sp-menu" hidden></div>\n' +
+    '<div id="buf" hidden><div class="buf-ring"></div></div>\n' +
     '<div class="ov" id="boot"><div class="eg-wave" aria-label="Everglow loading">' +
     '<span class="wc e">E</span><span class="wc e">V</span><span class="wc e">E</span><span class="wc e">R</span>' +
     '<span class="wc g">G</span><span class="wc g">L</span><span class="wc g">O</span><span class="wc g">W</span>' +
@@ -281,8 +324,12 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var btnFf=document.getElementById("btn-ff");' +
     'var btnVol=document.getElementById("btn-vol");' +
     'var btnCc=document.getElementById("btn-cc");' +
-    'var btnCcLang=document.getElementById("btn-cc-lang");' +
     'var ccMenu=document.getElementById("cc-menu");' +
+    'var btnSpeed=document.getElementById("btn-speed");' +
+    'var spMenu=document.getElementById("sp-menu");' +
+    'var btnPip=document.getElementById("btn-pip");' +
+    'var volRange=document.getElementById("vol-range");' +
+    'var buf=document.getElementById("buf");' +
     'var btnQ=document.getElementById("btn-q");' +
     'var qMenu=document.getElementById("q-menu");' +
     'var btnFs=document.getElementById("btn-fs");' +
@@ -292,13 +339,50 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var btnDub=document.getElementById("btn-dub");' +
     'var btnEps=document.getElementById("btn-eps");' +
     'var subTxt=document.getElementById("sub-txt");' +
+    'var subBox=document.getElementById("sub-box");' +
     'var skipTime=document.getElementById("skip-time");' +
     'var skipFill=document.getElementById("skip-fill");' +
     'var nextLbl=document.getElementById("next-lbl");' +
     'var nextTok=document.getElementById("next-tok");' +
     'var nextFill=document.getElementById("next-fill");' +
     'var episode=' + JSON.stringify(epNum) + ';' +
-    'var opRange=null,edRange=null,activeSkipEnd=null,ccOn=true,hlsInst=null,subPick=0;' +
+    'var opRange=null,edRange=null,activeSkipEnd=null,hlsInst=null;' +
+    // Player habits that must survive an episode change: captions on/off,
+    // the picked track, the subtitle delay she tuned, text size, volume.
+    'var prefs={cc:true,lang:0,delay:0,size:1,vol:1,muted:false,speed:1};' +
+    'var ccOn=true,subPick=0;' +
+    'function loadPrefs(){try{' +
+    'var raw=window.localStorage&&window.localStorage.getItem("everglow.player.prefs");' +
+    'if(!raw)return;var o=JSON.parse(raw);if(!o||typeof o!=="object")return;' +
+    'if(typeof o.cc==="boolean")prefs.cc=o.cc;' +
+    'if(typeof o.lang==="number"&&o.lang>=0)prefs.lang=Math.floor(o.lang);' +
+    'if(typeof o.delay==="number"&&isFinite(o.delay))prefs.delay=Math.max(-10,Math.min(10,o.delay));' +
+    'if(typeof o.size==="number")prefs.size=Math.max(0,Math.min(2,Math.floor(o.size)));' +
+    'if(typeof o.vol==="number"&&isFinite(o.vol))prefs.vol=Math.max(0,Math.min(1,o.vol));' +
+    'if(typeof o.muted==="boolean")prefs.muted=o.muted;' +
+    'if(typeof o.speed==="number"&&isFinite(o.speed)&&o.speed>=0.25&&o.speed<=2)prefs.speed=o.speed;}catch(e){}}' +
+    'function savePrefs(){try{if(window.localStorage){' +
+    'window.localStorage.setItem("everglow.player.prefs",JSON.stringify(prefs));}}catch(e){}}' +
+    'function applySubSize(){if(!subTxt||!subTxt.style)return;' +
+    'var s=[0.84,1,1.3][prefs.size]||1;' +
+    'if(subTxt.style.setProperty){subTxt.style.setProperty("--sub-scale",String(s));}' +
+    'else{subTxt.style.fontSize=(16*s)+"px";}}' +
+    'function applyVolume(){try{v.volume=prefs.vol;v.muted=prefs.muted;}catch(e){}' +
+    'if(volRange)volRange.value=String(prefs.vol);' +
+    'if(btnVol)btnVol.style.opacity=prefs.muted?"0.45":"0.92";}' +
+    'var SPEEDS=[0.25,0.5,0.75,1,1.25,1.5,1.75,2];' +
+    'function speedLabel(s){return(s===1?"1":String(s))+"x";}' +
+    'function applySpeed(){try{v.playbackRate=prefs.speed;}catch(e){}' +
+    'if(btnSpeed){btnSpeed.textContent=speedLabel(prefs.speed);' +
+    'btnSpeed.classList.toggle("on",prefs.speed!==1);}}' +
+    'function setSpeed(s){if(!isFinite(s))return;prefs.speed=s;savePrefs();' +
+    'applySpeed();buildSpeedMenu();}' +
+    'function buildSpeedMenu(){if(!spMenu)return;spMenu.innerHTML="";' +
+    'for(var i=0;i<SPEEDS.length;i++){(function(r){' +
+    'spMenu.appendChild(ccBtn(speedLabel(r),r===prefs.speed,function(){setSpeed(r);}));})(SPEEDS[i]);}}' +
+    'loadPrefs();ccOn=prefs.cc;subPick=prefs.lang;' +
+    'if(btnCc)btnCc.classList.toggle("on",ccOn);' +
+    'applySubSize();applyVolume();applySpeed();placeSubs();' +
     // How close to the last frame the Next button appears when the ending
     // was never marked. 90s covers a typical ED plus the preview card.
     'var nextToken=null,nextKind="episode",NEAR_END_SECONDS=90;' +
@@ -325,35 +409,40 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'return Math.min(1,Math.max(0,p));}' +
     // The Skip action belongs to the opening only. The ending is where the
     // Next action lives, so a second skip there would be noise.
+    'function updateBingeScrim(){var sc=document.getElementById("b-scrim");if(sc){' +
+    'sc.hidden=(!btnSkip||btnSkip.hidden)&&(!btnNext||btnNext.hidden);}}' +
     'function updateSkipBtn(){if(!btnSkip)return;var t=v.currentTime;' +
     'if(opRange&&t>=opRange[0]&&t<opRange[1]){activeSkipEnd=opRange[1];' +
     'if(skipTime)skipTime.textContent=fmt(Math.max(0,opRange[1]-t));' +
     'var p=through(opRange,t);if(skipFill&&p!==null)skipFill.style.width=((1-p)*100)+"%";' +
-    'btnSkip.hidden=false;return;}' +
-    'activeSkipEnd=null;btnSkip.hidden=true;}' +
+    'btnSkip.hidden=false;updateBingeScrim();return;}' +
+    'activeSkipEnd=null;btnSkip.hidden=true;updateBingeScrim();}' +
     // Next shows during the ending, or within the last 90s when nobody
     // marked one. No token means nothing follows, so it stays hidden.
     'function updateNextBtn(){if(!btnNext)return;' +
-    'if(!nextToken&&nextKind!=="season"){btnNext.hidden=true;return;}' +
+    'if(!nextToken&&nextKind!=="season"){btnNext.hidden=true;updateBingeScrim();return;}' +
     'var t=v.currentTime,d=v.duration;' +
-    'if(!Number.isFinite(t)||!Number.isFinite(d)||d<=0){btnNext.hidden=true;return;}' +
+    'if(!Number.isFinite(t)||!Number.isFinite(d)||d<=0){btnNext.hidden=true;updateBingeScrim();return;}' +
     'var inEnding=!!edRange&&t>=edRange[0]&&t<edRange[1];' +
     'var nearEnd=(d-t)<=NEAR_END_SECONDS;' +
-    'if(!(inEnding||nearEnd)){btnNext.hidden=true;return;}' +
+    'if(!(inEnding||nearEnd)){btnNext.hidden=true;updateBingeScrim();return;}' +
     'if(nextLbl)nextLbl.textContent=nextKind==="season"?"Next season":"Next episode";' +
     'if(nextTok)nextTok.textContent=nextToken||"";' +
     'var p=inEnding?through(edRange,t):null;' +
     'if(p===null)p=1-Math.min(1,Math.max(0,(d-t)/NEAR_END_SECONDS));' +
     'if(nextFill)nextFill.style.width=((1-p)*100)+"%";' +
-    'btnNext.hidden=false;}' +
+    'btnNext.hidden=false;updateBingeScrim();}' +
     'function updateUi(){var p=v.currentTime,d=v.duration;' +
     'if(Number.isFinite(p)&&Number.isFinite(d)&&d>0){' +
-    'if(sFill)sFill.style.width=Math.min(100,Math.max(0,p/d*100))+"%";' +
-    'if(timeLbl)timeLbl.textContent=fmt(p)+" / "+fmt(d);}' +
-    'updateSkipBtn();updateNextBtn();}' +
+    'if(sFill&&!dragging)sFill.style.width=Math.min(100,Math.max(0,p/d*100))+"%";' +
+    'if(timeLbl&&!dragging)timeLbl.textContent=fmt(p)+" / "+fmt(d);' +
+    'if(scrub){scrub.setAttribute("aria-valuenow",String(Math.round(p)));' +
+    'scrub.setAttribute("aria-valuemin","0");' +
+    'scrub.setAttribute("aria-valuemax",String(Math.round(d)));}}' +
+    'renderCues();updateSkipBtn();updateNextBtn();}' +
     'function applySeek(){if(!hasMetadata||pendingSeek===null||!Number.isFinite(v.duration)||v.duration<=0){return;}' +
     'try{v.currentTime=Math.min(pendingSeek,v.duration);pendingSeek=null;updateUi();}catch(e){}}' +
-    'v.addEventListener("loadedmetadata",function(){hasMetadata=true;applySeek();updateChapters();updateUi();});' +
+    'v.addEventListener("loadedmetadata",function(){hasMetadata=true;applySeek();updateChapters();updateUi();buildSpeedMenu();applySpeed();});' +
     'v.addEventListener("durationchange",function(){applySeek();updateChapters();updateUi();});' +
     'function trustedParent(origin){return origin==="https://everglow-1c6db.web.app"||' +
     'origin==="https://everglow-1c6db.firebaseapp.com"||' +
@@ -368,6 +457,9 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var d=e.data;if(!d||typeof d!=="object"){return;}' +
     'if(d.type==="animex-seek"&&typeof d.seconds==="number"&&Number.isFinite(d.seconds)&&d.seconds>=0){' +
     'pendingSeek=d.seconds;applySeek();return;}' +
+    // The app relays keys here when its own document has focus (she clicked
+    // below the video), so the arrows work without clicking the frame first.
+    'if(d.type==="everglow-key"){handleKey(d.key);return;}' +
     'if(d.type==="animex-player-state"||d.type==="animex-skip-times"){' +
     'opRange=Array.isArray(d.op)&&d.op.length===2&&Number.isFinite(d.op[0])&&Number.isFinite(d.op[1])?d.op:null;' +
     'edRange=Array.isArray(d.ed)&&d.ed.length===2&&Number.isFinite(d.ed[0])&&Number.isFinite(d.ed[1])?d.ed:null;' +
@@ -385,66 +477,265 @@ function hlsPlayerHtml({ src, title, tracks, token, ep, audio, kind }) {
     'var now=Date.now();if(!force&&lastProgress!==null&&now-lastProgress<1000){return;}' +
     'lastProgress=now;post({type:"animex-progress",position:position,duration:duration,episode:episode});}' +
     'v.addEventListener("timeupdate",function(){updateUi();progress(false);});' +
-    'v.addEventListener("pause",function(){if(playP)playP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");progress(true);});' +
+    'v.addEventListener("pause",function(){if(playP)playP.setAttribute("d","M5 3.5l12 6.5-12 6.5V3.5z");' +
+    'if(buf)buf.hidden=true;progress(true);});' +
     'v.addEventListener("ended",function(){progress(true);});' +
     'function hideBoot(){boot.style.display="none";}' +
     'function showTap(){tapw.hidden=false;}' +
     'function tryPlay(){var p;try{p=v.play();}catch(e){showTap();return;}' +
-    'if(p&&p.catch){p.catch(function(){showTap();});}}' +
+    'if(p&&p.catch){p.catch(function(err){' +
+    'if(err&&(err.name==="AbortError"||err.code===20))return;showTap();});}}' +
     'function giveUp(){hideBoot();tapw.hidden=true;dead.hidden=false;' +
     'post("animex-content-error");}' +
     'tap.addEventListener("click",function(){tapw.hidden=true;tryPlay();});' +
-    'v.addEventListener("playing",function(){hideBoot();tapw.hidden=true;' +
+    'var started=false;' +
+    'v.addEventListener("playing",function(){started=true;hideBoot();tapw.hidden=true;' +
+    'if(buf)buf.hidden=true;' +
     'if(playP)playP.setAttribute("d","M4 3h3.5v14H4zM12.5 3H16v14h-3.5z");});' +
+    'v.addEventListener("canplay",function(){if(buf)buf.hidden=true;});' +
+    // Before the first frame the boot wave is the right thing to show. After
+    // it, a stall is a hiccup, not a boot — a small ring, not the wordmark.
     'v.addEventListener("waiting",function(){' +
-    'if(dead.hidden){boot.style.display="flex";}});' +
+    'if(!started){if(dead.hidden)boot.style.display="flex";return;}' +
+    'if(buf)buf.hidden=false;});' +
     'if(btnPlay)btnPlay.addEventListener("click",function(){if(v.paused)tryPlay();else v.pause();});' +
     'if(btnRew)btnRew.addEventListener("click",function(){if(Number.isFinite(v.currentTime))v.currentTime=Math.max(0,v.currentTime-10);updateUi();});' +
     'if(btnFf)btnFf.addEventListener("click",function(){if(Number.isFinite(v.currentTime)&&Number.isFinite(v.duration))v.currentTime=Math.min(v.duration,v.currentTime+10);updateUi();});' +
-    'if(btnVol)btnVol.addEventListener("click",function(){v.muted=!v.muted;btnVol.style.opacity=v.muted?"0.45":"0.92";});' +
-    'if(scrub)scrub.addEventListener("click",function(e){if(!Number.isFinite(v.duration)||v.duration<=0||!scrub.getBoundingClientRect)return;' +
-    'var r=scrub.getBoundingClientRect();if(r.width<=0)return;' +
-    'var pct=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));v.currentTime=pct*v.duration;updateUi();});' +
+    'if(btnVol)btnVol.addEventListener("click",function(){v.muted=!v.muted;' +
+    'prefs.muted=v.muted;savePrefs();' +
+    'btnVol.style.opacity=v.muted?"0.45":"0.92";});' +
+    'if(volRange)volRange.addEventListener("input",function(){' +
+    'setVol(parseFloat(volRange.value));});' +
     'if(btnSkip)btnSkip.addEventListener("click",function(){if(activeSkipEnd!==null&&Number.isFinite(v.duration)){v.currentTime=Math.min(v.duration,activeSkipEnd);updateUi();}});' +
     'if(btnNext)btnNext.addEventListener("click",function(){post({type:"animex-action",action:"next-episode"});});' +
     'if(btnSub)btnSub.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"sub"});});' +
     'if(btnDub)btnDub.addEventListener("click",function(){post({type:"animex-action",action:"audio",audio:"dub"});});' +
     'if(btnEps)btnEps.addEventListener("click",function(){post({type:"animex-action",action:"episodes"});});' +
-    'if(btnCc)btnCc.addEventListener("click",function(){ccOn=!ccOn;btnCc.classList.toggle("on",ccOn);if(subTxt&&!ccOn)subTxt.textContent="";});' +
-    'if(btnCcLang&&ccMenu)btnCcLang.addEventListener("click",function(){ccMenu.hidden=!ccMenu.hidden;if(!ccMenu.hidden&&qMenu)qMenu.hidden=true;});' +
-    'if(btnFs)btnFs.addEventListener("click",function(){var doc=document;var root=doc.documentElement||v;' +
+    'if(btnCc&&ccMenu)btnCc.addEventListener("click",function(){' +
+    'ccMenu.hidden=!ccMenu.hidden;' +
+    'if(!ccMenu.hidden){buildCcMenu();if(qMenu)qMenu.hidden=true;if(spMenu)spMenu.hidden=true;}placeSubs();});' +
+    'function toggleFs(){var doc=document;var root=doc.documentElement||v;' +
     'if(doc.fullscreenElement){if(doc.exitFullscreen)doc.exitFullscreen();}' +
     'else if(root.requestFullscreen){root.requestFullscreen();}' +
-    'else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}});' +
-    'if(btnQ&&qMenu)btnQ.addEventListener("click",function(){qMenu.hidden=!qMenu.hidden;if(!qMenu.hidden&&ccMenu)ccMenu.hidden=true;});' +
+    'else if(v.webkitEnterFullscreen){v.webkitEnterFullscreen();}}' +
+    'if(btnFs)btnFs.addEventListener("click",toggleFs);' +
+    'if(btnQ&&qMenu)btnQ.addEventListener("click",function(){qMenu.hidden=!qMenu.hidden;' +
+    'if(!qMenu.hidden){if(ccMenu)ccMenu.hidden=true;if(spMenu)spMenu.hidden=true;}placeSubs();});' +
+    'if(btnSpeed&&spMenu)btnSpeed.addEventListener("click",function(){' +
+    'spMenu.hidden=!spMenu.hidden;' +
+    'if(!spMenu.hidden){buildSpeedMenu();if(qMenu)qMenu.hidden=true;if(ccMenu)ccMenu.hidden=true;}placeSubs();});' +
+    // Picture-in-Picture is a browser feature, not ours: hand the element
+    // over and let the OS window own it. Safari on iPad uses webkit presentation mode.
+    'function pipSupported(){return !!(document.pictureInPictureEnabled||' +
+    '(v.webkitSupportsPresentationMode&&typeof v.webkitSetPresentationMode==="function"));}' +
+    'if(btnPip){if(!pipSupported()){btnPip.hidden=true;}else{' +
+    'btnPip.addEventListener("click",function(){var d=document;' +
+    'if(d.pictureInPictureElement){if(d.exitPictureInPicture){' +
+    'var x=d.exitPictureInPicture();if(x&&x.catch)x.catch(function(){});}return;}' +
+    'if(v.webkitPresentationMode&&v.webkitSetPresentationMode){' +
+    'v.webkitSetPresentationMode(v.webkitPresentationMode==="picture-in-picture"?"inline":"picture-in-picture");return;}' +
+    'if(v.requestPictureInPicture){var p=v.requestPictureInPicture();' +
+    'if(p&&p.catch)p.catch(function(){});}});}}' +
     'function trackEls(){return v.querySelectorAll?v.querySelectorAll("track"):[];}' +
     'function trackCount(){var n=v.textTracks?v.textTracks.length:0;var e=trackEls();return e.length>n?e.length:n;}' +
     'function trackLabel(i){var tt=v.textTracks&&v.textTracks[i];if(tt&&tt.label)return tt.label;' +
     'var el=trackEls()[i];var lb=el&&(el.label||(el.getAttribute&&el.getAttribute("label")));return lb||("Track "+(i+1));}' +
+    'function ccBtn(txt,on,fn){var b=document.createElement("button");b.type="button";' +
+    'b.className="qi"+(on?" on":"");b.textContent=txt;b.onclick=fn;return b;}' +
+    'function ccHead(txt){var d=document.createElement("div");' +
+    'd.className="cc-h";d.textContent=txt;return d;}' +
+    'function ccRow(){var d=document.createElement("div");d.className="cc-row";return d;}' +
+    // The panel sits where the captions live, so tuning the delay would hide
+    // the line being tuned. Lift the overlay by the panel's real height.
+    'function placeSubs(){if(!subBox||!subBox.style||!subBox.style.setProperty)return;' +
+    'var lift=0;' +
+    'if(ccMenu&&!ccMenu.hidden&&ccMenu.getBoundingClientRect){' +
+    'lift=Math.max(0,Math.round(ccMenu.getBoundingClientRect().height-18));}' +
+    'subBox.style.setProperty("--sub-lift",lift+"px");}' +
+    'function closeMenus(){if(ccMenu)ccMenu.hidden=true;if(qMenu)qMenu.hidden=true;' +
+    'if(spMenu)spMenu.hidden=true;placeSubs();}' +
+    'function fmtDelay(d){if(!d)return"0.0s";return(d>0?"+":"")+d.toFixed(1)+"s";}' +
+    'function setDelay(next){if(!isFinite(next))return;' +
+    'prefs.delay=Math.round(Math.max(-10,Math.min(10,next))*10)/10;' +
+    'savePrefs();renderCues();buildCcMenu();}' +
+    'function setSize(next){prefs.size=Math.max(0,Math.min(2,next));' +
+    'savePrefs();applySubSize();buildCcMenu();}' +
+    'function setCc(on){ccOn=!!on;prefs.cc=ccOn;savePrefs();' +
+    'if(btnCc)btnCc.classList.toggle("on",ccOn);syncCues();buildCcMenu();}' +
     'function buildCcMenu(){var n=trackCount();' +
     'if(btnCc)btnCc.hidden=n===0;' +
-    'if(btnCcLang)btnCcLang.hidden=n<2;' +
-    'if(n===0){if(ccMenu)ccMenu.hidden=true;return;}' +
+    'if(n===0){if(ccMenu)ccMenu.hidden=true;placeSubs();return;}' +
     'if(subPick>=n)subPick=0;' +
     'if(!ccMenu)return;ccMenu.innerHTML="";' +
-    'for(var i=0;i<n;i++){(function(idx){var b=document.createElement("button");' +
-    'b.className="qi"+(idx===subPick?" on":"");b.textContent=trackLabel(idx);' +
-    'b.onclick=function(){subPick=idx;ccOn=true;if(btnCc)btnCc.classList.add("on");' +
-    'ccMenu.hidden=true;syncCues();buildCcMenu();};ccMenu.appendChild(b);})(i);}}' +
-    'function syncCues(){if(!subTxt||!v.textTracks)return;var pick=subPick;' +
-    'if(pick<0||pick>=v.textTracks.length)pick=0;' +
-    'for(var i=0;i<v.textTracks.length;i++){' +
-    'var tr=v.textTracks[i];if(i!==pick){tr.mode="disabled";tr.oncuechange=null;continue;}' +
-    'tr.mode="hidden";tr.oncuechange=function(){' +
-    'if(!ccOn){subTxt.textContent="";return;}var lines=[];' +
-    'var ac=this.activeCues;if(ac){for(var j=0;j<ac.length;j++){if(ac[j]&&ac[j].text)lines.push(ac[j].text.replace(/<[^>]+>/g,""));}}' +
-    'subTxt.textContent=lines.join("\\n");};}}' +
+    'ccMenu.appendChild(ccBtn(ccOn?"Captions on":"Captions off",ccOn,' +
+    'function(){setCc(!ccOn);}));' +
+    'if(n>1){ccMenu.appendChild(ccHead("Language"));' +
+    'for(var i=0;i<n;i++){(function(idx){' +
+    'ccMenu.appendChild(ccBtn(trackLabel(idx),idx===subPick&&ccOn,function(){' +
+    'subPick=idx;prefs.lang=idx;savePrefs();' +
+    'if(!ccOn){setCc(true);}else{syncCues();buildCcMenu();}}));})(i);}}' +
+    'ccMenu.appendChild(ccHead("Subtitle delay"));' +
+    'var dr=ccRow();' +
+    'dr.appendChild(ccBtn("\u2212",false,function(){setDelay(prefs.delay-0.1);}));' +
+    'var dl=ccBtn(fmtDelay(prefs.delay),false,function(){setDelay(0);});' +
+    'dl.title="Tap to reset";dr.appendChild(dl);' +
+    'dr.appendChild(ccBtn("+",false,function(){setDelay(prefs.delay+0.1);}));' +
+    'ccMenu.appendChild(dr);' +
+    'ccMenu.appendChild(ccHead("Text size"));' +
+    'var sz=ccRow();var sizes=["Small","Medium","Large"];' +
+    'for(var k=0;k<3;k++){(function(idx){' +
+    'sz.appendChild(ccBtn(sizes[idx],idx===prefs.size,function(){setSize(idx);}));})(k);}' +
+    'ccMenu.appendChild(sz);}' +
+    // Cues are rendered by hand, not by the browser, so the delay slider can
+    // shift them. `oncuechange` still fires at the real cue boundary and is
+    // kept as an extra redraw; renderCues is a pure function of currentTime,
+    // so a redraw at the wrong moment can never show the wrong line.
+    'var cueList=[],cueTrack=-1;' +
+    'function readCues(){if(!v.textTracks)return;var n=v.textTracks.length;if(!n)return;' +
+    'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
+    'if(cueTrack===pick&&cueList.length)return;var out=[];' +
+    'try{var cs=v.textTracks[pick].cues;if(cs){for(var j=0;j<cs.length;j++){var c=cs[j];' +
+    'if(!c||typeof c.startTime!=="number"||typeof c.endTime!=="number")continue;' +
+    'out.push({s:c.startTime,e:c.endTime,t:String(c.text||"").replace(/<[^>]+>/g,"")});}}}catch(e){}' +
+    'if(out.length){cueList=out;cueTrack=pick;}}' +
+    'function renderCues(){if(!subTxt)return;' +
+    'if(!ccOn){if(subTxt.textContent)subTxt.textContent="";return;}' +
+    'readCues();' +
+    'if(!cueList.length){if(subTxt.textContent)subTxt.textContent="";return;}' +
+    'var t=v.currentTime-prefs.delay;if(!isFinite(t))return;var lines=[];' +
+    'for(var i=0;i<cueList.length;i++){var c=cueList[i];' +
+    'if(t>=c.s&&t<c.e&&c.t)lines.push(c.t);}' +
+    'var next=lines.join("\\n");' +
+    'if(subTxt.textContent!==next)subTxt.textContent=next;}' +
+    'function syncCues(){if(!v.textTracks)return;var n=v.textTracks.length;' +
+    'var pick=subPick;if(pick<0||pick>=n)pick=0;' +
+    'cueList=[];cueTrack=-1;' +
+    'for(var i=0;i<n;i++){var tr=v.textTracks[i];' +
+    'if(i!==pick){tr.mode="disabled";tr.oncuechange=null;continue;}' +
+    'tr.mode=ccOn?"hidden":"disabled";tr.oncuechange=renderCues;}' +
+    'renderCues();}' +
     'v.addEventListener("loadedmetadata",function(){buildCcMenu();syncCues();});' +
     'if(v.textTracks&&v.textTracks.addEventListener)v.textTracks.addEventListener("addtrack",buildCcMenu);' +
     'var idleT=null;function wakeHud(){if(document.body&&document.body.classList){document.body.classList.remove("idle");}' +
     'if(typeof clearTimeout==="function"&&idleT)clearTimeout(idleT);' +
-    'if(typeof setTimeout==="function"){idleT=setTimeout(function(){if(!v.paused&&document.body&&document.body.classList){document.body.classList.add("idle");if(qMenu)qMenu.hidden=true;}},2800);}}' +
-    'window.addEventListener("mousemove",wakeHud);window.addEventListener("touchstart",wakeHud);' +
+    'if(typeof setTimeout==="function"){idleT=setTimeout(function(){' +
+    'if(!v.paused&&(!ccMenu||ccMenu.hidden)&&(!spMenu||spMenu.hidden)&&document.body&&document.body.classList){' +
+    'document.body.classList.add("idle");if(qMenu)qMenu.hidden=true;}},2800);}}' +
+    'window.addEventListener("mousemove",function(){if(finePointer)wakeHud();});' +
+    // Touching the control bands wakes the HUD. A touch on the picture must
+    // not, or the tap that hides the controls would re-show them first.
+    'var botEl=document.querySelector?document.querySelector(".h-bot"):null;' +
+    'var topEl=document.querySelector?document.querySelector(".h-top"):null;' +
+    'if(botEl)botEl.addEventListener("touchstart",wakeHud,{passive:true});' +
+    'if(topEl)topEl.addEventListener("touchstart",wakeHud,{passive:true});' +
+    // Picture click toggles playback. A double click also fires two clicks
+    // first, so pause+resume cancel out and fullscreen lands on the play
+    // state she already had — no timer, no lag.
+    'function togglePlay(){if(v.paused){tryPlay();}else{v.pause();}}' +
+    'function seekBy(delta){if(!Number.isFinite(v.currentTime))return;' +
+    'var d=Number.isFinite(v.duration)&&v.duration>0?v.duration:Infinity;' +
+    'v.currentTime=Math.max(0,Math.min(d,v.currentTime+delta));updateUi();}' +
+    'function seekTo(sec){if(!Number.isFinite(v.duration)||v.duration<=0||!Number.isFinite(sec))return;' +
+    'v.currentTime=Math.max(0,Math.min(v.duration,sec));updateUi();}' +
+    'function setVol(x){if(!Number.isFinite(x))return;' +
+    'var n=Math.max(0,Math.min(1,x));v.volume=n;v.muted=n===0;' +
+    'prefs.vol=n;prefs.muted=v.muted;savePrefs();' +
+    'if(volRange&&volRange.value!==String(n))volRange.value=String(n);' +
+    'if(btnVol)btnVol.style.opacity=v.muted?"0.45":"0.92";}' +
+    // The bar is dragged, not clicked. Nothing is committed until the
+    // pointer lifts, so a slow drag across a long film does not fire a seek
+    // on every pixel and stall the buffer.
+    'var dragging=false,dragPct=null;' +
+    'function pctFromX(clientX){if(!scrub||!scrub.getBoundingClientRect)return null;' +
+    'if(!Number.isFinite(v.duration)||v.duration<=0)return null;' +
+    'var r=scrub.getBoundingClientRect();if(!(r.width>0))return null;' +
+    'return Math.max(0,Math.min(1,(clientX-r.left)/r.width));}' +
+    'function paintDrag(pct){if(pct===null)return;' +
+    'if(sFill)sFill.style.width=(pct*100)+"%";' +
+    'if(timeLbl&&Number.isFinite(v.duration))timeLbl.textContent=fmt(pct*v.duration)+" / "+fmt(v.duration);}' +
+    'function endDrag(commit){if(!dragging)return;dragging=false;' +
+    'var pct=dragPct;dragPct=null;' +
+    'if(commit&&pct!==null&&Number.isFinite(v.duration)&&v.duration>0){' +
+    'try{v.currentTime=pct*v.duration;}catch(e){}}' +
+    'updateUi();}' +
+    'if(scrub){' +
+    'scrub.setAttribute("role","slider");scrub.setAttribute("tabindex","0");' +
+    'scrub.setAttribute("aria-label","Seek");' +
+    'scrub.addEventListener("pointerdown",function(e){' +
+    'try{scrub.focus();}catch(fe){}' +
+    'dragging=true;dragPct=pctFromX(e.clientX);paintDrag(dragPct);wakeHud();' +
+    'if(scrub.setPointerCapture&&e.pointerId!==undefined){' +
+    'try{scrub.setPointerCapture(e.pointerId);}catch(err){}}' +
+    'if(e.preventDefault)e.preventDefault();});' +
+    'window.addEventListener("pointermove",function(e){if(!dragging)return;' +
+    'dragPct=pctFromX(e.clientX);paintDrag(dragPct);});' +
+    'window.addEventListener("pointerup",function(){endDrag(true);});' +
+    'window.addEventListener("pointercancel",function(){endDrag(false);});' +
+    'scrub.addEventListener("keydown",function(e){var k=e.key;' +
+    'if(k==="ArrowRight"){seekBy(10);}' +
+    'else if(k==="ArrowLeft"){seekBy(-10);}' +
+    'else if(k==="Home"){seekTo(0);}' +
+    'else if(k==="End"){seekTo(v.duration);}' +
+    'else{return;}' +
+    // The window handler would seek again on the same bubbling key.
+    'if(e.stopPropagation)e.stopPropagation();' +
+    'if(e.preventDefault)e.preventDefault();});}' +
+    // A phone has no hover and no fine pointer. There, a tap must never
+    // pause: one tap toggles the controls, double tap on either side seeks.
+    // Click-to-pause stays for anything with a real mouse.
+    'var finePointer=false;' +
+    'try{finePointer=!!(window.matchMedia&&' +
+    'window.matchMedia("(hover:hover) and (pointer:fine)").matches);}catch(e){}' +
+    'var lastTap={t:0,x:0},tapTimer=null;' +
+    'function toggleHud(){if(!document.body||!document.body.classList)return;' +
+    'if(document.body.classList.contains("idle")){wakeHud();return;}' +
+    'document.body.classList.add("idle");closeMenus();' +
+    'if(typeof clearTimeout==="function"&&idleT){clearTimeout(idleT);idleT=null;}}' +
+    'function doubleTapSeek(x){' +
+    'var r=scrub&&scrub.getBoundingClientRect?scrub.getBoundingClientRect():null;' +
+    'var w=r&&r.width>0?r.width:(window.innerWidth||0);' +
+    'if(!(w>0))return;var relX=r?(x-r.left):x;var third=w/3;' +
+    'if(relX<third){seekBy(-10);}else if(relX>2*third){seekBy(10);}else{togglePlay();}}' +
+    'function onPictureTap(e){' +
+    'closeMenus();' +
+    'var x=e&&typeof e.clientX==="number"?e.clientX:0;' +
+    'if(finePointer){togglePlay();wakeHud();return;}' +
+    'var now=Date.now();' +
+    'if(now-lastTap.t<300&&Math.abs(x-lastTap.x)<80){' +
+    'lastTap={t:0,x:0};' +
+    'if(typeof clearTimeout==="function"&&tapTimer){clearTimeout(tapTimer);tapTimer=null;}' +
+    'doubleTapSeek(x);return;}' +
+    'lastTap={t:now,x:x};' +
+    'if(typeof setTimeout!=="function")return;' +
+    'if(tapTimer){clearTimeout(tapTimer);}' +
+    'tapTimer=setTimeout(function(){tapTimer=null;toggleHud();},300);}' +
+    'v.addEventListener("click",onPictureTap);' +
+    // Double-click fullscreen belongs to the mouse. On touch the same two
+    // taps are the seek gesture above.
+    'v.addEventListener("dblclick",function(e){if(!finePointer)return;' +
+    'if(e&&e.preventDefault)e.preventDefault();toggleFs();});' +
+    // Keys only reach this document while the frame has focus, which a click
+    // on the picture gives it. YouTube's bindings, plus 0-9 to jump. The same
+    // handler serves keys the app relays from its own document.
+    'function handleKey(k){if(typeof k!=="string"||!k)return false;var used=true;' +
+    'if(k===" "||k==="k"||k==="K"){togglePlay();}' +
+    'else if(k==="ArrowRight"||k==="l"||k==="L"){seekBy(10);}' +
+    'else if(k==="ArrowLeft"||k==="j"||k==="J"){seekBy(-10);}' +
+    'else if(k==="ArrowUp"){setVol((v.volume||0)+0.1);}' +
+    'else if(k==="ArrowDown"){setVol((v.volume||0)-0.1);}' +
+    'else if(k==="m"||k==="M"){v.muted=!v.muted;prefs.muted=v.muted;savePrefs();' +
+    'if(btnVol)btnVol.style.opacity=v.muted?"0.45":"0.92";}' +
+    'else if(k==="f"||k==="F"){toggleFs();}' +
+    'else if(k==="c"||k==="C"){setCc(!ccOn);}' +
+    'else if(k==="n"||k==="N"){if(btnNext&&!btnNext.hidden)btnNext.click();}' +
+    'else if(/^[0-9]$/.test(k)){seekTo((v.duration||0)*Number(k)/10);}' +
+    'else{used=false;}' +
+    'if(used)wakeHud();return used;}' +
+    'window.addEventListener("keydown",function(e){' +
+    'if(!e||e.ctrlKey||e.metaKey||e.altKey)return;' +
+    'var tag=e.target&&e.target.tagName;' +
+    'if(tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT")return;' +
+    'if(handleKey(e.key)){if(e.preventDefault)e.preventDefault();}});' +
     'if(window.Hls&&Hls.isSupported()){' +
     (token
       ? 'var h=new Hls({maxBufferLength:30,xhrSetup:function(x){try{x.setRequestHeader("Authorization","Bearer "+' + JSON.stringify(String(token)) + ');}catch(e){}}});var fatal=0;'

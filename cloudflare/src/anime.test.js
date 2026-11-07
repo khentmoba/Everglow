@@ -616,31 +616,59 @@ test('only the default subtitle track drives the captions (no random language)',
 });
 
 /** Runs the player script in a fake DOM and returns the handles it built. */
-function runPlayerDom({ tracks = [], trackEls = [] } = {}) {
+function runPlayerDom({ tracks = [], trackEls = [], store = new Map(), finePointer = true } = {}) {
   const html = hlsPlayerHtml({
     src: 'https://x/y.m3u8',
     title: 'Movie',
     kind: 'cinema',
-    tracks: tracks.map((t) => ({ file: `https://x/${t}.vtt`, label: t })),
+    tracks: tracks.map((t) => {
+      const spec = typeof t === 'string' ? { label: t } : t;
+      return { file: `https://x/${spec.label}.vtt`, label: spec.label };
+    }),
   });
   const code = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).pop();
-  const el = () => ({
-    style: {}, hidden: false, textContent: '', innerHTML: '', children: [],
-    classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
-    listeners: {}, addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
-    appendChild(c) { this.children.push(c); },
-    getBoundingClientRect: () => ({ x: 0, y: 0, width: 100, height: 10, left: 0 }),
-    setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
+  const el = () => {
+    const node = {
+      style: {
+        _v: {},
+        setProperty(k, v) { this._v[k] = v; },
+        getPropertyValue(k) { return this._v[k] || ''; },
+      },
+      hidden: false, textContent: '', children: [],
+      classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, toggle(c, v) { v ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } },
+      listeners: {}, addEventListener(e, h) { (this.listeners[e] ||= []).push(h); },
+      dispatch(e, data) { for (const h of this.listeners[e] || []) h(data); },
+      appendChild(c) { this.children.push(c); },
+      getBoundingClientRect: () => ({ x: 0, y: 0, width: 100, height: 10, left: 0 }),
+      setAttribute() {}, getAttribute() { return null; }, hasAttribute() { return false; },
+    };
+    // `innerHTML = ''` must drop the old rows, or every rebuild stacks up.
+    Object.defineProperty(node, 'innerHTML', {
+      get() { return ''; },
+      set() { node.children.length = 0; },
+    });
+    return node;
+  };
+  const textTracks = tracks.map((t) => {
+    const spec = typeof t === 'string' ? { label: t } : t;
+    return { label: spec.label, cues: spec.cues || [], mode: 'showing', oncuechange: null };
   });
-  const textTracks = tracks.map((label) => ({ label, mode: 'showing', oncuechange: null }));
   textTracks.addEventListener = () => {};
   const v = Object.assign(el(), {
-    currentTime: 0, duration: 100, paused: true, textTracks,
+    currentTime: 0, duration: 100, paused: true, volume: 1, muted: false, textTracks,
     querySelectorAll: () => trackEls,
-    play: () => Promise.resolve(),
+    play() { this.paused = false; return Promise.resolve(); },
+    pause() { this.paused = true; },
   });
-  const els = { v, 'sub-txt': el(), boot: el(), tapw: el(), tap: el(), dead: el(),
-    'btn-cc': el(), 'btn-cc-lang': el(), 'cc-menu': el() };
+  const els = { v, 'sub-txt': el(), 'sub-box': el(), boot: el(),
+    // The real markup ships these with the `hidden` attribute.
+    tapw: Object.assign(el(), { hidden: true }), tap: el(),
+    dead: Object.assign(el(), { hidden: true }),
+    'btn-cc': el(), 'cc-menu': Object.assign(el(), { hidden: true }),
+    'btn-play': el(), 'btn-vol': el(), 'btn-speed': el(), 'btn-pip': el(), 'vol-range': el(),
+    's-fill': el(), 'time-lbl': el(), scrub: el(),
+    'sp-menu': Object.assign(el(), { hidden: true }),
+    buf: Object.assign(el(), { hidden: true }) };
   function Hls() {}
   Hls.isSupported = () => true;
   Hls.Events = { ERROR: 'e', MANIFEST_PARSED: 'm' };
@@ -649,47 +677,381 @@ function runPlayerDom({ tracks = [], trackEls = [] } = {}) {
   Hls.prototype.loadSource = () => {};
   Hls.prototype.attachMedia = () => {};
   const win = el();
-  Object.assign(win, { Hls, location: { search: '', origin: 'https://w.example', pathname: '/proxyAnime' }, parent: { postMessage() {} } });
-  const doc = { getElementById: (id) => els[id] || null, body: el(), createElement: () => el() };
+  const localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, val) => store.set(k, String(val)),
+  };
+  Object.assign(win, { Hls, localStorage, matchMedia: (q) => ({ matches: finePointer, media: q }),
+    location: { search: '', origin: 'https://w.example', pathname: '/proxyAnime' }, parent: { postMessage() {} } });
+  const doc = {
+    getElementById: (id) => els[id] || null,
+    body: el(),
+    createElement: () => el(),
+    pictureInPictureEnabled: true,
+  };
   const ctx = { window: win, Hls, URLSearchParams, Date, document: doc };
   vm.createContext(ctx);
   new vm.Script(code).runInContext(ctx);
   for (const h of v.listeners.loadedmetadata || []) h();
-  return { els, v, html };
+  const fire = (event, data) => { for (const h of v.listeners[event] || []) h(data); };
+  const key = (k) => {
+    for (const h of win.listeners.keydown || []) h({ key: k, preventDefault() {} });
+  };
+  const tap = (x) => fire('click', { clientX: x });
+  const relay = (data) => {
+    for (const h of win.listeners.message || []) {
+      h({ source: win.parent, origin: 'https://everglow-1c6db.web.app', data });
+    }
+  };
+  return { els, v, html, window: win, fire, key, tap, relay };
+}
+
+/** The row that follows a section header inside the CC panel. */
+function ccRow(menu, header) {
+  const at = menu.children.findIndex((c) => c.textContent === header);
+  assert.ok(at >= 0, `CC panel has a "${header}" section`);
+  return menu.children[at + 1];
 }
 
 test('CC is hidden when the source has no subtitles', () => {
   const none = hlsPlayerHtml({ src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema' });
-  assert.match(none, /id="btn-cc" hidden/, 'no tracks, so no CC button');
+  assert.match(none, /id="btn-cc"[^>]*hidden/, 'no tracks, so no CC button');
   const some = hlsPlayerHtml({
     src: 'https://x/y.m3u8', title: 'Movie', kind: 'cinema',
     tracks: [{ file: 'https://x/en.vtt', label: 'English' }],
   });
-  assert.doesNotMatch(some, /id="btn-cc" hidden/);
+  assert.doesNotMatch(some, /id="btn-cc"[^>]*hidden/);
   // And the script hides it at runtime too, for sources that add tracks late.
   const { els } = runPlayerDom({ tracks: [], trackEls: [] });
   assert.equal(els['btn-cc'].hidden, true);
-  assert.equal(els['btn-cc-lang'].hidden, true);
 });
 
-test('the language caret lists every subtitle track and switches between them', () => {
-  const trackEls = [{ label: 'English' }, { label: 'Icelandic' }, { label: 'Czech' }];
-  const { els, v } = runPlayerDom({ tracks: ['English', 'Icelandic', 'Czech'], trackEls });
-  const caret = els['btn-cc-lang'];
+test('the picture is clickable, not buried under the HUD gradient', () => {
+  const { html } = runPlayerDom({ tracks: [], trackEls: [] });
+  // Regression: #hud is a fixed inset:0 sheet with no pointer-events rule,
+  // so it ate every tap on the video and play/pause looked broken.
+  assert.match(html, /#hud\{[^}]*pointer-events:none/);
+  assert.ok(html.includes('.h-top,.h-bot{pointer-events:auto}'));
+  assert.ok(html.includes('v.addEventListener("click"'));
+});
+
+test('clicking the picture toggles playback on a mouse', () => {
+  const { v, tap } = runPlayerDom({ tracks: [], trackEls: [], finePointer: true });
+  assert.equal(v.paused, true);
+  tap(500);
+  assert.equal(v.paused, false, 'first click resumes');
+  tap(500);
+  assert.equal(v.paused, true, 'second click pauses');
+});
+
+test('a finger never pauses the picture', () => {
+  const { v, tap } = runPlayerDom({ tracks: [], trackEls: [], finePointer: false });
+  assert.equal(v.paused, true);
+  tap(500);
+  assert.equal(v.paused, true, 'one tap must not pause on touch');
+  tap(500);
+  assert.equal(v.paused, true, 'and two taps in the middle only toggle play');
+});
+
+test('double tap on either side seeks ten seconds', () => {
+  const { v, tap } = runPlayerDom({ tracks: [], trackEls: [], finePointer: false });
+  v.currentTime = 50;
+  tap(10);
+  tap(10);
+  assert.equal(v.currentTime, 40, 'left third rewinds');
+  tap(90);
+  tap(90);
+  assert.equal(v.currentTime, 50, 'right third forwards');
+});
+
+test('the scrubber drags and only seeks when the pointer lifts', () => {
+  const { els, v, window } = runPlayerDom({ tracks: [], trackEls: [] });
+  const scrub = els.scrub;
+  scrub.dispatch('pointerdown', { clientX: 20, pointerId: 1 });
+  assert.equal(v.currentTime, 0, 'grabbing the bar does not jump yet');
+  window.dispatch('pointermove', { clientX: 80 });
+  assert.equal(v.currentTime, 0, 'dragging previews without seeking');
+  assert.equal(els['s-fill'].style.width, '80%', 'the bar follows the finger');
+  window.dispatch('pointerup', {});
+  assert.equal(v.currentTime, 80, 'lifting commits the seek');
+});
+
+test('the scrubber answers the keyboard', () => {
+  const { els, v } = runPlayerDom({ tracks: [], trackEls: [] });
+  const scrub = els.scrub;
+  scrub.dispatch('keydown', { key: 'ArrowRight', preventDefault() {} });
+  assert.equal(v.currentTime, 10);
+  scrub.dispatch('keydown', { key: 'ArrowLeft', preventDefault() {} });
+  assert.equal(v.currentTime, 0);
+  scrub.dispatch('keydown', { key: 'End', preventDefault() {} });
+  assert.equal(v.currentTime, 100);
+  scrub.dispatch('keydown', { key: 'Home', preventDefault() {} });
+  assert.equal(v.currentTime, 0);
+});
+
+test('the volume slider drives the video and survives a reload', () => {
+  const store = new Map();
+  const first = runPlayerDom({ tracks: [], trackEls: [], store });
+  first.els['vol-range'].value = '0.4';
+  first.els['vol-range'].dispatch('input', {});
+  assert.equal(first.v.volume, 0.4);
+  assert.equal(first.v.muted, false);
+
+  const second = runPlayerDom({ tracks: [], trackEls: [], store });
+  assert.equal(second.v.volume, 0.4, 'volume is remembered');
+  assert.equal(second.els['vol-range'].value, '0.4', 'the slider starts where she left it');
+});
+
+test('speed runs from 0.25x to 2x and persists', () => {
+  const store = new Map();
+  const first = runPlayerDom({ tracks: [], trackEls: [], store });
+  first.els['btn-speed'].dispatch('click');
+  const menu = first.els['sp-menu'];
+  assert.equal(menu.hidden, false);
+  assert.deepEqual(
+    menu.children.map((b) => b.textContent),
+    ['0.25x', '0.5x', '0.75x', '1x', '1.25x', '1.5x', '1.75x', '2x'],
+  );
+  assert.equal(menu.children[3].className, 'qi on', '1x is the default');
+
+  menu.children[5].onclick();
+  assert.equal(first.v.playbackRate, 1.5);
+  assert.equal(first.els['btn-speed'].textContent, '1.5x');
+  assert.equal(first.els['btn-speed'].classList.contains('on'), true,
+    'a non-default speed is visible');
+
+  const second = runPlayerDom({ tracks: [], trackEls: [], store });
+  assert.equal(second.v.playbackRate, 1.5, 'speed is remembered');
+});
+
+test('the picture-in-picture button hands the video to the browser', () => {
+  const { els, v } = runPlayerDom({ tracks: [], trackEls: [] });
+  let asked = 0;
+  v.requestPictureInPicture = () => { asked += 1; return Promise.resolve(); };
+  els['btn-pip'].dispatch('click');
+  assert.equal(asked, 1, 'standard W3C PiP requested');
+
+  // Safari / iPadOS webkit presentation mode fallback
+  const safari = runPlayerDom({ tracks: [], trackEls: [] });
+  let safariMode = '';
+  safari.v.requestPictureInPicture = null;
+  safari.v.webkitSupportsPresentationMode = true;
+  safari.v.webkitPresentationMode = 'inline';
+  safari.v.webkitSetPresentationMode = (m) => { safariMode = m; };
+  safari.els['btn-pip'].dispatch('click');
+  assert.equal(safariMode, 'picture-in-picture', 'Safari iPad webkit mode toggled');
+});
+
+test('a mid-play stall shows a ring, not the boot wave', () => {
+  const { els, fire } = runPlayerDom({ tracks: [], trackEls: [] });
+  const boot = els.boot;
+  const buf = els.buf;
+
+  // Before the first frame the wordmark is the right thing to show.
+  fire('waiting');
+  assert.equal(boot.style.display, 'flex');
+  assert.equal(buf.hidden, true);
+
+  fire('playing');
+  assert.equal(buf.hidden, true);
+  boot.style.display = '';
+
+  // After it, a stall is a hiccup, not a boot.
+  fire('waiting');
+  assert.equal(buf.hidden, false);
+  assert.equal(boot.style.display, '', 'the wordmark stays gone');
+  fire('canplay');
+  assert.equal(buf.hidden, true);
+});
+
+test('the scrubber does not seek twice on one key', () => {
+  const { els } = runPlayerDom({ tracks: [], trackEls: [] });
+  let stopped = 0;
+  els.scrub.dispatch('keydown', {
+    key: 'ArrowRight',
+    preventDefault() {},
+    stopPropagation() { stopped += 1; },
+  });
+  // Without this the key bubbles to the window handler and seeks twice.
+  assert.equal(stopped, 1, 'the window handler must not see the same key');
+});
+
+test('captions scale with the picture instead of capping at 22px', () => {
+  const { html } = runPlayerDom({ tracks: [], trackEls: [] });
+  const m = html.match(/font-size:calc\(clamp\(15px,2\.4vw,(\d+)px\)/);
+  assert.ok(m, 'caption size is a clamp');
+  // The old 22px ceiling left the captions tiny on a fullscreen screen.
+  assert.ok(Number(m[1]) >= 40, `ceiling ${m[1]}px must scale with the picture`);
+  assert.ok(html.includes('var(--sub-scale,1)'), 'the size control still applies');
+});
+
+test('Skip and Next sit outside the HUD so they survive the fade', () => {
+  const { html } = runPlayerDom({ tracks: [], trackEls: [] });
+  // Regression: a dropped </div> nested #binge inside #hud, so the whole
+  // row inherited the HUD's opacity:0 and vanished with the controls.
+  const at = html.indexOf('id="binge"');
+  const open = html.lastIndexOf('<div', at);
+  let depth = 0;
+  for (const tag of html.slice(0, open).match(/<div\b|<\/div>/g) || []) {
+    depth += tag === '</div>' ? -1 : 1;
+  }
+  assert.equal(depth, 0, '#binge must be a body-level sibling of #hud');
+  assert.ok(html.includes('#binge{position:fixed'), 'it is pinned on its own');
+  assert.ok(html.includes('#binge .b-act{pointer-events:auto}'));
+});
+
+test('the app can relay keys into the player', () => {
+  const { v, relay } = runPlayerDom({ tracks: [], trackEls: [] });
+  relay({ type: 'everglow-key', key: 'ArrowRight' });
+  assert.equal(v.currentTime, 10, 'a key from the parent document seeks');
+  relay({ type: 'everglow-key', key: '5' });
+  assert.equal(v.currentTime, 50);
+});
+
+test('the keyboard seeks, toggles and jumps', () => {
+  const { v, key } = runPlayerDom({ tracks: [], trackEls: [] });
+  key('ArrowRight');
+  assert.equal(v.currentTime, 10);
+  key('ArrowLeft');
+  assert.equal(v.currentTime, 0, 'never rewinds past zero');
+  key('l');
+  assert.equal(v.currentTime, 10);
+  key('j');
+  assert.equal(v.currentTime, 0);
+  key(' ');
+  assert.equal(v.paused, false);
+  key(' ');
+  assert.equal(v.paused, true);
+  key('5');
+  assert.equal(v.currentTime, 50, '0-9 jump to that tenth');
+  key('ArrowUp');
+  assert.equal(v.volume, 1, 'volume clamps at full');
+  key('ArrowDown');
+  assert.ok(v.volume < 1);
+});
+
+test('the CC panel holds captions, language, delay and size', () => {
+  const trackEls = [{ label: 'English' }, { label: 'Icelandic' }];
+  const { els, v } = runPlayerDom({ tracks: ['English', 'Icelandic'], trackEls });
   const menu = els['cc-menu'];
-  assert.equal(caret.hidden, false, 'two or more tracks shows the caret');
-  assert.equal(menu.children.length, 3);
-  assert.deepEqual(menu.children.map((b) => b.textContent), ['English', 'Icelandic', 'Czech']);
-  assert.ok(menu.children[0].className.includes('on'), 'English is the default');
-  assert.ok(!menu.children[1].className.includes('on'));
+  els['btn-cc'].dispatch('click');
+  assert.equal(menu.hidden, false, 'the CC button opens the panel');
+  assert.deepEqual(
+    menu.children.map((c) => c.textContent),
+    ['Captions on', 'Language', 'English', 'Icelandic', 'Subtitle delay', '', 'Text size', ''],
+  );
+  assert.equal(menu.children[0].className, 'qi on', 'captions start on');
+  assert.equal(menu.children[2].className, 'qi on', 'first track is the default');
 
-  // Pick Czech.
-  menu.children[2].onclick();
-  assert.deepEqual(v.textTracks.map((t) => t.mode), ['disabled', 'disabled', 'hidden']);
-  assert.equal(menu.hidden, true, 'menu closes after choosing');
+  // Delay row: minus, the value (tap resets), plus.
+  const delayRow = ccRow(menu, 'Subtitle delay');
+  assert.deepEqual(delayRow.children.map((b) => b.textContent), ['\u2212', '0.0s', '+']);
+  delayRow.children[2].onclick();
+  assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '+0.1s');
+  ccRow(menu, 'Subtitle delay').children[2].onclick();
+  assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '+0.2s');
+  ccRow(menu, 'Subtitle delay').children[1].onclick();
+  assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '0.0s', 'tap the value to reset');
+  ccRow(menu, 'Subtitle delay').children[0].onclick();
+  assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '-0.1s');
 
-  // One track only: no caret, but CC still works.
-  const single = runPlayerDom({ tracks: ['English'], trackEls: [{ label: 'English' }] });
-  assert.equal(single.els['btn-cc-lang'].hidden, true);
-  assert.equal(single.els['btn-cc'].hidden, false);
+  // Size row.
+  const sizeRow = ccRow(menu, 'Text size');
+  assert.deepEqual(sizeRow.children.map((b) => b.textContent), ['Small', 'Medium', 'Large']);
+  assert.equal(sizeRow.children[1].className, 'qi on', 'medium is the default');
+  sizeRow.children[2].onclick();
+  assert.equal(els['sub-txt'].style.getPropertyValue('--sub-scale'), '1.3', 'large text');
+
+  // Picking a language moves the only loaded track.
+  menu.children[3].onclick();
+  assert.deepEqual(v.textTracks.map((t) => t.mode), ['disabled', 'hidden']);
+  assert.equal(menu.hidden, false, 'the panel stays open for more tuning');
+});
+
+test('subtitle delay shifts which line is on screen', () => {
+  const cues = [{ startTime: 10, endTime: 12, text: 'hello' }];
+  const { els, v, fire } = runPlayerDom({
+    tracks: [{ label: 'English', cues }],
+    trackEls: [{ label: 'English' }],
+  });
+  const sub = els['sub-txt'];
+  const bump = (n) => {
+    const step = n > 0 ? 1 : -1;
+    for (let i = 0; i < Math.abs(n); i++) {
+      ccRow(els['cc-menu'], 'Subtitle delay').children[step > 0 ? 2 : 0].onclick();
+    }
+  };
+
+  v.currentTime = 10.5;
+  fire('timeupdate');
+  assert.equal(sub.textContent, 'hello');
+
+  // +1.0s: the line now belongs at 11.5, so 10.5 is still silent.
+  bump(10);
+  v.currentTime = 10.5;
+  fire('timeupdate');
+  assert.equal(sub.textContent, '');
+  v.currentTime = 11.5;
+  fire('timeupdate');
+  assert.equal(sub.textContent, 'hello');
+
+  // Back to -1.0s: it shows a second early instead.
+  bump(-20);
+  v.currentTime = 9.5;
+  fire('timeupdate');
+  assert.equal(sub.textContent, 'hello');
+  v.currentTime = 8.5;
+  fire('timeupdate');
+  assert.equal(sub.textContent, '');
+
+  // Turning captions off silences the overlay even mid-cue.
+  els['cc-menu'].children[0].onclick();
+  v.currentTime = 9.5;
+  fire('timeupdate');
+  assert.equal(sub.textContent, '');
+});
+
+test('the CC panel lifts the captions instead of covering them', () => {
+  const { els } = runPlayerDom({ tracks: ['English'], trackEls: [{ label: 'English' }] });
+  const box = els['sub-box'];
+  const menu = els['cc-menu'];
+  menu.getBoundingClientRect = () => ({ x: 0, y: 0, width: 100, height: 160, left: 0 });
+  assert.equal(box.style.getPropertyValue('--sub-lift'), '0px', 'no panel, no lift');
+
+  els['btn-cc'].dispatch('click');
+  assert.equal(menu.hidden, false);
+  // The panel sits where the captions live, so tuning the delay needs them
+  // moved out of the way without clipping off the top on phones.
+  assert.equal(box.style.getPropertyValue('--sub-lift'), '142px', 'panel height - 18px');
+
+  els['btn-cc'].dispatch('click');
+  assert.equal(menu.hidden, true);
+  assert.equal(box.style.getPropertyValue('--sub-lift'), '0px', 'lift drops with the panel');
+});
+
+test('binge scrim is hidden when both skip and next are hidden', () => {
+  const { html, window, els, fire } = runPlayerDom({ tracks: [], trackEls: [] });
+  assert.ok(html.includes('id="b-scrim" hidden'), 'scrim starts hidden');
+  assert.ok(html.includes('#b-scrim[hidden]{display:none!important}'));
+});
+
+test('subtitle settings survive the next episode', () => {
+  const store = new Map();
+  const first = runPlayerDom({
+    tracks: ['English'], trackEls: [{ label: 'English' }], store,
+  });
+  const firstMenu = first.els['cc-menu'];
+  ccRow(firstMenu, 'Subtitle delay').children[2].onclick();
+  ccRow(firstMenu, 'Subtitle delay').children[2].onclick();
+  ccRow(firstMenu, 'Text size').children[0].onclick();
+  firstMenu.children[0].onclick();
+
+  const second = runPlayerDom({
+    tracks: ['English'], trackEls: [{ label: 'English' }], store,
+  });
+  const menu = second.els['cc-menu'];
+  assert.equal(ccRow(menu, 'Subtitle delay').children[1].textContent, '+0.2s');
+  assert.equal(ccRow(menu, 'Text size').children[0].className, 'qi on', 'small text kept');
+  assert.equal(menu.children[0].textContent, 'Captions off', 'captions stay off');
+  assert.equal(second.els['btn-cc'].classList.contains('on'), false);
 });
