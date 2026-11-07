@@ -62,6 +62,18 @@ class HlsServerPlayerController {
     }
   }
 
+  /// Duration of the loaded stream in seconds, or 0 until metadata lands.
+  double get duration {
+    final state = _state;
+    if (state == null || state._video == null || state._destroyed) return 0;
+    try {
+      final value = state._video!.duration;
+      return value.isFinite && value > 0 ? value : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   void load({
     required String url,
     required double startSeconds,
@@ -72,6 +84,13 @@ class HlsServerPlayerController {
 
   void play() {
     _state?._play();
+  }
+
+  /// Play with sound when the browser allows it, and fall back to muted
+  /// autoplay when it does not. Used for remote play/join, where there is
+  /// no user gesture on this device.
+  void playWithSoundFallback() {
+    _state?._playWithSoundFallback();
   }
 
   void pause() {
@@ -85,6 +104,11 @@ class HlsServerPlayerController {
   void setMuted(bool muted) {
     _muted = muted;
     _state?._setMuted(muted);
+  }
+
+  /// Show or hide the attached subtitle track without reloading.
+  void setCaptions(bool on) {
+    _state?._setCaptions(on);
   }
 
   bool get isMuted => _muted;
@@ -109,6 +133,10 @@ class HlsServerPlayer extends StatefulWidget {
   /// the real `<video>` element so sidecar/embedded subtitles render
   /// natively in the browser.
   final String? subtitleUrl;
+
+  /// Whether the subtitle track should be visible. Synced through the
+  /// room, so one tap on CC flips both screens.
+  final bool captionsOn;
 
   /// Unique platform view id. Keep it stable for the same room so the
   /// same `<video>` element survives rebuilds and remote sync updates.
@@ -136,6 +164,7 @@ class HlsServerPlayer extends StatefulWidget {
     required this.controller,
     this.initialVolume = 1.0,
     this.subtitleUrl,
+    this.captionsOn = true,
     this.onReady,
     this.onTimeUpdate,
     this.onPlay,
@@ -192,6 +221,9 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     if (oldWidget.subtitleUrl != widget.subtitleUrl) {
       _attachSubtitle();
     }
+    if (oldWidget.captionsOn != widget.captionsOn) {
+      _setCaptions(widget.captionsOn);
+    }
     if (oldWidget.initialVolume != widget.initialVolume) {
       _setVolume(widget.initialVolume);
     }
@@ -217,9 +249,10 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
         ..label = 'Subtitles'
         ..srclang = 'en'
         ..src = url
-        ..default_ = true;
+        ..default_ = widget.captionsOn;
       video.appendChild(track);
       _subtitleTrack = track;
+      _setCaptions(widget.captionsOn);
     } catch (e) {
       debugPrint('[HlsServerPlayer] Could not attach subtitles: $e');
     }
@@ -227,12 +260,18 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
 
   /// Forces any attached text tracks to show once the media is ready.
   void _showSubtitles() {
+    _setCaptions(widget.captionsOn);
+  }
+
+  /// Shows or hides every text track. Called on first load and whenever
+  /// the room's caption choice changes.
+  void _setCaptions(bool on) {
     final video = _video;
     if (video == null || _destroyed) return;
     try {
       final tracks = video.textTracks;
       for (var i = 0; i < tracks.length; i++) {
-        tracks[i].mode = 'showing';
+        tracks[i].mode = on ? 'showing' : 'disabled';
       }
     } catch (_) {
       // Some browsers expose textTracks as a live list without settable
@@ -438,12 +477,37 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
     }
     widget.onReady?.call();
     if (_pendingAutoplay) {
-      _setMuted(true);
-      _play();
+      _playWithSoundFallback();
+    }
+  }
+
+  Future<void> _playWithSoundFallback() async {
+    final video = _video;
+    if (video == null || _destroyed) return;
+    try {
+      video.muted = false;
+      video.volume = _volume;
+      await video.play().toDart;
+      _muted = false;
+      widget.controller._muted = false;
+    } catch (_) {
+      try {
+        video.muted = true;
+        await video.play().toDart;
+        _muted = true;
+        widget.controller._muted = true;
+      } catch (e) {
+        _pendingAutoplay = true;
+        debugPrint('[HlsServerPlayer] play() rejected: $e');
+      }
     }
   }
 
   void _play() {
+    if (!_ready) {
+      _pendingAutoplay = true;
+      return;
+    }
     final video = _video;
     if (video == null || _destroyed) return;
     try {
@@ -458,6 +522,7 @@ class HlsServerPlayerState extends State<HlsServerPlayer> {
   }
 
   void _pause() {
+    _pendingAutoplay = false;
     try {
       _video?.pause();
     } catch (_) {}

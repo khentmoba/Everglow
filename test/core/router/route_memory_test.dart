@@ -65,7 +65,7 @@ void main() {
 
     test('an unsafe remember keeps the previous safe page', () async {
       await RouteMemory.remember('/chat');
-      await RouteMemory.remember('/watch-party');
+      await RouteMemory.remember('/books/reader');
       RouteMemory.bootLocation = null;
       await RouteMemory.load();
       expect(RouteMemory.bootLocation, '/chat');

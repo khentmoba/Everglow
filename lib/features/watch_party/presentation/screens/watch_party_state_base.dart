@@ -113,7 +113,7 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   // servers play in a real <video> element via hls.js so the couple
   // gets precise play/pause/seek sync; embed servers use the iframe.
   final HlsServerPlayerController _hlsController = HlsServerPlayerController();
-  late final String _hlsViewType;
+  late String _hlsViewType;
   bool _hlsFailed = false;
   bool _hlsReady = false;
   String? _hlsError;
@@ -124,6 +124,35 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   double _hlsVolume = 1.0;
 
   final PlayerMemoryService _playerMemory = PlayerMemoryService();
+
+  // ── Shared server clock ────────────────────────────────────────────
+  // The room's `positionAt` is a Firestore server timestamp. Both
+  // clients derive the live position from it, so neither side is the
+  // clock and neither side runs ahead of the other.
+  late final WatchPartyClock _clock;
+
+  /// Resolves the Everglow HLS manifest for the room's current title.
+  final WatchPartyStreamResolver _streamResolver = WatchPartyStreamResolver();
+  String? _everglowStreamUrl;
+  List<WatchPartySubtitle> _availableSubtitles = const [];
+  bool _resolvingStream = false;
+  String? _streamResolveError;
+
+  /// Local caption visibility. The room carries the chosen track; this
+  /// mirrors it so the CC button reacts immediately.
+  bool _captionsOn = true;
+
+  /// One-shot guard for rooms written before `positionAt` existed.
+  bool _seededLegacyAnchor = false;
+
+  /// The platform-view registry has no unregister call, so each remount
+  /// leaves one factory behind for the session. That is bounded by the
+  /// number of title/episode/server changes in one visit and is the
+  /// price of a fresh `<video>` after a remount.
+  void _regenerateHlsViewType() {
+    _hlsViewType =
+        'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
+  }
 
   String get _hlsVolumeKey => PlayerMemoryService.watchPartyKey(_room.id);
 
@@ -142,8 +171,11 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
     _playerMemory.save(_hlsVolumeKey, volume: volume.clamp(0.0, 1.0));
   }
 
+  bool get _isEverglowServer => _room.serverType == 'everglow';
+
   bool get _isHlsServer =>
-      _room.serverType == 'hls' && (_room.streamUrl ?? '').isNotEmpty;
+      _isEverglowServer ||
+      (_room.serverType == 'hls' && (_room.streamUrl ?? '').isNotEmpty);
 
   bool get _isEmbedServer =>
       _room.serverType == 'embed' && (_room.streamUrl ?? '').isNotEmpty;
@@ -151,8 +183,24 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   /// Whether the legacy embed-provider iframe path is in use.
   bool get _usesIframe => !_isHlsServer;
 
+  /// True while the real `<video>` platform view is on screen. Used to
+  /// decide whether a view-type change would remount it.
+  bool get _isHlsMounted => _isHlsServer && _hlsStreamUrl.isNotEmpty;
+
+  /// The subtitle track the player should show. A null room track means
+  /// "use the first track the resolver found", which is how the normal
+  /// cinema/anime players start with English captions on.
+  String? get _effectiveSubtitleUrl {
+    if (!_captionsOn) return null;
+    final chosen = _room.subtitleUrl;
+    if (chosen != null && chosen.isNotEmpty) return chosen;
+    if (_availableSubtitles.isNotEmpty) return _availableSubtitles.first.url;
+    return null;
+  }
+
   /// Final stream URL, proxied when the server requires it.
   String get _hlsStreamUrl {
+    if (_isEverglowServer) return _everglowStreamUrl ?? '';
     final raw = _room.streamUrl ?? '';
     if (_room.proxyEnabled) return WatchPartyServerService.proxyUrlFor(raw);
     return raw;
@@ -170,6 +218,10 @@ abstract class _WatchPartyScreenStateBase extends State<WatchPartyScreen>
   // just to the local widget tree.
   Timer? _clockTicker;
   double _displayedTime = 0.0;
+
+  /// True while the seek slider is being dragged, so the one-second
+  /// clock tick does not fight the thumb.
+  bool _seeking = false;
 
   // ─── Sync tunables ────────────────────────────────────────────────
 
@@ -205,10 +257,12 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   void initState() {
     super.initState();
     _service = WatchPartyService();
+    _clock = WatchPartyClock();
     _auth = context.read<AuthService>();
     _room = widget.initialRoom;
     _myUid = _auth.uid ?? '';
     _partnerName = _auth.partnerName;
+    _captionsOn = _room.captionsOn;
     debugPrint(
       'WatchPartyScreen init: tmdbId=${_room.tmdbId}, mediaType=${_room.mediaType}, isAnime=${_room.isAnime}, season=${_room.season}, episode=${_room.episode}',
     );
@@ -224,8 +278,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _autoplay = !_hostExplicitlyPaused;
 
     _selectedProvider = _sourceService.defaultSource;
-    _hlsViewType =
-        'everglow-watchparty-hls-${_room.id}-${DateTime.now().microsecondsSinceEpoch}';
+    _regenerateHlsViewType();
     _restoreHlsVolume();
 
     // Listen for provider list updates from Firestore. If the iframe
@@ -314,7 +367,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     if (_isHlsServer) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _reloadHlsAt(_localStartHint());
+        if (_isEverglowServer) {
+          unawaited(_resolveEverglowStream(startSeconds: _localStartHint()));
+        } else {
+          _reloadHlsAt(_localStartHint());
+        }
       });
     } else if (_isEmbedServer) {
       _cinesrcReady = false;
@@ -347,9 +404,10 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     });
 
     _startClockTicker();
-    if (widget.isHost) {
-      _startHeartbeat();
-    }
+    // Both sides keep the room alive. While playing, the heartbeat
+    // re-anchors the position with a server timestamp; a late tick can
+    // only refresh the anchor, never flip the state.
+    _startHeartbeat();
 
     _initVoiceChat();
 
@@ -394,6 +452,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     _loadTimer?.cancel();
     _contentCheckTimer?.cancel();
     _roomSub?.cancel();
+    _streamResolver.dispose();
     _voiceChat.dispose();
     if (_serviceListener != null) {
       _sourceService.removeListener(_serviceListener!);
@@ -427,32 +486,43 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   /// just return the anchor (the iframe keeps playing, but we lie
   /// about it in the UI so the user can see "paused" badges).
   double _estimatedLocalTime() {
-    if (_isHlsServer && _hlsController.isAttached) {
+    // The controller attaches in initState, before the manifest sets the
+    // start position. Until `_hlsReady`, `currentTime` is 0; the anchor
+    // fallback below is the truthful position.
+    if (_isHlsServer && _hlsController.isAttached && _hlsReady) {
       return _hlsController.currentTime;
     }
-    if (_anchorEpoch == null) return _anchorTime;
+    if (_anchorEpoch == null) {
+      return _room.livePositionAt(_clock.serverNow);
+    }
     if (_hostExplicitlyPaused) return _anchorTime;
     final elapsed =
         DateTime.now().difference(_anchorEpoch!).inMilliseconds / 1000.0;
     return _anchorTime + elapsed;
   }
 
+  /// The position to write as the room's new anchor. This is a media
+  /// position, not a wall-clock time: the server timestamp on the same
+  /// write supplies the time. Adding the device/server skew here would
+  /// double-count it and skip the video forward.
+  double _positionForWrite() => _estimatedLocalTime();
+
   /// The hint we wrote into the player URL the last time we built
-  /// the iframe. Defaults to the room's `currentTime` so a joiner
-  /// lands on the same scene the host is watching.
-  double _localStartHint() => _room.currentTime;
+  /// the iframe. Uses the live server position so a joiner lands on
+  /// the same scene, not at the last anchor.
+  double _localStartHint() => _room.livePositionAt(_clock.serverNow);
 
   void _startClockTicker() {
     _clockTicker?.cancel();
     _clockTicker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted || _seeking) return;
       setState(() {
         _displayedTime = _estimatedLocalTime();
       });
     });
   }
 
-  // ─── Heartbeat (host) ─────────────────────────────────────────────
+  // ─── Heartbeat (both sides) ───────────────────────────────────────
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
@@ -460,14 +530,15 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _WatchPartyScreenStateBase._heartbeatInterval,
       (_) async {
         if (!mounted) return;
-        final t = _estimatedLocalTime();
-        debugPrint(
-          'WatchPartyScreen heartbeat: time=$t anchorTime=$_anchorTime hostPaused=$_hostExplicitlyPaused',
-        );
+        final publishing = _isHlsServer
+            ? (_hlsController.isAttached &&
+                _hlsReady &&
+                _hlsController.isPlaying)
+            : !_hostExplicitlyPaused;
         await _service.heartbeat(
           roomId: _room.id,
-          currentTime: t,
           beatBy: _myUid,
+          currentTime: publishing ? _estimatedLocalTime() : null,
         );
       },
     );
@@ -512,13 +583,14 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
 
   bool _mediaIdentityChanged(WatchPartyRoom a, WatchPartyRoom b) {
     return a.tmdbId != b.tmdbId ||
+        a.malId != b.malId ||
         a.mediaType != b.mediaType ||
+        a.isAnime != b.isAnime ||
         a.season != b.season ||
         a.episode != b.episode ||
         a.serverType != b.serverType ||
         a.serverName != b.serverName ||
         a.streamUrl != b.streamUrl ||
-        a.subtitleUrl != b.subtitleUrl ||
         a.proxyEnabled != b.proxyEnabled;
   }
 
@@ -533,7 +605,11 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
 
-    if (_lastRemoteUpdate != null &&
+    final looksPending =
+        incoming.updatedAt.difference(DateTime.now()).abs() <
+        const Duration(seconds: 1);
+    if (!looksPending &&
+        _lastRemoteUpdate != null &&
         incoming.updatedAt.isBefore(_lastRemoteUpdate!)) {
       debugPrint(
         'WatchPartyScreen _onRoomUpdate: discarding out-of-order update (updatedAt=${incoming.updatedAt} < last=$_lastRemoteUpdate)',
@@ -541,8 +617,16 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       return;
     }
     _lastRemoteUpdate = incoming.updatedAt;
+    // `updatedAt` is refreshed by the heartbeat every 5s, so it is a
+    // fresh server stamp. `positionAt` is the playback anchor and can be
+    // minutes old; feeding it here would estimate a negative offset and
+    // rewind the joiner.
+    _clock.observe(incoming.updatedAt);
 
     final mediaChanged = _mediaIdentityChanged(incoming, _room);
+    final captionsChanged =
+        incoming.subtitleUrl != _room.subtitleUrl ||
+        incoming.captionsOn != _room.captionsOn;
     // Compare with what OUR player is doing, not with the last
     // snapshot: if Firestore skipped ahead and merged the partner's
     // pause with a later tick, we still notice the difference.
@@ -553,18 +637,43 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     debugPrint(
       'WatchPartyScreen _onRoomUpdate: isLocal=$isLocalWrite, state=${incoming.state}, time=${incoming.currentTime}, updatedBy=${incoming.updatedBy}',
     );
-    if (isLocalWrite && !mediaChanged && !stateChanged) {
+    if (isLocalWrite && !mediaChanged && !stateChanged && !captionsChanged) {
       _room = incoming;
       return;
     }
+    final wasHlsMounted = _isHlsMounted;
     _room = incoming;
     _hostExplicitlyPaused = incoming.state == 'paused';
+    _captionsOn = incoming.captionsOn;
+
+    // A room created before `positionAt` existed still has a live
+    // `currentTime` from the old heartbeat. Seed the anchor once so the
+    // next heartbeat cannot make the fallback look stale.
+    if (!_seededLegacyAnchor &&
+        incoming.positionAt == null &&
+        incoming.state == 'playing') {
+      _seededLegacyAnchor = true;
+      unawaited(
+        _service.updatePlayback(
+          roomId: incoming.id,
+          state: 'playing',
+          currentTime: incoming.livePositionAt(_clock.serverNow),
+          updatedBy: _myUid,
+        ),
+      );
+    }
 
     if (mediaChanged) {
       _autoplay = true;
       _anchorEpoch = DateTime.now();
       _anchorTime = 0.0;
-      if (_isHlsServer) {
+      if (_isEverglowServer) {
+        _hlsReady = false;
+        _isResyncing = true;
+        _everglowStreamUrl = null;
+        _availableSubtitles = const [];
+        unawaited(_resolveEverglowStream(startSeconds: 0));
+      } else if (_isHlsServer) {
         _reloadHlsAt(0);
       } else if (_isEmbedServer) {
         _cinesrcReady = false;
@@ -575,8 +684,17 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
         _cinesrcReady = false;
         _iframe.src = _buildPlayerUrl(_selectedProvider, startSeconds: 0);
       }
+      if (!(wasHlsMounted && _isHlsMounted)) {
+        _regenerateHlsViewType();
+      }
       setState(() {});
       return;
+    }
+
+    if (captionsChanged) {
+      _hlsController.setCaptions(_captionsOn);
+      setState(() {});
+      // Do not return: a coalesced snapshot can also carry a pause.
     }
 
     // When the host toggles play/pause, the remote side must also
@@ -585,14 +703,15 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     // (or keeps playing) regardless of what the overlay says.
     if (stateChanged) {
       _autoplay = !_hostExplicitlyPaused;
+      final live = incoming.livePositionAt(_clock.serverNow);
       if (_isHlsServer) {
         _applyHlsState(incoming);
         setState(() {});
       } else if (_isControlledEmbed) {
-        _syncPlayerTo(incoming.currentTime, paused: _hostExplicitlyPaused);
+        _syncPlayerTo(live, paused: _hostExplicitlyPaused);
         setState(() {});
       } else {
-        _rebuildAt(incoming.currentTime);
+        _rebuildAt(live);
       }
       return;
     }
@@ -608,27 +727,28 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       _room = incoming;
       _hostExplicitlyPaused = incoming.state == 'paused';
       _anchorEpoch = DateTime.now();
-      _anchorTime = incoming.currentTime;
+      _anchorTime = incoming.livePositionAt(_clock.serverNow);
       setState(() {});
       return;
     }
 
-    final drift = (incoming.currentTime - _estimatedLocalTime()).abs();
+    final live = incoming.livePositionAt(_clock.serverNow);
+    final drift = (live - _estimatedLocalTime()).abs();
     if (drift > _WatchPartyScreenStateBase._resyncThresholdSeconds) {
       if (_isHlsServer && _hlsController.isAttached) {
-        _hlsController.seek(incoming.currentTime);
+        _hlsController.seek(live);
       } else if (_isControlledEmbed) {
         _quietPlayerEvents();
-        _sendCinesrc('seek', [incoming.currentTime]);
+        _sendCinesrc('seek', [live]);
       } else {
-        _rebuildAt(incoming.currentTime);
+        _rebuildAt(live);
       }
       _anchorEpoch = DateTime.now();
-      _anchorTime = incoming.currentTime;
+      _anchorTime = live;
       setState(() {});
     } else {
       _anchorEpoch = DateTime.now();
-      _anchorTime = incoming.currentTime;
+      _anchorTime = live;
       // Host changed play/pause (or a small drift) — we need to rebuild the
       // overlay so "Khent paused" flips to "Synced" and the time updates.
       setState(() {});
@@ -957,7 +1077,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
           });
         }
         _syncPlayerTo(
-          _room.currentTime,
+          _room.livePositionAt(_clock.serverNow),
           paused: _hostExplicitlyPaused,
           forceSeek: true,
         );
@@ -1047,7 +1167,7 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
       await _service.updatePlayback(
         roomId: _room.id,
         state: nextState,
-        currentTime: _estimatedLocalTime(),
+        currentTime: _positionForWrite(),
         updatedBy: _myUid,
       );
       return;
@@ -1102,6 +1222,10 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
   /// servers or media, or on a manual resync).
   void _reloadHlsAt(double startSeconds) {
     if (!mounted) return;
+    if (_isEverglowServer && (_everglowStreamUrl ?? '').isEmpty) {
+      unawaited(_resolveEverglowStream(startSeconds: startSeconds));
+      return;
+    }
     setState(() {
       _isResyncing = true;
       _hlsReady = false;
@@ -1122,20 +1246,77 @@ abstract class _WatchPartyScreenStateCore extends _WatchPartyScreenStateBase {
     });
   }
 
+  /// Ask our streaming Worker for the room's manifest and subtitle
+  /// tracks, then start the real `<video>` at [startSeconds]. Both
+  /// clients resolve independently from the same room identity, so a
+  /// host who joined late never blocks the partner.
+  Future<void> _resolveEverglowStream({double? startSeconds}) async {
+    if (!mounted || !_room.hasMedia) return;
+    final tmdbId = _room.tmdbId;
+    final malId = _room.malId;
+    final season = _room.season;
+    final episode = _room.episode;
+    final serverType = _room.serverType;
+    setState(() {
+      _resolvingStream = true;
+      _streamResolveError = null;
+      _hlsFailed = false;
+      _hlsError = null;
+    });
+    try {
+      final stream = await _streamResolver.resolve(_room);
+      if (!mounted) return;
+      // A second title pick may have landed while this resolve was in
+      // flight; its result belongs to the old room identity.
+      if (_room.tmdbId != tmdbId ||
+          _room.malId != malId ||
+          _room.season != season ||
+          _room.episode != episode ||
+          _room.serverType != serverType) {
+        setState(() => _resolvingStream = false);
+        return;
+      }
+      setState(() {
+        _everglowStreamUrl = stream.src;
+        _availableSubtitles = stream.subtitles;
+        _resolvingStream = false;
+        _hlsReady = false;
+        _hlsFailed = false;
+        _hlsError = null;
+      });
+      _reloadHlsAt(startSeconds ?? _localStartHint());
+    } catch (e, st) {
+      Logger.e(
+        'WatchParty: Everglow stream resolve failed',
+        error: e,
+        stackTrace: st,
+      );
+      if (!mounted) return;
+      final message = e is StateError && e.message.isNotEmpty
+          ? e.message
+          : 'Could not reach the Everglow server.';
+      setState(() {
+        _resolvingStream = false;
+        _hlsFailed = true;
+        _streamResolveError = message;
+        _hlsError = message;
+      });
+    }
+  }
+
   /// Apply a remote state change to the HLS player without reloading
   /// the stream: play/pause directly on the real <video> element.
   void _applyHlsState(WatchPartyRoom incoming) {
     _isResyncing = false;
     if (incoming.state == 'playing') {
-      // Remote play may lack a user gesture; keep it muted so the
-      // browser allows autoplay.
-      _hlsController.setMuted(true);
-      _hlsController.play();
+      // Remote play may lack a user gesture. Try sound first, then fall
+      // back to muted autoplay so the picture still moves.
+      _hlsController.playWithSoundFallback();
     } else {
       _hlsController.pause();
     }
     _anchorEpoch = DateTime.now();
-    _anchorTime = incoming.currentTime;
+    _anchorTime = incoming.livePositionAt(_clock.serverNow);
   }
 
   void _showEndedAndPop() {

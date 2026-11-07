@@ -23,12 +23,15 @@ import '../../data/models/watch_party_room.dart';
 import '../../data/models/watch_party_server.dart';
 import '../../data/services/cinesrc_bridge.dart';
 import '../../data/services/voice_chat_service.dart';
+import '../../data/services/watch_party_clock.dart';
 import '../../data/services/watch_party_server_service.dart';
 import '../../data/services/watch_party_service.dart';
+import '../../data/services/watch_party_stream_resolver.dart';
 import '../widgets/hls_server_player.dart';
 import '../widgets/server_picker_sheet.dart';
 import '../widgets/voice_chat_overlay.dart';
 import '../widgets/watch_party_chat_drawer.dart';
+import '../widgets/watch_party_episode_picker_sheet.dart';
 import '../widgets/watch_party_media_picker_sheet.dart';
 import '../../../../core/theme/app_typography.dart';
 part 'watch_party_widgets.dart';
@@ -88,27 +91,41 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildCinemaTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _pageScrollController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildCinemaPlayerStage(),
-                    _buildCinemaMetadata(),
-                    _buildCinemaServerSelector(),
-                    const SizedBox(height: AppSpacing.x3),
-                  ],
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                _buildCinemaTopBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _pageScrollController,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildCinemaPlayerStage(),
+                        _buildSeekBar(),
+                        _buildCinemaMetadata(),
+                        _buildCinemaServerSelector(),
+                        const SizedBox(height: AppSpacing.x3),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                _buildBottomBar(),
+              ],
             ),
-            _buildBottomBar(),
-          ],
-        ),
+          ),
+          VoiceChatOverlay(
+            service: _voiceChat,
+            partnerName: _partnerName,
+          ),
+          Positioned.fill(
+            child: WatchPartyChatDrawer(roomId: _room.id),
+          ),
+          if (_showEndDialog)
+            Positioned.fill(child: _buildEndDialog()),
+        ],
       ),
     );
   }
@@ -116,6 +133,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   /// Cinema-style 16:9 stage. Keeps the HLS player / iframe in the same
   /// platform view, with loading, error, sync, voice, and chat overlays.
   Widget _buildCinemaPlayerStage() {
+    if (!_room.hasMedia) return _buildEmptyStage();
     final maxPlayerHeight = (MediaQuery.sizeOf(context).height - 320).clamp(
       240.0,
       double.infinity,
@@ -130,10 +148,11 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               fit: StackFit.expand,
               children: [
                 const ColoredBox(color: Colors.black),
-                if (_isHlsServer)
+                if (_isHlsServer && _hlsStreamUrl.isNotEmpty)
                   HlsServerPlayer(
                     streamUrl: _hlsStreamUrl,
-                    subtitleUrl: _room.subtitleUrl,
+                    subtitleUrl: _effectiveSubtitleUrl,
+                    captionsOn: _captionsOn,
                     startSeconds: _localStartHint(),
                     autoplay: !_hostExplicitlyPaused,
                     viewType: _hlsViewType,
@@ -172,23 +191,21 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                     },
                   ),
                 if (_isHlsServer && !_hlsReady && !_hlsFailed)
-                  _WatchPartyCinematicLoader(serverName: _activeServerLabel),
+                  _WatchPartyCinematicLoader(
+                    serverName: _resolvingStream
+                        ? 'Finding the stream…'
+                        : _activeServerLabel,
+                  ),
                 if (_isLoading && !_iframeFailed && !_isHlsServer)
                   _WatchPartyCinematicLoader(serverName: _activeServerLabel),
                 if (_hlsFailed) _buildHlsErrorCard(),
-                if (_iframeFailed) _buildErrorCard(),
+                if (_iframeFailed && !_isHlsServer) _buildErrorCard(),
                 Positioned(
                   top: 12,
                   left: 12,
                   right: 12,
                   child: _buildSyncOverlay(),
                 ),
-                VoiceChatOverlay(
-                  service: _voiceChat,
-                  partnerName: _partnerName,
-                ),
-                WatchPartyChatDrawer(roomId: _room.id),
-                if (_showEndDialog) _buildEndDialog(),
               ],
             ),
           ),
@@ -198,14 +215,104 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   String get _activeServerLabel {
+    if (_isEverglowServer) return 'Everglow';
     if (_room.streamUrl != null) {
       return _room.serverName ?? (_room.serverType == 'hls' ? 'HLS' : 'Embed');
     }
     return _selectedProvider.shortName;
   }
 
+  /// Empty room: nothing is playing yet, so the stage becomes a single
+  /// obvious action instead of a black rectangle with a dead player.
+  Widget _buildEmptyStage() {
+    final maxPlayerHeight = (MediaQuery.sizeOf(context).height - 320).clamp(
+      240.0,
+      double.infinity,
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxPlayerHeight),
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.plum, AppColors.inkDeep],
+              ),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.movie_filter_rounded,
+                  color: AppColors.roseQuartz,
+                  size: 36,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Nothing playing yet',
+                  style: AppTypography.cormorantBoldWhite.copyWith(
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Pick a movie, series, or anime for both of you.',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: _showMediaPicker,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppColors.deepRose, AppColors.rosePressed],
+                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.full),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.search_rounded,
+                          color: AppColors.petalWhite,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Choose a title',
+                          style: AppTypography.outfitBold.copyWith(
+                            color: AppColors.petalWhite,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCinemaTopBar() {
-    final compact = MediaQuery.sizeOf(context).width < 560;
+    final compact = MediaQuery.sizeOf(context).width < 700;
     return Container(
       height: 56,
       padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: 8),
@@ -255,6 +362,26 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             compact: compact,
             onTap: _showMediaPicker,
           ),
+          if (_room.hasMedia && _room.isSeries) ...[
+            SizedBox(width: compact ? 6 : 8),
+            _CinemaPillButton(
+              icon: Icons.video_library_rounded,
+              label: 'Episodes',
+              compact: compact,
+              onTap: _showEpisodePicker,
+            ),
+          ],
+          if (_room.hasMedia && _isHlsServer) ...[
+            SizedBox(width: compact ? 6 : 8),
+            _CinemaPillButton(
+              icon: _captionsOn
+                  ? Icons.closed_caption_rounded
+                  : Icons.closed_caption_off_rounded,
+              label: 'CC',
+              compact: compact,
+              onTap: _showCaptionPicker,
+            ),
+          ],
           SizedBox(width: compact ? 6 : 8),
           _CinemaPillButton(
             icon: Icons.swap_horiz_rounded,
@@ -271,6 +398,62 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             compact: compact,
             accent: true,
             onTap: _endParty,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Seek bar for the real `<video>` path. Embeds don't expose a
+  /// timeline, so this only appears for Everglow/HLS rooms.
+  Widget _buildSeekBar() {
+    if (!_isHlsServer || !_room.hasMedia) return const SizedBox.shrink();
+    final duration = _hlsController.duration;
+    if (duration <= 0) return const SizedBox.shrink();
+    final value = _displayedTime.clamp(0.0, duration);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.sm,
+        AppSpacing.xl,
+        0,
+      ),
+      child: Row(
+        children: [
+          Text(
+            _formatT(value),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
+          ),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                value: value,
+                max: duration,
+                activeColor: AppColors.roseQuartz,
+                inactiveColor: AppColors.moonlight.withValues(alpha: 0.2),
+                onChangeStart: (_) => setState(() => _seeking = true),
+                onChanged: (next) => setState(() => _displayedTime = next),
+                onChangeEnd: (next) {
+                  setState(() => _seeking = false);
+                  _seekTo(next);
+                },
+              ),
+            ),
+          ),
+          Text(
+            _formatT(duration),
+            style: AppTypography.outfitWhite.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
           ),
         ],
       ),
@@ -296,34 +479,48 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
             children: [
               _metaBadge(
                 Icons.movie_filter_rounded,
-                'Choose Title',
+                _room.hasMedia ? 'Choose Title' : 'Choose a title',
                 accent: true,
                 onTap: _showMediaPicker,
               ),
-              _metaBadge(Icons.source_rounded, activeServer),
-              _metaBadge(
-                isTv ? Icons.tv_rounded : Icons.movie_rounded,
-                isTv ? 'TV Show' : 'Movie',
-                tint: AppColors.softLavender,
-              ),
-              if (isTv)
+              if (_room.hasMedia) ...[
+                _metaBadge(Icons.source_rounded, activeServer),
                 _metaBadge(
-                  Icons.layers_rounded,
-                  'S${_room.season ?? 1} E${_room.episode ?? 1}',
-                  tint: AppColors.moonlight,
+                  isTv ? Icons.tv_rounded : Icons.movie_rounded,
+                  isTv ? 'TV Show' : 'Movie',
+                  tint: AppColors.softLavender,
                 ),
-              _metaBadge(
-                _hostExplicitlyPaused
-                    ? Icons.pause_rounded
-                    : Icons.sensors_rounded,
-                _hostExplicitlyPaused ? 'Paused by host' : 'Synced live',
-                tint: _hostExplicitlyPaused ? _cAmber : AppColors.success,
-              ),
+                if (isTv)
+                  _metaBadge(
+                    Icons.layers_rounded,
+                    'S${_room.season ?? 1} E${_room.episode ?? 1}',
+                    tint: AppColors.moonlight,
+                    onTap: _showEpisodePicker,
+                  ),
+                if (_isHlsServer)
+                  _metaBadge(
+                    _captionsOn
+                        ? Icons.closed_caption_rounded
+                        : Icons.closed_caption_off_rounded,
+                    _captionsOn ? 'CC on' : 'CC off',
+                    tint: _captionsOn ? AppColors.success : AppColors.textMuted,
+                    onTap: _showCaptionPicker,
+                  ),
+                _metaBadge(
+                  _hostExplicitlyPaused
+                      ? Icons.pause_rounded
+                      : Icons.sensors_rounded,
+                  _hostExplicitlyPaused ? 'Paused' : 'Synced live',
+                  tint: _hostExplicitlyPaused ? _cAmber : AppColors.success,
+                ),
+              ],
             ],
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Watching together with $_partnerName',
+            _room.hasMedia
+                ? 'Watching together with $_partnerName'
+                : 'Pick something together — the room follows whatever you choose.',
             style: AppTypography.outfitWhite.copyWith(
               color: AppColors.textMedium,
               fontSize: 13,
@@ -381,11 +578,15 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildCinemaServerSelector() {
-    final isHls = _room.serverType == 'hls';
-    final serverName = _room.streamUrl == null
+    final isHls = _isEverglowServer || _room.serverType == 'hls';
+    final serverName = _isEverglowServer
+        ? 'Everglow'
+        : _room.streamUrl == null
         ? _selectedProvider.name
         : (_room.serverName ?? 'Server');
-    final desc = _room.streamUrl == null
+    final desc = _isEverglowServer
+        ? 'Everglow server · real play/pause/seek sync'
+        : _room.streamUrl == null
         ? _selectedProvider.desc
         : isHls
         ? 'Self-hosted HLS stream · real play/pause/seek sync'
@@ -535,6 +736,55 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildBottomBar() {
+    if (!_room.hasMedia) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        color: Colors.black,
+        child: Row(
+          children: [
+            const Icon(
+              Icons.favorite_rounded,
+              color: AppColors.roseQuartz,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Choose a title to start the night',
+                style: AppTypography.outfitWhite.copyWith(
+                  color: _cWhite.withValues(alpha: 0.72),
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: _showMediaPicker,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [_cDeepRose, AppColors.rosePressed],
+                  ),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Text(
+                  'CHOOSE',
+                  style: AppTypography.outfitWhite.copyWith(
+                    color: AppColors.petalWhite,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     if (!widget.isHost) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -553,6 +803,10 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
               ),
             ),
             const SizedBox(width: 10),
+            if (_isHlsServer) ...[
+              _buildVolumeControl(),
+              const SizedBox(width: 8),
+            ],
             Semantics(
               label: _hostExplicitlyPaused ? 'Play video' : 'Pause video',
               button: true,
@@ -711,6 +965,7 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
                   activeColor: AppColors.roseQuartz,
                   onChanged: (v) {
                     setState(() => _hlsVolume = v);
+                    _hlsController.setMuted(false);
                     _hlsController.setVolume(v);
                   },
                   onChangeEnd: _persistHlsVolume,
@@ -724,11 +979,17 @@ class _WatchPartyScreenState extends _WatchPartyScreenStateCore2 {
   }
 
   Widget _buildServerChip({bool compact = false}) {
-    final active = _room.streamUrl != null;
-    final color = active
+    final active = _isEverglowServer || _room.streamUrl != null;
+    final color = _isEverglowServer
+        ? _cGreen
+        : active
         ? (_room.serverType == 'hls' ? _cGreen : _cAmber)
         : _cMuted;
-    final label = active ? (_room.serverName ?? 'Server') : 'Auto';
+    final label = _isEverglowServer
+        ? 'Everglow'
+        : active
+        ? (_room.serverName ?? 'Server')
+        : 'Auto';
     return Semantics(
       label: 'Choose playback server',
       button: true,

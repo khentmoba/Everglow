@@ -66,9 +66,7 @@ const Map<String, int> _pinned = {
   'lib/features/play_zone/table_tennis/presentation/screens/tt_multiplayer_lobby_screen.dart': 1,
   'lib/features/starlight_jar/presentation/screens/starlight_jar_widget.dart': 2,
   'lib/features/starlight_jar/presentation/widgets/note_display_dialog.dart': 1,
-  'lib/features/watch_party/presentation/widgets/cinema_watch_together_widgets.dart': 3,
   'lib/features/watch_party/presentation/widgets/watch_party_card.dart': 4,
-  'lib/features/watch_party/presentation/widgets/watch_party_media_picker_sheet.dart': 2,
   'lib/shared/widgets/app_network_image.dart': 2,
 };
 

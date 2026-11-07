@@ -399,12 +399,13 @@ Index: `username ASC, timestamp DESC` (latest mood query).
 
 ### Couple rooms
 
-`watch_party_rooms/{roomId}` (host/partner uid pair fixed), 
+`watch_party_rooms/{roomId}` (host/partner uid pair fixed; auto ids for
+named rooms, plus the legacy deterministic sorted-uid id),
 `watch_party_chats/{roomId}/messages/*`,
 `voice_rooms/{roomId}` (caller/callee, bounded SDP), and
 `temporary_chats/{roomId}` all carry the couple's uid pair and are never
-reassignable. Document IDs are deterministic sorted-uid joins so both members
-agree without coordination.
+reassignable. Named rooms use Firestore auto ids; the legacy room keeps the
+deterministic sorted-uid join so existing chats and calls still resolve.
 
 ### Shared scrapbook collections
 

@@ -3,6 +3,7 @@ import '../../../../core/router/deferred_route.dart';
 import '../../../../core/router/route_helpers.dart';
 
 import '../../data/models/watch_party_room.dart';
+import '../screens/watch_party_lobby_screen.dart';
 // The player (WebRTC voice + synced playback + chat) splits out of the
 // initial bundle via a deferred import (see docs/PERF_NOTES.md). Direct
 // pushes from the watch-together widgets use the same chunk via their own
@@ -15,7 +16,9 @@ final List<GoRoute> watchPartyRoutes = [
     path: "/watch-party",
     builder: (_, state) {
       final args = extraOf<WatchPartyArgs>(state);
-      if (args == null) return missingExtraPage(state);
+      // No args means "open the rooms": the picker is the front door now.
+      // A direct push with a room still opens that room's player.
+      if (args == null) return const WatchPartyLobbyScreen();
       return DeferredRouteLoader(
         label: "Watch Party",
         loadLibrary: party_lib.loadLibrary,

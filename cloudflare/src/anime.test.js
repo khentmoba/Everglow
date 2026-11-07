@@ -39,7 +39,7 @@ import {
   MEGAVID_ORIGIN,
   VIDBOLT_ORIGIN,
 } from './anime.js';
-import { handleProxyHls } from './worker.js';
+import { handleProxyHls, handleProxyAnime } from './worker.js';
 
 const KEY = 'demo-cdn-key';
 const HOST = 'https://everglow-stream.example.workers.dev';
@@ -413,6 +413,61 @@ test('resolveCinema resolves a movie and stamps the player + subtitles', async (
   } finally {
     globalThis.fetch = realFetch;
   }
+});
+
+test('the Worker answers format=json with the resolved stream for the watch party', async () => {
+  const realFetch = globalThis.fetch;
+  const segOk = { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([0x47, 0, 0, 0]).buffer };
+  try {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.startsWith('https://fmov.my/api/stream/movie/603')) {
+        return {
+          ok: true, status: 200,
+          json: async () => ({
+            success: true,
+            sources: [{ url: `/api/proxy?url=${encodeURIComponent(`${CDN}index.m3u8`)}`, type: 'hls' }],
+            subtitles: [{ label: 'English', file: 'https://cache.vdrk.site/en.vtt', type: 'vtt' }],
+          }),
+        };
+      }
+      if (u.includes('index.m3u8')) {
+        return { ok: true, status: 200, text: async () => `#EXTM3U\n#EXTINF:200,\n/api/proxy?url=${encodeURIComponent(`${CDN}seg1.ts`)}\n` };
+      }
+      if (u.startsWith('https://vidbolt.xyz/')) return { ok: false, status: 502 };
+      return segOk;
+    };
+    const u = new URL(`${HOST}/proxyAnime`);
+    u.searchParams.set('source', 'cinema');
+    u.searchParams.set('type', 'movie');
+    u.searchParams.set('tmdbId', '603');
+    u.searchParams.set('title', 'Demo Film');
+    u.searchParams.set('format', 'json');
+    const res = await handleProxyAnime(new Request(u.toString()), { CDN_STAMP_KEY: KEY });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /application\/json/);
+    const body = await res.json();
+    assert.equal(body.title, 'Demo Film');
+    assert.equal(body.tracks.length, 1);
+    assert.equal(body.tracks[0].label, 'English');
+    const src = new URL(body.src);
+    assert.equal(src.pathname, '/proxyMegavidHls');
+    assert.equal(upstreamOf(src), relayOf(`${CDN}index.m3u8`));
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test('the Worker answers format=json errors as JSON', async () => {
+  const u = new URL(`${HOST}/proxyAnime`);
+  u.searchParams.set('source', 'cinema');
+  u.searchParams.set('format', 'json');
+  // Missing tmdbId: validateAnimeParams returns an error before any fetch.
+  const res = await handleProxyAnime(new Request(u.toString()), { CDN_STAMP_KEY: KEY });
+  assert.equal(res.status, 400);
+  assert.match(res.headers.get('content-type'), /application\/json/);
+  const body = await res.json();
+  assert.ok(body.error);
 });
 
 test('resolveCinema gives up inside its budget so the app can fall back to CineSrc', async () => {

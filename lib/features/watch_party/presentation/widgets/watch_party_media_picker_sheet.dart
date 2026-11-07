@@ -14,6 +14,7 @@ import '../../../cinema/data/models/media_item.dart';
 import '../../../cinema/data/services/tmdb/tmdb_discovery_service.dart';
 import '../../../cinema/data/services/tmdb/tmdb_search_service.dart';
 import '../../data/models/media_ref.dart';
+import 'watch_party_episode_picker_sheet.dart';
 
 /// Which library the picker is searching.
 ///
@@ -196,11 +197,14 @@ class _WatchPartyMediaPickerSheetState
 
   void _pickMovie(MediaItem item) {
     HapticFeedback.mediumImpact();
+    final isAnime =
+        item.isAnime || _category == WatchPartyPickerCategory.anime;
     widget.onSelect(
       MediaRef(
         tmdbId: item.tmdbId,
+        malId: isAnime && item.tmdbId > 0 ? item.tmdbId : null,
         mediaType: 'movie',
-        isAnime: false,
+        isAnime: isAnime,
         title: item.title,
         posterPath: item.posterPath,
       ),
@@ -214,23 +218,23 @@ class _WatchPartyMediaPickerSheetState
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => _EpisodeSelectorSheet(
-        item: item,
+      builder: (ctx) => WatchPartyEpisodePickerSheet(
+        title: item.title,
         isAnime: isAnime,
+        maxEpisodes: isAnime ? (item.episodeCount ?? 26) : 24,
         onConfirm: (season, episode) {
           Navigator.of(ctx).pop();
           widget.onSelect(
             MediaRef(
               tmdbId: item.tmdbId,
-              malId: isAnime
-                  ? (item.tmdbId > 0 ? item.tmdbId : item.anilistId)
-                  : null,
+              malId: isAnime && item.tmdbId > 0 ? item.tmdbId : null,
               mediaType: (isAnime && item.format.toLowerCase() == 'movie')
                   ? 'movie'
                   : 'tv',
               isAnime: isAnime,
               season: isAnime ? 1 : season,
               episode: episode,
+              episodeCount: item.episodeCount,
               title: item.title,
               posterPath: item.posterPath,
             ),
@@ -249,12 +253,12 @@ class _WatchPartyMediaPickerSheetState
 
     return Container(
       height: maxSheetHeight,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.inkDeep,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(
           top: BorderSide(
-            color: Color(0x33DCB5E6),
+            color: AppColors.moonlight.withValues(alpha: 0.2),
             width: 1.5,
           ),
         ),
@@ -707,206 +711,3 @@ class _WatchPartyMediaPickerSheetState
   }
 }
 
-/// Quick season/episode selector sheet for TV shows and anime.
-class _EpisodeSelectorSheet extends StatefulWidget {
-  final MediaItem item;
-  final bool isAnime;
-  final void Function(int season, int episode) onConfirm;
-
-  const _EpisodeSelectorSheet({
-    required this.item,
-    required this.isAnime,
-    required this.onConfirm,
-  });
-
-  @override
-  State<_EpisodeSelectorSheet> createState() => _EpisodeSelectorSheetState();
-}
-
-class _EpisodeSelectorSheetState extends State<_EpisodeSelectorSheet> {
-  int _season = 1;
-  int _episode = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxEpisodes = widget.isAnime
-        ? (widget.item.episodeCount ?? 26).clamp(1, 1000)
-        : 24;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      decoration: const BoxDecoration(
-        color: AppColors.inkDeep,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border(
-          top: BorderSide(
-            color: Color(0x33DCB5E6),
-            width: 1.5,
-          ),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select Episode',
-                      style: AppTypography.outfitHeading.copyWith(
-                        color: AppColors.petalWhite,
-                        fontSize: 17,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitMuted.copyWith(
-                        color: AppColors.mutedPurple,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(
-                  Icons.close_rounded,
-                  color: AppColors.petalWhite,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (!widget.isAnime) ...[
-            Text(
-              'Season',
-              style: AppTypography.outfitHeading.copyWith(
-                color: AppColors.petalWhite,
-                fontSize: 13,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _numberPickerRow(
-              value: _season,
-              min: 1,
-              max: 20,
-              onChanged: (v) => setState(() => _season = v),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Text(
-            'Episode',
-            style: AppTypography.outfitHeading.copyWith(
-              color: AppColors.petalWhite,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _numberPickerRow(
-            value: _episode,
-            min: 1,
-            max: maxEpisodes,
-            onChanged: (v) => setState(() => _episode = v),
-          ),
-          const SizedBox(height: 22),
-          GestureDetector(
-            onTap: () => widget.onConfirm(_season, _episode),
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.auroraRose, AppColors.deepRose],
-                ),
-                borderRadius: BorderRadius.circular(AppRadius.full),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.deepRose.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      widget.isAnime
-                          ? 'Start Episode $_episode'
-                          : 'Start S$_season E$_episode',
-                      style: AppTypography.outfitHeading.copyWith(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _numberPickerRow({
-    required int value,
-    required int min,
-    required int max,
-    required ValueChanged<int> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.shimmerBase,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.moonlight.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline_rounded),
-            color: value > min
-                ? AppColors.petalWhite
-                : AppColors.petalWhite.withValues(alpha: 0.2),
-            onPressed: value > min ? () => onChanged(value - 1) : null,
-          ),
-          Text(
-            '$value',
-            style: AppTypography.outfitHeading.copyWith(
-              color: AppColors.petalWhite,
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            color: value < max
-                ? AppColors.petalWhite
-                : AppColors.petalWhite.withValues(alpha: 0.2),
-            onPressed: value < max ? () => onChanged(value + 1) : null,
-          ),
-        ],
-      ),
-    );
-  }
-}

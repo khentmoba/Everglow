@@ -69,17 +69,22 @@ async function handleProxyAnime(request, env) {
   }
 
   const query = Object.fromEntries(new URL(request.url).searchParams);
+  const wantsJson = String(query.format || '').toLowerCase() === 'json';
   const params = validateAnimeParams(query);
   const notify = String(query.source || '').toLowerCase() === 'cinema';
   if (params.error) {
-    return htmlResponse(failHtml('Bad request', params.error, { notify }), 400);
+    return wantsJson
+      ? jsonResponse({ error: params.error }, 400)
+      : htmlResponse(failHtml('Bad request', params.error, { notify }), 400);
   }
 
   const base = proxyBase(request);
   const key = env.CDN_STAMP_KEY || null;
   const sendFail = (msg) => {
     console.warn(`[proxyAnime] ${params.source}: ${msg}`);
-    return htmlResponse(failHtml('Episode unavailable', msg, { notify }), 502);
+    return wantsJson
+      ? jsonResponse({ error: msg }, 502)
+      : htmlResponse(failHtml('Episode unavailable', msg, { notify }), 502);
   };
 
   try {
@@ -112,6 +117,27 @@ async function handleProxyAnime(request, env) {
     const title = isCinema && named
       ? params.mediaType === 'tv' ? `${named} · ${out.title}` : named
       : out.title;
+    // The watch party plays the stream in its own <video> (so play/pause/seek
+    // and captions are real), and asks for the resolved URLs instead of the
+    // player page. Same resolver, same stamps — only the response shape differs.
+    if (wantsJson) {
+      return new Response(
+        JSON.stringify({
+          src: out.src,
+          tracks: Array.isArray(out.tracks) ? out.tracks : [],
+          title,
+          ep: out.ep,
+        }),
+        {
+          status: 200,
+          headers: {
+            ...CORS,
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+          },
+        },
+      );
+    }
     const page = hlsPlayerHtml({
       src: out.src,
       tracks: out.tracks,

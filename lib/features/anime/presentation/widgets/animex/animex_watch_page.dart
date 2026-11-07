@@ -14,6 +14,7 @@ import '../../../../cinema/data/services/ani_zip_service.dart';
 import '../../../../cinema/data/services/player_memory_service.dart';
 import '../../../../cinema/data/services/tmdb_service.dart';
 import '../../../../../core/services/auth_service.dart';
+import '../../../../watch_party/presentation/widgets/start_watch_party_button.dart';
 import '../../../data/services/anilist_service.dart';
 import '../../../data/services/tmdb_anime_details.dart';
 import '../../../data/services/animex_stores.dart';
@@ -960,11 +961,41 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
     _progressThrottler?.cancel();
   }
 
+  /// The top bar is also built in widget tests without an AuthService
+  /// provider. Missing auth means "not a couple profile", so the extra
+  /// button stays hidden instead of throwing.
+  bool get _canWatchTogether {
+    try {
+      return context.read<AuthService>().isCoupleUser;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
+
   String get _displayTitle {
     final japanese = context.select<AnimexStores, bool>(
       (stores) => stores.titleJapanese,
     );
     return _titleFor(japanese);
+  }
+
+  /// Hand the current anime + episode to the watch party. The room is
+  /// shared, so the other side lands on the same episode.
+  Future<void> _startAnimeWatchParty() async {
+    final malId = _malId;
+    if (malId <= 0) return;
+    final media = MediaRef(
+      tmdbId: malId,
+      malId: malId,
+      mediaType: _isFilm ? 'movie' : 'tv',
+      isAnime: true,
+      season: 1,
+      episode: _isFilm ? 1 : _selectedEpisode,
+      episodeCount: _episodes.isEmpty ? null : _episodes.length,
+      title: _displayTitle,
+      posterPath: _item.posterPath,
+    );
+    await startWatchParty(context, media);
   }
 
   String _titleFor(bool japanese) {
@@ -1132,6 +1163,49 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
               ),
             ),
             const SizedBox(width: 8),
+            if (_canWatchTogether && _malId > 0) ...[
+              GestureDetector(
+                onTap: _startAnimeWatchParty,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 7,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.deepRose.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(
+                        AnimeXTokens.radiusSm,
+                      ),
+                      border: Border.all(
+                        color: AppColors.deepRose.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.favorite_rounded,
+                          size: 14,
+                          color: AppColors.roseQuartz,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Watch Together',
+                          style: dmSansStyle(
+                            size: 11.5,
+                            color: AnimeXTokens.textPrimary,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             GestureDetector(
               onTap: () => _showShareSheet(context),
               child: MouseRegion(

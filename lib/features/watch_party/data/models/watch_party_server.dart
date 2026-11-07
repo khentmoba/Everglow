@@ -41,6 +41,19 @@ class WatchPartyServer {
   /// from the shared Firestore config.
   final bool isCustom;
 
+  /// The built-in Everglow resolver. It has no fixed stream URL: the
+  /// watch party asks our streaming Worker for the manifest of whatever
+  /// title/episode the room is on.
+  static const WatchPartyServer everglow = WatchPartyServer(
+    id: 'everglow-builtin',
+    name: 'Everglow',
+    shortName: 'Everglow',
+    host: 'everglow',
+    type: 'everglow',
+    streamUrl: '',
+    isRecommended: true,
+  );
+
   const WatchPartyServer({
     required this.id,
     required this.name,
@@ -54,7 +67,8 @@ class WatchPartyServer {
     this.isCustom = false,
   });
 
-  bool get isHls => type == 'hls';
+  bool get isEverglow => type == 'everglow';
+  bool get isHls => type == 'hls' || isEverglow;
   bool get isEmbed => type == 'embed';
 
   factory WatchPartyServer.fromJson(Map<String, dynamic> json) {

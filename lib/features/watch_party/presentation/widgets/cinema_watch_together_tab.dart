@@ -1,9 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../shared/widgets/app_network_image.dart';
-import '../../../../shared/utils/tmdb_images.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/theme/app_typography.dart';
@@ -14,9 +10,8 @@ import '../../../cinema/presentation/widgets/netflix/netflix_nav_bar.dart';
 import '../../../cinema/presentation/widgets/netflix/netflix_poster_card.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../data/models/watch_party_room.dart';
-import '../../data/services/watch_party_service.dart';
-import '../screens/watch_party_screen.dart' deferred as watch_party_lib;
 import 'start_watch_party_button.dart';
+import 'watch_party_lobby.dart';
 import 'watch_party_media_picker_sheet.dart';
 import 'temporary_chat_panel.dart';
 part 'cinema_watch_together_widgets.dart';
@@ -259,36 +254,6 @@ class CinemaWatchTogetherTab extends StatefulWidget {
 }
 
 class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
-  final WatchPartyService _service = WatchPartyService();
-  Stream<WatchPartyRoom?>? _roomStream;
-  String? _roomId;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final auth = context.read<AuthService>();
-    final myUid = auth.uid;
-    final partnerUid = auth.partnerUid;
-    if (myUid != null && partnerUid != null) {
-      _roomId ??= WatchPartyRoom.buildRoomId(myUid, partnerUid);
-      final roomId = _roomId;
-      if (roomId != null) {
-        _roomStream ??= _service.getRoomStream(roomId);
-      }
-    }
-  }
-
-  /// Re-subscribes the room stream after a listener error (timeout or
-  /// permission flap on web). The old stream already terminated, so a
-  /// fresh one is the only way back to live updates.
-  void _retryRoomStream() {
-    final roomId = _roomId;
-    if (roomId == null) return;
-    setState(() {
-      _roomStream = _service.getRoomStream(roomId);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final isCouple = context.watch<AuthService>().isCoupleUser;
@@ -368,8 +333,8 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
             isDesktop ? 48 : 16,
             0,
           ),
-          sliver: SliverToBoxAdapter(
-            child: _WatchTogetherStage(isEmpty: widget.watchlist.isEmpty),
+          sliver: const SliverToBoxAdapter(
+            child: WatchPartyLobby(embedded: true),
           ),
         ),
         if (isCouple)
@@ -399,29 +364,6 @@ class _CinemaWatchTogetherTabState extends State<CinemaWatchTogetherTab> {
             ),
           ),
         if (isCouple) ...[
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(
-              isDesktop ? 48 : 16,
-              18,
-              isDesktop ? 48 : 16,
-              0,
-            ),
-            sliver: SliverToBoxAdapter(
-              child: StreamBuilder<WatchPartyRoom?>(
-                stream: _roomStream,
-                builder: (context, snap) {
-                  if (snap.hasError) {
-                    return _PartyErrorCard(onRetry: _retryRoomStream);
-                  }
-                  final room = snap.data;
-                  if (room == null || !room.isLive()) {
-                    return const _NoActivePartyCard();
-                  }
-                  return _ActivePartyCard(room: room);
-                },
-              ),
-            ),
-          ),
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
               isDesktop ? 48 : 16,

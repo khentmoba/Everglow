@@ -8,7 +8,8 @@ const aliases = [...source.split('routeAliases = {')[1].split('};')[0].matchAll(
   .map(match => [match[1], match[2]]);
 assert.ok(aliases.length > 0, 'No agent destinations found');
 const markers = {
-  '/cinema': /Trending Now|Watch Together/i, '/anime': /My List/i,
+  '/cinema': /Trending Now|Watch Together/i, '/watch-party': /Watch Together|Create a room/i,
+  '/anime': /My List/i,
   '/manga': /Mangacelestia|Latest Updates|Hot Manga/i, '/books': /Books|Categories/i,
   '/dashboard': /Forever In Bloom/i,
   '/sanctuary': /Sanctuary/, '/gallery': /Memory Gallery/, '/journal': /Our Journal/,
