@@ -40,8 +40,8 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
 
   Set<String> get _readChapterIds => _myBookmark?.readChapterIds ?? const {};
 
-  /// True once the user has opened this series at all, so "First
-  /// Chapter" becomes "Continue" even mid-way through chapter 1.
+  /// True once there is a chapter to resume, so "Continue" can reopen it at
+  /// her page instead of restarting it.
   bool get _hasProgress => _myBookmark?.hasProgress ?? false;
 
   String get _user => context.read<AuthService>().currentUser ?? '';
@@ -367,6 +367,8 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     _openReader(next, initialPage: resumePage);
   }
 
+  /// True once the user has opened this series at all, so "First Chapter"
+  /// becomes "Continue" even mid-way through chapter 1.
   bool get _hasStartedSeries => _hasProgress || _readChapterIds.isNotEmpty;
 
   void _openFirstChapter() {

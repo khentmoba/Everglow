@@ -155,11 +155,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   final WebtoonPageTracker _tracker = WebtoonPageTracker();
   final Map<int, GlobalKey> _pageKeys = {};
 
-  /// Pages whose real image is on screen. Only these may be measured: a
-  /// page still loading lays out its fixed-size placeholder slot, and
-  /// caching that height would drag every later estimate with it.
-  final Set<int> _loadedPages = {};
-
   /// Page a cold open is trying to land on, while its real height is still
   /// unknown. Cleared once we land or Clair scrolls herself.
   int? _pendingResumePage;
@@ -419,10 +414,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _tracker.reset(pages.length);
       _pageKeys.clear();
     }
-    // The images remount on every load, so their loaded flags are stale
-    // even when the page count is unchanged. The measured heights are what
-    // must survive a same-chapter reload.
-    _loadedPages.clear();
+    // The images remount on every load, so any pending resume correction
+    // from the previous load is stale.
     _pendingResumePage = null;
 
     // Opening a chapter counts as reading it: pin target page at once so
@@ -562,7 +555,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   /// height measured here is the page, not its loading slot.
   void _onPageLoaded(int index) {
     if (!mounted || index >= _pages.length) return;
-    _loadedPages.add(index);
     _measurePage(index);
     final pending = _pendingResumePage;
     if (pending == null || index != pending) return;
@@ -642,7 +634,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     });
     _tracker.reset(0);
     _pageKeys.clear();
-    _loadedPages.clear();
     // If we jumped to a chapter outside the (short) list we were
     // handed, pull the full table so navigation keeps working.
     if (!_chapters.any((c) => c.id == chapter.id) || _chaptersIncomplete) {

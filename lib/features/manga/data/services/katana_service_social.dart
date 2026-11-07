@@ -329,6 +329,10 @@ extension KatanaServiceSocial on KatanaService {
       data['coverUrl'] = manga.coverUrl;
       data['userName'] = partner;
       data['recommendedBy'] = fromUser;
+      // Recommending a series the partner previously unbookmarked must put
+      // it back on their shelf; copying their old doc would carry the
+      // cleared flag across and the recommendation would vanish.
+      data['bookmarked'] = true;
       data['recommendationNote'] = note.trim();
       data['recommendedAt'] = Timestamp.now();
       await ref.set(data, SetOptions(merge: true));
