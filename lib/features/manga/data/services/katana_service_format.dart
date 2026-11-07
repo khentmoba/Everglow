@@ -53,6 +53,25 @@ List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
   return sorted;
 }
 
+/// The chapter "Continue" should open: the first one [readChapterIds] has
+/// not finished, or the last chapter once everything is read. Null for a
+/// series with no chapters yet.
+///
+/// Guessing from "the chapter after the last one opened" re-opened
+/// already-read chapters whenever Clair jumped around, so the read set is
+/// the source of truth instead.
+KatanaChapter? nextUnreadChapter(
+  List<KatanaChapter> chapters,
+  Set<String> readChapterIds,
+) {
+  final ascending = sortChaptersAscending(chapters);
+  if (ascending.isEmpty) return null;
+  for (final chapter in ascending) {
+    if (!readChapterIds.contains(chapter.id)) return chapter;
+  }
+  return ascending.last;
+}
+
 String katanaTextFromHtml(String html) {
   return html
       .replaceAll(RegExp(r'<[^>]+>'), ' ')

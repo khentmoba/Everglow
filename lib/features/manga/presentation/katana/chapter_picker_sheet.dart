@@ -9,11 +9,16 @@ class ChapterPickerSheet extends StatefulWidget {
   final KatanaChapter currentChapter;
   final ValueChanged<KatanaChapter> onChapterSelected;
 
+  /// Chapter ids already finished, so the picker can show progress
+  /// instead of an undifferentiated wall of chapter numbers.
+  final Set<String> readChapterIds;
+
   const ChapterPickerSheet({
     super.key,
     required this.chapters,
     required this.currentChapter,
     required this.onChapterSelected,
+    this.readChapterIds = const {},
   });
 
   static Future<void> show(
@@ -21,6 +26,7 @@ class ChapterPickerSheet extends StatefulWidget {
     required List<KatanaChapter> chapters,
     required KatanaChapter currentChapter,
     required ValueChanged<KatanaChapter> onChapterSelected,
+    Set<String> readChapterIds = const {},
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -33,6 +39,7 @@ class ChapterPickerSheet extends StatefulWidget {
         chapters: chapters,
         currentChapter: currentChapter,
         onChapterSelected: onChapterSelected,
+        readChapterIds: readChapterIds,
       ),
     );
   }
@@ -249,6 +256,9 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
                     itemBuilder: (ctx, index) {
                       final chapter = chapters[index];
                       final isCurrent = chapter.id == widget.currentChapter.id;
+                      final isRead = widget.readChapterIds.contains(
+                        chapter.id,
+                      );
 
                       return InkWell(
                         onTap: () {
@@ -270,10 +280,14 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
                               Icon(
                                 isCurrent
                                     ? Icons.play_arrow_rounded
+                                    : isRead
+                                    ? Icons.check_circle_rounded
                                     : Icons.menu_book_rounded,
                                 size: 18,
                                 color: isCurrent
                                     ? KatanaColors.accent
+                                    : isRead
+                                    ? KatanaColors.green
                                     : KatanaColors.textLight,
                               ),
                               const SizedBox(width: 12),
@@ -285,6 +299,8 @@ class _ChapterPickerSheetState extends State<ChapterPickerSheet> {
                                   style: AppTypography.outfitBold.copyWith(
                                     color: isCurrent
                                         ? KatanaColors.accent
+                                        : isRead
+                                        ? KatanaColors.textLight
                                         : KatanaColors.text,
                                     fontSize: 13.5,
                                   ),

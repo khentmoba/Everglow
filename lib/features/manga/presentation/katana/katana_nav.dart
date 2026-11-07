@@ -87,7 +87,9 @@ void pushDetail(BuildContext context, String slug, {KatanaManga? preview}) {
   );
 }
 
-void pushReader(
+/// Opens the reader and completes when it closes, so callers that show
+/// read state can refresh it once the reader has marked chapters read.
+Future<void> pushReader(
   BuildContext context, {
   required String slug,
   required String chapterId,
@@ -95,8 +97,9 @@ void pushReader(
   required String mangaTitle,
   required String coverUrl,
   int initialPage = 1,
+  KatanaManga? manga,
 }) {
-  Navigator.of(context).push(
+  return Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => KatanaReaderScreen(
         slug: slug,
@@ -105,6 +108,7 @@ void pushReader(
         mangaTitle: mangaTitle,
         coverUrl: coverUrl,
         initialPage: initialPage,
+        manga: manga,
       ),
     ),
   );

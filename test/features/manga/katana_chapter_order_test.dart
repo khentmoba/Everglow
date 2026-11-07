@@ -23,4 +23,37 @@ void main() {
     final again = sortChaptersAscending(scraped);
     expect(again.map((c) => c.id).toList(), asc.map((c) => c.id).toList());
   });
+
+  group('nextUnreadChapter', () {
+    final chapters = [
+      const KatanaChapter(id: 'c1', num: '1', title: 'Chapter 1'),
+      const KatanaChapter(id: 'c2', num: '2', title: 'Chapter 2'),
+      const KatanaChapter(id: 'c3', num: '3', title: 'Chapter 3'),
+    ];
+
+    test('a fresh series continues from the first chapter', () {
+      expect(nextUnreadChapter(chapters, const {})?.id, 'c1');
+    });
+
+    test('continues from the first unfinished chapter', () {
+      expect(nextUnreadChapter(chapters, const {'c1'})?.id, 'c2');
+      expect(nextUnreadChapter(chapters, const {'c1', 'c2'})?.id, 'c3');
+    });
+
+    test('a gap left by jumping around is the continue target', () {
+      // Read 1 and 3 out of order: chapter 2 is still the one left.
+      expect(nextUnreadChapter(chapters, const {'c1', 'c3'})?.id, 'c2');
+    });
+
+    test('a fully read series falls back to the last chapter', () {
+      expect(
+        nextUnreadChapter(chapters, const {'c1', 'c2', 'c3'})?.id,
+        'c3',
+      );
+    });
+
+    test('an empty series has no continue target', () {
+      expect(nextUnreadChapter(const [], const {}), isNull);
+    });
+  });
 }

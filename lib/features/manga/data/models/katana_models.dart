@@ -175,6 +175,12 @@ class KatanaBookmark {
   final String recommendedBy;
   final String recommendationNote;
 
+  /// Chapter ids this user has finished. Drives the read/unread marks in
+  /// the chapter list and makes "continue reading" pick the first
+  /// chapter actually left unread instead of guessing from the last one
+  /// opened.
+  final Set<String> readChapterIds;
+
   const KatanaBookmark({
     required this.slug,
     required this.title,
@@ -187,15 +193,19 @@ class KatanaBookmark {
     this.latestChapterTitle = '',
     this.recommendedBy = '',
     this.recommendationNote = '',
+    this.readChapterIds = const {},
   });
 
   bool get hasProgress => lastReadChapterId.isNotEmpty;
   bool get isRecommended => recommendedBy.isNotEmpty;
 
+  bool hasRead(String chapterId) => readChapterIds.contains(chapterId);
+
   factory KatanaBookmark.fromFirestore(
     Map<String, dynamic> data,
     String documentId,
   ) {
+    final read = data['readChapterIds'];
     return KatanaBookmark(
       slug: _toStr(data['slug'], fallback: documentId),
       title: _toStr(data['title']),
@@ -208,6 +218,9 @@ class KatanaBookmark {
       latestChapterTitle: _toStr(data['latestChapterTitle']),
       recommendedBy: _toStr(data['recommendedBy']),
       recommendationNote: _toStr(data['recommendationNote']),
+      readChapterIds: read is List
+          ? {for (final id in read) if (id is String && id.isNotEmpty) id}
+          : const {},
     );
   }
 
@@ -229,6 +242,7 @@ class KatanaBookmark {
       'latestChapterTitle': latestChapterTitle,
       'recommendedBy': recommendedBy,
       'recommendationNote': recommendationNote,
+      'readChapterIds': readChapterIds.toList(),
     };
   }
 

@@ -36,6 +36,64 @@ extension KatanaServiceSocial on KatanaService {
     }
   }
 
+  /// The signed-in user's own bookmark record for [slug], including which
+  /// chapters they have finished. Null when they have never read it.
+  Future<KatanaBookmark?> fetchBookmark(String slug, String userName) async {
+    if (userName.isEmpty || slug.isEmpty) return null;
+    try {
+      final doc = await withGetTimeout(
+        _bookmarks.doc('$userName|$slug').get(),
+        label: 'katana bookmark fetch',
+      );
+      final data = doc.data();
+      if (!doc.exists || data == null) return null;
+      return KatanaBookmark.fromFirestore(data, doc.id);
+    } catch (e, st) {
+      Logger.e(
+        'KatanaService: failed to fetch bookmark for $slug',
+        error: e,
+        stackTrace: st,
+      );
+      return null;
+    }
+  }
+
+  /// Records that [chapterId] has been finished. Read state lives on the
+  /// same per-user bookmark document as progress, so it needs no extra
+  /// collection and no extra rules.
+  ///
+  /// [title] and [coverUrl] are written too: a read mark must never be
+  /// the first write for a series, or the bookmarks shelf would gain a
+  /// card with a blank title.
+  Future<void> markChapterRead(
+    String slug,
+    String userName,
+    String chapterId, {
+    String title = '',
+    String coverUrl = '',
+  }) async {
+    if (userName.isEmpty || slug.isEmpty || chapterId.isEmpty) return;
+    try {
+      final data = <String, dynamic>{
+        'slug': slug,
+        'userName': userName,
+        'readChapterIds': FieldValue.arrayUnion([chapterId]),
+      };
+      if (title.isNotEmpty) data['title'] = title;
+      if (coverUrl.isNotEmpty) data['coverUrl'] = coverUrl;
+      await _bookmarks.doc('$userName|$slug').set(
+        data,
+        SetOptions(merge: true),
+      );
+    } catch (e, st) {
+      Logger.e(
+        'KatanaService: failed to mark $chapterId read for $slug',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
   Future<void> setBookmark(
     KatanaManga manga,
     String userName, {

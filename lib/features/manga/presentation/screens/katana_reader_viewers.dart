@@ -138,7 +138,10 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   }
 
   Widget _buildWebtoonImage(int index) {
-    return _readerPage(index, fit: BoxFit.fitWidth, height: null);
+    return KeyedSubtree(
+      key: _pageKey(index),
+      child: _readerPage(index, fit: BoxFit.fitWidth, height: null),
+    );
   }
 
   // ── Paged Mode (RTL for Manga, LTR for Western) ───────────────────
@@ -268,7 +271,15 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     if (!_pageController.hasClients) return;
     final current = _pageController.page?.round() ?? 0;
     final target = current + delta;
-    if (target >= 0 && target <= _pages.length) {
+    // Two-page mode packs two pages into one PageView item, so the last
+    // reachable item is ceil(pages / 2), not pages.length — the old bound
+    // let the reader scroll past the end into blank space.
+    final twoPage =
+        _twoPage && MediaQuery.sizeOf(context).width >= 840;
+    final lastItem = twoPage
+        ? (_pages.length / 2).ceil()
+        : _pages.length;
+    if (target >= 0 && target <= lastItem) {
       _pageController.animateToPage(
         target,
         duration: const Duration(milliseconds: 240),

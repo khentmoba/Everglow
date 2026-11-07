@@ -17,6 +17,7 @@ import '../../data/services/katana_service.dart';
 import '../katana/chapter_picker_sheet.dart';
 import '../katana/katana_theme.dart';
 import '../katana/reader_settings_sheet.dart';
+import '../katana/webtoon_page_tracker.dart';
 import '../widgets/reader_page_image.dart';
 import '../../../../core/utils/logger.dart';
 
@@ -66,6 +67,11 @@ class KatanaReaderScreen extends StatefulWidget {
   final String coverUrl;
   final int initialPage;
 
+  /// The real series record, when the caller has it. Bookmarking from
+  /// the reader used to fabricate a `status: ongoing` stub; passing the
+  /// record through keeps the saved bookmark honest.
+  final KatanaManga? manga;
+
   const KatanaReaderScreen({
     super.key,
     required this.slug,
@@ -74,6 +80,7 @@ class KatanaReaderScreen extends StatefulWidget {
     required this.mangaTitle,
     this.coverUrl = '',
     this.initialPage = 1,
+    this.manga,
   });
 
   @override
@@ -113,7 +120,18 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   int _lastSavedPage = -1;
   bool _showPagePill = false;
   Timer? _pagePillTimer;
-  bool _hasAppliedInitialPage = false;
+
+  /// Real per-page heights for the webtoon strip, so the page pill and
+  /// "continue reading" land on the page Clair is actually looking at
+  /// instead of a linear guess across pages of wildly different heights.
+  final WebtoonPageTracker _tracker = WebtoonPageTracker();
+  final Map<int, GlobalKey> _pageKeys = {};
+
+  /// Set once this chapter has been marked read for the current user.
+  bool _markedRead = false;
+
+  /// Chapters this user already finished, for the chapter picker.
+  Set<String> _readChapterIds = const {};
 
   // Per-page resilience (mirrors the site's reader: independent page
   // slots, silent CDN-host retries, one token-URL refresh per chapter
@@ -244,8 +262,14 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   }
 
   Future<void> _loadBookmark() async {
-    final bookmarked = await _service.isBookmarked(widget.slug, _user);
-    if (mounted) setState(() => _bookmarked = bookmarked);
+    // One read gives both the bookmark flag and the chapters already
+    // finished, which the chapter picker needs.
+    final bookmark = await _service.fetchBookmark(widget.slug, _user);
+    if (!mounted) return;
+    setState(() {
+      _bookmarked = bookmark != null;
+      _readChapterIds = bookmark?.readChapterIds ?? const {};
+    });
   }
 
   /// When the reader was opened with only a few chapters (home-page
@@ -259,15 +283,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       if (detail == null || detail.chapters.length <= _chapters.length) return;
       if (!mounted) return;
       final full = sortChaptersAscending(detail.chapters);
-      final current = _chapters.indexWhere((c) => c.id == _chapter.id);
       setState(() {
         _chapters = full;
         _chaptersIncomplete = false;
-        if (current < 0) {
-          // Keep pointing at the chapter we opened by path.
-          final match = full.where((c) => c.id == _chapter.id).firstOrNull;
-          if (match != null) _chapter = match;
-        }
+        // Rebind to the full-table record so the reader keeps the
+        // chapter's real update date and New badge.
+        final match = full.where((c) => c.id == _chapter.id).firstOrNull;
+        if (match != null) _chapter = match;
       });
     } catch (e, st) {
       Logger.e(
@@ -285,14 +307,18 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   bool _autoRetried = false;
 
   Future<void> _loadPages() async {
+    // Where the reader already is. A server switch, a retry, or a token
+    // refresh must not throw Clair back to page 1 — that was the old
+    // behaviour for every load after the first.
+    final resumePage = _currentPage;
     setState(() {
       _loading = true;
       _error = null;
-      _currentPage = 1;
       _cdnStep.clear();
       _failedPages.clear();
       _fallbackScheduled.clear();
       _tokenRefreshed = false;
+      _markedRead = false;
     });
 
     // fetchChapterPages already tries the requested server first and
@@ -328,10 +354,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       return;
     }
 
-    final targetPage = !_hasAppliedInitialPage && widget.initialPage > 1
-        ? widget.initialPage.clamp(1, pages.length)
-        : 1;
-    _hasAppliedInitialPage = true;
+    final targetPage = resumePage.clamp(1, pages.length);
 
     setState(() {
       _pages = pages;
@@ -339,11 +362,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _autoRetried = false;
       _currentPage = targetPage;
     });
+    _tracker.reset(pages.length);
+    _pageKeys.clear();
 
     // Opening a chapter counts as reading it: pin target page at once so
     // the series lands in Currently Reading before the first turn.
     _lastSavedPage = targetPage;
     _saveProgress(targetPage);
+
+    // Resuming straight onto the last page (or a single-page chapter)
+    // means the chapter has been seen through, so record it as read.
+    if (targetPage >= pages.length) _markChapterRead();
 
     _preloadUpcoming(targetPage - 1);
 
@@ -351,7 +380,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       if (!mounted) return;
       if (_mode == ReaderMode.webtoon && _scrollController.hasClients) {
         if (targetPage > 1 && _pages.length > 1) {
-          _jumpToPage(targetPage);
+          _resumeToWebtoonPage(targetPage);
         } else {
           _scrollController.jumpTo(0);
         }
@@ -360,6 +389,29 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       }
       _triggerPagePill();
     });
+  }
+
+  /// Scrolls the webtoon strip to [page] using the heights measured so
+  /// far. Pages ahead of the viewport are still estimates, so it jumps,
+  /// lets the list lay those pages out, then re-checks and corrects — a
+  /// few frames at most, and it stops as soon as the page is right.
+  Future<void> _resumeToWebtoonPage(int page) async {
+    final target = page.clamp(1, _pages.length) - 1;
+    for (var attempt = 0; attempt < 4; attempt++) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _measureBuiltPages();
+      final position = _scrollController.position;
+      _scrollController.jumpTo(
+        _tracker
+            .offsetForPage(target)
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble(),
+      );
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || !_scrollController.hasClients) return;
+      _measureBuiltPages();
+      if (_tracker.pageAtOffset(_scrollController.offset) == target) return;
+    }
   }
 
   void _preloadUpcoming(int currentIndex) {
@@ -376,12 +428,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
   void _onWebtoonScroll() {
     if (!_scrollController.hasClients || _pages.isEmpty) return;
-    final offset = _scrollController.offset;
-    final max = _scrollController.position.maxScrollExtent;
-    if (max <= 0) return;
-
-    final ratio = (offset / max).clamp(0.0, 1.0);
-    final page = (ratio * (_pages.length - 1)).round() + 1;
+    _measureBuiltPages();
+    final page = _tracker.pageAtOffset(_scrollController.offset) + 1;
     if (page != _currentPage) {
       setState(() => _currentPage = page);
       _triggerPagePill();
@@ -390,6 +438,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         _lastSavedPage = page;
         _saveProgress(page);
       }
+      if (page >= _pages.length) _markChapterRead();
     }
   }
 
@@ -402,6 +451,40 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _lastSavedPage = page;
       _saveProgress(page);
     }
+    if (page >= _pages.length) _markChapterRead();
+  }
+
+  /// Records the laid-out height of every webtoon page currently built.
+  /// Virtualization means only the pages around the viewport exist, and
+  /// those are exactly the ones needed to place the current page.
+  void _measureBuiltPages() {
+    for (final entry in _pageKeys.entries) {
+      final renderObject = entry.value.currentContext?.findRenderObject();
+      if (renderObject is RenderBox && renderObject.hasSize) {
+        _tracker.measure(entry.key, renderObject.size.height);
+      }
+    }
+  }
+
+  GlobalKey _pageKey(int index) =>
+      _pageKeys.putIfAbsent(index, () => GlobalKey());
+
+  /// Marks the chapter read once Clair reaches its last page, which is
+  /// what "read" means everywhere else — opening a chapter is not the
+  /// same as finishing it.
+  Future<void> _markChapterRead() async {
+    if (_markedRead || _user.isEmpty) return;
+    _markedRead = true;
+    final chapterId = _chapter.id;
+    await _service.markChapterRead(
+      widget.slug,
+      _user,
+      chapterId,
+      title: widget.mangaTitle,
+      coverUrl: widget.coverUrl,
+    );
+    if (!mounted) return;
+    setState(() => _readChapterIds = {..._readChapterIds, chapterId});
   }
 
   void _triggerPagePill() {
@@ -434,6 +517,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _chapter = chapter;
       _pages = const [];
       _lastSavedPage = -1;
+      // A new chapter starts at its first page; without this the
+      // previous chapter's page number would be restored onto it.
+      _currentPage = 1;
+      _markedRead = false;
       _transformController.value = Matrix4.identity();
       _cdnStep.clear();
       _failedPages.clear();
@@ -441,6 +528,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _tokenRefreshed = false;
       _autoRetried = false;
     });
+    _tracker.reset(0);
+    _pageKeys.clear();
     // If we jumped to a chapter outside the (short) list we were
     // handed, pull the full table so navigation keeps working.
     if (!_chapters.any((c) => c.id == chapter.id) || _chaptersIncomplete) {
@@ -456,10 +545,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
     if (_mode == ReaderMode.webtoon) {
       if (_scrollController.hasClients && _pages.length > 1) {
-        final perPage =
-            _scrollController.position.maxScrollExtent / (_pages.length - 1);
+        _measureBuiltPages();
+        final position = _scrollController.position;
         _scrollController.animateTo(
-          (target - 1) * perPage,
+          _tracker
+              .offsetForPage(target - 1)
+              .clamp(position.minScrollExtent, position.maxScrollExtent)
+              .toDouble(),
           duration: const Duration(milliseconds: 280),
           curve: Curves.easeOut,
         );
@@ -518,6 +610,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       context,
       chapters: _chapters,
       currentChapter: _chapter,
+      readChapterIds: _readChapterIds,
       onChapterSelected: (c) => _goToChapter(c),
     );
   }
@@ -542,18 +635,16 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     }
     final next = !_bookmarked;
     setState(() => _bookmarked = next);
-    await _service.setBookmark(
-      KatanaManga(
-        slug: widget.slug,
-        id: widget.slug,
-        title: widget.mangaTitle,
-        coverUrl: widget.coverUrl,
-        status: 'ongoing',
-        latestChapter: _chapter,
-      ),
-      _user,
-      bookmarked: next,
-    );
+    // Bookmark the real series record. Building a stub here used to save
+    // `status: ongoing` plus the current chapter as "latest" for every
+    // title, so the bookmarks shelf showed wrong metadata.
+    final manga = widget.manga ?? await _service.fetchMangaDetail(widget.slug);
+    if (manga == null) {
+      if (mounted) setState(() => _bookmarked = !next);
+      _showSnack('Could not update the bookmark. Try again.');
+      return;
+    }
+    await _service.setBookmark(manga, _user, bookmarked: next);
     if (next) await _saveProgress(_currentPage);
     _showSnack(next ? 'Chapter bookmarked' : 'Bookmark removed');
   }
