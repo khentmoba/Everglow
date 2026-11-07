@@ -46,7 +46,7 @@ function generateWorker(stamp) {
 }
 const sources = new Map([A, B, C].map((stamp) => [stamp, generateWorker(stamp)]));
 
-function worker(stamp = A, stores = new Map()) {
+function worker(stamp = A, stores = new Map(), {onLine = false} = {}) {
   const handlers = {};
   const calls = [];
   let network = async () => script('current-build');
@@ -80,7 +80,7 @@ function worker(stamp = A, stores = new Map()) {
   };
   vm.runInNewContext(sources.get(stamp), {
     URL, Response, caches,
-    navigator: {onLine: false}, // Skip unrelated activation pre-warm.
+    navigator: {onLine}, // Skip unrelated activation pre-warm by default.
     self: {
       location: {origin}, clients: {async claim() {}}, skipWaiting() {},
       addEventListener: (event, handler) => { handlers[event] = handler; },
@@ -144,7 +144,7 @@ async function warm(w, stamp) {
 test('installation does not download an unused local renderer; on-demand engine cache still works', async () => {
   const w = worker();
   await w.install();
-  assert.deepEqual(w.calls.map((call) => new URL(call.url).pathname), ['/index.html']);
+  assert.deepEqual(w.calls.map((call) => new URL(call.url).pathname), ['/index.html', '/manifest.json']);
   const engine = '/canvaskit/canvaskit.wasm';
   await w.request(engine);
   const fetched = w.calls.length;
@@ -220,9 +220,9 @@ test('two complete builds survive rotation, but an incomplete newest bootstrap i
   assert.equal(await (await w.request(part(B))).text(), `part:${B}`);
 });
 
-test('API/auth, manifest and push/worker scripts never cache or use cached fallback', async () => {
+test('API/auth and push/worker scripts never cache or use cached fallback', async () => {
   const w = worker();
-  for (const path of ['/api/checkLoginCode', '/api/proxyCatalog', '/manifest.json', '/manifest_screen.json', '/screen_test.html', '/sw.js',
+  for (const path of ['/api/checkLoginCode', '/api/proxyCatalog', '/sw.js',
     '/firebase-messaging-sw.js', '/flutter_service_worker.js']) {
     w.network(async () => new Response('fresh'));
     assert.equal(await (await w.request(path)).text(), 'fresh');
@@ -234,6 +234,17 @@ test('API/auth, manifest and push/worker scripts never cache or use cached fallb
     assert.ok(w.calls.filter((c) => c.url === origin + path).every((c) => c.cache === 'no-store'));
   }
   assert.deepEqual(await (await w.request('/version.json')).json(), {offline: true});
+});
+
+test('PWA manifests refresh online with no-store and fall back to cache when offline', async () => {
+  const w = worker();
+  for (const path of ['/manifest.json', '/manifest_screen.json']) {
+    w.network(async () => new Response('manifest:fresh'));
+    assert.equal(await (await w.request(path)).text(), 'manifest:fresh');
+    assert.ok(w.calls.filter((c) => c.url === origin + path).every((c) => c.cache === 'no-store'));
+    w.offline();
+    assert.equal(await (await w.request(path)).text(), 'manifest:fresh', 'manifest serves cached copy offline');
+  }
 });
 
 test('kept gallery photos open offline and survive updates; other photos stay network-only', async () => {
@@ -295,6 +306,57 @@ for (const path of ['/assets/fonts/MaterialIcons-Regular.otf', '/assets/FontMani
     assert.equal(await w.caches.match(path, {cacheName: 'canvaskit-__ENGINE_REV__'}), undefined);
   });
 }
+
+test('cross-origin CanvasKit and Firebase SDK modules cache in IMMUTABLE and serve offline', async () => {
+  const w = worker();
+  const canvaskitUrl = 'https://www.gstatic.com/flutter-canvaskit/__ENGINE_REV__/canvaskit.wasm';
+  const firebaseSdk = 'https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js';
+  for (const url of [canvaskitUrl, firebaseSdk]) {
+    w.network(async () => new Response('engine-bytes', {headers: {'Content-Type': 'application/wasm'}}));
+    assert.equal(await (await w.request(url)).text(), 'engine-bytes');
+    w.offline();
+    assert.equal(await (await w.request(url)).text(), 'engine-bytes');
+  }
+  await w.activate();
+  assert.ok(w.stores.has('canvaskit-__ENGINE_REV__'));
+  assert.ok(w.stores.get('canvaskit-__ENGINE_REV__').has(canvaskitUrl));
+  assert.ok(w.stores.get('canvaskit-__ENGINE_REV__').has(firebaseSdk));
+});
+
+test('deferred part chunks and CanvasKit listed in version.json are pre-warmed on activate for offline use', async () => {
+  const stores = new Map();
+  const w = worker(A, stores, {onLine: true});
+  const canvaskitUrl = 'https://www.gstatic.com/flutter-canvaskit/__ENGINE_REV__/';
+  w.network(async (url) => {
+    if (url.pathname === '/version.json') {
+      return new Response(JSON.stringify({
+        build: A,
+        core: core(A),
+        canvaskit: canvaskitUrl,
+        parts: ['main.dart.js_1.part.js', 'main.dart.js_2.part.js'],
+      }), {headers: {'Content-Type': 'application/json'}});
+    }
+    if (url.pathname.endsWith('.part.js')) return script(`part:${url.pathname}`);
+    if (url.pathname.includes('/flutter-canvaskit/')) return new Response('ck-bytes', {headers: {'Content-Type': 'application/wasm'}});
+    if (url.pathname === '/manifest.json') return new Response('manifest:bytes');
+    return script('ok');
+  });
+  await w.activate();
+  // Verify warmCoreShell actually populated the caches without manual seeding:
+  assert.ok(stores.has(shell(A)), 'active shell cache created');
+  assert.equal(await (await w.caches.match('/main.dart.js_1.part.js?v=' + encodeURIComponent(A), {cacheName: shell(A)})).text(), 'part:/main.dart.js_1.part.js');
+  assert.equal(await (await w.caches.match('/main.dart.js_2.part.js?v=' + encodeURIComponent(A), {cacheName: shell(A)})).text(), 'part:/main.dart.js_2.part.js');
+  assert.ok(stores.get('canvaskit-__ENGINE_REV__')?.has(canvaskitUrl + 'canvaskit.js'));
+  assert.ok(stores.get('canvaskit-__ENGINE_REV__')?.has(canvaskitUrl + 'canvaskit.wasm'));
+  assert.ok(stores.get(shell(A))?.has(origin + '/manifest.json'));
+
+  // And verify they all serve offline:
+  w.offline();
+  assert.equal(await (await w.request('/main.dart.js_1.part.js?v=' + encodeURIComponent(A))).text(), 'part:/main.dart.js_1.part.js');
+  assert.equal(await (await w.request('/main.dart.js_2.part.js?v=' + encodeURIComponent(A))).text(), 'part:/main.dart.js_2.part.js');
+  assert.equal(await (await w.request(canvaskitUrl + 'canvaskit.wasm')).text(), 'ck-bytes');
+  assert.equal(await (await w.request('/manifest.json')).text(), 'manifest:bytes');
+});
 
 test('Chrome boots paired loaders/main/deferred code with BOTH page and worker offline',
   {skip: !process.argv.includes('--browser'), timeout: 60000}, async () => {

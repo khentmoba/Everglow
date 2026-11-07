@@ -31,6 +31,7 @@
       }
       var script = document.createElement('script');
       script.id = 'everglow-hlsjs';
+      script.crossOrigin = 'anonymous';
       script.src =
         'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
       script.onload = function () {

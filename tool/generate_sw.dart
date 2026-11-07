@@ -58,11 +58,12 @@ const IMMUTABLE="canvaskit-"+ENGINE_REV;
 // Light precache only: the core shell is fetched on demand (by the page or
 // by the update warm-up) and rotating it here as well would just download
 // the 6MB twice on slow lines.
-const PRECACHE=["/index.html"];
+const PRECACHE=["/index.html","/manifest.json"];
 // Always network/no-store online: entry points, loaders, worker scripts,
-// version probes and Cloud Functions. Only HTML and boot loaders have an
-// offline cache fallback; /api/*, manifests and worker scripts never do.
+// version probes and Cloud Functions. HTML, boot loaders and manifests have
+// an offline cache fallback; /api/* and worker scripts never do.
 const BOOT_LOADERS=["/flutter_bootstrap.js","/flutter.js"];
+const MANIFESTS=["/manifest.json","/manifest_screen.json"];
 const NO_STORE=["/","/index.html","/version.json","/sw.js","/firebase-messaging-sw.js","/flutter.js","/flutter_bootstrap.js","/flutter_service_worker.js","/manifest.json","/manifest_screen.json","/screen_test.html"];
 function isNoStore(path) {
   if (path.startsWith("/api/")) return true;
@@ -132,12 +133,18 @@ function isIconAsset(path) {
   return path === "/assets/fonts/MaterialIcons-Regular.otf" || path === "/assets/FontManifest.json";
 }
 function isImmutable(url) {
-  let p;
+  let p, u;
   try {
-    p = new URL(url).pathname;
+    u = new URL(url);
+    p = u.pathname;
   } catch {
     return false;
   }
+  if (u.origin === "https://www.gstatic.com") {
+    return p.includes("/flutter-canvaskit/") || p.includes("/firebasejs/");
+  }
+  if (u.origin === "https://cdn.jsdelivr.net" && p.includes("/hls.js")) return true;
+  if (u.origin === "https://ajax.googleapis.com" && p.includes("/model-viewer/")) return true;
   if (isNoStore(p) || isIconAsset(p)) return false;
   if (p.endsWith(".part.js")) return false;
   if (p.startsWith("/canvaskit/")) return true;
@@ -175,30 +182,84 @@ async function newestCoreEntry() {
   } catch {}
   return null;
 }
-// Pre-warm the core shell for THIS build so the next cold open paints
-// straight from CacheStorage instead of re-downloading ~6MB.
+// Pre-warm the core shell, manifests, critical fonts, and deferred chunks
+// for THIS build so the cold open paints straight from CacheStorage and
+// the entire PWA runs offline.
 //
 // Deliberately not part of `install`: the install handler must not compete
-// with the page it is serving. This runs off `activate`, only when the shell
-// for the current build stamp is genuinely absent, and it bails out on a
+// with the page it is serving. This runs off `activate`, and bails out on a
 // save-data or 2g connection (see SAVE_DATA) so it never spends a metered
 // user's data. Any failure is swallowed: a warm that misses only costs the
-// next visit one normal fetch.
+// next visit normal fetches.
 const SAVE_DATA = (navigator.connection &&
   (navigator.connection.saveData ||
-   /(^|-)2g\$/.test(navigator.connection.effectiveType || "")));
+   /(^|-)2g|3g\$/.test(navigator.connection.effectiveType || "")));
 async function warmCoreShell() {
   if (SAVE_DATA) return;
   try {
     const c = await caches.open(CORE);
     const shellUrl = new URL("main.dart.js?v=$buildConst", self.location.origin).href;
     const already = await c.match(shellUrl);
-    if (already) return;
+    if (!already && navigator.onLine !== false) {
+      try {
+        const res = await fetch(shellUrl, { cache: "no-store" });
+        if (isScriptResponse(res)) {
+          await c.put(shellUrl, res.clone());
+          await trimCore();
+        }
+      } catch {}
+    }
     if (navigator.onLine === false) return;
-    const res = await fetch(shellUrl, { cache: "no-store" });
-    if (!isScriptResponse(res)) return;
-    await c.put(shellUrl, res.clone());
-    await trimCore();
+
+    try {
+      const shellCache = await caches.open(SHELL);
+      const manifestUrl = new URL("manifest.json", self.location.origin).href;
+      if (!(await shellCache.match(manifestUrl))) {
+        const mRes = await fetch(manifestUrl, { cache: "no-store" });
+        if (mRes && mRes.ok) await shellCache.put(manifestUrl, mRes.clone());
+      }
+      for (const asset of ["/assets/fonts/MaterialIcons-Regular.otf", "/assets/FontManifest.json"]) {
+        const aUrl = new URL(asset, self.location.origin).href;
+        if (!(await shellCache.match(aUrl))) {
+          const aRes = await fetch(aUrl, { cache: "no-cache" });
+          if (aRes && aRes.ok) await shellCache.put(aUrl, aRes.clone());
+        }
+      }
+    } catch {}
+
+    try {
+      const vRes = await fetch(new URL("version.json", self.location.origin).href, { cache: "no-store" });
+      if (vRes && vRes.ok) {
+        const vData = await vRes.json();
+        if (vData && Array.isArray(vData.parts) && vData.build) {
+          const partsCache = await caches.open(vData.build + "-SHELL-v1");
+          for (const part of vData.parts) {
+            if (SAVE_DATA || navigator.onLine === false) break;
+            const pUrl = new URL(part + "?v=" + encodeURIComponent(vData.build), self.location.origin).href;
+            if (await partsCache.match(pUrl)) continue;
+            try {
+              const pRes = await fetch(pUrl);
+              if (isScriptResponse(pRes)) {
+                await partsCache.put(pUrl, pRes.clone());
+              }
+            } catch {}
+          }
+        }
+        if (vData && vData.canvaskit && !SAVE_DATA && navigator.onLine !== false) {
+          const imm = await caches.open(IMMUTABLE);
+          const cBase = vData.canvaskit.endsWith("/") ? vData.canvaskit : (vData.canvaskit + "/");
+          for (const ckFile of ["canvaskit.js", "canvaskit.wasm"]) {
+            const ckUrl = cBase + ckFile;
+            if (!(await imm.match(ckUrl))) {
+              try {
+                const ckRes = await fetch(ckUrl);
+                if (ckRes && ckRes.ok) await imm.put(ckUrl, ckRes.clone());
+              } catch {}
+            }
+          }
+        }
+      }
+    } catch {}
   } catch {}
 }
 self.addEventListener("install", (e) => {
@@ -223,7 +284,7 @@ self.addEventListener("activate", (e) => {
           const keys = await imm.keys();
           for (const req of keys) {
             const u = req.url.split("?")[0];
-            if (isIconAsset(new URL(u).pathname) || u.endsWith(".part.js") || (u.endsWith(".js") && u.indexOf("/canvaskit/") === -1)) {
+            if (isIconAsset(new URL(u).pathname) || u.endsWith(".part.js") || !isImmutable(u)) {
               await imm.delete(req);
             }
           }
@@ -252,9 +313,13 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // Only handle same-origin; CDN media (jsdelivr/googleapis/gstatic)
-  // keeps its own HTTP-cache behavior and must not pollute the versioned cache.
-  if (url.origin !== self.location.origin) return;
+  // Only handle same-origin and pinned immutable engine/CDN libraries.
+  // Third-party media (TMDB, Spotify, YouTube, etc.) keeps its own HTTP-cache behavior.
+  const isGstatic = url.origin === "https://www.gstatic.com" &&
+    (url.pathname.includes("/flutter-canvaskit/") || url.pathname.includes("/firebasejs/"));
+  const isCdnMediaLib = (url.origin === "https://cdn.jsdelivr.net" && url.pathname.includes("/hls.js")) ||
+    (url.origin === "https://ajax.googleapis.com" && url.pathname.includes("/model-viewer/"));
+  if (url.origin !== self.location.origin && !isGstatic && !isCdnMediaLib) return;
   const path = url.pathname;
   // Offline means a true network error (Response.error()), never a fake
   // HTTP status: a synthesized error status made Chrome log
@@ -299,6 +364,12 @@ self.addEventListener("fetch", (e) => {
               }
             } catch {} // Cache quota/failure must not hide a fresh deploy.
           }
+          if (res && res.ok && MANIFESTS.includes(path)) {
+            try {
+              const cache = await caches.open(SHELL);
+              await cache.put(path, res.clone());
+            } catch {}
+          }
           if (res && res.ok && (path === "/" || path === "/index.html")) {
             try {
               const cache = await caches.open(SHELL);
@@ -311,6 +382,12 @@ self.addEventListener("fetch", (e) => {
         .catch(async () => {
           if (BOOT_LOADERS.includes(path)) return cachedBootLoader(path);
           if (path === "/" || path === "/index.html") return fallbackNavigate();
+          if (MANIFESTS.includes(path)) {
+            try {
+              const cached = await caches.match(e.request);
+              if (cached) return cached;
+            } catch {}
+          }
           if (path === "/version.json") {
             return new Response(JSON.stringify({ offline: true }), {
               status: 200,
@@ -322,7 +399,7 @@ self.addEventListener("fetch", (e) => {
     );
     return;
   }
-  // Immutable bytes (CanvasKit/static fonts/models) live in the
+  // Immutable bytes (CanvasKit/static fonts/models/SDKs) live in the
   // engine-revision cache so app deploys do not evict them.
   if (isImmutable(e.request.url) && !isCore(path)) {
     e.respondWith(
@@ -334,7 +411,16 @@ self.addEventListener("fetch", (e) => {
         return res;
       })).catch(async () => {
         const cached = await caches.match(e.request);
-        return cached || Response.error();
+        if (cached) return cached;
+        if (path.endsWith("canvaskit.wasm")) {
+          const localWasm = await caches.match("/canvaskit/canvaskit.wasm");
+          if (localWasm) return localWasm;
+        }
+        if (path.endsWith("canvaskit.js")) {
+          const localJs = await caches.match("/canvaskit/canvaskit.js");
+          if (localJs) return localJs;
+        }
+        return Response.error();
       }),
     );
     return;
@@ -404,7 +490,7 @@ self.addEventListener("fetch", (e) => {
         if (res && res.ok) {
           const copy = res.clone();
           const write = caches.open(runtimeCache).then((c) =>
-            c.put(e.request, copy).then(() => trimRuntime(runtimeCache, 240))).catch(() => {});
+            c.put(e.request, copy).then(() => trimRuntime(runtimeCache, 600))).catch(() => {});
           if (isPart) e.waitUntil(write);
         }
         return res;
@@ -467,8 +553,6 @@ self.addEventListener("notificationclick", function(event) {
 """;
 
   File("web/sw.js").writeAsStringSync(sw);
-  File(
-    "web/version.json",
-  ).writeAsStringSync('{"build": "$buildConst", "core": "$coreUrl"}\n');
+  File("web/version.json").writeAsStringSync('{"build": "$buildConst", "core": "$coreUrl"}\n');
   print("sw.js written with BUILD = $buildConst");
 }
