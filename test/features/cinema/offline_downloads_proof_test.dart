@@ -56,6 +56,7 @@ void main() {
         title: 'Interstellar',
         subtitle: 'Movie • 2014',
         durationSeconds: 10140,
+        directByteCount: 1520000000,
         directBytes: Uint8List.fromList([1, 2]),
       );
       await service.startDownloadMedia(
@@ -67,6 +68,7 @@ void main() {
         season: 1,
         episode: 1,
         durationSeconds: 2940,
+        directByteCount: 740000000,
         directBytes: Uint8List.fromList([3, 4]),
       );
       await service.startDownloadMedia(
@@ -78,6 +80,7 @@ void main() {
         season: 1,
         episode: 2,
         durationSeconds: 3300,
+        directByteCount: 710000000,
         directBytes: Uint8List.fromList([5, 6]),
       );
       await service.startDownloadMedia(
@@ -89,6 +92,7 @@ void main() {
         season: 2,
         episode: 1,
         durationSeconds: 2880,
+        directByteCount: 780000000,
         directBytes: Uint8List.fromList([7, 8]),
       );
     });

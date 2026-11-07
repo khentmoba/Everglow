@@ -603,10 +603,11 @@ class CinemaDownloadsTab extends StatelessWidget {
             ? '/cinema/video/${item.mediaId}?type=tv&season=${item.season ?? 1}&episode=${item.episode ?? 1}&title=${Uri.encodeComponent(item.title)}'
             : '/cinema/video/${item.mediaId}?type=movie&title=${Uri.encodeComponent(item.title)}',
       );
+      return;
     } catch (_) {
       // In isolated widget tests without GoRouter
+      onPlayMedia(mediaItem);
     }
-    onPlayMedia(mediaItem);
   }
 
   void _confirmClearAll(BuildContext context, OfflineMediaService service) {

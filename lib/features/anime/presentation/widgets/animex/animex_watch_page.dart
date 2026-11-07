@@ -265,17 +265,27 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
 
   Future<void> _checkOfflinePlayback() async {
     final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
-    final offlineId = 'anime_${animeId}_s1_e$_playerEpisode';
-    final offlineItem = OfflineMediaService.instance.getItem(offlineId);
+    var offlineItem =
+        OfflineMediaService.instance.getItem('anime_${animeId}_s1_e$_playerEpisode');
+    if (offlineItem == null && _watchItem.tmdbId > 0) {
+      offlineItem = OfflineMediaService.instance
+          .getItem('anime_${_watchItem.tmdbId}_s1_e$_playerEpisode');
+    }
     if (offlineItem != null && offlineItem.isCompleted) {
       final url = await OfflineMediaService.instance.getPlayableUrl(offlineItem);
       if (mounted && url != null && url.isNotEmpty) {
+        if (_offlineBlobUrl != null && _offlineBlobUrl != url) {
+          unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+        }
         setState(() => _offlineBlobUrl = url);
         return;
       }
     }
-    if (_offlineBlobUrl != null && mounted) {
-      setState(() => _offlineBlobUrl = null);
+    if (_offlineBlobUrl != null) {
+      unawaited(OfflineMediaStorage.instance.revokeBlobUrl(_offlineBlobUrl!));
+      if (mounted) {
+        setState(() => _offlineBlobUrl = null);
+      }
     }
   }
 

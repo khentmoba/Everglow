@@ -234,13 +234,17 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
-  @override
-  void dispose() {
+  void _revokeCurrentPageBlobs() {
     for (final p in _pages) {
       if (p.startsWith('blob:')) {
         unawaited(OfflineMediaStorage.instance.revokeBlobUrl(p));
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _revokeCurrentPageBlobs();
     _pagePillTimer?.cancel();
     _scrollController.removeListener(_onWebtoonScroll);
     _scrollController.dispose();
@@ -386,6 +390,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
         resolvedPages.add(blob ?? offlineItem.pageUrls[i - 1]);
       }
       if (!mounted) return;
+      _revokeCurrentPageBlobs();
       setState(() {
         _pages = resolvedPages;
         _loading = false;
@@ -429,6 +434,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
 
     final targetPage = resumePage.clamp(1, pages.length);
 
+    _revokeCurrentPageBlobs();
     setState(() {
       _pages = pages;
       _loading = false;

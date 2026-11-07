@@ -166,8 +166,9 @@ class OfflineMediaService extends ChangeNotifier {
     String coverUrl = '',
     String? sourceUrl,
     int? durationSeconds,
-    int estimatedBytes = 350 * 1024 * 1024,
+    int estimatedBytes = 0,
     Uint8List? directBytes,
+    int? directByteCount,
   }) async {
     final existing = _items[id];
     if (existing != null &&
@@ -213,6 +214,15 @@ class OfflineMediaService extends ChangeNotifier {
 
     if (directBytes != null) {
       await _storage.saveMediaBlob(id, directBytes);
+      final finalBytes = directByteCount ?? directBytes.lengthInBytes;
+      _items[id] = initial.copyWith(
+        status: OfflineDownloadStatus.completed,
+        progress: 1.0,
+        downloadedBytes: finalBytes,
+        totalBytes: finalBytes,
+      );
+      notifyListeners();
+      await _saveToStorage();
       return;
     }
 
