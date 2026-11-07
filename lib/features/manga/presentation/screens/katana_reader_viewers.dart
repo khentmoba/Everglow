@@ -186,6 +186,10 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
         physics: const BouncingScrollPhysics(),
         itemCount: totalItems,
         onPageChanged: (pageIndex) {
+          // The controller is built with a page index before the two-page
+          // preference is known, so ignore its first report until the
+          // starting spread has actually been applied.
+          if (!_pagedInitialJumpDone) return;
           if (useTwoPage) {
             final firstPageIndex = pageIndex * 2;
             _onPageChanged(math.min(firstPageIndex, _pages.length - 1));
@@ -331,6 +335,10 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   /// — like the site's own refresh — the URLs are fetched fresh once
   /// instead of leaving Clair with a broken chapter.
   void _notePageFailed(int index) {
+    // A resume target that will never load must not freeze the reader on its
+    // pending correction: the scroll listener skips tracking while one is
+    // set. Give it up so the pill and progress keep working.
+    if (_pendingResumePage == index) _pendingResumePage = null;
     if (!_failedPages.add(index)) return;
     _maybeRefreshTokens();
   }

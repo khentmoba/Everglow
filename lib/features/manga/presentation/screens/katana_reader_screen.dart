@@ -168,6 +168,12 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   /// apart from a user scroll.
   double? _lastJumpOffset;
 
+  /// False until the paged viewer has been moved to its starting spread.
+  /// The PageController is built with a page index before the two-page
+  /// preference is known, so its first onPageChanged can report the wrong
+  /// spread (or the end card) and persist that as progress.
+  bool _pagedInitialJumpDone = false;
+
   /// Set once this chapter has been marked read for the current user.
   bool _markedRead = false;
 
@@ -404,6 +410,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _loading = false;
       _autoRetried = false;
       _currentPage = targetPage;
+      _pagedInitialJumpDone = false;
     });
     // Keep the heights already measured for this chapter when only the
     // page URLs were re-fetched (server switch, retry, token refresh);
@@ -442,6 +449,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           pagedItemForPage(targetPage, twoPage: _useTwoPage),
         );
       }
+      // From here on the paged viewer is on the right spread, so its
+      // onPageChanged can be trusted.
+      _pagedInitialJumpDone = true;
       _triggerPagePill();
     });
   }
@@ -512,7 +522,6 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     // placeholder extent — that wrote the wrong lastReadPage. Wait for the
     // correction to land; a user scroll clears the pending page first.
     if (_pendingResumePage != null) return;
-    _measureBuiltPages();
     final page = _tracker.pageAtOffset(_scrollController.offset) + 1;
     if (page != _currentPage) {
       setState(() => _currentPage = page);
@@ -538,15 +547,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     if (page >= _pages.length) _markChapterRead();
   }
 
-  /// Records the laid-out height of every webtoon page currently built.
-  /// Virtualization means only the pages around the viewport exist, and
-  /// those are exactly the ones needed to place the current page.
-  void _measureBuiltPages() {
-    for (final index in _loadedPages) {
-      _measurePage(index);
-    }
-  }
-
+  /// Records the laid-out height of one page. Only [onPageLoaded] calls
+  /// this: measuring on scroll would also measure a page that scrolled back
+  /// into view and is once again showing its loading slot, caching 380 as
+  /// its real height.
   void _measurePage(int index) {
     final renderObject = _pageKeys[index]?.currentContext?.findRenderObject();
     if (renderObject is RenderBox && renderObject.hasSize) {
@@ -651,10 +655,13 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     final target = page.clamp(1, _pages.length);
     setState(() => _currentPage = target);
     _triggerPagePill();
+    // _currentPage was just set, so the scroll listener will not see a page
+    // change and would skip its read mark. Finishing the chapter with the
+    // scrubber has to mark it here.
+    if (target >= _pages.length) _markChapterRead();
 
     if (_mode == ReaderMode.webtoon) {
       if (_scrollController.hasClients && _pages.length > 1) {
-        _measureBuiltPages();
         final position = _scrollController.position;
         _scrollController.animateTo(
           _tracker

@@ -71,13 +71,39 @@ void main() {
     });
 
     test('read marks win over the last read chapter', () {
+      // The anchor is c3, so continuing never goes back to c2.
       expect(
         nextUnreadChapter(
           chapters,
           const {'c1'},
           lastReadChapterId: 'c3',
         )?.id,
-        'c2',
+        'c3',
+      );
+    });
+
+    test('finishing the last read chapter continues forward', () {
+      // The blocker: once c2 was finished, readChapterIds was non-empty, so
+      // the old fallback stopped applying and Continue went back to c1 —
+      // overwriting the real resume point.
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {'c2'},
+          lastReadChapterId: 'c2',
+        )?.id,
+        'c3',
+      );
+    });
+
+    test('a gap before the anchor is not reopened', () {
+      expect(
+        nextUnreadChapter(
+          chapters,
+          const {'c3'},
+          lastReadChapterId: 'c3',
+        )?.id,
+        'c3',
       );
     });
 

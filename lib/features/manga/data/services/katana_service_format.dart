@@ -53,18 +53,13 @@ List<KatanaChapter> sortChaptersAscending(List<KatanaChapter> chapters) {
   return sorted;
 }
 
-/// The chapter "Continue" should open: the first one [readChapterIds] has
-/// not finished, or the last chapter once everything is read. Null for a
-/// series with no chapters yet.
+/// The chapter "Continue" should open. Null for a series with no chapters.
 ///
-/// Guessing from "the chapter after the last one opened" re-opened
-/// already-read chapters whenever Clair jumped around, so the read set is
-/// the source of truth instead.
-///
-/// [lastReadChapterId] covers records written before read marks existed:
-/// they have no finished chapters but do know where she stopped. Without
-/// this fallback "Continue" would open chapter 1 and overwrite that
-/// resume point.
+/// [lastReadChapterId] is the anchor: continuing never goes back before the
+/// chapter she last opened. Without that anchor, finishing a chapter made it
+/// "read", so the first unread chapter became chapter 1 and Continue jumped
+/// backwards — and the reader then overwrote her real resume point with it.
+/// Records written before read marks existed rely on the anchor entirely.
 KatanaChapter? nextUnreadChapter(
   List<KatanaChapter> chapters,
   Set<String> readChapterIds, {
@@ -72,10 +67,12 @@ KatanaChapter? nextUnreadChapter(
 }) {
   final ascending = sortChaptersAscending(chapters);
   if (ascending.isEmpty) return null;
-  if (readChapterIds.isEmpty && lastReadChapterId.isNotEmpty) {
-    for (final chapter in ascending) {
-      if (chapter.id == lastReadChapterId) return chapter;
+  final anchor = ascending.indexWhere((c) => c.id == lastReadChapterId);
+  if (anchor >= 0) {
+    for (var i = anchor; i < ascending.length; i++) {
+      if (!readChapterIds.contains(ascending[i].id)) return ascending[i];
     }
+    return ascending.last;
   }
   for (final chapter in ascending) {
     if (!readChapterIds.contains(chapter.id)) return chapter;
