@@ -75,6 +75,7 @@ jobs:
           flutter test --platform chrome
           test/features/anime/anime_web_memory_test.dart
           test/features/anime/animex_player_web_bridge_test.dart
+          test/cinema_fullscreen_web_test.dart
           test/embedded_media_web_memory_test.dart
           test/features/ai/motchi_streaming_scroll_test.dart
           test/core/system/web_standalone_browser_test.dart

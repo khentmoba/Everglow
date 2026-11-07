@@ -149,6 +149,12 @@ class _VideoPlayerScreenState extends _VideoPlayerScreenStateBase {
         final maxPlayerHeight = _isFullscreen
             ? viewportHeight
             : (viewportHeight - 296).clamp(240.0, double.infinity).toDouble();
+        // Keyboard forwarding and scroll calculations use this height, so
+        // remember what the player actually occupies rather than guessing from the viewport.
+        final laidOutHeight = maxPlayerHeight < constraints.maxWidth * 9 / 16
+            ? maxPlayerHeight
+            : constraints.maxWidth * 9 / 16;
+        _playerAreaHeight = laidOutHeight;
         if (_iframeFailed) {
           return ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxPlayerHeight),

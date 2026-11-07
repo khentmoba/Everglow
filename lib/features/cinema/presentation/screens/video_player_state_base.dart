@@ -103,6 +103,17 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   /// wheel events inside a cross-origin iframe never reach this
   /// document, so a listener on the iframe element can never fire.
   final ScrollController _scrollController = ScrollController();
+  double _playerAreaHeight = 0;
+
+  /// Keys the player page understands. The app relays these from its own
+  /// document, so the arrows work even when the iframe has no focus.
+  static const Set<String> _playerKeys = {
+    ' ', 'k', 'K', 'j', 'J', 'l', 'L',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'm', 'M', 'f', 'F', 'c', 'C', 'n', 'N',
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+  };
+  JSFunction? _keyForwarder;
 
   /// DOM exit chip shown above the Flutter platform view in theater mode.
   web.HTMLButtonElement? _fullscreenExitButton;
@@ -221,6 +232,7 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
     _messageListener = _buildMessageListener();
     web.window.addEventListener('message', _messageListener);
+    _installKeyForwarder();
 
     _currentSeason = widget.season ?? 1;
     _currentEpisode = widget.episode ?? 1;
@@ -1164,6 +1176,52 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // KEYBOARD FORWARDING
+  // ---------------------------------------------------------------------------
+
+  /// Keys reach the player page only while its frame has focus. Clicking
+  /// anywhere else on the page leaves the arrows dead, so the app relays
+  /// them. When the frame does have focus this listener never fires —
+  /// keyboard events go to the focused document only — so nothing is
+  /// handled twice.
+  void _installKeyForwarder() {
+    _keyForwarder = ((web.KeyboardEvent event) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      // Only our own HLS embed understands everglow-key. For third-party
+      // embeds leave keys untouched so the browser's default behavior works.
+      if (_selectedProvider.id != 'everglow-embed') return;
+      // When scrolled past the video, allow arrow keys and space to scroll
+      // the episode list and page metadata normally.
+      if (_scrollController.hasClients &&
+          _playerAreaHeight > 0 &&
+          _scrollController.offset > _playerAreaHeight) {
+        return;
+      }
+      try {
+        final target = event.target;
+        if (target != null) {
+          final tag = (target as web.Element).tagName;
+          if (tag == 'INPUT' || tag == 'TEXTAREA' || tag == 'SELECT') return;
+        }
+      } catch (_) {
+        // Not an element; treat it as the page and carry on.
+      }
+      final key = event.key;
+      if (key.isEmpty || !_playerKeys.contains(key)) return;
+      try {
+        _iframe.contentWindow?.postMessage(
+          <String, String>{'type': 'everglow-key', 'key': key}.jsify(),
+          CinemaVideoSources.proxyCinemaOrigin.toJS,
+        );
+        event.preventDefault();
+      } catch (_) {
+        // A detached frame simply drops the key.
+      }
+    }).toJS;
+    web.document.addEventListener('keydown', _keyForwarder);
+  }
+
   /// Adds the DOM exit chip for theater mode. Flutter widgets can't
   /// paint above the platform-view iframe, so this chip is a plain DOM
   /// element appended to the page with a higher z-index.
@@ -1237,6 +1295,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
     }
     if (_messageListener != null) {
       web.window.removeEventListener('message', _messageListener);
+    }
+    if (_keyForwarder != null) {
+      web.document.removeEventListener('keydown', _keyForwarder);
+      _keyForwarder = null;
     }
     if (_isFullscreen) {
       _restorePlatformViewStyle();

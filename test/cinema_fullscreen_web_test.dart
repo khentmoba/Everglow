@@ -30,6 +30,30 @@ web.HTMLButtonElement? get _exitButton =>
     web.document.querySelector('button[aria-label="Exit theater"]')
         as web.HTMLButtonElement?;
 
+Future<void> _pumpPlayer(WidgetTester tester, Size size) async {
+  await _size(tester, size);
+  addTearDown(() async {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+    await tester.binding.setSurfaceSize(null);
+  });
+  await tester.pumpWidget(
+    ChangeNotifierProvider<AuthService>.value(
+      value: _DemoAuth(),
+      child: const MaterialApp(
+        home: VideoPlayerScreen(
+          tmdbId: 900004,
+          mediaType: 'tv',
+          title: 'The Midnight Library',
+          season: 1,
+          episode: 1,
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
 Future<void> _size(WidgetTester tester, Size size) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -168,4 +192,40 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'the app relays player keys into the frame',
+    (tester) async {
+      await _pumpPlayer(tester, const Size(1280, 720));
+
+      final seek = web.KeyboardEvent(
+        'keydown',
+        web.KeyboardEventInit(
+          key: 'ArrowRight',
+          bubbles: true,
+          cancelable: true,
+        ),
+      );
+      web.document.dispatchEvent(seek);
+      expect(
+        seek.defaultPrevented,
+        isTrue,
+        reason: 'the app handled the key and sent it to the player',
+      );
+
+      final unrelated = web.KeyboardEvent(
+        'keydown',
+        web.KeyboardEventInit(key: 'q', bubbles: true, cancelable: true),
+      );
+      web.document.dispatchEvent(unrelated);
+      expect(
+        unrelated.defaultPrevented,
+        isFalse,
+        reason: 'only the player keys are forwarded',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
 }
