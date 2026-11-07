@@ -50,6 +50,38 @@ Future<void> main(List<String> args) async {
   }
   _stampCoreShell();
   _stampFirebasePreload();
+  _stampVersionJson(canvaskitUrl);
+}
+
+/// Discovers all deferred JS chunks in build/web, pairs them with the
+/// engine-pinned CanvasKit URL, and writes a rich version.json so the
+/// service worker and web idle preloader can warm the full offline app
+/// shell in the background without blocking first paint.
+void _stampVersionJson(String? canvaskitUrl) {
+  final stamp = buildStamp();
+  final busted = 'main.dart.js?v=$stamp';
+  final dir = Directory('build/web');
+  final parts = <String>[];
+  if (dir.existsSync()) {
+    for (final entity in dir.listSync()) {
+      if (entity is File) {
+        final name = entity.uri.pathSegments.last;
+        if (name.startsWith('main.dart.js_') && name.endsWith('.part.js')) {
+          parts.add(name);
+        }
+      }
+    }
+    parts.sort();
+  }
+  final data = <String, dynamic>{
+    'build': stamp,
+    'core': busted,
+    'canvaskit': canvaskitUrl ?? '/canvaskit/',
+    'parts': parts,
+  };
+  final jsonStr = '${jsonEncode(data)}\n';
+  File('build/web/version.json').writeAsStringSync(jsonStr);
+  print('[build_web] version.json stamped with ${parts.length} deferred parts');
 }
 
 /// Emits `<link rel="modulepreload">` for the Firebase JS SDK modules into the

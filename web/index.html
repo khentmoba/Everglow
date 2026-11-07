@@ -421,6 +421,7 @@
           s.src = src;
           if (opts && opts.type) s.type = opts.type;
           if (opts && opts.defer) s.defer = true;
+          if (opts && opts.crossOrigin) s.crossOrigin = opts.crossOrigin;
           s.onload = function () { resolve(); };
           s.onerror = function () { reject(new Error('media lib failed: ' + src)); };
           document.head.appendChild(s);
@@ -428,11 +429,11 @@
       }
       st.loading = (async function () {
         // Order matters: hls.js before the local bridge that wraps it.
-        await loadScript('https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js');
+        await loadScript('https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js', { crossOrigin: 'anonymous' });
         await loadScript('hls_bridge.js', { defer: true });
         await loadScript(
           'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js',
-          { type: 'module' }
+          { type: 'module', crossOrigin: 'anonymous' }
         );
         st.loaded = true;
       })().catch(function (e) {
@@ -530,6 +531,47 @@
           });
       }, { once: true });
     }
+  </script>
+  <script>
+    // Idle app-shell warmer: once the first frame has painted, lazily warm
+    // the remaining deferred part chunks into CacheStorage via the service worker
+    // so every section of the app opens offline.
+    function __everglowIdlePreloadParts() {
+      if (typeof fetch === 'undefined') return;
+      if (!navigator.serviceWorker || !navigator.serviceWorker.controller) return;
+      try {
+        var conn = navigator.connection;
+        if (conn && (conn.saveData || /(^|-)2g|3g$/.test(conn.effectiveType || ''))) return;
+        if (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) return;
+      } catch (_) {}
+      fetch('/version.json?t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !Array.isArray(data.parts) || !data.build) return;
+          var build = data.build;
+          var parts = data.parts;
+          var idx = 0;
+          function warmNext() {
+            if (idx >= parts.length) return;
+            var part = parts[idx++];
+            var url = part + '?v=' + encodeURIComponent(build);
+            fetch(url).catch(function () {}).then(function () {
+              if ('requestIdleCallback' in window) {
+                requestIdleCallback(warmNext, { timeout: 2000 });
+              } else {
+                setTimeout(warmNext, 80);
+              }
+            });
+          }
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(warmNext, { timeout: 3000 });
+          } else {
+            setTimeout(warmNext, 600);
+          }
+        })
+        .catch(function () {});
+    }
+    window.addEventListener('flutter-first-frame', __everglowIdlePreloadParts, { once: true });
   </script>
   <script src="flutter_bootstrap.js" async fetchpriority="high"></script>
   <script>

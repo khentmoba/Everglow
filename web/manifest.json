@@ -1,13 +1,17 @@
 {
+  "id": "/",
   "name": "Everglow",
   "short_name": "Everglow",
   "start_url": ".",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#1a0f1e",
   "theme_color": "#1a0f1e",
   "description": "A private digital relationship scrapbook",
   "orientation": "any",
   "prefer_related_applications": false,
+  "categories": ["lifestyle", "entertainment"],
   "icons": [
     {
       "src": "icons/Icon-192.png",
@@ -30,6 +34,36 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Cinema",
+      "short_name": "Cinema",
+      "description": "Watch movies and series together",
+      "url": "/cinema",
+      "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Anime",
+      "short_name": "Anime",
+      "description": "Browse and stream anime",
+      "url": "/anime",
+      "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Books",
+      "short_name": "Books",
+      "description": "Read books and light novels",
+      "url": "/books",
+      "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Couple scrapbook and daily memories",
+      "url": "/dashboard",
+      "icons": [{"src": "icons/Icon-192.png", "sizes": "192x192"}]
     }
   ]
 }
