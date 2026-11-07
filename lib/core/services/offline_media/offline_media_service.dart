@@ -37,6 +37,17 @@ class OfflineMediaService extends ChangeNotifier {
 
   bool get isInitialized => _initialized;
 
+  static String mangaChapterId(String slug, String chapterId) =>
+      'manga_${slug}_ch_$chapterId';
+
+  static String animeEpisodeId(dynamic animeId, int episode, {int season = 1}) =>
+      'anime_${animeId}_s${season}_e$episode';
+
+  static String cinemaEpisodeId(int tmdbId, int season, int episode) =>
+      'cinema_tv_${tmdbId}_s${season}_e$episode';
+
+  static String cinemaMovieId(int tmdbId) => 'cinema_movie_$tmdbId';
+
   List<OfflineMediaItem> get allItems => _items.values
       .where((i) => i.isCompleted || i.isDownloading)
       .toList()
@@ -59,6 +70,51 @@ class OfflineMediaService extends ChangeNotifier {
 
   String get formattedTotalStorage {
     final bytes = totalStorageBytes;
+    if (bytes <= 0) return '0 MB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  int get cinemaStorageBytes {
+    return allItems
+        .where((i) => i.isCinema)
+        .fold(0, (sum, item) => sum + item.downloadedBytes);
+  }
+
+  String get formattedCinemaStorage {
+    final bytes = cinemaStorageBytes;
+    if (bytes <= 0) return '0 MB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  int get animeStorageBytes {
+    return allItems
+        .where((i) => i.isAnime)
+        .fold(0, (sum, item) => sum + item.downloadedBytes);
+  }
+
+  String get formattedAnimeStorage {
+    final bytes = animeStorageBytes;
+    if (bytes <= 0) return '0 MB';
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
+  }
+
+  int get mangaStorageBytes {
+    return allItems
+        .where((i) => i.isManga)
+        .fold(0, (sum, item) => sum + item.downloadedBytes);
+  }
+
+  String get formattedMangaStorage {
+    final bytes = mangaStorageBytes;
     if (bytes <= 0) return '0 MB';
     if (bytes < 1024 * 1024 * 1024) {
       return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
@@ -192,7 +248,7 @@ class OfflineMediaService extends ChangeNotifier {
     if ((effectiveUrl == null || effectiveUrl.isEmpty) &&
         (AgentMode.isActive.value && AgentMode.useDemoData.value)) {
       effectiveUrl =
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4';
     }
 
     final isCompletedDirect = directBytes != null;
@@ -243,7 +299,7 @@ class OfflineMediaService extends ChangeNotifier {
       try {
         final res = await http
             .get(Uri.parse(effectiveUrl))
-            .timeout(const Duration(seconds: 20));
+            .timeout(const Duration(minutes: 10));
         if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
           await _storage.saveMediaBlob(id, res.bodyBytes);
           _items[id] = initial.copyWith(
@@ -281,7 +337,7 @@ class OfflineMediaService extends ChangeNotifier {
     required List<String> pageUrls,
     List<Uint8List>? pageBytesList,
   }) async {
-    final id = 'manga_${slug}_ch_$chapterId';
+    final id = mangaChapterId(slug, chapterId);
     final existing = _items[id];
     if (existing != null &&
         existing.status == OfflineDownloadStatus.completed) {
@@ -528,7 +584,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 1520000000,
@@ -549,7 +605,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 740000000,
@@ -570,7 +626,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 710000000,
@@ -591,7 +647,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 780000000,
@@ -612,7 +668,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-n1HJZ2s7vGgA.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 420000000,
@@ -633,7 +689,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-n1HJZ2s7vGgA.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 415000000,
@@ -654,7 +710,7 @@ class OfflineMediaService extends ChangeNotifier {
       coverUrl:
           'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-n1HJZ2s7vGgA.jpg',
       sourceUrl:
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+          'https://raw.githubusercontent.com/mediaelement/mediaelement-files/master/big_buck_bunny.mp4',
       status: OfflineDownloadStatus.completed,
       progress: 1.0,
       totalBytes: 430000000,

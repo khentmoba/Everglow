@@ -174,7 +174,7 @@ class CinemaDownloadsTab extends StatelessWidget {
             ),
           ),
           Text(
-            service.formattedTotalStorage,
+            service.formattedCinemaStorage,
             style: AppTypography.outfitHeading.copyWith(
               color: NetflixColors.gold,
               fontSize: 13,

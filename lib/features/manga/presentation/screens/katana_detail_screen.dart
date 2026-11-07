@@ -981,7 +981,7 @@ class _ChapterRow extends StatelessWidget {
     final offline = context.watch<OfflineMediaService?>();
     if (offline == null) return const SizedBox.shrink();
 
-    final downloadId = 'manga_${slug}_ch_${chapter.id}';
+    final downloadId = OfflineMediaService.mangaChapterId(slug, chapter.id);
     final isDone = offline.isDownloaded(downloadId);
     final isDownloading = offline.isDownloading(downloadId);
 
@@ -1045,7 +1045,9 @@ class _ChapterRow extends StatelessWidget {
               chapterTitle: chapter.displayTitle,
               pageUrls: realPages,
             );
-            final item = offline.getItem('manga_${slug}_ch_${chapter.id}');
+            final item = offline.getItem(
+              OfflineMediaService.mangaChapterId(slug, chapter.id),
+            );
             if (item != null && item.isCompleted) {
               messenger.showSnackBar(
                 SnackBar(

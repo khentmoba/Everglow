@@ -267,11 +267,12 @@ class _AnimeXWatchPageState extends State<AnimeXWatchPage>
 
   Future<void> _checkOfflinePlayback() async {
     final animeId = _watchItem.anilistId ?? _watchItem.tmdbId;
-    var offlineItem =
-        OfflineMediaService.instance.getItem('anime_${animeId}_s1_e$_playerEpisode');
+    var offlineItem = OfflineMediaService.instance
+        .getItem(OfflineMediaService.animeEpisodeId(animeId, _playerEpisode));
     if (offlineItem == null && _watchItem.tmdbId > 0) {
-      offlineItem = OfflineMediaService.instance
-          .getItem('anime_${_watchItem.tmdbId}_s1_e$_playerEpisode');
+      offlineItem = OfflineMediaService.instance.getItem(
+        OfflineMediaService.animeEpisodeId(_watchItem.tmdbId, _playerEpisode),
+      );
     }
     if (offlineItem != null && offlineItem.isCompleted) {
       final url = await OfflineMediaService.instance.getPlayableUrl(offlineItem);

@@ -120,13 +120,17 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
 
   String get _currentDownloadId {
     if (widget.isAnime) {
-      final malId = widget.malId ?? widget.tmdbId;
-      return 'anime_${malId}_s1_e$_currentEpisode';
+      final animeId = widget.malId ?? widget.tmdbId;
+      return OfflineMediaService.animeEpisodeId(animeId, _currentEpisode);
     }
     if (widget.mediaType == 'tv') {
-      return 'cinema_tv_${widget.tmdbId}_s${_currentSeason}_e$_currentEpisode';
+      return OfflineMediaService.cinemaEpisodeId(
+        widget.tmdbId,
+        _currentSeason,
+        _currentEpisode,
+      );
     }
-    return 'cinema_movie_${widget.tmdbId}';
+    return OfflineMediaService.cinemaMovieId(widget.tmdbId);
   }
 
   OfflineMediaItem? get _currentOfflineItem =>
@@ -217,9 +221,10 @@ abstract class _VideoPlayerScreenStateBase extends State<VideoPlayerScreen>
   }
 
   bool _tryPlayOfflineEpisode(int season, int episode) {
+    final animeId = widget.malId ?? widget.tmdbId;
     final nextDownloadId = widget.isAnime
-        ? 'anime_${widget.malId ?? widget.tmdbId}_s1_e$episode'
-        : 'cinema_tv_${widget.tmdbId}_s${season}_e$episode';
+        ? OfflineMediaService.animeEpisodeId(animeId, episode)
+        : OfflineMediaService.cinemaEpisodeId(widget.tmdbId, season, episode);
     final nextOfflineItem = OfflineMediaService.instance.getItem(nextDownloadId);
     if (nextOfflineItem != null &&
         nextOfflineItem.isCompleted &&

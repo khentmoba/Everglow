@@ -61,17 +61,6 @@ class OfflineMediaStorage {
     return store.containsKey(key);
   }
 
-  Future<int> getEstimatedStorageUsage() async {
-    var total = 0;
-    for (final bytes in _mediaStore.values) {
-      total += bytes.lengthInBytes;
-    }
-    for (final bytes in _mangaStore.values) {
-      total += bytes.lengthInBytes;
-    }
-    return total;
-  }
-
   Future<void> clearAll() async {
     _mediaStore.clear();
     _mangaStore.clear();

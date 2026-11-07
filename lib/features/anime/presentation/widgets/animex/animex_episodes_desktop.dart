@@ -256,7 +256,7 @@ class _DesktopEpisodeTileState extends State<_DesktopEpisodeTile> {
     if (offline == null) return const SizedBox.shrink();
 
     final downloadId =
-        'anime_${widget.animeId}_s1_e${widget.episode.number}';
+        OfflineMediaService.animeEpisodeId(widget.animeId, widget.episode.number);
     final isDone = offline.isDownloaded(downloadId);
     final isDownloading = offline.isDownloading(downloadId);
 

@@ -64,8 +64,8 @@ void main() {
         slug: 'solo-leveling',
         mangaTitle: 'Solo Leveling',
         coverUrl: '',
-        chapterId: '1',
-        chapterTitle: 'Chapter 1: The Weakest Hunter',
+        chapterId: '3',
+        chapterTitle: 'Chapter 3: The Daily Quest',
         pageUrls: const ['p1.jpg', 'p2.jpg'],
         pageBytesList: [Uint8List(512 * 1024), Uint8List(512 * 1024)],
       );
@@ -73,8 +73,8 @@ void main() {
         slug: 'solo-leveling',
         mangaTitle: 'Solo Leveling',
         coverUrl: '',
-        chapterId: '2',
-        chapterTitle: 'Chapter 2: The Double Dungeon',
+        chapterId: '4',
+        chapterTitle: 'Chapter 4: Courage to Fight',
         pageUrls: const ['p1.jpg', 'p2.jpg'],
         pageBytesList: [Uint8List(620 * 1024), Uint8List(620 * 1024)],
       );

@@ -176,7 +176,7 @@ class KatanaDownloadsScreen extends StatelessWidget {
             ),
           ),
           Text(
-            service.formattedTotalStorage,
+            service.formattedMangaStorage,
             style: AppTypography.outfitHeading.copyWith(
               color: KatanaColors.orange,
               fontSize: 13,

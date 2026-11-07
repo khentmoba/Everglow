@@ -32,6 +32,22 @@ void main() {
       expect(items.any((i) => i.isAnimeLink), isFalse);
     });
 
+    test('showDownloads: false omits Downloads from mobile nav items', () {
+      final guest = cinemaMobileNavItems(
+        isCinemaOnlyUser: true,
+        showDownloads: false,
+      );
+      final couple = cinemaMobileNavItems(
+        isCinemaOnlyUser: false,
+        showDownloads: false,
+      );
+
+      expect(guest.any((i) => i.label == 'Downloads'), isFalse);
+      expect(couple.any((i) => i.label == 'Downloads'), isFalse);
+      expect(guest.length, 5);
+      expect(couple.length, 5);
+    });
+
     test('both sets share the same core tabs', () {
       final guest = cinemaMobileNavItems(isCinemaOnlyUser: true);
       final couple = cinemaMobileNavItems(isCinemaOnlyUser: false);

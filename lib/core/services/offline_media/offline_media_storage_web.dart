@@ -154,22 +154,6 @@ class OfflineMediaStorage {
     }
   }
 
-  Future<int> getEstimatedStorageUsage() async {
-    try {
-      var total = 0;
-      final mediaCache = await _openCache(mediaCacheName);
-      final mangaCache = await _openCache(mangaCacheName);
-      final mediaKeys = await mediaCache.keys().toDart;
-      final mangaKeys = await mangaCache.keys().toDart;
-      total += mediaKeys.length * 150 * 1024 * 1024; // average estimate if headers unavailable
-      total += mangaKeys.length * 800 * 1024;
-      return total;
-    } catch (e) {
-      Logger.e('OfflineMediaStorage: error estimating storage', error: e);
-      return 0;
-    }
-  }
-
   Future<void> clearAll() async {
     for (final url in _createdObjectUrls) {
       try {

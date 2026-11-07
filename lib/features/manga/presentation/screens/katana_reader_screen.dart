@@ -376,7 +376,8 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _markedRead = false;
     });
 
-    final offlineId = 'manga_${widget.slug}_ch_${_chapter.id}';
+    final offlineId =
+        OfflineMediaService.mangaChapterId(widget.slug, _chapter.id);
     final offlineItem = OfflineMediaService.instance.getItem(offlineId);
     if (offlineItem != null &&
         offlineItem.isCompleted &&

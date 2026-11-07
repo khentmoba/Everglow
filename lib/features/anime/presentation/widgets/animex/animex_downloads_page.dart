@@ -176,7 +176,7 @@ class AnimeXDownloadsPage extends StatelessWidget {
             ),
           ),
           Text(
-            service.formattedTotalStorage,
+            service.formattedAnimeStorage,
             style: AppTypography.outfitHeading.copyWith(
               color: AnimeXTokens.gold,
               fontSize: 13,
