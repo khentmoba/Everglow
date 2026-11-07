@@ -80,6 +80,11 @@ class ReaderPageImage extends StatefulWidget {
   /// fallback URL; the widget resets itself for the new URL.
   final void Function()? onError;
 
+  /// Fired (post-frame) once per URL when the real image is on screen.
+  /// Parents that measure page heights must wait for this: before it, the
+  /// laid-out box is the fixed-size loading slot, not the page.
+  final void Function()? onLoaded;
+
   /// Extra button in the error slot, e.g. "Try another server".
   final Widget? secondaryAction;
 
@@ -101,6 +106,7 @@ class ReaderPageImage extends StatefulWidget {
     this.maxAutoRetries = 3,
     this.firstRetryDelay = const Duration(milliseconds: 700),
     this.onError,
+    this.onLoaded,
     this.secondaryAction,
     this.cacheManager,
   });
@@ -144,6 +150,9 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
   /// so one failure notifies the parent exactly once.
   int _notifiedForGeneration = -1;
 
+  /// Same guard for [ReaderPageImage.onLoaded].
+  int _notifiedLoadedForGeneration = -1;
+
   @override
   void didUpdateWidget(covariant ReaderPageImage oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -152,7 +161,21 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
       _retryTimer = null;
       _attempt = 0;
       _notifiedForGeneration = -1;
+      _notifiedLoadedForGeneration = -1;
     }
+  }
+
+  /// Tells the parent that the real image is on screen, so it can measure
+  /// the page instead of the loading slot. Runs post-frame because it is
+  /// called from inside a builder.
+  void _notifyLoaded() {
+    if (_notifiedLoadedForGeneration == _generation) return;
+    _notifiedLoadedForGeneration = _generation;
+    final onLoaded = widget.onLoaded;
+    if (onLoaded == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onLoaded();
+    });
   }
 
   @override
@@ -246,7 +269,10 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
         gaplessPlayback: true,
         excludeFromSemantics: true,
         loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
+          if (progress == null) {
+            _notifyLoaded();
+            return child;
+          }
           return _pendingSlot(retrying: _attempt > 0);
         },
         errorBuilder: (context, _, _) {
@@ -269,6 +295,17 @@ class _ReaderPageImageState extends State<ReaderPageImage> {
         placeholderFadeInDuration: Duration.zero,
         useOldImageOnUrlChange: true,
         placeholder: (context, _) => _pendingSlot(retrying: _attempt > 0),
+        imageBuilder: (context, imageProvider) {
+          _notifyLoaded();
+          return Image(
+            image: imageProvider,
+            width: double.infinity,
+            height: widget.height,
+            fit: widget.fit,
+            gaplessPlayback: true,
+            excludeFromSemantics: true,
+          );
+        },
         errorWidget: (context, _, _) {
           _handleError();
           if (_exhausted) return _errorSlot();

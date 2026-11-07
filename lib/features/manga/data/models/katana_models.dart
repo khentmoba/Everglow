@@ -181,6 +181,12 @@ class KatanaBookmark {
   /// opened.
   final Set<String> readChapterIds;
 
+  /// Whether this series is still on the bookmarks shelf. Unbookmarking
+  /// clears this instead of deleting the document, because the same
+  /// document carries reading progress and [readChapterIds] — deleting it
+  /// used to wipe both. Absent in older records, which count as bookmarked.
+  final bool bookmarked;
+
   const KatanaBookmark({
     required this.slug,
     required this.title,
@@ -194,12 +200,12 @@ class KatanaBookmark {
     this.recommendedBy = '',
     this.recommendationNote = '',
     this.readChapterIds = const {},
+    this.bookmarked = true,
   });
 
   bool get hasProgress => lastReadChapterId.isNotEmpty;
   bool get isRecommended => recommendedBy.isNotEmpty;
-
-  bool hasRead(String chapterId) => readChapterIds.contains(chapterId);
+  bool get isBookmarked => bookmarked;
 
   factory KatanaBookmark.fromFirestore(
     Map<String, dynamic> data,
@@ -221,6 +227,9 @@ class KatanaBookmark {
       readChapterIds: read is List
           ? {for (final id in read) if (id is String && id.isNotEmpty) id}
           : const {},
+      // Missing means a record written before this flag existed, which was
+      // saved because the user bookmarked it.
+      bookmarked: data['bookmarked'] != false,
     );
   }
 
@@ -243,6 +252,7 @@ class KatanaBookmark {
       'recommendedBy': recommendedBy,
       'recommendationNote': recommendationNote,
       'readChapterIds': readChapterIds.toList(),
+      'bookmarked': bookmarked,
     };
   }
 

@@ -144,4 +144,30 @@ void main() {
       expect(reader.initialPage, equals(42));
     });
   });
+
+  group('paged item mapping', () {
+    test('single-page mode maps a page to the item just before it', () {
+      expect(pagedItemForPage(1, twoPage: false), 0);
+      expect(pagedItemForPage(12, twoPage: false), 11);
+    });
+
+    test('two-page mode packs two pages per item', () {
+      // The regression: resuming page 12 used to jump to item 11, which
+      // shows pages 23-24. It must land on item 5 (pages 11-12).
+      expect(pagedItemForPage(12, twoPage: true), 5);
+      expect(pagedItemForPage(1, twoPage: true), 0);
+      expect(pagedItemForPage(2, twoPage: true), 0);
+      expect(pagedItemForPage(3, twoPage: true), 1);
+      expect(pagedItemForPage(4, twoPage: true), 1);
+    });
+
+    test('the last item matches the PageView item count', () {
+      // _buildPagedViewer builds ceil(pages / 2) + 1 items in two-page
+      // mode, so the last reachable index is ceil(pages / 2).
+      expect(lastPagedItem(10, twoPage: false), 10);
+      expect(lastPagedItem(10, twoPage: true), 5);
+      expect(lastPagedItem(9, twoPage: true), 5);
+      expect(lastPagedItem(1, twoPage: true), 1);
+    });
+  });
 }

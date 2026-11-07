@@ -49,6 +49,20 @@ void scrollReaderWithWheel(
   if (target != position.pixels) position.jumpTo(target);
 }
 
+/// The PageView item that holds [page] (1-based). Two-page mode packs two
+/// pages into one item, so a page index is not an item index — jumping with
+/// the page number landed on the wrong spread.
+@visibleForTesting
+int pagedItemForPage(int page, {required bool twoPage}) {
+  final zeroBased = page - 1;
+  return twoPage ? zeroBased ~/ 2 : zeroBased;
+}
+
+/// The last PageView item for [pageCount] pages.
+@visibleForTesting
+int lastPagedItem(int pageCount, {required bool twoPage}) =>
+    twoPage ? (pageCount / 2).ceil() : pageCount;
+
 class KatanaReaderScreen extends StatefulWidget {
   @visibleForTesting
   static bool isDesktopWeb({
@@ -126,6 +140,11 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   /// instead of a linear guess across pages of wildly different heights.
   final WebtoonPageTracker _tracker = WebtoonPageTracker();
   final Map<int, GlobalKey> _pageKeys = {};
+
+  /// Pages whose real image is on screen. Only these may be measured: a
+  /// page still loading lays out its fixed-size placeholder slot, and
+  /// caching that height would drag every later estimate with it.
+  final Set<int> _loadedPages = {};
 
   /// Set once this chapter has been marked read for the current user.
   bool _markedRead = false;
@@ -267,8 +286,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     final bookmark = await _service.fetchBookmark(widget.slug, _user);
     if (!mounted) return;
     setState(() {
-      _bookmarked = bookmark != null;
-      _readChapterIds = bookmark?.readChapterIds ?? const {};
+      _bookmarked = bookmark?.isBookmarked ?? false;
+      // Merge rather than replace: a chapter marked read while this fetch
+      // was in flight must not be un-marked by the older server value.
+      _readChapterIds = {..._readChapterIds, ...?bookmark?.readChapterIds};
     });
   }
 
@@ -362,8 +383,14 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       _autoRetried = false;
       _currentPage = targetPage;
     });
-    _tracker.reset(pages.length);
-    _pageKeys.clear();
+    // Keep the heights already measured for this chapter when only the
+    // page URLs were re-fetched (server switch, retry, token refresh);
+    // reset only when this is a different chapter.
+    if (_tracker.pageCount != pages.length) {
+      _tracker.reset(pages.length);
+      _pageKeys.clear();
+      _loadedPages.clear();
+    }
 
     // Opening a chapter counts as reading it: pin target page at once so
     // the series lands in Currently Reading before the first turn.
@@ -385,7 +412,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
           _scrollController.jumpTo(0);
         }
       } else if (_pageController.hasClients) {
-        _pageController.jumpToPage(targetPage - 1);
+        _pageController.jumpToPage(
+          pagedItemForPage(targetPage, twoPage: _useTwoPage),
+        );
       }
       _triggerPagePill();
     });
@@ -458,13 +487,30 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
   /// Virtualization means only the pages around the viewport exist, and
   /// those are exactly the ones needed to place the current page.
   void _measureBuiltPages() {
-    for (final entry in _pageKeys.entries) {
-      final renderObject = entry.value.currentContext?.findRenderObject();
-      if (renderObject is RenderBox && renderObject.hasSize) {
-        _tracker.measure(entry.key, renderObject.size.height);
-      }
+    for (final index in _loadedPages) {
+      _measurePage(index);
     }
   }
+
+  void _measurePage(int index) {
+    final renderObject = _pageKeys[index]?.currentContext?.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      _tracker.measure(index, renderObject.size.height);
+    }
+  }
+
+  /// Called by [ReaderPageImage] once the real page is on screen, so the
+  /// height measured here is the page, not its loading slot.
+  void _onPageLoaded(int index) {
+    if (!mounted || index >= _pages.length) return;
+    _loadedPages.add(index);
+    _measurePage(index);
+  }
+
+  /// Whether the paged viewer is showing two pages per item. One rule for
+  /// the layout and for every page-to-item jump, so they cannot drift.
+  bool get _useTwoPage =>
+      _twoPage && MediaQuery.sizeOf(context).width >= 840;
 
   GlobalKey _pageKey(int index) =>
       _pageKeys.putIfAbsent(index, () => GlobalKey());
@@ -530,6 +576,7 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
     });
     _tracker.reset(0);
     _pageKeys.clear();
+    _loadedPages.clear();
     // If we jumped to a chapter outside the (short) list we were
     // handed, pull the full table so navigation keeps working.
     if (!_chapters.any((c) => c.id == chapter.id) || _chaptersIncomplete) {
@@ -558,7 +605,9 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
       }
     } else {
       if (_pageController.hasClients) {
-        _pageController.jumpToPage(target - 1);
+        _pageController.jumpToPage(
+          pagedItemForPage(target, twoPage: _useTwoPage),
+        );
       }
     }
   }

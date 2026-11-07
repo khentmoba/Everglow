@@ -17,23 +17,13 @@ extension KatanaServiceSocial on KatanaService {
           (snap) =>
               snap.docs
                   .map((d) => KatanaBookmark.fromFirestore(d.data(), d.id))
+                  // Unbookmarked series keep their document so reading
+                  // progress and read marks survive; they just leave the
+                  // shelf.
+                  .where((bookmark) => bookmark.isBookmarked)
                   .toList()
                 ..sort((a, b) => b.addedAt.compareTo(a.addedAt)),
         );
-  }
-
-  Future<bool> isBookmarked(String slug, String userName) async {
-    if (userName.isEmpty || slug.isEmpty) return false;
-    try {
-      final doc = await withGetTimeout(
-        _bookmarks.doc('$userName|$slug').get(),
-        label: 'katana bookmark check',
-      );
-      return doc.exists;
-    } catch (e) {
-      Logger.e('isBookmarked error', error: e);
-      return false;
-    }
   }
 
   /// The signed-in user's own bookmark record for [slug], including which
@@ -103,7 +93,13 @@ extension KatanaServiceSocial on KatanaService {
     try {
       final ref = _bookmarks.doc('$userName|${manga.slug}');
       if (!bookmarked) {
-        await ref.delete();
+        // Clear the flag instead of deleting the document: it also holds
+        // reading progress and the chapters already finished, and deleting
+        // it threw all of that away.
+        await ref.set({
+          'bookmarked': false,
+          'userName': userName,
+        }, SetOptions(merge: true));
         return;
       }
       final data = KatanaBookmark(
@@ -115,6 +111,10 @@ extension KatanaServiceSocial on KatanaService {
         latestChapterTitle: manga.latestChapter?.displayTitle ?? '',
       ).toFirestore();
       data['userName'] = userName;
+      // Never write readChapterIds from here. A fresh KatanaBookmark has
+      // an empty set, and merging that would wipe the chapters already
+      // finished every time the bookmark was re-added.
+      data.remove('readChapterIds');
       await ref.set(data, SetOptions(merge: true));
     } catch (e) {
       Logger.e('setBookmark error', error: e);

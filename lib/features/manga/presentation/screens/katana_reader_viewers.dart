@@ -147,8 +147,7 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
   // ── Paged Mode (RTL for Manga, LTR for Western) ───────────────────
   Widget _buildPagedViewer() {
     final isRTL = _mode == ReaderMode.pagedRTL;
-    final width = MediaQuery.sizeOf(context).width;
-    final useTwoPage = _twoPage && width >= 840;
+    final useTwoPage = _useTwoPage;
 
     final totalItems = useTwoPage
         ? (_pages.length / 2).ceil() + 1
@@ -259,6 +258,7 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
       accentColor: KatanaColors.accent,
       mutedColor: KatanaColors.textMuted,
       onError: () => _onReaderPageError(index),
+      onLoaded: () => _onPageLoaded(index),
       secondaryAction: KatanaButton(
         label: 'Try another server',
         icon: Icons.dns_rounded,
@@ -274,11 +274,7 @@ extension _KatanaReaderViewers on _KatanaReaderScreenState {
     // Two-page mode packs two pages into one PageView item, so the last
     // reachable item is ceil(pages / 2), not pages.length — the old bound
     // let the reader scroll past the end into blank space.
-    final twoPage =
-        _twoPage && MediaQuery.sizeOf(context).width >= 840;
-    final lastItem = twoPage
-        ? (_pages.length / 2).ceil()
-        : _pages.length;
+    final lastItem = lastPagedItem(_pages.length, twoPage: _useTwoPage);
     if (target >= 0 && target <= lastItem) {
       _pageController.animateToPage(
         target,

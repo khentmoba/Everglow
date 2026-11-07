@@ -34,13 +34,15 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   KatanaBookmark? _partnerProgress;
   KatanaBookmark? _recommendation;
 
-  /// Chapter ids this user finished, so the list can mark them read and
-  /// "Continue" can land on the first one still left.
-  Set<String> _readChapterIds = const {};
+  /// This user's bookmark record for the series: which chapters are
+  /// finished, and where they last stopped.
+  KatanaBookmark? _myBookmark;
+
+  Set<String> get _readChapterIds => _myBookmark?.readChapterIds ?? const {};
 
   /// True once the user has opened this series at all, so "First
   /// Chapter" becomes "Continue" even mid-way through chapter 1.
-  bool _hasProgress = false;
+  bool get _hasProgress => _myBookmark?.hasProgress ?? false;
 
   String get _user => context.read<AuthService>().currentUser ?? '';
 
@@ -282,10 +284,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   Future<void> _loadReadState() async {
     final bookmark = await _service.fetchBookmark(widget.slug, _user);
     if (!mounted) return;
-    setState(() {
-      _readChapterIds = bookmark?.readChapterIds ?? const {};
-      _hasProgress = bookmark?.hasProgress ?? false;
-    });
+    setState(() => _myBookmark = bookmark);
   }
 
   /// "Khent Reading" for Khent, "Claire Reading" for Clair, and nothing
@@ -335,7 +334,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     return _reversed ? ascending.reversed.toList() : ascending;
   }
 
-  void _openReader(KatanaChapter chapter) {
+  void _openReader(KatanaChapter chapter, {int initialPage = 1}) {
     final manga = _manga;
     if (manga == null) return;
     pushReader(
@@ -345,18 +344,26 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
       chapters: manga.chapters,
       mangaTitle: manga.title,
       coverUrl: manga.coverUrl,
+      initialPage: initialPage,
       manga: manga,
     ).then((_) => _loadReadState());
   }
 
   /// "Continue" opens the first chapter Clair has not finished, so it
-  /// stops re-opening chapter 1 on a series she is 40 chapters into.
+  /// stops re-opening chapter 1 on a series she is 40 chapters into. When
+  /// that chapter is the one she stopped in, it reopens at her page
+  /// instead of restarting it.
   void _openContinue() {
     final next = nextUnreadChapter(
       _manga?.chapters ?? const <KatanaChapter>[],
       _readChapterIds,
     );
-    if (next != null) _openReader(next);
+    if (next == null) return;
+    final bookmark = _myBookmark;
+    final resumePage = bookmark != null && bookmark.lastReadChapterId == next.id
+        ? bookmark.lastReadPage
+        : 1;
+    _openReader(next, initialPage: resumePage);
   }
 
   bool get _hasStartedSeries => _hasProgress || _readChapterIds.isNotEmpty;
