@@ -22,6 +22,7 @@ import 'core/system/app_bootstrap.dart';
 import 'core/system/app_error_widget.dart';
 import 'core/system/app_version.dart';
 import 'core/system/health_service.dart';
+import 'core/system/tv_mode.dart';
 import 'core/theme/app_theme.dart' as custom_theme;
 import 'core/network/network_quality_service.dart';
 import 'core/perf/device_capability.dart';
@@ -100,6 +101,7 @@ Future<void> _startEverglow() async {
   final preloadsFuture = Future.wait([
     PerfSettings.load(),
     AgentMode.init(),
+    TvMode.init(),
     RouteMemory.load(),
     ScrollMemory.preload(),
     // Cinema paints saved rows on its first frame instead of after a read.

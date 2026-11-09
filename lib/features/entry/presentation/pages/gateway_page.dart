@@ -18,6 +18,7 @@ import '../widgets/petal_shower.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/agent/agent_mode.dart';
+import '../../../../core/system/tv_mode.dart';
 
 class GatewayPage extends StatefulWidget {
   const GatewayPage({super.key});
@@ -293,25 +294,40 @@ class _GatewayPageState extends State<GatewayPage> {
                             state == GatewayState.awaitingInput ||
                             state == GatewayState.evaluating ||
                             state == GatewayState.error)
-                        ? Transform.scale(
-                            scale: 0.8,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                PasscodeInput(
-                                  input: _notifier.currentInput,
-                                  isError: state == GatewayState.error,
-                                  isVerifying: state == GatewayState.evaluating,
-                                  failureReason: _notifier.lastFailureReason,
-                                  onDigitPressed: _notifier.appendDigit,
-                                  onBackspace: _notifier.backspace,
+                        ? ValueListenableBuilder<bool>(
+                            valueListenable: TvMode.isTvMode,
+                            builder: (context, isTv, _) {
+                              return Transform.scale(
+                                scale: isTv ? 1.02 : 0.8,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    PasscodeInput(
+                                      input: _notifier.currentInput,
+                                      isError: state == GatewayState.error,
+                                      isVerifying:
+                                          state == GatewayState.evaluating,
+                                      failureReason:
+                                          _notifier.lastFailureReason,
+                                      onDigitPressed: _notifier.appendDigit,
+                                      onBackspace: _notifier.backspace,
+                                      onClear: _notifier.clearInput,
+                                    ),
+                                    const _OfflineRememberHint(),
+                                  ],
                                 ),
-                                const _OfflineRememberHint(),
-                              ],
-                            ),
+                              );
+                            },
                           )
                         : const SizedBox.shrink(),
                   ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: SafeArea(
+                  child: _buildTvModeToggle(),
                 ),
               ),
               if (_isLocalDev &&
@@ -522,6 +538,71 @@ class _GatewayPageState extends State<GatewayPage> {
     );
   }
 
+  Widget _buildTvModeToggle() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: TvMode.isTvMode,
+      builder: (context, isTv, _) {
+        return Tooltip(
+          message:
+              isTv ? 'TV Navigation Mode (Active)' : 'Enable TV Navigation Mode',
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => TvMode.toggle(),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: isTv
+                      ? AppColors.auroraGold.withValues(alpha: 0.22)
+                      : AppColors.velvet.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isTv
+                        ? AppColors.auroraGold
+                        : AppColors.moonlight.withValues(alpha: 0.35),
+                    width: isTv ? 1.8 : 1.0,
+                  ),
+                  boxShadow: isTv
+                      ? [
+                          BoxShadow(
+                            color: AppColors.auroraGold.withValues(alpha: 0.45),
+                            blurRadius: 12,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : const [],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.tv_rounded,
+                      size: 16,
+                      color:
+                          isTv ? AppColors.auroraGold : AppColors.petalWhite,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isTv ? 'TV Mode: ON' : 'TV Mode',
+                      style: TextStyle(
+                        color:
+                            isTv ? AppColors.auroraGold : AppColors.petalWhite,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMainContent() {
     final state = _notifier.currentState;
     final isRevealing =
@@ -720,3 +801,4 @@ class _OfflineRememberHint extends StatelessWidget {
     );
   }
 }
+

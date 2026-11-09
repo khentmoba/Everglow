@@ -25,6 +25,8 @@ import '../widgets/tabs/cinema_downloads_tab.dart' show CinemaDownloadsTab;
 import '../../../watch_party/presentation/widgets/cinema_watch_together_tab.dart';
 import '../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
 import '../../../../shared/widgets/shelf/media_section_menu.dart';
+import '../../../../shared/widgets/shelf/tv_media_nav_header.dart';
+import '../../../../core/system/tv_mode.dart';
 
 // ─────────────────────────────────────────────────────────────────────
 // Cinema Color Tokens
@@ -862,7 +864,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
             // the dashboard; cinema-only profiles have no dashboard, so
             // they get a logout action instead (their only mobile exit,
             // mirroring the desktop profile menu).
-            if (!isDesktop && isCinemaOnlyUser)
+            if (!isDesktop && isCinemaOnlyUser && !TvMode.isTvMode.value)
               const Positioned(
                 top: 0,
                 right: 12,
@@ -877,7 +879,7 @@ class _CinemaScreenState extends State<CinemaScreen> {
                   ),
                 ),
               ),
-            if (!isDesktop)
+            if (!isDesktop && !TvMode.isTvMode.value)
               Positioned(
                 top: 0,
                 left: 0,
@@ -955,36 +957,42 @@ class _CinemaScreenState extends State<CinemaScreen> {
               top: 0,
               left: 0,
               right: 0,
-              child: NetflixCinemaTopBar(
-                currentIndex: _currentIndex,
-                scrolled: _desktopScrolled,
-                onSelect: _onNavSelect,
-                onAnimeTap: () => GoRouter.of(context).go('/anime'),
-                onDashboardTap: isCoupleUser
-                    ? () => GoRouter.of(context).go('/dashboard')
-                    : null,
-                onLogout: () async {
-                  final router = GoRouter.of(context);
-                  try {
-                    await context.read<AuthService>().logout();
-                  } catch (_) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          context.read<AuthService>().lastAuthError ??
-                              'Could not log out safely. Try again.',
-                        ),
-                      ),
-                    );
-                    return;
-                  }
-                  if (!mounted) return;
-                  router.go('/');
-                },
-                userName: userName,
-                showAnime: isCinemaOnlyUser,
-                links: navLinks,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const TvMediaNavHeader(currentRoute: '/cinema'),
+                  NetflixCinemaTopBar(
+                    currentIndex: _currentIndex,
+                    scrolled: _desktopScrolled,
+                    onSelect: _onNavSelect,
+                    onAnimeTap: () => GoRouter.of(context).go('/anime'),
+                    onDashboardTap: isCoupleUser
+                        ? () => GoRouter.of(context).go('/dashboard')
+                        : null,
+                    onLogout: () async {
+                      final router = GoRouter.of(context);
+                      try {
+                        await context.read<AuthService>().logout();
+                      } catch (_) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              context.read<AuthService>().lastAuthError ??
+                                  'Could not log out safely. Try again.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      if (!mounted) return;
+                      router.go('/');
+                    },
+                    userName: userName,
+                    showAnime: isCinemaOnlyUser,
+                    links: navLinks,
+                  ),
+                ],
               ),
             ),
           ],
@@ -996,7 +1004,12 @@ class _CinemaScreenState extends State<CinemaScreen> {
     return Scaffold(
       extendBody: true,
       backgroundColor: NetflixColors.background,
-      body: buildCinemaContent(),
+      body: Column(
+        children: [
+          const TvMediaNavHeader(currentRoute: '/cinema'),
+          Expanded(child: buildCinemaContent()),
+        ],
+      ),
       bottomNavigationBar: NetflixNavBar(
         scrolled: false,
         currentIndex: _currentIndex,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../../core/services/auth_service.dart';
 import '../../../../../shared/widgets/everglow/lazy_indexed_stack.dart';
+import '../../../../../shared/widgets/shelf/tv_media_nav_header.dart';
 import '../../../../ai/domain/models/ai_conversation.dart';
 import '../../../../cinema/data/models/media_item.dart';
 import '../../../data/services/animex_stores.dart';
@@ -188,6 +189,7 @@ class _AnimeXShellState extends State<AnimeXShell> {
           Widget buildAnimeContent() {
             return Column(
               children: [
+                const TvMediaNavHeader(currentRoute: '/anime'),
                 AnimeXTopHeader(
                   controller: _controller,
                   onSearch: () => _controller.goTo(AnimexPage.search),

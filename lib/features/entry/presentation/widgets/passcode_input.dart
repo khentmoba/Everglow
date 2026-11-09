@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_motion.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/system/tv_mode.dart';
 import '../state/gateway_state.dart';
 
 /// Elegant glass passcode keypad with gold accents and a shake-on-error.
@@ -15,6 +16,7 @@ class PasscodeInput extends StatefulWidget {
   final String input;
   final Function(String) onDigitPressed;
   final VoidCallback onBackspace;
+  final VoidCallback? onClear;
   final bool isError;
   final bool isVerifying;
   final GatewayFailureReason? failureReason;
@@ -24,6 +26,7 @@ class PasscodeInput extends StatefulWidget {
     required this.input,
     required this.onDigitPressed,
     required this.onBackspace,
+    this.onClear,
     this.isError = false,
     this.isVerifying = false,
     this.failureReason,
@@ -80,14 +83,17 @@ class _PasscodeInputState extends State<PasscodeInput>
     if (event is! KeyDownEvent) return;
     if (widget.isVerifying) return;
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.backspace ||
-        key == LogicalKeyboardKey.delete) {
-      widget.onBackspace();
+    if (TvMode.isBackKey(key)) {
+      if (key == LogicalKeyboardKey.escape && widget.onClear != null) {
+        widget.onClear!();
+      } else {
+        widget.onBackspace();
+      }
       return;
     }
-    final label = key.keyLabel;
-    if (label.length == 1 && RegExp(r'^[0-9]$').hasMatch(label)) {
-      widget.onDigitPressed(label);
+    final digit = TvMode.digitFromKey(key);
+    if (digit != null) {
+      widget.onDigitPressed(digit);
     }
   }
 
@@ -95,24 +101,25 @@ class _PasscodeInputState extends State<PasscodeInput>
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: Focus(
-        autofocus: true,
+        canRequestFocus: false,
+        skipTraversal: true,
         onKeyEvent: (node, event) {
           final before = widget.input;
           _handlePadKey(event);
           // Only claim the event when it actually typed or deleted.
           if (event is! KeyDownEvent) return KeyEventResult.ignored;
           final key = event.logicalKey;
-          final isDigit = key.keyLabel.length == 1 &&
-              RegExp(r'^[0-9]$').hasMatch(key.keyLabel);
-          final isDelete = key == LogicalKeyboardKey.backspace ||
-              key == LogicalKeyboardKey.delete;
-          if ((isDigit || isDelete) && !widget.isVerifying) {
+          final digit = TvMode.digitFromKey(key);
+          final isBack = TvMode.isBackKey(key);
+          final isEscape =
+              key == LogicalKeyboardKey.escape && widget.onClear != null;
+          if ((digit != null || isBack || isEscape) && !widget.isVerifying) {
             // If input didn't change (e.g. 5th digit while full), let it
             // pass through instead of swallowing the keystroke.
-            if (isDelete && before.isEmpty) {
+            if (isBack && before.isEmpty) {
               return KeyEventResult.ignored;
             }
-            if (isDigit && before.length >= 4) {
+            if (digit != null && before.length >= 4) {
               return KeyEventResult.ignored;
             }
             return KeyEventResult.handled;
@@ -287,38 +294,57 @@ class _PasscodeInputState extends State<PasscodeInput>
       child: AnimatedOpacity(
         duration: AppMotion.orZero(const Duration(milliseconds: 200)),
         opacity: widget.isVerifying ? 0.55 : 1.0,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final row in [
-              ['1', '2', '3'],
-              ['4', '5', '6'],
-              ['7', '8', '9'],
-            ])
+        child: FocusTraversalGroup(
+          policy: ReadingOrderTraversalPolicy(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final row in [
+                ['1', '2', '3'],
+                ['4', '5', '6'],
+                ['7', '8', '9'],
+              ])
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: row
+                      .map(
+                        (digit) => _KeyButton(
+                          digit: digit,
+                          autofocus: digit == '1' && TvMode.isTvMode.value,
+                          onPressed: () => widget.onDigitPressed(digit),
+                        ),
+                      )
+                      .toList(),
+                ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: row
-                    .map(
-                      (digit) => _KeyButton(
-                        digit: digit,
-                        onPressed: () => widget.onDigitPressed(digit),
-                      ),
-                    )
-                    .toList(),
+                children: [
+                  _KeyButton(
+                    icon: Icons.refresh_rounded,
+                    label: 'Clear',
+                    onPressed: () {
+                      if (widget.onClear != null) {
+                        widget.onClear!();
+                      } else {
+                        while (widget.input.isNotEmpty) {
+                          widget.onBackspace();
+                        }
+                      }
+                    },
+                  ),
+                  _KeyButton(
+                    digit: '0',
+                    onPressed: () => widget.onDigitPressed('0'),
+                  ),
+                  _KeyButton(
+                    icon: Icons.backspace_outlined,
+                    label: 'Backspace',
+                    onPressed: widget.onBackspace,
+                  ),
+                ],
               ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(width: 68),
-                _KeyButton(
-                    digit: '0', onPressed: () => widget.onDigitPressed('0')),
-                _KeyButton(
-                  icon: Icons.backspace_outlined,
-                  onPressed: widget.onBackspace,
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -328,9 +354,17 @@ class _PasscodeInputState extends State<PasscodeInput>
 class _KeyButton extends StatefulWidget {
   final String? digit;
   final IconData? icon;
+  final String? label;
+  final bool autofocus;
   final VoidCallback onPressed;
 
-  const _KeyButton({this.digit, this.icon, required this.onPressed});
+  const _KeyButton({
+    this.digit,
+    this.icon,
+    this.label,
+    this.autofocus = false,
+    required this.onPressed,
+  });
 
   @override
   State<_KeyButton> createState() => _KeyButtonState();
@@ -342,7 +376,7 @@ class _KeyButtonState extends State<_KeyButton> {
   bool _focused = false;
   late final FocusNode _focusNode;
 
-  String get _label => widget.digit ?? 'Backspace';
+  String get _label => widget.label ?? widget.digit ?? 'Backspace';
 
   @override
   void initState() {
@@ -358,23 +392,31 @@ class _KeyButtonState extends State<_KeyButton> {
 
   @override
   Widget build(BuildContext context) {
-    final showFocusRing = _focused;
+    final isTv = TvMode.isTvMode.value;
+    final showFocusRing = _focused &&
+        (isTv ||
+            FocusManager.instance.highlightMode ==
+                FocusHighlightMode.traditional);
+    final btnSize = isTv ? 62.0 : 56.0;
+
     return Padding(
-      padding: const EdgeInsets.all(6),
+      padding: EdgeInsets.all(isTv ? 7 : 6),
       child: Semantics(
         button: true,
-        label: widget.digit != null ? 'Digit ${widget.digit}' : 'Backspace',
+        label: widget.digit != null
+            ? 'Digit ${widget.digit}'
+            : (widget.label ?? 'Backspace'),
         hint: widget.digit != null
             ? 'Enters ${widget.digit}'
-            : 'Deletes the last digit',
+            : (widget.label == 'Clear'
+                ? 'Clears all entered digits'
+                : 'Deletes the last digit'),
         child: Focus(
           focusNode: _focusNode,
+          autofocus: widget.autofocus,
           onFocusChange: (value) => setState(() => _focused = value),
           onKeyEvent: (node, event) {
-            if (event is KeyDownEvent &&
-                (event.logicalKey == LogicalKeyboardKey.enter ||
-                    event.logicalKey == LogicalKeyboardKey.numpadEnter ||
-                    event.logicalKey == LogicalKeyboardKey.space)) {
+            if (event is KeyDownEvent && TvMode.isSelectKey(event.logicalKey)) {
               widget.onPressed();
               return KeyEventResult.handled;
             }
@@ -400,13 +442,25 @@ class _KeyButtonState extends State<_KeyButton> {
               child: AnimatedContainer(
                 duration: AppMotion.orZero(AppMotion.fast),
                 curve: AppMotion.easeOutStrong,
-                width: 56,
-                height: 56,
+                width: btnSize,
+                height: btnSize,
                 transform: Matrix4.identity()
                   ..scaleByDouble(
-                    _pressed ? 0.9 : (_hovered ? 1.04 : 1.0),
-                    _pressed ? 0.9 : (_hovered ? 1.04 : 1.0),
-                    _pressed ? 0.9 : (_hovered ? 1.04 : 1.0),
+                    _pressed
+                        ? 0.9
+                        : (showFocusRing
+                            ? (isTv ? 1.12 : 1.08)
+                            : (_hovered ? 1.04 : 1.0)),
+                    _pressed
+                        ? 0.9
+                        : (showFocusRing
+                            ? (isTv ? 1.12 : 1.08)
+                            : (_hovered ? 1.04 : 1.0)),
+                    _pressed
+                        ? 0.9
+                        : (showFocusRing
+                            ? (isTv ? 1.12 : 1.08)
+                            : (_hovered ? 1.04 : 1.0)),
                     1.0,
                   ),
                 decoration: BoxDecoration(
@@ -421,7 +475,9 @@ class _KeyButtonState extends State<_KeyButton> {
                           ]
                         : [
                             AppColors.moonlight.withValues(
-                              alpha: _hovered ? 0.20 : 0.12,
+                              alpha: showFocusRing
+                                  ? 0.28
+                                  : (_hovered ? 0.20 : 0.12),
                             ),
                             AppColors.inkDeep.withValues(alpha: 0.35),
                           ],
@@ -434,15 +490,14 @@ class _KeyButtonState extends State<_KeyButton> {
                             : AppColors.moonlight.withValues(
                                 alpha: _hovered ? 0.55 : 0.24,
                               )),
-                    width: showFocusRing ? 2.4 : 1.4,
+                    width: showFocusRing ? (isTv ? 3.0 : 2.5) : 1.4,
                   ),
                   boxShadow: [
                     if (showFocusRing)
                       BoxShadow(
-                        color:
-                            AppColors.auroraGold.withValues(alpha: 0.55),
-                        blurRadius: 16,
-                        spreadRadius: 1,
+                        color: AppColors.auroraGold.withValues(alpha: 0.65),
+                        blurRadius: isTv ? 20 : 16,
+                        spreadRadius: isTv ? 2 : 1,
                       )
                     else if (_hovered || _pressed)
                       BoxShadow(
@@ -464,7 +519,7 @@ class _KeyButtonState extends State<_KeyButton> {
                       ? Text(
                           widget.digit!,
                           style: AppTypography.outfitWhite.copyWith(
-                            fontSize: 24,
+                            fontSize: isTv ? 26 : 24,
                             fontWeight: FontWeight.w500,
                             color: _pressed
                                 ? AppColors.inkDeep
@@ -475,9 +530,11 @@ class _KeyButtonState extends State<_KeyButton> {
                           widget.icon,
                           color: _pressed
                               ? AppColors.inkDeep
-                              : AppColors.blushGold,
-                          size: 21,
-                          semanticLabel: 'Backspace',
+                              : (showFocusRing
+                                  ? AppColors.petalWhite
+                                  : AppColors.blushGold),
+                          size: isTv ? 23 : 21,
+                          semanticLabel: widget.label ?? 'Action',
                         ),
                 ),
               ),

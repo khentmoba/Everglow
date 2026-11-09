@@ -653,9 +653,21 @@ class _NetflixCardActionState extends State<_NetflixCardAction> {
         enabled: widget.onTap != null,
         mouseCursor: SystemMouseCursors.click,
         onShowHoverHighlight: widget.onHover,
-        onShowFocusHighlight: (focused) => setState(() => _focused = focused),
+        onFocusChange: (focused) {
+          if (focused) {
+            Scrollable.ensureVisible(
+              context,
+              alignment: 0.5,
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
+            );
+          }
+          setState(() => _focused = focused);
+        },
         shortcuts: const {
           SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
           SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
         },
         actions: {
@@ -671,6 +683,15 @@ class _NetflixCardActionState extends State<_NetflixCardAction> {
             borderRadius: BorderRadius.circular(6),
             border: _focused
                 ? Border.all(color: NetflixColors.gold, width: 3)
+                : null,
+            boxShadow: _focused
+                ? [
+                    BoxShadow(
+                      color: NetflixColors.gold.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ]
                 : null,
           ),
           child: widget.child,

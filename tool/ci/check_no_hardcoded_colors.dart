@@ -34,7 +34,7 @@ const Map<String, int> _pinned = {
   'lib/features/anime/presentation/widgets/animex/animex_player_web.dart': 1,
   'lib/features/anime/presentation/widgets/animex/animex_playlist_detail_page.dart': 1,
   'lib/features/anime/presentation/widgets/animex/animex_playlists_page.dart': 1,
-  'lib/features/anime/presentation/widgets/animex/animex_poster_card.dart': 4,
+  'lib/features/anime/presentation/widgets/animex/animex_poster_card.dart': 3,
   'lib/features/anime/presentation/widgets/animex/animex_poster_row.dart': 2,
   'lib/features/anime/presentation/widgets/animex/animex_skeleton.dart': 1,
   'lib/features/anime/presentation/widgets/animex/animex_spotlight.dart': 4,

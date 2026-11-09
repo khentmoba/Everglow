@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -378,42 +379,75 @@ class _NavItem extends StatefulWidget {
 
 class _NavItemState extends State<_NavItem> {
   bool _hover = false;
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
-    final highlighted = widget.active || _hover;
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: widget.active
-                ? AnimeXTokens.accent.withValues(alpha: 0.14)
-                : (_hover
-                      ? Colors.white.withValues(alpha: 0.06)
-                      : Colors.transparent),
-            borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
-            border: Border(
-              bottom: BorderSide(
-                color: widget.active ? AnimeXTokens.accent : Colors.transparent,
-                width: 2,
+    final highlighted = widget.active || _hover || _focused;
+    return FocusableActionDetector(
+      onFocusChange: (f) => setState(() => _focused = f),
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+      },
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onTap();
+            return null;
+          },
+        ),
+      },
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: widget.active
+                  ? AnimeXTokens.accent.withValues(alpha: 0.14)
+                  : (_focused
+                      ? AnimeXTokens.accent.withValues(alpha: 0.22)
+                      : (_hover
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.transparent)),
+              borderRadius: BorderRadius.circular(AnimeXTokens.radiusMd),
+              border: Border.all(
+                color: _focused
+                    ? AnimeXTokens.accent
+                    : (widget.active
+                        ? AnimeXTokens.accent
+                        : Colors.transparent),
+                width: 1.5,
               ),
+              boxShadow: _focused
+                  ? [
+                      BoxShadow(
+                        color: AnimeXTokens.accent.withValues(alpha: 0.45),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
             ),
-          ),
-          child: Text(
-            widget.label,
-            style: dmSansStyle(
-              size: 14,
-              color: highlighted
-                  ? AnimeXTokens.textPrimary
-                  : AnimeXTokens.textSecondary,
-              weight: widget.active ? FontWeight.w700 : FontWeight.w600,
+            child: Text(
+              widget.label,
+              style: dmSansStyle(
+                size: 14,
+                color: highlighted
+                    ? AnimeXTokens.textPrimary
+                    : AnimeXTokens.textSecondary,
+                weight: (_focused || widget.active)
+                    ? FontWeight.w700
+                    : FontWeight.w600,
+              ),
             ),
           ),
         ),

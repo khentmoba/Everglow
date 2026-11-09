@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/models/katana_models.dart';
 import '../../data/services/katana_service.dart';
@@ -8,84 +10,136 @@ import './katana_theme.dart';
 /// The expanded list item used on the home page and every directory
 /// page: cover + status badge on the left, title, update time, first
 /// chapter, genres, summary and recent chapters on the right.
-class KatanaItemCard extends StatelessWidget {
+class KatanaItemCard extends StatefulWidget {
   final KatanaManga manga;
   final bool dense;
 
   const KatanaItemCard({super.key, required this.manga, this.dense = false});
 
   @override
+  State<KatanaItemCard> createState() => _KatanaItemCardState();
+}
+
+class _KatanaItemCardState extends State<KatanaItemCard> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 720;
-    final coverHeight = dense || compact ? 114.0 : 152.0;
-    final coverWidth = dense || compact ? 80.0 : 106.0;
-    return KatanaCard(
-      padding: EdgeInsets.zero,
-      child: InkWell(
-        onTap: () => pushDetail(context, manga.slug),
+    final coverHeight = widget.dense || compact ? 114.0 : 152.0;
+    final coverWidth = widget.dense || compact ? 80.0 : 106.0;
+    return Container(
+      decoration: BoxDecoration(
+        color: KatanaColors.surface,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cover
-              _Cover(
-                url: manga.coverUrl,
-                width: coverWidth,
-                height: coverHeight,
-                status: manga.status,
-              ),
-              const SizedBox(width: 12),
-              // Text
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTitle(manga),
-                    const SizedBox(height: 6),
-                    _buildMetaRow(context, manga),
-                    if (manga.genres.isNotEmpty) ...[
-                      const SizedBox(height: 7),
-                      _buildGenres(
-                        context,
-                        manga,
-                        limit: compact ? 3 : manga.genres.length,
-                      ),
-                    ],
-                    if (!compact && manga.summary.isNotEmpty && !dense) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        manga.summary,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: KatanaType.small.copyWith(
-                          color: KatanaColors.textMuted,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                    ],
-                    if (manga.recentChapters.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _buildChapters(
-                        context,
-                        manga,
-                        maxCount: compact ? 2 : 3,
-                      ),
-                    ] else if (manga.latestChapter != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Latest: ${manga.latestChapter!.displayTitle}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: KatanaType.accent,
-                      ),
-                    ],
-                  ],
+        border: Border.all(
+          color: _focused ? KatanaColors.accent : KatanaColors.border,
+          width: 2.0,
+        ),
+        boxShadow: _focused
+            ? [
+                BoxShadow(
+                  color: KatanaColors.accent.withValues(alpha: 0.5),
+                  blurRadius: 16,
+                  spreadRadius: 1,
                 ),
-              ),
-            ],
+                const BoxShadow(
+                  color: AppColors.scrimStrong,
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                ),
+              ]
+            : const [
+                BoxShadow(
+                  color: AppColors.scrimStrong,
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                ),
+              ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => pushDetail(context, widget.manga.slug),
+          onFocusChange: (focused) {
+            if (focused) {
+              Scrollable.ensureVisible(
+                context,
+                alignment: 0.5,
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+              );
+            }
+            setState(() => _focused = focused);
+          },
+          focusColor: KatanaColors.accent.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(11),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cover
+                _Cover(
+                  url: widget.manga.coverUrl,
+                  width: coverWidth,
+                  height: coverHeight,
+                  status: widget.manga.status,
+                ),
+                const SizedBox(width: 12),
+                // Text
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTitle(widget.manga),
+                      const SizedBox(height: 6),
+                      _buildMetaRow(context, widget.manga),
+                      if (widget.manga.genres.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        _buildGenres(
+                          context,
+                          widget.manga,
+                          limit: compact ? 3 : widget.manga.genres.length,
+                        ),
+                      ],
+                      if (!compact &&
+                          widget.manga.summary.isNotEmpty &&
+                          !widget.dense) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.manga.summary,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: KatanaType.small.copyWith(
+                            color: KatanaColors.textMuted,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                      if (widget.manga.recentChapters.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _buildChapters(
+                          context,
+                          widget.manga,
+                          maxCount: compact ? 2 : 3,
+                        ),
+                      ] else if (widget.manga.latestChapter != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Latest: ${widget.manga.latestChapter!.displayTitle}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: KatanaType.accent,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -357,102 +411,155 @@ class _Cover extends StatelessWidget {
 }
 
 /// Compact cover card used by the Hot Manga rail and bookmark grid.
-class KatanaCompactCard extends StatelessWidget {
+class KatanaCompactCard extends StatefulWidget {
   final KatanaManga manga;
   final double width;
 
   const KatanaCompactCard({super.key, required this.manga, this.width = 150});
 
   @override
+  State<KatanaCompactCard> createState() => _KatanaCompactCardState();
+}
+
+class _KatanaCompactCardState extends State<KatanaCompactCard> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => pushDetail(context, manga.slug),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
-              width: width,
-              height: width * 1.42,
-              child: manga.coverUrl.isEmpty
-                  ? Container(
-                      color: KatanaColors.border,
-                      child: const Icon(
-                        Icons.menu_book_rounded,
-                        color: KatanaColors.textLight,
-                      ),
-                    )
-                  : KatanaNetworkImage(
-                      manga.coverUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        color: KatanaColors.border,
-                        child: const Icon(
-                          Icons.broken_image_rounded,
-                          color: KatanaColors.textLight,
+    return FocusableActionDetector(
+      onFocusChange: (focused) {
+        if (focused) {
+          Scrollable.ensureVisible(
+            context,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+          );
+        }
+        setState(() => _focused = focused);
+      },
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.select): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): ActivateIntent(),
+        SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+      },
+      actions: {
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            pushDetail(context, widget.manga.slug);
+            return null;
+          },
+        ),
+      },
+      child: GestureDetector(
+        onTap: () => pushDetail(context, widget.manga.slug),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _focused ? KatanaColors.accent : Colors.transparent,
+                  width: 2.5,
+                ),
+                boxShadow: _focused
+                    ? [
+                        BoxShadow(
+                          color: KatanaColors.accent.withValues(alpha: 0.5),
+                          blurRadius: 16,
+                          spreadRadius: 2,
                         ),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            manga.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.outfitBold.copyWith(
-              color: KatanaColors.text,
-              fontSize: 12.5,
-              height: 1.25,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: manga.isCompleted
-                      ? KatanaColors.green
-                      : KatanaColors.accent,
-                  shape: BoxShape.circle,
+                      ]
+                    : null,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  width: widget.width,
+                  height: widget.width * 1.42,
+                  child: widget.manga.coverUrl.isEmpty
+                      ? Container(
+                          color: KatanaColors.border,
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: KatanaColors.textLight,
+                          ),
+                        )
+                      : KatanaNetworkImage(
+                          widget.manga.coverUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            color: KatanaColors.border,
+                            child: const Icon(
+                              Icons.broken_image_rounded,
+                              color: KatanaColors.textLight,
+                            ),
+                          ),
+                        ),
                 ),
               ),
-              const SizedBox(width: 5),
-              Expanded(
+            ),
+            const SizedBox(height: 7),
+            Text(
+              widget.manga.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.outfitBold.copyWith(
+                color: _focused ? KatanaColors.accent : KatanaColors.text,
+                fontSize: 12.5,
+                height: 1.25,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: widget.manga.isCompleted
+                        ? KatanaColors.green
+                        : KatanaColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    widget.manga.isCompleted ? 'Completed' : 'Ongoing',
+                    style: KatanaType.small.copyWith(fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+            if (widget.manga.latestChapter != null)
+              GestureDetector(
+                // Like the site's rail: tapping the chapter link opens
+                // the reader at that chapter, while the rest of the
+                // card opens the detail page.
+                onTap: () {
+                  final latest = widget.manga.latestChapter!;
+                  pushReader(
+                    context,
+                    slug: widget.manga.slug,
+                    chapterId: latest.path,
+                    chapters: [latest],
+                    mangaTitle: widget.manga.title,
+                    coverUrl: widget.manga.coverUrl,
+                  );
+                },
                 child: Text(
-                  manga.isCompleted ? 'Completed' : 'Ongoing',
-                  style: KatanaType.small.copyWith(fontSize: 11),
+                  widget.manga.latestChapter!.displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: KatanaType.accent.copyWith(fontSize: 11.5),
                 ),
               ),
-            ],
-          ),
-          if (manga.latestChapter != null)
-            GestureDetector(
-              // Like the site's rail: tapping the chapter link opens
-              // the reader at that chapter, while the rest of the
-              // card opens the detail page.
-              onTap: () {
-                final latest = manga.latestChapter!;
-                pushReader(
-                  context,
-                  slug: manga.slug,
-                  chapterId: latest.path,
-                  chapters: [latest],
-                  mangaTitle: manga.title,
-                  coverUrl: manga.coverUrl,
-                );
-              },
-              child: Text(
-                manga.latestChapter!.displayTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: KatanaType.accent.copyWith(fontSize: 11.5),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
