@@ -32,6 +32,10 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   String? _error;
   bool _isReading = false;
   bool _reversed = true; // site shows newest first
+  int? _selectedRangeBucket; // null = All, 0 = 1..50, 1 = 51..100, etc.
+  String _chapterQuery = '';
+  final TextEditingController _chapterFilterController =
+      TextEditingController();
   KatanaBookmark? _partnerProgress;
   KatanaBookmark? _recommendation;
 
@@ -55,6 +59,12 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     _loadReading();
     _loadReadState();
     _loadCoupleData();
+  }
+
+  @override
+  void dispose() {
+    _chapterFilterController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -329,12 +339,6 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
     );
   }
 
-  List<KatanaChapter> get _orderedChapters {
-    final chapters = _manga?.chapters ?? const <KatanaChapter>[];
-    final ascending = sortChaptersAscending(chapters);
-    return _reversed ? ascending.reversed.toList() : ascending;
-  }
-
   void _openReader(KatanaChapter chapter, {int initialPage = 1}) {
     final manga = _manga;
     if (manga == null) return;
@@ -497,32 +501,38 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   Widget _buildHero(KatanaManga manga) {
     final width = MediaQuery.sizeOf(context).width;
     final stack = width < 720;
-    final cover = ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: stack ? 130 : 220,
-        height: stack ? 185 : 315,
-        child: manga.coverUrl.isEmpty
-            ? Container(
-                color: KatanaColors.border,
-                child: const Icon(
-                  Icons.menu_book_rounded,
-                  color: KatanaColors.textLight,
-                  size: 40,
-                ),
-              )
-            : KatanaNetworkImage(
-                manga.coverUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: KatanaColors.border,
+    final cover = Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: KatanaColors.borderStrong, width: 1.2),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: stack ? 130 : 220,
+          height: stack ? 185 : 315,
+          child: manga.coverUrl.isEmpty
+              ? Container(
+                  color: KatanaColors.surfaceAlt,
                   child: const Icon(
-                    Icons.broken_image_rounded,
+                    Icons.menu_book_rounded,
                     color: KatanaColors.textLight,
-                    size: 36,
+                    size: 40,
+                  ),
+                )
+              : KatanaNetworkImage(
+                  manga.coverUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    color: KatanaColors.surfaceAlt,
+                    child: const Icon(
+                      Icons.broken_image_rounded,
+                      color: KatanaColors.textLight,
+                      size: 36,
+                    ),
                   ),
                 ),
-              ),
+        ),
       ),
     );
 
@@ -820,7 +830,42 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
   }
 
   Widget _buildChaptersSection(KatanaManga manga) {
-    final chapters = _orderedChapters;
+    final allAscending = sortChaptersAscending(manga.chapters);
+    const bucketSize = 50;
+    final bucketCount = allAscending.isEmpty
+        ? 0
+        : (allAscending.length / bucketSize).ceil();
+
+    List<KatanaChapter> rangeFiltered;
+    if (_selectedRangeBucket != null &&
+        _selectedRangeBucket! >= 0 &&
+        _selectedRangeBucket! < bucketCount) {
+      final start = _selectedRangeBucket! * bucketSize;
+      final end = (start + bucketSize).clamp(0, allAscending.length);
+      final slice = allAscending.sublist(start, end);
+      rangeFiltered = _reversed ? slice.reversed.toList() : slice;
+    } else {
+      rangeFiltered = _reversed
+          ? allAscending.reversed.toList()
+          : allAscending;
+    }
+
+    final q = _chapterQuery.trim().toLowerCase();
+    final chapters = q.isEmpty
+        ? rangeFiltered
+        : rangeFiltered
+              .where(
+                (c) =>
+                    c.displayTitle.toLowerCase().contains(q) ||
+                    c.num.toLowerCase().contains(q),
+              )
+              .toList();
+
+    final bucketIndices = List<int>.generate(bucketCount, (i) => i);
+    final orderedBuckets = _reversed
+        ? bucketIndices.reversed.toList()
+        : bucketIndices;
+
     return KatanaCard(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -831,6 +876,7 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
               Expanded(
                 child: KatanaSectionHeader(
                   title: '${manga.chapters.length} Chapter(s)',
+                  badge: 'CHAPTER VAULT',
                 ),
               ),
               Tooltip(
@@ -838,33 +884,127 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                 child: GestureDetector(
                   onTap: () => setState(() => _reversed = !_reversed),
                   child: Container(
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: KatanaColors.surfaceAlt,
-                      borderRadius: BorderRadius.circular(5),
-                      border: Border.all(color: KatanaColors.border),
+                      borderRadius: BorderRadius.circular(99),
+                      border: Border.all(color: KatanaColors.borderStrong),
                     ),
-                    child: Icon(
-                      _reversed
-                          ? Icons.arrow_downward_rounded
-                          : Icons.arrow_upward_rounded,
-                      size: 16,
-                      color: KatanaColors.textMuted,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _reversed
+                              ? Icons.arrow_downward_rounded
+                              : Icons.arrow_upward_rounded,
+                          size: 14,
+                          color: KatanaColors.accentSoft,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _reversed ? 'Newest' : 'Oldest',
+                          style: KatanaType.small.copyWith(
+                            color: KatanaColors.accentSoft,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ],
           ),
+          if (allAscending.length > 10) ...[
+            const SizedBox(height: 12),
+            Container(
+              height: 38,
+              decoration: BoxDecoration(
+                color: KatanaColors.background,
+                borderRadius: BorderRadius.circular(99),
+                border: Border.all(color: KatanaColors.border),
+              ),
+              child: TextField(
+                controller: _chapterFilterController,
+                onChanged: (v) => setState(() => _chapterQuery = v),
+                style: AppTypography.outfitWhite.copyWith(
+                  color: KatanaColors.text,
+                  fontSize: 12.5,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Jump to chapter number or title...',
+                  hintStyle: KatanaType.small,
+                  isDense: true,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: KatanaColors.accentSoft,
+                    size: 17,
+                  ),
+                  suffixIcon: _chapterQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.clear_rounded,
+                            color: KatanaColors.textLight,
+                            size: 15,
+                          ),
+                          onPressed: () {
+                            _chapterFilterController.clear();
+                            setState(() => _chapterQuery = '');
+                          },
+                        )
+                      : null,
+                ),
+              ),
+            ),
+          ],
+          if (bucketCount > 1) ...[
+            const SizedBox(height: 10),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildRangeChip(
+                    label: 'All (${allAscending.length})',
+                    selected: _selectedRangeBucket == null,
+                    onTap: () => setState(() => _selectedRangeBucket = null),
+                  ),
+                  for (final b in orderedBuckets) ...[
+                    const SizedBox(width: 6),
+                    _buildRangeChip(
+                      label:
+                          '${b * bucketSize + 1}–${((b + 1) * bucketSize).clamp(1, allAscending.length)}',
+                      selected: _selectedRangeBucket == b,
+                      onTap: () => setState(() => _selectedRangeBucket = b),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           if (chapters.isEmpty)
-            Text('No chapters available yet.', style: KatanaType.small)
+            Text(
+              allAscending.isEmpty
+                  ? 'No chapters available yet.'
+                  : (_chapterQuery.trim().isNotEmpty
+                        ? 'No chapters match "$_chapterQuery" in this range.'
+                        : 'No chapters in this range.'),
+              style: KatanaType.small,
+            )
           else
             Container(
               decoration: BoxDecoration(
                 border: Border.all(color: KatanaColors.border),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   for (int i = 0; i < chapters.length; i++)
@@ -875,13 +1015,53 @@ class _KatanaDetailScreenState extends State<KatanaDetailScreen> {
                       coverUrl: manga.coverUrl,
                       isNew: chapters[i].isNew,
                       isRead: _readChapterIds.contains(chapters[i].id),
-                      onTap: () => _openReader(chapters[i]),
+                      isCurrent:
+                          _myBookmark?.lastReadChapterId == chapters[i].id,
+                      onTap: () => _openReader(
+                        chapters[i],
+                        initialPage:
+                            _myBookmark?.lastReadChapterId == chapters[i].id
+                            ? (_myBookmark?.lastReadPage ?? 1)
+                            : 1,
+                      ),
                       highlight: i % 2 == 1,
                     ),
                 ],
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRangeChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+        decoration: BoxDecoration(
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [KatanaColors.accent, KatanaColors.accentDark],
+                )
+              : null,
+          color: selected ? null : KatanaColors.surfaceAlt,
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(
+            color: selected ? KatanaColors.accentSoft : KatanaColors.border,
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.outfitBold.copyWith(
+            color: selected ? Colors.white : KatanaColors.accentSoft,
+            fontSize: 11,
+          ),
+        ),
       ),
     );
   }
@@ -894,6 +1074,7 @@ class _ChapterRow extends StatelessWidget {
   final String coverUrl;
   final bool isNew;
   final bool isRead;
+  final bool isCurrent;
   final bool highlight;
   final VoidCallback onTap;
 
@@ -904,6 +1085,7 @@ class _ChapterRow extends StatelessWidget {
     this.coverUrl = '',
     required this.isNew,
     required this.isRead,
+    this.isCurrent = false,
     required this.highlight,
     required this.onTap,
   });
@@ -914,15 +1096,21 @@ class _ChapterRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        color: highlight ? KatanaColors.surfaceAlt : KatanaColors.surface,
+        color: isCurrent
+            ? KatanaColors.accent.withValues(alpha: 0.14)
+            : (highlight ? KatanaColors.surfaceAlt : KatanaColors.surface),
         child: Row(
           children: [
             Icon(
-              isRead
-                  ? Icons.check_circle_rounded
-                  : Icons.menu_book_rounded,
+              isCurrent
+                  ? Icons.play_circle_fill_rounded
+                  : (isRead
+                        ? Icons.check_circle_rounded
+                        : Icons.menu_book_rounded),
               size: 16,
-              color: isRead ? KatanaColors.green : KatanaColors.textLight,
+              color: isCurrent
+                  ? KatanaColors.accent
+                  : (isRead ? KatanaColors.green : KatanaColors.textLight),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -931,26 +1119,46 @@ class _ChapterRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.outfitWhite.copyWith(
-                  color: isRead
-                      ? KatanaColors.textLight
-                      : KatanaColors.link,
+                  color: isCurrent
+                      ? KatanaColors.text
+                      : (isRead ? KatanaColors.textLight : KatanaColors.link),
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
             ),
+            if (isCurrent) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: KatanaColors.accent,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text(
+                  'Resume',
+                  style: AppTypography.outfitBold.copyWith(
+                    color: Colors.white,
+                    fontSize: 9.5,
+                  ),
+                ),
+              ),
+            ],
             if (isNew) ...[
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: KatanaColors.green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(4),
+                  color: KatanaColors.accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(
+                    color: KatanaColors.accent.withValues(alpha: 0.45),
+                  ),
                 ),
                 child: Text(
                   'New',
                   style: AppTypography.outfitBold.copyWith(
-                    color: KatanaColors.green,
+                    color: KatanaColors.accentSoft,
                     fontSize: 10,
                   ),
                 ),

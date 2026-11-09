@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:everglow/features/manga/data/models/katana_models.dart';
+import 'package:everglow/features/manga/presentation/katana/chapter_picker_sheet.dart';
+import 'package:everglow/features/manga/presentation/katana/katana_theme.dart';
 import 'package:everglow/features/manga/presentation/katana/reader_settings_sheet.dart';
 import 'package:everglow/features/manga/presentation/screens/katana_reader_screen.dart';
 
@@ -183,5 +185,72 @@ void main() {
       expect(proportionalResumeOffset(0, 1, 500), 0);
       expect(proportionalResumeOffset(0, 0, 500), 0);
     });
+  });
+
+  group('Sakura Noir Sanctuary header & chapter range chips', () {
+    testWidgets(
+      'KatanaSectionHeader hides decorative badge on narrow phones so title fits',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 640);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: KatanaSectionHeader(
+                  title: 'Currently Reading',
+                  badge: 'READING NOOK',
+                  trailing: SizedBox(width: 86, height: 24),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('Currently Reading'), findsOneWidget);
+        expect(find.text('READING NOOK'), findsNothing);
+
+        tester.view.physicalSize = const Size(800, 640);
+        await tester.pump();
+        expect(find.text('READING NOOK'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'ChapterPickerSheet renders range jump pills when over 50 chapters',
+      (tester) async {
+        final chapters = List<KatanaChapter>.generate(
+          60,
+          (i) => KatanaChapter(
+            id: 'c${i + 1}',
+            num: '${i + 1}',
+            title: 'Chapter ${i + 1}',
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ChapterPickerSheet(
+                chapters: chapters,
+                currentChapter: chapters.first,
+                onChapterSelected: (_) {},
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('All'), findsOneWidget);
+        expect(find.text('1–50'), findsOneWidget);
+        expect(find.text('51–60'), findsOneWidget);
+
+        await tester.tap(find.text('51–60'));
+        await tester.pump();
+        expect(find.text('Chapter 60'), findsOneWidget);
+        expect(find.text('Chapter 1'), findsNothing);
+      },
+    );
   });
 }

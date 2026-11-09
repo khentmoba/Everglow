@@ -4,24 +4,26 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/app_network_image.dart';
 import '../../data/services/katana_service.dart';
 
-/// Everglow "MangaCelestia" dark palette used across the
-/// manga/manhwa/manhua section. Keeps the Manga Katana layout and
-/// structure but on the app's own identity: deep plum-night surfaces
-/// with rose accents (aurora rose + rose quartz).
+/// Everglow "MangaCelestia — Sakura Noir Sanctuary" black & pink palette
+/// used across the manga/manhwa/manhua section: deep velvet-black surfaces
+/// paired with hot sakura pink (#FF2E7E) and soft sakura blush (#FF85B3).
 abstract final class KatanaColors {
-  static const Color background = Color(0xFF0F0B14); // deepest plum night
-  static const Color surface = Color(0xFF1B1424); // elevated night card
-  static const Color surfaceAlt = Color(0xFF241B2E); // hover / alternate
-  static const Color border = Color(0xFF362A3D); // soft plum line
-  static const Color text = AppColors.petalWhite; // petal white
-  static const Color textMuted = Color(0xFFCDB8CE); // rose-tinted secondary
-  static const Color textLight = Color(0xFF8E7A94); // quiet text
-  static const Color accent = AppColors.auroraRose; // vivid Everglow rose
-  static const Color accentDark = Color(0xFFD14D70); // deeper rose
-  static const Color link = AppColors.roseQuartz; // soft pink links
+  static const Color background = Color(0xFF060408); // deepest velvet black
+  static const Color surface = Color(0xFF0E0912); // sakura noir card
+  static const Color surfaceAlt = Color(0xFF170E1D); // elevated noir surface
+  static const Color surfaceGlow = Color(0xFF211229); // soft sakura highlight
+  static const Color border = Color(0xFF2E1726); // dark sakura hairline
+  static const Color borderStrong = Color(0xFF52213B); // highlighted pink line
+  static const Color text = Color(0xFFFFF5F8); // crisp sakura-petal white
+  static const Color textMuted = Color(0xFFD9B8C7); // blush secondary text
+  static const Color textLight = Color(0xFF997586); // quiet dusty-rose text
+  static const Color accent = Color(0xFFFF2E7E); // hot sakura pink
+  static const Color accentDark = Color(0xFFC9185B); // crimson pink
+  static const Color accentSoft = Color(0xFFFF85B3); // soft sakura blush
+  static const Color link = Color(0xFFFF85B3); // sakura blush links & chips
   static const Color green = AppColors.success;
-  static const Color orange = AppColors.warmAmber;
-  static const Color headerDark = Color(0xFF151019); // header base
+  static const Color orange = Color(0xFFFF5C99); // hot-pink flame accent
+  static const Color headerDark = Color(0xFF09060C); // noir header base
 }
 
 abstract final class KatanaType {
@@ -66,7 +68,7 @@ abstract final class KatanaType {
   );
 }
 
-/// A bordered white card used for every Katana panel.
+/// A bordered noir card used for every MangaCelestia panel.
 class KatanaCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -87,13 +89,13 @@ class KatanaCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: color,
-        borderRadius: radius ?? BorderRadius.circular(10),
+        borderRadius: radius ?? BorderRadius.circular(12),
         border: Border.all(color: KatanaColors.border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x40000000),
-            blurRadius: 14,
-            offset: Offset(0, 4),
+            color: Color(0x66000000),
+            blurRadius: 18,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -102,15 +104,17 @@ class KatanaCard extends StatelessWidget {
   }
 }
 
-/// Widget-title bar used at the top of Katana sections.
+/// Section header bar with a glowing sakura-pink accent rule.
 class KatanaSectionHeader extends StatelessWidget {
   final String title;
+  final String? badge;
   final Widget? trailing;
   final Color underline;
 
   const KatanaSectionHeader({
     super.key,
     required this.title,
+    this.badge,
     this.trailing,
     this.underline = KatanaColors.accent,
   });
@@ -123,19 +127,54 @@ class KatanaSectionHeader extends StatelessWidget {
           width: 4,
           height: 20,
           decoration: BoxDecoration(
-            color: underline,
-            borderRadius: BorderRadius.circular(2),
+            gradient: LinearGradient(
+              colors: [underline, KatanaColors.accentSoft],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+            borderRadius: BorderRadius.circular(4),
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(
-            title,
-            style: AppTypography.outfitBold.copyWith(
-              color: KatanaColors.text,
-              fontSize: 18,
-              height: 1.2,
-            ),
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.outfitBold.copyWith(
+                    color: KatanaColors.text,
+                    fontSize: 18,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              if (badge != null &&
+                  badge!.isNotEmpty &&
+                  MediaQuery.sizeOf(context).width >= 430) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: KatanaColors.accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: KatanaColors.accent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: AppTypography.outfitBold.copyWith(
+                      color: KatanaColors.accentSoft,
+                      fontSize: 10,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         ?trailing,
@@ -144,8 +183,7 @@ class KatanaSectionHeader extends StatelessWidget {
   }
 }
 
-/// Small red primary button in the style of the site's
-/// `uk-button-primary`.
+/// Primary or outlined Sakura Noir button.
 class KatanaButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -165,13 +203,23 @@ class KatanaButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effective = color ?? KatanaColors.accent;
+    final isPrimaryPink = effective == KatanaColors.accent && filled;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
-          color: filled ? effective : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          gradient: isPrimaryPink
+              ? const LinearGradient(
+                  colors: [KatanaColors.accent, KatanaColors.accentDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isPrimaryPink
+              ? null
+              : (filled ? effective : effective.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(99),
           border: Border.all(
             color: filled ? effective : effective.withValues(alpha: 0.55),
           ),
@@ -217,11 +265,11 @@ class KatanaChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: filled ? color : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
+          color: filled ? color : color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: color.withValues(alpha: 0.45)),
         ),
         child: Text(
           label,

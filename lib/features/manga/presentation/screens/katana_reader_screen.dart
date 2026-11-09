@@ -33,7 +33,7 @@ part 'katana_reader_chrome.dart';
 /// - Live floating page indicator pill and bottom scrubber slider
 /// - Pre-caching upcoming pages & silent backup server failover
 /// - Tablet two-page spread support
-/// - Night dimmer and theme selection (OLED Black, Plum Night, Warm Sepia)
+/// - Night dimmer and theme selection (OLED Black, Sakura Noir, Warm Sepia)
 /// - Keyboard arrow navigation for desktop & tablet keyboards
 
 @visibleForTesting
@@ -935,9 +935,10 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                     ),
                   ),
 
-                // Live Floating Page Indicator Pill
                 Positioned(
-                  bottom: _showChrome ? 120 : 26,
+                  bottom: _showChrome
+                      ? 136 + MediaQuery.paddingOf(context).bottom
+                      : 26,
                   right: 16,
                   child: AnimatedOpacity(
                     opacity: _showPagePill ? 1.0 : 0.0,
@@ -948,27 +949,62 @@ class _KatanaReaderScreenState extends State<KatanaReaderScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.78),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white24, width: 0.8),
+                        color: KatanaColors.surface.withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(99),
+                        border: Border.all(
+                          color: KatanaColors.borderStrong,
+                          width: 1,
+                        ),
                         boxShadow: const [
                           BoxShadow(
-                            color: Colors.black45,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
+                            color: Colors.black54,
+                            blurRadius: 10,
+                            offset: Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: Text(
-                        '$_currentPage / ${_pages.length}',
-                        style: AppTypography.outfitBold.copyWith(
-                          color: Colors.white,
-                          fontSize: 12,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '$_currentPage',
+                              style: AppTypography.outfitBold.copyWith(
+                                color: KatanaColors.accent,
+                                fontSize: 12,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' / ${_pages.length}',
+                              style: AppTypography.outfitBold.copyWith(
+                                color: KatanaColors.textMuted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
+
+                if (!_showChrome && _pages.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: IgnorePointer(
+                      child: SizedBox(
+                        height: 2,
+                        child: LinearProgressIndicator(
+                          value: (_currentPage / _pages.length).clamp(0.0, 1.0),
+                          backgroundColor: KatanaColors.border,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            KatanaColors.accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Top Floating Chrome Header
                 Positioned(

@@ -18,15 +18,15 @@ class KatanaItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final compact = width < 720;
-    final coverHeight = dense || compact ? 110.0 : 150.0;
-    final coverWidth = dense || compact ? 76.0 : 105.0;
+    final coverHeight = dense || compact ? 114.0 : 152.0;
+    final coverWidth = dense || compact ? 80.0 : 106.0;
     return KatanaCard(
       padding: EdgeInsets.zero,
       child: InkWell(
         onTap: () => pushDetail(context, manga.slug),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(11),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -44,38 +44,43 @@ class KatanaItemCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildTitle(manga),
-                    if (!compact) ...[
-                      const SizedBox(height: 6),
-                      _buildMetaRow(context, manga),
-                      if (manga.genres.isNotEmpty) ...[
-                        const SizedBox(height: 7),
-                        _buildGenres(context, manga),
-                      ],
-                      if (manga.summary.isNotEmpty && !dense) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          manga.summary,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: KatanaType.small.copyWith(
-                            color: KatanaColors.textMuted,
-                            fontSize: 12.5,
-                          ),
+                    const SizedBox(height: 6),
+                    _buildMetaRow(context, manga),
+                    if (manga.genres.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      _buildGenres(
+                        context,
+                        manga,
+                        limit: compact ? 3 : manga.genres.length,
+                      ),
+                    ],
+                    if (!compact && manga.summary.isNotEmpty && !dense) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        manga.summary,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: KatanaType.small.copyWith(
+                          color: KatanaColors.textMuted,
+                          fontSize: 12.5,
                         ),
-                      ],
-                      if (manga.recentChapters.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _buildChapters(context, manga),
-                      ],
-                    ] else ...[
+                      ),
+                    ],
+                    if (manga.recentChapters.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _buildChapters(
+                        context,
+                        manga,
+                        maxCount: compact ? 2 : 3,
+                      ),
+                    ] else if (manga.latestChapter != null) ...[
                       const SizedBox(height: 6),
-                      if (manga.latestChapter != null)
-                        Text(
-                          'Latest: ${manga.latestChapter!.displayTitle}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: KatanaType.accent,
-                        ),
+                      Text(
+                        'Latest: ${manga.latestChapter!.displayTitle}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: KatanaType.accent,
+                      ),
                     ],
                   ],
                 ),
@@ -152,19 +157,26 @@ class KatanaItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildGenres(BuildContext context, KatanaManga manga) {
+  Widget _buildGenres(
+    BuildContext context,
+    KatanaManga manga, {
+    int? limit,
+  }) {
+    final visible = limit != null
+        ? manga.genres.take(limit)
+        : manga.genres;
     return Wrap(
       spacing: 6,
-      runSpacing: 6,
+      runSpacing: 5,
       children: [
-        for (final genre in manga.genres)
+        for (final genre in visible)
           GestureDetector(
             onTap: () => pushGenreDirectory(context, genre.slug, genre.name),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
               decoration: BoxDecoration(
-                color: KatanaColors.link.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
+                color: KatanaColors.surfaceAlt,
+                borderRadius: BorderRadius.circular(99),
                 border: Border.all(
                   color: KatanaColors.link.withValues(alpha: 0.35),
                 ),
@@ -173,7 +185,7 @@ class KatanaItemCard extends StatelessWidget {
                 genre.name,
                 style: AppTypography.outfitWhite.copyWith(
                   color: KatanaColors.link,
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -183,48 +195,78 @@ class KatanaItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildChapters(BuildContext context, KatanaManga manga) {
+  Widget _buildChapters(
+    BuildContext context,
+    KatanaManga manga, {
+    int maxCount = 3,
+  }) {
+    final list = manga.recentChapters.take(maxCount).toList();
     return Column(
       children: [
-        for (final chapter in manga.recentChapters.take(3))
+        for (int i = 0; i < list.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 3),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => pushReader(
-                      context,
-                      slug: manga.slug,
-                      chapterId: chapter.path,
-                      chapters: manga.recentChapters,
-                      mangaTitle: manga.title,
-                      coverUrl: manga.coverUrl,
+            padding: const EdgeInsets.only(bottom: 4),
+            child: GestureDetector(
+              onTap: () => pushReader(
+                context,
+                slug: manga.slug,
+                chapterId: list[i].path,
+                chapters: manga.recentChapters,
+                mangaTitle: manga.title,
+                coverUrl: manga.coverUrl,
+              ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 4.5,
+                ),
+                decoration: BoxDecoration(
+                  color: i == 0
+                      ? KatanaColors.accent.withValues(alpha: 0.12)
+                      : KatanaColors.surfaceAlt,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: i == 0
+                        ? KatanaColors.accent.withValues(alpha: 0.45)
+                        : KatanaColors.border,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      i == 0
+                          ? Icons.bolt_rounded
+                          : Icons.menu_book_rounded,
+                      size: 13,
+                      color: i == 0
+                          ? KatanaColors.accent
+                          : KatanaColors.accentSoft,
                     ),
-                    child: Text(
-                      chapter.displayTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.outfitWhite.copyWith(
-                        color: KatanaColors.link,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        decoration: TextDecoration.underline,
-                        decorationColor: KatanaColors.link.withValues(
-                          alpha: 0.4,
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        list[i].displayTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.outfitWhite.copyWith(
+                          color: i == 0
+                              ? KatanaColors.text
+                              : KatanaColors.accentSoft,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
-                  ),
+                    if (list[i].updateAt != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        formatKatanaTime(list[i].updateAt),
+                        style: KatanaType.small.copyWith(fontSize: 10.5),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  chapter.updateAt != null
-                      ? formatKatanaTime(chapter.updateAt)
-                      : '',
-                  style: KatanaType.small.copyWith(fontSize: 11),
-                ),
-              ],
+              ),
             ),
           ),
       ],
@@ -247,58 +289,67 @@ class _Cover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            url.isEmpty
-                ? Container(
-                    color: KatanaColors.border,
-                    child: const Icon(
-                      Icons.menu_book_rounded,
-                      color: KatanaColors.textLight,
-                      size: 28,
-                    ),
-                  )
-                : KatanaNetworkImage(
-                    url,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: KatanaColors.border,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: KatanaColors.borderStrong),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(7),
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              url.isEmpty
+                  ? Container(
+                      color: KatanaColors.surfaceAlt,
                       child: const Icon(
-                        Icons.broken_image_rounded,
+                        Icons.menu_book_rounded,
                         color: KatanaColors.textLight,
-                        size: 26,
+                        size: 28,
+                      ),
+                    )
+                  : KatanaNetworkImage(
+                      url,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        color: KatanaColors.surfaceAlt,
+                        child: const Icon(
+                          Icons.broken_image_rounded,
+                          color: KatanaColors.textLight,
+                          size: 26,
+                        ),
                       ),
                     ),
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
                   ),
-            Positioned(
-              left: 0,
-              top: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: status == 'completed'
-                      ? KatanaColors.green
-                      : KatanaColors.accent,
-                  borderRadius: const BorderRadius.only(
-                    bottomRight: Radius.circular(5),
+                  decoration: BoxDecoration(
+                    color: status == 'completed'
+                        ? KatanaColors.green
+                        : KatanaColors.accent,
+                    borderRadius: const BorderRadius.only(
+                      bottomRight: Radius.circular(6),
+                    ),
                   ),
-                ),
-                child: Text(
-                  status == 'completed' ? 'Completed' : 'Ongoing',
-                  style: AppTypography.outfitBold.copyWith(
-                    color: Colors.white,
-                    fontSize: 9,
+                  child: Text(
+                    status == 'completed' ? 'Completed' : 'Ongoing',
+                    style: AppTypography.outfitBold.copyWith(
+                      color: Colors.white,
+                      fontSize: 9,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
